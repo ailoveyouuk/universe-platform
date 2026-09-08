@@ -1,0 +1,73 @@
+name: Deploy Static Web Apps
+
+# Builds and deploys the Project Management and Admin Next.js apps (static
+# export, per next.config.js "output: export") to their Azure Static Web
+# Apps. Each app's deployment token comes from its own SWA resource (see
+# infra/bicep/modules/staticWebApp.bicep output) — store each as its own
+# repository secret rather than reusing one token across apps, so
+# revoking/rotating one app's deploy access never touches the other.
+#
+# PREREQUISITES: infra/bicep deployed (creates the two Static Web App
+# resources), then SWA_TOKEN_PROJECT_MANAGEMENT and SWA_TOKEN_ADMIN
+# repository secrets populated from their deployment tokens.
+#
+# Not runnable yet — no Static Web App resources exist to deploy to.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/project-management/**'
+      - 'apps/admin/**'
+      - 'packages/ui/**'
+      - 'packages/api-client/**'
+      - 'packages/auth/**'
+      - 'packages/types/**'
+      - '.github/workflows/deploy-static-web-apps.yml'
+
+jobs:
+  project-management:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm install
+      - run: npm run db:generate
+      - name: Build
+        run: npx turbo run build --filter=@universe/project-management
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_ID: ${{ vars.UNIVERSE_CIAM_TENANT_ID }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_CLIENT_ID: ${{ vars.UNIVERSE_CIAM_CLIENT_ID }}
+          NEXT_PUBLIC_REDIRECT_URI: ${{ vars.PROJECT_MANAGEMENT_URL }}
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_PROJECT_MANAGEMENT }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: apps/project-management/out
+          skip_app_build: true
+
+  admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm install
+      - run: npm run db:generate
+      - name: Build
+        run: npx turbo run build --filter=@universe/admin
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_ID: ${{ vars.UNIVERSE_CIAM_TENANT_ID }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_CLIENT_ID: ${{ vars.UNIVERSE_CIAM_CLIENT_ID }}
+          NEXT_PUBLIC_REDIRECT_URI: ${{ vars.ADMIN_URL }}
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_ADMIN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: apps/admin/out
+          skip_app_build: true

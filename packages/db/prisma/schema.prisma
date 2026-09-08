@@ -1,0 +1,499 @@
+// Universe Platform — Shared Database Schema
+// Single source of truth for every app (Project Management, CRM, Product
+// Database, Tender, Admin) AND every tenant organization using the platform.
+// Provider: Azure SQL Database.
+//
+// MULTI-TENANCY MODEL (added 2026-09-08):
+// Universe is a standalone multi-tenant platform, not affiliated with or
+// owned by any one customer organization. Every organization that uses it —
+// including whichever organization pilots it first — onboards as a fully
+// isolated tenant with no special standing over any other. Every domain
+// table carries an `organizationId`
+// directly (denormalized on purpose, not just reachable via a join) so that:
+//   1. The API layer can trivially auto-scope every query to the caller's
+//      organization (see apps/api/src/common/tenant-scoped.ts).
+//   2. Azure SQL Row-Level Security policies can be applied per-table as a
+//      second, independent enforcement layer — so a bug in the API layer
+//      alone can't leak one organization's data into another's queries.
+// Identity: Microsoft Entra External ID (CIAM), in a dedicated "Universe"
+// identity tenant, wholly separate from any customer organization's own
+// corporate Entra ID tenant, so no organization's identities mix with
+// another's or with Universe's own operating team's directory.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// Project-domain enums sourced from a client's existing "Projects"
+// SharePoint list as the starting field set (see architecture doc for
+// provenance), confirmed 2026-09-08. Kept as
+// GLOBAL fixed lists for the pilot (same values for every organization) —
+// flagged as an assumption pending confirmation; upgrading a given list to
+// per-organization custom values later is a schema change, not a rewrite.
+// ---------------------------------------------------------------------------
+
+/// Matches the SharePoint list's existing "Category" column values.
+enum ProjectCategory {
+  PROCUREMENT
+  TECHNICAL_ASSISTANCE
+}
+
+/// NEW field (did not exist in SharePoint). Selected early in intake to decide
+/// whether the pharma-specific line item fields (batch, expiry, storage
+/// conditions, etc.) are shown/required for this project.
+enum ProjectType {
+  PHARMACEUTICAL
+  NON_PHARMACEUTICAL
+}
+
+enum ProjectStatus {
+  IDENTIFIED
+  IN_PROGRESS
+  SUBMITTED
+  AWARDED
+  COMPLETED
+  UNAWARDED
+  DECLINED
+  CANCELLED
+}
+
+enum Incoterm {
+  EXW
+  FCA
+  FAS
+  FOB
+  CPT
+  CIP
+  CFR
+  CIF
+  DAP
+  DPU
+  DDP
+}
+
+enum FreightMode {
+  AIR
+  SEA
+  LAND
+}
+
+enum ProductCategory {
+  CONSUMABLES
+  DEVICES
+  REAGENTS
+  EQUIPMENT
+  PHARMACEUTICALS
+  LABORATORY
+}
+
+enum ProjectDocumentType {
+  CHECKLIST
+  ISSUES
+  CLOSEOUT_REPORT
+  OTHER
+}
+
+/// Lifecycle of a tenant organization itself — lets Universe's operating
+/// team manage the pilot (e.g. suspend an org without deleting its data).
+enum OrganizationStatus {
+  PILOT
+  ACTIVE
+  SUSPENDED
+}
+
+/// Cross-organization staff role. ONLY assignable to actual Universe
+/// platform-operator team members — grants read/support access across every tenant for
+/// operating the pilot. Deliberately separate from org-scoped Role/
+/// Permission below: this is "can see across the fence," not "has a
+/// permission within one org."
+enum PlatformStaffRole {
+  NONE
+  SUPPORT
+  SUPER_ADMIN
+}
+
+/// Lifecycle of a User's account, independent of any single app.
+///   INVITED     — created via the Admin app (email + org + role already
+///                 set) but has never completed SSO sign-in. No
+///                 entraObjectId yet.
+///   ACTIVE      — has completed first sign-in; entraObjectId is linked.
+///   DEACTIVATED — access revoked. Row is kept (not deleted) for audit
+///                 history; entraObjectId stays linked so re-activating
+///                 doesn't require the person to be re-invited.
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DEACTIVATED
+}
+
+// ---------------------------------------------------------------------------
+// Organization — the tenant root
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String             @id @default(uuid())
+  name      String
+  slug      String             @unique // used in URLs / subdomains
+  status    OrganizationStatus @default(PILOT)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  users    User[]
+  roles    Role[]
+  clients  Client[]
+  projects Project[]
+
+  @@map("organizations")
+}
+
+// ---------------------------------------------------------------------------
+// Identity, roles & permissions
+// Auth: Microsoft Entra External ID (Universe CIAM tenant) handles SSO.
+// Fine-grained, per-app, per-module permissions are managed here per
+// organization, editable via each org's own Admin view (and, for platform
+// staff, the cross-tenant Admin app).
+// ---------------------------------------------------------------------------
+
+/// Onboarding is admin-driven, not self-service (see architecture doc,
+/// "Multi-tenancy"): a platform-staff member or an org admin creates this
+/// row via the Admin app — email, name, organization, and role(s) all set
+/// up front, status INVITED, entraObjectId left null. The very first time
+/// that email successfully signs in through the Universe CIAM tenant, the
+/// auth guard links the verified identity to this row by matching email
+/// (see apps/api/src/auth/entra-auth.guard.ts) and flips status to ACTIVE.
+/// From that point on the person is recognized by entraObjectId, never by
+/// email lookup again — email is only ever the initial invitation key.
+model User {
+  id                String            @id @default(uuid())
+  organizationId    String
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entraObjectId     String?           @unique // Entra External ID "oid" claim — null until first sign-in
+  email             String            @unique
+  forename          String
+  surname           String
+  jobTitle          String?
+  status            UserStatus        @default(INVITED)
+  /// NONE for virtually every user. Only Universe platform-operator accounts get
+  /// SUPPORT/SUPER_ADMIN — see PlatformStaffRole doc comment above.
+  platformStaffRole PlatformStaffRole @default(NONE)
+  invitedById       String?
+  invitedBy         User?             @relation("UserInvitedBy", fields: [invitedById], references: [id])
+  invitedUsers      User[]            @relation("UserInvitedBy")
+  invitedAt         DateTime          @default(now())
+  firstSignInAt     DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  projectLeads      ProjectLead[]
+  userRoles         UserRole[]
+  uploadedDocuments ProjectDocument[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+/// An app-scoped role BELONGING TO ONE ORGANIZATION, e.g. "Project Manager"
+/// scoped to "project-management" within Org X. organizationId is nullable
+/// only for the small set of platform-level role templates defined once
+/// and every org's Admin view can clone/assign from.
+model Role {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  appScope       String // e.g. "project-management", "crm", "tender", "product-db", "*" (all apps)
+  createdAt      DateTime      @default(now())
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, name, appScope])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+/// A single grantable permission, e.g. "projects.create", "projects.delete",
+/// "financials.view". Permissions themselves are global (the catalog of
+/// what CAN be granted); which roles grant them is per-organization via Role.
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ---------------------------------------------------------------------------
+// Clients & Contacts
+// A Client is one ORGANIZATION's own customer/counterparty — e.g. one of
+// one organization's clients, or another organization's clients. Never shared
+// across organizations.
+// ---------------------------------------------------------------------------
+
+model Client {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  region         String?
+  country        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  contacts Contact[]
+  projects Project[]
+
+  @@index([organizationId])
+  @@map("clients")
+}
+
+model Contact {
+  id             String  @id @default(uuid())
+  organizationId String // denormalized from Client for direct RLS scoping
+  clientId       String
+  client         Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?
+  phone          String?
+  title          String?
+
+  projectContacts ProjectContact[]
+
+  @@index([organizationId])
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Project — core record
+// ---------------------------------------------------------------------------
+
+model Project {
+  id                        String            @id @default(uuid())
+  organizationId            String
+  organization              Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  referenceNumber           String
+  title                     String
+  category                  ProjectCategory
+  projectType               ProjectType
+  clientId                  String?
+  client                    Client?           @relation(fields: [clientId], references: [id])
+  deliveryCountry           String?
+  status                    ProjectStatus     @default(IDENTIFIED)
+  startDate                 DateTime?
+  dueDate                   DateTime?
+  submissionDate            DateTime?
+  managementResponsibility  String?
+  reasonForCancellation     String?
+  projectNotes              String?           @db.NVarChar(Max)
+  projectFolderUrl          String?
+  productCategory           ProductCategory?
+  clientProductDescription  String?           @db.NVarChar(Max)
+  quantity                  Int?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+
+  leads       ProjectLead[]
+  contacts    ProjectContact[]
+  procurement ProjectProcurement?
+  financials  ProjectFinancials?
+  logistics   ProjectLogistics?
+  lineItems   ProjectLineItem[]
+  documents   ProjectDocument[]
+
+  // Reference numbers only need to be unique WITHIN an organization — two
+  // different tenants can both have a "PROJ-001".
+  @@unique([organizationId, referenceNumber])
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@map("projects")
+}
+
+/// Days Remaining for Submission is intentionally NOT stored — it's derived
+/// from dueDate/submissionDate and today's date, computed in the API/app
+/// layer so it's never stale. (The legacy SharePoint list stored it and it
+/// regularly showed "#NUM!" errors — exactly the failure mode we're avoiding.)
+
+model ProjectLead {
+  projectId String
+  userId    String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("project_leads")
+}
+
+model ProjectContact {
+  projectId String
+  contactId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, contactId])
+  @@map("project_contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Procurement details (1:1 with Project)
+// ---------------------------------------------------------------------------
+
+model ProjectProcurement {
+  id                   String       @id @default(uuid())
+  organizationId       String // denormalized from Project for direct RLS scoping
+  projectId            String       @unique
+  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  manufacturerName     String?
+  supplierName         String?
+  countryOfManufacture String?
+  incoterm             Incoterm?
+  freightMode          FreightMode?
+  freightForwarder     String?
+  freightCost          Decimal?     @db.Decimal(18, 2)
+  freightCurrency      String?      @db.Char(3) // ISO 4217, e.g. "USD"
+  clientPoNumber       String?
+  clientPoReceiptDate  DateTime?
+  unimedPoNumber       String?
+  unimedPoDatePlaced   DateTime?
+  /// GAD — confirm exact meaning/definition with Lewis (Goods Arrival Date?)
+  gad                  DateTime?
+  supplierGad          DateTime?
+
+  @@index([organizationId])
+  @@map("project_procurement")
+}
+
+// ---------------------------------------------------------------------------
+// Financials (1:1 with Project)
+// ---------------------------------------------------------------------------
+
+model ProjectFinancials {
+  id                            String    @id @default(uuid())
+  organizationId                String // denormalized from Project for direct RLS scoping
+  projectId                     String    @unique
+  project                       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  supplierUnitPrice             Decimal?  @db.Decimal(18, 2)
+  supplierPaymentAmountTotal    Decimal?  @db.Decimal(18, 2)
+  supplierPaymentCurrency       String?   @db.Char(3)
+  supplierPaymentDate           DateTime?
+  supplierDocumentsReceivedDate DateTime?
+  supplierPaymentStatusPercent  Decimal?  @db.Decimal(5, 2)
+  unitSalesPrice                Decimal?  @db.Decimal(18, 2)
+  clientPaymentAmount           Decimal?  @db.Decimal(18, 2)
+  clientPaymentCurrency         String?   @db.Char(3)
+  clientPaymentDate             DateTime?
+  unimedInvoiceNumber           String?
+  unimedInvoiceDate             DateTime?
+  /// Stored for legacy parity; prefer computing gross margin / margin in the
+  /// API layer from price fields so it can't drift out of sync. Kept as
+  /// override-able stored fields since sales may need to manually adjust.
+  grossMargin                   Decimal?  @db.Decimal(18, 2)
+  margin                        Decimal?  @db.Decimal(5, 2)
+
+  @@index([organizationId])
+  @@map("project_financials")
+}
+
+// ---------------------------------------------------------------------------
+// Logistics (1:1 with Project)
+// ---------------------------------------------------------------------------
+
+model ProjectLogistics {
+  id                         String    @id @default(uuid())
+  organizationId             String // denormalized from Project for direct RLS scoping
+  projectId                  String    @unique
+  project                    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  warehouseReferenceNumber   String?
+  goodsCollectedDate         DateTime?
+  goodsManufacturedDate      DateTime?
+  goodsDeliveredToClientDate DateTime?
+  deliveryDate               DateTime?
+  unimedOnTime                Boolean?
+  supplierOnTime               Boolean?
+  supplierInFull                Boolean?
+
+  @@index([organizationId])
+  @@map("project_logistics")
+}
+
+// ---------------------------------------------------------------------------
+// Line items (1:many with Project)
+// Only shown/required in the UI when Project.projectType == PHARMACEUTICAL,
+// but modeled generically so non-pharma projects can still list products
+// without the pharma-only fields.
+// ---------------------------------------------------------------------------
+
+model ProjectLineItem {
+  id                       String    @id @default(uuid())
+  organizationId           String // denormalized from Project for direct RLS scoping
+  projectId                String
+  project                  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productName              String
+  strength                 String?
+  form                     String?
+  packSize                 String?
+  batchNumber              String?
+  expiryDate               DateTime?
+  storageConditions        String?
+  dataLoggerReference      String?
+  dataLoggerReportReviewed Boolean?
+  excursionReview          String?   @db.NVarChar(Max)
+  customerApproved         Boolean?
+  rpApproved               Boolean?
+  /// Marketing Authorization / Product License number
+  maPl                     String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@map("project_line_items")
+}
+
+// ---------------------------------------------------------------------------
+// Documents (Project Checklist, Project Issues, Project Closeout Report, etc.)
+// ---------------------------------------------------------------------------
+
+model ProjectDocument {
+  id             String              @id @default(uuid())
+  organizationId String // denormalized from Project for direct RLS scoping
+  projectId      String
+  project        Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type           ProjectDocumentType
+  title          String
+  url            String // blob storage URL or SharePoint link, initially
+  uploadedById   String?
+  uploadedBy     User?               @relation(fields: [uploadedById], references: [id])
+  uploadedAt     DateTime            @default(now())
+
+  @@index([organizationId])
+  @@map("project_documents")
+}
