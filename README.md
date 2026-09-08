@@ -112,6 +112,10 @@ packages/
   auth/                   MSAL config (Universe CIAM tenant) + token verification
   api-client/             Typed fetch client every app uses to call the API
   ui/                     Shared React components (e.g. StatusBadge)
+infra/
+  bicep/                  Azure infrastructure as code (SQL, Container Apps, Static Web Apps, Key Vault)
+  README.md               First-deploy walkthrough — not yet run against a real subscription
+.github/workflows/        CI + deploy pipelines (infra, API, static web apps)
 ```
 
 ## The Admin app
@@ -266,5 +270,7 @@ as-is**, and note it does NOT auto-create users even in the fallback path.
 - Edit/delete flows for projects
 - Client & Contact management UI
 - CI/CD (GitHub Actions → Azure Static Web Apps + App Service)
-- Actual Azure resource provisioning (Bicep/Terraform)
+- Actual Azure resource deployment — Bicep templates and GitHub Actions
+  pipelines are written (`infra/`), not yet run against a real subscription;
+  see `infra/README.md` for the first-deploy walkthrough
 - Data migration script from the SharePoint list into this schema
