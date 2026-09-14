@@ -1,0 +1,221 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base resets ─────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-rc-bg-main text-rc-dark font-body;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold;
+  }
+
+  /* Focus ring — accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-rc-green ring-offset-2;
+  }
+}
+
+/* ── RC Component Layer ──────────────────────────────────── */
+@layer components {
+
+  /* App shell */
+  .app-shell {
+    @apply flex h-screen overflow-hidden bg-rc-bg-main;
+  }
+
+  /* Sidebar */
+  .rc-sidebar {
+    /* Full width on mobile (it slides in as a drawer that should be easy to
+       read/tap), fixed width from md: up where it sits alongside content. */
+    @apply flex-shrink-0 w-full md:w-sidebar bg-rc-bg-sidebar flex flex-col overflow-y-auto;
+    @apply border-r border-white/10 overscroll-contain;
+  }
+
+  /* Main content area */
+  .rc-main {
+    @apply flex-1 flex flex-col overflow-hidden;
+  }
+
+  /* Top header
+     min-h- rather than a fixed h- so the module viewer's two-line mobile
+     heading (sub-module + section title, see TopHeader's mobileHeading
+     prop) can grow the header instead of being clipped at 72px. Ordinary
+     single-line content is shorter than the minimum, so nothing else
+     changes height. */
+  .rc-header {
+    @apply min-h-header flex items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-2 sm:py-0;
+    @apply bg-white border-b border-rc-border flex-shrink-0;
+  }
+
+  /* Page wrapper */
+  .rc-page {
+    @apply flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-6 md:py-8;
+  }
+
+  /* Navigation items in sidebar */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium;
+    @apply text-white/60 hover:text-white hover:bg-white/10;
+    @apply transition-colors duration-200 cursor-pointer;
+  }
+
+  .nav-item.active {
+    @apply text-white bg-white/15;
+  }
+
+  .nav-label {
+    @apply text-xs font-semibold text-white/30 uppercase tracking-widest px-4 mb-1 mt-4;
+  }
+
+  /* TOC items in module viewer */
+  .toc-item {
+    @apply flex items-start gap-3 px-4 py-3 rounded-md cursor-pointer;
+    @apply transition-colors duration-200;
+  }
+
+  .toc-item.active {
+    @apply bg-rc-green/15 text-rc-green;
+  }
+
+  .toc-item.completed {
+    @apply text-white/50;
+  }
+
+  .toc-item.upcoming {
+    @apply text-white/40 hover:text-white/60 hover:bg-white/5;
+  }
+
+  /* Module cards on dashboard */
+  .module-card {
+    @apply bg-white rounded-xl p-6 border border-rc-border;
+    @apply shadow-card hover:shadow-card-hover transition-shadow duration-200;
+    @apply flex flex-col gap-4;
+  }
+
+  /* Pill/tag */
+  .rc-tag {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  /* Reading progress bar at top of page */
+  .reading-progress-bar {
+    @apply fixed top-0 left-0 h-1 bg-rc-green z-50 transition-all duration-150;
+  }
+
+  /* Content renderer styles */
+  .rc-content {
+    @apply max-w-3xl;
+  }
+
+  .rc-content h2 {
+    @apply text-2xl font-heading font-bold text-rc-dark mt-10 mb-4;
+  }
+
+  .rc-content h3 {
+    @apply text-xl font-heading font-bold text-rc-dark mt-8 mb-3;
+  }
+
+  .rc-content p {
+    @apply text-rc-grey leading-relaxed mb-5;
+  }
+
+  .rc-content ul, .rc-content ol {
+    @apply mb-5 pl-6 space-y-2;
+  }
+
+  .rc-content ul li {
+    @apply list-disc text-rc-grey leading-relaxed;
+  }
+
+  .rc-content ol li {
+    @apply list-decimal text-rc-grey leading-relaxed;
+  }
+
+  .rc-content strong {
+    @apply font-semibold text-rc-dark;
+  }
+
+  .rc-content a {
+    @apply text-rc-green underline underline-offset-2 hover:text-rc-green-600;
+  }
+
+  /* Callout blocks */
+  .callout {
+    @apply rounded-xl p-5 mb-6 border-l-4;
+  }
+
+  .callout-info {
+    @apply bg-blue-50 border-blue-500;
+  }
+
+  .callout-warning {
+    @apply bg-amber-50 border-amber-500;
+  }
+
+  .callout-key-fact {
+    @apply bg-rc-green-50 border-rc-green;
+  }
+
+  .callout-quote {
+    @apply bg-gray-50 border-rc-grey-light italic;
+  }
+
+  /* Status dots */
+  .status-dot {
+    @apply w-2 h-2 rounded-full bg-white/30 mt-1 flex-shrink-0;
+  }
+
+  .status-dot.active {
+    @apply bg-rc-green animate-pulse;
+  }
+
+  /* Quiz */
+  .quiz-option {
+    @apply w-full text-left px-4 py-3 rounded-lg border border-rc-border;
+    @apply text-sm text-rc-dark hover:border-rc-green hover:bg-rc-green-50;
+    @apply transition-colors duration-150 cursor-pointer;
+  }
+
+  .quiz-option.correct {
+    @apply border-rc-green bg-rc-green-50 text-rc-dark font-medium;
+  }
+
+  .quiz-option.incorrect {
+    @apply border-red-400 bg-red-50 text-red-700;
+  }
+
+  .quiz-option.disabled {
+    @apply cursor-default pointer-events-none;
+  }
+}
+
+/* ── Utilities ───────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}

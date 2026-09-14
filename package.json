@@ -1,0 +1,28 @@
+{
+  "name": "rc-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "rc-v2-app",
+    "rc-institution",
+    "rc-employer",
+    "rc-admin",
+    "rc-api"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "dev:api": "cd rc-api && npm run dev",
+    "dev:learner": "cd rc-v2-app && npm run dev -- -p 3000",
+    "dev:institution": "cd rc-institution && npm run dev -- -p 3001",
+    "dev:employer": "cd rc-employer && npm run dev -- -p 3002",
+    "dev:admin": "cd rc-admin && npm run dev -- -p 3003"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  }
+}

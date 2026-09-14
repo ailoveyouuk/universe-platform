@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     rc_user
+      POSTGRES_PASSWORD: rc_password
+      POSTGRES_DB:       rc_platform
+    ports:
+      - '5432:5432'
+    volumes:
+      - rc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ['CMD-SHELL', 'pg_isready -U rc_user -d rc_platform']
+      interval: 10s
+      timeout:  5s
+      retries:  5
+
+volumes:
+  rc_postgres_data:

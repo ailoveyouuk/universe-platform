@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@14 rc-institution --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --use-npm)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx create-next-app@14 rc-employer --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm)",
+      "Bash(npx create-next-app@14 rc-admin --typescript --tailwind --eslint --app --src-dir no --import-alias \"@/*\" --use-npm)",
+      "Bash(ln -s ../rc-v2-app apps/rc-learner)",
+      "Bash(ln -s ../rc-institution apps/rc-institution)",
+      "Bash(ln -s ../rc-employer apps/rc-employer)",
+      "Bash(ln -s ../rc-admin apps/rc-admin)",
+      "Bash(npx prisma *)",
+      "Bash(grep -v '^\\\\.$')",
+      "Bash(echo \"PID=$!\")",
+      "Bash(curl -s http://localhost:4000/health)",
+      "Bash(kill 4047)",
+      "Read(//private/tmp/**)",
+      "Bash(cat package.json)",
+      "Bash(cat turbo.json)",
+      "Bash(cat __TRACKED_VAR__/next.config.ts)",
+      "Bash(cat __TRACKED_VAR__/next.config.js)",
+      "Bash(ls __TRACKED_VAR__/lib/api/)",
+      "Bash(ls rc-v2-app/lib/api/)",
+      "Bash(find rc-institution *)",
+      "Bash(ls rc-institution/lib/data/)",
+      "Bash(npm ls *)",
+      "Bash(npx tsc *)",
+      "Bash(node \"/Users/lewismckinnon/Library/CloudStorage/OneDrive-RenewablesConnect/Renewables Connect/RC_V2/Platform_Dev/node_modules/typescript/bin/tsc\" -p \"/Users/lewismckinnon/Library/CloudStorage/OneDrive-RenewablesConnect/Renewables Connect/RC_V2/Platform_Dev/rc-v2-app/tsconfig.json\" --noEmit)",
+      "Bash(ls \"/Users/lewismckinnon/.claude/projects/-Users-lewismckinnon-Library-CloudStorage-OneDrive-RenewablesConnect-Renewables-Connect-RC-V2-Platform-Dev/memory/\")",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash('/Users/lewismckinnon/Library/CloudStorage/OneDrive-RenewablesConnect/Renewables Connect/RC_V2/Platform_Dev/node_modules/.bin/tsc' --noEmit)",
+      "Bash(xargs cat)",
+      "Bash(mkdir -p \"/Users/lewismckinnon/Library/CloudStorage/OneDrive-RenewablesConnect/Renewables Connect/RC_V2/Platform_Dev/rc-v2-app/app/profile/[section]\")"
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body { font-family: var(--font-inter), sans-serif; }
+
+.card {
+  @apply bg-white border border-emp-border rounded-xl shadow-sm;
+}
+
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+         transition-colors duration-150 cursor-pointer
+         text-slate-500 hover:text-emp-navy hover:bg-slate-50;
+}
+
+.nav-item.active {
+  @apply bg-emp-accent/10 text-emp-accent font-semibold;
+}
+
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.emp-field {
+  @apply w-full text-sm text-emp-navy bg-white border border-emp-border rounded-lg
+         px-3 py-2 outline-none placeholder:text-slate-500
+         focus:border-emp-accent focus:ring-1 focus:ring-emp-accent/20 transition-colors;
+}

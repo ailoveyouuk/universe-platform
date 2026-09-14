@@ -1,0 +1,604 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Renewables Connect — Prisma Schema
+// Database: PostgreSQL (Azure Database for PostgreSQL Flexible Server)
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  learner
+  institution_admin
+  institution_tutor
+  employer_admin
+  employer_recruiter
+  rc_admin
+  rc_analyst
+  rc_support
+}
+
+enum SMStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum PartnerStatus {
+  active
+  onboarding
+  inactive
+}
+
+enum PartnerTier {
+  standard
+  premium
+  enterprise
+}
+
+enum PipelineStage {
+  interested
+  contacted
+  interviewing
+  offered
+  hired
+}
+
+enum RoleStatus {
+  open
+  filled
+  paused
+}
+
+enum CertificateLevel {
+  submodule
+  part
+  module
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum AlertCategory {
+  engagement
+  performance
+  system
+  commercial
+}
+
+enum ActivityEventType {
+  learner_registered
+  learner_completed_sm
+  learner_completed_part
+  learner_completed_module
+  institution_joined
+  employer_joined
+  employer_shortlisted
+  col_score_low
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  azureAdId       String    @unique
+  email           String    @unique
+  displayName     String
+  role            UserRole
+  organisationId  String?
+  createdAt       DateTime  @default(now())
+  lastSignInAt    DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  learner         Learner?
+  institutionUser InstitutionUser?
+  employerUser    EmployerUser?
+  adminUser       AdminUser?
+  organisation    Organisation?  @relation("OrgMember", fields: [organisationId], references: [id])
+  managedOrgs     Organisation[] @relation("OrgContact")
+
+  @@map("users")
+}
+
+// ── Learner domain ────────────────────────────────────────────────────────────
+
+model Learner {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  institutionId        String?
+  cohortId             String?
+  enrolledAt           DateTime  @default(now())
+  lastActiveAt         DateTime?
+  availableToEmployers Boolean   @default(false)
+  updatedAt            DateTime  @updatedAt
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution      Institution?           @relation(fields: [institutionId], references: [id])
+  cohort           Cohort?                @relation(fields: [cohortId], references: [id])
+  smProgress       SMProgress[]
+  certificates     Certificate[]
+  shortlistedBy    ShortlistedCandidate[]
+  candidateProfile CandidateProfile?
+  accessGrants     AccessGrant[]
+
+  @@map("learners")
+}
+
+model SMProgress {
+  id          String    @id @default(cuid())
+  learnerId   String
+  smId        Int
+  smSlug      String
+  smTitle     String
+  partNumber  Int
+  status      SMStatus  @default(not_started)
+  startedAt   DateTime?
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  colScore COLScore?
+
+  @@unique([learnerId, smId])
+  @@map("sm_progress")
+}
+
+model COLScore {
+  id            String   @id @default(cuid())
+  smProgressId  String   @unique
+  score         Int
+  maxScore      Int
+  percent       Float
+  attempts      Int      @default(1)
+  lastAttemptAt DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  smProgress SMProgress @relation(fields: [smProgressId], references: [id], onDelete: Cascade)
+
+  @@map("col_scores")
+}
+
+model Certificate {
+  id             String           @id @default(cuid())
+  learnerId      String
+  level          CertificateLevel
+  title          String
+  subtitle       String
+  moduleContext  String
+  recipientName  String
+  completedAt    DateTime
+  partNumber     Int?
+  partAccent     String?
+  smId           Int?
+  certifyingBody String?
+  credentialId   String           @unique
+  issuedAt       DateTime         @default(now())
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+// ── Institution domain ────────────────────────────────────────────────────────
+
+enum InstitutionType {
+  ACADEMIC
+  CORPORATE
+}
+
+// Unified profile pro forma for an institution-level account (academic or
+// corporate sponsor). sector/partnerTier are the same concepts the Employer
+// model already tracked for corporate partners, now generalised to cover
+// academic institutions too (e.g. sector: "Higher Education"). website,
+// overview, country, city, contactName, contactPhone round it out into a
+// real CRM-style profile rather than just a name + email.
+model Institution {
+  id           String          @id @default(cuid())
+  name         String
+  shortName    String
+  type         InstitutionType @default(ACADEMIC)
+  sector       String?
+  partnerTier  PartnerTier     @default(standard)
+  website      String?
+  overview     String?
+  country      String?
+  city         String?
+  sizeBand     String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+  logoUrl      String?
+  primaryColor String          @default("#82BC00")
+  status       PartnerStatus   @default(onboarding)
+  partnerSince DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  cohorts          Cohort[]
+  learners         Learner[]
+  institutionUsers InstitutionUser[]
+  accessGrants     AccessGrant[]
+
+  @@map("institutions")
+}
+
+// parts/accessDurationDays/seatCap/inviteCode power the self-serve invite-link
+// flow: an admin sets what a cohort's redemptions grant and how many seats
+// it has, students redeem inviteCode (one redemption per Microsoft account,
+// enforced by Learner.cohortId being settable only once) via a public
+// /join/<code> page, and each redemption stamps its OWN learner-scoped
+// AccessGrant with expiresAt = redeemedAt + accessDurationDays — a rolling
+// per-student clock, not one shared cohort-wide expiry, so a student who
+// joins in week 6 doesn't lose access on the same date as one who joined in
+// week 1. seatCap null means unlimited.
+model Cohort {
+  id                 String   @id @default(cuid())
+  institutionId      String
+  name               String
+  startDate          DateTime
+  parts              Int[]    @default([])
+  accessDurationDays Int      @default(365)
+  seatCap            Int?
+  inviteCode         String   @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  learners    Learner[]
+  accessGrants AccessGrant[]
+
+  @@map("cohorts")
+}
+
+model InstitutionUser {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  institutionId String
+  role          String   @default("viewer")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@map("institution_users")
+}
+
+// ── Employer domain ───────────────────────────────────────────────────────────
+
+model Employer {
+  id           String        @id @default(cuid())
+  name         String
+  shortName    String
+  sector       String
+  logoUrl      String?
+  partnerTier  PartnerTier   @default(standard)
+  status       PartnerStatus @default(onboarding)
+  partnerSince DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  employerUsers         EmployerUser[]
+  jobRoles              JobRole[]
+  shortlistedCandidates ShortlistedCandidate[]
+
+  @@map("employers")
+}
+
+model EmployerUser {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  employerId String
+  role       String   @default("viewer")
+  jobTitle   String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employer Employer @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  @@map("employer_users")
+}
+
+// Every staff-facing role (rc-admin/analyst/support, institution admin/tutor,
+// employer admin/recruiter) is invite-only — nobody can self-register into
+// one of these by just signing in with a Microsoft account (see
+// POST /api/auth/register). An rc_admin creates a StaffInvite naming an
+// email + role (+ institutionId/employerId for the two org-scoped role
+// pairs); the first sign-in from that email consumes it and provisions the
+// real User + InstitutionUser/EmployerUser row. Only `learner` stays
+// self-service, via the existing cohort-invite-link flow.
+model StaffInvite {
+  id            String    @id @default(cuid())
+  email         String
+  role          UserRole
+  institutionId String?
+  employerId    String?
+  invitedByName String?
+  createdAt     DateTime  @default(now())
+  redeemedAt    DateTime?
+
+  @@map("staff_invites")
+}
+
+model JobRole {
+  id              String     @id @default(cuid())
+  employerId      String
+  title           String
+  department      String
+  requiredSMs     Int[]
+  minCOLPercent   Float?
+  minSMsCompleted Int        @default(0)
+  status          RoleStatus @default(open)
+  postedAt        DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  employer              Employer               @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  shortlistedCandidates ShortlistedCandidate[]
+
+  @@map("job_roles")
+}
+
+model ShortlistedCandidate {
+  id         String        @id @default(cuid())
+  employerId String
+  learnerId  String
+  roleId     String?
+  stage      PipelineStage @default(interested)
+  notes      String        @default("")
+  addedAt    DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  employer Employer  @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  learner  Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  role     JobRole?  @relation(fields: [roleId], references: [id])
+
+  @@unique([employerId, learnerId])
+  @@map("shortlisted_candidates")
+}
+
+// ── Admin / platform domain ───────────────────────────────────────────────────
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  role      String   @default("analyst")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_users")
+}
+
+model PlatformAlert {
+  id            String        @id @default(cuid())
+  severity      AlertSeverity
+  title         String
+  description   String
+  affectedCount Int           @default(0)
+  category      AlertCategory
+  detectedAt    DateTime      @default(now())
+  resolvedAt    DateTime?
+  resolvedById  String?
+
+  @@map("platform_alerts")
+}
+
+// ── Access grants (curriculum purchases / sponsorships) ────────────────────────
+// A grant unlocks one or more curriculum "parts" (1, 2, 3 — matching SM_CURRICULUM's
+// partNumber grouping) for either a single learner (individual purchase) or an
+// entire institution/cohort (sponsored access — both academic and corporate
+// sponsors are Institution rows, distinguished by Institution.type — inherited
+// by every learner under that institution/cohort). Exactly one of
+// learnerId/institutionId/cohortId should be set per grant — enforced in
+// application code (rc-api's grant-creation endpoint), not a DB constraint.
+
+model AccessGrant {
+  id              String    @id @default(cuid())
+  parts           Int[]
+  source          String    @default("manual") // "manual" | "woocommerce" | ...
+  externalOrderId String?
+  notes           String?
+  grantedAt       DateTime  @default(now())
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  learnerId     String?
+  learner       Learner?     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  cohortId      String?
+  cohort        Cohort?      @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId])
+  @@index([institutionId])
+  @@index([cohortId])
+  @@map("access_grants")
+}
+
+// ── Candidate profile ─────────────────────────────────────────────────────────
+
+model CandidateProfile {
+  id          String   @id @default(cuid())
+  learnerId   String   @unique
+  learner     Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  updatedAt   DateTime @updatedAt
+
+  // Section 1 — Who I am
+  rightToWorkUK         String?
+  visaSponsorshipNeeded Boolean?
+  securityClearance     String?
+  ukResidencyYears      String?
+  countryOfResidence    String?
+  ukRegion              String?
+  willingToRelocate     String?
+  relocationRegions     String[]
+  openToInternational   Boolean?
+  hasDriversLicence     Boolean?
+
+  // Section 2 — My interests
+  primaryTechArea        String?
+  secondaryTechAreas     String[]
+  climatePolicyInterests String[]
+  functionalDisciplines  String[]
+  targetRoleTypes        String[]
+  preferredEmployerTypes String[]
+  companySizePreference  String?
+
+  // Section 3 — My experience
+  experienceLevel     String?
+  yearsInRenewables   String?
+  previousSector      String?
+  projectPhasesExp    String[]
+  largestProjectScale String?
+  commercialRegimeExp String[]
+  employmentStatus    String?
+  availability        String?
+  noticePeriod        String?
+  employmentTypePrefs String[]
+  workArrangementPrefs String[]
+  salaryExpectation   String?
+
+  // Section 4 — My qualifications
+  highestQualification    String?
+  qualificationSubject    String?
+  professionalBodies      String[]
+  charteredStatus         String?
+  safetyCertifications    String[]
+  technicalCertifications String[]
+  otherCertifications     String?
+
+  // Section 5 — Technical skills
+  softwareSkills      Json?
+  engineeringTools    String[]
+  financialTools      String[]
+  regulatoryKnowledge String[]
+  gridKnowledge       String?
+  languages           Json?
+
+  // Section 6 — Sector specialism
+  offshoreExpTypes  String[]
+  turbineOEMExp     String[]
+  batteryChemistry  String[]
+  electrolyserTypes String[]
+  reactorTypes      String[]
+  ccsTechTypes      String[]
+  solarScaleExp     String[]
+  marineEnergyTypes String[]
+  carbonEsgExp      String[]
+
+  // Section 7 — Professional track record
+  clientManagementLevel String?
+  technicalReportWriter Boolean?
+  bidManagement         Boolean?
+  teamLeadershipLevel   String?
+  budgetResponsibility  String?
+  financialModelling    Boolean?
+  expertWitness         Boolean?
+  hasPublications       Boolean?
+
+  // Section 8 — Career aspirations
+  careerMotivations String[]
+  shortTermGoal     String?
+  linkedinUrl       String?
+  portfolioUrl      String?
+  personalStatement String?
+
+  // Section 9 — Visibility & consent
+  optInToDiscovery     Boolean @default(false)
+  profileVisibility    String  @default("hidden")
+  allowEmployerContact Boolean @default(false)
+
+  @@map("candidate_profiles")
+}
+
+model PlatformActivityEvent {
+  id          String            @id @default(cuid())
+  type        ActivityEventType
+  description String
+  entityId    String
+  entityName  String
+  metadata    Json?
+  timestamp   DateTime          @default(now())
+
+  @@index([timestamp(sort: Desc)])
+  @@index([type])
+  @@map("platform_activity_events")
+}
+
+// ── Organisation / Partner profiles ──────────────────────────────────────────
+
+enum OrgType {
+  EMPLOYER
+  INSTITUTION
+}
+
+enum OrgPartnershipTier {
+  STANDARD
+  PARTNER
+  GOLD_PARTNER
+  PLATINUM_PARTNER
+}
+
+model Organisation {
+  id              String             @id @default(cuid())
+  slug            String             @unique
+  type            OrgType
+  name            String
+  logoUrl         String?
+  brandColour     String?
+  country         String?
+  city            String?
+  website         String?
+  overview        String?
+  tagline         String?
+  heroImageUrl    String?
+  galleryImages   String[]
+  videoUrl        String?
+  socialLinks     Json?
+  sectors         String[]
+  yearFounded     Int?
+  employeeCount   String?
+  partnershipTier OrgPartnershipTier @default(STANDARD)
+  testimonial     Json?
+  rcContactId     String?
+  rcContact       User?              @relation("OrgContact", fields: [rcContactId], references: [id])
+  users           User[]             @relation("OrgMember")
+  opportunities   Opportunity[]
+  isPublished     Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@map("organisations")
+}
+
+model Opportunity {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  title          String
+  type           String?
+  description    String?
+  url            String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  @@map("opportunities")
+}

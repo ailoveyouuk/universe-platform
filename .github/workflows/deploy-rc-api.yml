@@ -1,0 +1,68 @@
+name: Build, push and deploy rc-api
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "rc-api/**"
+      - ".github/workflows/deploy-rc-api.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write   # required for Azure OIDC login (no stored credentials)
+  contents: read
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    name: Build and push rc-api to ACR
+    outputs:
+      image_tag: ${{ steps.set_tag.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: rcplatformregistry-g3hvg5a5ageydhc8.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./rc-api
+          push: true
+          tags: |
+            rcplatformregistry-g3hvg5a5ageydhc8.azurecr.io/rc-api:latest
+            rcplatformregistry-g3hvg5a5ageydhc8.azurecr.io/rc-api:${{ github.sha }}
+
+      - id: set_tag
+        run: echo "image_tag=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    name: Deploy new image to Container Apps
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update rc-api Container App
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            # Pinning to the commit-SHA tag rather than :latest — Container
+            # Apps compares the image string in the revision template, not
+            # the resolved digest, so re-deploying the same ":latest" tag
+            # after a rebuild is a silent no-op. The SHA tag is unique per
+            # push, so this always produces a genuinely new revision.
+            az containerapp update \
+              --name rc-api \
+              --resource-group rg-renewables-connect \
+              --image rcplatformregistry-g3hvg5a5ageydhc8.azurecr.io/rc-api:${{ needs.build_and_push.outputs.image_tag }}

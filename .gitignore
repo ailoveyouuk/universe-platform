@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# Turbo
+.turbo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+packages/db/generated/
+rc-api/generated/
+
+# Misc
+*.env
+
+# Azure setup scripts with secrets (never commit these)
+azure-secrets.sh
+azure-fix.sh
+azure-static-apps.sh
+deploy-api.sh
+migrate.sh
+backup-secrets-to-keyvault.sh
+upload-module-images.sh
+upload-module-videos.sh
+setup-rc-api-cicd.sh
+
+# Large binary assets (stored in Azure Blob Storage)
+Module Assets/
+"Module Assets/"
+rc-v2-app/public/videos/
+# Ignore course content image folders (large, stored in Azure Blob Storage)
+# logos/ is intentionally NOT ignored — it's small UI assets that belong in git
+rc-v2-app/public/images/sm*/
+.env.deploy
+
+# Local-only archive of pre-migration OneDrive sync-conflict files (never committed)
+_onedrive-conflict-backup/

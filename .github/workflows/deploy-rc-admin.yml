@@ -1,0 +1,54 @@
+name: Deploy rc-admin (Azure Static Web Apps)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  build_and_deploy_job:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Build and Deploy Job
+    permissions:
+       id-token: write
+       contents: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          lfs: false
+      - name: Build And Deploy
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        env:
+          NEXT_PUBLIC_AZURE_AD_CLIENT_ID: "319bca3b-1d0e-4538-9d23-0ad033b38b25"
+          NEXT_PUBLIC_AZURE_AD_TENANT_ID: "7d149337-7d97-4953-b00d-1ce0c923aa44"
+          NEXT_PUBLIC_API_BASE_URL: "https://rc-api.mangomushroom-567ebd13.uksouth.azurecontainerapps.io"
+          NEXT_PUBLIC_APP_URL: "https://polite-moss-07aa8670f.7.azurestaticapps.net"
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_RC_ADMIN }}
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          app_location: "/" # Repo root so Oryx installs workspace packages (resolves @rc/api-client, @rc/types)
+          api_location: "" # Api source code path - optional
+          output_location: "rc-admin/out" # Static export output relative to repo root
+          app_build_command: "cd rc-admin && npm run build" # Build from app dir after workspace install
+          ###### End of Repository/Build Configurations ######
+
+  close_pull_request_job:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    name: Close Pull Request Job
+    steps:
+      - name: Close Pull Request
+        id: closepullrequest
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: "close"

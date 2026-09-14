@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  font-family: var(--font-inter), sans-serif;
+}
+
+.font-heading {
+  font-family: var(--font-montserrat), sans-serif;
+}
+
+.card {
+  @apply bg-white border border-inst-border rounded-xl shadow-sm;
+}
+
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 cursor-pointer;
+  @apply text-slate-500 hover:text-inst-slate hover:bg-slate-50;
+}
+
+.nav-item.active {
+  @apply bg-rc-green/10 text-rc-green font-semibold;
+}
+
+.inst-field {
+  @apply w-full text-sm text-inst-slate bg-white border border-inst-border rounded-lg
+         px-3 py-2 outline-none placeholder:text-slate-500
+         focus:border-rc-green focus:ring-1 focus:ring-rc-green/20 transition-colors;
+}
