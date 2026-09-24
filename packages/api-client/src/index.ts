@@ -1,5 +1,6 @@
 import type {
   AuthenticatedUser,
+  CreateOrganizationInput,
   CreateProjectInput,
   InviteUserInput,
   OrganizationSummary,
@@ -60,6 +61,13 @@ export class UniverseApiClient {
 
   listOrganizations(): Promise<OrganizationSummary[]> {
     return this.request("/organizations");
+  }
+
+  createOrganization(input: CreateOrganizationInput): Promise<OrganizationSummary> {
+    return this.request("/organizations", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   }
 
   listOrganizationRoles(organizationId: string): Promise<RoleSummary[]> {

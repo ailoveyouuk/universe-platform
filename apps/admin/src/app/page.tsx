@@ -11,6 +11,9 @@ export default function AdminHomePage() {
         they're recognized and let in with exactly that access.
       </p>
       <p>
+        <Link href="/organizations">Manage Organizations</Link>
+      </p>
+      <p>
         <Link href="/users">Manage Users</Link>
       </p>
       <p>

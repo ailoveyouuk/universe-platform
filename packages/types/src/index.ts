@@ -86,6 +86,21 @@ export interface OrganizationSummary {
   status: "PILOT" | "ACTIVE" | "SUSPENDED";
 }
 
+/**
+ * Onboarding is platform-operator-provisioned only during the pilot (see
+ * architecture doc) — creating a new tenant organization is platform-staff
+ * only, enforced server-side in OrganizationsService.create via
+ * assertPlatformStaff. This is the input for that one call: name plus a
+ * URL-safe slug (lowercase letters, numbers, hyphens — enforced by
+ * CreateOrganizationDto). Provisioning the org itself creates its default
+ * role template (createOrganizationWithDefaultRoles) — nothing else to pass
+ * in here, there is no per-org customization at creation time.
+ */
+export interface CreateOrganizationInput {
+  name: string;
+  slug: string;
+}
+
 export interface RoleSummary {
   id: string;
   name: string;
