@@ -82,8 +82,21 @@ jobs:
             -S localhost -U sa -P 'UniverseTest!2026' \
             -Q "IF DB_ID('universe_test') IS NULL CREATE DATABASE universe_test"
 
-      - name: Push schema + apply Row-Level Security
+      - name: Push schema (prisma db push)
         run: npm run test:db:reset --workspace=@universe/db
+
+      - name: Apply Row-Level Security (sqlcmd, not Prisma)
+        # SQL Server requires CREATE FUNCTION / CREATE SECURITY POLICY to be
+        # the only statement in their batch. Prisma's $executeRawUnsafe
+        # can't satisfy that for SQL Server (confirmed here, run #4,
+        # "Incorrect syntax near the keyword 'FUNCTION'") — see
+        # packages/db/scripts/apply-rls.ts for the full explanation. sqlcmd
+        # is already inside this image (mcr.microsoft.com/azure-sql-edge),
+        # so this needs no extra install on the runner.
+        run: |
+          docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
+            < infra/sql/row-level-security.sql
 
       - name: Run @universe/db tests (RLS / tenant isolation)
         run: npm run test --workspace=@universe/db

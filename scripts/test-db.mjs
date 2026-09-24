@@ -7,18 +7,20 @@
  * 2. Creates a dedicated `universe_test` database (the container's default
  *    "master" database is left alone — this container is throwaway either
  *    way, but a named database makes connection strings/logs less confusing).
- * 3. Pushes the current Prisma schema + applies Row-Level Security
- *    (packages/db/scripts/reset-test-db.ts).
- * 4. Runs the packages/db and apps/api test suites in order.
- * 5. Tears the container down, always — even on failure — and exits with
+ * 3. Pushes the current Prisma schema (packages/db/scripts/reset-test-db.ts).
+ * 4. Applies Row-Level Security via sqlcmd INSIDE the container (piped in
+ *    over stdin) — not through Prisma. SQL Server requires CREATE FUNCTION
+ *    / CREATE SECURITY POLICY to be the only statement in their batch, and
+ *    Prisma's $executeRawUnsafe can't satisfy that for SQL Server (confirmed
+ *    in CI 2026-09-24 — see packages/db/scripts/apply-rls.ts for the full
+ *    explanation). Docker's SQL Server images ship sqlcmd built in, so this
+ *    needs no local install — same reason .github/workflows/ci.yml does it
+ *    the same way against its own service container.
+ * 5. Runs the packages/db and apps/api test suites in order.
+ * 6. Tears the container down, always — even on failure — and exits with
  *    the first non-zero status seen.
  *
- * Requires Docker Desktop (or another local Docker) running. Not part of
- * `npm run build`/CI's normal path — see .github/workflows/ci.yml for the
- * CI equivalent, which uses the same docker-compose file as a GitHub
- * Actions service alternative... actually runs its own service container
- * (see that file) so this script and CI share the same schema-push +
- * apply-rls step but not the same container orchestration.
+ * Requires Docker Desktop (or another local Docker) running.
  */
 import { execSync } from "node:child_process";
 
@@ -46,6 +48,12 @@ try {
   const testEnv = { ...process.env, TEST_DATABASE_URL };
 
   run("npm run test:db:reset --workspace=@universe/db", { env: testEnv });
+
+  run(
+    `${COMPOSE.join(" ")} exec -T test-sql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" ` +
+      `-d universe_test -b < infra/sql/row-level-security.sql`,
+  );
+
   run("npm run test --workspace=@universe/db", { env: testEnv });
   run("npm run test --workspace=@universe/api", { env: testEnv });
 
