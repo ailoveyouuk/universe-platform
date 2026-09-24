@@ -10,8 +10,9 @@ import { prisma } from "./index";
  * inside the same prisma.$transaction(...).
  *
  * Both keys are set explicitly on every call, not just the one this
- * function "owns" — deliberately, for two reasons found the hard way in CI
- * 2026-09-24:
+ * function "owns", AND reset back to a neutral default (NULL /
+ * isPlatformStaff=0) before the transaction returns — deliberately, for
+ * three reasons found the hard way in CI 2026-09-24:
  *
  *   1. `@read_only = 1` (an earlier version of this file used it, meaning to
  *      guard against the app overwriting it mid-request) turns out to lock
@@ -28,8 +29,20 @@ import { prisma } from "./index";
  *      withPlatformStaffContext() and got reused for an ordinary
  *      withTenantContext() call could keep isPlatformStaff=1 from the
  *      earlier transaction — a real cross-tenant leak, not just a test
- *      flake. So every call here resets BOTH keys, every time, rather than
- *      trusting the pool to hand back a clean connection.
+ *      flake. So every call here resets BOTH keys at the START, every time,
+ *      rather than trusting the pool to hand back a clean connection.
+ *   3. That alone isn't enough: a connection released back to the pool
+ *      still carries whatever context the last transaction left set, so a
+ *      bare `prisma.*` call made OUTSIDE either wrapper (which should see
+ *      no tenant context at all — that's the RLS default-deny backstop)
+ *      can inherit a leftover organizationId/isPlatformStaff from an
+ *      earlier, unrelated transaction on the same reused connection.
+ *      Confirmed in CI: a test asserting "no session context set sees zero
+ *      rows" got 1 row back, from a prior test's org still set on the
+ *      connection it happened to be handed. So both keys are also reset
+ *      back to NULL/0 at the END of every call, before the transaction
+ *      commits and the connection goes back to the pool — a connection
+ *      should never leave one of these wrappers carrying context forward.
  *
  * Every tenant-facing request handler should wrap its database work in
  * withTenantContext(organizationId, ...) rather than calling `prisma`
@@ -52,7 +65,10 @@ export async function withTenantContext<T>(
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = ${organizationId};`;
     await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 0;`;
-    return fn(tx);
+    const result = await fn(tx);
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = NULL;`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 0;`;
+    return result;
   });
 }
 
@@ -69,6 +85,9 @@ export async function withPlatformStaffContext<T>(fn: (tx: Prisma.TransactionCli
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 1;`;
     await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = NULL;`;
-    return fn(tx);
+    const result = await fn(tx);
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 0;`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = NULL;`;
+    return result;
   });
 }
