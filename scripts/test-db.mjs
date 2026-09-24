@@ -7,7 +7,12 @@
  * 2. Creates a dedicated `universe_test` database (the container's default
  *    "master" database is left alone — this container is throwaway either
  *    way, but a named database makes connection strings/logs less confusing).
- * 3. Pushes the current Prisma schema (packages/db/scripts/reset-test-db.ts).
+ * 3. Pushes the current Prisma schema (packages/db/scripts/reset-test-db.ts),
+ *    then seeds the permission catalog — createOrganizationWithDefaultRoles
+ *    (used by both test suites) looks up Permission rows by key and throws
+ *    if they don't exist yet, same as it would against a real fresh database
+ *    per backend-launch-checklist.md Phase B7's migrate → seed → apply RLS
+ *    order, which this mirrors on purpose.
  * 4. Applies Row-Level Security via sqlcmd INSIDE the container (piped in
  *    over stdin) — not through Prisma. SQL Server requires CREATE FUNCTION
  *    / CREATE SECURITY POLICY to be the only statement in their batch, and
@@ -48,6 +53,10 @@ try {
   const testEnv = { ...process.env, TEST_DATABASE_URL };
 
   run("npm run test:db:reset --workspace=@universe/db", { env: testEnv });
+
+  // seed.ts reads DATABASE_URL directly (no TEST_DATABASE_URL translation
+  // like the vitest setupFiles do), so it's passed explicitly here.
+  run("npm run seed --workspace=@universe/db", { env: { ...testEnv, DATABASE_URL: TEST_DATABASE_URL } });
 
   run(
     `${COMPOSE.join(" ")} exec -T test-sql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" ` +

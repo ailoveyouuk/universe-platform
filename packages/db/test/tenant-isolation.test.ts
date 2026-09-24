@@ -55,10 +55,20 @@ describe("tenant isolation (Azure SQL Row-Level Security)", () => {
   });
 
   afterAll(async () => {
+    const orgIds = [orgA.id, orgB.id];
+    // FK order matters (SQL Server, no cascading deletes anywhere in this
+    // schema — see schema.prisma header comment): role_permissions before
+    // roles, roles/projects before organizations. createOrganizationWithDefaultRoles
+    // creates roles for every org it provisions, so this cleanup has to
+    // undo that too, not just the projects this test created directly.
     await withPlatformStaffContext((tx) =>
       tx.project.deleteMany({ where: { id: { in: [projectA.id, projectB.id] } } }),
     );
-    await prisma.organization.deleteMany({ where: { id: { in: [orgA.id, orgB.id] } } });
+    await withPlatformStaffContext((tx) =>
+      tx.rolePermission.deleteMany({ where: { role: { organizationId: { in: orgIds } } } }),
+    );
+    await withPlatformStaffContext((tx) => tx.role.deleteMany({ where: { organizationId: { in: orgIds } } }));
+    await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });
     await prisma.$disconnect();
   });
 

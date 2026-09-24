@@ -85,6 +85,15 @@ jobs:
       - name: Push schema (prisma db push)
         run: npm run test:db:reset --workspace=@universe/db
 
+      - name: Seed permission catalog
+        # createOrganizationWithDefaultRoles (used by both test suites below)
+        # looks up Permission rows by key and throws if they don't exist —
+        # mirrors backend-launch-checklist.md Phase B7's migrate → seed →
+        # apply RLS order.
+        run: npm run seed --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+
       - name: Apply Row-Level Security (sqlcmd, not Prisma)
         # SQL Server requires CREATE FUNCTION / CREATE SECURITY POLICY to be
         # the only statement in their batch. Prisma's $executeRawUnsafe

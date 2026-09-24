@@ -43,6 +43,11 @@ describe("EntraAuthGuard — invite-then-link flow", () => {
   });
 
   afterAll(async () => {
+    // createOrganizationWithDefaultRoles creates this org's roles too — FK
+    // order (no cascading deletes anywhere in this schema): role_permissions
+    // before roles, roles before the organization itself.
+    await withPlatformStaffContext((tx) => tx.rolePermission.deleteMany({ where: { role: { organizationId: orgId } } }));
+    await withPlatformStaffContext((tx) => tx.role.deleteMany({ where: { organizationId: orgId } }));
     await prisma.organization.delete({ where: { id: orgId } });
     await prisma.$disconnect();
   });

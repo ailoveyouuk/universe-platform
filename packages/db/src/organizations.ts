@@ -1,4 +1,4 @@
-import { prisma } from "./index";
+import { prisma, withTenantContext } from "./index";
 
 /**
  * The starter role template every new tenant organization gets on
@@ -46,6 +46,17 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
  * or directly during early bring-up) to onboard each new organization —
  * every organization goes through this same path, with no default or
  * "house" organization treated differently.
+ *
+ * The role-creation loop runs inside withTenantContext(org.id, ...) — the
+ * `roles` table is RLS-protected (see infra/sql/row-level-security.sql),
+ * and unlike EntraAuthGuard's identity lookup (which genuinely has to span
+ * every organization, since it doesn't know the caller's org yet), THIS
+ * write is for a specific, already-created org's own roles, so it's a
+ * normal tenant-scoped operation, not a platform-staff exception. Found the
+ * hard way: `prisma.role.upsert` with no session context set silently hits
+ * RLS's default-deny BLOCK PREDICATE once RLS is live — confirmed in CI
+ * 2026-09-24 running tenant-isolation.test.ts for the first time against a
+ * real database.
  */
 export async function createOrganizationWithDefaultRoles(params: { name: string; slug: string }) {
   const org = await prisma.organization.upsert({
@@ -54,22 +65,24 @@ export async function createOrganizationWithDefaultRoles(params: { name: string;
     create: { name: params.name, slug: params.slug },
   });
 
-  for (const role of DEFAULT_ROLE_TEMPLATE) {
-    const created = await prisma.role.upsert({
-      where: { organizationId_name_appScope: { organizationId: org.id, name: role.name, appScope: role.appScope } },
-      update: {},
-      create: { organizationId: org.id, name: role.name, appScope: role.appScope },
-    });
-
-    for (const key of role.permissionKeys) {
-      const permission = await prisma.permission.findUniqueOrThrow({ where: { key } });
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: created.id, permissionId: permission.id } },
+  await withTenantContext(org.id, async (tx) => {
+    for (const role of DEFAULT_ROLE_TEMPLATE) {
+      const created = await tx.role.upsert({
+        where: { organizationId_name_appScope: { organizationId: org.id, name: role.name, appScope: role.appScope } },
         update: {},
-        create: { roleId: created.id, permissionId: permission.id },
+        create: { organizationId: org.id, name: role.name, appScope: role.appScope },
       });
+
+      for (const key of role.permissionKeys) {
+        const permission = await tx.permission.findUniqueOrThrow({ where: { key } });
+        await tx.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: created.id, permissionId: permission.id } },
+          update: {},
+          create: { roleId: created.id, permissionId: permission.id },
+        });
+      }
     }
-  }
+  });
 
   return org;
 }
