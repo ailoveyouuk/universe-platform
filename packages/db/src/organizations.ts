@@ -1,6 +1,30 @@
 import { prisma, withTenantContext } from "./index";
 
 /**
+ * Data-sharing consent model (2026-09-24 decision — see architecture doc,
+ * "Anonymized cross-tenant insights"): consent is CONTRACTUAL, not a
+ * self-service toggle. Every organization agrees to the anonymized-insights
+ * terms (as part of Universe's privacy policy / data sharing agreement) as a
+ * condition of onboarding — an org that doesn't want to consent doesn't use
+ * the platform. So there's no per-org opt-in UI; instead, provisioning a new
+ * organization ALWAYS creates one DataSharingConsent row alongside it,
+ * recording that the signed agreement is on file. `acceptedById` is the
+ * platform-staff member who provisioned the org (i.e. who confirmed the
+ * agreement is on file), not an org user — the org's own users don't exist
+ * yet at provisioning time. If the terms are ever renegotiated for a specific
+ * org (e.g. a client insists on a narrower scope or opts out entirely),
+ * that's a `revokedAt` + a fresh row, done manually by platform staff — not
+ * something this function needs to anticipate.
+ */
+export const CURRENT_DATA_SHARING_TERMS_VERSION = "2026.1";
+
+/** The categories every org consents to feeding into anonymized cross-tenant
+ * insights by default, per the current terms. Kept as a named export (not
+ * inlined) so the Insights ETL and this provisioning step can't drift apart
+ * on what "the default scope" means. */
+export const DEFAULT_DATA_SHARING_SCOPE = ["pricing", "specifications", "quality"];
+
+/**
  * The starter role template every new tenant organization gets on
  * provisioning. Shared by the seed script and the API's
  * OrganizationsService (used from the Admin app) so there's exactly one
@@ -58,14 +82,41 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
  * 2026-09-24 running tenant-isolation.test.ts for the first time against a
  * real database.
  */
-export async function createOrganizationWithDefaultRoles(params: { name: string; slug: string }) {
+export async function createOrganizationWithDefaultRoles(params: {
+  name: string;
+  slug: string;
+  /** The platform-staff user provisioning this org, i.e. confirming the
+   * signed data-sharing agreement is on file. Optional only for the seed
+   * script's own bootstrap path, which has no authenticated caller — every
+   * real API-driven creation (OrganizationsService.create) always has one. */
+  acceptedById?: string;
+}) {
   const org = await prisma.organization.upsert({
     where: { slug: params.slug },
     update: {},
     create: { name: params.name, slug: params.slug },
   });
 
+  // Both the consent row and the role loop below run inside the SAME
+  // withTenantContext(org.id, ...) — data_sharing_consents is RLS-protected
+  // (infra/sql/row-level-security.sql) exactly like roles is, so a bare
+  // `prisma.dataSharingConsent.upsert` with no session context would hit the
+  // same default-deny BLOCK PREDICATE that bit the role-creation loop
+  // originally (see this function's header comment). Mandatory, not
+  // optional — one consent record per org, created here so there's no path
+  // to a provisioned organization that skipped it.
   await withTenantContext(org.id, async (tx) => {
+    await tx.dataSharingConsent.upsert({
+      where: { organizationId: org.id },
+      update: {},
+      create: {
+        organizationId: org.id,
+        scope: JSON.stringify(DEFAULT_DATA_SHARING_SCOPE),
+        termsVersion: CURRENT_DATA_SHARING_TERMS_VERSION,
+        acceptedById: params.acceptedById,
+      },
+    });
+
     for (const role of DEFAULT_ROLE_TEMPLATE) {
       const created = await tx.role.upsert({
         where: { organizationId_name_appScope: { organizationId: org.id, name: role.name, appScope: role.appScope } },

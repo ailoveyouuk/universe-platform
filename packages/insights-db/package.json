@@ -1,0 +1,23 @@
+{
+  "name": "@universe/insights-db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "studio": "prisma studio",
+    "aggregate": "tsx src/aggregate-etl.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "@universe/db": "*"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

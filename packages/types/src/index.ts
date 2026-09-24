@@ -99,6 +99,8 @@ export interface OrganizationSummary {
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
+  /** Must be true — see CreateOrganizationDto's doc comment (apps/api). */
+  confirmedAgreementOnFile: boolean;
 }
 
 export interface RoleSummary {

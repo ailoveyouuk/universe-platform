@@ -790,12 +790,26 @@ model Country {
 // data strategy".
 // ---------------------------------------------------------------------------
 
+/// One row per organization (organizationId is @unique, not just indexed —
+/// see packages/db/src/organizations.ts header comment, added 2026-09-24):
+/// consent is contractual, agreed as part of Universe's privacy policy /
+/// data sharing agreement at onboarding, not a self-service per-category
+/// toggle. createOrganizationWithDefaultRoles() creates this row for every
+/// org unconditionally, so "does this org have data-sharing consent" is
+/// always `revokedAt IS NULL` on this single row, never "does a row exist".
+/// If terms are ever renegotiated for one org, that's `revokedAt` set on
+/// this row by platform staff — not a new row (the Insights ETL only ever
+/// needs to know the CURRENT state, not history).
 model DataSharingConsent {
   id             String    @id @default(uuid())
-  organizationId String
+  organizationId String    @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// Which data categories this org has agreed can feed anonymized
-  /// cross-tenant insights — JSON array, e.g. ["pricing","lead_times"].
+  /// Which data categories this org's agreement covers — JSON array, e.g.
+  /// ["pricing","specifications","quality"]. Defaults to
+  /// DEFAULT_DATA_SHARING_SCOPE (packages/db/src/organizations.ts) for every
+  /// org since the current terms are blanket, not pick-and-choose; kept as a
+  /// scoped list (not a boolean) so a future narrower terms version has
+  /// somewhere to go without a schema change.
   scope          String    @db.NVarChar(Max)
   termsVersion   String
   acceptedById   String?
@@ -803,6 +817,5 @@ model DataSharingConsent {
   acceptedAt     DateTime  @default(now())
   revokedAt      DateTime?
 
-  @@index([organizationId])
   @@map("data_sharing_consents")
 }

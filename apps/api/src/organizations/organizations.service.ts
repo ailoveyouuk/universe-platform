@@ -14,7 +14,13 @@ export class OrganizationsService {
    */
   async create(caller: RequestUser, dto: CreateOrganizationDto): Promise<OrganizationSummary> {
     assertPlatformStaff(caller);
-    const org = await createOrganizationWithDefaultRoles(dto);
+    // dto.confirmedAgreementOnFile is validated @IsIn([true]) — it exists so
+    // the caller affirmatively confirms the signed data sharing agreement is
+    // on file, not so the API can decide anything from its value. Consent
+    // itself is unconditional (see createOrganizationWithDefaultRoles) — this
+    // is a UI/audit gate on the platform-staff member creating the org, not a
+    // second consent mechanism.
+    const org = await createOrganizationWithDefaultRoles({ ...dto, acceptedById: caller.id });
     // Prisma only knows org.status as a plain `string` column (no native
     // enums on SQL Server) — narrowed here since the database only ever
     // stores one of OrganizationStatus's values (packages/db/src/enums.ts).

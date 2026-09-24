@@ -1,0 +1,74 @@
+// Universe Insights — anonymized, cross-tenant aggregate store.
+//
+// DELIBERATELY A SEPARATE AZURE SQL DATABASE from packages/db's schema (own
+// datasource, own connection string — INSIGHTS_DATABASE_URL, not
+// DATABASE_URL), decided 2026-09-24 (see architecture doc, "Anonymized
+// cross-tenant insights"). Lewis's call: a genuinely separate database gives
+// stronger blast-radius isolation than a second schema in the tenant
+// database — a bug or breach in the tenant DB's connection/RLS code has no
+// path to this data, because it's a different database with different
+// credentials, reachable only through this package's own Prisma client and
+// the narrow read/write functions in src/.
+//
+// WHAT LIVES HERE: only what src/aggregate-etl.ts writes — de-identified
+// product pricing/spec data, grouped by ProductMaster.category (the existing
+// shared taxonomy field already does the "group as 'blood bags'" job Lewis
+// described). NO organizationId, NO Partner/manufacturer/supplier reference,
+// NO client reference, no free-text field that could carry an org or
+// manufacturer name. See AggregatedProductPrice's own comment for exactly
+// what's kept and why each field is safe.
+//
+// This generator uses a custom `output` (not the default location) so this
+// package's Prisma Client doesn't collide with packages/db's — they're two
+// different schemas/databases and each needs its own generated client.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("INSIGHTS_DATABASE_URL")
+}
+
+/// One row per (category, effectiveMonth, region) observation contributed by
+/// one source transaction — src/aggregate-etl.ts is the only writer.
+///
+/// Anonymization approach, field by field:
+///   - category: ProductMaster.category, copied verbatim — shared reference
+///     data already, not identifying.
+///   - attributes: a JSON snapshot of the ProductLine's resolved spec
+///     attributes (ProductAttributeDefinition-keyed), with the ETL job
+///     stripping any free-text field known to sometimes carry a
+///     manufacturer/brand name (see aggregate-etl.ts's STRIPPED_ATTRIBUTE_KEYS).
+///   - unitPrice / currency: the actual figure — this is the point of the
+///     feature, and a price alone doesn't identify anyone.
+///   - effectiveMonth: ProductPriceHistory.effectiveDate truncated to the
+///     1st of its month — exact dates plus a small cohort can sometimes
+///     pinpoint a specific shipment/tender.
+///   - region: the org's WHO region (Region.code — AFRO/AMRO/etc.), never
+///     the org's country and never the org itself. Coarse on purpose.
+///   - sourceHash: HMAC-SHA256(organizationId, INSIGHTS_HASH_SECRET),
+///     truncated. One-way — cannot be reversed to organizationId — but
+///     stable, so COUNT(DISTINCT sourceHash) within a group tells the query
+///     layer how many distinct organizations contributed to it WITHOUT
+///     storing which ones. This is what makes the minimum-cohort-size check
+///     in src/query.ts possible at all.
+///
+/// NOT stored anywhere in this database, ever: organizationId,
+/// supplierId/manufacturerId, any Partner or Project/Client reference, any
+/// user id, any free-text description field from the source row.
+model AggregatedProductPrice {
+  id             String   @id @default(uuid())
+  category       String
+  attributes     String?  @db.NVarChar(Max)
+  unitPrice      Decimal  @db.Decimal(18, 2)
+  currency       String   @db.Char(3)
+  effectiveMonth DateTime
+  region         String?
+  sourceHash     String
+  createdAt      DateTime @default(now())
+
+  @@index([category, effectiveMonth])
+  @@map("aggregated_product_prices")
+}

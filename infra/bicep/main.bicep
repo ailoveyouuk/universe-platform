@@ -79,6 +79,7 @@ module sql 'modules/sql.bicep' = {
   params: {
     serverName: '${namePrefix}-sql'
     databaseName: 'universe'
+    insightsDatabaseName: 'universe-insights'
     location: location
     sqlAdminLogin: sqlAdminLogin
     sqlAdminPassword: sqlAdminPassword
@@ -152,6 +153,7 @@ module adminSwa 'modules/staticWebApp.bicep' = {
 output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
+output insightsDatabaseName string = sql.outputs.insightsDatabaseName
 output keyVaultName string = keyVault.outputs.vaultName
 output projectManagementUrl string = projectManagementSwa.outputs.defaultHostname
 output adminUrl string = adminSwa.outputs.defaultHostname

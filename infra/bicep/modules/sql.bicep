@@ -1,6 +1,7 @@
-@description('Azure SQL Server + Database holding every organization''s data, isolated by organizationId (see packages/db/prisma/schema.prisma). One database, not one per tenant — see architecture doc for why.')
+@description('Azure SQL Server + Database holding every organization''s data, isolated by organizationId (see packages/db/prisma/schema.prisma). One database, not one per tenant — see architecture doc for why. Also provisions a SECOND, separate database on the same logical server for the anonymized cross-tenant insights store (packages/insights-db) — same server for cost/simplicity at pilot scale, but a genuinely separate database with its own connection string, so a bug or breach reaching the tenant database has no path to it. See architecture doc, "Anonymized cross-tenant insights" (2026-09-24).')
 param serverName string
 param databaseName string
+param insightsDatabaseName string
 param location string
 
 @description('SQL admin login. The API connects with a separate, lower-privilege user created post-deploy — this admin login is for migrations/break-glass only.')
@@ -39,6 +40,25 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   }
 }
 
+// The insights database — deliberately much smaller SKU than the tenant
+// database at pilot scale: it holds only monthly-aggregated rows, not raw
+// transactional data, so it'll be a fraction of the size and write volume.
+// Revisit the SKU once the aggregation pipeline (packages/insights-db) has
+// been running against real data for a while.
+resource sqlDatabaseInsights 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
+  parent: sqlServer
+  name: insightsDatabaseName
+  location: location
+  sku: {
+    name: skuName
+    tier: skuTier
+  }
+  properties: {
+    autoPauseDelay: 60
+    minCapacity: json('0.5')
+  }
+}
+
 // Allows Azure services (the Container App) to reach the server. Tighten to
 // a VNet integration + private endpoint before real pilot client data lands
 // here — this rule is intentionally broad for early bring-up only.
@@ -53,3 +73,4 @@ resource allowAzureServices 'Microsoft.Sql/servers/firewallRules@2023-08-01-prev
 
 output serverFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output databaseName string = sqlDatabase.name
+output insightsDatabaseName string = sqlDatabaseInsights.name

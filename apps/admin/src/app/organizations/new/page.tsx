@@ -29,7 +29,7 @@ function slugify(name: string): string {
 export default function NewOrganizationPage() {
   const router = useRouter();
   const [me, setMe] = useState<AuthenticatedUser | null>(null);
-  const [form, setForm] = useState<CreateOrganizationInput>({ name: "", slug: "" });
+  const [form, setForm] = useState<CreateOrganizationInput>({ name: "", slug: "", confirmedAgreementOnFile: false });
   const [slugTouched, setSlugTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +45,7 @@ export default function NewOrganizationPage() {
 
   function updateName(name: string) {
     setForm((prev) => ({
+      ...prev,
       name,
       // Keep auto-deriving the slug from the name until the person edits the
       // slug field directly — same "smart default, easy to override"
@@ -64,6 +65,10 @@ export default function NewOrganizationPage() {
     e.preventDefault();
     if (!slugValid) {
       setError("Slug must be lowercase letters, numbers, and hyphens only.");
+      return;
+    }
+    if (!form.confirmedAgreementOnFile) {
+      setError("Confirm the signed agreement is on file before provisioning this organization.");
       return;
     }
     setSubmitting(true);
@@ -126,11 +131,27 @@ export default function NewOrganizationPage() {
           </span>
         </label>
 
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#374151" }}>
+          <input
+            type="checkbox"
+            checked={form.confirmedAgreementOnFile}
+            onChange={(e) => setForm((prev) => ({ ...prev, confirmedAgreementOnFile: e.target.checked }))}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            I confirm this organization has signed Universe&apos;s Privacy Policy and Data Sharing
+            Agreement, including consent for anonymized, aggregated data to feed the Insights app.
+            This is required before an organization is provisioned — Universe never stores or shares
+            identifying data (organization name, manufacturer, client) in that aggregate, only
+            de-identified pricing/specification data grouped by product category.
+          </span>
+        </label>
+
         {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
 
         <button
           type="submit"
-          disabled={submitting || !form.name || !slugValid}
+          disabled={submitting || !form.name || !slugValid || !form.confirmedAgreementOnFile}
           style={{ padding: "10px 16px", alignSelf: "flex-start" }}
         >
           {submitting ? "Creating…" : "Create Organization"}
