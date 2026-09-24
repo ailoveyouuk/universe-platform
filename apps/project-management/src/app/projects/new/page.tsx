@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { CreateProjectInput } from "@universe/types";
+import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 
 const CATEGORY_OPTIONS = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
@@ -22,6 +22,11 @@ const PRODUCT_CATEGORY_OPTIONS = [
  * for Universe, and it drives whether the pharma-only line item fields
  * (batch, expiry, storage conditions, MA/PL, etc.) show up later in the
  * project's line items step. Non-pharma projects skip that entirely.
+ *
+ * Updated 2026-09-24, schema rework: Project is now a header only — the
+ * "what's being procured" fields (product description/category/quantity)
+ * live on ProjectLine, so this form collects them into a nested `firstLine`
+ * object rather than flat top-level fields. See CreateProjectLineInput.
  */
 export default function NewProjectPage() {
   const router = useRouter();
@@ -35,13 +40,17 @@ export default function NewProjectPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function updateLine<K extends keyof CreateProjectLineInput>(key: K, value: CreateProjectLineInput[K]) {
+    setForm((prev) => ({ ...prev, firstLine: { ...prev.firstLine, [key]: value } }));
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
       const created = await apiClient.createProject(form as CreateProjectInput);
-      router.push(`/projects/${created.id}`);
+      router.push(`/projects/detail?id=${created.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
     } finally {
@@ -116,8 +125,17 @@ export default function NewProjectPage() {
           Delivery Country
           <input
             style={inputStyle}
-            value={form.deliveryCountry ?? ""}
-            onChange={(e) => update("deliveryCountry", e.target.value)}
+            value={form.deliveryCountryCode ?? ""}
+            onChange={(e) => update("deliveryCountryCode", e.target.value)}
+          />
+        </label>
+
+        <label>
+          Donor Reference
+          <input
+            style={inputStyle}
+            value={form.donorReference ?? ""}
+            onChange={(e) => update("donorReference", e.target.value)}
           />
         </label>
 
@@ -125,8 +143,8 @@ export default function NewProjectPage() {
           Product Category
           <select
             style={inputStyle}
-            value={form.productCategory ?? ""}
-            onChange={(e) => update("productCategory", e.target.value as CreateProjectInput["productCategory"])}
+            value={form.firstLine?.productCategory ?? ""}
+            onChange={(e) => updateLine("productCategory", e.target.value)}
           >
             <option value="">Select…</option>
             {PRODUCT_CATEGORY_OPTIONS.map((c) => (
@@ -153,8 +171,8 @@ export default function NewProjectPage() {
             type="number"
             min={1}
             style={inputStyle}
-            value={form.quantity ?? ""}
-            onChange={(e) => update("quantity", Number(e.target.value))}
+            value={form.firstLine?.quantity ?? ""}
+            onChange={(e) => updateLine("quantity", Number(e.target.value))}
           />
         </label>
 
@@ -162,8 +180,8 @@ export default function NewProjectPage() {
           Client Product Description
           <textarea
             style={{ ...inputStyle, minHeight: 80 }}
-            value={form.clientProductDescription ?? ""}
-            onChange={(e) => update("clientProductDescription", e.target.value)}
+            value={form.firstLine?.clientProductDescription ?? ""}
+            onChange={(e) => updateLine("clientProductDescription", e.target.value)}
           />
         </label>
 

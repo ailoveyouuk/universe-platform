@@ -7,3 +7,7 @@ build
 *.log
 .turbo
 .DS_Store
+
+# Next.js static export output + auto-generated type declarations
+out/
+next-env.d.ts

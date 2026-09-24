@@ -19,7 +19,11 @@ function toRequestUser(user: {
   email: string;
   forename: string;
   surname: string;
-  platformStaffRole: PlatformStaffRole;
+  // Prisma only knows this as a plain `string` column (SQL Server has no
+  // native enum support — see schema.prisma header comment and
+  // packages/db/src/enums.ts). Narrowed to PlatformStaffRole below since
+  // the database only ever stores one of that const object's values.
+  platformStaffRole: string;
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
   const permissions = user.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
@@ -29,7 +33,7 @@ function toRequestUser(user: {
     email: user.email,
     forename: user.forename,
     surname: user.surname,
-    platformStaffRole: user.platformStaffRole,
+    platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
   };
 }

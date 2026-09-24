@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { StatusBadge } from "@universe/ui";
 import type { ProjectSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
@@ -10,20 +10,32 @@ import { apiClient } from "../../../lib/apiClient";
  * MVP detail view. Line item management (batch/expiry/storage for pharma
  * projects), procurement, financials, and logistics tabs are the next
  * build-out once the core intake flow is validated.
+ *
+ * Reworked 2026-09-24: this used to be a dynamic route (/projects/[id]),
+ * but Next's `output: "export"` (required for Azure Static Web Apps)
+ * rejects any dynamic route whose generateStaticParams() returns an empty
+ * array — and project IDs are tenant data, never known at build time, so
+ * an empty array is the only honest answer. Next's own docs recommend a
+ * query param instead for exactly this case (static export + entirely
+ * client-fetched dynamic content), so this is now a plain static page at
+ * /projects/detail reading ?id= via useSearchParams(). Nothing about the
+ * actual fetch/render logic changed otherwise.
  */
-export default function ProjectDetailPage() {
-  const params = useParams<{ id: string }>();
+export function ProjectDetailView() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!params?.id) return;
+    if (!id) return;
     apiClient
-      .getProject(params.id)
+      .getProject(id)
       .then(setProject)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load project"));
-  }, [params?.id]);
+  }, [id]);
 
+  if (!id) return <main style={{ padding: 32, color: "#B91C1C" }}>No project specified.</main>;
   if (error) return <main style={{ padding: 32, color: "#B91C1C" }}>{error}</main>;
   if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
 

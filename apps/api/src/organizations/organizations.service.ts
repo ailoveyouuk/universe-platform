@@ -15,7 +15,10 @@ export class OrganizationsService {
   async create(caller: RequestUser, dto: CreateOrganizationDto): Promise<OrganizationSummary> {
     assertPlatformStaff(caller);
     const org = await createOrganizationWithDefaultRoles(dto);
-    return { id: org.id, name: org.name, slug: org.slug, status: org.status };
+    // Prisma only knows org.status as a plain `string` column (no native
+    // enums on SQL Server) — narrowed here since the database only ever
+    // stores one of OrganizationStatus's values (packages/db/src/enums.ts).
+    return { id: org.id, name: org.name, slug: org.slug, status: org.status as OrganizationSummary["status"] };
   }
 
   /**
@@ -29,7 +32,7 @@ export class OrganizationsService {
       where: caller.platformStaffRole !== "NONE" ? undefined : { id: caller.organizationId },
       orderBy: { name: "asc" },
     });
-    return orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug, status: o.status }));
+    return orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug, status: o.status as OrganizationSummary["status"] }));
   }
 
   /** Roles available to assign within one organization — used by the Admin

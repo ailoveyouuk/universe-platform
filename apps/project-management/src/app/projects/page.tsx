@@ -42,7 +42,9 @@ export default function ProjectsPage() {
           <tbody>
             {projects.map((p) => (
               <tr key={p.id} style={{ borderBottom: "1px solid #F3F4F6" }}>
-                <td style={{ padding: 8 }}>{p.referenceNumber}</td>
+                <td style={{ padding: 8 }}>
+                  <Link href={`/projects/detail?id=${p.id}`}>{p.referenceNumber}</Link>
+                </td>
                 <td style={{ padding: 8 }}>{p.title}</td>
                 <td style={{ padding: 8 }}>{p.clientName ?? "—"}</td>
                 <td style={{ padding: 8 }}>

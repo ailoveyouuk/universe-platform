@@ -52,14 +52,21 @@ export class ProjectsService {
   async create(user: RequestUser, dto: CreateProjectDto): Promise<ProjectSummary> {
     // If a clientId is supplied, verify it belongs to the caller's own
     // organization before attaching it — otherwise a crafted request could
-    // link a project to another tenant's client record.
+    // link a project to another tenant's partner record. Client is now a
+    // role (PartnerRoleType.CLIENT) on the shared Partner model rather than
+    // its own Prisma model — see schema rework, 2026-09-24.
     if (dto.clientId) {
-      const client = await prisma.client.findFirst({
+      const client = await prisma.partner.findFirst({
         where: { id: dto.clientId, ...tenantScope(user.organizationId) },
       });
       if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organization`);
     }
 
+    // Project is now a header only; the fields the old flat model held for
+    // "the item being procured" (product description/category/quantity)
+    // live on ProjectLine instead. Creating a project still creates one
+    // initial line alongside the header in a single call, matching the
+    // existing single-page intake UX — see CreateProjectLineDto.
     const p = await prisma.project.create({
       data: {
         organizationId: user.organizationId,
@@ -68,12 +75,22 @@ export class ProjectsService {
         category: dto.category,
         projectType: dto.projectType,
         clientId: dto.clientId,
-        deliveryCountry: dto.deliveryCountry,
+        donorReference: dto.donorReference,
+        deliveryCountryCode: dto.deliveryCountryCode,
         startDate: dto.startDate ? new Date(dto.startDate) : undefined,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-        productCategory: dto.productCategory,
-        clientProductDescription: dto.clientProductDescription,
-        quantity: dto.quantity,
+        ...(dto.firstLine
+          ? {
+              lines: {
+                create: {
+                  organizationId: user.organizationId,
+                  clientProductDescription: dto.firstLine.clientProductDescription,
+                  productCategory: dto.firstLine.productCategory,
+                  quantity: dto.firstLine.quantity,
+                },
+              },
+            }
+          : {}),
       },
       include: { client: true },
     });

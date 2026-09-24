@@ -18,18 +18,34 @@ export interface ProjectSummary {
   daysRemainingForSubmission: number | null;
 }
 
+/**
+ * Added 2026-09-24, schema rework: Project is now a header only —
+ * procurement/financial/logistics fields (and the pharma batch block) live
+ * on ProjectLine instead (see architecture doc, "Schema rework"). Creating a
+ * project still creates one initial line alongside the header in a single
+ * call, matching the existing single-page intake UX; further lines are added
+ * via the future line-management endpoints ("Duplicate line" etc. — not yet
+ * built).
+ */
+export interface CreateProjectLineInput {
+  clientProductDescription?: string;
+  productCategory?: string;
+  quantity?: number;
+}
+
 export interface CreateProjectInput {
   referenceNumber: string;
   title: string;
   category: "PROCUREMENT" | "TECHNICAL_ASSISTANCE";
   projectType: "PHARMACEUTICAL" | "NON_PHARMACEUTICAL";
   clientId?: string;
-  deliveryCountry?: string;
+  /** Optional — only populated when an organization knows and wants to
+   * track it. See architecture doc: not a required structural concept. */
+  donorReference?: string;
+  deliveryCountryCode?: string;
   startDate?: string;
   dueDate?: string;
-  productCategory?: string;
-  clientProductDescription?: string;
-  quantity?: number;
+  firstLine?: CreateProjectLineInput;
 }
 
 export interface AuthenticatedUser {
