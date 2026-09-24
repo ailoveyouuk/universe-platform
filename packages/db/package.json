@@ -9,7 +9,9 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "test": "vitest run",
+    "test:db:reset": "tsx scripts/reset-test-db.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
@@ -17,6 +19,7 @@
   "devDependencies": {
     "prisma": "^5.20.0",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
   }
 }

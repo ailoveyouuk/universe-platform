@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { createTokenVerifier } from "@universe/auth";
-import { prisma, PlatformStaffRole, UserStatus } from "@universe/db";
+import { PlatformStaffRole, UserStatus, withPlatformStaffContext } from "@universe/db";
 import type { Request } from "express";
 
 export interface RequestUser {
@@ -110,20 +110,32 @@ export class EntraAuthGuard implements CanActivate {
       }
     }
 
-    // 1. Already-linked identity — the common case after first sign-in.
-    let user = await prisma.user.findUnique({ where: { entraObjectId: oid }, include: userInclude });
+    // Identity resolution happens BEFORE the caller's organization is known
+    // (that's the whole point — we don't know who they are yet), so there is
+    // no organizationId to scope a normal tenant request by. This is exactly
+    // the sanctioned platform-level exception withPlatformStaffContext
+    // exists for (see packages/db/src/tenant-context.ts and
+    // apps/api/src/common/tenant-scoped.ts) — NOT a shortcut around RLS, but
+    // the one place a lookup genuinely has to span every organization by
+    // design. Everything past this block runs scoped to req.user's own
+    // organizationId as normal.
+    const user = await withPlatformStaffContext(async (tx) => {
+      // 1. Already-linked identity — the common case after first sign-in.
+      const existing = await tx.user.findUnique({ where: { entraObjectId: oid }, include: userInclude });
+      if (existing) return existing;
 
-    // 2. First sign-in for a pre-invited email — link it now.
-    if (!user) {
-      const invited = await prisma.user.findUnique({ where: { email } });
+      // 2. First sign-in for a pre-invited email — link it now.
+      const invited = await tx.user.findUnique({ where: { email } });
       if (invited && invited.status === UserStatus.INVITED && !invited.entraObjectId) {
-        user = await prisma.user.update({
+        return tx.user.update({
           where: { id: invited.id },
           data: { entraObjectId: oid, status: UserStatus.ACTIVE, firstSignInAt: new Date() },
           include: userInclude,
         });
       }
-    }
+
+      return null;
+    });
 
     // 3. No match at all, or matched an email that was never INVITED (e.g.
     //    already DEACTIVATED before ever signing in) — reject. This is the

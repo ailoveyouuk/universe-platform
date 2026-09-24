@@ -15,8 +15,11 @@
  *
  * This is the application-layer half of tenant isolation. The database-layer
  * half is Azure SQL Row-Level Security, applied per-table as a backstop —
- * see infra/sql/row-level-security.sql (to be added when the database is
- * provisioned). Both layers must independently enforce the boundary.
+ * see infra/sql/row-level-security.sql (written and ready to run against
+ * the database once it's provisioned — see backend-launch-checklist.md,
+ * Phase B7). Both layers must independently enforce the boundary. Driving
+ * RLS from the app requires wrapping requests in withTenantContext() from
+ * @universe/db — see packages/db/src/tenant-context.ts.
  */
 export function tenantScope(organizationId: string) {
   return { organizationId };
