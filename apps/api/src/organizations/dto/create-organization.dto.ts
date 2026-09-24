@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsString, Matches } from "class-validator";
+import { IsBoolean, IsIn, IsOptional, IsString, Matches } from "class-validator";
 
 export class CreateOrganizationDto {
   @IsString()
@@ -6,6 +6,13 @@ export class CreateOrganizationDto {
 
   @Matches(/^[a-z0-9-]+$/, { message: "slug must be lowercase letters, numbers, and hyphens only" })
   slug!: string;
+
+  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
+   * schema.prisma. Optional so existing callers/tests that don't pass it
+   * keep working. */
+  @IsOptional()
+  @IsIn(["BUYER", "SUPPLIER"])
+  type?: "BUYER" | "SUPPLIER";
 
   /** Must be `true` — the platform-staff member creating this org
    * affirmatively confirming the signed data sharing / privacy agreement is

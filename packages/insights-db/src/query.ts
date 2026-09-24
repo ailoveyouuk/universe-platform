@@ -13,7 +13,9 @@ export const MINIMUM_COHORT_SIZE = 5;
 
 export interface CategoryPricingSummary {
   category: string;
-  region: string | null;
+  destinationRegion: string | null;
+  manufactureRegion: string | null;
+  incoterm: string | null;
   effectiveMonth: Date;
   sourceCount: number;
   minPrice: number;
@@ -26,16 +28,32 @@ export interface CategoryPricingSummary {
  * The only read path the future Insights app should use for pricing —
  * enforces MINIMUM_COHORT_SIZE at query time (HAVING COUNT(DISTINCT
  * sourceHash) >= ...), not just as an assumption baked into the ETL job.
- * Groups by currency too, deliberately — averaging across currencies without
- * conversion would be meaningless, and Universe doesn't do FX conversion
- * anywhere yet (a real gap if/when this is built out further).
+ * Groups by destinationRegion/manufactureRegion/incoterm/currency too,
+ * deliberately — collapsing across these would blur exactly the market
+ * signal Lewis asked for (e.g. "blood bags landed DDP in Uganda" is a
+ * meaningfully different number from the same product FOB elsewhere), and
+ * averaging across currencies without conversion would be meaningless
+ * (Universe doesn't do FX conversion anywhere yet — a real gap if/when this
+ * is built out further).
  */
 export async function getAggregatedPricing(category: string): Promise<CategoryPricingSummary[]> {
   const rows = await insightsPrisma.$queryRaw<
-    { region: string | null; effectiveMonth: Date; currency: string; sourceCount: number; minPrice: number; maxPrice: number; avgPrice: number }[]
+    {
+      destinationRegion: string | null;
+      manufactureRegion: string | null;
+      incoterm: string | null;
+      effectiveMonth: Date;
+      currency: string;
+      sourceCount: number;
+      minPrice: number;
+      maxPrice: number;
+      avgPrice: number;
+    }[]
   >`
     SELECT
-      region,
+      destinationRegion,
+      manufactureRegion,
+      incoterm,
       effectiveMonth,
       currency,
       COUNT(DISTINCT sourceHash) AS sourceCount,
@@ -44,7 +62,7 @@ export async function getAggregatedPricing(category: string): Promise<CategoryPr
       AVG(unitPrice) AS avgPrice
     FROM aggregated_product_prices
     WHERE category = ${category}
-    GROUP BY region, effectiveMonth, currency
+    GROUP BY destinationRegion, manufactureRegion, incoterm, effectiveMonth, currency
     HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
     ORDER BY effectiveMonth DESC
   `;

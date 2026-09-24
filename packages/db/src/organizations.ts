@@ -65,11 +65,29 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
 ];
 
 /**
- * Provisions a new tenant organization with the standard starter roles.
- * This is what Universe's platform-operator team runs (via the Admin app,
- * or directly during early bring-up) to onboard each new organization —
- * every organization goes through this same path, with no default or
- * "house" organization treated differently.
+ * SUPPLIER-type organizations (added 2026-09-24 — see architecture doc,
+ * "Supplier/manufacturer marketplace") get this instead of
+ * DEFAULT_ROLE_TEMPLATE — "Project Manager"/"Read Only" don't mean anything
+ * for an org that doesn't run projects on Universe, it manages a directory
+ * listing. One role for now (no read-only tier yet — a supplier org is
+ * expected to start small); split further if/when a real need shows up.
+ */
+export const DEFAULT_SUPPLIER_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
+  {
+    name: "Supplier Admin",
+    appScope: "*",
+    permissionKeys: ["supplier.profile.manage", "supplier.products.manage", "supplier.leads.view", "org.users.manage", "org.roles.manage"],
+  },
+];
+
+/**
+ * Provisions a new tenant organization with its starter roles — either the
+ * buyer template (DEFAULT_ROLE_TEMPLATE) or, for a SUPPLIER-type org, the
+ * supplier one above. This is what Universe's platform-operator team runs
+ * (via the Admin app, or directly during early bring-up) to onboard each new
+ * organization — every organization goes through this same path, with no
+ * default or "house" organization treated differently, and no special-cased
+ * fork for suppliers beyond which role template it gets.
  *
  * The role-creation loop runs inside withTenantContext(org.id, ...) — the
  * `roles` table is RLS-protected (see infra/sql/row-level-security.sql),
@@ -85,16 +103,22 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
 export async function createOrganizationWithDefaultRoles(params: {
   name: string;
   slug: string;
+  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
+   * schema.prisma. */
+  type?: "BUYER" | "SUPPLIER";
   /** The platform-staff user provisioning this org, i.e. confirming the
    * signed data-sharing agreement is on file. Optional only for the seed
    * script's own bootstrap path, which has no authenticated caller — every
    * real API-driven creation (OrganizationsService.create) always has one. */
   acceptedById?: string;
 }) {
+  const type = params.type ?? "BUYER";
+  const roleTemplate = type === "SUPPLIER" ? DEFAULT_SUPPLIER_ROLE_TEMPLATE : DEFAULT_ROLE_TEMPLATE;
+
   const org = await prisma.organization.upsert({
     where: { slug: params.slug },
     update: {},
-    create: { name: params.name, slug: params.slug },
+    create: { name: params.name, slug: params.slug, type },
   });
 
   // Both the consent row and the role loop below run inside the SAME
@@ -117,7 +141,7 @@ export async function createOrganizationWithDefaultRoles(params: {
       },
     });
 
-    for (const role of DEFAULT_ROLE_TEMPLATE) {
+    for (const role of roleTemplate) {
       const created = await tx.role.upsert({
         where: { organizationId_name_appScope: { organizationId: org.id, name: role.name, appScope: role.appScope } },
         update: {},

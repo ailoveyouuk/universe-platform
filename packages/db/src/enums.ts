@@ -81,6 +81,14 @@ export const OrganizationStatus = {
 } as const;
 export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];
 
+/// Added 2026-09-24 — see Organization.type's doc comment in schema.prisma
+/// and "Supplier/manufacturer marketplace" in the architecture doc.
+export const OrganizationType = {
+  BUYER: "BUYER",
+  SUPPLIER: "SUPPLIER",
+} as const;
+export type OrganizationType = (typeof OrganizationType)[keyof typeof OrganizationType];
+
 export const PlatformStaffRole = {
   NONE: "NONE",
   SUPPORT: "SUPPORT",

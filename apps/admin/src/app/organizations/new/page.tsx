@@ -29,7 +29,12 @@ function slugify(name: string): string {
 export default function NewOrganizationPage() {
   const router = useRouter();
   const [me, setMe] = useState<AuthenticatedUser | null>(null);
-  const [form, setForm] = useState<CreateOrganizationInput>({ name: "", slug: "", confirmedAgreementOnFile: false });
+  const [form, setForm] = useState<CreateOrganizationInput>({
+    name: "",
+    slug: "",
+    type: "BUYER",
+    confirmedAgreementOnFile: false,
+  });
   const [slugTouched, setSlugTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,12 +104,42 @@ export default function NewOrganizationPage() {
     <main style={{ padding: 32, maxWidth: 560 }}>
       <h1>Create Organization</h1>
       <p style={{ color: "#6B7280", fontSize: 13 }}>
-        Provisions a new tenant with its default role template (Organization Admin, Project
-        Manager, Read Only). There is no default/&quot;house&quot; organization on Universe — every
-        tenant, including the very first pilot, is created this same way.
+        Provisions a new tenant. There is no default/&quot;house&quot; organization on Universe —
+        every tenant, including the very first pilot, is created this same way.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
+        <fieldset style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: 12 }}>
+          <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 4px" }}>Organization Type</legend>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "BUYER"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "BUYER" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Buyer</strong> — the default role template (Organization Admin, Project
+              Manager, Read Only). Runs projects, procures products.
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "SUPPLIER"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "SUPPLIER" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Supplier / Manufacturer</strong> — gets the Supplier Admin role instead.
+              Manages a public profile and product catalog, searchable and selectable by every
+              buyer organization on the platform once published.
+            </span>
+          </label>
+        </fieldset>
+
         <label>
           Organization Name
           <input
@@ -140,10 +175,22 @@ export default function NewOrganizationPage() {
           />
           <span>
             I confirm this organization has signed Universe&apos;s Privacy Policy and Data Sharing
-            Agreement, including consent for anonymized, aggregated data to feed the Insights app.
-            This is required before an organization is provisioned — Universe never stores or shares
-            identifying data (organization name, manufacturer, client) in that aggregate, only
-            de-identified pricing/specification data grouped by product category.
+            Agreement. This is required before an organization is provisioned.{" "}
+            {form.type === "SUPPLIER" ? (
+              <>
+                For a Supplier/Manufacturer organization, this includes consent for their profile,
+                product catalog, and contact details to be identifiable and searchable by every
+                buyer organization on the platform once published — the opposite of the buyer-side
+                anonymized aggregate, and the point of joining the marketplace.
+              </>
+            ) : (
+              <>
+                This includes consent for anonymized, aggregated pricing/specification data to feed
+                the Insights app — Universe never stores or shares identifying data (organization
+                name, manufacturer, client) in that aggregate, only de-identified data grouped by
+                product category.
+              </>
+            )}
           </span>
         </label>
 

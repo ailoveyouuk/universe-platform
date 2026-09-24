@@ -62,6 +62,12 @@ try {
     `${COMPOSE.join(" ")} exec -T test-sql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" ` +
       `-d universe_test -b < infra/sql/row-level-security.sql`,
   );
+  // supplier-directory-rls.sql reuses rls.fn_tenantAccessPredicate, defined
+  // by the file above — order matters, this must run second.
+  run(
+    `${COMPOSE.join(" ")} exec -T test-sql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" ` +
+      `-d universe_test -b < infra/sql/supplier-directory-rls.sql`,
+  );
 
   run("npm run test --workspace=@universe/db", { env: testEnv });
   run("npm run test --workspace=@universe/api", { env: testEnv });

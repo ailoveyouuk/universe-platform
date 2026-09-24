@@ -107,6 +107,17 @@ jobs:
             -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
             < infra/sql/row-level-security.sql
 
+      - name: Apply Supplier Directory RLS (sqlcmd, not Prisma)
+        # Read-everyone/write-owner-only policy for the supplier/manufacturer
+        # marketplace tables — deliberately a different access model from
+        # row-level-security.sql above, which it must run after (reuses
+        # rls.fn_tenantAccessPredicate, defined there). See
+        # infra/sql/supplier-directory-rls.sql's own header comment.
+        run: |
+          docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
+            < infra/sql/supplier-directory-rls.sql
+
       - name: Run @universe/db tests (RLS / tenant isolation)
         run: npm run test --workspace=@universe/db
 

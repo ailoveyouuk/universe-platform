@@ -84,6 +84,9 @@ export interface OrganizationSummary {
   name: string;
   slug: string;
   status: "PILOT" | "ACTIVE" | "SUSPENDED";
+  /** BUYER (default) or SUPPLIER — added 2026-09-24, see Organization.type's
+   * doc comment in schema.prisma. */
+  type: "BUYER" | "SUPPLIER";
 }
 
 /**
@@ -99,6 +102,9 @@ export interface OrganizationSummary {
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
+  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
+   * schema.prisma. */
+  type?: "BUYER" | "SUPPLIER";
   /** Must be true — see CreateOrganizationDto's doc comment (apps/api). */
   confirmedAgreementOnFile: boolean;
 }
@@ -107,4 +113,70 @@ export interface RoleSummary {
   id: string;
   name: string;
   appScope: string;
+}
+
+// ---------------------------------------------------------------------------
+// Supplier/manufacturer marketplace (added 2026-09-24 — see architecture
+// doc, "Supplier/manufacturer marketplace"). Types the future Supplier
+// Portal app and any buyer-side search-and-add UI will use — the backend
+// (apps/api/src/supplier-directory) is built; these are its contract.
+// ---------------------------------------------------------------------------
+
+export interface SupplierProfile {
+  id: string;
+  organizationId: string;
+  description: string | null;
+  website: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  publishedAt: string | null;
+}
+
+export interface UpsertSupplierProfileInput {
+  description?: string;
+  website?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+export interface SupplierProduct {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  productMasterId: string | null;
+  specifications: string | null;
+  gtin: string | null;
+  manufacturerPartNumber: string | null;
+  isPublished: boolean;
+}
+
+export interface CreateSupplierProductInput {
+  name: string;
+  description?: string;
+  productMasterId?: string;
+  specifications?: string;
+  gtin?: string;
+  manufacturerPartNumber?: string;
+}
+
+export interface UpdateSupplierProductInput extends CreateSupplierProductInput {
+  isPublished?: boolean;
+}
+
+/** One row from a directory search — includes the supplier org's name/slug
+ * deliberately (this is the identifiable, searchable side of the platform,
+ * the opposite of the anonymized Insights pool). */
+export interface SupplierSearchResult extends SupplierProduct {
+  organization: { id: string; name: string; slug: string };
+  productMaster: { category: string } | null;
+}
+
+export interface SupplierLead {
+  id: string;
+  buyerOrganization: { id: string; name: string };
+  supplierProduct: { id: string; name: string };
+  createdAt: string;
 }

@@ -65,23 +65,32 @@ function main() {
     );
   }
 
-  const sqlPath = join(__dirname, "../../../infra/sql/row-level-security.sql");
-  const args = ["-S", `${conn.host},${conn.port}`, "-d", conn.database, "-U", conn.user, "-P", conn.password, "-b", "-i", sqlPath];
-  if (conn.trustServerCertificate) args.push("-C");
-  if (conn.encrypt) args.push("-N");
+  // Both files in order — supplier-directory-rls.sql reuses
+  // rls.fn_tenantAccessPredicate for its BLOCK predicates, so
+  // row-level-security.sql (which defines that function) must run first.
+  const sqlPaths = [
+    join(__dirname, "../../../infra/sql/row-level-security.sql"),
+    join(__dirname, "../../../infra/sql/supplier-directory-rls.sql"),
+  ];
 
-  try {
-    execFileSync("sqlcmd", args, { stdio: "inherit" });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(
-        "sqlcmd not found on PATH. Install mssql-tools18 " +
-          "(https://learn.microsoft.com/sql/linux/install-upgrade/setup-tools) or run this from Azure Cloud Shell.",
-      );
+  for (const sqlPath of sqlPaths) {
+    const args = ["-S", `${conn.host},${conn.port}`, "-d", conn.database, "-U", conn.user, "-P", conn.password, "-b", "-i", sqlPath];
+    if (conn.trustServerCertificate) args.push("-C");
+    if (conn.encrypt) args.push("-N");
+
+    try {
+      execFileSync("sqlcmd", args, { stdio: "inherit" });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new Error(
+          "sqlcmd not found on PATH. Install mssql-tools18 " +
+            "(https://learn.microsoft.com/sql/linux/install-upgrade/setup-tools) or run this from Azure Cloud Shell.",
+        );
+      }
+      throw err;
     }
-    throw err;
+    console.log(`Applied ${sqlPath.split("/").pop()} via sqlcmd.`);
   }
-  console.log("Applied row-level-security.sql via sqlcmd.");
 }
 
 main();

@@ -21,10 +21,16 @@ export class OrganizationsService {
     // is a UI/audit gate on the platform-staff member creating the org, not a
     // second consent mechanism.
     const org = await createOrganizationWithDefaultRoles({ ...dto, acceptedById: caller.id });
-    // Prisma only knows org.status as a plain `string` column (no native
+    // Prisma only knows org.status/type as plain `string` columns (no native
     // enums on SQL Server) — narrowed here since the database only ever
-    // stores one of OrganizationStatus's values (packages/db/src/enums.ts).
-    return { id: org.id, name: org.name, slug: org.slug, status: org.status as OrganizationSummary["status"] };
+    // stores one of the allowed values (packages/db/src/enums.ts).
+    return {
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      status: org.status as OrganizationSummary["status"],
+      type: org.type as OrganizationSummary["type"],
+    };
   }
 
   /**
@@ -38,7 +44,13 @@ export class OrganizationsService {
       where: caller.platformStaffRole !== "NONE" ? undefined : { id: caller.organizationId },
       orderBy: { name: "asc" },
     });
-    return orgs.map((o) => ({ id: o.id, name: o.name, slug: o.slug, status: o.status as OrganizationSummary["status"] }));
+    return orgs.map((o) => ({
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      status: o.status as OrganizationSummary["status"],
+      type: o.type as OrganizationSummary["type"],
+    }));
   }
 
   /** Roles available to assign within one organization — used by the Admin

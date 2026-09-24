@@ -31,23 +31,48 @@ datasource db {
   url      = env("INSIGHTS_DATABASE_URL")
 }
 
-/// One row per (category, effectiveMonth, region) observation contributed by
+/// One row per (category, effectiveMonth, ...) observation contributed by
 /// one source transaction — src/aggregate-etl.ts is the only writer.
+///
+/// WRITE vs READ anonymization (2026-09-24, per Lewis — see architecture
+/// doc "Anonymized cross-tenant insights: full data-point capture"):
+/// EVERY consented org's row is written here unconditionally, even if that
+/// org is the only one who has ever entered a given category — e.g. one
+/// org's single "blood bags, $1.50 USD, destination Uganda, DDP" entry
+/// still lands in the pool the moment it's recorded, so the pool builds
+/// organically from day one rather than waiting for a cohort to exist.
+/// `sourceHash` is what keeps that row ringfenced regardless of cohort
+/// size — it identifies "this row came from the same org as that row"
+/// without ever saying which org. The MINIMUM_COHORT_SIZE floor (src/query.ts)
+/// is a READ-time restriction on what's ever returned as an aggregate, not a
+/// write-time gate — a lone row sits in the pool, counted, but never surfaced
+/// on its own until enough distinct orgs have contributed to the same
+/// category/dimension combination.
 ///
 /// Anonymization approach, field by field:
 ///   - category: ProductMaster.category, copied verbatim — shared reference
 ///     data already, not identifying.
 ///   - attributes: a JSON snapshot of the ProductLine's resolved spec
 ///     attributes (ProductAttributeDefinition-keyed), with the ETL job
-///     stripping any free-text field known to sometimes carry a
-///     manufacturer/brand name (see aggregate-etl.ts's STRIPPED_ATTRIBUTE_KEYS).
+///     stripping any free-text (STRING-typed) field, since that's where a
+///     manufacturer/brand name tends to leak in.
 ///   - unitPrice / currency: the actual figure — this is the point of the
 ///     feature, and a price alone doesn't identify anyone.
 ///   - effectiveMonth: ProductPriceHistory.effectiveDate truncated to the
 ///     1st of its month — exact dates plus a small cohort can sometimes
 ///     pinpoint a specific shipment/tender.
-///   - region: the org's WHO region (Region.code — AFRO/AMRO/etc.), never
-///     the org's country and never the org itself. Coarse on purpose.
+///   - manufactureRegion: WHO region derived from ProjectLine's
+///     countryOfManufactureCode — never the org's own country, never the
+///     org itself.
+///   - destinationRegion: WHO region derived from the Project header's
+///     deliveryCountryCode (added 2026-09-24, per Lewis's "destination
+///     country Uganda" example) — a different, equally coarse and
+///     non-identifying market signal from manufactureRegion.
+///   - incoterm / freightMode: structured, enum-like fields (from the
+///     schema's own allowed-values list, not free text) — added 2026-09-24
+///     per Lewis's "full range of data points" request.
+///   - quantity / unitOfSupply: the deal's size/unit — a number and a short
+///     structured unit string, not identifying alone.
 ///   - sourceHash: HMAC-SHA256(organizationId, INSIGHTS_HASH_SECRET),
 ///     truncated. One-way — cannot be reversed to organizationId — but
 ///     stable, so COUNT(DISTINCT sourceHash) within a group tells the query
@@ -59,15 +84,20 @@ datasource db {
 /// supplierId/manufacturerId, any Partner or Project/Client reference, any
 /// user id, any free-text description field from the source row.
 model AggregatedProductPrice {
-  id             String   @id @default(uuid())
-  category       String
-  attributes     String?  @db.NVarChar(Max)
-  unitPrice      Decimal  @db.Decimal(18, 2)
-  currency       String   @db.Char(3)
-  effectiveMonth DateTime
-  region         String?
-  sourceHash     String
-  createdAt      DateTime @default(now())
+  id                String   @id @default(uuid())
+  category          String
+  attributes        String?  @db.NVarChar(Max)
+  unitPrice         Decimal  @db.Decimal(18, 2)
+  currency          String   @db.Char(3)
+  effectiveMonth    DateTime
+  manufactureRegion String?
+  destinationRegion String?
+  incoterm          String?
+  freightMode       String?
+  quantity          Int?
+  unitOfSupply      String?
+  sourceHash        String
+  createdAt         DateTime @default(now())
 
   @@index([category, effectiveMonth])
   @@map("aggregated_product_prices")

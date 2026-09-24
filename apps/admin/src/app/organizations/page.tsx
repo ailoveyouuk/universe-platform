@@ -63,6 +63,7 @@ export default function OrganizationsPage() {
             <tr style={{ textAlign: "left", borderBottom: "2px solid #E5E7EB" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Slug</th>
+              <th style={{ padding: 8 }}>Type</th>
               <th style={{ padding: 8 }}>Status</th>
             </tr>
           </thead>
@@ -71,6 +72,7 @@ export default function OrganizationsPage() {
               <tr key={o.id} style={{ borderBottom: "1px solid #F3F4F6" }}>
                 <td style={{ padding: 8 }}>{o.name}</td>
                 <td style={{ padding: 8, color: "#6B7280" }}>{o.slug}</td>
+                <td style={{ padding: 8, color: "#6B7280" }}>{o.type === "SUPPLIER" ? "Supplier/Manufacturer" : "Buyer"}</td>
                 <td style={{ padding: 8 }}>
                   <span
                     style={{
@@ -89,7 +91,7 @@ export default function OrganizationsPage() {
             ))}
             {organizations.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ padding: 8, color: "#6B7280" }}>
+                <td colSpan={4} style={{ padding: 8, color: "#6B7280" }}>
                   No organizations yet.
                 </td>
               </tr>

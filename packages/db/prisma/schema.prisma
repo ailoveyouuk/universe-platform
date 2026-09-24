@@ -106,6 +106,11 @@ datasource db {
 //                             PHARMACEUTICALS | LABORATORY
 // ProjectDocument.type     — CHECKLIST | ISSUES | CLOSEOUT_REPORT | OTHER
 // Organization.status      — PILOT | ACTIVE | SUSPENDED
+// Organization.type        — BUYER | SUPPLIER (added 2026-09-24 — see
+//                             "Supplier/manufacturer marketplace" in the
+//                             architecture doc. A SUPPLIER-type org gets the
+//                             Supplier Portal app and its own default role
+//                             template instead of Project Manager/Read Only.)
 // User.platformStaffRole   — NONE | SUPPORT | SUPER_ADMIN
 // User.status               — INVITED | ACTIVE | DEACTIVATED
 // PartnerRole.roleType      — CLIENT | MANUFACTURER | SUPPLIER |
@@ -127,6 +132,13 @@ model Organization {
   name      String
   slug      String   @unique // used in URLs / subdomains
   status    String   @default("PILOT") // see allowed values reference above
+  /// BUYER (default) or SUPPLIER — see allowed values reference above and
+  /// "Supplier/manufacturer marketplace" in the architecture doc
+  /// (2026-09-24). Drives which default role template
+  /// createOrganizationWithDefaultRoles gives it and which app(s) it's
+  /// steered toward — not an access-control boundary by itself (RLS/role
+  /// permissions still do the actual enforcing).
+  type      String   @default("BUYER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -136,6 +148,11 @@ model Organization {
   projects         Project[]
   productLines     ProductLine[]
   dataSharingConsents DataSharingConsent[]
+  supplierProfile  SupplierProfile?
+  supplierProducts SupplierProduct[]
+  supplierCountryPresence SupplierCountryPresence[]
+  supplierLeadsAsSupplier SupplierLead[] @relation("SupplierLeadSupplier")
+  supplierLeadsAsBuyer    SupplierLead[] @relation("SupplierLeadBuyer")
 
   @@map("organizations")
 }
@@ -176,6 +193,7 @@ model User {
   uploadedDocuments  ProjectDocument[]
   recordedPrices     ProductPriceHistory[]
   acceptedConsents   DataSharingConsent[]
+  createdSupplierProducts SupplierProduct[]
 
   @@index([organizationId])
   @@map("users")
@@ -703,6 +721,7 @@ model ProductMaster {
   projectLines         ProjectLine[]
   productLines         ProductLine[]
   priceHistory         ProductPriceHistory[]
+  supplierProducts     SupplierProduct[]
 
   @@index([category])
   @@index([hsCode])
@@ -780,6 +799,8 @@ model Country {
   regionCode String?
   region     Region? @relation(fields: [regionCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
 
+  supplierCountryPresence SupplierCountryPresence[]
+
   @@map("countries")
 }
 
@@ -818,4 +839,111 @@ model DataSharingConsent {
   revokedAt      DateTime?
 
   @@map("data_sharing_consents")
+}
+
+// ---------------------------------------------------------------------------
+// Supplier/manufacturer marketplace (added 2026-09-24 — per Lewis, see
+// "Supplier/manufacturer marketplace" in the architecture doc). A SUPPLIER-
+// type Organization publishes its own profile, product catalog, and country
+// presence, consented and visible to every other organization on the
+// platform for search-and-add into their projects — the opposite anonymity
+// model from DataSharingConsent's aggregate pool above: here the whole point
+// is for suppliers/manufacturers to be identifiable and reachable, in
+// exchange for exposure to buyer demand across the platform.
+//
+// ACCESS MODEL — deliberately NOT the tenant-isolation RLS pattern used
+// everywhere else in this file. These three tables need READ access from
+// every authenticated user on the platform (that's the product), but WRITE
+// access only from the owning supplier organization's own users. See
+// infra/sql/supplier-directory-rls.sql for the actual policy — a read-
+// everyone / write-owner-only predicate, distinct from
+// rls.fn_tenantAccessPredicate's read-and-write-scoped-to-caller's-own-org
+// default-deny model. organizationId is still denormalized onto every row
+// here for that write-side scoping, consistent with the rest of the schema.
+// ---------------------------------------------------------------------------
+
+/// One row per SUPPLIER-type Organization — its public-facing profile. Not
+/// searchable/visible to other organizations until publishedAt is set
+/// (lets a supplier complete onboarding before appearing live).
+model SupplierProfile {
+  id             String    @id @default(uuid())
+  organizationId String    @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  description    String?   @db.NVarChar(Max)
+  website        String?
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("supplier_profiles")
+}
+
+/// Country-level presence — "all levels of specificity" per Lewis, so this
+/// is Country- not just Region-grained (Region is always derivable via
+/// Country.regionCode when a coarser view is useful). Many rows per org.
+model SupplierCountryPresence {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  countryCode    String
+  country        Country  @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, countryCode])
+  @@map("supplier_country_presence")
+}
+
+/// One row per product a supplier/manufacturer has published to the
+/// marketplace. Links to the shared ProductMaster catalog when matched
+/// (same mechanism ProductLine/ProjectLine use elsewhere) so a buyer's
+/// search-and-add flow can resolve it against the same category taxonomy.
+/// Not visible in search until isPublished is true.
+model SupplierProduct {
+  id                String    @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name              String
+  description       String?   @db.NVarChar(Max)
+  productMasterId   String?
+  productMaster     ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Category-specific spec values, same JSON-keyed-by-ProductAttributeDefinition
+  /// pattern as ProjectLine/ProductLine.attributes — validated at the app
+  /// layer against the matched category's definitions.
+  specifications    String?   @db.NVarChar(Max)
+  gtin              String?
+  manufacturerPartNumber String?
+  isPublished       Boolean   @default(false)
+  createdById       String?
+  createdBy         User?     @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([productMasterId])
+  @@map("supplier_products")
+}
+
+/// A lightweight audit trail of buyer interest — created when a buying
+/// organization selects a SupplierProduct into one of their own projects
+/// (see OrganizationsService's future supplier-directory endpoints). Lets
+/// the Supplier Portal show engagement without giving the supplier the
+/// buyer's full record — buyerOrganizationId is stored (suppliers should be
+/// able to see WHO is interested, that's the point of exposure), but never
+/// gives the supplier write/read access into the buyer's own tenant data.
+model SupplierLead {
+  id                 String   @id @default(uuid())
+  supplierOrganizationId String
+  supplierOrganization   Organization @relation("SupplierLeadSupplier", fields: [supplierOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  buyerOrganizationId    String
+  buyerOrganization      Organization @relation("SupplierLeadBuyer", fields: [buyerOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierProductId  String
+  supplierProduct    SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt          DateTime @default(now())
+
+  @@index([supplierOrganizationId])
+  @@index([buyerOrganizationId])
+  @@map("supplier_leads")
 }

@@ -25,6 +25,11 @@ const PERMISSIONS = [
   { key: "projects.financials.edit", description: "Edit financial fields" },
   { key: "org.users.manage", description: "Invite/deactivate users within your own organization" },
   { key: "org.roles.manage", description: "Manage roles/permissions within your own organization" },
+  // Supplier/manufacturer marketplace (added 2026-09-24) — see
+  // DEFAULT_SUPPLIER_ROLE_TEMPLATE in organizations.ts.
+  { key: "supplier.profile.manage", description: "Manage your organization's public supplier profile" },
+  { key: "supplier.products.manage", description: "Publish/edit your organization's supplier product catalog" },
+  { key: "supplier.leads.view", description: "View buyer interest in your organization's products" },
 ];
 
 async function main() {

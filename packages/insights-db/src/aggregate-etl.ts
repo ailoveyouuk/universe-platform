@@ -63,7 +63,18 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
         where: { createdAt: { gte: since }, productMasterId: { not: null } },
         include: {
           productMaster: { select: { category: true } },
-          projectLine: { select: { attributes: true, productMasterId: true, countryOfManufactureCode: true } },
+          productLine: { select: { unitOfSupply: true } },
+          projectLine: {
+            select: {
+              attributes: true,
+              productMasterId: true,
+              countryOfManufactureCode: true,
+              incoterm: true,
+              freightMode: true,
+              quantity: true,
+              project: { select: { deliveryCountryCode: true } },
+            },
+          },
         },
       }),
     );
@@ -71,7 +82,12 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
     for (const row of priceRows) {
       if (!row.productMaster) continue; // productMasterId set but the row is gone — skip rather than guess
 
-      const region = await resolveRegion(row.projectLine?.countryOfManufactureCode ?? null);
+      // Every consented org's row is written unconditionally, even a single
+      // org's single entry — see the model's own doc comment in
+      // prisma/schema.prisma ("WRITE vs READ anonymization") for why. The
+      // cohort-size floor lives entirely in src/query.ts, never here.
+      const manufactureRegion = await resolveRegion(row.projectLine?.countryOfManufactureCode ?? null);
+      const destinationRegion = await resolveRegion(row.projectLine?.project?.deliveryCountryCode ?? null);
       const attributes = await sanitizeAttributes(row.productMaster.category, row.projectLine?.attributes ?? null);
 
       await insightsPrisma.aggregatedProductPrice.create({
@@ -81,7 +97,12 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
           unitPrice: row.unitPrice,
           currency: row.currency,
           effectiveMonth: truncateToMonth(row.effectiveDate),
-          region,
+          manufactureRegion,
+          destinationRegion,
+          incoterm: row.projectLine?.incoterm ?? null,
+          freightMode: row.projectLine?.freightMode ?? null,
+          quantity: row.projectLine?.quantity ?? null,
+          unitOfSupply: row.productLine?.unitOfSupply ?? null,
           sourceHash,
         },
       });
