@@ -1,7 +1,10 @@
 /**
- * Seeds the ONE piece of baseline reference data every environment needs
- * before any organization can be provisioned: the permission catalog
- * (global — what CAN be granted).
+ * Seeds the baseline reference data every environment needs before any
+ * organization can be provisioned: the permission catalog (global — what
+ * CAN be granted) and the Region/Country reference tables (global — see
+ * seed-data/regions-countries.ts for sourcing/provenance). Both are shared,
+ * non-tenant-scoped tables (not in row-level-security.sql's protected-table
+ * list), so this runs as plain `prisma` calls with no session context.
  *
  * This script deliberately does NOT create any organization — Universe has
  * no default or "house" tenant. To provision the first (or any later) real
@@ -11,6 +14,7 @@
  * function, so there's exactly one definition of "what a new org gets."
  */
 import { prisma } from "./index";
+import { COUNTRIES, REGIONS } from "./seed-data/regions-countries";
 
 const PERMISSIONS = [
   { key: "projects.view", description: "View projects" },
@@ -31,7 +35,26 @@ async function main() {
       create: permission,
     });
   }
-  console.log(`Seed complete: ${PERMISSIONS.length} permissions in the catalog. No organization created.`);
+
+  // Regions before countries — Country.regionCode is a real FK to Region.code.
+  for (const region of REGIONS) {
+    await prisma.region.upsert({
+      where: { code: region.code },
+      update: { name: region.name },
+      create: region,
+    });
+  }
+  for (const country of COUNTRIES) {
+    await prisma.country.upsert({
+      where: { code: country.code },
+      update: { name: country.name, regionCode: country.regionCode },
+      create: country,
+    });
+  }
+
+  console.log(
+    `Seed complete: ${PERMISSIONS.length} permissions, ${REGIONS.length} regions, ${COUNTRIES.length} countries. No organization created.`,
+  );
 }
 
 main()
