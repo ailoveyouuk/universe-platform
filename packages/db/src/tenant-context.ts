@@ -9,6 +9,28 @@ import { prisma } from "./index";
  * call and the queries that follow share one connection is to run them
  * inside the same prisma.$transaction(...).
  *
+ * Both keys are set explicitly on every call, not just the one this
+ * function "owns" — deliberately, for two reasons found the hard way in CI
+ * 2026-09-24:
+ *
+ *   1. `@read_only = 1` (an earlier version of this file used it, meaning to
+ *      guard against the app overwriting it mid-request) turns out to lock
+ *      that key for the rest of the CONNECTION, not the transaction. Since
+ *      Prisma reuses pooled connections across unrelated transactions, the
+ *      second withTenantContext() call for a DIFFERENT organization on a
+ *      reused connection failed outright ("Cannot set key 'organizationId'
+ *      in the session context. The key has been set as read_only for this
+ *      session.", SQL error 15664). Removed — @read_only doesn't fit a
+ *      pooled-connection model at all.
+ *   2. With @read_only gone, a value set by an EARLIER transaction can
+ *      linger on a connection the pool later reuses for something else.
+ *      Left unaddressed, a connection that once ran under
+ *      withPlatformStaffContext() and got reused for an ordinary
+ *      withTenantContext() call could keep isPlatformStaff=1 from the
+ *      earlier transaction — a real cross-tenant leak, not just a test
+ *      flake. So every call here resets BOTH keys, every time, rather than
+ *      trusting the pool to hand back a clean connection.
+ *
  * Every tenant-facing request handler should wrap its database work in
  * withTenantContext(organizationId, ...) rather than calling `prisma`
  * directly. This is the runtime half of the RLS backstop; the application
@@ -28,7 +50,8 @@ export async function withTenantContext<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = ${organizationId}, @read_only = 1;`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = ${organizationId};`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 0;`;
     return fn(tx);
   });
 }
@@ -44,7 +67,8 @@ export async function withTenantContext<T>(
  */
 export async function withPlatformStaffContext<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 1, @read_only = 1;`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'isPlatformStaff', @value = 1;`;
+    await tx.$executeRaw`EXEC sp_set_session_context @key = N'organizationId', @value = NULL;`;
     return fn(tx);
   });
 }
