@@ -920,6 +920,13 @@ model SupplierProduct {
   createdBy         User?     @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  /// Opposite side of SupplierLead.supplierProduct — required by Prisma even
+  /// though nothing here navigates supplier->leads directly today (that read
+  /// goes through SupplierDirectoryService, same pattern as the RLS-skipped
+  /// access on this table's parent model). Missing this broke `prisma
+  /// generate` outright (P1012) as of the commit that added SupplierLead —
+  /// caught via CI failing on every push since, not by re-reading the schema.
+  leads             SupplierLead[]
 
   @@index([organizationId])
   @@index([productMasterId])
