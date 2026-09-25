@@ -87,10 +87,19 @@ distinction — this is NOT one deployment per organization):
 2. Pull the two SWA deployment tokens and the ACR/Container App names out
    of the deployment's outputs (`az deployment group show`), add them as
    the secrets/variables above.
-3. Set the DB connection string INTO Key Vault directly (not through
-   Bicep — secrets shouldn't pass through template parameters):
+3. Create the API's own dedicated, lower-privilege SQL login (never run
+   the API against the `sqlAdminLogin` admin account day to day) using
+   `infra/sql/create-app-login.sql` — fill in a freshly generated password
+   in your own editor first, then run section 1 against `master` and
+   section 2 against `universe`, both as the admin login. See that file's
+   header comment for the full walkthrough and why `db_datareader`/
+   `db_datawriter` (not `db_owner`) is enough given RLS does the real
+   tenant-isolation enforcement.
+4. Set the DB connection string INTO Key Vault directly (not through
+   Bicep — secrets shouldn't pass through template parameters), built from
+   the app login's credentials from step 3 (not the admin login's):
    ```bash
-   az keyvault secret set --vault-name <keyVaultName> --name database-url --value "<connection string>"
+   az keyvault secret set --vault-name <keyVaultName> --name database-url --value "<connection string using universe_api_app>"
    ```
    (There is no CIAM client secret to set — `universe-platform-web` is a
    public SPA client (PKCE, no secret) and the API verifies tokens via
@@ -98,15 +107,22 @@ distinction — this is NOT one deployment per organization):
    `universe-ciam-client-secret` entry may still exist in the vault from an
    earlier design; `containerApp.bicep` no longer reads it — see that
    file's comment.)
-4. Run **Deploy API** (`.github/workflows/deploy-api.yml`) — builds the
+5. Run **Deploy API** (`.github/workflows/deploy-api.yml`) — builds the
    real image and updates the Container App to run it.
-5. Run **Deploy Static Web Apps** (`.github/workflows/deploy-static-web-apps.yml`).
-6. Run the database migration + seed against the new database:
+6. Run **Deploy Static Web Apps** (`.github/workflows/deploy-static-web-apps.yml`).
+7. Run the database migration + RLS policies + seed against the new
+   database. Migrations need `CREATE TABLE`/DDL, which `universe_api_app`
+   (step 3) deliberately does not have — use the **admin** login
+   (`sqlAdminLogin`/`sqlAdminPassword`) for this one-off step, not the
+   app's own connection string:
    ```bash
-   DATABASE_URL="<connection string>" npm run db:migrate
-   DATABASE_URL="<connection string>" npm run seed --workspace=@universe/db
+   DATABASE_URL="<admin connection string>" npm run db:migrate
+   # Apply Row-Level Security — see infra/sql/row-level-security.sql and
+   # infra/sql/supplier-directory-rls.sql's own headers; run both as the
+   # admin login too (CREATE SECURITY POLICY is also DDL).
+   DATABASE_URL="<admin connection string>" npm run seed --workspace=@universe/db
    ```
-7. Provision your first real organization (see the main README's "Getting
+8. Provision your first real organization (see the main README's "Getting
    started" section — there is no default organization).
 
 ## Known gaps, honestly
