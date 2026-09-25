@@ -128,20 +128,29 @@ module api 'modules/containerApp.bicep' = {
   }
 }
 
-// KNOWN BOOTSTRAPPING NUANCE: this module grants the Container App's
-// managed identity access to the Key Vault, but Azure RBAC role
-// assignments can take a couple of minutes to propagate. On a FIRST
-// deploy, the Container App's first revision may fail to start (can't
-// resolve its Key Vault secret refs yet) even though this template
-// succeeds. If that happens, wait ~2-5 minutes and re-run the deployment
-// (or `az containerapp revision restart`) — this is standard Azure RBAC
+// The Key Vault itself is NOT created by this template — see
+// modules/keyVault.bicep's own comment. It's pre-provisioned once via CLI
+// (same reasoning as the apiIdentity `existing` reference above: this
+// module's role assignment depends on the Container App's identity, so the
+// Container App builds first, and on a first-ever deploy the vault and its
+// two secrets (database-url, universe-ciam-client-secret) need to already
+// exist for the Container App's first revision to start at all). This
+// module only adds the role assignment granting the Container App's
+// managed identity access to the (already-existing) vault.
+//
+// KNOWN BOOTSTRAPPING NUANCE (separate from the above, still applies):
+// Azure RBAC role assignments can take a couple of minutes to propagate.
+// Even with the vault and secrets already in place, the Container App's
+// first revision may still fail to start right after this role assignment
+// is created, because the grant hasn't propagated yet. If that happens,
+// wait ~2-5 minutes and re-run the deployment (or
+// `az containerapp revision restart`) — this is standard Azure RBAC
 // propagation delay, not a template bug. Subsequent deploys are unaffected
 // since the role assignment already exists.
 module keyVault 'modules/keyVault.bicep' = {
   name: 'keyVault'
   params: {
     name: keyVaultName
-    location: location
     apiPrincipalId: api.outputs.principalId
   }
 }

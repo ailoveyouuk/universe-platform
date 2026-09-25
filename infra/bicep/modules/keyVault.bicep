@@ -1,16 +1,24 @@
 @description('Key Vault holding secrets the API needs at runtime (DB connection string, CIAM client secret). The Container App reads these via its managed identity — no secret ever sits in a Bicep parameter file or GitHub Actions log.')
 param name string
-param location string
 param apiPrincipalId string
 
-resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
+// Referenced as `existing` rather than created here, mirroring main.bicep's
+// own apiIdentity pattern — same underlying reason. This module's role
+// assignment depends on apiPrincipalId, which comes from the Container App
+// module, so Azure builds the Container App before this module runs. If this
+// module also OWNED vault creation, the vault (and the two secrets the
+// Container App reads at boot — database-url, universe-ciam-client-secret)
+// wouldn't exist yet either, and the Container App's first revision would
+// fail outright rather than just hitting the already-documented RBAC-
+// propagation delay below. Discovered for real on the first B4 deploy
+// attempt (2026-09-25): the Container App failed with "Unable to get value
+// using Managed identity ... for secret" because the vault had never been
+// created. Fixed by pre-provisioning the vault once via CLI (RBAC-mode,
+// same as it would be created here) and referencing it as `existing` — see
+// backend-launch-checklist.md B4 for the exact bootstrap commands if this
+// ever needs to be redone for a new environment.
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: name
-  location: location
-  properties: {
-    tenantId: subscription().tenantId
-    sku: { family: 'A', name: 'standard' }
-    enableRbacAuthorization: true
-  }
 }
 
 // "Key Vault Secrets User" — read-only access to secret values, nothing else.
