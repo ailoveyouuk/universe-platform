@@ -40,7 +40,14 @@ RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
 # dependsOn: ["^build"]) now that each of those packages has its own
 # "build": "tsc" script — added 2026-09-25 specifically so this step
 # produces a real dist/ for them; before that they had no build script at
-# all and turbo silently skipped them.
+# all and turbo silently skipped them. Each of their tsconfig.json files
+# also now overrides "module"/"moduleResolution" to CommonJS/Node (2026-09-25)
+# — without that they inherited tsconfig.base.json's "module": "ESNext"
+# (correct for the frontend apps' own bundler, wrong for a package Node
+# loads directly), and the runtime failed with ERR_MODULE_NOT_FOUND trying
+# to resolve their extensionless ESM-style relative imports (confirmed via
+# Container App console log stream, 2026-09-25, one crash-loop after the
+# missing-packages-directory fix below still wasn't enough on its own).
 RUN npx turbo run build --filter=@universe/api
 # Each workspace package's package.json still has "main"/"types" pointing
 # at "src/index.ts" — deliberately left that way in the repo, because local
