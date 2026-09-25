@@ -87,14 +87,17 @@ distinction — this is NOT one deployment per organization):
 2. Pull the two SWA deployment tokens and the ACR/Container App names out
    of the deployment's outputs (`az deployment group show`), add them as
    the secrets/variables above.
-3. Create the API's own dedicated, lower-privilege SQL login (never run
+3. Create the API's own dedicated, lower-privilege SQL user (never run
    the API against the `sqlAdminLogin` admin account day to day) using
    `infra/sql/create-app-login.sql` — fill in a freshly generated password
-   in your own editor first, then run section 1 against `master` and
-   section 2 against `universe`, both as the admin login. See that file's
-   header comment for the full walkthrough and why `db_datareader`/
-   `db_datawriter` (not `db_owner`) is enough given RLS does the real
-   tenant-isolation enforcement.
+   in your own editor first, then run the whole script against the
+   `universe` database (Azure Portal → the `universe` database resource →
+   Query editor (preview), signed in as the admin login) — a *contained*
+   database user, so this is the only database it touches; no separate
+   step against `master` needed (the portal's Query editor doesn't expose
+   one for `master` anyway). See that file's header comment for the full
+   walkthrough and why `db_datareader`/`db_datawriter` (not `db_owner`) is
+   enough given RLS does the real tenant-isolation enforcement.
 4. Set the DB connection string INTO Key Vault directly (not through
    Bicep — secrets shouldn't pass through template parameters), built from
    the app login's credentials from step 3 (not the admin login's):
