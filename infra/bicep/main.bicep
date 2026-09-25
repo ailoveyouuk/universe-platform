@@ -126,32 +126,57 @@ module api 'modules/containerApp.bicep' = {
     userAssignedIdentityId: apiIdentity.id
     userAssignedIdentityPrincipalId: apiIdentity.properties.principalId
   }
+  // Explicit dependency, not inferred from a param: this module's Container
+  // App reads Key Vault secrets at boot (via keyVaultUri, a computed string,
+  // not a module output — so Bicep wouldn't otherwise know to sequence
+  // these). Without this, `keyVault` and `api` can deploy in parallel and
+  // the Container App's first revision can race the role-assignment grant
+  // that lets it read those secrets. This doesn't eliminate the RBAC-
+  // propagation nuance below (the grant can still take a couple of minutes
+  // to take effect after creation), but it does guarantee the grant is at
+  // least *created* before the Container App needs it, rather than the two
+  // racing arbitrarily.
+  dependsOn: [
+    keyVault
+  ]
 }
 
 // The Key Vault itself is NOT created by this template — see
 // modules/keyVault.bicep's own comment. It's pre-provisioned once via CLI
-// (same reasoning as the apiIdentity `existing` reference above: this
-// module's role assignment depends on the Container App's identity, so the
-// Container App builds first, and on a first-ever deploy the vault and its
-// two secrets (database-url, universe-ciam-client-secret) need to already
-// exist for the Container App's first revision to start at all). This
-// module only adds the role assignment granting the Container App's
-// managed identity access to the (already-existing) vault.
+// (same reasoning as the apiIdentity `existing` reference above) so its
+// two secrets (database-url, universe-ciam-client-secret) can already exist
+// for the Container App's first revision to read at all. This module only
+// adds the role assignment granting the Container App's managed identity
+// access to the (already-existing) vault.
+//
+// REAL BUG, found and fixed 2026-09-25 after the vault-doesn't-exist fix
+// above still wasn't enough: this module's `apiPrincipalId` param was
+// originally wired to `api.outputs.principalId` — a *module output* of the
+// `api` module below. That makes this module implicitly depend on the
+// `api` module succeeding before it can even start. But the Container
+// App's first revision can only succeed once this module's role assignment
+// already exists — so on a first-ever deploy neither can ever go first.
+// Confirmed directly in Cloud Shell after two deploy failures in a row:
+// `az role assignment list` on the vault showed no grant at all for the
+// Container App's identity, meaning this module had never even run.
+// Fixed the same way `registry.bicep`'s AcrPull grant already avoids this
+// (see that module call above): source the principal ID from the
+// `existing` `apiIdentity` reference directly, which resolves in this
+// file's own scope with no dependency on the `api` module's own success.
 //
 // KNOWN BOOTSTRAPPING NUANCE (separate from the above, still applies):
 // Azure RBAC role assignments can take a couple of minutes to propagate.
-// Even with the vault and secrets already in place, the Container App's
-// first revision may still fail to start right after this role assignment
-// is created, because the grant hasn't propagated yet. If that happens,
-// wait ~2-5 minutes and re-run the deployment (or
-// `az containerapp revision restart`) — this is standard Azure RBAC
-// propagation delay, not a template bug. Subsequent deploys are unaffected
-// since the role assignment already exists.
+// Even with this fix, the Container App's first revision may still fail to
+// start right after this role assignment is created, because the grant
+// hasn't propagated yet. If that happens, wait ~2-5 minutes and re-run the
+// deployment (or `az containerapp revision restart`) — this is standard
+// Azure RBAC propagation delay, not a template bug. Subsequent deploys are
+// unaffected since the role assignment already exists.
 module keyVault 'modules/keyVault.bicep' = {
   name: 'keyVault'
   params: {
     name: keyVaultName
-    apiPrincipalId: api.outputs.principalId
+    apiPrincipalId: apiIdentity.properties.principalId
   }
 }
 
