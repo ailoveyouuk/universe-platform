@@ -69,7 +69,17 @@ describe("tenant isolation (Azure SQL Row-Level Security)", () => {
       tx.rolePermission.deleteMany({ where: { role: { organizationId: { in: orgIds } } } }),
     );
     await withPlatformStaffContext((tx) => tx.role.deleteMany({ where: { organizationId: { in: orgIds } } }));
-    await prisma.dataSharingConsent.deleteMany({ where: { organizationId: { in: orgIds } } });
+    // data_sharing_consents is itself one of the 11 RLS-protected tables
+    // (infra/sql/row-level-security.sql) — a plain `prisma` call here has no
+    // session context, so RLS's default-deny FILTER predicate silently hides
+    // every row and this deleteMany matches zero rows instead of erroring.
+    // The organizations.deleteMany below then fails on
+    // data_sharing_consents_organizationId_fkey because those rows were
+    // never actually removed. Needs withPlatformStaffContext like every
+    // other RLS-protected delete above it. Found 2026-09-25 via real CI
+    // failures (runs #13, #14) on two infra-only commits, which ruled out
+    // the infra changes as the cause and pointed back here.
+    await withPlatformStaffContext((tx) => tx.dataSharingConsent.deleteMany({ where: { organizationId: { in: orgIds } } }));
     await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });
     await prisma.$disconnect();
   });

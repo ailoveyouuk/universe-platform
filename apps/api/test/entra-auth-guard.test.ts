@@ -49,7 +49,12 @@ describe("EntraAuthGuard — invite-then-link flow", () => {
     // roles/data_sharing_consents before the organization itself.
     await withPlatformStaffContext((tx) => tx.rolePermission.deleteMany({ where: { role: { organizationId: orgId } } }));
     await withPlatformStaffContext((tx) => tx.role.deleteMany({ where: { organizationId: orgId } }));
-    await prisma.dataSharingConsent.deleteMany({ where: { organizationId: orgId } });
+    // Same RLS default-deny gap as packages/db/test/tenant-isolation.test.ts
+    // (fixed there 2026-09-25 after real CI failures) — data_sharing_consents
+    // is RLS-protected, so a plain `prisma` call here silently deletes zero
+    // rows and the organization delete below fails on the FK. Needs
+    // withPlatformStaffContext like the deletes above it.
+    await withPlatformStaffContext((tx) => tx.dataSharingConsent.deleteMany({ where: { organizationId: orgId } }));
     await prisma.organization.delete({ where: { id: orgId } });
     await prisma.$disconnect();
   });
