@@ -35,7 +35,25 @@ COPY --from=pruner /repo/out/full/ .
 # upstream.
 COPY --from=pruner /repo/tsconfig.base.json ./tsconfig.base.json
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
+# `turbo run build --filter=@universe/api` also builds @universe/auth,
+# @universe/db and @universe/types first (turbo.json's build task has
+# dependsOn: ["^build"]) now that each of those packages has its own
+# "build": "tsc" script — added 2026-09-25 specifically so this step
+# produces a real dist/ for them; before that they had no build script at
+# all and turbo silently skipped them.
 RUN npx turbo run build --filter=@universe/api
+# Each workspace package's package.json still has "main"/"types" pointing
+# at "src/index.ts" — deliberately left that way in the repo, because local
+# dev (`nest start --watch` / `npm run dev`) runs under ts-node, which
+# registers a process-wide require hook that can load .ts directly; plain
+# `node dist/main.js` in the runner stage below has no such hook and would
+# fail with MODULE_NOT_FOUND trying to load a .ts file as CommonJS.
+# Patching "main"/"types" to the now-built "dist/index.js"/"dist/index.d.ts"
+# here, in the builder image only (never the actual repo files), gives
+# production a plain-Node-loadable entry point without touching dev at all.
+RUN for pkg in auth db types; do \
+      npm pkg set main=dist/index.js types=dist/index.d.ts -w packages/$pkg; \
+    done
 
 # ---- Stage 4: minimal runtime image ---------------------------------------
 FROM node:20-bullseye-slim AS runner
@@ -54,6 +72,21 @@ COPY --from=builder /repo/apps/api/package.json ./package.json
 # above). Copy the root node_modules instead; it already contains
 # @prisma/.prisma so those no longer need separate COPY lines.
 COPY --from=builder /repo/node_modules ./node_modules
+# npm workspaces installs @universe/auth, @universe/db and @universe/types
+# into node_modules as SYMLINKS pointing at ../packages/<name> — copying
+# node_modules alone (above) carries the dangling symlinks but not their
+# targets. Without this, the API crashes on boot with "Error: Cannot find
+# module '@universe/auth' ... code: 'MODULE_NOT_FOUND'" (confirmed directly
+# from Container App application logs, 2026-09-25 — Deploy API's build had
+# been succeeding, which only meant `tsc` was happy resolving TYPES for
+# these imports; nothing had ever checked that the runtime image could
+# actually load them). /repo/packages in this builder stage is already
+# pruned to just what @universe/api depends on (same trust as the
+# node_modules copy above), and now also carries each package's built
+# dist/ plus its main/types pointed at dist (see the builder stage's `npm
+# pkg set` step) — copying it here is what makes those symlinks resolve to
+# real, loadable JavaScript instead of raw TypeScript source.
+COPY --from=builder /repo/packages ./packages
 
 USER universe
 EXPOSE 4000
