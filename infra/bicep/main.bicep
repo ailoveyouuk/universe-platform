@@ -21,7 +21,10 @@ param environmentName string
 
 param location string = resourceGroup().location
 
-@description('SQL admin login (server-level admin, not the app''s runtime user).')
+@description('Region for the two Static Web Apps only. Microsoft.Web/staticSites is not offered in every region — confirmed via `az deployment group validate` that it is NOT available in uksouth (the resource group\'s own region, chosen for data residency — see Phase A of backend-launch-checklist.md), only centralus/eastus2/westus2/westeurope/eastasia. westeurope (the closest of those to the UK) was tried first but this subscription got back "RequestDisallowedByAzure... selected region is currently not accepting new customers" for it — a subscription-level restriction, not a template problem. eastus2 validated cleanly and is the default here. None of the five available regions are UK/EU, but these two Static Web Apps hold no tenant data (static frontend bundles only) — everything that does (SQL, Key Vault, Container Apps, ACR) still deploys into uksouth via the `location` param above, unaffected. Flagged to Lewis rather than silently decided — override at deploy time if a different region is preferred, or revisit if westeurope opens up on this subscription later.')
+param staticWebAppLocation string = 'eastus2'
+
+@description('SQL admin login (server-level admin, not the app\'s runtime user).')
 param sqlAdminLogin string
 
 @secure()
@@ -83,6 +86,19 @@ module registry 'modules/registry.bicep' = {
     // ACR names must be globally unique and alphanumeric only.
     name: replace('${namePrefix}acr', '-', '')
     location: location
+    // Grants AcrPull directly on this module, scoped to the registry itself
+    // (not the resource group — tightened from the earlier draft per the
+    // comment that used to sit on the resource-group-scoped version of this
+    // assignment in this file). Sourced from the `existing` apiIdentity
+    // reference above rather than `api.outputs.principalId`: a module output
+    // used directly in the `name:` of a roleAssignment resource fails Bicep's
+    // BCP120 check (name must be calculable at the start of deployment) when
+    // it's cross-referenced from a *different* module's output in the same
+    // expression — caught via `az deployment group validate` ahead of B4's
+    // first real deploy, not guessed at. `apiIdentity.properties.principalId`
+    // avoids the module-output chain entirely since it's already resolved
+    // in this file's own scope.
+    apiPrincipalId: apiIdentity.properties.principalId
   }
 }
 
@@ -132,27 +148,16 @@ module keyVault 'modules/keyVault.bicep' = {
 
 // AcrPull — lets the Container App's managed identity pull the API image
 // without admin credentials. Same RBAC-propagation nuance as the Key Vault
-// access above applies here too. Scoped to the resource group rather than
-// just the registry for simplicity — tighten to registry-only (following
-// the pattern in modules/keyVault.bicep, i.e. move this assignment inside
-// modules/registry.bicep) before this is used for anything beyond a pilot.
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-
-resource acrPullAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(registry.outputs.registryId, api.outputs.principalId, acrPullRoleId)
-  scope: resourceGroup()
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
-    principalId: api.outputs.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// access above applies here too. Moved inside modules/registry.bicep (see
+// that module's role assignment, mirroring modules/keyVault.bicep's own
+// pattern) — both for the tighter registry-only scope this comment used to
+// flag as a future to-do, and because it's what fixed BCP120 above.
 
 module projectManagementSwa 'modules/staticWebApp.bicep' = {
   name: 'projectManagementSwa'
   params: {
     name: '${namePrefix}-project-management'
-    location: location
+    location: staticWebAppLocation
   }
 }
 
@@ -160,7 +165,7 @@ module adminSwa 'modules/staticWebApp.bicep' = {
   name: 'adminSwa'
   params: {
     name: '${namePrefix}-admin'
-    location: location
+    location: staticWebAppLocation
   }
 }
 

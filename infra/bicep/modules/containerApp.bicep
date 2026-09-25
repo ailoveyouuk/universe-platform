@@ -14,7 +14,7 @@ param maxReplicas int = 3
 @description('Resource ID of the pre-provisioned user-assigned managed identity (see architecture doc, "Client secret blocked by tenant policy" / backend-launch-checklist.md B2) — used for both ACR pull and Key Vault secret access. NOT system-assigned: a system-assigned identity does not exist until this resource is created, so it cannot be pre-federated with the CIAM App Registration ahead of first deploy. A user-assigned identity, created once ahead of time, can be.')
 param userAssignedIdentityId string
 
-@description('Principal (object) ID of that same user-assigned identity — Bicep cannot read this back off `containerApp.identity` for a user-assigned identity the way it can for system-assigned, so it is threaded through as a param from main.bicep (which looks it up via an `existing` resource reference) and passed straight through as this module''s `principalId` output.')
+@description('Principal (object) ID of that same user-assigned identity — Bicep cannot read this back off `containerApp.identity` for a user-assigned identity the way it can for system-assigned, so it is threaded through as a param from main.bicep (which looks it up via an `existing` resource reference) and passed straight through as this module\'s `principalId` output.')
 param userAssignedIdentityPrincipalId string
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
