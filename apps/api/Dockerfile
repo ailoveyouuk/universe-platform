@@ -44,10 +44,16 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 universe && adduser --system --uid 1001 universe
 
 COPY --from=builder /repo/apps/api/dist ./dist
-COPY --from=builder /repo/apps/api/node_modules ./node_modules
 COPY --from=builder /repo/apps/api/package.json ./package.json
-COPY --from=builder /repo/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /repo/node_modules/@prisma ./node_modules/@prisma
+# This is an npm workspaces monorepo — `npm install` hoists every
+# dependency (including apps/api's own) up to the root /repo/node_modules;
+# there is no separate apps/api/node_modules to copy (confirmed via a
+# failed Deploy API build: "COPY --from=builder /repo/apps/api/node_modules
+# ... not found", 2026-09-25 — another bug that had never surfaced before
+# because the build never got this far until the tsconfig.base.json fix
+# above). Copy the root node_modules instead; it already contains
+# @prisma/.prisma so those no longer need separate COPY lines.
+COPY --from=builder /repo/node_modules ./node_modules
 
 USER universe
 EXPOSE 4000
