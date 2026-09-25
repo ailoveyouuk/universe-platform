@@ -21,6 +21,19 @@ FROM node:20-bullseye-slim AS builder
 WORKDIR /repo
 COPY --from=installer /repo/ .
 COPY --from=pruner /repo/out/full/ .
+# `turbo prune` only copies workspace packages (and root package.json /
+# lockfile / turbo.json) into out/full — a standalone root file like
+# tsconfig.base.json, which every workspace's tsconfig.json extends via a
+# relative "../../tsconfig.base.json" path, is NOT part of that workspace
+# graph and is silently left out. Without it, apps/api's tsconfig.json
+# extends a file that doesn't exist, TypeScript falls back to its defaults
+# (esModuleInterop: false among them), and `nest build` fails on
+# verifyToken.ts's default imports of jsonwebtoken/jwks-rsa with
+# TS1192/TS1259. Confirmed by inspecting a failed Deploy API run's build
+# log (2026-09-25) — copied explicitly here from the pruner stage's own,
+# un-pruned checkout rather than guessing at a turbo prune flag to fix it
+# upstream.
+COPY --from=pruner /repo/tsconfig.base.json ./tsconfig.base.json
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
 RUN npx turbo run build --filter=@universe/api
 
