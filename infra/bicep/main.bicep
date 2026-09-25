@@ -43,6 +43,18 @@ var namePrefix = 'universe-${environmentName}'
 var keyVaultName = '${namePrefix}-kv'
 var keyVaultUri = 'https://${keyVaultName}.vault.azure.net/'
 
+// Pre-provisioned ahead of this deploy (2026-09-25, see backend-launch-checklist.md
+// B2's "Client secret blocked by tenant policy" note and architecture-decisions.md)
+// specifically so it could be federated with the Universe CIAM App Registration
+// before the Container App itself existed — a system-assigned identity can't be,
+// since its principal ID isn't generated until the resource is created. Referenced
+// here as `existing` rather than declared fresh: this template does not own its
+// lifecycle. Name follows the same `${namePrefix}-...` convention as every other
+// resource here, so it resolves correctly for any environmentName.
+resource apiIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
+  name: '${namePrefix}-api-identity'
+}
+
 module logAnalytics 'modules/logAnalytics.bicep' = {
   name: 'logAnalytics'
   params: {
@@ -95,6 +107,8 @@ module api 'modules/containerApp.bicep' = {
     containerRegistryLoginServer: registry.outputs.loginServer
     apiImage: apiImage
     keyVaultUri: keyVaultUri
+    userAssignedIdentityId: apiIdentity.id
+    userAssignedIdentityPrincipalId: apiIdentity.properties.principalId
   }
 }
 
