@@ -35,8 +35,35 @@ export function createMsalConfig(params: {
   };
 }
 
-/** Replace with the API's own exposed scope (e.g.
- * "api://<api-client-id>/access_as_user") once the Universe API's app
- * registration exists in the CIAM tenant — "User.Read" is a Microsoft Graph
- * scope and won't authorize calls to our own API. */
+/** OIDC login scopes only — these authenticate the user but do NOT
+ * authorize calls to the Universe API (an access token minted for these
+ * scopes carries the Microsoft Graph audience, not ours). Use these for
+ * `loginRedirect`/`loginPopup`; use API_SCOPES below for
+ * `acquireTokenSilent` calls that produce a token to send to the API. */
 export const DEFAULT_LOGIN_SCOPES = ["openid", "profile", "email"];
+
+/**
+ * The Universe API's own exposed delegated scope, registered 2026-09-25 in
+ * the real Universe CIAM tenant (universe-platform-api app registration,
+ * client ID bf7f8f96-dc29-4754-b323-5a17058f5a1b, Application ID URI
+ * api://bf7f8f96-dc29-4754-b323-5a17058f5a1b). universe-platform-web is
+ * pre-authorized for this scope in that app registration's "Expose an API"
+ * blade, so requesting it does not trigger a separate consent prompt.
+ *
+ * Use this (not DEFAULT_LOGIN_SCOPES) for `acquireTokenSilent` calls whose
+ * result is sent as the bearer token to the Universe API — see
+ * apps/admin/src/lib/apiClient.ts and
+ * apps/project-management/src/lib/apiClient.ts. The resulting token's `aud`
+ * claim matches UNIVERSE_CIAM_API_AUDIENCE on the API side (see
+ * apps/api/src/auth/entra-auth.guard.ts).
+ *
+ * Hardcoded rather than read from a NEXT_PUBLIC_ env var here on purpose:
+ * this file lives in a shared package (packages/auth), and Next.js only
+ * reliably inlines NEXT_PUBLIC_ vars from within an app's own source tree
+ * even when the package is transpiled — reading it here risked silently
+ * resolving to undefined depending on the bundler. A client ID / scope URI
+ * isn't secret (it's sent in every browser token request), so hardcoding it
+ * is safe; update this constant if the API app registration is ever
+ * recreated.
+ */
+export const API_SCOPES = ["api://bf7f8f96-dc29-4754-b323-5a17058f5a1b/access_as_user"];

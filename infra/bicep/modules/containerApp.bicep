@@ -17,6 +17,15 @@ param userAssignedIdentityId string
 @description('Principal (object) ID of that same user-assigned identity — Bicep cannot read this back off `containerApp.identity` for a user-assigned identity the way it can for system-assigned, so it is threaded through as a param from main.bicep (which looks it up via an `existing` resource reference) and passed straight through as this module\'s `principalId` output.')
 param userAssignedIdentityPrincipalId string
 
+@description('Directory (tenant) ID of the real Universe CIAM tenant (Entra External ID) — "Universe Platform", universeplatform.onmicrosoft.com. One tenant for the whole platform (see architecture doc, "Everyone signs in through the one CIAM tenant"), so this default is the same across every environment unless the CIAM tenant is ever recreated.')
+param ciamTenantId string = '23851fd3-0682-4268-af83-338cfea80d89'
+
+@description('The tenant\'s subdomain — the part before ".ciamlogin.com" / ".onmicrosoft.com". Required for the API to resolve the tenant\'s real ciamlogin.com OIDC discovery document (see packages/auth/src/verifyToken.ts) rather than falling back to the local-dev login.microsoftonline.com pattern.')
+param ciamTenantSubdomain string = 'universeplatform'
+
+@description('Expected `aud` claim on API access tokens — the universe-platform-api app registration\'s Application ID URI (registered 2026-09-25, client ID bf7f8f96-dc29-4754-b323-5a17058f5a1b).')
+param ciamApiAudience string = 'api://bf7f8f96-dc29-4754-b323-5a17058f5a1b'
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
@@ -49,11 +58,19 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: '${keyVaultUri}secrets/database-url'
           identity: userAssignedIdentityId
         }
-        {
-          name: 'universe-ciam-client-secret'
-          keyVaultUrl: '${keyVaultUri}secrets/universe-ciam-client-secret'
-          identity: userAssignedIdentityId
-        }
+        // universe-ciam-client-secret deliberately NOT wired here (removed
+        // 2026-09-25). Confirmed via full-codebase grep that nothing reads
+        // UNIVERSE_CIAM_CLIENT_SECRET — the SPA (universe-platform-web) is a
+        // public client (PKCE, no secret) and the API verifies tokens via
+        // pure JWKS public-key validation (see verifyToken.ts), so no
+        // confidential-client flow exists that would need it. The
+        // apiIdentity user-assigned managed identity (see main.bicep) was
+        // pre-provisioned in case Workload Identity Federation was needed
+        // instead of a client secret ("Client secret blocked by tenant
+        // policy" — see backend-launch-checklist.md), but nothing in the
+        // current design does an OBO/confidential-client call, so that
+        // federation was never set up either. Revisit if a future feature
+        // genuinely needs the API to call another API as itself.
       ]
     }
     template: {
@@ -67,11 +84,14 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           }
           env: [
             { name: 'DATABASE_URL', secretRef: 'database-url' }
-            { name: 'UNIVERSE_CIAM_CLIENT_SECRET', secretRef: 'universe-ciam-client-secret' }
             { name: 'API_PORT', value: '4000' }
-            // UNIVERSE_CIAM_TENANT_ID / UNIVERSE_CIAM_API_AUDIENCE are not
-            // secret — set as plain env vars once the CIAM tenant exists,
-            // either here or via `az containerapp update`.
+            // Not secret — the real Universe CIAM tenant's identifiers,
+            // wired 2026-09-25 once the tenant and API app registration
+            // existed. See entra-auth.guard.ts / verifyToken.ts for how
+            // these are used.
+            { name: 'UNIVERSE_CIAM_TENANT_ID', value: ciamTenantId }
+            { name: 'UNIVERSE_CIAM_TENANT_SUBDOMAIN', value: ciamTenantSubdomain }
+            { name: 'UNIVERSE_CIAM_API_AUDIENCE', value: ciamApiAudience }
           ]
         }
       ]

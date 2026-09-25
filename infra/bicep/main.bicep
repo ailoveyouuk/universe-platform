@@ -144,10 +144,17 @@ module api 'modules/containerApp.bicep' = {
 // The Key Vault itself is NOT created by this template — see
 // modules/keyVault.bicep's own comment. It's pre-provisioned once via CLI
 // (same reasoning as the apiIdentity `existing` reference above) so its
-// two secrets (database-url, universe-ciam-client-secret) can already exist
-// for the Container App's first revision to read at all. This module only
-// adds the role assignment granting the Container App's managed identity
-// access to the (already-existing) vault.
+// database-url secret can already exist for the Container App's first
+// revision to read at all. This module only adds the role assignment
+// granting the Container App's managed identity access to the
+// (already-existing) vault.
+//
+// The vault also still holds a universe-ciam-client-secret entry from an
+// earlier design — modules/containerApp.bicep no longer wires it to the
+// Container App (removed 2026-09-25; nothing in the app reads it, see that
+// module's comment). Left in the vault rather than deleted since deleting
+// isn't needed for correctness and an unused, un-wired secret poses no
+// risk — but it plays no role in the running system.
 //
 // REAL BUG, found and fixed 2026-09-25 after the vault-doesn't-exist fix
 // above still wasn't enough: this module's `apiPrincipalId` param was

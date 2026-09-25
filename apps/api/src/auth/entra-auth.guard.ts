@@ -64,12 +64,18 @@ const userInclude = {
  * is rejected outright. There is no auto-provisioning path — a verified
  * Microsoft identity is not, by itself, a reason to grant access.
  *
- * STUB: wire UNIVERSE_CIAM_TENANT_ID / UNIVERSE_CIAM_API_AUDIENCE env vars
- * before deploying. Left permissive (verification skipped, fixed local
- * dev user) when those are unset so local dev doesn't require a full CIAM
- * tenant to run — that fallback must never reach a real deployment, and it
- * still goes through the same email-linking logic below rather than
- * bypassing it, so the invitation flow can be exercised locally.
+ * Wired to the real Universe CIAM tenant (Universe Platform,
+ * universeplatform.onmicrosoft.com / universeplatform.ciamlogin.com,
+ * tenant ID 23851fd3-0682-4268-af83-338cfea80d89) via
+ * UNIVERSE_CIAM_TENANT_ID / UNIVERSE_CIAM_API_AUDIENCE /
+ * UNIVERSE_CIAM_TENANT_SUBDOMAIN — see infra/bicep/modules/containerApp.bicep
+ * for how these reach the Container App. Left permissive (verification
+ * skipped, fixed local dev user) when UNIVERSE_CIAM_TENANT_ID /
+ * UNIVERSE_CIAM_API_AUDIENCE are unset so local dev doesn't require the
+ * real CIAM tenant to run — that fallback must never reach a real
+ * deployment, and it still goes through the same email-linking logic below
+ * rather than bypassing it, so the invitation flow can be exercised
+ * locally.
  */
 @Injectable()
 export class EntraAuthGuard implements CanActivate {
@@ -78,6 +84,7 @@ export class EntraAuthGuard implements CanActivate {
       ? createTokenVerifier({
           tenantId: process.env.UNIVERSE_CIAM_TENANT_ID,
           audience: process.env.UNIVERSE_CIAM_API_AUDIENCE,
+          tenantSubdomain: process.env.UNIVERSE_CIAM_TENANT_SUBDOMAIN,
         })
       : null;
 

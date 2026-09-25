@@ -74,7 +74,8 @@ distinction — this is NOT one deployment per organization):
 | `AZURE_CONTAINER_REGISTRY_NAME` | just the registry name (no `.azurecr.io`) |
 | `AZURE_CONTAINER_APP_NAME` | `universe-<environmentName>-api` |
 | `API_BASE_URL` | the deployed API's URL, from `main.bicep`'s `apiFqdn` output |
-| `UNIVERSE_CIAM_TENANT_ID` / `UNIVERSE_CIAM_CLIENT_ID` | from the Universe CIAM app registration |
+| `UNIVERSE_CIAM_TENANT_ID` / `UNIVERSE_CIAM_CLIENT_ID` | from the Universe CIAM app registration. Real values (2026-09-25): tenant ID `23851fd3-0682-4268-af83-338cfea80d89`, client ID `b41007bd-7a90-417f-b476-8baba3dd401f` (universe-platform-web, in the Universe Platform Entra External ID tenant) |
+| `UNIVERSE_CIAM_TENANT_SUBDOMAIN` | the tenant's subdomain (before `.ciamlogin.com`/`.onmicrosoft.com`) — `universeplatform`. Required for the SPA to build the right `ciamlogin.com` authority (see `packages/auth/src/msalConfig.ts`) |
 | `PROJECT_MANAGEMENT_URL` / `ADMIN_URL` | the deployed Static Web Apps' URLs |
 
 ## First deploy order
@@ -86,13 +87,17 @@ distinction — this is NOT one deployment per organization):
 2. Pull the two SWA deployment tokens and the ACR/Container App names out
    of the deployment's outputs (`az deployment group show`), add them as
    the secrets/variables above.
-3. Set the DB connection string and CIAM client secret INTO Key Vault
-   directly (not through Bicep — secrets shouldn't pass through template
-   parameters):
+3. Set the DB connection string INTO Key Vault directly (not through
+   Bicep — secrets shouldn't pass through template parameters):
    ```bash
    az keyvault secret set --vault-name <keyVaultName> --name database-url --value "<connection string>"
-   az keyvault secret set --vault-name <keyVaultName> --name universe-ciam-client-secret --value "<client secret>"
    ```
+   (There is no CIAM client secret to set — `universe-platform-web` is a
+   public SPA client (PKCE, no secret) and the API verifies tokens via
+   JWKS public-key validation, not a shared secret. A
+   `universe-ciam-client-secret` entry may still exist in the vault from an
+   earlier design; `containerApp.bicep` no longer reads it — see that
+   file's comment.)
 4. Run **Deploy API** (`.github/workflows/deploy-api.yml`) — builds the
    real image and updates the Container App to run it.
 5. Run **Deploy Static Web Apps** (`.github/workflows/deploy-static-web-apps.yml`).
