@@ -30,6 +30,18 @@ const PERMISSIONS = [
   { key: "supplier.profile.manage", description: "Manage your organization's public supplier profile" },
   { key: "supplier.products.manage", description: "Publish/edit your organization's supplier product catalog" },
   { key: "supplier.leads.view", description: "View buyer interest in your organization's products" },
+
+  // Added 2026-09-26 — MANUFACTURER, FUNDER_DONOR, DATA_INSIGHTS_USER split
+  // out as their own Organization.type values (see
+  // claude/stakeholder-taxonomy-research.md and organizations.ts's role
+  // templates). funder.grants.view and insights.aggregate.view are
+  // placeholders — the features that would actually check them (funder
+  // grant-scoped visibility; the Insights app itself) aren't built yet.
+  { key: "manufacturer.profile.manage", description: "Manage your organization's public manufacturer profile" },
+  { key: "manufacturer.products.manage", description: "Publish/edit your organization's manufacturer product catalog" },
+  { key: "manufacturer.leads.view", description: "View buyer interest in your organization's products" },
+  { key: "funder.grants.view", description: "(placeholder — feature not yet built) View grant-scoped procurement activity for funded projects" },
+  { key: "insights.aggregate.view", description: "(placeholder — Insights app not yet built) View anonymized cross-tenant sector insights" },
 ];
 
 async function main() {

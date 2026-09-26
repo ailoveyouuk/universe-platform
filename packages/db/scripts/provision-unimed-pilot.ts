@@ -36,7 +36,7 @@ async function main() {
   const org = await createOrganizationWithDefaultRoles({
     name: "Unimed (Pilot)",
     slug: "unimed-pilot",
-    type: "BUYER",
+    type: "PROCUREMENT_SERVICE_AGENT", // Unimed is a textbook procurement service agent (renamed 2026-09-26)
     // No acceptedById — there's no platform-staff user row for this
     // bring-up step to attribute the data-sharing agreement to yet (see
     // organizations.ts's doc comment: optional only for scripts like this

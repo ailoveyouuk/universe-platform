@@ -81,11 +81,19 @@ export const OrganizationStatus = {
 } as const;
 export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];
 
-/// Added 2026-09-24 — see Organization.type's doc comment in schema.prisma
-/// and "Supplier/manufacturer marketplace" in the architecture doc.
+/// Expanded 2026-09-26 from the original BUYER|SUPPLIER pair — see
+/// Organization.type's doc comment in schema.prisma and
+/// claude/stakeholder-taxonomy-research.md in the Claude project for the
+/// real-world taxonomy this maps to. PROCUREMENT_SERVICE_AGENT is the
+/// renamed former BUYER value (no data migration ambiguity — Unimed, the
+/// only org provisioned so far, is a textbook procurement service agent).
 export const OrganizationType = {
-  BUYER: "BUYER",
+  PROCUREMENT_SERVICE_AGENT: "PROCUREMENT_SERVICE_AGENT",
+  TENDERING_PURCHASING_BODY: "TENDERING_PURCHASING_BODY",
+  MANUFACTURER: "MANUFACTURER",
   SUPPLIER: "SUPPLIER",
+  FUNDER_DONOR: "FUNDER_DONOR",
+  DATA_INSIGHTS_USER: "DATA_INSIGHTS_USER",
 } as const;
 export type OrganizationType = (typeof OrganizationType)[keyof typeof OrganizationType];
 

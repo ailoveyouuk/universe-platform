@@ -106,11 +106,36 @@ datasource db {
 //                             PHARMACEUTICALS | LABORATORY
 // ProjectDocument.type     — CHECKLIST | ISSUES | CLOSEOUT_REPORT | OTHER
 // Organization.status      — PILOT | ACTIVE | SUSPENDED
-// Organization.type        — BUYER | SUPPLIER (added 2026-09-24 — see
-//                             "Supplier/manufacturer marketplace" in the
-//                             architecture doc. A SUPPLIER-type org gets the
-//                             Supplier Portal app and its own default role
-//                             template instead of Project Manager/Read Only.)
+// Organization.type        — PROCUREMENT_SERVICE_AGENT | TENDERING_PURCHASING_BODY |
+//                             MANUFACTURER | SUPPLIER | FUNDER_DONOR |
+//                             DATA_INSIGHTS_USER (expanded 2026-09-26 from the
+//                             original BUYER|SUPPLIER pair — see
+//                             claude/stakeholder-taxonomy-research.md and
+//                             architecture-decisions.md for the taxonomy this
+//                             maps to. PROCUREMENT_SERVICE_AGENT is the
+//                             renamed former BUYER (Unimed's own category —
+//                             an org that runs projects/tenders on behalf of
+//                             a client). TENDERING_PURCHASING_BODY is a
+//                             government/FBO/implementing-partner org that
+//                             issues and manages its OWN tenders directly —
+//                             functionally the same app access as
+//                             PROCUREMENT_SERVICE_AGENT (same role template)
+//                             but a distinct real-world category worth
+//                             tracking. Deliberately NOT given any
+//                             cross-org visibility into a procurement
+//                             agent's projects (2026-09-26 decision — an
+//                             agent's project financials/margins are
+//                             commercially unique to the agent, not the
+//                             funding body). MANUFACTURER and SUPPLIER are
+//                             now two separate types (previously one
+//                             SUPPLIER type covered both) — both get a
+//                             marketplace-profile role template, just with
+//                             their own permission keys. FUNDER_DONOR and
+//                             DATA_INSIGHTS_USER are new, minimal,
+//                             placeholder categories — see their role
+//                             templates in organizations.ts for what's
+//                             actually enforced today vs. flagged as future
+//                             work.
 // User.platformStaffRole   — NONE | SUPPORT | SUPER_ADMIN
 // User.status               — INVITED | ACTIVE | DEACTIVATED
 // PartnerRole.roleType      — CLIENT | MANUFACTURER | SUPPLIER |
@@ -132,13 +157,12 @@ model Organization {
   name      String
   slug      String   @unique // used in URLs / subdomains
   status    String   @default("PILOT") // see allowed values reference above
-  /// BUYER (default) or SUPPLIER — see allowed values reference above and
-  /// "Supplier/manufacturer marketplace" in the architecture doc
-  /// (2026-09-24). Drives which default role template
-  /// createOrganizationWithDefaultRoles gives it and which app(s) it's
-  /// steered toward — not an access-control boundary by itself (RLS/role
-  /// permissions still do the actual enforcing).
-  type      String   @default("BUYER")
+  /// One of the six values in the allowed values reference above (expanded
+  /// 2026-09-26 — see claude/stakeholder-taxonomy-research.md). Drives which
+  /// default role template createOrganizationWithDefaultRoles gives it and
+  /// which app(s) it's steered toward — not an access-control boundary by
+  /// itself (RLS/role permissions still do the actual enforcing).
+  type      String   @default("PROCUREMENT_SERVICE_AGENT")
   /// Added 2026-09-26 — drives the personalized "powered by Universe"
   /// header every app shows (see @universe/ui's OrgHeader): the org's own
   /// logo when set, falling back to its name in text when not (most orgs

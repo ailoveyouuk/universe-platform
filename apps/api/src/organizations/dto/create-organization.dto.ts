@@ -7,12 +7,13 @@ export class CreateOrganizationDto {
   @Matches(/^[a-z0-9-]+$/, { message: "slug must be lowercase letters, numbers, and hyphens only" })
   slug!: string;
 
-  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
+  /** One of six Organization.type values, defaulting to
+   * PROCUREMENT_SERVICE_AGENT — see Organization.type's doc comment in
    * schema.prisma. Optional so existing callers/tests that don't pass it
    * keep working. */
   @IsOptional()
-  @IsIn(["BUYER", "SUPPLIER"])
-  type?: "BUYER" | "SUPPLIER";
+  @IsIn(["PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY", "MANUFACTURER", "SUPPLIER", "FUNDER_DONOR", "DATA_INSIGHTS_USER"])
+  type?: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
 
   /** Must be `true` — the platform-staff member creating this org
    * affirmatively confirming the signed data sharing / privacy agreement is

@@ -33,7 +33,7 @@ export default function NewOrganizationPage() {
   const [form, setForm] = useState<CreateOrganizationInput>({
     name: "",
     slug: "",
-    type: "BUYER",
+    type: "PROCUREMENT_SERVICE_AGENT",
     confirmedAgreementOnFile: false,
   });
   const [slugTouched, setSlugTouched] = useState(false);
@@ -105,20 +105,54 @@ export default function NewOrganizationPage() {
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
         <fieldset style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: 12 }}>
           <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 4px" }}>Organization Type</legend>
+          {/* Expanded 2026-09-26 from the original Buyer/Supplier pair — see
+              claude/stakeholder-taxonomy-research.md in the Claude project.
+              Six real-world categories, five distinct role templates (the
+              first two below share one). */}
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
             <input
               type="radio"
               name="type"
-              checked={form.type === "BUYER"}
-              onChange={() => setForm((prev) => ({ ...prev, type: "BUYER" }))}
+              checked={form.type === "PROCUREMENT_SERVICE_AGENT"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "PROCUREMENT_SERVICE_AGENT" }))}
               style={{ marginTop: 2 }}
             />
             <span>
-              <strong>Buyer</strong> — the default role template (Organization Admin, Project
-              Manager, Read Only). Runs projects, procures products.
+              <strong>Procurement Service Agent</strong> — runs projects/tenders on behalf of a
+              client (e.g. Unimed). The default role template (Organization Admin, Project
+              Manager, Read Only).
             </span>
           </label>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "TENDERING_PURCHASING_BODY"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "TENDERING_PURCHASING_BODY" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Tendering &amp; Purchasing Body</strong> — a government, faith-based
+              organization, or funded implementing partner that issues and manages its own
+              tenders directly. Same role template as Procurement Service Agent; deliberately
+              has no visibility into any other organization&apos;s projects.
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "MANUFACTURER"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "MANUFACTURER" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Manufacturer</strong> — gets the Manufacturer Admin role. Manages a public
+              profile and product catalog, searchable and selectable by every buyer organization
+              on the platform once published.
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
             <input
               type="radio"
               name="type"
@@ -127,9 +161,37 @@ export default function NewOrganizationPage() {
               style={{ marginTop: 2 }}
             />
             <span>
-              <strong>Supplier / Manufacturer</strong> — gets the Supplier Admin role instead.
-              Manages a public profile and product catalog, searchable and selectable by every
-              buyer organization on the platform once published.
+              <strong>Supplier / Distributor</strong> — gets the Supplier Admin role. Manages a
+              public profile and product catalog, same marketplace mechanics as Manufacturer.
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "FUNDER_DONOR"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "FUNDER_DONOR" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Funder / Donor</strong> — a Global Fund/Gavi/foundation-style organization
+              that funds but doesn&apos;t run procurement itself. Read-only role template;
+              grant-scoped visibility is not built yet, so this org type has no real project
+              access today beyond managing its own users.
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <input
+              type="radio"
+              name="type"
+              checked={form.type === "DATA_INSIGHTS_USER"}
+              onChange={() => setForm((prev) => ({ ...prev, type: "DATA_INSIGHTS_USER" }))}
+              style={{ marginTop: 2 }}
+            />
+            <span>
+              <strong>Data / Insights User</strong> — researchers, market-shaping bodies, and
+              market-intelligence firms. Read-only, anonymized aggregate only — no project,
+              CRM, or product-catalog access of any kind.
             </span>
           </label>
         </fieldset>
@@ -170,12 +232,12 @@ export default function NewOrganizationPage() {
           <span>
             I confirm this organization has signed Universe&apos;s Privacy Policy and Data Sharing
             Agreement. This is required before an organization is provisioned.{" "}
-            {form.type === "SUPPLIER" ? (
+            {form.type === "SUPPLIER" || form.type === "MANUFACTURER" ? (
               <>
-                For a Supplier/Manufacturer organization, this includes consent for their profile,
-                product catalog, and contact details to be identifiable and searchable by every
-                buyer organization on the platform once published — the opposite of the buyer-side
-                anonymized aggregate, and the point of joining the marketplace.
+                For a Supplier or Manufacturer organization, this includes consent for their
+                profile, product catalog, and contact details to be identifiable and searchable by
+                every buyer organization on the platform once published — the opposite of the
+                buyer-side anonymized aggregate, and the point of joining the marketplace.
               </>
             ) : (
               <>

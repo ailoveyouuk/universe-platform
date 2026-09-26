@@ -81,6 +81,74 @@ export const DEFAULT_SUPPLIER_ROLE_TEMPLATE: { name: string; appScope: string; p
 ];
 
 /**
+ * MANUFACTURER-type organizations (split out from SUPPLIER 2026-09-26 — see
+ * claude/stakeholder-taxonomy-research.md; manufacturers and
+ * distributors/wholesalers are distinct real-world businesses with
+ * different profile needs, e.g. a manufacturer plausibly wants to expose
+ * production sites/certifications a pure distributor doesn't have). Uses
+ * its own permission keys rather than reusing supplier.* so the two
+ * marketplace sides can diverge later without a rename; for now the
+ * underlying SupplierProfile/SupplierProduct tables are shared by both
+ * types (a MANUFACTURER-type org's profile/products live in the same
+ * tables as a SUPPLIER-type org's — see the naming note on those models in
+ * schema.prisma) since the field shapes are the same today. Splitting them
+ * into their own tables is future work if/when manufacturer-specific
+ * fields (e.g. production sites, GMP certifications) need first-class
+ * columns rather than living in the shared profile.
+ */
+export const DEFAULT_MANUFACTURER_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
+  {
+    name: "Manufacturer Admin",
+    appScope: "*",
+    permissionKeys: ["manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view", "org.users.manage", "org.roles.manage"],
+  },
+];
+
+/**
+ * FUNDER_DONOR-type organizations (new 2026-09-26 — see
+ * claude/stakeholder-taxonomy-research.md section 3). Deliberately minimal
+ * and READ-ONLY: this org type is a placeholder for funders/GHIs/donors
+ * (Global Fund, Gavi, PEPFAR, Gates Foundation-style organizations) who
+ * fund but don't run procurement themselves. The actual feature this
+ * implies — a funder seeing a grant-scoped, non-anonymized view of what's
+ * being procured under their funding, distinct from the anonymized
+ * cross-tenant Insights aggregate — is NOT built yet and needs its own
+ * design (which projects/tenders a given funder can see, and how that
+ * differs from the "tendering body sees an agent's work" pattern that was
+ * explicitly decided AGAINST on 2026-09-26 for commercial-sensitivity
+ * reasons). `funder.grants.view` exists so the role model has a home for
+ * that permission once the feature is designed; nothing in the API
+ * currently grants a funder any real cross-org read path.
+ */
+export const DEFAULT_FUNDER_DONOR_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
+  {
+    name: "Funder Viewer",
+    appScope: "*",
+    permissionKeys: ["funder.grants.view", "org.users.manage", "org.roles.manage"],
+  },
+];
+
+/**
+ * DATA_INSIGHTS_USER-type organizations (new 2026-09-26 — see
+ * claude/stakeholder-taxonomy-research.md section 1i). Researchers,
+ * market-shaping bodies, commercial market-intelligence firms, etc. who
+ * consume aggregated data only — never buy, sell, or run projects/tenders.
+ * Matches the existing (built, not yet UI'd) anonymized cross-tenant
+ * Insights design intent exactly, confirmed 2026-09-26 as "insights
+ * aggregate only" — no per-org, non-anonymized visibility of any kind.
+ * `insights.aggregate.view` is a placeholder permission key (the Insights
+ * app has no UI yet) so this role model doesn't need to change again once
+ * that app exists.
+ */
+export const DEFAULT_DATA_INSIGHTS_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
+  {
+    name: "Insights Viewer",
+    appScope: "insights",
+    permissionKeys: ["insights.aggregate.view"],
+  },
+];
+
+/**
  * Provisions a new tenant organization with its starter roles — either the
  * buyer template (DEFAULT_ROLE_TEMPLATE) or, for a SUPPLIER-type org, the
  * supplier one above. This is what Universe's platform-operator team runs
@@ -103,17 +171,28 @@ export const DEFAULT_SUPPLIER_ROLE_TEMPLATE: { name: string; appScope: string; p
 export async function createOrganizationWithDefaultRoles(params: {
   name: string;
   slug: string;
-  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
-   * schema.prisma. */
-  type?: "BUYER" | "SUPPLIER";
+  /** One of the six Organization.type values (expanded 2026-09-26 — see
+   * Organization.type's doc comment in schema.prisma). Defaults to
+   * PROCUREMENT_SERVICE_AGENT (the renamed former BUYER default). */
+  type?: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
   /** The platform-staff user provisioning this org, i.e. confirming the
    * signed data-sharing agreement is on file. Optional only for the seed
    * script's own bootstrap path, which has no authenticated caller — every
    * real API-driven creation (OrganizationsService.create) always has one. */
   acceptedById?: string;
 }) {
-  const type = params.type ?? "BUYER";
-  const roleTemplate = type === "SUPPLIER" ? DEFAULT_SUPPLIER_ROLE_TEMPLATE : DEFAULT_ROLE_TEMPLATE;
+  const type = params.type ?? "PROCUREMENT_SERVICE_AGENT";
+  // PROCUREMENT_SERVICE_AGENT and TENDERING_PURCHASING_BODY both run
+  // projects/tenders directly on Universe and share the same role template
+  // (Org Admin / Project Manager / Read Only) — see schema.prisma's
+  // Organization.type doc comment for why TENDERING_PURCHASING_BODY is a
+  // distinct type without being a distinct access pattern today.
+  const roleTemplate =
+    type === "SUPPLIER" ? DEFAULT_SUPPLIER_ROLE_TEMPLATE :
+    type === "MANUFACTURER" ? DEFAULT_MANUFACTURER_ROLE_TEMPLATE :
+    type === "FUNDER_DONOR" ? DEFAULT_FUNDER_DONOR_ROLE_TEMPLATE :
+    type === "DATA_INSIGHTS_USER" ? DEFAULT_DATA_INSIGHTS_ROLE_TEMPLATE :
+    DEFAULT_ROLE_TEMPLATE;
 
   const org = await prisma.organization.upsert({
     where: { slug: params.slug },

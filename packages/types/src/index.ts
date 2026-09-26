@@ -93,9 +93,10 @@ export interface OrganizationSummary {
   name: string;
   slug: string;
   status: "PILOT" | "ACTIVE" | "SUSPENDED";
-  /** BUYER (default) or SUPPLIER — added 2026-09-24, see Organization.type's
+  /** One of six Organization.type values, defaulting to
+   * PROCUREMENT_SERVICE_AGENT — expanded 2026-09-26, see Organization.type's
    * doc comment in schema.prisma. */
-  type: "BUYER" | "SUPPLIER";
+  type: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
   /** Added 2026-09-26 — see Organization.logoUrl's doc comment. */
   logoUrl: string | null;
   /** Added 2026-09-26 — see Organization.primaryColor's doc comment. */
@@ -116,9 +117,10 @@ export interface OrganizationSummary {
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
-  /** BUYER (default) or SUPPLIER — see Organization.type's doc comment in
+  /** One of six Organization.type values, defaulting to
+   * PROCUREMENT_SERVICE_AGENT — see Organization.type's doc comment in
    * schema.prisma. */
-  type?: "BUYER" | "SUPPLIER";
+  type?: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
   /** Must be true — see CreateOrganizationDto's doc comment (apps/api). */
   confirmedAgreementOnFile: boolean;
 }
