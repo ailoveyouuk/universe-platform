@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { AuthenticatedUser, InviteUserInput, OrganizationSummary, RoleSummary } from "@universe/types";
+import type { InviteUserInput, OrganizationSummary, RoleSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { useCurrentUser } from "../../../lib/AuthContext";
 
 /**
  * Invite form. Whether the organization field is a picker or a locked
@@ -16,7 +17,7 @@ import { apiClient } from "../../../lib/apiClient";
  */
 export default function InviteUserPage() {
   const router = useRouter();
-  const [me, setMe] = useState<AuthenticatedUser | null>(null);
+  const me = useCurrentUser();
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [form, setForm] = useState<Partial<InviteUserInput>>({ roleIds: [] });
@@ -26,18 +27,14 @@ export default function InviteUserPage() {
   const isPlatformStaff = me?.platformStaffRole !== "NONE";
 
   useEffect(() => {
-    apiClient
-      .me()
-      .then((user) => {
-        setMe(user);
-        // Org admins are locked to their own org — pre-select it immediately.
-        if (user.platformStaffRole === "NONE") {
-          setForm((prev) => ({ ...prev, organizationId: user.organizationId }));
-        }
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your account"));
+    // Org admins are locked to their own org — pre-select it immediately.
+    // `me` now comes from AuthContext (AppShell's single useAuth() call)
+    // rather than this page's own apiClient.me() call.
+    if (me && me.platformStaffRole === "NONE") {
+      setForm((prev) => ({ ...prev, organizationId: me.organizationId }));
+    }
     apiClient.listOrganizations().then(setOrganizations).catch(() => undefined);
-  }, []);
+  }, [me]);
 
   useEffect(() => {
     if (!form.organizationId) {

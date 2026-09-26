@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { AuthenticatedUser, CreateOrganizationInput } from "@universe/types";
+import type { CreateOrganizationInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { useCurrentUser } from "../../../lib/AuthContext";
 
 /** Mirrors CreateOrganizationDto's slug rule (apps/api/src/organizations/dto/create-organization.dto.ts)
  * so a bad slug is caught client-side before the round trip, not just server-side. */
@@ -28,7 +29,7 @@ function slugify(name: string): string {
  */
 export default function NewOrganizationPage() {
   const router = useRouter();
-  const [me, setMe] = useState<AuthenticatedUser | null>(null);
+  const me = useCurrentUser();
   const [form, setForm] = useState<CreateOrganizationInput>({
     name: "",
     slug: "",
@@ -40,13 +41,6 @@ export default function NewOrganizationPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isPlatformStaff = me?.platformStaffRole !== "NONE";
-
-  useEffect(() => {
-    apiClient
-      .me()
-      .then(setMe)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your account"));
-  }, []);
 
   function updateName(name: string) {
     setForm((prev) => ({

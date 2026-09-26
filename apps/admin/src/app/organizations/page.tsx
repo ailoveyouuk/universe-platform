@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { AuthenticatedUser, OrganizationSummary } from "@universe/types";
+import type { OrganizationSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { useCurrentUser } from "../../lib/AuthContext";
 
 const STATUS_COLORS: Record<string, string> = {
   PILOT: "#B45309",
@@ -20,19 +21,18 @@ const STATUS_COLORS: Record<string, string> = {
  * Organization" is hidden for them rather than offered and then rejected
  * server-side — assertPlatformStaff in OrganizationsService.create is the
  * actual enforcement, this is just the UI reflecting it.
+ *
+ * `me` now comes from AuthContext (populated once by AppShell's useAuth())
+ * rather than this page's own apiClient.me() call — see AppShell.tsx.
  */
 export default function OrganizationsPage() {
-  const [me, setMe] = useState<AuthenticatedUser | null>(null);
+  const me = useCurrentUser();
   const [organizations, setOrganizations] = useState<OrganizationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isPlatformStaff = me?.platformStaffRole !== "NONE";
 
   useEffect(() => {
-    apiClient
-      .me()
-      .then(setMe)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load your account"));
     apiClient
       .listOrganizations()
       .then(setOrganizations)
@@ -46,7 +46,7 @@ export default function OrganizationsPage() {
         {isPlatformStaff && <Link href="/organizations/new">+ Create Organization</Link>}
       </div>
 
-      {!isPlatformStaff && me && (
+      {!isPlatformStaff && (
         <p style={{ color: "#6B7280", fontSize: 13, maxWidth: 560 }}>
           Onboarding a new organization is platform-staff only during the pilot — there's no
           self-service path. You can still see and manage users within your own organization from
