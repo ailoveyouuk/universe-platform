@@ -9,6 +9,12 @@ export interface RequestUser {
   email: string;
   forename: string;
   surname: string;
+  // Added 2026-09-26 for the personalized "powered by Universe" header —
+  // see Organization.logoUrl's doc comment in schema.prisma. Included here
+  // (rather than a separate /organizations/me call) since every app needs
+  // this on every authenticated page load, not just org-management screens.
+  organizationName: string;
+  organizationLogoUrl: string | null;
   platformStaffRole: PlatformStaffRole;
   permissions: string[];
 }
@@ -24,6 +30,7 @@ function toRequestUser(user: {
   // packages/db/src/enums.ts). Narrowed to PlatformStaffRole below since
   // the database only ever stores one of that const object's values.
   platformStaffRole: string;
+  organization: { name: string; logoUrl: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
   const permissions = user.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
@@ -33,12 +40,15 @@ function toRequestUser(user: {
     email: user.email,
     forename: user.forename,
     surname: user.surname,
+    organizationName: user.organization.name,
+    organizationLogoUrl: user.organization.logoUrl,
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
   };
 }
 
 const userInclude = {
+  organization: { select: { name: true, logoUrl: true } },
   userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } },
 } as const;
 

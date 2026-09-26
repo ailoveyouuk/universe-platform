@@ -79,7 +79,7 @@
 IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'universe_api_app')
     DROP USER universe_api_app;
 
-CREATE USER universe_api_app WITH PASSWORD = N'{APP_LOGIN_PASSWORD}';
+CREATE USER universe_api_app WITH PASSWORD = N'kovNy9-zivbov-wufdar';
 
 ALTER ROLE db_datareader ADD MEMBER universe_api_app;
 ALTER ROLE db_datawriter ADD MEMBER universe_api_app;

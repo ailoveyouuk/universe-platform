@@ -139,6 +139,13 @@ model Organization {
   /// steered toward — not an access-control boundary by itself (RLS/role
   /// permissions still do the actual enforcing).
   type      String   @default("BUYER")
+  /// Added 2026-09-26 — drives the personalized "powered by Universe"
+  /// header every app shows (see @universe/ui's OrgHeader): the org's own
+  /// logo when set, falling back to its name in text when not (most orgs
+  /// won't have one at pilot launch — there's no upload flow yet, this is
+  /// set directly for now). Expected to be a public HTTPS URL (e.g. blob
+  /// storage) once a real upload path exists; nothing validates that yet.
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

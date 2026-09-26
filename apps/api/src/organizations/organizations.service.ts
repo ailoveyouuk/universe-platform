@@ -30,6 +30,7 @@ export class OrganizationsService {
       slug: org.slug,
       status: org.status as OrganizationSummary["status"],
       type: org.type as OrganizationSummary["type"],
+      logoUrl: org.logoUrl,
     };
   }
 
@@ -50,6 +51,7 @@ export class OrganizationsService {
       slug: o.slug,
       status: o.status as OrganizationSummary["status"],
       type: o.type as OrganizationSummary["type"],
+      logoUrl: o.logoUrl,
     }));
   }
 

@@ -54,6 +54,11 @@ export interface AuthenticatedUser {
   email: string;
   forename: string;
   surname: string;
+  /** Added 2026-09-26 for the personalized "powered by Universe" header —
+   * see Organization.logoUrl's doc comment in schema.prisma and
+   * @universe/ui's OrgHeader, which renders these two fields. */
+  organizationName: string;
+  organizationLogoUrl: string | null;
   platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
   permissions: string[];
 }
@@ -87,6 +92,8 @@ export interface OrganizationSummary {
   /** BUYER (default) or SUPPLIER — added 2026-09-24, see Organization.type's
    * doc comment in schema.prisma. */
   type: "BUYER" | "SUPPLIER";
+  /** Added 2026-09-26 — see Organization.logoUrl's doc comment. */
+  logoUrl: string | null;
 }
 
 /**
