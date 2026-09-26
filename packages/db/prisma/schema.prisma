@@ -136,6 +136,29 @@ datasource db {
 //                             templates in organizations.ts for what's
 //                             actually enforced today vs. flagged as future
 //                             work.
+// Organization.legalEntityType — GOVERNMENT_AGENCY | PRIVATE_COMPANY |
+//                             REGISTERED_NGO | FAITH_BASED_NETWORK |
+//                             MULTILATERAL_UN_BODY | COOPERATIVE |
+//                             ACADEMIC_INSTITUTION | INDIVIDUAL | OTHER
+//                             (added 2026-09-26 — see
+//                             claude/org-onboarding-data-model.md, universal
+//                             fields)
+// Organization.onboardingSource — SELF_REFERRED |
+//                             INVITED_BY_PROCUREMENT_AGENT |
+//                             INVITED_BY_FUNDER | PLATFORM_STAFF_OUTREACH |
+//                             OTHER (added 2026-09-26)
+// ProcurementAgentProfile.logisticsCapability — OWN | SUBCONTRACTED | MIXED
+//                             (added 2026-09-26)
+// TenderingBodyProfile.bodyType — GOVERNMENT | FAITH_BASED_NETWORK |
+//                             NGO_IMPLEMENTING_PARTNER | MULTILATERAL
+//                             (added 2026-09-26)
+// SupplierProfile.warehousingCapability — OWN | THIRD_PARTY | MIXED
+//                             (added 2026-09-26)
+// DataInsightsUserProfile.institutionType — ACADEMIC |
+//                             NGO_NONPROFIT_RESEARCH |
+//                             MULTILATERAL_MARKET_INTELLIGENCE |
+//                             COMMERCIAL_MARKET_INTELLIGENCE |
+//                             INDIVIDUAL_RESEARCHER (added 2026-09-26)
 // User.platformStaffRole   — NONE | SUPPORT | SUPER_ADMIN
 // User.status               — INVITED | ACTIVE | DEACTIVATED
 // PartnerRole.roleType      — CLIENT | MANUFACTURER | SUPPLIER |
@@ -182,6 +205,35 @@ model Organization {
   /// Same as primaryColor — used for the sign-in/out button and other
   /// small accents. Falls back to Universe's own default when unset.
   secondaryColor String?
+  /// Universal onboarding fields added 2026-09-26 — see
+  /// claude/org-onboarding-data-model.md ("Universal fields") and the
+  /// admin-onboarding-intake-spec.md Phase 1 this implements. All nullable:
+  /// most existing organizations (provisioned before this existed) won't
+  /// have these filled in retroactively unless someone goes back and adds
+  /// them — that's fine, they're enrichment, not required for the platform
+  /// to function.
+  /// Legal/registered name, if different from the trading/display name
+  /// already held in `name` (e.g. "Unimed Procurement Services Limited" vs.
+  /// the display name "Unimed"). Null means `name` doubles as both.
+  legalName                  String?
+  /// See allowed values reference above.
+  legalEntityType            String?
+  countryOfRegistrationCode  String?
+  countryOfRegistration      Country? @relation("OrganizationCountryOfRegistration", fields: [countryOfRegistrationCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  registrationNumber         String?
+  website                    String?
+  /// The org's main point of contact for onboarding/relationship purposes —
+  /// deliberately separate from any platform User, since the person who
+  /// signs the data-sharing agreement or answers onboarding questions is
+  /// often not the same person who logs into Universe day to day.
+  primaryContactName         String?
+  primaryContactTitle        String?
+  primaryContactEmail        String?
+  primaryContactPhone        String?
+  /// See allowed values reference above.
+  onboardingSource           String?
+  notes                      String?  @db.NVarChar(Max)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -196,6 +248,26 @@ model Organization {
   supplierCountryPresence SupplierCountryPresence[]
   supplierLeadsAsSupplier SupplierLead[] @relation("SupplierLeadSupplier")
   supplierLeadsAsBuyer    SupplierLead[] @relation("SupplierLeadBuyer")
+
+  // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
+  // Phase 1) — universal "countries of operation" plus one optional
+  // category-specific detail relation per Organization.type value. An org
+  // has at most one of these populated, matching whichever category it is;
+  // nothing enforces that at the database level (same as Organization.type
+  // itself — see its own doc comment), application code is expected to
+  // only populate the one relation matching the org's actual type.
+  countryPresence         OrganizationCountryPresence[]
+  procurementAgentProfile ProcurementAgentProfile?
+  tenderingBodyProfile    TenderingBodyProfile?
+  manufacturerProfile     ManufacturerProfile?
+  manufacturerSites       ManufacturerSite[]
+  funderProfile           FunderProfile?
+  dataInsightsUserProfile DataInsightsUserProfile?
+  /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
+  /// every TenderingBodyProfile row that names THIS org as the agent it
+  /// uses. Lets a procurement-agent org eventually be asked "which
+  /// tendering bodies use us" without a new query shape.
+  tenderingBodiesUsingAsAgent TenderingBodyProfile[] @relation("TenderingBodyProcurementAgent")
 
   @@map("organizations")
 }
@@ -844,6 +916,11 @@ model Country {
 
   supplierCountryPresence SupplierCountryPresence[]
 
+  // Onboarding data model, 2026-09-26
+  organizationsRegisteredHere Organization[] @relation("OrganizationCountryOfRegistration")
+  organizationCountryPresence OrganizationCountryPresence[]
+  manufacturerSites           ManufacturerSite[]
+
   @@map("countries")
 }
 
@@ -918,6 +995,18 @@ model SupplierProfile {
   contactEmail   String?
   contactPhone   String?
   publishedAt    DateTime?
+  /// Supplier/Distributor onboarding fields, added 2026-09-26 — see
+  /// claude/org-onboarding-data-model.md's "Supplier / Distributor" section.
+  /// Stored here rather than a new table since SupplierProfile is already
+  /// the 1:1 marketplace profile for SUPPLIER-type orgs; MANUFACTURER-type
+  /// orgs share this same table (see ManufacturerProfile's doc comment) but
+  /// these four fields are only meaningful for SUPPLIER and are expected to
+  /// stay null on a manufacturer's row.
+  principalManufacturersRepresented String? @db.NVarChar(Max) // JSON string array
+  wholesaleDistributionLicense      String?
+  /// See allowed values reference above.
+  warehousingCapability             String?
+  yearsInOperation                  Int?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -996,4 +1085,189 @@ model SupplierLead {
   @@index([supplierOrganizationId])
   @@index([buyerOrganizationId])
   @@map("supplier_leads")
+}
+
+// ---------------------------------------------------------------------------
+// Organization onboarding — category-specific detail tables (2026-09-26)
+// See claude/org-onboarding-data-model.md for the field lists these
+// implement and claude/admin-onboarding-intake-spec.md for the phased plan
+// this is Phase 1 of (data model only — no intake form UI yet; today these
+// get populated the same way Unimed's own onboarding pilot did, by a
+// platform-staff member handing structured data to a provisioning script).
+// One optional detail relation per Organization.type value — see
+// Organization's own doc comment above these relations for how the two
+// connect. List-shaped fields (e.g. "funders operated under") are stored as
+// JSON-stringified string arrays in an NVarChar(Max) column, the same
+// convention DataSharingConsent.scope already uses — not because it's ideal
+// for querying, but because none of these are filtered/searched on yet;
+// revisit if that changes.
+// ---------------------------------------------------------------------------
+
+/// Universal "countries of operation" — every Organization can operate in
+/// several countries regardless of category, distinct from the single
+/// countryOfRegistrationCode above. Not the same table as
+/// SupplierCountryPresence, which is specifically the SUPPLIER-type
+/// marketplace's "countries of distribution" (a narrower, publish-facing
+/// concept) — this one is the general onboarding fact for any org type.
+model OrganizationCountryPresence {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  countryCode    String
+  country        Country  @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, countryCode])
+  @@map("organization_country_presence")
+}
+
+/// PROCUREMENT_SERVICE_AGENT detail — see org-onboarding-data-model.md's
+/// "Procurement Service Agent" section. Piloted against real Unimed data in
+/// unimed-onboarding-pilot.md; the field list here is that pilot's proven
+/// content, not a first guess.
+model ProcurementAgentProfile {
+  id                           String    @id @default(uuid())
+  organizationId               String    @unique
+  organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fundersProgramsOperatedUnder String?   @db.NVarChar(Max) // JSON string array
+  productCategoriesProcured    String?   @db.NVarChar(Max) // JSON string array
+  clientTypesServed            String?   @db.NVarChar(Max) // JSON string array
+  accreditations               String?   @db.NVarChar(Max) // JSON string array
+  /// See allowed values reference above.
+  logisticsCapability          String?
+  yearsOperatingInRole         Int?
+  /// Surfaced as a genuine gap during the Unimed pilot (not in the original
+  /// field list) — see unimed-onboarding-pilot.md. Free text rather than a
+  /// fully structured policy record; revisit if this needs to be queried on
+  /// (e.g. "which agents have cover expiring soon").
+  insuranceCoverSummary        String?   @db.NVarChar(Max)
+  insuranceExpiryDate          DateTime?
+  trackRecordSummary           String?   @db.NVarChar(Max)
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  @@map("procurement_agent_profiles")
+}
+
+/// TENDERING_PURCHASING_BODY detail — see org-onboarding-data-model.md's
+/// "Tendering & Purchasing Body" section.
+model TenderingBodyProfile {
+  id                             String   @id @default(uuid())
+  organizationId                 String   @unique
+  organization                   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// See allowed values reference above.
+  bodyType                       String?
+  fundingSources                 String?  @db.NVarChar(Max) // JSON string array
+  hasDirectProcurementAuthority  Boolean?
+  /// Whether this body runs its own tenders directly or hands that work to
+  /// a procurement agent. Deliberately just a fact-capture field, NOT an
+  /// access grant — see the 2026-09-26 decision in
+  /// claude/stakeholder-taxonomy-research.md that a tendering body does NOT
+  /// get visibility into an agent's project data even when this is true.
+  /// This is the seed for that relationship being recorded at all, not the
+  /// seed of a permission.
+  usesExternalProcurementAgent   Boolean  @default(false)
+  procurementAgentOrganizationId String?
+  procurementAgentOrganization   Organization? @relation("TenderingBodyProcurementAgent", fields: [procurementAgentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  diseaseProgramAreas            String?  @db.NVarChar(Max) // JSON string array
+  scaleServedSummary             String?  @db.NVarChar(Max)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@map("tendering_body_profiles")
+}
+
+/// MANUFACTURER detail — see org-onboarding-data-model.md's "Manufacturer"
+/// section. Distinct from the shared marketplace SupplierProfile (which a
+/// MANUFACTURER-type org also has, per B10's decision to reuse that table
+/// for both MANUFACTURER and SUPPLIER) — this table holds the fields that
+/// are ONLY meaningful for a manufacturer (regulatory approvals, production
+/// capacity), same split as SupplierProfile's own new Supplier/Distributor
+/// fields being manufacturer-irrelevant.
+model ManufacturerProfile {
+  id                             String   @id @default(uuid())
+  organizationId                 String   @unique
+  organization                   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCategoriesManufactured  String?  @db.NVarChar(Max) // JSON string array
+  /// WHO Prequalification status — see ProductSourceStandard's doc comment
+  /// in enums.ts for why WHO PQ *product* data isn't imported yet; this is
+  /// a separate, simpler fact about the manufacturer itself, not the data
+  /// import question.
+  whoPrequalified                Boolean  @default(false)
+  sraApprovals                   String?  @db.NVarChar(Max) // JSON string array — which Stringent Regulatory Authorities
+  nationalRegistrations          String?  @db.NVarChar(Max) // JSON string array of country codes
+  otherCertifications            String?  @db.NVarChar(Max) // JSON string array
+  productionCapacitySummary      String?  @db.NVarChar(Max)
+  currentExportMarkets           String?  @db.NVarChar(Max) // JSON string array of country codes
+  /// The active African local-manufacturing policy push flagged in
+  /// stakeholder-taxonomy-research.md section 1e — a simple flag rather
+  /// than modeling policy eligibility rules, which are out of scope here.
+  isLocalManufacturer            Boolean  @default(false)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+
+  @@map("manufacturer_profiles")
+}
+
+/// One row per manufacturing site — a manufacturer can have several, each
+/// independently certified, per org-onboarding-data-model.md. Many-to-one
+/// with Organization (not 1:1 like the profile tables above).
+model ManufacturerSite {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  locationCountryCode    String?
+  locationCountry        Country? @relation(fields: [locationCountryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  locationDetail         String?
+  gmpCertified           Boolean  @default(false)
+  gmpCertificationDetail String?  @db.NVarChar(Max)
+  createdAt              DateTime @default(now())
+
+  @@index([organizationId])
+  @@map("manufacturer_sites")
+}
+
+/// FUNDER_DONOR detail — deliberately minimal. Unlike the other five detail
+/// tables, this one has NO proven field list behind it: FUNDER_DONOR was
+/// added to the taxonomy after org-onboarding-data-model.md was written, and
+/// what a funder can actually see/do is explicitly undesigned (see
+/// stakeholder-taxonomy-research.md's "Decisions" section). Two loose
+/// fields only, so a FUNDER_DONOR org has somewhere for basic context to
+/// live without pretending a real field list exists yet. Expect this table
+/// to change shape once that design pass happens.
+model FunderProfile {
+  id                String   @id @default(uuid())
+  organizationId    String   @unique
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fundingFocusAreas String?  @db.NVarChar(Max) // JSON string array
+  notes             String?  @db.NVarChar(Max)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("funder_profiles")
+}
+
+/// DATA_INSIGHTS_USER detail — see org-onboarding-data-model.md's
+/// "Data / Insights User" section. `dataUseAgreementVersion`/
+/// `dataUseAgreementAcceptedAt` are a deliberately simplified stand-in for
+/// what that doc calls "likely a variant of DataSharingConsent scoped to
+/// consuming, not contributing, data" — a full second consent model wasn't
+/// worth building before any Data/Insights org actually exists on the
+/// platform; revisit if/when one does.
+model DataInsightsUserProfile {
+  id                         String    @id @default(uuid())
+  organizationId             String    @unique
+  organization               Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// See allowed values reference above.
+  institutionType            String?
+  affiliatedInstitution      String?
+  purposeIntendedUse         String?   @db.NVarChar(Max)
+  publicationIntent          String?   @db.NVarChar(Max)
+  fundingSourceOfResearch    String?
+  dataUseAgreementVersion    String?
+  dataUseAgreementAcceptedAt DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@map("data_insights_user_profiles")
 }

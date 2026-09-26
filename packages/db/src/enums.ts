@@ -177,3 +177,65 @@ export const ProductAttributeDataType = {
 } as const;
 export type ProductAttributeDataType =
   (typeof ProductAttributeDataType)[keyof typeof ProductAttributeDataType];
+
+// --- Added 2026-09-26, organization onboarding data model (Phase 1 of
+//     admin-onboarding-intake-spec.md) — see the corresponding fields'
+//     doc comments in schema.prisma ---
+
+export const OrganizationLegalEntityType = {
+  GOVERNMENT_AGENCY: "GOVERNMENT_AGENCY",
+  PRIVATE_COMPANY: "PRIVATE_COMPANY",
+  REGISTERED_NGO: "REGISTERED_NGO",
+  FAITH_BASED_NETWORK: "FAITH_BASED_NETWORK",
+  MULTILATERAL_UN_BODY: "MULTILATERAL_UN_BODY",
+  COOPERATIVE: "COOPERATIVE",
+  ACADEMIC_INSTITUTION: "ACADEMIC_INSTITUTION",
+  INDIVIDUAL: "INDIVIDUAL",
+  OTHER: "OTHER",
+} as const;
+export type OrganizationLegalEntityType =
+  (typeof OrganizationLegalEntityType)[keyof typeof OrganizationLegalEntityType];
+
+export const OrganizationOnboardingSource = {
+  SELF_REFERRED: "SELF_REFERRED",
+  INVITED_BY_PROCUREMENT_AGENT: "INVITED_BY_PROCUREMENT_AGENT",
+  INVITED_BY_FUNDER: "INVITED_BY_FUNDER",
+  PLATFORM_STAFF_OUTREACH: "PLATFORM_STAFF_OUTREACH",
+  OTHER: "OTHER",
+} as const;
+export type OrganizationOnboardingSource =
+  (typeof OrganizationOnboardingSource)[keyof typeof OrganizationOnboardingSource];
+
+export const LogisticsCapability = {
+  OWN: "OWN",
+  SUBCONTRACTED: "SUBCONTRACTED",
+  MIXED: "MIXED",
+} as const;
+export type LogisticsCapability = (typeof LogisticsCapability)[keyof typeof LogisticsCapability];
+
+export const TenderingBodyType = {
+  GOVERNMENT: "GOVERNMENT",
+  FAITH_BASED_NETWORK: "FAITH_BASED_NETWORK",
+  NGO_IMPLEMENTING_PARTNER: "NGO_IMPLEMENTING_PARTNER",
+  MULTILATERAL: "MULTILATERAL",
+} as const;
+export type TenderingBodyType = (typeof TenderingBodyType)[keyof typeof TenderingBodyType];
+
+/// Also used by SupplierProfile.warehousingCapability (shared shape, no
+/// need for a second identical enum).
+export const WarehousingCapability = {
+  OWN: "OWN",
+  THIRD_PARTY: "THIRD_PARTY",
+  MIXED: "MIXED",
+} as const;
+export type WarehousingCapability = (typeof WarehousingCapability)[keyof typeof WarehousingCapability];
+
+export const DataInsightsInstitutionType = {
+  ACADEMIC: "ACADEMIC",
+  NGO_NONPROFIT_RESEARCH: "NGO_NONPROFIT_RESEARCH",
+  MULTILATERAL_MARKET_INTELLIGENCE: "MULTILATERAL_MARKET_INTELLIGENCE",
+  COMMERCIAL_MARKET_INTELLIGENCE: "COMMERCIAL_MARKET_INTELLIGENCE",
+  INDIVIDUAL_RESEARCHER: "INDIVIDUAL_RESEARCHER",
+} as const;
+export type DataInsightsInstitutionType =
+  (typeof DataInsightsInstitutionType)[keyof typeof DataInsightsInstitutionType];
