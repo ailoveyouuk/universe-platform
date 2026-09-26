@@ -23,8 +23,8 @@ param ciamTenantId string = '23851fd3-0682-4268-af83-338cfea80d89'
 @description('The tenant\'s subdomain — the part before ".ciamlogin.com" / ".onmicrosoft.com". Required for the API to resolve the tenant\'s real ciamlogin.com OIDC discovery document (see packages/auth/src/verifyToken.ts) rather than falling back to the local-dev login.microsoftonline.com pattern.')
 param ciamTenantSubdomain string = 'universeplatform'
 
-@description('Expected `aud` claim on API access tokens — the universe-platform-api app registration\'s Application ID URI (registered 2026-09-25, client ID bf7f8f96-dc29-4754-b323-5a17058f5a1b).')
-param ciamApiAudience string = 'api://bf7f8f96-dc29-4754-b323-5a17058f5a1b'
+@description('Expected `aud` claim on API access tokens. IMPORTANT: an Entra access token\'s `aud` claim is the app registration\'s bare Application (client) ID GUID, NOT its Application ID URI — the `api://...` URI is only used as the *scope* string when a client requests a token (see packages/auth/src/msalConfig.ts API_SCOPES), never as the token\'s own audience. This default is the universe-platform-api app registration\'s client ID (registered 2026-09-25). Fixed 2026-09-26 after the deployed Container App was found silently missing/wrong on this value, which meant EntraAuthGuard rejected every real token in production — see claude/azure-infra-notes.md in the project docs for the full incident.')
+param ciamApiAudience string = 'bf7f8f96-dc29-4754-b323-5a17058f5a1b'
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
