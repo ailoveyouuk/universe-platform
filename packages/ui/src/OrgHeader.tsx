@@ -14,13 +14,24 @@ import type { ReactNode } from "react";
  * the database for now), so falling back to the organization's name in
  * text is the common case, not an edge case, and needs to look
  * intentional rather than like a missing image.
+ *
+ * `organizationPrimaryColor` (added 2026-09-26, see
+ * Organization.primaryColor's doc comment) renders as a small accent bar
+ * under the logo/name — deliberately the ONLY per-org theming here.
+ * Universe keeps one consistent design language across every app; this is
+ * just enough personalization (logo + a colour accent) for an org's
+ * experience to feel like theirs, not a full reskin. AppShell separately
+ * uses `organizationSecondaryColor` for its own sign-in/out button — see
+ * each app's AppShell.tsx.
  */
 export function OrgHeader({
   organizationName,
   organizationLogoUrl,
+  organizationPrimaryColor,
 }: {
   organizationName: string;
   organizationLogoUrl: string | null;
+  organizationPrimaryColor?: string | null;
 }): ReactNode {
   return (
     <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.3 }}>
@@ -33,7 +44,19 @@ export function OrgHeader({
       ) : (
         <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{organizationName}</span>
       )}
-      <span style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, letterSpacing: 0.2 }}>Powered by Universe</span>
+      {organizationPrimaryColor && (
+        <span
+          style={{
+            display: "block",
+            width: 40,
+            height: 3,
+            borderRadius: 2,
+            marginTop: 6,
+            backgroundColor: organizationPrimaryColor,
+          }}
+        />
+      )}
+      <span style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4, letterSpacing: 0.2 }}>Powered by Universe</span>
     </div>
   );
 }

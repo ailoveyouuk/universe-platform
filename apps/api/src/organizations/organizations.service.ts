@@ -31,6 +31,8 @@ export class OrganizationsService {
       status: org.status as OrganizationSummary["status"],
       type: org.type as OrganizationSummary["type"],
       logoUrl: org.logoUrl,
+      primaryColor: org.primaryColor,
+      secondaryColor: org.secondaryColor,
     };
   }
 
@@ -52,6 +54,8 @@ export class OrganizationsService {
       status: o.status as OrganizationSummary["status"],
       type: o.type as OrganizationSummary["type"],
       logoUrl: o.logoUrl,
+      primaryColor: o.primaryColor,
+      secondaryColor: o.secondaryColor,
     }));
   }
 

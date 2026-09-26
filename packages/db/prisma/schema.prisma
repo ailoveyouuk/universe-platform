@@ -146,6 +146,18 @@ model Organization {
   /// set directly for now). Expected to be a public HTTPS URL (e.g. blob
   /// storage) once a real upload path exists; nothing validates that yet.
   logoUrl   String?
+  /// Added 2026-09-26 for per-organization brand personalization (see
+  /// claude/org-onboarding-data-model.md's "brand implementation" section
+  /// and OrgHeader) — deliberately minimal: just enough to make an org's
+  /// Universe experience feel like theirs (a coloured accent under the
+  /// header) without deep theming (no per-org fonts/full app reskinning —
+  /// Universe keeps one consistent design language across every app).
+  /// Hex string, e.g. "#1B203D". Falls back to Universe's own default
+  /// header styling when unset.
+  primaryColor   String?
+  /// Same as primaryColor — used for the sign-in/out button and other
+  /// small accents. Falls back to Universe's own default when unset.
+  secondaryColor String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

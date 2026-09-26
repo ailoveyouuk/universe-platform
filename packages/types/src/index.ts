@@ -59,6 +59,10 @@ export interface AuthenticatedUser {
    * @universe/ui's OrgHeader, which renders these two fields. */
   organizationName: string;
   organizationLogoUrl: string | null;
+  /** Added 2026-09-26 for per-org brand accents — see Organization.primaryColor's
+   * doc comment in schema.prisma and @universe/ui's OrgHeader. */
+  organizationPrimaryColor: string | null;
+  organizationSecondaryColor: string | null;
   platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
   permissions: string[];
 }
@@ -94,6 +98,9 @@ export interface OrganizationSummary {
   type: "BUYER" | "SUPPLIER";
   /** Added 2026-09-26 — see Organization.logoUrl's doc comment. */
   logoUrl: string | null;
+  /** Added 2026-09-26 — see Organization.primaryColor's doc comment. */
+  primaryColor: string | null;
+  secondaryColor: string | null;
 }
 
 /**

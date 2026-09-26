@@ -15,6 +15,8 @@ export interface RequestUser {
   // this on every authenticated page load, not just org-management screens.
   organizationName: string;
   organizationLogoUrl: string | null;
+  organizationPrimaryColor: string | null;
+  organizationSecondaryColor: string | null;
   platformStaffRole: PlatformStaffRole;
   permissions: string[];
 }
@@ -30,7 +32,7 @@ function toRequestUser(user: {
   // packages/db/src/enums.ts). Narrowed to PlatformStaffRole below since
   // the database only ever stores one of that const object's values.
   platformStaffRole: string;
-  organization: { name: string; logoUrl: string | null };
+  organization: { name: string; logoUrl: string | null; primaryColor: string | null; secondaryColor: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
   const permissions = user.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
@@ -42,13 +44,15 @@ function toRequestUser(user: {
     surname: user.surname,
     organizationName: user.organization.name,
     organizationLogoUrl: user.organization.logoUrl,
+    organizationPrimaryColor: user.organization.primaryColor,
+    organizationSecondaryColor: user.organization.secondaryColor,
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
   };
 }
 
 const userInclude = {
-  organization: { select: { name: true, logoUrl: true } },
+  organization: { select: { name: true, logoUrl: true, primaryColor: true, secondaryColor: true } },
   userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } },
 } as const;
 

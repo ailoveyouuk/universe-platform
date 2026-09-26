@@ -5,7 +5,7 @@ import { OrgHeader } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
 
-const buttonStyle = {
+const defaultButtonStyle = {
   padding: "6px 16px",
   fontSize: 14,
   fontWeight: 600,
@@ -40,18 +40,32 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
       >
         {status === "signedIn" && me ? (
-          <OrgHeader organizationName={me.organizationName} organizationLogoUrl={me.organizationLogoUrl} />
+          <OrgHeader
+            organizationName={me.organizationName}
+            organizationLogoUrl={me.organizationLogoUrl}
+            organizationPrimaryColor={me.organizationPrimaryColor}
+          />
         ) : (
           <OrgHeader organizationName="Universe Admin" organizationLogoUrl={null} />
         )}
 
         {status === "signedIn" && (
-          <button onClick={signOut} style={buttonStyle}>
+          <button
+            onClick={signOut}
+            style={{
+              ...defaultButtonStyle,
+              // Per-org accent (added 2026-09-26) — falls back to
+              // Universe's own default when the org has no
+              // secondaryColor set. See OrgHeader.tsx for the matching
+              // primaryColor accent bar.
+              backgroundColor: me?.organizationSecondaryColor ?? defaultButtonStyle.backgroundColor,
+            }}
+          >
             Sign out
           </button>
         )}
         {status === "signedOut" && (
-          <button onClick={signIn} style={buttonStyle}>
+          <button onClick={signIn} style={defaultButtonStyle}>
             Sign in
           </button>
         )}
