@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { OrgHeader } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -37,17 +38,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           alignItems: "center",
           padding: "12px 32px",
           borderBottom: "1px solid #E5E7EB",
+          gap: 24,
         }}
       >
-        {status === "signedIn" && me ? (
-          <OrgHeader
-            organizationName={me.organizationName}
-            organizationLogoUrl={me.organizationLogoUrl}
-            organizationPrimaryColor={me.organizationPrimaryColor}
-          />
-        ) : (
-          <OrgHeader organizationName="Universe" organizationLogoUrl={null} />
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+          {status === "signedIn" && me ? (
+            <OrgHeader
+              organizationName={me.organizationName}
+              organizationLogoUrl={me.organizationLogoUrl}
+              organizationPrimaryColor={me.organizationPrimaryColor}
+            />
+          ) : (
+            <OrgHeader organizationName="Universe" organizationLogoUrl={null} />
+          )}
+
+          {status === "signedIn" && (
+            <nav style={{ display: "flex", gap: 20 }}>
+              <Link href="/projects" style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                Projects
+              </Link>
+              <Link href="/partners" style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                Partners
+              </Link>
+            </nav>
+          )}
+        </div>
 
         {status === "signedIn" && (
           <button

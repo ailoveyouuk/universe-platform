@@ -1,16 +1,22 @@
 import type {
   AuthenticatedUser,
   CreateOrganizationInput,
+  CreatePartnerInput,
   CreateProjectInput,
   CreateSupplierProductInput,
   InviteUserInput,
   OrganizationSummary,
+  PartnerSummary,
+  ProjectDetail,
+  ProjectLineInput,
   ProjectSummary,
   RoleSummary,
   SupplierLead,
   SupplierProduct,
   SupplierProfile,
   SupplierSearchResult,
+  UpdatePartnerInput,
+  UpdateProjectInput,
   UpdateSupplierProductInput,
   UpsertSupplierProfileInput,
   UserSummary,
@@ -55,7 +61,7 @@ export class UniverseApiClient {
     return this.request("/projects");
   }
 
-  getProject(id: string): Promise<ProjectSummary> {
+  getProject(id: string): Promise<ProjectDetail> {
     return this.request(`/projects/${id}`);
   }
 
@@ -64,6 +70,40 @@ export class UniverseApiClient {
       method: "POST",
       body: JSON.stringify(input),
     });
+  }
+
+  updateProject(id: string, input: UpdateProjectInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  addProjectLine(projectId: string, input: ProjectLineInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/lines`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateProjectLine(projectId: string, lineId: string, input: ProjectLineInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/lines/${lineId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  // --- Partners (added 2026-09-27) ---
+
+  listPartners(roleType?: string): Promise<PartnerSummary[]> {
+    const query = roleType ? `?roleType=${encodeURIComponent(roleType)}` : "";
+    return this.request(`/partners${query}`);
+  }
+
+  getPartner(id: string): Promise<PartnerSummary> {
+    return this.request(`/partners/${id}`);
+  }
+
+  createPartner(input: CreatePartnerInput): Promise<PartnerSummary> {
+    return this.request("/partners", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updatePartner(id: string, input: UpdatePartnerInput): Promise<PartnerSummary> {
+    return this.request(`/partners/${id}`, { method: "PATCH", body: JSON.stringify(input) });
   }
 
   listOrganizations(): Promise<OrganizationSummary[]> {

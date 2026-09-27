@@ -196,3 +196,239 @@ export interface SupplierLead {
   supplierProduct: { id: string; name: string };
   createdAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// Project Lines, full detail, and header updates (added 2026-09-27 — Phase 1
+// of the Project Management app build-out: exposes ProjectLine's full
+// procurement/financial/logistics/pharma-batch field set, previously only
+// on the Prisma model with no API surface at all).
+// ---------------------------------------------------------------------------
+
+/** Full ProjectLine shape as returned by the API. Decimals/dates come back
+ * as strings (JSON has no Decimal/Date type) — parse with Number()/Date()
+ * in the UI as needed. */
+export interface ProjectLineSummary {
+  id: string;
+  projectId: string;
+  clientProductDescription: string | null;
+  quantity: number | null;
+  productCategory: string | null;
+  countryOfManufactureCode: string | null;
+  incoterm: string | null;
+  freightMode: string | null;
+  manufacturerId: string | null;
+  manufacturerName: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
+  clientPoNumber: string | null;
+  clientPoReceiptDate: string | null;
+  internalPoNumber: string | null;
+  internalPoDatePlaced: string | null;
+  gad: string | null;
+  supplierGad: string | null;
+  freightForwarderId: string | null;
+  freightForwarderName: string | null;
+  freightCost: string | null;
+  freightCurrency: string | null;
+  warehouseReferenceNumber: string | null;
+  goodsCollectedDate: string | null;
+  goodsManufacturedDate: string | null;
+  goodsDeliveredToClientDate: string | null;
+  promisedDeliveryDate: string | null;
+  actualDeliveryDate: string | null;
+  internalOnTime: boolean | null;
+  supplierOnTime: boolean | null;
+  supplierInFull: boolean | null;
+  supplierUnitPrice: string | null;
+  supplierPaymentAmountTotal: string | null;
+  supplierPaymentCurrency: string | null;
+  supplierPaymentDate: string | null;
+  supplierDocumentsReceivedDate: string | null;
+  supplierPaymentStatusPercent: string | null;
+  unitSalesPrice: string | null;
+  clientPaymentAmount: string | null;
+  clientPaymentCurrency: string | null;
+  clientPaymentDate: string | null;
+  internalInvoiceNumber: string | null;
+  internalInvoiceDate: string | null;
+  grossMargin: string | null;
+  margin: string | null;
+  strength: string | null;
+  form: string | null;
+  packSize: string | null;
+  batchNumber: string | null;
+  expiryDate: string | null;
+  storageConditions: string | null;
+  dataLoggerReference: string | null;
+  dataLoggerReportReviewed: boolean | null;
+  excursionReview: string | null;
+  customerApproved: boolean | null;
+  rpApproved: boolean | null;
+  maPl: string | null;
+}
+
+/** Every field optional — used for both creating a new line (POST
+ * /projects/:id/lines) and patching an existing one (PATCH
+ * /projects/:id/lines/:lineId). Distinct from CreateProjectLineInput above,
+ * which stays minimal since it's only ever the *first* line bundled into
+ * project creation. */
+export interface ProjectLineInput {
+  clientProductDescription?: string | null;
+  quantity?: number | null;
+  productCategory?: string | null;
+  countryOfManufactureCode?: string | null;
+  incoterm?: string | null;
+  freightMode?: string | null;
+  manufacturerId?: string | null;
+  supplierId?: string | null;
+  clientPoNumber?: string | null;
+  clientPoReceiptDate?: string | null;
+  internalPoNumber?: string | null;
+  internalPoDatePlaced?: string | null;
+  gad?: string | null;
+  supplierGad?: string | null;
+  freightForwarderId?: string | null;
+  freightCost?: number | null;
+  freightCurrency?: string | null;
+  warehouseReferenceNumber?: string | null;
+  goodsCollectedDate?: string | null;
+  goodsManufacturedDate?: string | null;
+  goodsDeliveredToClientDate?: string | null;
+  promisedDeliveryDate?: string | null;
+  actualDeliveryDate?: string | null;
+  internalOnTime?: boolean | null;
+  supplierOnTime?: boolean | null;
+  supplierInFull?: boolean | null;
+  supplierUnitPrice?: number | null;
+  supplierPaymentAmountTotal?: number | null;
+  supplierPaymentCurrency?: string | null;
+  supplierPaymentDate?: string | null;
+  supplierDocumentsReceivedDate?: string | null;
+  supplierPaymentStatusPercent?: number | null;
+  unitSalesPrice?: number | null;
+  clientPaymentAmount?: number | null;
+  clientPaymentCurrency?: string | null;
+  clientPaymentDate?: string | null;
+  internalInvoiceNumber?: string | null;
+  internalInvoiceDate?: string | null;
+  grossMargin?: number | null;
+  margin?: number | null;
+  strength?: string | null;
+  form?: string | null;
+  packSize?: string | null;
+  batchNumber?: string | null;
+  expiryDate?: string | null;
+  storageConditions?: string | null;
+  dataLoggerReference?: string | null;
+  dataLoggerReportReviewed?: boolean | null;
+  excursionReview?: string | null;
+  customerApproved?: boolean | null;
+  rpApproved?: boolean | null;
+  maPl?: string | null;
+}
+
+/** Full project detail (header + lines) — what GET /projects/:id returns.
+ * ProjectSummary stays as the list-row shape (GET /projects). */
+export interface ProjectDetail extends ProjectSummary {
+  clientId: string | null;
+  donorReference: string | null;
+  deliveryCountryCode: string | null;
+  startDate: string | null;
+  submissionDate: string | null;
+  managementResponsibility: string | null;
+  reasonForCancellation: string | null;
+  projectNotes: string | null;
+  projectFolderUrl: string | null;
+  lines: ProjectLineSummary[];
+}
+
+/** PATCH /projects/:id — header fields only; line data goes through the
+ * dedicated line endpoints above. */
+export interface UpdateProjectInput {
+  title?: string;
+  status?: string;
+  clientId?: string | null;
+  donorReference?: string | null;
+  deliveryCountryCode?: string | null;
+  startDate?: string | null;
+  dueDate?: string | null;
+  submissionDate?: string | null;
+  managementResponsibility?: string | null;
+  reasonForCancellation?: string | null;
+  projectNotes?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Partners — real-world companies a tenant does business with (client,
+// supplier, manufacturer, freight forwarder). See Partner/PartnerRole in
+// schema.prisma. Added 2026-09-27 alongside the Project Line work above —
+// lines need real Partner records to reference as manufacturer/supplier/
+// freight forwarder rather than free text.
+// ---------------------------------------------------------------------------
+
+export interface PartnerRoleSummary {
+  roleType: string;
+  isActive: boolean;
+}
+
+export interface PartnerSupplierDetail {
+  supplierCode?: string | null;
+  productCategory?: string | null;
+  fdaRegistrationNumber?: string | null;
+}
+
+export interface PartnerManufacturerDetail {
+  partNumberConvention?: string | null;
+  countryOfManufactureCode?: string | null;
+}
+
+export interface PartnerFreightForwarderDetail {
+  preferredIncoterm?: string | null;
+  serviceRegions?: string | null;
+}
+
+export interface PartnerClientDetail {
+  billingAddress?: string | null;
+  deliveryAddress?: string | null;
+  paymentTerms?: string | null;
+}
+
+export interface PartnerSummary {
+  id: string;
+  name: string;
+  countryCode: string | null;
+  website: string | null;
+  approvalStatus: string;
+  roles: PartnerRoleSummary[];
+  supplierDetail: PartnerSupplierDetail | null;
+  manufacturerDetail: PartnerManufacturerDetail | null;
+  freightForwarderDetail: PartnerFreightForwarderDetail | null;
+  clientDetail: PartnerClientDetail | null;
+  createdAt: string;
+}
+
+export interface CreatePartnerInput {
+  name: string;
+  countryCode?: string;
+  website?: string;
+  /** At least one role required — a Partner with no role is meaningless. */
+  roleTypes: string[];
+  supplierDetail?: PartnerSupplierDetail;
+  manufacturerDetail?: PartnerManufacturerDetail;
+  freightForwarderDetail?: PartnerFreightForwarderDetail;
+  clientDetail?: PartnerClientDetail;
+}
+
+export interface UpdatePartnerInput {
+  name?: string;
+  countryCode?: string | null;
+  website?: string | null;
+  approvalStatus?: string;
+  /** Adds any role types not already present — does not remove existing
+   * ones (see PartnersService.update's doc comment). */
+  addRoleTypes?: string[];
+  supplierDetail?: PartnerSupplierDetail;
+  manufacturerDetail?: PartnerManufacturerDetail;
+  freightForwarderDetail?: PartnerFreightForwarderDetail;
+  clientDetail?: PartnerClientDetail;
+}

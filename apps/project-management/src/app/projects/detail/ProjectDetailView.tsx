@@ -1,33 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge } from "@universe/ui";
-import type { ProjectSummary } from "@universe/types";
+import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { LineForm } from "./LineForm";
+
+const STATUSES = [
+  "IDENTIFIED",
+  "IN_PROGRESS",
+  "SUBMITTED",
+  "AWARDED",
+  "COMPLETED",
+  "UNAWARDED",
+  "DECLINED",
+  "CANCELLED",
+] as const;
 
 /**
- * MVP detail view. Line item management (batch/expiry/storage for pharma
- * projects), procurement, financials, and logistics tabs are the next
- * build-out once the core intake flow is validated.
- *
- * Reworked 2026-09-24: this used to be a dynamic route (/projects/[id]),
- * but Next's `output: "export"` (required for Azure Static Web Apps)
- * rejects any dynamic route whose generateStaticParams() returns an empty
- * array — and project IDs are tenant data, never known at build time, so
- * an empty array is the only honest answer. Next's own docs recommend a
- * query param instead for exactly this case (static export + entirely
- * client-fetched dynamic content), so this is now a plain static page at
- * /projects/detail reading ?id= via useSearchParams(). Nothing about the
- * actual fetch/render logic changed otherwise.
+ * Full project detail: editable header (status/client/dates/notes) plus
+ * full line-item CRUD (procurement/financial/logistics/pharma-batch
+ * fields via LineForm) — replacing the earlier read-only MVP stub. Still a
+ * query-param route, not /projects/[id] — see the note this file used to
+ * carry, and Next's static-export + dynamic-route limitation it explains;
+ * unchanged by this rework.
  */
 export function ProjectDetailView() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
-  const [project, setProject] = useState<ProjectSummary | null>(null);
+
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [clients, setClients] = useState<PartnerSummary[]>([]);
+  const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
+  const [suppliers, setSuppliers] = useState<PartnerSummary[]>([]);
+  const [freightForwarders, setFreightForwarders] = useState<PartnerSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [editingHeader, setEditingHeader] = useState(false);
+  const [headerForm, setHeaderForm] = useState<UpdateProjectInput>({});
+  const [savingHeader, setSavingHeader] = useState(false);
+
+  const [addingLine, setAddingLine] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+
+  const load = useCallback(() => {
     if (!id) return;
     apiClient
       .getProject(id)
@@ -35,32 +52,310 @@ export function ProjectDetailView() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load project"));
   }, [id]);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    apiClient.listPartners("CLIENT").then(setClients).catch(() => {});
+    apiClient.listPartners("MANUFACTURER").then(setManufacturers).catch(() => {});
+    apiClient.listPartners("SUPPLIER").then(setSuppliers).catch(() => {});
+    apiClient.listPartners("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
+  }, []);
+
+  function startEditHeader() {
+    if (!project) return;
+    setHeaderForm({
+      title: project.title,
+      status: project.status,
+      clientId: project.clientId,
+      donorReference: project.donorReference,
+      deliveryCountryCode: project.deliveryCountryCode,
+      startDate: project.startDate,
+      dueDate: project.dueDate,
+      submissionDate: project.submissionDate,
+      managementResponsibility: project.managementResponsibility,
+      reasonForCancellation: project.reasonForCancellation,
+      projectNotes: project.projectNotes,
+    });
+    setEditingHeader(true);
+  }
+
+  async function saveHeader() {
+    if (!id) return;
+    setSavingHeader(true);
+    try {
+      const updated = await apiClient.updateProject(id, headerForm);
+      setProject(updated);
+      setEditingHeader(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update project");
+    } finally {
+      setSavingHeader(false);
+    }
+  }
+
   if (!id) return <main style={{ padding: 32, color: "#B91C1C" }}>No project specified.</main>;
   if (error) return <main style={{ padding: 32, color: "#B91C1C" }}>{error}</main>;
   if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
 
+  const isPharma = project.projectType === "PHARMACEUTICAL";
+
   return (
-    <main style={{ padding: 32 }}>
-      <h1>{project.title}</h1>
-      <p style={{ color: "#6B7280" }}>{project.referenceNumber}</p>
-      <StatusBadge status={project.status} />
+    <main style={{ padding: 32, maxWidth: 1000 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{ marginBottom: 4 }}>{project.title}</h1>
+          <p style={{ color: "#6B7280", margin: 0 }}>{project.referenceNumber}</p>
+        </div>
+        <StatusBadge status={project.status} />
+      </div>
 
-      <dl style={{ marginTop: 24 }}>
-        <dt style={{ fontWeight: 600 }}>Client</dt>
-        <dd>{project.clientName ?? "—"}</dd>
-        <dt style={{ fontWeight: 600, marginTop: 12 }}>Project Type</dt>
-        <dd>{project.projectType === "PHARMACEUTICAL" ? "Pharmaceutical" : "Non-Pharmaceutical"}</dd>
-        <dt style={{ fontWeight: 600, marginTop: 12 }}>Due Date</dt>
-        <dd>{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : "—"}</dd>
-        <dt style={{ fontWeight: 600, marginTop: 12 }}>Days Remaining for Submission</dt>
-        <dd>{project.daysRemainingForSubmission ?? "—"}</dd>
-      </dl>
-
-      {project.projectType === "PHARMACEUTICAL" && (
-        <p style={{ background: "#EFF6FF", padding: 12, borderRadius: 8, fontSize: 13, marginTop: 16 }}>
-          Line items (batch, expiry, storage conditions, MA/PL) — coming in the next build pass.
-        </p>
+      {!editingHeader && (
+        <>
+          <dl style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Client</dt>
+              <dd>{project.clientName ?? "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Project Type</dt>
+              <dd>{isPharma ? "Pharmaceutical" : "Non-Pharmaceutical"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Donor Reference</dt>
+              <dd>{project.donorReference ?? "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Delivery Country</dt>
+              <dd>{project.deliveryCountryCode ?? "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Start Date</dt>
+              <dd>{project.startDate ? new Date(project.startDate).toLocaleDateString() : "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Due Date</dt>
+              <dd>{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Submission Date</dt>
+              <dd>{project.submissionDate ? new Date(project.submissionDate).toLocaleDateString() : "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Days Remaining for Submission</dt>
+              <dd>{project.daysRemainingForSubmission ?? "—"}</dd>
+            </div>
+            <div>
+              <dt style={{ fontWeight: 600 }}>Management Responsibility</dt>
+              <dd>{project.managementResponsibility ?? "—"}</dd>
+            </div>
+            {project.status === "CANCELLED" && (
+              <div>
+                <dt style={{ fontWeight: 600 }}>Reason for Cancellation</dt>
+                <dd>{project.reasonForCancellation ?? "—"}</dd>
+              </div>
+            )}
+            <div style={{ gridColumn: "span 2" }}>
+              <dt style={{ fontWeight: 600 }}>Notes</dt>
+              <dd style={{ whiteSpace: "pre-wrap" }}>{project.projectNotes ?? "—"}</dd>
+            </div>
+          </dl>
+          <button onClick={startEditHeader} style={{ marginTop: 16, padding: "8px 16px" }}>
+            Edit Project Details
+          </button>
+        </>
       )}
+
+      {editingHeader && (
+        <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 20, marginTop: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label style={{ fontSize: 13 }}>
+              Status
+              <select
+                style={fieldInputStyle}
+                value={headerForm.status ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, status: e.target.value }))}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Client
+              <select
+                style={fieldInputStyle}
+                value={headerForm.clientId ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, clientId: e.target.value || null }))}
+              >
+                <option value="">—</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Donor Reference
+              <input
+                style={fieldInputStyle}
+                value={headerForm.donorReference ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, donorReference: e.target.value || null }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Delivery Country
+              <input
+                style={fieldInputStyle}
+                maxLength={2}
+                value={headerForm.deliveryCountryCode ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, deliveryCountryCode: e.target.value.toUpperCase() || null }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Start Date
+              <input
+                type="date"
+                style={fieldInputStyle}
+                value={(headerForm.startDate ?? "").slice(0, 10)}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, startDate: e.target.value || null }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Due Date
+              <input
+                type="date"
+                style={fieldInputStyle}
+                value={(headerForm.dueDate ?? "").slice(0, 10)}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, dueDate: e.target.value || null }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Submission Date
+              <input
+                type="date"
+                style={fieldInputStyle}
+                value={(headerForm.submissionDate ?? "").slice(0, 10)}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, submissionDate: e.target.value || null }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Management Responsibility
+              <input
+                style={fieldInputStyle}
+                value={headerForm.managementResponsibility ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, managementResponsibility: e.target.value || null }))}
+              />
+            </label>
+            {headerForm.status === "CANCELLED" && (
+              <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+                Reason for Cancellation
+                <input
+                  style={fieldInputStyle}
+                  value={headerForm.reasonForCancellation ?? ""}
+                  onChange={(e) => setHeaderForm((f) => ({ ...f, reasonForCancellation: e.target.value || null }))}
+                />
+              </label>
+            )}
+            <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+              Notes
+              <textarea
+                style={{ ...fieldInputStyle, minHeight: 80 }}
+                value={headerForm.projectNotes ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, projectNotes: e.target.value || null }))}
+              />
+            </label>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={saveHeader} disabled={savingHeader} style={{ padding: "8px 16px" }}>
+              {savingHeader ? "Saving…" : "Save"}
+            </button>
+            <button onClick={() => setEditingHeader(false)} style={{ padding: "8px 16px" }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Line Items ({project.lines.length})</h2>
+        {!addingLine && (
+          <button onClick={() => setAddingLine(true)} style={{ padding: "8px 16px" }}>
+            + Add Line
+          </button>
+        )}
+      </div>
+
+      {addingLine && (
+        <LineForm
+          existing={null}
+          isPharma={isPharma}
+          manufacturers={manufacturers}
+          suppliers={suppliers}
+          freightForwarders={freightForwarders}
+          onCancel={() => setAddingLine(false)}
+          onSave={async (input) => {
+            const updated = await apiClient.addProjectLine(project.id, input);
+            setProject(updated);
+            setAddingLine(false);
+          }}
+        />
+      )}
+
+      {project.lines.length === 0 && !addingLine && (
+        <p style={{ color: "#6B7280", marginTop: 8 }}>No line items yet.</p>
+      )}
+
+      {project.lines.map((line) => (
+        <div key={line.id} style={{ border: "1px solid #E5E7EB", borderRadius: 8, marginTop: 12, padding: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <p style={{ fontWeight: 600, margin: 0 }}>
+                {line.clientProductDescription || "(no description yet)"}
+              </p>
+              <p style={{ color: "#6B7280", fontSize: 13, margin: "4px 0 0" }}>
+                Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier: {line.supplierName ?? "—"} ·
+                Manufacturer: {line.manufacturerName ?? "—"}
+              </p>
+            </div>
+            {editingLineId !== line.id && (
+              <button onClick={() => setEditingLineId(line.id)} style={{ padding: "6px 12px" }}>
+                Edit
+              </button>
+            )}
+          </div>
+
+          {editingLineId === line.id && (
+            <LineForm
+              existing={line}
+              isPharma={isPharma}
+              manufacturers={manufacturers}
+              suppliers={suppliers}
+              freightForwarders={freightForwarders}
+              onCancel={() => setEditingLineId(null)}
+              onSave={async (input) => {
+                const updated = await apiClient.updateProjectLine(project.id, line.id, input);
+                setProject(updated);
+                setEditingLineId(null);
+              }}
+            />
+          )}
+        </div>
+      ))}
     </main>
   );
 }
+
+const fieldInputStyle = {
+  display: "block",
+  width: "100%",
+  padding: 6,
+  marginTop: 2,
+  border: "1px solid #D1D5DB",
+  borderRadius: 6,
+  fontSize: 13,
+} as const;
