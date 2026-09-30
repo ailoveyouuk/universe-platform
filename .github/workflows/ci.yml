@@ -76,6 +76,17 @@ jobs:
       - name: Generate Prisma client
         run: npm run db:generate
 
+      - name: Build workspace packages consumed as compiled output
+        # @universe/auth and @universe/types ship dist/ as their package.json
+        # main/types entry (2026-09-30) — unlike @universe/db, which still
+        # points at src/index.ts directly. This job is a separate, fresh
+        # checkout from the "build" job above (no shared filesystem state
+        # between GitHub Actions jobs), so dist/ has to be built here too,
+        # not assumed to already exist. Confirmed the hard way: CI #36 failed
+        # with "Failed to resolve entry for package '@universe/auth'" the
+        # first time the dist/ package.json change shipped without this step.
+        run: npm run build --workspace=@universe/auth --workspace=@universe/types
+
       - name: Create test database
         run: |
           docker exec ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
