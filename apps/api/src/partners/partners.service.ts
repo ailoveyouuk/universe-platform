@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { prisma } from "@universe/db";
+import { prisma, withTenantContext } from "@universe/db";
 import type { PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -68,44 +68,57 @@ function normalize(name: string): string {
 
 @Injectable()
 export class PartnersService {
+  // Every method wraps its Prisma work in withTenantContext(user.organizationId, ...)
+  // — see packages/db/src/tenant-context.ts. Azure SQL Row-Level Security on the
+  // partners table default-denies any query that doesn't carry that session context,
+  // so a bare `prisma.partner.*` call here would either return nothing (reads) or
+  // fail outright (writes) — this bit us for real during the Phase 1 smoke test,
+  // 2026-09-30 (see backend-launch-checklist.md). Matches the pattern already
+  // established in supplier-directory.service.ts.
   async findAll(user: RequestUser, roleType?: string): Promise<PartnerSummary[]> {
-    const partners = await prisma.partner.findMany({
-      where: {
-        ...tenantScope(user.organizationId),
-        isArchived: false,
-        ...(roleType ? { roles: { some: { roleType, isActive: true } } } : {}),
-      },
-      include: PARTNER_INCLUDE,
-      orderBy: { name: "asc" },
-    });
+    const partners = await withTenantContext(user.organizationId, (tx) =>
+      tx.partner.findMany({
+        where: {
+          ...tenantScope(user.organizationId),
+          isArchived: false,
+          ...(roleType ? { roles: { some: { roleType, isActive: true } } } : {}),
+        },
+        include: PARTNER_INCLUDE,
+        orderBy: { name: "asc" },
+      }),
+    );
     return partners.map(toSummary);
   }
 
   async findOne(user: RequestUser, id: string): Promise<PartnerSummary> {
-    const p = await prisma.partner.findFirst({
-      where: { id, ...tenantScope(user.organizationId) },
-      include: PARTNER_INCLUDE,
-    });
+    const p = await withTenantContext(user.organizationId, (tx) =>
+      tx.partner.findFirst({
+        where: { id, ...tenantScope(user.organizationId) },
+        include: PARTNER_INCLUDE,
+      }),
+    );
     if (!p) throw new NotFoundException(`Partner ${id} not found`);
     return toSummary(p);
   }
 
   async create(user: RequestUser, dto: CreatePartnerDto): Promise<PartnerSummary> {
-    const p = await prisma.partner.create({
-      data: {
-        organizationId: user.organizationId,
-        name: dto.name,
-        normalizedName: normalize(dto.name),
-        countryCode: dto.countryCode,
-        website: dto.website,
-        roles: { create: dto.roleTypes.map((roleType) => ({ roleType })) },
-        ...(dto.supplierDetail ? { supplierDetail: { create: dto.supplierDetail } } : {}),
-        ...(dto.manufacturerDetail ? { manufacturerDetail: { create: dto.manufacturerDetail } } : {}),
-        ...(dto.freightForwarderDetail ? { freightForwarderDetail: { create: dto.freightForwarderDetail } } : {}),
-        ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
-      },
-      include: PARTNER_INCLUDE,
-    });
+    const p = await withTenantContext(user.organizationId, (tx) =>
+      tx.partner.create({
+        data: {
+          organizationId: user.organizationId,
+          name: dto.name,
+          normalizedName: normalize(dto.name),
+          countryCode: dto.countryCode,
+          website: dto.website,
+          roles: { create: dto.roleTypes.map((roleType) => ({ roleType })) },
+          ...(dto.supplierDetail ? { supplierDetail: { create: dto.supplierDetail } } : {}),
+          ...(dto.manufacturerDetail ? { manufacturerDetail: { create: dto.manufacturerDetail } } : {}),
+          ...(dto.freightForwarderDetail ? { freightForwarderDetail: { create: dto.freightForwarderDetail } } : {}),
+          ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
+        },
+        include: PARTNER_INCLUDE,
+      }),
+    );
     return toSummary(p);
   }
 
@@ -115,42 +128,45 @@ export class PartnersService {
    * Partner might gain e.g. a SUPPLIER role well after being created as a
    * CLIENT-only record. */
   async update(user: RequestUser, id: string, dto: UpdatePartnerDto): Promise<PartnerSummary> {
-    const existing = await prisma.partner.findFirst({
-      where: { id, ...tenantScope(user.organizationId) },
-      include: { roles: true },
-    });
-    if (!existing) throw new NotFoundException(`Partner ${id} not found`);
+    const p = await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.partner.findFirst({
+        where: { id, ...tenantScope(user.organizationId) },
+        include: { roles: true },
+      });
+      if (!existing) return null;
 
-    const existingRoleTypes = new Set(existing.roles.map((r) => r.roleType));
-    const newRoleTypes = (dto.addRoleTypes ?? []).filter((rt) => !existingRoleTypes.has(rt));
+      const existingRoleTypes = new Set(existing.roles.map((r) => r.roleType));
+      const newRoleTypes = (dto.addRoleTypes ?? []).filter((rt) => !existingRoleTypes.has(rt));
 
-    const p = await prisma.partner.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: dto.name, normalizedName: normalize(dto.name) } : {}),
-        ...(dto.countryCode !== undefined ? { countryCode: dto.countryCode } : {}),
-        ...(dto.website !== undefined ? { website: dto.website } : {}),
-        ...(dto.approvalStatus !== undefined ? { approvalStatus: dto.approvalStatus } : {}),
-        ...(newRoleTypes.length ? { roles: { create: newRoleTypes.map((roleType) => ({ roleType })) } } : {}),
-        ...(dto.supplierDetail
-          ? { supplierDetail: { upsert: { create: dto.supplierDetail, update: dto.supplierDetail } } }
-          : {}),
-        ...(dto.manufacturerDetail
-          ? { manufacturerDetail: { upsert: { create: dto.manufacturerDetail, update: dto.manufacturerDetail } } }
-          : {}),
-        ...(dto.freightForwarderDetail
-          ? {
-              freightForwarderDetail: {
-                upsert: { create: dto.freightForwarderDetail, update: dto.freightForwarderDetail },
-              },
-            }
-          : {}),
-        ...(dto.clientDetail
-          ? { clientDetail: { upsert: { create: dto.clientDetail, update: dto.clientDetail } } }
-          : {}),
-      },
-      include: PARTNER_INCLUDE,
+      return tx.partner.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined ? { name: dto.name, normalizedName: normalize(dto.name) } : {}),
+          ...(dto.countryCode !== undefined ? { countryCode: dto.countryCode } : {}),
+          ...(dto.website !== undefined ? { website: dto.website } : {}),
+          ...(dto.approvalStatus !== undefined ? { approvalStatus: dto.approvalStatus } : {}),
+          ...(newRoleTypes.length ? { roles: { create: newRoleTypes.map((roleType) => ({ roleType })) } } : {}),
+          ...(dto.supplierDetail
+            ? { supplierDetail: { upsert: { create: dto.supplierDetail, update: dto.supplierDetail } } }
+            : {}),
+          ...(dto.manufacturerDetail
+            ? { manufacturerDetail: { upsert: { create: dto.manufacturerDetail, update: dto.manufacturerDetail } } }
+            : {}),
+          ...(dto.freightForwarderDetail
+            ? {
+                freightForwarderDetail: {
+                  upsert: { create: dto.freightForwarderDetail, update: dto.freightForwarderDetail },
+                },
+              }
+            : {}),
+          ...(dto.clientDetail
+            ? { clientDetail: { upsert: { create: dto.clientDetail, update: dto.clientDetail } } }
+            : {}),
+        },
+        include: PARTNER_INCLUDE,
+      });
     });
+    if (!p) throw new NotFoundException(`Partner ${id} not found`);
     return toSummary(p);
   }
 }
