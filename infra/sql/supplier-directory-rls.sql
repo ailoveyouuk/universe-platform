@@ -30,6 +30,22 @@
 -- lookup (see row-level-security.sql).
 
 -- ---------------------------------------------------------------------------
+-- 0. Idempotent teardown (added 2026-09-30 after a re-apply against the
+--    pilot Azure SQL database failed: this file had no teardown of its own,
+--    so a second run hit "CREATE SECURITY POLICY ... object already
+--    exists". Mirrors row-level-security.sql's own section 0. Order
+--    matters: the security policy must go before the function it
+--    references, or DROP FUNCTION fails with "is being referenced by
+--    object 'SupplierDirectoryPolicy'" — the exact failure hit 2026-09-30.
+-- ---------------------------------------------------------------------------
+IF EXISTS (SELECT 1 FROM sys.security_policies WHERE name = 'SupplierDirectoryPolicy' AND schema_id = SCHEMA_ID('rls'))
+    DROP SECURITY POLICY rls.SupplierDirectoryPolicy;
+
+IF OBJECT_ID('rls.fn_supplierDirectoryReadPredicate', 'IF') IS NOT NULL
+    DROP FUNCTION rls.fn_supplierDirectoryReadPredicate;
+GO
+
+-- ---------------------------------------------------------------------------
 -- 1. Read predicate — true for any session with SOME organization context
 --    set (a real authenticated caller, buyer or supplier) or platform staff.
 --    Still denies a bare connection with NO session context at all — the
