@@ -288,9 +288,16 @@ export class ProjectsService {
    * checking tenant ownership first. Runs inside the same tenant tx as the
    * caller so it shares one Azure SQL connection/session context. */
   private async assertPartnersOwned(tx: Prisma.TransactionClient, user: RequestUser, dto: ProjectLineDto) {
-    const ids = [dto.manufacturerId, dto.supplierId, dto.freightForwarderId].filter(
+    // Deduplicated deliberately: the same Partner commonly fills more than
+    // one role on a line (e.g. a company that is both manufacturer and
+    // supplier for a given product, exactly the case the Phase 1 smoke
+    // test used, 2026-09-30). `tx.partner.count()` with a Prisma `in`
+    // filter naturally matches distinct rows, so comparing its result
+    // against a non-deduplicated ids.length undercounts and rejects a
+    // perfectly valid line with a false "not found in your organization".
+    const ids = [...new Set([dto.manufacturerId, dto.supplierId, dto.freightForwarderId].filter(
       (v): v is string => typeof v === "string",
-    );
+    ))];
     if (!ids.length) return;
     const count = await tx.partner.count({ where: { id: { in: ids }, ...tenantScope(user.organizationId) } });
     if (count !== ids.length) throw new NotFoundException("One or more referenced partners were not found in your organization");
