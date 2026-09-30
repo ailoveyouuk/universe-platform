@@ -13,6 +13,38 @@ function toDateInput(value: string | null | undefined): string {
   return value.slice(0, 10);
 }
 
+/** ProjectLineSummary (the API read shape) carries id/projectId plus a few
+ * server-computed display fields (manufacturerName, supplierName,
+ * freightForwarderName) that ProjectLineInput (the PATCH/POST body) doesn't
+ * accept — main.ts's ValidationPipe runs with forbidNonWhitelisted: true, so
+ * sending those straight back 400s. Spreading `existing` into the form's
+ * initial state bypassed TypeScript's excess-property check (it only
+ * applies to object literals, not spread expressions) and this went
+ * uncaught until the Phase 1 smoke test actually tried to save an edited
+ * line, 2026-09-30. Strip them explicitly here instead of relying on the
+ * type system to catch it next time.*/
+function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
+  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, ...rest } = existing;
+  // Decimal columns (Prisma.Decimal) come back from the API as strings (see
+  // ProjectLineSummary's doc comment: "JSON has no Decimal/Date type") but
+  // ProjectLineInput — the PATCH/POST body — types them as number|null, same
+  // as the numOrNull() conversion this form already does for its own input
+  // onChange handlers. Converting on the way IN, not just the way out,
+  // avoids re-sending a string the API would reject the same way it
+  // rejected the excess fields above.
+  return {
+    ...rest,
+    freightCost: rest.freightCost === null ? null : Number(rest.freightCost),
+    supplierUnitPrice: rest.supplierUnitPrice === null ? null : Number(rest.supplierUnitPrice),
+    supplierPaymentAmountTotal: rest.supplierPaymentAmountTotal === null ? null : Number(rest.supplierPaymentAmountTotal),
+    supplierPaymentStatusPercent: rest.supplierPaymentStatusPercent === null ? null : Number(rest.supplierPaymentStatusPercent),
+    unitSalesPrice: rest.unitSalesPrice === null ? null : Number(rest.unitSalesPrice),
+    clientPaymentAmount: rest.clientPaymentAmount === null ? null : Number(rest.clientPaymentAmount),
+    grossMargin: rest.grossMargin === null ? null : Number(rest.grossMargin),
+    margin: rest.margin === null ? null : Number(rest.margin),
+  };
+}
+
 /**
  * One line item's full editable form — procurement, freight & logistics,
  * financials, and (conditionally) the pharma batch block. Used both inline
@@ -40,7 +72,7 @@ export function LineForm({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<ProjectLineInput>(() => (existing ? { ...existing } : {}));
+  const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
 
   function update<K extends keyof ProjectLineInput>(key: K, value: ProjectLineInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
