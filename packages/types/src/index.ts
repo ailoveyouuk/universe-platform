@@ -287,6 +287,51 @@ export interface ProjectLineSummary {
    * in schema.prisma / benchmarking doc rec. #4. */
   qualificationPathway: string | null;
   qualificationPathwayExpiryDate: string | null;
+  /** Supplier Enquiries — structured RFQ tracking per line, added to the
+   * schema 2026-09-24, given an API/UI in Phase 2, 2026-09-30. Newest
+   * dateContacted first — see ProjectsService's PROJECT_DETAIL_INCLUDE. */
+  enquiries: SupplierEnquirySummary[];
+}
+
+/** One structured RFQ record against a ProjectLine — see
+ * SupplierEnquiriesService for the full design note. Decimals/dates come
+ * back as strings, same convention as ProjectLineSummary above. */
+export interface SupplierEnquirySummary {
+  id: string;
+  projectLineId: string;
+  supplierId: string;
+  supplierName: string | null;
+  dateContacted: string | null;
+  /** WAITING | QUOTED | DECLINED | NO_RESPONSE — see
+   * SupplierEnquiryResponseStatus in packages/db/src/enums.ts. */
+  responseStatus: string;
+  quotedPrice: string | null;
+  quotedCurrency: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+/** POST /projects/:projectId/lines/:lineId/enquiries — supplierId is the
+ * one required field; everything else about the response is naturally
+ * unknown on a freshly-logged enquiry. */
+export interface CreateSupplierEnquiryInput {
+  supplierId: string;
+  dateContacted?: string;
+  responseStatus?: string;
+  quotedPrice?: number;
+  quotedCurrency?: string;
+  notes?: string;
+}
+
+/** PATCH /projects/:projectId/lines/:lineId/enquiries/:enquiryId — every
+ * field optional, same convention as ProjectLineInput/UpdateProjectInput. */
+export interface UpdateSupplierEnquiryInput {
+  supplierId?: string;
+  dateContacted?: string | null;
+  responseStatus?: string;
+  quotedPrice?: number | null;
+  quotedCurrency?: string | null;
+  notes?: string | null;
 }
 
 /** Every field optional — used for both creating a new line (POST

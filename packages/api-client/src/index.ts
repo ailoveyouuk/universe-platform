@@ -3,6 +3,7 @@ import type {
   CreateOrganizationInput,
   CreatePartnerInput,
   CreateProjectInput,
+  CreateSupplierEnquiryInput,
   CreateSupplierProductInput,
   InviteUserInput,
   OrganizationSummary,
@@ -17,6 +18,7 @@ import type {
   SupplierSearchResult,
   UpdatePartnerInput,
   UpdateProjectInput,
+  UpdateSupplierEnquiryInput,
   UpdateSupplierProductInput,
   UpsertSupplierProfileInput,
   UserSummary,
@@ -82,6 +84,31 @@ export class UniverseApiClient {
 
   updateProjectLine(projectId: string, lineId: string, input: ProjectLineInput): Promise<ProjectDetail> {
     return this.request(`/projects/${projectId}/lines/${lineId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  // --- Supplier Enquiries (added 2026-09-30, Phase 2) ---
+  // Every call returns the full ProjectDetail (same shape GET /projects/:id
+  // already returns) — see SupplierEnquiriesService's doc comment. There is
+  // deliberately no standalone listSupplierEnquiries(): the enquiries for a
+  // line are always already present on ProjectDetail.lines[n].enquiries.
+
+  createSupplierEnquiry(projectId: string, lineId: string, input: CreateSupplierEnquiryInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/lines/${lineId}/enquiries`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  updateSupplierEnquiry(
+    projectId: string,
+    lineId: string,
+    enquiryId: string,
+    input: UpdateSupplierEnquiryInput,
+  ): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/lines/${lineId}/enquiries/${enquiryId}`, {
       method: "PATCH",
       body: JSON.stringify(input),
     });

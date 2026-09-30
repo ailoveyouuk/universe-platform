@@ -6,6 +6,7 @@ import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES } from "@univ
 import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { LineForm } from "./LineForm";
+import { SupplierEnquiries } from "./SupplierEnquiries";
 
 const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
@@ -457,6 +458,8 @@ export function ProjectDetailView() {
               }}
             />
           )}
+
+          <SupplierEnquiries projectId={project.id} line={line} suppliers={suppliers} onUpdated={setProject} />
         </div>
       ))}
     </main>

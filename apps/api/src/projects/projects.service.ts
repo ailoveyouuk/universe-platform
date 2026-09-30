@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext } from "@universe/db";
-import type { ProjectDetail, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary } from "@universe/types";
+import type { ProjectDetail, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProjectDto } from "./dto/create-project.dto";
@@ -40,7 +40,20 @@ function toSummary(p: {
 
 const PROJECT_DETAIL_INCLUDE = {
   client: true,
-  lines: { include: { manufacturer: true, supplier: true, freightForwarder: true }, orderBy: { createdAt: "asc" as const } },
+  lines: {
+    include: {
+      manufacturer: true,
+      supplier: true,
+      freightForwarder: true,
+      // Supplier Enquiries (Phase 2, 2026-09-30) — RFQ tracking per line,
+      // newest-contacted-first so an active enquiry in progress surfaces
+      // above older, already-resolved ones. Prisma's back-relation field on
+      // ProjectLine is named supplierEnquiries (see schema.prisma) — mapped
+      // to the shorter `enquiries` in ProjectLineSummary below.
+      supplierEnquiries: { include: { supplier: true }, orderBy: { createdAt: "desc" as const } },
+    },
+    orderBy: { createdAt: "asc" as const },
+  },
   // Oldest-first, matching ProjectStatusHistoryEntry's doc comment in
   // packages/types — the StageTracker walks this array forward to compute
   // both "latest" and "cumulative" time-in-stage. See
@@ -50,6 +63,7 @@ const PROJECT_DETAIL_INCLUDE = {
 
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
 type LineWithPartners = ProjectWithLines["lines"][number];
+type EnquiryWithSupplier = LineWithPartners["supplierEnquiries"][number];
 type StatusHistoryWithUser = ProjectWithLines["statusHistory"][number];
 
 function decimalToString(d: unknown): string | null {
@@ -76,6 +90,21 @@ function remainingBalance(due: unknown, paid: unknown): string | null {
 function computeOtif(internalOnTime: boolean | null, supplierOnTime: boolean | null, supplierInFull: boolean | null): boolean | null {
   if (internalOnTime === null || supplierOnTime === null || supplierInFull === null) return null;
   return internalOnTime && supplierOnTime && supplierInFull;
+}
+
+function toEnquirySummary(e: EnquiryWithSupplier): SupplierEnquirySummary {
+  return {
+    id: e.id,
+    projectLineId: e.projectLineId,
+    supplierId: e.supplierId,
+    supplierName: e.supplier?.name ?? null,
+    dateContacted: e.dateContacted?.toISOString() ?? null,
+    responseStatus: e.responseStatus,
+    quotedPrice: decimalToString(e.quotedPrice),
+    quotedCurrency: e.quotedCurrency,
+    notes: e.notes,
+    createdAt: e.createdAt.toISOString(),
+  };
 }
 
 function toLineSummary(l: LineWithPartners): ProjectLineSummary {
@@ -144,6 +173,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     maPl: l.maPl,
     qualificationPathway: l.qualificationPathway,
     qualificationPathwayExpiryDate: l.qualificationPathwayExpiryDate?.toISOString() ?? null,
+    enquiries: l.supplierEnquiries.map(toEnquirySummary),
   };
 }
 
