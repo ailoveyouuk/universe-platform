@@ -16,6 +16,9 @@ export interface ProjectSummary {
   dueDate: string | null;
   /** Computed server-side from dueDate/submissionDate — never stored. */
   daysRemainingForSubmission: number | null;
+  /** Sub-state within COMPLETED only — see Project.completionStage's doc
+   * comment in schema.prisma. Added 2026-09-30. */
+  completionStage: string | null;
 }
 
 /**
@@ -230,6 +233,10 @@ export interface ProjectLineSummary {
   freightForwarderName: string | null;
   freightCost: string | null;
   freightCurrency: string | null;
+  /** Distinct from freightCost — see ProjectLine.insuredValue's doc
+   * comment in schema.prisma. Added 2026-09-30. */
+  insuredValue: string | null;
+  insuredCurrency: string | null;
   warehouseReferenceNumber: string | null;
   goodsCollectedDate: string | null;
   goodsManufacturedDate: string | null;
@@ -239,12 +246,23 @@ export interface ProjectLineSummary {
   internalOnTime: boolean | null;
   supplierOnTime: boolean | null;
   supplierInFull: boolean | null;
+  /** Computed server-side: internalOnTime && supplierOnTime && supplierInFull
+   * (null if any contributing flag is unset) — the industry-standard
+   * On-Time In-Full metric this field pairing already implemented, just
+   * unlabeled. See procurement-lifecycle-benchmarking.md rec. #3. */
+  otif: boolean | null;
   supplierUnitPrice: string | null;
   supplierPaymentAmountTotal: string | null;
   supplierPaymentCurrency: string | null;
   supplierPaymentDate: string | null;
   supplierDocumentsReceivedDate: string | null;
-  supplierPaymentStatusPercent: string | null;
+  /** Added 2026-09-30, replacing supplierPaymentStatusPercent — see that
+   * field's removal note in schema.prisma / benchmarking doc rec. #2. */
+  supplierAmountPaid: string | null;
+  supplierPaymentStatus: string | null;
+  /** Computed server-side (supplierPaymentAmountTotal - supplierAmountPaid),
+   * never stored — same convention as daysRemainingForSubmission above. */
+  supplierRemainingBalance: string | null;
   unitSalesPrice: string | null;
   clientPaymentAmount: string | null;
   clientPaymentCurrency: string | null;
@@ -265,6 +283,10 @@ export interface ProjectLineSummary {
   customerApproved: boolean | null;
   rpApproved: boolean | null;
   maPl: string | null;
+  /** Added 2026-09-30 — see ProjectLine.qualificationPathway's doc comment
+   * in schema.prisma / benchmarking doc rec. #4. */
+  qualificationPathway: string | null;
+  qualificationPathwayExpiryDate: string | null;
 }
 
 /** Every field optional — used for both creating a new line (POST
@@ -290,6 +312,8 @@ export interface ProjectLineInput {
   freightForwarderId?: string | null;
   freightCost?: number | null;
   freightCurrency?: string | null;
+  insuredValue?: number | null;
+  insuredCurrency?: string | null;
   warehouseReferenceNumber?: string | null;
   goodsCollectedDate?: string | null;
   goodsManufacturedDate?: string | null;
@@ -304,7 +328,8 @@ export interface ProjectLineInput {
   supplierPaymentCurrency?: string | null;
   supplierPaymentDate?: string | null;
   supplierDocumentsReceivedDate?: string | null;
-  supplierPaymentStatusPercent?: number | null;
+  supplierAmountPaid?: number | null;
+  supplierPaymentStatus?: string | null;
   unitSalesPrice?: number | null;
   clientPaymentAmount?: number | null;
   clientPaymentCurrency?: string | null;
@@ -325,6 +350,17 @@ export interface ProjectLineInput {
   customerApproved?: boolean | null;
   rpApproved?: boolean | null;
   maPl?: string | null;
+  qualificationPathway?: string | null;
+  qualificationPathwayExpiryDate?: string | null;
+}
+
+/** One row of a project's status-transition history — see
+ * ProjectStatusHistory's doc comment in schema.prisma. Added 2026-09-30
+ * to support the StageTracker's time-in-stage display. */
+export interface ProjectStatusHistoryEntry {
+  status: string;
+  enteredAt: string;
+  changedByName: string | null;
 }
 
 /** Full project detail (header + lines) — what GET /projects/:id returns.
@@ -340,6 +376,9 @@ export interface ProjectDetail extends ProjectSummary {
   projectNotes: string | null;
   projectFolderUrl: string | null;
   lines: ProjectLineSummary[];
+  /** Ordered oldest-first — see ProjectStatusHistoryEntry above. Added
+   * 2026-09-30. */
+  statusHistory: ProjectStatusHistoryEntry[];
 }
 
 /** PATCH /projects/:id — header fields only; line data goes through the
@@ -356,6 +395,9 @@ export interface UpdateProjectInput {
   managementResponsibility?: string | null;
   reasonForCancellation?: string | null;
   projectNotes?: string | null;
+  /** Only meaningful when status is COMPLETED — see
+   * Project.completionStage's doc comment in schema.prisma. */
+  completionStage?: string | null;
 }
 
 // ---------------------------------------------------------------------------

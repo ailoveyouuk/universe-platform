@@ -1,0 +1,79 @@
+/*
+ * Universe Design System — CSS custom properties, hand-generated from the
+ * canonical Design System artifact (tokens.json) —
+ * https://claude.ai/artifact/4guhbQPWehM3UH3Q64XU8p — see
+ * universe-brand-identity.md for the full rationale behind each value.
+ *
+ * First real wiring of these tokens into any app's UI, 2026-09-30, scoped
+ * initially to the project-stage-navigation-plan.md StageTracker component
+ * only (see that plan for why: a contained first application, not an
+ * app-wide restyle). Everything else in this file stays available for the
+ * next incremental brand-application pass.
+ *
+ * Values are LIGHT-mode by default (:root), overridden under
+ * prefers-color-scheme: dark — matches the design system's own two-theme
+ * shape (color.themes: light, dark).
+ */
+
+:root {
+  /* Color */
+  --u-ink: #14121F;
+  --u-ink-secondary: #6B6C7E;
+  --u-surface: #FFFFFF;
+  --u-surface-alt: #F7F8FA;
+  --u-brand-violet: #4A2E8C;
+  --u-brand-violet-on: #FFFFFF;
+  --u-accent-magenta: #B23A82;
+  --u-accent-magenta-tint: #FAF2F7;
+  --u-on-violet-secondary: #C7B4E6;
+  --u-on-violet-muted: #A496C6;
+  --u-signal-amber: #E9A23B;
+  --u-border: rgba(20, 18, 31, 0.12);
+  --u-status-good: #0ca30c;
+  --u-status-warning: #fab219;
+  --u-status-serious: #ec835a;
+  --u-status-critical: #d03b3b;
+
+  /* Type */
+  --u-font-display: 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --u-font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --u-font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* Spacing */
+  --u-space-1: 4px;
+  --u-space-2: 8px;
+  --u-space-3: 12px;
+  --u-space-4: 16px;
+  --u-space-6: 24px;
+  --u-space-8: 32px;
+
+  /* Radius */
+  --u-radius-sm: 6px;
+  --u-radius-md: 10px;
+  --u-radius-lg: 16px;
+  --u-radius-pill: 999px;
+
+  /* Shadow */
+  --u-shadow-card: 0 1px 2px rgba(20, 18, 31, 0.06), 0 1px 8px rgba(20, 18, 31, 0.06);
+
+  /* Icon */
+  --u-icon-stroke: 1.75px;
+  --u-icon-sm: 16px;
+  --u-icon-md: 20px;
+  --u-icon-lg: 24px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --u-ink: #F5F5FA;
+    --u-ink-secondary: #A8A9C0;
+    --u-surface: #14121F;
+    --u-surface-alt: #1E1C38;
+    --u-brand-violet: #9B84D9;
+    --u-brand-violet-on: #14121F;
+    --u-accent-magenta: #E85FAE;
+    --u-accent-magenta-tint: #3A1A2E;
+    --u-border: rgba(255, 255, 255, 0.14);
+    --u-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
+  }
+}

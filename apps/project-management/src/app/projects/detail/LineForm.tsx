@@ -6,6 +6,8 @@ import type { PartnerSummary, ProjectLineInput, ProjectLineSummary } from "@univ
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
+const PAYMENT_STATUSES = ["NOT_STARTED", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
+const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "WHOPES", "GHTF", "OTHER"] as const;
 
 /** date input helper: an ISO datetime string -> yyyy-mm-dd for <input type="date">. */
 function toDateInput(value: string | null | undefined): string {
@@ -24,7 +26,7 @@ function toDateInput(value: string | null | undefined): string {
  * line, 2026-09-30. Strip them explicitly here instead of relying on the
  * type system to catch it next time.*/
 function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
-  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, ...rest } = existing;
+  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, otif: _otif, supplierRemainingBalance: _supplierRemainingBalance, ...rest } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
   // ProjectLineSummary's doc comment: "JSON has no Decimal/Date type") but
   // ProjectLineInput — the PATCH/POST body — types them as number|null, same
@@ -37,7 +39,8 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     freightCost: rest.freightCost === null ? null : Number(rest.freightCost),
     supplierUnitPrice: rest.supplierUnitPrice === null ? null : Number(rest.supplierUnitPrice),
     supplierPaymentAmountTotal: rest.supplierPaymentAmountTotal === null ? null : Number(rest.supplierPaymentAmountTotal),
-    supplierPaymentStatusPercent: rest.supplierPaymentStatusPercent === null ? null : Number(rest.supplierPaymentStatusPercent),
+    supplierAmountPaid: rest.supplierAmountPaid === null ? null : Number(rest.supplierAmountPaid),
+    insuredValue: rest.insuredValue === null ? null : Number(rest.insuredValue),
     unitSalesPrice: rest.unitSalesPrice === null ? null : Number(rest.unitSalesPrice),
     clientPaymentAmount: rest.clientPaymentAmount === null ? null : Number(rest.clientPaymentAmount),
     grossMargin: rest.grossMargin === null ? null : Number(rest.grossMargin),
@@ -252,6 +255,18 @@ export function LineForm({
         <Field label="Freight Currency">
           <input maxLength={3} style={inputStyle} value={form.freightCurrency ?? ""} onChange={(e) => update("freightCurrency", e.target.value.toUpperCase() || null)} />
         </Field>
+        <Field label="Insured Value">
+          <input
+            type="number"
+            step="0.01"
+            style={inputStyle}
+            value={form.insuredValue ?? ""}
+            onChange={(e) => update("insuredValue", numOrNull(e.target.value))}
+          />
+        </Field>
+        <Field label="Insured Currency">
+          <input maxLength={3} style={inputStyle} value={form.insuredCurrency ?? ""} onChange={(e) => update("insuredCurrency", e.target.value.toUpperCase() || null)} />
+        </Field>
         <Field label="Warehouse Reference Number">
           <input style={inputStyle} value={form.warehouseReferenceNumber ?? ""} onChange={(e) => update("warehouseReferenceNumber", e.target.value || null)} />
         </Field>
@@ -297,8 +312,18 @@ export function LineForm({
         <Field label="Supplier Documents Received Date">
           <input type="date" style={inputStyle} value={toDateInput(form.supplierDocumentsReceivedDate)} onChange={(e) => update("supplierDocumentsReceivedDate", e.target.value || null)} />
         </Field>
-        <Field label="Supplier Payment Status %">
-          <input type="number" step="0.01" style={inputStyle} value={form.supplierPaymentStatusPercent ?? ""} onChange={(e) => update("supplierPaymentStatusPercent", numOrNull(e.target.value))} />
+        <Field label="Supplier Amount Paid">
+          <input type="number" step="0.01" style={inputStyle} value={form.supplierAmountPaid ?? ""} onChange={(e) => update("supplierAmountPaid", numOrNull(e.target.value))} />
+        </Field>
+        <Field label="Supplier Payment Status">
+          <select style={inputStyle} value={form.supplierPaymentStatus ?? ""} onChange={(e) => update("supplierPaymentStatus", e.target.value || null)}>
+            <option value="">Select…</option>
+            {PAYMENT_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Unit Sales Price">
           <input type="number" step="0.01" style={inputStyle} value={form.unitSalesPrice ?? ""} onChange={(e) => update("unitSalesPrice", numOrNull(e.target.value))} />
@@ -364,6 +389,26 @@ export function LineForm({
           <Field label="MA/PL Number">
             <input style={inputStyle} value={form.maPl ?? ""} onChange={(e) => update("maPl", e.target.value || null)} />
           </Field>
+          <Field label="Qualification Pathway">
+            <select style={inputStyle} value={form.qualificationPathway ?? ""} onChange={(e) => update("qualificationPathway", e.target.value || null)}>
+              <option value="">Select…</option>
+              {QUALIFICATION_PATHWAYS.map((q) => (
+                <option key={q} value={q}>
+                  {q.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {form.qualificationPathway === "ERP" && (
+            <Field label="Qualification Pathway Expiry (ERP max. 12 months)">
+              <input
+                type="date"
+                style={inputStyle}
+                value={toDateInput(form.qualificationPathwayExpiryDate)}
+                onChange={(e) => update("qualificationPathwayExpiryDate", e.target.value || null)}
+              />
+            </Field>
+          )}
         </Section>
       )}
 

@@ -3,6 +3,13 @@ import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "cla
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
+/** Added 2026-09-30, replacing the old supplierPaymentStatusPercent field —
+ * see ProjectLine.supplierPaymentStatus's doc comment in schema.prisma /
+ * procurement-lifecycle-benchmarking.md rec. #2. */
+const PAYMENT_STATUSES = ["NOT_STARTED", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
+/** Added 2026-09-30 — see ProjectLine.qualificationPathway's doc comment in
+ * schema.prisma / benchmarking doc rec. #4. */
+const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "WHOPES", "GHTF", "OTHER"] as const;
 
 /**
  * Every field optional — shared by POST /projects/:id/lines (create) and
@@ -29,6 +36,8 @@ export class ProjectLineDto {
   @IsOptional() @IsString() freightForwarderId?: string;
   @IsOptional() @IsNumber() freightCost?: number;
   @IsOptional() @IsString() freightCurrency?: string;
+  @IsOptional() @IsNumber() insuredValue?: number;
+  @IsOptional() @IsString() insuredCurrency?: string;
   @IsOptional() @IsString() warehouseReferenceNumber?: string;
   @IsOptional() @IsString() goodsCollectedDate?: string;
   @IsOptional() @IsString() goodsManufacturedDate?: string;
@@ -43,7 +52,8 @@ export class ProjectLineDto {
   @IsOptional() @IsString() supplierPaymentCurrency?: string;
   @IsOptional() @IsString() supplierPaymentDate?: string;
   @IsOptional() @IsString() supplierDocumentsReceivedDate?: string;
-  @IsOptional() @IsNumber() supplierPaymentStatusPercent?: number;
+  @IsOptional() @IsNumber() supplierAmountPaid?: number;
+  @IsOptional() @IsIn(PAYMENT_STATUSES) supplierPaymentStatus?: (typeof PAYMENT_STATUSES)[number];
   @IsOptional() @IsNumber() unitSalesPrice?: number;
   @IsOptional() @IsNumber() clientPaymentAmount?: number;
   @IsOptional() @IsString() clientPaymentCurrency?: string;
@@ -64,4 +74,6 @@ export class ProjectLineDto {
   @IsOptional() @IsBoolean() customerApproved?: boolean;
   @IsOptional() @IsBoolean() rpApproved?: boolean;
   @IsOptional() @IsString() maPl?: string;
+  @IsOptional() @IsIn(QUALIFICATION_PATHWAYS) qualificationPathway?: (typeof QUALIFICATION_PATHWAYS)[number];
+  @IsOptional() @IsString() qualificationPathwayExpiryDate?: string;
 }

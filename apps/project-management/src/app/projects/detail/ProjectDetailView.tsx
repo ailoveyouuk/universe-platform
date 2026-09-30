@@ -1,22 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { LineForm } from "./LineForm";
 
-const STATUSES = [
-  "IDENTIFIED",
-  "IN_PROGRESS",
-  "SUBMITTED",
-  "AWARDED",
-  "COMPLETED",
-  "UNAWARDED",
-  "DECLINED",
-  "CANCELLED",
-] as const;
+const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
+const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
+
+/**
+ * Which header fields foreground at which stage — see
+ * project-stage-navigation-plan.md "Field visibility per stage" and
+ * procurement-lifecycle-benchmarking.md rec. #8 (deadline/due-date fields
+ * should be the most prominent element pre-submission, per the tender-
+ * software research finding). "core" fields are always shown; everything
+ * else is gated as commented below. The underlying data is never hidden —
+ * this only controls what's foregrounded by default, matching
+ * ProjectFieldGroup's own doc comment in schema.prisma — a "Show all
+ * fields" toggle below bypasses all of this.
+ */
+function isSubmissionDateRelevant(project: ProjectDetail): boolean {
+  // Submission Date only exists once a project has actually been submitted.
+  return Boolean(project.submissionDate) || ACTIVE_STAGES.indexOf(project.status as (typeof ACTIVE_STAGES)[number]) >= ACTIVE_STAGES.indexOf("SUBMITTED");
+}
+function isDaysRemainingRelevant(project: ProjectDetail): boolean {
+  // Stops being meaningful the moment a project is actually submitted —
+  // benchmarking doc rec. #8.
+  return !project.submissionDate;
+}
 
 /**
  * Full project detail: editable header (status/client/dates/notes) plus
@@ -40,6 +53,8 @@ export function ProjectDetailView() {
   const [editingHeader, setEditingHeader] = useState(false);
   const [headerForm, setHeaderForm] = useState<UpdateProjectInput>({});
   const [savingHeader, setSavingHeader] = useState(false);
+  const [showAllFields, setShowAllFields] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
 
   const [addingLine, setAddingLine] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -77,6 +92,7 @@ export function ProjectDetailView() {
       managementResponsibility: project.managementResponsibility,
       reasonForCancellation: project.reasonForCancellation,
       projectNotes: project.projectNotes,
+      completionStage: project.completionStage,
     });
     setEditingHeader(true);
   }
@@ -95,6 +111,28 @@ export function ProjectDetailView() {
     }
   }
 
+  /** The small, dedicated status-change control next to the StageTracker —
+   * separate from the full "Edit Project Details" form, per
+   * project-stage-navigation-plan.md: changing status stays an explicit
+   * action, but shouldn't require opening the whole header-edit form just
+   * to move a project forward a stage. */
+  async function changeStatus(newStatus: string) {
+    if (!id || !project) return;
+    setChangingStatus(true);
+    setError(null);
+    try {
+      const updated = await apiClient.updateProject(id, { status: newStatus });
+      setProject(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to change status");
+    } finally {
+      setChangingStatus(false);
+    }
+  }
+
+  const showSubmissionDate = useMemo(() => (project ? isSubmissionDateRelevant(project) : false), [project]);
+  const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
+
   if (!id) return <main style={{ padding: 32, color: "#B91C1C" }}>No project specified.</main>;
   if (error) return <main style={{ padding: 32, color: "#B91C1C" }}>{error}</main>;
   if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
@@ -111,9 +149,53 @@ export function ProjectDetailView() {
         <StatusBadge status={project.status} />
       </div>
 
+      <div style={{ marginTop: 20 }}>
+        <StageTracker status={project.status} statusHistory={project.statusHistory} reasonForCancellation={project.reasonForCancellation} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <label style={{ fontSize: 13, color: "#6B7280" }}>
+            Change status
+            <select
+              style={{ ...fieldInputStyle, marginTop: 2, width: "auto", display: "inline-block", marginLeft: 8 }}
+              value={project.status}
+              disabled={changingStatus}
+              onChange={(e) => changeStatus(e.target.value)}
+            >
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          {project.status === "COMPLETED" && (
+            <label style={{ fontSize: 13, color: "#6B7280" }}>
+              Completion stage
+              <select
+                style={{ ...fieldInputStyle, marginTop: 2, width: "auto", display: "inline-block", marginLeft: 8 }}
+                value={project.completionStage ?? ""}
+                onChange={(e) => apiClient.updateProject(id, { completionStage: e.target.value || null }).then(setProject)}
+              >
+                <option value="">Select…</option>
+                {COMPLETION_STAGES.map((c) => (
+                  <option key={c} value={c}>
+                    {c.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      </div>
+
       {!editingHeader && (
         <>
-          <dl style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+            <label style={{ fontSize: 12, color: "#6B7280" }}>
+              <input type="checkbox" checked={showAllFields} onChange={(e) => setShowAllFields(e.target.checked)} style={{ marginRight: 6 }} />
+              Show all fields
+            </label>
+          </div>
+          <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <dt style={{ fontWeight: 600 }}>Client</dt>
               <dd>{project.clientName ?? "—"}</dd>
@@ -138,19 +220,23 @@ export function ProjectDetailView() {
               <dt style={{ fontWeight: 600 }}>Due Date</dt>
               <dd>{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : "—"}</dd>
             </div>
-            <div>
-              <dt style={{ fontWeight: 600 }}>Submission Date</dt>
-              <dd>{project.submissionDate ? new Date(project.submissionDate).toLocaleDateString() : "—"}</dd>
-            </div>
-            <div>
-              <dt style={{ fontWeight: 600 }}>Days Remaining for Submission</dt>
-              <dd>{project.daysRemainingForSubmission ?? "—"}</dd>
-            </div>
+            {(showAllFields || showSubmissionDate) && (
+              <div>
+                <dt style={{ fontWeight: 600 }}>Submission Date</dt>
+                <dd>{project.submissionDate ? new Date(project.submissionDate).toLocaleDateString() : "—"}</dd>
+              </div>
+            )}
+            {(showAllFields || showDaysRemaining) && (
+              <div>
+                <dt style={{ fontWeight: 600 }}>Days Remaining for Submission</dt>
+                <dd>{project.daysRemainingForSubmission ?? "—"}</dd>
+              </div>
+            )}
             <div>
               <dt style={{ fontWeight: 600 }}>Management Responsibility</dt>
               <dd>{project.managementResponsibility ?? "—"}</dd>
             </div>
-            {project.status === "CANCELLED" && (
+            {(showAllFields || project.status === "CANCELLED") && (
               <div>
                 <dt style={{ fontWeight: 600 }}>Reason for Cancellation</dt>
                 <dd>{project.reasonForCancellation ?? "—"}</dd>
@@ -261,6 +347,23 @@ export function ProjectDetailView() {
                 />
               </label>
             )}
+            {headerForm.status === "COMPLETED" && (
+              <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+                Completion Stage
+                <select
+                  style={fieldInputStyle}
+                  value={headerForm.completionStage ?? ""}
+                  onChange={(e) => setHeaderForm((f) => ({ ...f, completionStage: e.target.value || null }))}
+                >
+                  <option value="">Select…</option>
+                  {COMPLETION_STAGES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label style={{ fontSize: 13, gridColumn: "span 2" }}>
               Notes
               <textarea
@@ -320,6 +423,16 @@ export function ProjectDetailView() {
               <p style={{ color: "#6B7280", fontSize: 13, margin: "4px 0 0" }}>
                 Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier: {line.supplierName ?? "—"} ·
                 Manufacturer: {line.manufacturerName ?? "—"}
+              </p>
+              <p style={{ color: "#6B7280", fontSize: 13, margin: "4px 0 0" }}>
+                {line.supplierPaymentStatus && (
+                  <>
+                    Payment: {line.supplierPaymentStatus.replace(/_/g, " ")}
+                    {line.supplierRemainingBalance !== null && ` (${line.supplierRemainingBalance} remaining)`}
+                    {" · "}
+                  </>
+                )}
+                {line.otif !== null && <>OTIF: {line.otif ? "Yes" : "No"}</>}
               </p>
             </div>
             {editingLineId !== line.id && (

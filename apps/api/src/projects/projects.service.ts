@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext } from "@universe/db";
-import type { ProjectDetail, ProjectLineSummary, ProjectSummary } from "@universe/types";
+import type { ProjectDetail, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProjectDto } from "./dto/create-project.dto";
@@ -21,6 +21,7 @@ function toSummary(p: {
   category: string;
   projectType: string;
   dueDate: Date | null;
+  completionStage: string | null;
   client: { name: string } | null;
 }): ProjectSummary {
   return {
@@ -33,19 +34,48 @@ function toSummary(p: {
     clientName: p.client?.name ?? null,
     dueDate: p.dueDate?.toISOString() ?? null,
     daysRemainingForSubmission: daysRemaining(p.dueDate),
+    completionStage: p.completionStage,
   };
 }
 
 const PROJECT_DETAIL_INCLUDE = {
   client: true,
   lines: { include: { manufacturer: true, supplier: true, freightForwarder: true }, orderBy: { createdAt: "asc" as const } },
+  // Oldest-first, matching ProjectStatusHistoryEntry's doc comment in
+  // packages/types — the StageTracker walks this array forward to compute
+  // both "latest" and "cumulative" time-in-stage. See
+  // project-stage-navigation-plan.md / ProjectStatusHistory's doc comment.
+  statusHistory: { include: { changedBy: true }, orderBy: { enteredAt: "asc" as const } },
 } as const;
 
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
 type LineWithPartners = ProjectWithLines["lines"][number];
+type StatusHistoryWithUser = ProjectWithLines["statusHistory"][number];
 
 function decimalToString(d: unknown): string | null {
   return d === null || d === undefined ? null : String(d);
+}
+
+/** Remaining balance = amount due - amount paid, computed here rather than
+ * stored — see supplierAmountPaid's doc comment in schema.prisma. Returns
+ * null unless both the due and paid amounts are known (can't say anything
+ * meaningful about "remaining" from just one side). */
+function remainingBalance(due: unknown, paid: unknown): string | null {
+  if (due === null || due === undefined || paid === null || paid === undefined) return null;
+  const dueNum = Number(due);
+  const paidNum = Number(paid);
+  if (Number.isNaN(dueNum) || Number.isNaN(paidNum)) return null;
+  return String(dueNum - paidNum);
+}
+
+/** OTIF (On-Time In-Full) — a formally named industry metric this field
+ * pairing already implemented structurally, just unlabeled. See
+ * procurement-lifecycle-benchmarking.md rec. #3. null unless all three
+ * contributing flags are set — an unknown flag means OTIF can't be claimed
+ * either way, not that it defaults to false. */
+function computeOtif(internalOnTime: boolean | null, supplierOnTime: boolean | null, supplierInFull: boolean | null): boolean | null {
+  if (internalOnTime === null || supplierOnTime === null || supplierInFull === null) return null;
+  return internalOnTime && supplierOnTime && supplierInFull;
 }
 
 function toLineSummary(l: LineWithPartners): ProjectLineSummary {
@@ -72,6 +102,8 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     freightForwarderName: l.freightForwarder?.name ?? null,
     freightCost: decimalToString(l.freightCost),
     freightCurrency: l.freightCurrency,
+    insuredValue: decimalToString(l.insuredValue),
+    insuredCurrency: l.insuredCurrency,
     warehouseReferenceNumber: l.warehouseReferenceNumber,
     goodsCollectedDate: l.goodsCollectedDate?.toISOString() ?? null,
     goodsManufacturedDate: l.goodsManufacturedDate?.toISOString() ?? null,
@@ -81,12 +113,15 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     internalOnTime: l.internalOnTime,
     supplierOnTime: l.supplierOnTime,
     supplierInFull: l.supplierInFull,
+    otif: computeOtif(l.internalOnTime, l.supplierOnTime, l.supplierInFull),
     supplierUnitPrice: decimalToString(l.supplierUnitPrice),
     supplierPaymentAmountTotal: decimalToString(l.supplierPaymentAmountTotal),
     supplierPaymentCurrency: l.supplierPaymentCurrency,
     supplierPaymentDate: l.supplierPaymentDate?.toISOString() ?? null,
     supplierDocumentsReceivedDate: l.supplierDocumentsReceivedDate?.toISOString() ?? null,
-    supplierPaymentStatusPercent: decimalToString(l.supplierPaymentStatusPercent),
+    supplierAmountPaid: decimalToString(l.supplierAmountPaid),
+    supplierPaymentStatus: l.supplierPaymentStatus,
+    supplierRemainingBalance: remainingBalance(l.supplierPaymentAmountTotal, l.supplierAmountPaid),
     unitSalesPrice: decimalToString(l.unitSalesPrice),
     clientPaymentAmount: decimalToString(l.clientPaymentAmount),
     clientPaymentCurrency: l.clientPaymentCurrency,
@@ -107,6 +142,16 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     customerApproved: l.customerApproved,
     rpApproved: l.rpApproved,
     maPl: l.maPl,
+    qualificationPathway: l.qualificationPathway,
+    qualificationPathwayExpiryDate: l.qualificationPathwayExpiryDate?.toISOString() ?? null,
+  };
+}
+
+function toStatusHistoryEntry(h: StatusHistoryWithUser): ProjectStatusHistoryEntry {
+  return {
+    status: h.status,
+    enteredAt: h.enteredAt.toISOString(),
+    changedByName: h.changedBy ? `${h.changedBy.forename} ${h.changedBy.surname}` : null,
   };
 }
 
@@ -123,6 +168,7 @@ function toDetail(p: ProjectWithLines): ProjectDetail {
     projectNotes: p.projectNotes,
     projectFolderUrl: p.projectFolderUrl,
     lines: p.lines.map(toLineSummary),
+    statusHistory: p.statusHistory.map(toStatusHistoryEntry),
   };
 }
 
@@ -145,6 +191,7 @@ function lineDataFromDto(dto: ProjectLineDto) {
     "clientPaymentDate",
     "internalInvoiceDate",
     "expiryDate",
+    "qualificationPathwayExpiryDate",
   ] as const;
 
   const data: Record<string, unknown> = { ...dto };
@@ -210,7 +257,7 @@ export class ProjectsService {
       // live on ProjectLine instead. Creating a project still creates one
       // initial line alongside the header in a single call, matching the
       // existing single-page intake UX — see CreateProjectLineDto.
-      return tx.project.create({
+      const created = await tx.project.create({
         data: {
           organizationId: user.organizationId,
           referenceNumber: dto.referenceNumber,
@@ -237,6 +284,16 @@ export class ProjectsService {
         },
         include: { client: true },
       });
+
+      // A project is born IDENTIFIED (the schema default) — record that as
+      // stage-entry #1 so the StageTracker has a real starting point rather
+      // than a gap before the first status change. See
+      // ProjectStatusHistory's doc comment in schema.prisma.
+      await tx.projectStatusHistory.create({
+        data: { organizationId: user.organizationId, projectId: created.id, status: created.status, changedById: user.id },
+      });
+
+      return created;
     });
 
     return toSummary(p);
@@ -256,7 +313,7 @@ export class ProjectsService {
         if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organization`);
       }
 
-      return tx.project.update({
+      const updated = await tx.project.update({
         where: { id },
         data: {
           ...(dto.title !== undefined ? { title: dto.title } : {}),
@@ -274,12 +331,29 @@ export class ProjectsService {
             : {}),
           ...(dto.reasonForCancellation !== undefined ? { reasonForCancellation: dto.reasonForCancellation } : {}),
           ...(dto.projectNotes !== undefined ? { projectNotes: dto.projectNotes } : {}),
+          ...(dto.completionStage !== undefined ? { completionStage: dto.completionStage } : {}),
         },
         include: PROJECT_DETAIL_INCLUDE,
       });
+
+      // Record a new stage-entry row whenever the status actually changed —
+      // see ProjectStatusHistory's doc comment in schema.prisma. Runs in the
+      // same tenant transaction as the update above, matching the pattern
+      // withTenantContext's own doc comment establishes (one connection,
+      // one session context, for every write a request makes). Deliberately
+      // compares against `existing.status` (the row read at the top of this
+      // method, before the update), not `updated.status`, so this can never
+      // double-fire from anything downstream of the update itself.
+      if (dto.status !== undefined && dto.status !== existing.status) {
+        await tx.projectStatusHistory.create({
+          data: { organizationId: user.organizationId, projectId: id, status: dto.status, changedById: user.id },
+        });
+      }
+
+      return updated;
     });
     if (!p) throw new NotFoundException(`Project ${id} not found`);
-    return toDetail(p);
+    return this.findOne(user, id);
   }
 
   /** Verifies a manufacturer/supplier/freight-forwarder id on a line DTO

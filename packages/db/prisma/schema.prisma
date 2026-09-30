@@ -105,6 +105,15 @@ datasource db {
 // ProjectLine.productCategory — CONSUMABLES | DEVICES | REAGENTS | EQUIPMENT |
 //                             PHARMACEUTICALS | LABORATORY
 // ProjectDocument.type     — CHECKLIST | ISSUES | CLOSEOUT_REPORT | OTHER
+// Project.completionStage — DELIVERED | FINANCIALLY_CLOSED | CLOSEOUT_FILED
+//                             (sub-state within COMPLETED only — added 2026-09-30,
+//                             see procurement-lifecycle-benchmarking.md rec. #1)
+// ProjectLine.supplierPaymentStatus — NOT_STARTED | PARTIALLY_PAID | PAID | OVERDUE
+//                             (replaces supplierPaymentStatusPercent — added
+//                             2026-09-30, see benchmarking doc rec. #2)
+// ProjectLine.qualificationPathway — WHO_PQ | SRA | ERP | ISO13485 | ISO9001 |
+//                             WHOPES | GHTF | OTHER (added 2026-09-30, see
+//                             benchmarking doc rec. #4)
 // Organization.status      — PILOT | ACTIVE | SUSPENDED
 // Organization.type        — PROCUREMENT_SERVICE_AGENT | TENDERING_PURCHASING_BODY |
 //                             MANUFACTURER | SUPPLIER | FUNDER_DONOR |
@@ -309,6 +318,8 @@ model User {
   recordedPrices     ProductPriceHistory[]
   acceptedConsents   DataSharingConsent[]
   createdSupplierProducts SupplierProduct[]
+  /// Added 2026-09-30 — see ProjectStatusHistory model.
+  recordedProjectStatusChanges ProjectStatusHistory[]
 
   @@index([organizationId])
   @@map("users")
@@ -539,6 +550,13 @@ model Project {
   submissionDate           DateTime?
   managementResponsibility String?
   reasonForCancellation    String?
+  /// Sub-state within COMPLETED only (DELIVERED -> FINANCIALLY_CLOSED ->
+  /// CLOSEOUT_FILED) — added 2026-09-30 per procurement-lifecycle-
+  /// benchmarking.md rec. #1: CIPS/UN/PAHO all treat post-award logistics,
+  /// receipt and closeout as distinct stages our single COMPLETED status
+  /// collapsed into one. Deliberately a sub-state field, not a sixth
+  /// pipeline stage — see project-stage-navigation-plan.md.
+  completionStage          String?      // see allowed values reference above
   projectNotes             String?      @db.NVarChar(Max)
   projectFolderUrl         String?
   isArchived               Boolean      @default(false)
@@ -551,6 +569,8 @@ model Project {
   contacts  ProjectContact[]
   lines     ProjectLine[]
   documents ProjectDocument[]
+  /// Added 2026-09-30 — see ProjectStatusHistory model below.
+  statusHistory ProjectStatusHistory[]
 
   // Reference numbers only need to be unique WITHIN an organization — two
   // different tenants can both have a "PROJ-001".
@@ -572,6 +592,33 @@ model ProjectFieldGroup {
 
   @@unique([status, fieldGroupKey])
   @@map("project_field_groups")
+}
+
+/// One row per Project.status transition — added 2026-09-30 per
+/// project-stage-navigation-plan.md. Exists because "time in stage" cannot
+/// be computed honestly from Project.updatedAt: that timestamp changes on
+/// ANY field edit (a note, a management-responsibility change), not just a
+/// status change, so it would silently reset the clock. ProjectsService.update
+/// inserts a new row here whenever dto.status differs from the project's
+/// current status, inside the same withTenantContext transaction as the
+/// rest of the update. Supports both HubSpot-style "latest time in stage"
+/// (now/next-row minus this row's enteredAt) and "cumulative time in
+/// stage" (summed across every row with this status, since a project can
+/// re-enter a stage, e.g. SUBMITTED -> IN_PROGRESS -> SUBMITTED again) —
+/// see procurement-lifecycle-benchmarking.md rec. #7.
+model ProjectStatusHistory {
+  id             String   @id @default(uuid())
+  organizationId String // denormalized from Project for direct RLS scoping, same pattern as every other tenant table
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status         String // the stage being entered — see allowed values reference above (Project.status)
+  enteredAt      DateTime @default(now())
+  changedById    String?
+  changedBy      User?    @relation(fields: [changedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@map("project_status_history")
 }
 
 /// Days Remaining for Submission is intentionally NOT stored — it's derived
@@ -648,6 +695,12 @@ model ProjectLine {
   freightForwarder               Partner? @relation("LineFreightForwarder", fields: [freightForwarderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   freightCost                   Decimal?  @db.Decimal(18, 2)
   freightCurrency                String?  @db.Char(3)
+  /// Distinct from freightCost/contract value — added 2026-09-30 per
+  /// benchmarking doc rec. #5: Incoterms 2020's CIP term specifically
+  /// requires the seller to insure at a minimum of 110% of contract
+  /// value, so these are not interchangeable numbers.
+  insuredValue                  Decimal?  @db.Decimal(18, 2)
+  insuredCurrency                String?  @db.Char(3)
   warehouseReferenceNumber      String?
   goodsCollectedDate            DateTime?
   goodsManufacturedDate         DateTime?
@@ -663,11 +716,24 @@ model ProjectLine {
 
   // --- Financials ---
   supplierUnitPrice             Decimal?  @db.Decimal(18, 2)
+  /// The total amount DUE to the supplier for this line — paired with
+  /// supplierAmountPaid below, not a percentage. See that field's doc
+  /// comment.
   supplierPaymentAmountTotal    Decimal?  @db.Decimal(18, 2)
   supplierPaymentCurrency       String?   @db.Char(3)
   supplierPaymentDate           DateTime?
   supplierDocumentsReceivedDate DateTime?
-  supplierPaymentStatusPercent  Decimal?  @db.Decimal(5, 2)
+  /// The amount paid to the supplier so far. Added 2026-09-30, replacing
+  /// supplierPaymentStatusPercent — see procurement-lifecycle-
+  /// benchmarking.md rec. #2: a single percentage cannot distinguish
+  /// delivery completeness from payment completeness (SAP Ariba/three-
+  /// way-match convention stores amounts, derives percentage for
+  /// display rather than storing it as source of truth). Remaining
+  /// balance = supplierPaymentAmountTotal - supplierAmountPaid, computed
+  /// in the API layer so it can't drift out of sync, same convention as
+  /// grossMargin/margin below.
+  supplierAmountPaid            Decimal?  @db.Decimal(18, 2)
+  supplierPaymentStatus         String?   // see allowed values reference above
   unitSalesPrice                Decimal?  @db.Decimal(18, 2)
   clientPaymentAmount           Decimal?  @db.Decimal(18, 2)
   clientPaymentCurrency         String?   @db.Char(3)
@@ -695,6 +761,16 @@ model ProjectLine {
   rpApproved                    Boolean?
   /// Marketing Authorization / Product License number
   maPl                          String?
+  /// Which regulatory pathway qualified this product — added 2026-09-30
+  /// per benchmarking doc rec. #4 (Global Fund PSM guidelines): pharma
+  /// products must clear WHO Prequalification, a Stringent Regulatory
+  /// Authority approval, or an Expert Review Panel approval (the latter
+  /// capped at 12 months — see qualificationPathwayExpiryDate).
+  qualificationPathway           String?   // see allowed values reference above
+  /// Only meaningful when qualificationPathway == "ERP" — Global Fund
+  /// caps an Expert Review Panel approval at a 12-month maximum contract
+  /// duration.
+  qualificationPathwayExpiryDate DateTime?
 
   createdAt                     DateTime  @default(now())
   updatedAt                     DateTime  @updatedAt

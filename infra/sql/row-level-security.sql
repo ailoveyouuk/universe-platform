@@ -77,10 +77,12 @@ GO
 -- ---------------------------------------------------------------------------
 -- 2. Security policy — FILTER (SELECT/UPDATE/DELETE) + BLOCK (INSERT/UPDATE)
 --    predicates on every table carrying organizationId directly. Table list
---    generated from the schema.prisma organizationId audit, 2026-09-24:
+--    generated from the schema.prisma organizationId audit, 2026-09-24,
+--    updated 2026-09-30 to add project_status_history:
 --      users, roles, partners, contacts, projects, project_lines,
 --      supplier_enquiries, project_documents, product_lines,
---      product_price_history, data_sharing_consents
+--      product_price_history, data_sharing_consents,
+--      project_status_history
 --    NOT included, and deliberately so: product_master (shared reference
 --    catalog, not tenant-scoped — see schema.prisma "PRODUCT CLASSIFICATION"
 --    comment) and regions/countries (global reference data).
@@ -124,6 +126,10 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_documents,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_documents AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_documents AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_status_history,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_status_history AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_status_history AFTER UPDATE,
 
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_lines,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_lines AFTER INSERT,
