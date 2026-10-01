@@ -74,29 +74,96 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (status !== "signedIn" || !me) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: "var(--u-surface)" }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: "var(--u-surface)",
+          backgroundImage:
+            "radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--u-accent-magenta) 10%, transparent), transparent 42%), " +
+            "radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--u-brand-violet) 12%, transparent), transparent 46%)",
+        }}
+      >
+        {/* Decorative orbit motif — echoes the Universe mark (ring + satellite
+           + core) at large scale, very low opacity, purely atmospheric. Added
+           2026-10-01 so the pre-auth screen carries the brand's own visual
+           language instead of being a bare text-on-white placeholder. */}
+        <svg
+          aria-hidden
+          viewBox="0 0 100 100"
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: "min(140vmin, 1100px)",
+            height: "min(140vmin, 1100px)",
+            transform: "translate(-50%, -50%)",
+            opacity: 0.5,
+            pointerEvents: "none",
+          }}
+        >
+          <circle cx="50" cy="50" r="38" fill="none" stroke="var(--u-accent-magenta)" strokeWidth="0.3" opacity="0.35" />
+          <circle cx="50" cy="50" r="30" fill="none" stroke="var(--u-brand-violet)" strokeWidth="0.25" opacity="0.25" />
+          <circle cx="84.44" cy="33.94" r="1.4" fill="var(--u-accent-magenta)" opacity="0.5" />
+        </svg>
+
         <header
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            padding: "16px 32px",
-            borderBottom: "1px solid var(--u-border)",
+            padding: "20px 32px",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
             <Logo />
           </Link>
-          {status === "signedOut" && (
-            <Button variant="primary" onClick={signIn}>
-              Sign in
-            </Button>
-          )}
         </header>
-        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {status === "initializing" && <p style={{ color: "var(--u-ink-secondary)" }}>Loading…</p>}
-          {status === "unauthorized" && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
-          {status === "signedOut" && <p style={{ color: "var(--u-ink-secondary)" }}>Please sign in to continue.</p>}
+
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", zIndex: 1 }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              padding: "40px 36px",
+              borderRadius: "var(--u-radius-lg)",
+              border: "1px solid var(--u-border)",
+              backgroundColor: "var(--u-surface-raised)",
+              boxShadow: "var(--u-shadow-card)",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <Logo variant="mark" size={44} />
+            <h1
+              style={{
+                fontFamily: "var(--u-font-display)",
+                fontSize: 21,
+                color: "var(--u-ink)",
+                margin: "14px 0 0",
+              }}
+            >
+              {status === "unauthorized" ? "Access restricted" : "Welcome to Universe"}
+            </h1>
+            <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, margin: "6px 0 10px", lineHeight: 1.5 }}>
+              {status === "initializing" && "Loading your workspace…"}
+              {status === "unauthorized" && (error || "Your account isn't recognized on this platform yet.")}
+              {status === "signedOut" && "Sign in with your organization's Microsoft account to continue to Project Management."}
+            </p>
+            {status === "signedOut" && (
+              <Button variant="primary" onClick={signIn} style={{ marginTop: 8 }}>
+                Sign in
+              </Button>
+            )}
+          </div>
         </main>
       </div>
     );
