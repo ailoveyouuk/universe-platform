@@ -3,15 +3,20 @@ import type {
   ConfirmDocumentUploadInput,
   CreateOrganizationInput,
   CreatePartnerInput,
+  CreateProductSourceApprovalInput,
   CreateProjectInput,
   CreateSupplierEnquiryInput,
   CreateSupplierProductInput,
   InviteUserInput,
   OrganizationSummary,
+  PartnerPerformanceMetric,
   PartnerSummary,
+  ProductMasterOption,
+  ProductSourceApprovalSummary,
   ProjectDetail,
   ProjectLineInput,
   ProjectSummary,
+  QualityDashboardSummary,
   RequestDocumentUploadInput,
   RequestDocumentUploadResult,
   RoleSummary,
@@ -20,6 +25,7 @@ import type {
   SupplierProfile,
   SupplierSearchResult,
   UpdatePartnerInput,
+  UpdateProductSourceApprovalInput,
   UpdateProjectInput,
   UpdateSupplierEnquiryInput,
   UpdateSupplierProductInput,
@@ -183,6 +189,35 @@ export class UniverseApiClient {
 
   updatePartner(id: string, input: UpdatePartnerInput): Promise<PartnerSummary> {
     return this.request(`/partners/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Quality Assurance (added 2026-10-01) ---
+
+  getQualityDashboard(): Promise<QualityDashboardSummary> {
+    return this.request("/quality/dashboard");
+  }
+
+  searchQualityProducts(search?: string): Promise<ProductMasterOption[]> {
+    const query = search ? `?search=${encodeURIComponent(search)}` : "";
+    return this.request(`/quality/products${query}`);
+  }
+
+  listProductSourceApprovals(status?: string): Promise<ProductSourceApprovalSummary[]> {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    return this.request(`/quality/product-approvals${query}`);
+  }
+
+  createProductSourceApproval(input: CreateProductSourceApprovalInput): Promise<ProductSourceApprovalSummary> {
+    return this.request("/quality/product-approvals", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateProductSourceApproval(id: string, input: UpdateProductSourceApprovalInput): Promise<ProductSourceApprovalSummary> {
+    return this.request(`/quality/product-approvals/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  getPartnerPerformance(roleType?: string): Promise<PartnerPerformanceMetric[]> {
+    const query = roleType ? `?roleType=${encodeURIComponent(roleType)}` : "";
+    return this.request(`/quality/performance${query}`);
   }
 
   listOrganizations(): Promise<OrganizationSummary[]> {

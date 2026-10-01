@@ -565,3 +565,108 @@ export interface UpdatePartnerInput {
   freightForwarderDetail?: PartnerFreightForwarderDetail;
   clientDetail?: PartnerClientDetail;
 }
+
+// ---------------------------------------------------------------------------
+// Quality Assurance (added 2026-10-01, round 3 feedback) — product/partner
+// sourcing approvals plus freight/supplier/manufacturer performance
+// scorecards. See architecture-decisions.md's "Quality Assurance" section
+// for the full design rationale, in particular why "qualified product" is
+// its own first-class ProductSourceApproval record rather than something
+// derived purely from order history.
+// ---------------------------------------------------------------------------
+
+/** Minimal shared-catalog lookup for the QA "new approval" product
+ * picker — ProductMaster is global/non-tenant-scoped (see schema.prisma),
+ * so this is deliberately not a full ProductMaster type, just enough to
+ * populate a search-and-select field. */
+export interface ProductMasterOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+export interface ProductSourceApprovalSummary {
+  id: string;
+  productMasterId: string;
+  productMasterName: string;
+  productCategory: string;
+  manufacturerId: string;
+  manufacturerName: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  status: string; // PENDING | APPROVED | REJECTED
+  approvedAt: string | null;
+  nextReviewDue: string | null;
+  notes: string | null;
+  /** Live cross-reference — the manufacturer/supplier's CURRENT
+   * Partner.approvalStatus, re-checked on every read rather than cached on
+   * this row, so a partner losing approval after this record was approved
+   * shows up immediately as a warning rather than silently going stale. */
+  manufacturerApprovalStatus: string;
+  supplierApprovalStatus: string | null;
+  /** True if the manufacturer or (when set) the supplier has any
+   * PartnerCertification with an expiryDate in the past. */
+  hasExpiredCertification: boolean;
+  /** True if nextReviewDue is set and in the past. */
+  isReviewOverdue: boolean;
+  /** True only when status === "APPROVED" AND the manufacturer (and
+   * supplier, if set) are both currently Partner.approvalStatus ===
+   * "APPROVED" AND there's no expired certification AND the review isn't
+   * overdue. This is the one field the QA dashboard's "qualified products"
+   * count is built from. */
+  isQualified: boolean;
+  createdAt: string;
+}
+
+export interface CreateProductSourceApprovalInput {
+  productMasterId: string;
+  manufacturerId: string;
+  supplierId?: string;
+  status?: string;
+  nextReviewDue?: string;
+  notes?: string;
+}
+
+export interface UpdateProductSourceApprovalInput {
+  status?: string;
+  nextReviewDue?: string | null;
+  notes?: string | null;
+}
+
+export interface QualityDashboardSummary {
+  totalProducts: number;
+  qualifiedCount: number;
+  /** Approved at the sourcing-decision level but currently failing the
+   * live cross-reference (expired cert, partner no longer approved, or an
+   * overdue review) — the "subtle warning" case Lewis asked for. */
+  warningCount: number;
+  pendingCount: number;
+  rejectedCount: number;
+  /** Up to 10 approvals needing attention (warnings first, then overdue
+   * reviews), for a dashboard "needs attention" panel. */
+  needsAttention: ProductSourceApprovalSummary[];
+}
+
+export interface PartnerPerformanceMetric {
+  partnerId: string;
+  partnerName: string;
+  roleType: string; // MANUFACTURER | SUPPLIER | FREIGHT_FORWARDER
+  totalLines: number;
+  onTimeCount: number;
+  /** null when totalLines with a recorded on-time flag is 0 (nothing to
+   * compute a percentage from yet), not 0 — avoids implying a 0% score for
+   * a partner simply not used yet. */
+  onTimePercent: number | null;
+  inFullCount: number;
+  inFullPercent: number | null;
+  otifPercent: number | null;
+  /** Count of SupplierEnquiry rows against this partner with
+   * responseStatus DECLINED or NO_RESPONSE — only meaningful for
+   * roleType === "SUPPLIER" (enquiries are supplier-only in the schema);
+   * 0 for other role types. */
+  issueCount: number;
+  /** Average days late across lines with both promisedDeliveryDate and
+   * actualDeliveryDate set, floored at 0 (an early delivery counts as 0
+   * days late, not negative). null when no line has both dates. */
+  avgDaysLate: number | null;
+}

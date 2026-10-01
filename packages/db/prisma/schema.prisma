@@ -252,6 +252,7 @@ model Organization {
   projects         Project[]
   productLines     ProductLine[]
   dataSharingConsents DataSharingConsent[]
+  productSourceApprovals ProductSourceApproval[]
   supplierProfile  SupplierProfile?
   supplierProducts SupplierProduct[]
   supplierCountryPresence SupplierCountryPresence[]
@@ -416,6 +417,8 @@ model Partner {
   supplierEnquiries SupplierEnquiry[]
   productLinesAsSupplier ProductLine[]    @relation("ProductLineSupplier")
   productLinesAsManufacturer ProductLine[] @relation("ProductLineManufacturer")
+  productSourceApprovalsAsManufacturer ProductSourceApproval[] @relation("ProductSourceManufacturer")
+  productSourceApprovalsAsSupplier     ProductSourceApproval[] @relation("ProductSourceSupplier")
 
   @@index([organizationId])
   @@index([organizationId, normalizedName])
@@ -506,6 +509,61 @@ model PartnerApprovalHistory {
 
   @@index([partnerId])
   @@map("partner_approval_history")
+}
+
+/// Added 2026-10-01 for the Quality Assurance section (round 3 feedback).
+/// A standing, organization-owned "approved sourcing relationship": this
+/// tenant has reviewed and approved buying a specific ProductMaster
+/// commodity from a specific manufacturer (optionally via a specific
+/// supplier) — independent of any one ProjectLine/order. This is
+/// deliberately a NEW, explicit decision by Lewis (2026-10-01, via
+/// AskUserQuestion) over the cheaper alternative (computing "qualified"
+/// purely from ProjectLine history) — see architecture-decisions.md's
+/// "Quality Assurance" section for the full rationale: an order line
+/// existing does not mean anyone ever reviewed/approved that sourcing
+/// combination, so "qualified" needed its own first-class record.
+///
+/// A ProductMaster+manufacturer(+supplier) combination is only ever
+/// APPROVED here as a deliberate QA action (see
+/// ProductSourceApprovalsService) — never auto-created from order
+/// activity. The QA dashboard's "qualified products" figure counts
+/// combinations that are APPROVED here AND whose manufacturer (and
+/// supplier, when set) currently have Partner.approvalStatus == APPROVED
+/// with no expired PartnerCertification — see
+/// ProductSourceApprovalsService.getQualificationStatus for the exact
+/// cross-reference logic.
+model ProductSourceApproval {
+  id               String        @id @default(uuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId  String
+  productMaster    ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerId   String
+  manufacturer     Partner       @relation("ProductSourceManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Optional — a product+manufacturer combination can be approved before a
+  /// specific supplier is attached, or approved generically with no
+  /// supplier at all (direct-from-manufacturer sourcing).
+  supplierId       String?
+  supplier         Partner?      @relation("ProductSourceSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status           String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  approvedAt       DateTime?
+  approvedById     String?
+  /// Optional QA review cadence — when set and in the past, the dashboard
+  /// flags this as a stale approval needing re-review, same spirit as
+  /// PartnerCertification.expiryDate.
+  nextReviewDue    DateTime?
+  notes            String?       @db.NVarChar(Max)
+  isArchived       Boolean       @default(false)
+  archivedAt       DateTime?
+  archivedById     String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([productMasterId])
+  @@index([manufacturerId])
+  @@index([supplierId])
+  @@map("product_source_approvals")
 }
 
 model Contact {
@@ -924,6 +982,7 @@ model ProductMaster {
   productLines         ProductLine[]
   priceHistory         ProductPriceHistory[]
   supplierProducts     SupplierProduct[]
+  productSourceApprovals ProductSourceApproval[]
 
   @@index([category])
   @@index([hsCode])

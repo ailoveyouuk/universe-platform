@@ -13,6 +13,7 @@ import {
   DashboardIcon,
   ProjectsIcon,
   PartnersIcon,
+  ShieldIcon,
   LogoutIcon,
   UserIcon,
   BellIcon,
@@ -28,6 +29,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/projects", label: "Projects", icon: () => <ProjectsIcon size={19} />, inNav: true },
   { href: "/partners", label: "Stakeholders", icon: () => <PartnersIcon size={19} />, inNav: true },
+  { href: "/quality", label: "Quality", icon: () => <ShieldIcon size={19} />, inNav: true },
 ];
 
 function crumbsFor(pathname: string) {

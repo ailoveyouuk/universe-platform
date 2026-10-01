@@ -260,6 +260,25 @@ export function SettingsIcon(props: IconProps) {
   );
 }
 
+export function ShieldIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.5 5 6v6c0 4.5 3 7.7 7 8.5 4-.8 7-4 7-8.5V6Z" />
+      <path d="M9 12.2 11.2 14.5 15.3 9.8" />
+    </svg>
+  );
+}
+
+export function GaugeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4.5 16a7.5 7.5 0 1 1 15 0" />
+      <path d="M12 16 15 11" />
+      <path d="M12 16h.01" strokeWidth="2.5" />
+    </svg>
+  );
+}
+
 export function LockIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

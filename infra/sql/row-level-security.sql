@@ -82,7 +82,7 @@ GO
 --      users, roles, partners, contacts, projects, project_lines,
 --      supplier_enquiries, project_documents, product_lines,
 --      product_price_history, data_sharing_consents,
---      project_status_history
+--      project_status_history, product_source_approvals (added 2026-10-01)
 --    NOT included, and deliberately so: product_master (shared reference
 --    catalog, not tenant-scoped — see schema.prisma "PRODUCT CLASSIFICATION"
 --    comment) and regions/countries (global reference data).
@@ -141,7 +141,14 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
 
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_sharing_consents,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_sharing_consents AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_sharing_consents AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_sharing_consents AFTER UPDATE,
+
+    -- product_source_approvals — added 2026-10-01 for the Quality Assurance
+    -- section (round 3 feedback). Tenant-scoped the same way as every other
+    -- table in this policy (carries organizationId directly).
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals AFTER UPDATE
 WITH (STATE = ON);
 GO
 
