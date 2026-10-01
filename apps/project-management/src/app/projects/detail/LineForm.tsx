@@ -2,7 +2,8 @@
 
 import { useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerSummary, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { Button } from "@universe/ui";
+import { Button, CountrySelect } from "@universe/ui";
+import { useCountries } from "../../../lib/useCountries";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -77,6 +78,7 @@ export function LineForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
+  const countries = useCountries();
 
   function update<K extends keyof ProjectLineInput>(key: K, value: ProjectLineInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -135,12 +137,12 @@ export function LineForm({
             onChange={(e) => update("quantity", numOrNull(e.target.value))}
           />
         </Field>
-        <Field label="Country of Manufacture (ISO)">
-          <input
-            style={inputStyle}
-            maxLength={2}
+        <Field label="Country of Manufacture">
+          <CountrySelect
             value={form.countryOfManufactureCode ?? ""}
-            onChange={(e) => update("countryOfManufactureCode", e.target.value.toUpperCase() || null)}
+            onChange={(code) => update("countryOfManufactureCode", code || null)}
+            options={countries}
+            ariaLabel="Country of manufacture"
           />
         </Field>
       </Section>

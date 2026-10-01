@@ -4,7 +4,8 @@ import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button } from "@universe/ui";
+import { useCountries } from "../../../lib/useCountries";
+import { Button, CountrySelect } from "@universe/ui";
 
 const CATEGORY_OPTIONS = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
 const PROJECT_TYPE_OPTIONS = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
@@ -34,6 +35,7 @@ export default function NewProjectPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<CreateProjectInput>>({});
+  const countries = useCountries();
 
   const isPharma = form.projectType === "PHARMACEUTICAL";
 
@@ -122,13 +124,16 @@ export default function NewProjectPage() {
           ))}
         </fieldset>
 
-        <label>
-          Delivery Country
-          <input
-            style={inputStyle}
-            value={form.deliveryCountryCode ?? ""}
-            onChange={(e) => update("deliveryCountryCode", e.target.value)}
-          />
+        <label style={{ display: "block" }}>
+          <span>Delivery Country</span>
+          <div style={{ marginTop: 4 }}>
+            <CountrySelect
+              value={form.deliveryCountryCode ?? ""}
+              onChange={(code) => update("deliveryCountryCode", code)}
+              options={countries}
+              ariaLabel="Delivery country"
+            />
+          </div>
         </label>
 
         <label>

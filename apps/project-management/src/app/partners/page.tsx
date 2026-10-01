@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PartnerSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { useCountries } from "../../lib/useCountries";
 import {
   AddMenu,
   TextLink,
@@ -47,6 +48,7 @@ export default function PartnersPage() {
   const searchParams = useSearchParams();
   const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const countries = useCountries();
 
   const [search, setSearch] = useState("");
   // Deep-linkable from the dashboard's stat tiles, e.g. /partners?role=CLIENT
@@ -265,7 +267,7 @@ export default function PartnersPage() {
                       ))}
                     </div>
                   </td>
-                  <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.countryCode ?? "—"}</td>
+                  <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{countries.find((c) => c.code === p.countryCode)?.name ?? p.countryCode ?? "—"}</td>
                   <td style={{ padding: 8 }}>
                     {p.website ? (
                       <TextLink href={p.website} target="_blank" rel="noreferrer">

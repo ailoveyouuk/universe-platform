@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { PartnerSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon } from "@universe/ui";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -35,6 +36,7 @@ export default function PartnerDetailPage() {
   const id = searchParams.get("id");
   const [partner, setPartner] = useState<PartnerSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const countries = useCountries();
 
   useEffect(() => {
     if (!id) return;
@@ -84,7 +86,7 @@ export default function PartnerDetailPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 28 }}>
-        <InfoCard label="Country">{partner.countryCode ?? "—"}</InfoCard>
+        <InfoCard label="Country">{countries.find((c) => c.code === partner.countryCode)?.name ?? partner.countryCode ?? "—"}</InfoCard>
         <InfoCard label="Website">
           {partner.website ? (
             <TextLink href={partner.website} target="_blank" rel="noreferrer">

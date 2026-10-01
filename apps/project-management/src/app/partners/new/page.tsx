@@ -4,7 +4,8 @@ import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CreatePartnerInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button, Select } from "@universe/ui";
+import { useCountries } from "../../../lib/useCountries";
+import { Button, Select, CountrySelect } from "@universe/ui";
 
 // LOGISTICS removed 2026-10-01 — folded into Freight Forwarder/Warehousing
 // per Lewis's instruction (UI-only change, see partners/page.tsx's doc
@@ -63,6 +64,8 @@ export default function NewPartnerPage() {
   const [roleTypes, setRoleTypes] = useState<string[]>(
     initialRole && (ROLE_TYPES as readonly string[]).includes(initialRole) ? [initialRole] : []
   );
+
+  const countries = useCountries();
 
   // --- Role-specific detail state — one block per detail table, only
   // ever sent to the API when its role is actually ticked (see
@@ -156,14 +159,11 @@ export default function NewPartnerPage() {
           <input required style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
-        <label>
-          Country Code (ISO alpha-2)
-          <input
-            style={inputStyle}
-            maxLength={2}
-            value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value.toUpperCase())}
-          />
+        <label style={{ display: "block" }}>
+          <span>Country</span>
+          <div style={{ marginTop: 4 }}>
+            <CountrySelect value={countryCode} onChange={setCountryCode} options={countries} ariaLabel="Country" />
+          </div>
         </label>
 
         <label>
@@ -212,14 +212,16 @@ export default function NewPartnerPage() {
                 placeholder="How this manufacturer formats its part numbers"
               />
             </label>
-            <label>
-              Country of Manufacture (ISO alpha-2)
-              <input
-                style={inputStyle}
-                maxLength={2}
-                value={countryOfManufactureCode}
-                onChange={(e) => setCountryOfManufactureCode(e.target.value.toUpperCase())}
-              />
+            <label style={{ display: "block" }}>
+              <span>Country of Manufacture</span>
+              <div style={{ marginTop: 4 }}>
+                <CountrySelect
+                  value={countryOfManufactureCode}
+                  onChange={setCountryOfManufactureCode}
+                  options={countries}
+                  ariaLabel="Country of manufacture"
+                />
+              </div>
             </label>
           </RoleSection>
         )}

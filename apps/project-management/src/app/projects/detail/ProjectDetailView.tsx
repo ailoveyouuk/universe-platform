@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
+import { useCountries } from "../../../lib/useCountries";
 import { LineForm } from "./LineForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
@@ -58,6 +59,7 @@ function isLinesSectionRelevant(project: ProjectDetail): boolean {
 export function ProjectDetailView() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const countries = useCountries();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [clients, setClients] = useState<PartnerSummary[]>([]);
@@ -306,14 +308,16 @@ export function ProjectDetailView() {
                 onChange={(e) => setHeaderForm((f) => ({ ...f, donorReference: e.target.value || null }))}
               />
             </label>
-            <label style={{ fontSize: 13 }}>
-              Delivery Country
-              <input
-                style={fieldInputStyle}
-                maxLength={2}
-                value={headerForm.deliveryCountryCode ?? ""}
-                onChange={(e) => setHeaderForm((f) => ({ ...f, deliveryCountryCode: e.target.value.toUpperCase() || null }))}
-              />
+            <label style={{ fontSize: 13, display: "block" }}>
+              <span>Delivery Country</span>
+              <div style={{ marginTop: 4 }}>
+                <CountrySelect
+                  value={headerForm.deliveryCountryCode ?? ""}
+                  onChange={(code) => setHeaderForm((f) => ({ ...f, deliveryCountryCode: code || null }))}
+                  options={countries}
+                  ariaLabel="Delivery country"
+                />
+              </div>
             </label>
             <label style={{ fontSize: 13 }}>
               Start Date

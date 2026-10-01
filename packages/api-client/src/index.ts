@@ -1,6 +1,7 @@
 import type {
   AuthenticatedUser,
   ConfirmDocumentUploadInput,
+  CountryOption,
   CreateOrganizationInput,
   CreatePartnerInput,
   CreateProductSourceApprovalInput,
@@ -200,6 +201,12 @@ export class UniverseApiClient {
   searchQualityProducts(search?: string): Promise<ProductMasterOption[]> {
     const query = search ? `?search=${encodeURIComponent(search)}` : "";
     return this.request(`/quality/products${query}`);
+  }
+
+  // --- Reference data (added 2026-10-01) ---
+
+  listCountries(): Promise<CountryOption[]> {
+    return this.request("/countries");
   }
 
   listProductSourceApprovals(status?: string): Promise<ProductSourceApprovalSummary[]> {

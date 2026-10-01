@@ -585,6 +585,14 @@ export interface ProductMasterOption {
   category: string;
 }
 
+/** A country from the shared, non-tenant-scoped Country reference table
+ * (see schema.prisma) — powers the CountrySelect picker everywhere a
+ * country field used to be a free-text ISO alpha-2 input. */
+export interface CountryOption {
+  code: string;
+  name: string;
+}
+
 export interface ProductSourceApprovalSummary {
   id: string;
   productMasterId: string;
