@@ -41,6 +41,29 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Preserve the API's currently-running image
+        id: current_image
+        # infra/bicep/main.bicep's apiImage param defaults to a placeholder
+        # (mcr.microsoft.com/k8se/quickstart:latest) for first-ever bootstrap,
+        # before deploy-api.yml has ever pushed a real image. Every
+        # subsequent infra redeploy, if it doesn't pass the real image back
+        # in, resets the running Container App to that placeholder and takes
+        # the API down — discovered 2026-10-01 when this exact thing broke
+        # the live API right after a routine infra redeploy. Fix: look up
+        # whatever image is actually running first, and feed it back in as
+        # an override so infra deploys are a no-op for the image unless
+        # deploy-api.yml has since pushed something newer.
+        run: |
+          APP_NAME="universe-${{ inputs.environmentName }}-api"
+          IMAGE=$(az containerapp show --name "$APP_NAME" --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --query "properties.template.containers[0].image" --output tsv 2>/dev/null || true)
+          if [ -n "$IMAGE" ]; then
+            echo "Found running image: $IMAGE"
+            echo "image_param=apiImage=$IMAGE" >> "$GITHUB_OUTPUT"
+          else
+            echo "No existing Container App found (first-ever deploy) — using the template's placeholder default."
+            echo "image_param=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy Bicep
         uses: azure/arm-deploy@v2
         with:
@@ -51,6 +74,7 @@ jobs:
             infra/bicep/main.parameters.json
             environmentName=${{ inputs.environmentName }}
             sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
+            ${{ steps.current_image.outputs.image_param }}
           # azure/arm-deploy@v2 fails the step on ANY line written to stderr,
           # including harmless Bicep linter warnings (e.g. the deliberate
           # vault.azure.net hardcode above, which breaks a genuine circular
