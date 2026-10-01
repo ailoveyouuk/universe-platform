@@ -9,7 +9,7 @@ const DOCUMENT_TYPES = ["CHECKLIST", "ISSUES", "CLOSEOUT_REPORT", "OTHER"] as co
 
 const inputStyle = {
   padding: 4,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 4,
   fontSize: 12,
 } as const;
@@ -107,14 +107,14 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
     <div style={{ marginTop: 40 }}>
       <h2>Documents ({project.documents.length})</h2>
 
-      {error && <p style={{ color: "#B91C1C", fontSize: 12, marginTop: 6 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
-      {project.documents.length === 0 && <p style={{ color: "#6B7280", marginTop: 8 }}>No documents uploaded yet.</p>}
+      {project.documents.length === 0 && <p style={{ color: "var(--u-ink-secondary)", marginTop: 8 }}>No documents uploaded yet.</p>}
 
       {project.documents.length > 0 && (
         <table style={{ width: "100%", marginTop: 8, fontSize: 13, borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "#6B7280" }}>
+            <tr style={{ textAlign: "left", color: "var(--u-ink-secondary)" }}>
               <th style={{ fontWeight: 500, padding: "4px 8px 4px 0" }}>Title</th>
               <th style={{ fontWeight: 500, padding: "4px 8px" }}>Type</th>
               <th style={{ fontWeight: 500, padding: "4px 8px" }}>Size</th>
@@ -125,16 +125,16 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
           </thead>
           <tbody>
             {project.documents.map((d) => (
-              <tr key={d.id} style={{ borderTop: "1px solid #F3F4F6" }}>
+              <tr key={d.id} style={{ borderTop: "1px solid var(--u-border)" }}>
                 <td style={{ padding: "6px 8px 6px 0" }}>
                   <TextLink as="button" onClick={() => download(d.id)} style={{ border: "none", background: "none", fontSize: 13, padding: 0 }}>
                     {d.title}
                   </TextLink>
                 </td>
                 <td style={{ padding: "6px 8px" }}>{d.type.replace(/_/g, " ")}</td>
-                <td style={{ padding: "6px 8px", color: "#6B7280" }}>{formatBytes(d.fileSizeBytes)}</td>
-                <td style={{ padding: "6px 8px", color: "#6B7280" }}>{d.uploadedByName ?? "—"}</td>
-                <td style={{ padding: "6px 8px", color: "#6B7280" }}>{new Date(d.uploadedAt).toLocaleDateString()}</td>
+                <td style={{ padding: "6px 8px", color: "var(--u-ink-secondary)" }}>{formatBytes(d.fileSizeBytes)}</td>
+                <td style={{ padding: "6px 8px", color: "var(--u-ink-secondary)" }}>{d.uploadedByName ?? "—"}</td>
+                <td style={{ padding: "6px 8px", color: "var(--u-ink-secondary)" }}>{new Date(d.uploadedAt).toLocaleDateString()}</td>
                 <td style={{ padding: "6px 0 6px 8px", textAlign: "right" }}>
                   <Button variant="danger" size="sm" disabled={deletingId === d.id} onClick={() => removeDocument(d.id)}>
                     {deletingId === d.id ? "Removing…" : "Remove"}
@@ -146,7 +146,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
         </table>
       )}
 
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 12, background: "#F9FAFB", padding: 10, borderRadius: 6, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 12, background: "var(--u-surface-alt)", padding: 10, borderRadius: 6, flexWrap: "wrap" }}>
         <label style={{ fontSize: 12 }}>
           File
           <input
@@ -170,7 +170,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
         </label>
         <label style={{ fontSize: 12 }}>
           Type
-          <select style={{ ...inputStyle, display: "block", marginTop: 2 }} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
+          <select className="u-native-select" style={{ ...inputStyle, display: "block", marginTop: 2 }} value={type} onChange={(e) => setType(e.target.value as typeof type)}>
             {DOCUMENT_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t.replace(/_/g, " ")}

@@ -85,7 +85,7 @@ export default function NewProjectPage() {
 
         <label>
           Category
-          <select
+          <select className="u-native-select"
             required
             style={inputStyle}
             value={form.category ?? ""}
@@ -102,9 +102,9 @@ export default function NewProjectPage() {
           </select>
         </label>
 
-        <fieldset style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: 16 }}>
+        <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 16 }}>
           <legend style={{ fontWeight: 600 }}>Project Type</legend>
-          <p style={{ marginTop: 0, color: "#6B7280", fontSize: 13 }}>
+          <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13 }}>
             Determines whether pharma-specific fields (batch number, expiry, storage conditions, MA/PL, etc.)
             are required on this project's line items.
           </p>
@@ -142,7 +142,7 @@ export default function NewProjectPage() {
 
         <label>
           Product Category
-          <select
+          <select className="u-native-select"
             style={inputStyle}
             value={form.firstLine?.productCategory ?? ""}
             onChange={(e) => updateLine("productCategory", e.target.value)}
@@ -187,13 +187,13 @@ export default function NewProjectPage() {
         </label>
 
         {isPharma && (
-          <p style={{ background: "#EFF6FF", padding: 12, borderRadius: 8, fontSize: 13 }}>
+          <p style={{ background: "var(--u-accent-magenta-tint)", padding: 12, borderRadius: 8, fontSize: 13 }}>
             This is a Pharmaceutical project — once created, add line items with batch number, expiry
             date, storage conditions, and MA/PL details from the project detail page.
           </p>
         )}
 
-        {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
 
         <Button type="submit" variant="primary" disabled={submitting} style={{ alignSelf: "flex-start" }}>
           {submitting ? "Creating…" : "Create Project"}
@@ -208,6 +208,6 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 8,
   marginTop: 4,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 6,
 };

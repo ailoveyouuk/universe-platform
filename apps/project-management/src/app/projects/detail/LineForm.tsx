@@ -102,7 +102,7 @@ export function LineForm({
   return (
     <form
       onSubmit={handleSubmit}
-      style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 20, marginTop: 8 }}
+      style={{ background: "var(--u-surface-alt)", border: "1px solid var(--u-border)", borderRadius: 8, padding: 20, marginTop: 8 }}
     >
       <Section title="Item">
         <Field label="Client Product Description" span={2}>
@@ -113,7 +113,7 @@ export function LineForm({
           />
         </Field>
         <Field label="Product Category">
-          <select
+          <select className="u-native-select"
             style={inputStyle}
             value={form.productCategory ?? ""}
             onChange={(e) => update("productCategory", e.target.value || null)}
@@ -147,7 +147,7 @@ export function LineForm({
 
       <Section title="Procurement">
         <Field label="Manufacturer">
-          <select
+          <select className="u-native-select"
             style={inputStyle}
             value={form.manufacturerId ?? ""}
             onChange={(e) => update("manufacturerId", e.target.value || null)}
@@ -161,7 +161,7 @@ export function LineForm({
           </select>
         </Field>
         <Field label="Supplier">
-          <select
+          <select className="u-native-select"
             style={inputStyle}
             value={form.supplierId ?? ""}
             onChange={(e) => update("supplierId", e.target.value || null)}
@@ -175,7 +175,7 @@ export function LineForm({
           </select>
         </Field>
         <Field label="Incoterm">
-          <select style={inputStyle} value={form.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value || null)}>
+          <select className="u-native-select" style={inputStyle} value={form.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value || null)}>
             <option value="">—</option>
             {INCOTERMS.map((i) => (
               <option key={i} value={i}>
@@ -221,7 +221,7 @@ export function LineForm({
 
       <Section title="Freight & Logistics">
         <Field label="Freight Forwarder">
-          <select
+          <select className="u-native-select"
             style={inputStyle}
             value={form.freightForwarderId ?? ""}
             onChange={(e) => update("freightForwarderId", e.target.value || null)}
@@ -235,7 +235,7 @@ export function LineForm({
           </select>
         </Field>
         <Field label="Freight Mode">
-          <select style={inputStyle} value={form.freightMode ?? ""} onChange={(e) => update("freightMode", e.target.value || null)}>
+          <select className="u-native-select" style={inputStyle} value={form.freightMode ?? ""} onChange={(e) => update("freightMode", e.target.value || null)}>
             <option value="">—</option>
             {FREIGHT_MODES.map((m) => (
               <option key={m} value={m}>
@@ -317,7 +317,7 @@ export function LineForm({
           <input type="number" step="0.01" style={inputStyle} value={form.supplierAmountPaid ?? ""} onChange={(e) => update("supplierAmountPaid", numOrNull(e.target.value))} />
         </Field>
         <Field label="Supplier Payment Status">
-          <select style={inputStyle} value={form.supplierPaymentStatus ?? ""} onChange={(e) => update("supplierPaymentStatus", e.target.value || null)}>
+          <select className="u-native-select" style={inputStyle} value={form.supplierPaymentStatus ?? ""} onChange={(e) => update("supplierPaymentStatus", e.target.value || null)}>
             <option value="">Select…</option>
             {PAYMENT_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -391,7 +391,7 @@ export function LineForm({
             <input style={inputStyle} value={form.maPl ?? ""} onChange={(e) => update("maPl", e.target.value || null)} />
           </Field>
           <Field label="Qualification Pathway">
-            <select style={inputStyle} value={form.qualificationPathway ?? ""} onChange={(e) => update("qualificationPathway", e.target.value || null)}>
+            <select className="u-native-select" style={inputStyle} value={form.qualificationPathway ?? ""} onChange={(e) => update("qualificationPathway", e.target.value || null)}>
               <option value="">Select…</option>
               {QUALIFICATION_PATHWAYS.map((q) => (
                 <option key={q} value={q}>
@@ -413,7 +413,7 @@ export function LineForm({
         </Section>
       )}
 
-      {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <Button type="submit" variant="primary" disabled={saving}>
@@ -430,7 +430,7 @@ export function LineForm({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <h3 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "#6B7280", marginBottom: 8 }}>{title}</h3>
+      <h3 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginBottom: 8 }}>{title}</h3>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>{children}</div>
     </div>
   );
@@ -447,7 +447,7 @@ function Field({ label, span, children }: { label: string; span?: number; childr
 
 function Checkbox({ checked, onChange }: { checked: boolean | null | undefined; onChange: (v: boolean | null) => void }) {
   return (
-    <select
+    <select className="u-native-select"
       style={inputStyle}
       value={checked === null || checked === undefined ? "" : checked ? "true" : "false"}
       onChange={(e) => onChange(e.target.value === "" ? null : e.target.value === "true")}
@@ -464,7 +464,7 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 6,
   marginTop: 2,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 6,
   fontSize: 13,
 };

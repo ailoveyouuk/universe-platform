@@ -13,6 +13,7 @@ import {
   SearchInput,
   SortableHeader,
   Pagination,
+  Select,
   ProjectsIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -142,10 +143,22 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filters + search */}
-      <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by reference, title, client…" />
-        <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPage(0); }} options={["", ...ALL_STATUSES]} allLabel="All statuses" />
-        <FilterSelect value={typeFilter} onChange={(v) => { setTypeFilter(v); setPage(0); }} options={["", ...PROJECT_TYPES]} allLabel="All types" />
+        <Select
+          value={statusFilter}
+          onChange={(v) => { setStatusFilter(v); setPage(0); }}
+          options={ALL_STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, " ") }))}
+          allLabel="All statuses"
+          ariaLabel="Filter by status"
+        />
+        <Select
+          value={typeFilter}
+          onChange={(v) => { setTypeFilter(v); setPage(0); }}
+          options={PROJECT_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))}
+          allLabel="All types"
+          ariaLabel="Filter by project type"
+        />
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
@@ -251,36 +264,3 @@ function SectionStat({
   );
 }
 
-function FilterSelect({
-  value,
-  onChange,
-  options,
-  allLabel,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: readonly string[];
-  allLabel: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        padding: "9px 12px",
-        fontSize: 13.5,
-        fontFamily: "var(--u-font-sans)",
-        borderRadius: "var(--u-radius-md)",
-        border: "1px solid var(--u-border)",
-        backgroundColor: "var(--u-surface-raised)",
-        color: "var(--u-ink)",
-      }}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o ? o.replace(/_/g, " ") : allLabel}
-        </option>
-      ))}
-    </select>
-  );
-}

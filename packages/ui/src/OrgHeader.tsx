@@ -42,7 +42,7 @@ export function OrgHeader({
           style={{ height: 32, width: "auto", display: "block" }}
         />
       ) : (
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>{organizationName}</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: "var(--u-ink)" }}>{organizationName}</span>
       )}
       {organizationPrimaryColor && (
         <span
@@ -56,7 +56,7 @@ export function OrgHeader({
           }}
         />
       )}
-      <span style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4, letterSpacing: 0.2 }}>Powered by Universe</span>
+      <span style={{ fontSize: 11, color: "var(--u-ink-secondary)", marginTop: 4, letterSpacing: 0.2 }}>Powered by Universe</span>
     </div>
   );
 }

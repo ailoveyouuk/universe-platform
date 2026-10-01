@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Logo } from "./Logo";
 import { ChevronLeftIcon, ChevronRightIcon, MenuIcon } from "./icons";
 import { useOrgTheme } from "./OrgTheme";
+import { AppSwitcher } from "./AppSwitcher";
 
 export interface NavItem {
   label: string;
@@ -162,6 +163,10 @@ export function Sidebar({
           {collapsed ? <ChevronRightIcon size={16} /> : <ChevronLeftIcon size={16} />}
           {!collapsed && <span>Collapse</span>}
         </button>
+
+        <div style={{ padding: collapsed ? "0 10px" : "0 12px", marginBottom: 10 }}>
+          <AppSwitcher collapsed={collapsed} />
+        </div>
 
         <div
           style={{

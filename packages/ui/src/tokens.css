@@ -145,3 +145,60 @@
     display: none !important;
   }
 }
+
+/*
+ * Restyled native <select> — added 2026-10-01 alongside the Select.tsx
+ * component. The handful of toolbar filters and the project-status
+ * changer moved to the fully custom Select.tsx (its own concertina panel,
+ * org-tinted background); the many in-form pickers (line category,
+ * incoterm, freight mode, partner pickers, etc.) stay native <select>
+ * elements — a long partner list benefits from native type-to-select and
+ * OS accessibility far more than a hand-rolled listbox would — but get
+ * this class so they stop reading as a bare, square, system-chrome
+ * dropdown: soft radius, token border colour, a custom chevron instead of
+ * the OS one, and a focus ring instead of the OS default outline.
+ */
+.u-native-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: var(--u-font-sans);
+  color: var(--u-ink);
+  background-color: var(--u-surface-raised);
+  border: 1px solid var(--u-border);
+  border-radius: var(--u-radius-md);
+  padding: 7px 30px 7px 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B6C7E' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 9 12 15.5 18.5 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  cursor: pointer;
+}
+.u-native-select:focus {
+  outline: none;
+  border-color: var(--u-brand-violet);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--u-brand-violet) 18%, transparent);
+}
+/* Several call sites pass a shared inline `padding` shorthand (originally
+   sized for plain text inputs) that would otherwise collide with and
+   override the asymmetric padding above, crowding the chevron — this is
+   the one spot a narrowly-scoped !important is justified, since it's
+   purely presentational and self-contained to this class. */
+.u-native-select {
+  padding-right: 30px !important;
+}
+
+/* AppSwitcher: a floating popover on desktop/tablet, inline-in-flow on the
+   mobile overlay drawer (no room to float a panel at that width). */
+.u-app-switcher-inline {
+  display: none;
+}
+@media (max-width: 900px) {
+  .u-app-switcher-popover {
+    display: none !important;
+  }
+  .u-app-switcher-inline {
+    display: block;
+  }
+}

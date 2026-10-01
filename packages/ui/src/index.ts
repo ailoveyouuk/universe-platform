@@ -13,3 +13,5 @@ export * from "./AddMenu";
 export * from "./Pagination";
 export * from "./SearchInput";
 export * from "./SortableHeader";
+export * from "./Select";
+export * from "./AppSwitcher";

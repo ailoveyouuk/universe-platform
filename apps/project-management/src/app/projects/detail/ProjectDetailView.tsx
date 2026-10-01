@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
+import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
 import { LineForm } from "./LineForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
@@ -149,8 +150,8 @@ export function ProjectDetailView() {
   const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
   const showLines = useMemo(() => (project ? isLinesSectionRelevant(project) : false), [project]);
 
-  if (!id) return <main style={{ padding: 32, color: "#B91C1C" }}>No project specified.</main>;
-  if (error) return <main style={{ padding: 32, color: "#B91C1C" }}>{error}</main>;
+  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No project specified.</main>;
+  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
   if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
 
   const isPharma = project.projectType === "PHARMACEUTICAL";
@@ -160,7 +161,7 @@ export function ProjectDetailView() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>{project.title}</h1>
-          <p style={{ color: "#6B7280", margin: 0 }}>{project.referenceNumber}</p>
+          <p style={{ color: "var(--u-ink-secondary)", margin: 0 }}>{project.referenceNumber}</p>
         </div>
         <StatusBadge status={project.status} />
       </div>
@@ -168,37 +169,26 @@ export function ProjectDetailView() {
       <div style={{ marginTop: 20 }}>
         <StageTracker status={project.status} statusHistory={project.statusHistory} reasonForCancellation={project.reasonForCancellation} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-          <label style={{ fontSize: 13, color: "#6B7280" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink-secondary)" }}>
             Change status
-            <select
-              style={{ ...fieldInputStyle, marginTop: 2, width: "auto", display: "inline-block", marginLeft: 8 }}
+            <Select
               value={project.status}
-              disabled={changingStatus}
-              onChange={(e) => changeStatus(e.target.value)}
-            >
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s.replace(/_/g, " ")}
-                </option>
-              ))}
-            </select>
-          </label>
+              onChange={(v) => !changingStatus && changeStatus(v)}
+              options={STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, " ") }))}
+              ariaLabel="Change project status"
+            />
+          </span>
           {project.status === "COMPLETED" && (
-            <label style={{ fontSize: 13, color: "#6B7280" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink-secondary)" }}>
               Completion stage
-              <select
-                style={{ ...fieldInputStyle, marginTop: 2, width: "auto", display: "inline-block", marginLeft: 8 }}
+              <Select
                 value={project.completionStage ?? ""}
-                onChange={(e) => apiClient.updateProject(id, { completionStage: e.target.value || null }).then(setProject)}
-              >
-                <option value="">Select…</option>
-                {COMPLETION_STAGES.map((c) => (
-                  <option key={c} value={c}>
-                    {c.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={(v) => apiClient.updateProject(id, { completionStage: v || null }).then(setProject)}
+                options={COMPLETION_STAGES.map((c) => ({ value: c, label: c.replace(/_/g, " ") }))}
+                allLabel="Select…"
+                ariaLabel="Change completion stage"
+              />
+            </span>
           )}
         </div>
       </div>
@@ -206,7 +196,7 @@ export function ProjectDetailView() {
       {!editingHeader && (
         <>
           <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
-            <label style={{ fontSize: 12, color: "#6B7280" }}>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
               <input type="checkbox" checked={showAllFields} onChange={(e) => setShowAllFields(e.target.checked)} style={{ marginRight: 6 }} />
               Show all fields
             </label>
@@ -214,7 +204,15 @@ export function ProjectDetailView() {
           <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <dt style={{ fontWeight: 600 }}>Client</dt>
-              <dd>{project.clientName ?? "—"}</dd>
+              <dd>
+                {project.clientId ? (
+                  <Link href={`/partners/detail?id=${project.clientId}`} style={{ textDecoration: "none" }}>
+                    <TextLink as="span">{project.clientName ?? "—"}</TextLink>
+                  </Link>
+                ) : (
+                  project.clientName ?? "—"
+                )}
+              </dd>
             </div>
             <div>
               <dt style={{ fontWeight: 600 }}>Project Type</dt>
@@ -272,25 +270,22 @@ export function ProjectDetailView() {
       )}
 
       {editingHeader && (
-        <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 8, padding: 20, marginTop: 24 }}>
+        <div style={{ background: "var(--u-surface-alt)", border: "1px solid var(--u-border)", borderRadius: 8, padding: 20, marginTop: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Status
-              <select
-                style={fieldInputStyle}
-                value={headerForm.status ?? ""}
-                onChange={(e) => setHeaderForm((f) => ({ ...f, status: e.target.value }))}
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
+              <div style={{ marginTop: 2 }}>
+                <Select
+                  value={headerForm.status ?? ""}
+                  onChange={(v) => setHeaderForm((f) => ({ ...f, status: v }))}
+                  options={STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, " ") }))}
+                  ariaLabel="Status"
+                />
+              </div>
             </label>
             <label style={{ fontSize: 13 }}>
               Client
-              <select
+              <select className="u-native-select"
                 style={fieldInputStyle}
                 value={headerForm.clientId ?? ""}
                 onChange={(e) => setHeaderForm((f) => ({ ...f, clientId: e.target.value || null }))}
@@ -368,7 +363,7 @@ export function ProjectDetailView() {
             {headerForm.status === "COMPLETED" && (
               <label style={{ fontSize: 13, gridColumn: "span 2" }}>
                 Completion Stage
-                <select
+                <select className="u-native-select"
                   style={fieldInputStyle}
                   value={headerForm.completionStage ?? ""}
                   onChange={(e) => setHeaderForm((f) => ({ ...f, completionStage: e.target.value || null }))}
@@ -430,21 +425,22 @@ export function ProjectDetailView() {
       )}
 
       {project.lines.length === 0 && !addingLine && (
-        <p style={{ color: "#6B7280", marginTop: 8 }}>No line items yet.</p>
+        <p style={{ color: "var(--u-ink-secondary)", marginTop: 8 }}>No line items yet.</p>
       )}
 
       {project.lines.map((line) => (
-        <div key={line.id} style={{ border: "1px solid #E5E7EB", borderRadius: 8, marginTop: 12, padding: 16 }}>
+        <div key={line.id} style={{ border: "1px solid var(--u-border)", borderRadius: 8, marginTop: 12, padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <p style={{ fontWeight: 600, margin: 0 }}>
                 {line.clientProductDescription || "(no description yet)"}
               </p>
-              <p style={{ color: "#6B7280", fontSize: 13, margin: "4px 0 0" }}>
-                Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier: {line.supplierName ?? "—"} ·
-                Manufacturer: {line.manufacturerName ?? "—"}
+              <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "4px 0 0" }}>
+                Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier:{" "}
+                <PartnerRef id={line.supplierId} name={line.supplierName} /> · Manufacturer:{" "}
+                <PartnerRef id={line.manufacturerId} name={line.manufacturerName} />
               </p>
-              <p style={{ color: "#6B7280", fontSize: 13, margin: "4px 0 0" }}>
+              <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "4px 0 0" }}>
                 {line.supplierPaymentStatus && (
                   <>
                     Payment: {line.supplierPaymentStatus.replace(/_/g, " ")}
@@ -484,7 +480,7 @@ export function ProjectDetailView() {
         </>
       )}
       {!showAllFields && !showLines && (
-        <p style={{ color: "#6B7280", marginTop: 40, fontSize: 13 }}>
+        <p style={{ color: "var(--u-ink-secondary)", marginTop: 40, fontSize: 13 }}>
           Line items, procurement, freight/logistics and financial details foreground once this project moves to In Progress.
           Use &ldquo;Show all fields&rdquo; above to enter them early.
         </p>
@@ -500,7 +496,22 @@ const fieldInputStyle = {
   width: "100%",
   padding: 6,
   marginTop: 2,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 6,
   fontSize: 13,
 } as const;
+
+/** Any field that's really a reference to a stakeholder record (a line's
+ * supplier/manufacturer/freight forwarder, a project's client) renders as
+ * a link to that record rather than flat text — added 2026-10-01 per
+ * Lewis's "anything tied to backend data should be interactive"
+ * instruction. Falls back to plain text when there's no id (a line
+ * created before this field was populated, or genuinely unset). */
+function PartnerRef({ id, name }: { id: string | null; name: string | null }) {
+  if (!id) return <>{name ?? "—"}</>;
+  return (
+    <Link href={`/partners/detail?id=${id}`} style={{ textDecoration: "none" }}>
+      <TextLink as="span">{name ?? "—"}</TextLink>
+    </Link>
+  );
+}

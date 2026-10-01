@@ -3,13 +3,14 @@
 import { useState } from "react";
 import type { PartnerSummary, ProjectDetail, ProjectLineSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button } from "@universe/ui";
+import Link from "next/link";
+import { Button, TextLink } from "@universe/ui";
 
 const RESPONSE_STATUSES = ["WAITING", "QUOTED", "DECLINED", "NO_RESPONSE"] as const;
 
 const inputStyle = {
   padding: 4,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 4,
   fontSize: 12,
 } as const;
@@ -112,7 +113,7 @@ export function SupplierEnquiries({
   }
 
   return (
-    <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+    <div style={{ marginTop: 12, borderTop: "1px solid var(--u-border)", paddingTop: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>Supplier Enquiries ({line.enquiries.length})</p>
         {!adding && (
@@ -122,16 +123,16 @@ export function SupplierEnquiries({
         )}
       </div>
 
-      {error && <p style={{ color: "#B91C1C", fontSize: 12, marginTop: 6 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
       {line.enquiries.length === 0 && !adding && (
-        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 4 }}>No enquiries logged yet.</p>
+        <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, marginTop: 4 }}>No enquiries logged yet.</p>
       )}
 
       {line.enquiries.length > 0 && (
         <table style={{ width: "100%", marginTop: 6, fontSize: 12, borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ textAlign: "left", color: "#6B7280" }}>
+            <tr style={{ textAlign: "left", color: "var(--u-ink-secondary)" }}>
               <th style={{ fontWeight: 500, padding: "2px 6px 2px 0" }}>Supplier</th>
               <th style={{ fontWeight: 500, padding: "2px 6px" }}>Contacted</th>
               <th style={{ fontWeight: 500, padding: "2px 6px" }}>Status</th>
@@ -143,12 +144,16 @@ export function SupplierEnquiries({
             {line.enquiries.map((e) => {
               const draft = editing[e.id];
               return (
-                <tr key={e.id} style={{ borderTop: "1px solid #F3F4F6" }}>
-                  <td style={{ padding: "4px 6px 4px 0" }}>{e.supplierName ?? "—"}</td>
+                <tr key={e.id} style={{ borderTop: "1px solid var(--u-border)" }}>
+                  <td style={{ padding: "4px 6px 4px 0" }}>
+                    <Link href={`/partners/detail?id=${e.supplierId}`} style={{ textDecoration: "none" }}>
+                      <TextLink as="span">{e.supplierName ?? "—"}</TextLink>
+                    </Link>
+                  </td>
                   <td style={{ padding: "4px 6px" }}>{e.dateContacted ? new Date(e.dateContacted).toLocaleDateString() : "—"}</td>
                   <td style={{ padding: "4px 6px" }}>
                     {draft ? (
-                      <select
+                      <select className="u-native-select"
                         style={inputStyle}
                         value={draft.responseStatus}
                         onChange={(ev) => setEditing((prev) => ({ ...prev, [e.id]: { ...draft, responseStatus: ev.target.value } }))}
@@ -206,10 +211,10 @@ export function SupplierEnquiries({
       )}
 
       {adding && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, background: "#F9FAFB", padding: 10, borderRadius: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, background: "var(--u-surface-alt)", padding: 10, borderRadius: 6 }}>
           <label style={{ fontSize: 12 }}>
             Supplier
-            <select style={{ ...inputStyle, display: "block", width: "100%", marginTop: 2 }} value={newSupplierId} onChange={(e) => setNewSupplierId(e.target.value)}>
+            <select className="u-native-select" style={{ ...inputStyle, display: "block", width: "100%", marginTop: 2 }} value={newSupplierId} onChange={(e) => setNewSupplierId(e.target.value)}>
               <option value="">Select…</option>
               {suppliers.map((s) => (
                 <option key={s.id} value={s.id}>

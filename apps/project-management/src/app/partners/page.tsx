@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PartnerSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
@@ -10,6 +11,7 @@ import {
   SearchInput,
   SortableHeader,
   Pagination,
+  Select,
   Pill,
   BuildingIcon,
   PartnersIcon,
@@ -197,9 +199,13 @@ export default function PartnersPage() {
               )}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {(recentByCategory[cat] ?? []).map((p) => (
-                  <div key={p.id} style={{ fontSize: 13, color: "var(--u-ink)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {p.name}
-                  </div>
+                  <Link
+                    key={p.id}
+                    href={`/partners/detail?id=${p.id}`}
+                    style={{ textDecoration: "none", fontSize: 13, color: "var(--u-ink)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    <TextLink as="span" weight={500}>{p.name}</TextLink>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -208,19 +214,21 @@ export default function PartnersPage() {
       </section>
 
       {/* Filters + search */}
-      <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by name, country, website, role…" />
-        <FilterSelect
+        <Select
           value={roleFilter}
           onChange={(v) => { setRoleFilter(v as any); setPage(0); }}
-          options={ROLE_FILTERS}
+          options={ROLE_FILTERS.filter(Boolean).map((r) => ({ value: r, label: r.replace(/_/g, " ") }))}
           allLabel="All roles"
+          ariaLabel="Filter by role"
         />
-        <FilterSelect
+        <Select
           value={approvalFilter}
           onChange={(v) => { setApprovalFilter(v as any); setPage(0); }}
-          options={APPROVAL_FILTERS}
+          options={APPROVAL_FILTERS.filter(Boolean).map((a) => ({ value: a, label: a }))}
           allLabel="All approval states"
+          ariaLabel="Filter by approval state"
         />
       </div>
 
@@ -243,7 +251,11 @@ export default function PartnersPage() {
             <tbody>
               {visible.map((p) => (
                 <tr key={p.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                  <td style={{ padding: 8, fontWeight: 600, color: "var(--u-ink)" }}>{p.name}</td>
+                  <td style={{ padding: 8, fontWeight: 600 }}>
+                    <Link href={`/partners/detail?id=${p.id}`} style={{ textDecoration: "none" }}>
+                      <TextLink as="span">{p.name}</TextLink>
+                    </Link>
+                  </td>
                   <td style={{ padding: 8 }}>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                       {p.roles.map((r) => (
@@ -336,36 +348,3 @@ function SectionStat({
   );
 }
 
-function FilterSelect({
-  value,
-  onChange,
-  options,
-  allLabel,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: readonly string[];
-  allLabel: string;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      style={{
-        padding: "9px 12px",
-        fontSize: 13.5,
-        fontFamily: "var(--u-font-sans)",
-        borderRadius: "var(--u-radius-md)",
-        border: "1px solid var(--u-border)",
-        backgroundColor: "var(--u-surface-raised)",
-        color: "var(--u-ink)",
-      }}
-    >
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {o ? o.replace(/_/g, " ") : allLabel}
-        </option>
-      ))}
-    </select>
-  );
-}
