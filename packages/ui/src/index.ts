@@ -8,3 +8,8 @@ export * from "./Breadcrumbs";
 export * from "./Sidebar";
 export * from "./OrgTheme";
 export * from "./icons";
+export * from "./TextLink";
+export * from "./AddMenu";
+export * from "./Pagination";
+export * from "./SearchInput";
+export * from "./SortableHeader";

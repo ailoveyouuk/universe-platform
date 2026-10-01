@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { ProjectDetail } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { Button, TextLink } from "@universe/ui";
 
 const DOCUMENT_TYPES = ["CHECKLIST", "ISSUES", "CLOSEOUT_REPORT", "OTHER"] as const;
 
@@ -126,25 +127,18 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
             {project.documents.map((d) => (
               <tr key={d.id} style={{ borderTop: "1px solid #F3F4F6" }}>
                 <td style={{ padding: "6px 8px 6px 0" }}>
-                  <button
-                    onClick={() => download(d.id)}
-                    style={{ border: "none", background: "none", color: "#2563EB", cursor: "pointer", padding: 0, fontSize: 13, textAlign: "left" }}
-                  >
+                  <TextLink as="button" onClick={() => download(d.id)} style={{ border: "none", background: "none", fontSize: 13, padding: 0 }}>
                     {d.title}
-                  </button>
+                  </TextLink>
                 </td>
                 <td style={{ padding: "6px 8px" }}>{d.type.replace(/_/g, " ")}</td>
                 <td style={{ padding: "6px 8px", color: "#6B7280" }}>{formatBytes(d.fileSizeBytes)}</td>
                 <td style={{ padding: "6px 8px", color: "#6B7280" }}>{d.uploadedByName ?? "—"}</td>
                 <td style={{ padding: "6px 8px", color: "#6B7280" }}>{new Date(d.uploadedAt).toLocaleDateString()}</td>
                 <td style={{ padding: "6px 0 6px 8px", textAlign: "right" }}>
-                  <button
-                    disabled={deletingId === d.id}
-                    onClick={() => removeDocument(d.id)}
-                    style={{ padding: "3px 8px", fontSize: 11 }}
-                  >
+                  <Button variant="danger" size="sm" disabled={deletingId === d.id} onClick={() => removeDocument(d.id)}>
                     {deletingId === d.id ? "Removing…" : "Remove"}
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -184,9 +178,9 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
             ))}
           </select>
         </label>
-        <button onClick={upload} disabled={!pendingFile || uploading} style={{ padding: "6px 14px", fontSize: 13 }}>
+        <Button variant="primary" size="sm" onClick={upload} disabled={!pendingFile || uploading}>
           {uploading ? "Uploading…" : "Upload"}
-        </button>
+        </Button>
       </div>
     </div>
   );

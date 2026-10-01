@@ -2,34 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ProjectSummary, PartnerSummary } from "@universe/types";
 import {
   Button,
+  AddMenu,
   Pill,
   StatusBadge,
   ProjectsIcon,
-  PartnersIcon,
+  BuildingIcon,
   TrendingUpIcon,
   ClockIcon,
   CheckCircleIcon,
-  PlusIcon,
-  BuildingIcon,
 } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
 
 /**
  * The Project Management landing dashboard — 2026-10-01, replacing the
- * single-line "Welcome back" placeholder. Pulls from the same
- * listProjects()/listPartners() calls the Projects/Partners pages already
- * use (no new API surface), summarized into at-a-glance stat tiles, a
- * recent-projects list, and quick actions. Org colour stays subtle here:
- * only the greeting's small accent rule and the stat-tile icons pick up
- * `--u-org-accent` (see OrgTheme.tsx) — everything else is Universe's own
- * tokens, same "just enough personalization" discipline as OrgHeader.
+ * single-line "Welcome back" placeholder, then revised the same day per
+ * Lewis's follow-up: every stat tile is now a working link into the
+ * filtered Projects/Stakeholders view behind it (see those pages' own
+ * `?status=`/`?role=`/`?approval=` query-param handling), "Partners" is
+ * "Clients" (counts CLIENT-role stakeholders specifically) with a new
+ * "QA Approved" tile alongside it (APPROVED-status stakeholders), and
+ * "New Partner" is the same AddMenu concertina used on the Stakeholders
+ * page rather than a single flat button.
  */
 export default function HomePage() {
   const me = useCurrentUser();
+  const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
 
@@ -46,85 +48,74 @@ export default function HomePage() {
     return { active: active.length, awaitingSubmission: awaitingSubmission.length, awarded: awarded.length };
   }, [projects]);
 
+  const stakeholderStats = useMemo(() => {
+    if (!partners) return null;
+    const clients = partners.filter((p) => p.roles.some((r) => r.roleType === "CLIENT"));
+    const qaApproved = partners.filter(
+      (p) => p.approvalStatus === "APPROVED" && p.roles.some((r) => r.roleType === "MANUFACTURER" || r.roleType === "SUPPLIER")
+    );
+    return { clients: clients.length, qaApproved: qaApproved.length };
+  }, [partners]);
+
   const recent = useMemo(() => (projects ?? []).slice(0, 6), [projects]);
 
   return (
     <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
-      <div style={{ marginBottom: 28 }}>
-        <div
-          style={{
-            width: 36,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: "var(--u-org-accent, var(--u-brand-violet))",
-            marginBottom: 10,
-          }}
-        />
-        <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 26, margin: 0, color: "var(--u-ink)" }}>
-          Welcome back, {me?.forename}.
-        </h1>
-        <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6 }}>
-          Here's what's happening across {me?.organizationName}'s projects.
-        </p>
+      <div style={{ marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: "var(--u-org-accent, var(--u-brand-violet))",
+              marginBottom: 10,
+            }}
+          />
+          <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 26, margin: 0, color: "var(--u-ink)" }}>
+            Welcome back, {me?.forename}.
+          </h1>
+          <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6 }}>
+            Here's what's happening across {me?.organizationName}'s projects.
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link href="/projects/new" style={{ textDecoration: "none" }}>
+            <Button variant="primary" icon={<ProjectsIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
+              New Project
+            </Button>
+          </Link>
+          <AddMenu
+            label="Add Stakeholder"
+            options={[
+              { label: "Client", onSelect: () => router.push("/partners/new?role=CLIENT") },
+              { label: "Manufacturer / Supplier", onSelect: () => router.push("/partners/new?role=MANUFACTURER") },
+              { label: "Freight Forwarder", onSelect: () => router.push("/partners/new?role=FREIGHT_FORWARDER") },
+            ]}
+          />
+        </div>
       </div>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
           gap: 16,
           marginBottom: 32,
         }}
       >
-        <StatTile
-          label="Active projects"
-          value={stats?.active}
-          icon={<ProjectsIcon size={20} />}
-          tone="brand"
-        />
-        <StatTile
-          label="In progress / identified"
-          value={stats?.awaitingSubmission}
-          icon={<ClockIcon size={20} />}
-          tone="warning"
-        />
-        <StatTile
-          label="Awarded or completed"
-          value={stats?.awarded}
-          icon={<CheckCircleIcon size={20} />}
-          tone="good"
-        />
-        <StatTile
-          label="Partners"
-          value={partners?.length}
-          icon={<PartnersIcon size={20} />}
-          tone="neutral"
-        />
-      </div>
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 28, flexWrap: "wrap" }}>
-        <Link href="/projects/new" style={{ textDecoration: "none" }}>
-          <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
-            New Project
-          </Button>
-        </Link>
-        <Link href="/partners/new" style={{ textDecoration: "none" }}>
-          <Button variant="secondary" icon={<BuildingIcon size={16} />}>
-            New Partner
-          </Button>
-        </Link>
-        <Link href="/projects" style={{ textDecoration: "none" }}>
-          <Button variant="ghost" icon={<TrendingUpIcon size={16} />}>
-            View all projects
-          </Button>
-        </Link>
+        <StatTile href="/projects" label="Active projects" value={stats?.active} icon={<ProjectsIcon size={20} />} tone="brand" />
+        <StatTile href="/projects?status=IN_PROGRESS" label="In progress / identified" value={stats?.awaitingSubmission} icon={<ClockIcon size={20} />} tone="warning" />
+        <StatTile href="/projects?status=AWARDED" label="Awarded or completed" value={stats?.awarded} icon={<CheckCircleIcon size={20} />} tone="good" />
+        <StatTile href="/partners?role=CLIENT" label="Clients" value={stakeholderStats?.clients} icon={<BuildingIcon size={20} />} tone="neutral" />
+        <StatTile href="/partners?approval=APPROVED" label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
       </div>
 
       <section>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Recent projects</h2>
-          <Link href="/projects" style={{ fontSize: 13, fontWeight: 600, color: "var(--u-brand-violet)", textDecoration: "none" }}>
-            View all
+          <Link href="/projects" style={{ fontSize: 13, fontWeight: 600, color: "var(--u-brand-violet)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            View all <TrendingUpIcon size={13} />
           </Link>
         </div>
 
@@ -197,11 +188,13 @@ export default function HomePage() {
 }
 
 function StatTile({
+  href,
   label,
   value,
   icon,
   tone,
 }: {
+  href: string;
   label: string;
   value: number | undefined;
   icon: React.ReactNode;
@@ -214,25 +207,28 @@ function StatTile({
     neutral: "var(--u-ink-secondary)",
   };
   return (
-    <div
-      className="u-card-hover"
-      style={{
-        padding: "18px 20px",
-        borderRadius: "var(--u-radius-lg)",
-        border: "1px solid var(--u-border)",
-        backgroundColor: "var(--u-surface-raised)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
-        <span style={{ color: toneColors[tone], display: "flex" }}>{icon}</span>
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <div
+        className="u-card-hover"
+        style={{
+          padding: "18px 20px",
+          borderRadius: "var(--u-radius-lg)",
+          border: "1px solid var(--u-border)",
+          backgroundColor: "var(--u-surface-raised)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          cursor: "pointer",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
+          <span style={{ color: toneColors[tone], display: "flex" }}>{icon}</span>
+        </div>
+        <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
+          {value === undefined ? "—" : value}
+        </span>
       </div>
-      <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
-        {value === undefined ? "—" : value}
-      </span>
-    </div>
+    </Link>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerSummary, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import { Button } from "@universe/ui";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -415,12 +416,12 @@ export function LineForm({
       {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        <button type="submit" disabled={saving} style={{ padding: "8px 16px" }}>
+        <Button type="submit" variant="primary" disabled={saving}>
           {saving ? "Saving…" : existing ? "Save Line" : "Add Line"}
-        </button>
-        <button type="button" onClick={onCancel} style={{ padding: "8px 16px" }}>
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

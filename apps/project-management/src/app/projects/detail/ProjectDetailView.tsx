@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { LineForm } from "./LineForm";
@@ -263,9 +263,11 @@ export function ProjectDetailView() {
               <dd style={{ whiteSpace: "pre-wrap" }}>{project.projectNotes ?? "—"}</dd>
             </div>
           </dl>
-          <button onClick={startEditHeader} style={{ marginTop: 16, padding: "8px 16px" }}>
-            Edit Project Details
-          </button>
+          <div style={{ marginTop: 16 }}>
+            <Button variant="secondary" onClick={startEditHeader}>
+              Edit Project Details
+            </Button>
+          </div>
         </>
       )}
 
@@ -390,12 +392,12 @@ export function ProjectDetailView() {
             </label>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={saveHeader} disabled={savingHeader} style={{ padding: "8px 16px" }}>
+            <Button variant="primary" onClick={saveHeader} disabled={savingHeader}>
               {savingHeader ? "Saving…" : "Save"}
-            </button>
-            <button onClick={() => setEditingHeader(false)} style={{ padding: "8px 16px" }}>
+            </Button>
+            <Button variant="ghost" onClick={() => setEditingHeader(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -405,9 +407,9 @@ export function ProjectDetailView() {
       <div style={{ marginTop: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Line Items ({project.lines.length})</h2>
         {!addingLine && (
-          <button onClick={() => setAddingLine(true)} style={{ padding: "8px 16px" }}>
-            + Add Line
-          </button>
+          <Button variant="primary" size="sm" icon={<PlusIcon size={14} />} onClick={() => setAddingLine(true)}>
+            Add Line
+          </Button>
         )}
       </div>
 
@@ -454,9 +456,9 @@ export function ProjectDetailView() {
               </p>
             </div>
             {editingLineId !== line.id && (
-              <button onClick={() => setEditingLineId(line.id)} style={{ padding: "6px 12px" }}>
+              <Button variant="ghost" size="sm" onClick={() => setEditingLineId(line.id)}>
                 Edit
-              </button>
+              </Button>
             )}
           </div>
 

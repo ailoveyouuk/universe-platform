@@ -27,7 +27,7 @@ import { useAuth } from "../lib/useAuth";
 const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean }[] = [
   { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/projects", label: "Projects", icon: () => <ProjectsIcon size={19} />, inNav: true },
-  { href: "/partners", label: "Partners", icon: () => <PartnersIcon size={19} />, inNav: true },
+  { href: "/partners", label: "Stakeholders", icon: () => <PartnersIcon size={19} />, inNav: true },
 ];
 
 function crumbsFor(pathname: string) {

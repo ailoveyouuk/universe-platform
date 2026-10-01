@@ -4,6 +4,7 @@ import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { Button } from "@universe/ui";
 
 const CATEGORY_OPTIONS = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
 const PROJECT_TYPE_OPTIONS = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
@@ -194,9 +195,9 @@ export default function NewProjectPage() {
 
         {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
 
-        <button type="submit" disabled={submitting} style={{ padding: "10px 16px", alignSelf: "flex-start" }}>
+        <Button type="submit" variant="primary" disabled={submitting} style={{ alignSelf: "flex-start" }}>
           {submitting ? "Creating…" : "Create Project"}
-        </button>
+        </Button>
       </form>
     </main>
   );

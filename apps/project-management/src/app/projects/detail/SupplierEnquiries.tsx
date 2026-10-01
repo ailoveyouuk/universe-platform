@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PartnerSummary, ProjectDetail, ProjectLineSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
+import { Button } from "@universe/ui";
 
 const RESPONSE_STATUSES = ["WAITING", "QUOTED", "DECLINED", "NO_RESPONSE"] as const;
 
@@ -115,9 +116,9 @@ export function SupplierEnquiries({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <p style={{ fontWeight: 600, fontSize: 13, margin: 0 }}>Supplier Enquiries ({line.enquiries.length})</p>
         {!adding && (
-          <button onClick={() => setAdding(true)} style={{ padding: "4px 10px", fontSize: 12 }}>
+          <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
             + Log Enquiry
-          </button>
+          </Button>
         )}
       </div>
 
@@ -188,13 +189,13 @@ export function SupplierEnquiries({
                   </td>
                   <td style={{ padding: "4px 0 4px 6px", textAlign: "right" }}>
                     {draft ? (
-                      <button disabled={saving} onClick={() => saveEdit(e.id)} style={{ padding: "3px 8px", fontSize: 11 }}>
+                      <Button variant="primary" size="sm" disabled={saving} onClick={() => saveEdit(e.id)}>
                         Save
-                      </button>
+                      </Button>
                     ) : (
-                      <button onClick={() => startEdit(e.id)} style={{ padding: "3px 8px", fontSize: 11 }}>
+                      <Button variant="ghost" size="sm" onClick={() => startEdit(e.id)}>
                         Update
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -235,12 +236,12 @@ export function SupplierEnquiries({
             />
           </label>
           <div style={{ gridColumn: "span 2", display: "flex", gap: 8 }}>
-            <button onClick={addEnquiry} disabled={saving} style={{ padding: "5px 12px", fontSize: 12 }}>
+            <Button variant="primary" size="sm" onClick={addEnquiry} disabled={saving}>
               {saving ? "Saving…" : "Save"}
-            </button>
-            <button onClick={() => setAdding(false)} style={{ padding: "5px 12px", fontSize: 12 }}>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}
