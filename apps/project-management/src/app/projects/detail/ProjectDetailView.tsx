@@ -31,6 +31,19 @@ function isDaysRemainingRelevant(project: ProjectDetail): boolean {
   // benchmarking doc rec. #8.
   return !project.submissionDate;
 }
+function isLinesSectionRelevant(project: ProjectDetail): boolean {
+  // 2026-10-01 refinement to project-stage-navigation-plan.md: the whole
+  // Project Lines section (and everything within it — manufacturer,
+  // supplier, country of manufacture, POs, GAD, freight/logistics,
+  // financials, supplier enquiries) is deferred until In Progress. A
+  // project that already has lines (imported, or moved backward) still
+  // shows them — this only controls default foregrounding, never hides
+  // existing data.
+  return (
+    project.lines.length > 0 ||
+    ACTIVE_STAGES.indexOf(project.status as (typeof ACTIVE_STAGES)[number]) >= ACTIVE_STAGES.indexOf("IN_PROGRESS")
+  );
+}
 
 /**
  * Full project detail: editable header (status/client/dates/notes) plus
@@ -133,6 +146,7 @@ export function ProjectDetailView() {
 
   const showSubmissionDate = useMemo(() => (project ? isSubmissionDateRelevant(project) : false), [project]);
   const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
+  const showLines = useMemo(() => (project ? isLinesSectionRelevant(project) : false), [project]);
 
   if (!id) return <main style={{ padding: 32, color: "#B91C1C" }}>No project specified.</main>;
   if (error) return <main style={{ padding: 32, color: "#B91C1C" }}>{error}</main>;
@@ -385,6 +399,8 @@ export function ProjectDetailView() {
         </div>
       )}
 
+      {(showAllFields || showLines) && (
+        <>
       <div style={{ marginTop: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Line Items ({project.lines.length})</h2>
         {!addingLine && (
@@ -462,6 +478,14 @@ export function ProjectDetailView() {
           <SupplierEnquiries projectId={project.id} line={line} suppliers={suppliers} onUpdated={setProject} />
         </div>
       ))}
+        </>
+      )}
+      {!showAllFields && !showLines && (
+        <p style={{ color: "#6B7280", marginTop: 40, fontSize: 13 }}>
+          Line items, procurement, freight/logistics and financial details foreground once this project moves to In Progress.
+          Use &ldquo;Show all fields&rdquo; above to enter them early.
+        </p>
+      )}
     </main>
   );
 }
