@@ -124,6 +124,13 @@ module storage 'modules/storage.bicep' = {
     name: replace('${namePrefix}docs', '-', '')
     location: location
     apiPrincipalId: apiIdentity.properties.principalId
+    // Forward reference to a module declared later in this file
+    // (projectManagementSwa) — fine in Bicep, which sequences deployment
+    // from the reference graph, not file order. Only the Project
+    // Management SWA uploads documents today (see storage.bicep's own
+    // comment on this param); add adminSwa's hostname here too if/when the
+    // Admin app ever grows a Documents feature of its own.
+    allowedOrigin: 'https://${projectManagementSwa.outputs.defaultHostname}'
   }
 }
 

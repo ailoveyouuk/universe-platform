@@ -19,6 +19,9 @@ param name string
 
 param location string
 
+@description('Origins allowed to PUT directly to blob storage with a SAS (the two-step browser upload flow in documents.service.ts) — the Project Management SWA\'s own hostname. Without this, every browser-side upload fails with a CORS preflight error even though the SAS itself is valid, since Blob Storage default-denies cross-origin requests. Found and fixed 2026-10-01 during the Phase 2b smoke test: upload-url minted fine, the direct-to-blob PUT never got there.')
+param allowedOrigin string
+
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
   location: location
@@ -54,6 +57,27 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
     deleteRetentionPolicy: {
       enabled: true
       days: 14
+    }
+    // The browser PUTs file bytes straight to this account using the SAS
+    // minted by BlobStorageService.getUploadUrl (see documents.service.ts's
+    // doc comment on the two-step upload flow) — a cross-origin request
+    // from the SWA's origin to *.blob.core.windows.net. Blob Storage
+    // default-denies cross-origin requests with no CORS config at all, so
+    // without this every upload fails at the preflight, before the SAS
+    // itself is ever checked. GET/HEAD only: downloads go through the same
+    // SAS-PUT-style direct-to-blob pattern but browsers don't preflight
+    // simple GETs the way they do PUT-with-custom-headers, so this is
+    // mainly here for the upload PUT's x-ms-blob-type header.
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: [allowedOrigin]
+          allowedMethods: ['GET', 'HEAD', 'PUT', 'OPTIONS']
+          allowedHeaders: ['*']
+          exposedHeaders: ['*']
+          maxAgeInSeconds: 3600
+        }
+      ]
     }
   }
 }
