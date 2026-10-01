@@ -51,3 +51,9 @@ jobs:
             infra/bicep/main.parameters.json
             environmentName=${{ inputs.environmentName }}
             sqlAdminPassword=${{ secrets.SQL_ADMIN_PASSWORD }}
+          # azure/arm-deploy@v2 fails the step on ANY line written to stderr,
+          # including harmless Bicep linter warnings (e.g. the deliberate
+          # vault.azure.net hardcode above, which breaks a genuine circular
+          # module dependency — see the comment on keyVaultUri). Without this,
+          # every run fails even when the deployment itself succeeds.
+          failOnStdErr: false
