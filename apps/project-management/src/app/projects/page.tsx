@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { StatusBadge } from "@universe/ui";
+import { StatusBadge, Button, PlusIcon } from "@universe/ui";
 import type { ProjectSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 
@@ -18,10 +18,14 @@ export default function ProjectsPage() {
   }, []);
 
   return (
-    <main style={{ padding: 32 }}>
+    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Projects</h1>
-        <Link href="/projects/new">+ New Project</Link>
+        <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Projects</h1>
+        <Link href="/projects/new" style={{ textDecoration: "none" }}>
+          <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
+            New Project
+          </Button>
+        </Link>
       </div>
 
       {error && <p style={{ color: "#B91C1C" }}>{error}</p>}

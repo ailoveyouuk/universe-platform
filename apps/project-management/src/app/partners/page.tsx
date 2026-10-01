@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { PartnerSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { Button, PlusIcon } from "@universe/ui";
 
 const ROLE_FILTERS = ["", "CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "LOGISTICS"] as const;
 
@@ -21,12 +22,16 @@ export default function PartnersPage() {
   }, [roleFilter]);
 
   return (
-    <main style={{ padding: 32 }}>
+    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Partners</h1>
-        <Link href="/partners/new">+ New Partner</Link>
+        <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Partners</h1>
+        <Link href="/partners/new" style={{ textDecoration: "none" }}>
+          <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
+            New Partner
+          </Button>
+        </Link>
       </div>
-      <p style={{ color: "#6B7280", marginTop: -8 }}>
+      <p style={{ color: "var(--u-ink-secondary)", marginTop: 8 }}>
         Clients, suppliers, manufacturers, and freight forwarders your organization does business with.
       </p>
 
