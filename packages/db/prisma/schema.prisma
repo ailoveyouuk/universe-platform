@@ -819,7 +819,18 @@ model ProjectDocument {
   project        Project  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   type           String // see allowed values reference above
   title          String
-  url            String // blob storage URL or SharePoint link, initially
+  url            String // blob storage URL (no SAS — see blob-storage.service.ts) or a legacy SharePoint link
+  /// Added 2026-10-01 (Phase 2b, Blob Storage — see architecture-decisions.md
+  /// "Document storage" decision). The blob's own path within its org's
+  /// private container, e.g. "<uuid>-<original file name>" — kept separate
+  /// from `url` (which is a full https:// endpoint, convenient for display
+  /// and for the legacy SharePoint-link rows that predate this field) so
+  /// BlobStorageService never has to parse a URL back apart to re-derive
+  /// the blob name when minting a fresh read/delete SAS.
+  blobName       String?
+  fileName       String?
+  fileSizeBytes  Int?
+  mimeType       String?
   uploadedById   String?
   uploadedBy     User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   uploadedAt     DateTime @default(now())

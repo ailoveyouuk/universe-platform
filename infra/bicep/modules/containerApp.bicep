@@ -17,6 +17,13 @@ param userAssignedIdentityId string
 @description('Principal (object) ID of that same user-assigned identity — Bicep cannot read this back off `containerApp.identity` for a user-assigned identity the way it can for system-assigned, so it is threaded through as a param from main.bicep (which looks it up via an `existing` resource reference) and passed straight through as this module\'s `principalId` output.')
 param userAssignedIdentityPrincipalId string
 
+@description('Client ID (not principal/object ID) of the same user-assigned identity, needed so DefaultAzureCredential inside the API process can target this specific identity rather than guessing among whatever is attached to the compute — see blob-storage.service.ts.')
+param userAssignedIdentityClientId string
+
+@description('Blob storage account for ProjectDocument uploads (Phase 2b, decided 2026-10-01 — see architecture-decisions.md). No key/connection string: the API authenticates as its own managed identity and mints short-lived user-delegation SAS tokens per request.')
+param storageAccountName string
+param storageBlobEndpoint string
+
 @description('Directory (tenant) ID of the real Universe CIAM tenant (Entra External ID) — "Universe Platform", universeplatform.onmicrosoft.com. One tenant for the whole platform (see architecture doc, "Everyone signs in through the one CIAM tenant"), so this default is the same across every environment unless the CIAM tenant is ever recreated.')
 param ciamTenantId string = '23851fd3-0682-4268-af83-338cfea80d89'
 
@@ -85,6 +92,9 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           env: [
             { name: 'DATABASE_URL', secretRef: 'database-url' }
             { name: 'API_PORT', value: '4000' }
+            { name: 'AZURE_CLIENT_ID', value: userAssignedIdentityClientId }
+            { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
+            { name: 'AZURE_STORAGE_BLOB_ENDPOINT', value: storageBlobEndpoint }
             // Not secret — the real Universe CIAM tenant's identifiers,
             // wired 2026-09-25 once the tenant and API app registration
             // existed. See entra-auth.guard.ts / verifyToken.ts for how

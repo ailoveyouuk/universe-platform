@@ -424,6 +424,52 @@ export interface ProjectDetail extends ProjectSummary {
   /** Ordered oldest-first — see ProjectStatusHistoryEntry above. Added
    * 2026-09-30. */
   statusHistory: ProjectStatusHistoryEntry[];
+  /** Ordered newest-first. Added 2026-10-01 (Phase 2b, Blob Storage). */
+  documents: ProjectDocumentSummary[];
+}
+
+/** One uploaded document against a Project (Phase 2b, Blob Storage —
+ * decided 2026-10-01, see architecture-decisions.md). Deliberately carries
+ * NO url/blobName — a document's actual download link is only ever a
+ * short-lived SAS URL, minted on demand via
+ * GET /projects/:projectId/documents/:id/download-url, never a value that
+ * sits in a cached ProjectDetail response. See BlobStorageService's doc
+ * comment in apps/api for the full design. */
+export interface ProjectDocumentSummary {
+  id: string;
+  projectId: string;
+  /** CHECKLIST | ISSUES | CLOSEOUT_REPORT | OTHER — see the allowed-values
+   * reference comment at the top of schema.prisma. */
+  type: string;
+  title: string;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  mimeType: string | null;
+  uploadedByName: string | null;
+  uploadedAt: string;
+}
+
+/** POST /projects/:projectId/documents/upload-url — step 1 of the two-step
+ * upload flow (see DocumentsService's doc comment in apps/api). */
+export interface RequestDocumentUploadInput {
+  fileName: string;
+  contentType: string;
+}
+
+export interface RequestDocumentUploadResult {
+  uploadUrl: string;
+  blobName: string;
+}
+
+/** POST /projects/:projectId/documents — step 2, called once the direct-
+ * to-blob PUT using step 1's uploadUrl has succeeded. */
+export interface ConfirmDocumentUploadInput {
+  blobName: string;
+  fileName: string;
+  type: string;
+  title: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
 }
 
 /** PATCH /projects/:id — header fields only; line data goes through the

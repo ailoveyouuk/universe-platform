@@ -114,6 +114,19 @@ module sql 'modules/sql.bicep' = {
   }
 }
 
+// Document storage (Phase 2b, Blob Storage — decided 2026-10-01, see
+// architecture-decisions.md "Open questions"). Storage account names are
+// globally unique + alphanumeric-only, same constraint as the ACR name
+// above, so the same replace() pattern applies.
+module storage 'modules/storage.bicep' = {
+  name: 'storage'
+  params: {
+    name: replace('${namePrefix}docs', '-', '')
+    location: location
+    apiPrincipalId: apiIdentity.properties.principalId
+  }
+}
+
 module api 'modules/containerApp.bicep' = {
   name: 'api'
   params: {
@@ -125,6 +138,12 @@ module api 'modules/containerApp.bicep' = {
     keyVaultUri: keyVaultUri
     userAssignedIdentityId: apiIdentity.id
     userAssignedIdentityPrincipalId: apiIdentity.properties.principalId
+    // DefaultAzureCredential needs to be told WHICH managed identity to use
+    // when more than one could apply (see blob-storage.service.ts) — the
+    // user-assigned identity's own clientId, not its principalId/objectId.
+    userAssignedIdentityClientId: apiIdentity.properties.clientId
+    storageAccountName: storage.outputs.accountName
+    storageBlobEndpoint: storage.outputs.blobEndpoint
   }
   // Explicit dependency, not inferred from a param: this module's Container
   // App reads Key Vault secrets at boot (via keyVaultUri, a computed string,
@@ -138,6 +157,7 @@ module api 'modules/containerApp.bicep' = {
   // racing arbitrarily.
   dependsOn: [
     keyVault
+    storage
   ]
 }
 
@@ -214,6 +234,7 @@ output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
 output insightsDatabaseName string = sql.outputs.insightsDatabaseName
+output documentStorageAccountName string = storage.outputs.accountName
 output keyVaultName string = keyVault.outputs.vaultName
 output projectManagementUrl string = projectManagementSwa.outputs.defaultHostname
 output adminUrl string = adminSwa.outputs.defaultHostname

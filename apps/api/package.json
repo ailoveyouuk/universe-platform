@@ -17,6 +17,8 @@
     "@universe/db": "*",
     "@universe/types": "*",
     "@universe/auth": "*",
+    "@azure/identity": "^4.5.0",
+    "@azure/storage-blob": "^12.26.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "class-validator": "^0.14.1",

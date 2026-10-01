@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext } from "@universe/db";
-import type { ProjectDetail, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
+import type { ProjectDetail, ProjectDocumentSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProjectDto } from "./dto/create-project.dto";
@@ -59,12 +59,18 @@ const PROJECT_DETAIL_INCLUDE = {
   // both "latest" and "cumulative" time-in-stage. See
   // project-stage-navigation-plan.md / ProjectStatusHistory's doc comment.
   statusHistory: { include: { changedBy: true }, orderBy: { enteredAt: "asc" as const } },
+  // Documents (Phase 2b, Blob Storage — added 2026-10-01). Newest-first —
+  // same convention as supplierEnquiries above, a just-uploaded document is
+  // what a user most likely wants to see at the top. Back-relation field on
+  // Project is `documents` (see schema.prisma).
+  documents: { include: { uploadedBy: true }, orderBy: { uploadedAt: "desc" as const } },
 } as const;
 
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
 type LineWithPartners = ProjectWithLines["lines"][number];
 type EnquiryWithSupplier = LineWithPartners["supplierEnquiries"][number];
 type StatusHistoryWithUser = ProjectWithLines["statusHistory"][number];
+type DocumentWithUploader = ProjectWithLines["documents"][number];
 
 function decimalToString(d: unknown): string | null {
   return d === null || d === undefined ? null : String(d);
@@ -185,6 +191,20 @@ function toStatusHistoryEntry(h: StatusHistoryWithUser): ProjectStatusHistoryEnt
   };
 }
 
+function toDocumentSummary(d: DocumentWithUploader): ProjectDocumentSummary {
+  return {
+    id: d.id,
+    projectId: d.projectId,
+    type: d.type,
+    title: d.title,
+    fileName: d.fileName,
+    fileSizeBytes: d.fileSizeBytes,
+    mimeType: d.mimeType,
+    uploadedByName: d.uploadedBy ? `${d.uploadedBy.forename} ${d.uploadedBy.surname}` : null,
+    uploadedAt: d.uploadedAt.toISOString(),
+  };
+}
+
 function toDetail(p: ProjectWithLines): ProjectDetail {
   return {
     ...toSummary(p),
@@ -199,6 +219,7 @@ function toDetail(p: ProjectWithLines): ProjectDetail {
     projectFolderUrl: p.projectFolderUrl,
     lines: p.lines.map(toLineSummary),
     statusHistory: p.statusHistory.map(toStatusHistoryEntry),
+    documents: p.documents.map(toDocumentSummary),
   };
 }
 

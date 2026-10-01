@@ -6,9 +6,10 @@ import { SupplierDirectoryModule } from "./supplier-directory/supplier-directory
 import { MeController } from "./me/me.controller";
 import { PartnersModule } from "./partners/partners.module";
 import { SupplierEnquiriesModule } from "./supplier-enquiries/supplier-enquiries.module";
+import { DocumentsModule } from "./documents/documents.module";
 
 @Module({
-  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule],
+  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule],
   controllers: [MeController],
 })
 export class AppModule {}

@@ -1,5 +1,6 @@
 import type {
   AuthenticatedUser,
+  ConfirmDocumentUploadInput,
   CreateOrganizationInput,
   CreatePartnerInput,
   CreateProjectInput,
@@ -11,6 +12,8 @@ import type {
   ProjectDetail,
   ProjectLineInput,
   ProjectSummary,
+  RequestDocumentUploadInput,
+  RequestDocumentUploadResult,
   RoleSummary,
   SupplierLead,
   SupplierProduct,
@@ -112,6 +115,55 @@ export class UniverseApiClient {
       method: "PATCH",
       body: JSON.stringify(input),
     });
+  }
+
+  // --- Documents (added 2026-10-01, Phase 2b — Blob Storage) ---
+  // Two-step upload: request a short-lived SAS upload URL, PUT the file
+  // bytes straight to Blob Storage with it, then confirm with the
+  // metadata. See DocumentsService's doc comment in apps/api for the full
+  // design. Every call that touches a project's document list returns the
+  // full ProjectDetail, same convention as Supplier Enquiries above.
+
+  requestDocumentUploadUrl(projectId: string, input: RequestDocumentUploadInput): Promise<RequestDocumentUploadResult> {
+    return this.request(`/projects/${projectId}/documents/upload-url`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Not routed through `request()` — this goes straight to Blob Storage
+   * using the SAS-bearing uploadUrl from requestDocumentUploadUrl(), not
+   * this API, and must NOT carry an Authorization/Bearer header (Blob
+   * Storage would reject a request bearing an unrelated auth scheme
+   * alongside its own SAS query-string auth). */
+  async uploadDocumentFile(uploadUrl: string, file: File): Promise<void> {
+    const res = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "x-ms-blob-type": "BlockBlob",
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Document upload failed: ${res.status} ${res.statusText} — ${body}`);
+    }
+  }
+
+  confirmDocumentUpload(projectId: string, input: ConfirmDocumentUploadInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/documents`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  getDocumentDownloadUrl(projectId: string, documentId: string): Promise<{ downloadUrl: string }> {
+    return this.request(`/projects/${projectId}/documents/${documentId}/download-url`);
+  }
+
+  deleteDocument(projectId: string, documentId: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/documents/${documentId}`, { method: "DELETE" });
   }
 
   // --- Partners (added 2026-09-27) ---

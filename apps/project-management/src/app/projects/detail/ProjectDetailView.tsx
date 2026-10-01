@@ -7,6 +7,7 @@ import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@univers
 import { apiClient } from "../../../lib/apiClient";
 import { LineForm } from "./LineForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
+import { ProjectDocuments } from "./ProjectDocuments";
 
 const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
@@ -486,6 +487,8 @@ export function ProjectDetailView() {
           Use &ldquo;Show all fields&rdquo; above to enter them early.
         </p>
       )}
+
+      <ProjectDocuments project={project} onUpdated={setProject} />
     </main>
   );
 }
