@@ -508,22 +508,89 @@ export interface PartnerSupplierDetail {
   supplierCode?: string | null;
   productCategory?: string | null;
   fdaRegistrationNumber?: string | null;
+  scopeOfSupply?: string | null;
+  scopeOfServicesDescription?: string | null;
+  codeOfConductAcknowledged?: boolean;
+  codeOfConductAcknowledgedDate?: string | null;
 }
 
 export interface PartnerManufacturerDetail {
   partNumberConvention?: string | null;
   countryOfManufactureCode?: string | null;
+  scopeOfSupply?: string | null;
+  scopeOfServicesDescription?: string | null;
 }
 
 export interface PartnerFreightForwarderDetail {
   preferredIncoterm?: string | null;
   serviceRegions?: string | null;
+  modesOfTransport?: string | null;
+  iataDgrCertified?: boolean;
+  aeoAccredited?: boolean;
+  gdpTransportCapable?: boolean;
+  referencesProvided?: boolean;
 }
 
 export interface PartnerClientDetail {
   billingAddress?: string | null;
   deliveryAddress?: string | null;
   paymentTerms?: string | null;
+  productCategoryLicensingNotes?: string | null;
+  destinationCountryRestrictionsNotes?: string | null;
+  salesOrderLimit?: number | null;
+  salesOrderLimitCurrency?: string | null;
+  isPharmaApprovedCustomer?: boolean;
+  approvedCustomerLogRef?: string | null;
+  gdpTrainedOfficerAssigned?: boolean;
+}
+
+/** Added 2026-10-02 — see WarehousingDetail in schema.prisma. */
+export interface PartnerWarehousingDetail {
+  wdaNumber?: string | null;
+  technicalAgreementRef?: string | null;
+  gdpAuditDate?: string | null;
+  nextGdpAuditDue?: string | null;
+  monthlyReconciliationContact?: string | null;
+}
+
+/** A manufacturer's registered manufacturing site — see ManufacturerSite
+ * in schema.prisma (the Becton Dickinson folder pattern). */
+export interface PartnerManufacturerSite {
+  id: string;
+  siteName: string;
+  countryCode: string | null;
+  address: string | null;
+  isPrimary: boolean;
+}
+
+/** One generic document/certificate row — see PartnerCertification's doc
+ * comment in schema.prisma, expanded 2026-10-02. */
+export interface PartnerCertificationSummary {
+  id: string;
+  type: string;
+  referenceNumber: string | null;
+  revision: string | null;
+  issuingBody: string | null;
+  issuedDate: string | null;
+  expiryDate: string | null;
+  verifiedAt: string | null;
+  status: string; // CURRENT | ARCHIVED
+  notes: string | null;
+  manufacturerSiteId: string | null;
+  /** True if expiryDate is set and in the past — convenience flag so every
+   * consumer doesn't re-derive the same date comparison. */
+  isExpired: boolean;
+}
+
+/** Bioconnections FORM 008.1's "Company Checks" table — see
+ * PartnerCompanyCheck in schema.prisma. */
+export interface PartnerCompanyCheckSummary {
+  id: string;
+  checkType: string;
+  result: string; // YES | NO | NOT_APPLICABLE
+  checkedDate: string | null;
+  referenceOrSource: string | null;
+  comment: string | null;
 }
 
 export interface PartnerSummary {
@@ -532,24 +599,70 @@ export interface PartnerSummary {
   countryCode: string | null;
   website: string | null;
   approvalStatus: string;
+  riskTier: string | null;
+  companyRegistrationNumber: string | null;
+  vatNumber: string | null;
+  lastApprovalReviewDate: string | null;
+  nextApprovalReviewDue: string | null;
   roles: PartnerRoleSummary[];
   supplierDetail: PartnerSupplierDetail | null;
   manufacturerDetail: PartnerManufacturerDetail | null;
   freightForwarderDetail: PartnerFreightForwarderDetail | null;
   clientDetail: PartnerClientDetail | null;
+  warehousingDetail: PartnerWarehousingDetail | null;
+  manufacturerSites: PartnerManufacturerSite[];
+  certifications: PartnerCertificationSummary[];
+  companyChecks: PartnerCompanyCheckSummary[];
   createdAt: string;
+}
+
+/** Matches CreatePartnerDto's PartnerCertificationDto — see
+ * apps/api/src/partners/dto/create-partner.dto.ts. */
+export interface CreatePartnerCertificationInput {
+  type: string;
+  referenceNumber?: string;
+  revision?: string;
+  issuingBody?: string;
+  issuedDate?: string;
+  expiryDate?: string;
+  verifiedAt?: string;
+  status?: string;
+  notes?: string;
+  manufacturerSiteIndex?: number;
+}
+
+export interface CreatePartnerCompanyCheckInput {
+  checkType: string;
+  result: string;
+  checkedDate?: string;
+  referenceOrSource?: string;
+  comment?: string;
+}
+
+export interface CreatePartnerManufacturerSiteInput {
+  siteName: string;
+  countryCode?: string;
+  address?: string;
+  isPrimary?: boolean;
 }
 
 export interface CreatePartnerInput {
   name: string;
   countryCode?: string;
   website?: string;
+  riskTier?: string;
+  companyRegistrationNumber?: string;
+  vatNumber?: string;
   /** At least one role required — a Partner with no role is meaningless. */
   roleTypes: string[];
   supplierDetail?: PartnerSupplierDetail;
   manufacturerDetail?: PartnerManufacturerDetail;
   freightForwarderDetail?: PartnerFreightForwarderDetail;
   clientDetail?: PartnerClientDetail;
+  warehousingDetail?: PartnerWarehousingDetail;
+  manufacturerSites?: CreatePartnerManufacturerSiteInput[];
+  certifications?: CreatePartnerCertificationInput[];
+  companyChecks?: CreatePartnerCompanyCheckInput[];
 }
 
 export interface UpdatePartnerInput {
@@ -557,6 +670,9 @@ export interface UpdatePartnerInput {
   countryCode?: string | null;
   website?: string | null;
   approvalStatus?: string;
+  riskTier?: string;
+  companyRegistrationNumber?: string;
+  vatNumber?: string;
   /** Adds any role types not already present — does not remove existing
    * ones (see PartnersService.update's doc comment). */
   addRoleTypes?: string[];
@@ -564,6 +680,10 @@ export interface UpdatePartnerInput {
   manufacturerDetail?: PartnerManufacturerDetail;
   freightForwarderDetail?: PartnerFreightForwarderDetail;
   clientDetail?: PartnerClientDetail;
+  warehousingDetail?: PartnerWarehousingDetail;
+  addManufacturerSites?: CreatePartnerManufacturerSiteInput[];
+  addCertifications?: CreatePartnerCertificationInput[];
+  addCompanyChecks?: CreatePartnerCompanyCheckInput[];
 }
 
 // ---------------------------------------------------------------------------

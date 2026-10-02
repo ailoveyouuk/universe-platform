@@ -130,19 +130,93 @@ export const PartnerApprovalStatus = {
 } as const;
 export type PartnerApprovalStatus = (typeof PartnerApprovalStatus)[keyof typeof PartnerApprovalStatus];
 
+/// Expanded 2026-10-02 after the SOP008/Bioconnections FORM 008.1/BD-folder
+/// research pass (architecture doc, "Stakeholder onboarding: SOP-aligned
+/// expansion") — covers every document type actually observed in Unimed's
+/// real supplier files, not just the original four.
 export const CertificationType = {
   ISO_13485: "ISO_13485",
   ISO_9001: "ISO_9001",
   ISO_14001: "ISO_14001",
+  ISO_17025: "ISO_17025",
   OTHER_ISO: "OTHER_ISO",
   FDA_REGISTRATION: "FDA_REGISTRATION",
   GMP: "GMP",
   GDP: "GDP",
   MIA: "MIA",
   WDA: "WDA",
+  /// EU device-registration-database check (BD folder: "verification
+  /// EUDAMED registration").
+  EUDAMED_REGISTRATION: "EUDAMED_REGISTRATION",
+  CE_MDR_CERTIFICATE: "CE_MDR_CERTIFICATE",
+  DECLARATION_OF_CONFORMITY: "DECLARATION_OF_CONFORMITY",
+  /// In-country device registration (BD folder: Kenya device registration,
+  /// Tanzania TMDA) — track one per destination country, not one per
+  /// manufacturer.
+  DEVICE_REGISTRATION: "DEVICE_REGISTRATION",
+  INSTRUCTIONS_FOR_USE: "INSTRUCTIONS_FOR_USE",
+  TECHNICAL_INFORMATION_SHEET: "TECHNICAL_INFORMATION_SHEET",
+  COMPANY_REGISTRATION: "COMPANY_REGISTRATION",
+  VAT_CERTIFICATE: "VAT_CERTIFICATE",
+  FINANCIAL_CREDIT_CHECK: "FINANCIAL_CREDIT_CHECK",
+  BUSINESS_INSURANCE: "BUSINESS_INSURANCE",
+  /// IATA Dangerous Goods Regulations handling certification — freight
+  /// forwarder.
+  IATA_DGR_CERTIFICATION: "IATA_DGR_CERTIFICATION",
+  AEO_ACCREDITATION: "AEO_ACCREDITATION",
+  INSURANCE_CERTIFICATE: "INSURANCE_CERTIFICATE",
+  TECHNICAL_AGREEMENT: "TECHNICAL_AGREEMENT",
+  SERVICE_LEVEL_AGREEMENT: "SERVICE_LEVEL_AGREEMENT",
+  /// SOP008 §4.1.12: Unimed's Code of Conduct, sent to every approved
+  /// supplier for "Read & Understood" acknowledgement, copy retained.
+  CODE_OF_CONDUCT_ACKNOWLEDGEMENT: "CODE_OF_CONDUCT_ACKNOWLEDGEMENT",
+  REFERENCES: "REFERENCES",
+  /// SOP008 §4.7.1: FORM 008.2, the annual Bona Fide re-check record for
+  /// approved pharmaceutical (and GDP-impacting outsourced) suppliers.
+  BONA_FIDE_REVIEW: "BONA_FIDE_REVIEW",
   OTHER: "OTHER",
 } as const;
 export type CertificationType = (typeof CertificationType)[keyof typeof CertificationType];
+
+/// Added 2026-10-02 — see PartnerCertification.status in schema.prisma.
+export const PartnerCertificationStatus = {
+  CURRENT: "CURRENT",
+  ARCHIVED: "ARCHIVED",
+} as const;
+export type PartnerCertificationStatus =
+  (typeof PartnerCertificationStatus)[keyof typeof PartnerCertificationStatus];
+
+/// Added 2026-10-02 from Bioconnections FORM 008.1's "Company Checks"
+/// table — see PartnerCompanyCheck in schema.prisma.
+export const PartnerCompanyCheckType = {
+  COMPANIES_HOUSE_REGISTRATION: "COMPANIES_HOUSE_REGISTRATION",
+  OTHER_NATIONAL_COMPANY_REGISTRATION: "OTHER_NATIONAL_COMPANY_REGISTRATION",
+  VAT_CERTIFICATE: "VAT_CERTIFICATE",
+  WEBSITE: "WEBSITE",
+  FINANCIAL_CREDIT_STATUS: "FINANCIAL_CREDIT_STATUS",
+  LOCATION: "LOCATION",
+  BUSINESS_INSURANCE: "BUSINESS_INSURANCE",
+  OTHER: "OTHER",
+} as const;
+export type PartnerCompanyCheckType =
+  (typeof PartnerCompanyCheckType)[keyof typeof PartnerCompanyCheckType];
+
+export const PartnerCompanyCheckResult = {
+  YES: "YES",
+  NO: "NO",
+  NOT_APPLICABLE: "NOT_APPLICABLE",
+} as const;
+export type PartnerCompanyCheckResult =
+  (typeof PartnerCompanyCheckResult)[keyof typeof PartnerCompanyCheckResult];
+
+/// Added 2026-10-02 — see Partner.riskTier in schema.prisma (SOP008's
+/// High/Medium/Low risk-tiering model, generalized to any partner role).
+export const PartnerRiskTier = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+export type PartnerRiskTier = (typeof PartnerRiskTier)[keyof typeof PartnerRiskTier];
 
 export const SupplierEnquiryResponseStatus = {
   QUOTED: "QUOTED",

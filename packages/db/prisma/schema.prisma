@@ -396,6 +396,20 @@ model Partner {
   countryCode    String?      // ISO 3166-1 alpha-2, see Country reference table below
   website        String?
   approvalStatus String       @default("PENDING") // see allowed values reference above
+  /// Added 2026-10-02 per SOP008 Supplier Management's risk-tiering model
+  /// (High/Medium/Low, driving what documentation is required — see
+  /// architecture doc "Stakeholder onboarding: SOP-aligned expansion").
+  /// Applies to any role, not just Supplier/Manufacturer — a freight
+  /// forwarder or warehousing partner on a GDP-impacting lane is High Risk
+  /// too (SOP008 §4.6.1).
+  riskTier       String?      // HIGH | MEDIUM | LOW
+  companyRegistrationNumber String?
+  vatNumber      String?
+  /// SOP008 §4.7.1's "Annual Bona Fide re-check" (FORM 008.2) generalized
+  /// to any role with a re-approval cadence, rather than duplicating this
+  /// pair of dates on every *Detail table.
+  lastApprovalReviewDate DateTime?
+  nextApprovalReviewDue  DateTime?
   isArchived     Boolean      @default(false)
   archivedAt     DateTime?
   archivedById   String?
@@ -409,6 +423,9 @@ model Partner {
   manufacturerDetail ManufacturerDetail?
   freightForwarderDetail FreightForwarderDetail?
   clientDetail     ClientDetail?
+  warehousingDetail WarehousingDetail?
+  manufacturerSites ManufacturerSite[]
+  companyChecks    PartnerCompanyCheck[]
   contacts         Contact[]
   projectsAsClient Project[]              @relation("ProjectClient")
   linesAsManufacturer ProjectLine[]       @relation("LineManufacturer")
@@ -446,6 +463,21 @@ model SupplierDetail {
   supplierCode       String?
   productCategory    String? // see allowed values reference above (ProductCategory list)
   fdaRegistrationNumber String?
+  /// "Scope of supply" checkboxes from Bioconnections FORM 008.1 (Devices /
+  /// Equipment / Consumables / Services) — stored as a comma-separated list
+  /// of ProductCategory-style tags rather than four booleans, so it grows
+  /// with the taxonomy instead of needing a new column per category.
+  scopeOfSupply      String?
+  /// "Scope of services (e.g. warehousing, consultancy)" free-text field
+  /// from the same form.
+  scopeOfServicesDescription String? @db.NVarChar(Max)
+  /// SOP008 §4.1.12: Unimed's Code of Conduct is sent to every approved
+  /// supplier for "Read & Understood" acknowledgement; a copy is retained.
+  /// The retained copy itself is a PartnerCertification
+  /// (type: CODE_OF_CONDUCT_ACKNOWLEDGEMENT) — these two fields are just
+  /// the quick-glance status.
+  codeOfConductAcknowledged     Boolean  @default(false)
+  codeOfConductAcknowledgedDate DateTime?
 
   @@map("partner_supplier_details")
 }
@@ -454,9 +486,39 @@ model ManufacturerDetail {
   partnerId         String  @id
   partner           Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   partNumberConvention String?
+  /// Kept for the common single-site case; multi-site manufacturers (the
+  /// BD-folder pattern — one ISO 13485 cert per registered site) use the
+  /// ManufacturerSite table below instead, which is the source of truth
+  /// once more than one site exists.
   countryOfManufactureCode String?
+  scopeOfSupply      String?
+  scopeOfServicesDescription String? @db.NVarChar(Max)
 
   @@map("partner_manufacturer_details")
+}
+
+/// Added 2026-10-02. A manufacturer's registered manufacturing sites — the
+/// BD (Becton Dickinson) supplier folder, reviewed as a worked example
+/// (architecture doc "Stakeholder onboarding: SOP-aligned expansion"),
+/// shows a single manufacturer holding a SEPARATE ISO 13485 certificate per
+/// site (Spain, USA, India, Singapore, Italy...), each independently dated
+/// and re-verified. PartnerCertification.manufacturerSiteId (below) scopes
+/// a certification to one of these sites when it's site-specific, or leaves
+/// it null for a certification that covers the whole company.
+model ManufacturerSite {
+  id          String   @id @default(uuid())
+  partnerId   String
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  siteName    String
+  countryCode String?
+  address     String?  @db.NVarChar(Max)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  certifications PartnerCertification[]
+
+  @@index([partnerId])
+  @@map("partner_manufacturer_sites")
 }
 
 model FreightForwarderDetail {
@@ -464,6 +526,25 @@ model FreightForwarderDetail {
   partner          Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   preferredIncoterm String? // see allowed values reference above
   serviceRegions   String? @db.NVarChar(Max) // free text for now; structured lanes later
+  /// Comma-separated FreightMode-style tags (AIR/SEA/LAND) this forwarder is
+  /// approved to use.
+  modesOfTransport String?
+  /// Added 2026-10-02 from the SOP research pass (architecture doc,
+  /// "Stakeholder onboarding: SOP-aligned expansion"). SOP014 Managing
+  /// Logistics and SOP030 Assessment and Verification of Pharmaceutical
+  /// Product Transport could not be read as text in this build (scanned,
+  /// no OCR layer) — these four fields are the report's own recommended
+  /// placeholders, inferred from SOP011/SOP029 cross-references, NOT
+  /// quoted SOP text. Treat as provisional until SOP014/030 are re-OCR'd
+  /// and these are confirmed or corrected.
+  iataDgrCertified   Boolean @default(false)
+  aeoAccredited      Boolean @default(false)
+  /// GDP-competent cold-chain/temperature-controlled transport capability —
+  /// the gate SOP030's own title implies (pharma consignments need a
+  /// verified-capable carrier, per SOP029 §4.3.3's temperature-logger
+  /// requirement on every pharma shipment).
+  gdpTransportCapable Boolean @default(false)
+  referencesProvided  Boolean @default(false)
 
   @@map("partner_freight_forwarder_details")
 }
@@ -474,26 +555,144 @@ model ClientDetail {
   billingAddress  String? @db.NVarChar(Max)
   deliveryAddress String? @db.NVarChar(Max)
   paymentTerms    String?
+  /// SOP011 §4.2.4: product categories checked against the client's own
+  /// licences, and destination-country licensing/registration/conformity
+  /// requirements — free text since these vary per client and aren't a
+  /// fixed taxonomy.
+  productCategoryLicensingNotes        String? @db.NVarChar(Max)
+  destinationCountryRestrictionsNotes  String? @db.NVarChar(Max)
+  /// SOP011 §4.1.5: pharmaceutical sales order limits are customer- and
+  /// destination-specific.
+  salesOrderLimit         Decimal? @db.Decimal(18, 2)
+  salesOrderLimitCurrency String?
+  /// SOP011 §4.2.3 / SOP010 Pharmaceutical Customer Qualification: every
+  /// pharma enquiry is checked against the Approved Customer Log (FORM
+  /// 010.2) before a quote proceeds. SOP010 itself couldn't be read in
+  /// this build (scanned, no text layer) — these two fields capture the
+  /// confirmed gate from SOP011 without guessing at SOP010's full field
+  /// list; re-confirm against SOP010 once it's re-OCR'd (see architecture
+  /// doc, "Stakeholder onboarding: SOP-aligned expansion").
+  isPharmaApprovedCustomer Boolean @default(false)
+  approvedCustomerLogRef   String?
+  /// SOP011 §4.2.2: only GDP-trained Procurement Officers may be assigned
+  /// to pharmaceutical enquiries for this client.
+  gdpTrainedOfficerAssigned Boolean @default(false)
 
   @@map("partner_client_details")
 }
 
-/// One generic table for every certificate type, replacing repeated
-/// per-certificate column blocks (ISO13485/Expiry/ISO9001/Expiry/...).
+/// Added 2026-10-02. Warehousing didn't have its own detail table until
+/// now — SOP029 Managing Outsourced Warehousing (fully read) makes clear
+/// it's a distinct, governed partner relationship (own Technical
+/// Agreement, own WDA, own GDP audit cadence), not a bare PartnerRole tag
+/// with no fields behind it.
+model WarehousingDetail {
+  partnerId    String  @id
+  partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// SOP029 §2.6: the warehouse operates to its own WDA (Wholesale
+  /// Distribution Authorisation) and MHRA-audited procedures.
+  wdaNumber    String?
+  /// SOP029 §3/§2.6: the relationship is governed by a Technical Agreement
+  /// defining GDP/WDA responsibilities for both parties. The agreement
+  /// document itself is a PartnerCertification
+  /// (type: TECHNICAL_AGREEMENT) — this is just the quick-reference number.
+  technicalAgreementRef String?
+  gdpAuditDate     DateTime?
+  nextGdpAuditDue  DateTime?
+  /// SOP029 §4.5.2: monthly stock reconciliation between the warehouse's
+  /// stock report and Unimed's project trackers — who at the warehouse
+  /// that reconciliation is run with.
+  monthlyReconciliationContact String?
+
+  @@map("partner_warehousing_details")
+}
+
+/// One generic table for every certificate/registration/document type,
+/// replacing repeated per-certificate column blocks
+/// (ISO13485/Expiry/ISO9001/Expiry/...). Expanded 2026-10-02 after
+/// reviewing the real Becton Dickinson (BD) manufacturer folder as a
+/// worked example (architecture doc, "Stakeholder onboarding: SOP-aligned
+/// expansion") — that folder shows Unimed tracking far more per document
+/// than just type/issued/expiry: a reference/certificate number, the
+/// issuing or notified body, a revision (Declarations of Conformity get
+/// re-issued on spec change, not just on expiry), and VERIFICATION as its
+/// own dated event distinct from the certificate's own validity (e.g. the
+/// same ISO 13485 cert independently re-verified through a different
+/// notified body later). Also now the home for the "Supplier
+/// Documentation" table rows from Bioconnections' own New Supplier form
+/// (FORM 008.1) — ISO accreditation / Device Registration / Other
+/// accreditation all map onto `type` + `referenceNumber` + `expiryDate`
+/// here rather than needing their own columns.
 model PartnerCertification {
   id         String    @id @default(uuid())
   partnerId  String
   partner    Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Scopes this certification to one of the manufacturer's registered
+  /// sites (the BD pattern — one ISO 13485 cert per site) rather than the
+  /// whole company. Null means company-wide.
+  manufacturerSiteId String?
+  manufacturerSite   ManufacturerSite? @relation(fields: [manufacturerSiteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   type       String    // see allowed values reference above
+  referenceNumber String? // certificate/registration/licence number
+  /// Declarations of Conformity and similar documents get re-issued on a
+  /// spec change, tracked by revision rather than (or alongside) a new
+  /// expiry date — e.g. the BD folder's "DoC VTF1007-02 Rev4".
+  revision   String?
+  /// Who issued or notified the certificate — e.g. "BSI", "TÜV", a
+  /// national regulatory authority's name. For device registrations this
+  /// is the destination country/regulator (e.g. "TMDA Tanzania").
+  issuingBody String?
   issuedDate DateTime?
   expiryDate DateTime?
+  /// SOP008 §4.1.4/§4.1.11: pharma certs are verified against the
+  /// relevant Regulatory Authority database (e.g. MHRA GMDP/EudraGMDP),
+  /// non-pharma certs via the accreditation body's own online portal —
+  /// and the verification itself must be saved as evidence. This is a
+  /// separate dated event from the certificate's own issue/expiry, which
+  /// is exactly what the BD folder's duplicate "verification ... EB"
+  /// entries (the same cert re-verified via Emergo by UL after the
+  /// original) demonstrate.
+  verifiedAt   DateTime?
+  verifiedById String?
+  /// CURRENT | ARCHIVED — superseded/expired documents move to ARCHIVED
+  /// rather than being deleted, preserving the audit trail SOP008 §4.7.4
+  /// requires (mirrors the BD folder's own Archive subfolders).
+  status     String    @default("CURRENT")
+  notes      String?   @db.NVarChar(Max)
   documentId String?
   document   ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt  DateTime  @default(now())
 
   @@index([partnerId])
   @@index([expiryDate])
+  @@index([manufacturerSiteId])
   @@map("partner_certifications")
+}
+
+/// Added 2026-10-02 from Bioconnections' "Company Checks" table (FORM
+/// 008.1): UK Companies House Registration, Other National Company
+/// Registration, VAT Certificate, Website, Financial Credit Status,
+/// Location, Business Insurance — each a dated YES/N-A check with an
+/// optional reference/source and comment, distinct in shape from
+/// PartnerCertification (which tracks documents with their own
+/// issue/expiry) — these are verification CHECKS Unimed performs, not
+/// documents the stakeholder supplies.
+model PartnerCompanyCheck {
+  id          String   @id @default(uuid())
+  partnerId   String
+  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checkType   String   // see allowed values reference above (PartnerCompanyCheckType)
+  result      String   // YES | NO | NOT_APPLICABLE
+  checkedDate DateTime?
+  /// e.g. the Companies House reference number, or the credit-check
+  /// source/provider name — "State reference:" / "State source:" on the
+  /// Bioconnections form.
+  referenceOrSource String?
+  comment     String?  @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+
+  @@index([partnerId])
+  @@map("partner_company_checks")
 }
 
 /// Audit trail mirroring QA's existing HISTORY sheets: removal/reinstatement

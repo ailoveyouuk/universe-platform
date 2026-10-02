@@ -12,35 +12,58 @@ const PARTNER_INCLUDE = {
   manufacturerDetail: true,
   freightForwarderDetail: true,
   clientDetail: true,
+  warehousingDetail: true,
+  manufacturerSites: true,
+  certifications: true,
+  companyChecks: true,
 } as const;
 
 type PartnerWithDetails = Awaited<ReturnType<typeof prisma.partner.findFirstOrThrow<{ include: typeof PARTNER_INCLUDE }>>>;
 
 function toSummary(p: PartnerWithDetails): PartnerSummary {
+  const now = Date.now();
   return {
     id: p.id,
     name: p.name,
     countryCode: p.countryCode,
     website: p.website,
     approvalStatus: p.approvalStatus,
+    riskTier: p.riskTier,
+    companyRegistrationNumber: p.companyRegistrationNumber,
+    vatNumber: p.vatNumber,
+    lastApprovalReviewDate: p.lastApprovalReviewDate ? p.lastApprovalReviewDate.toISOString() : null,
+    nextApprovalReviewDue: p.nextApprovalReviewDue ? p.nextApprovalReviewDue.toISOString() : null,
     roles: p.roles.map((r) => ({ roleType: r.roleType, isActive: r.isActive })),
     supplierDetail: p.supplierDetail
       ? {
           supplierCode: p.supplierDetail.supplierCode,
           productCategory: p.supplierDetail.productCategory,
           fdaRegistrationNumber: p.supplierDetail.fdaRegistrationNumber,
+          scopeOfSupply: p.supplierDetail.scopeOfSupply,
+          scopeOfServicesDescription: p.supplierDetail.scopeOfServicesDescription,
+          codeOfConductAcknowledged: p.supplierDetail.codeOfConductAcknowledged,
+          codeOfConductAcknowledgedDate: p.supplierDetail.codeOfConductAcknowledgedDate
+            ? p.supplierDetail.codeOfConductAcknowledgedDate.toISOString()
+            : null,
         }
       : null,
     manufacturerDetail: p.manufacturerDetail
       ? {
           partNumberConvention: p.manufacturerDetail.partNumberConvention,
           countryOfManufactureCode: p.manufacturerDetail.countryOfManufactureCode,
+          scopeOfSupply: p.manufacturerDetail.scopeOfSupply,
+          scopeOfServicesDescription: p.manufacturerDetail.scopeOfServicesDescription,
         }
       : null,
     freightForwarderDetail: p.freightForwarderDetail
       ? {
           preferredIncoterm: p.freightForwarderDetail.preferredIncoterm,
           serviceRegions: p.freightForwarderDetail.serviceRegions,
+          modesOfTransport: p.freightForwarderDetail.modesOfTransport,
+          iataDgrCertified: p.freightForwarderDetail.iataDgrCertified,
+          aeoAccredited: p.freightForwarderDetail.aeoAccredited,
+          gdpTransportCapable: p.freightForwarderDetail.gdpTransportCapable,
+          referencesProvided: p.freightForwarderDetail.referencesProvided,
         }
       : null,
     clientDetail: p.clientDetail
@@ -48,8 +71,55 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
           billingAddress: p.clientDetail.billingAddress,
           deliveryAddress: p.clientDetail.deliveryAddress,
           paymentTerms: p.clientDetail.paymentTerms,
+          productCategoryLicensingNotes: p.clientDetail.productCategoryLicensingNotes,
+          destinationCountryRestrictionsNotes: p.clientDetail.destinationCountryRestrictionsNotes,
+          salesOrderLimit: p.clientDetail.salesOrderLimit ? Number(p.clientDetail.salesOrderLimit) : null,
+          salesOrderLimitCurrency: p.clientDetail.salesOrderLimitCurrency,
+          isPharmaApprovedCustomer: p.clientDetail.isPharmaApprovedCustomer,
+          approvedCustomerLogRef: p.clientDetail.approvedCustomerLogRef,
+          gdpTrainedOfficerAssigned: p.clientDetail.gdpTrainedOfficerAssigned,
         }
       : null,
+    warehousingDetail: p.warehousingDetail
+      ? {
+          wdaNumber: p.warehousingDetail.wdaNumber,
+          technicalAgreementRef: p.warehousingDetail.technicalAgreementRef,
+          gdpAuditDate: p.warehousingDetail.gdpAuditDate ? p.warehousingDetail.gdpAuditDate.toISOString() : null,
+          nextGdpAuditDue: p.warehousingDetail.nextGdpAuditDue
+            ? p.warehousingDetail.nextGdpAuditDue.toISOString()
+            : null,
+          monthlyReconciliationContact: p.warehousingDetail.monthlyReconciliationContact,
+        }
+      : null,
+    manufacturerSites: p.manufacturerSites.map((s) => ({
+      id: s.id,
+      siteName: s.siteName,
+      countryCode: s.countryCode,
+      address: s.address,
+      isPrimary: s.isPrimary,
+    })),
+    certifications: p.certifications.map((c) => ({
+      id: c.id,
+      type: c.type,
+      referenceNumber: c.referenceNumber,
+      revision: c.revision,
+      issuingBody: c.issuingBody,
+      issuedDate: c.issuedDate ? c.issuedDate.toISOString() : null,
+      expiryDate: c.expiryDate ? c.expiryDate.toISOString() : null,
+      verifiedAt: c.verifiedAt ? c.verifiedAt.toISOString() : null,
+      status: c.status,
+      notes: c.notes,
+      manufacturerSiteId: c.manufacturerSiteId,
+      isExpired: Boolean(c.expiryDate && c.expiryDate.getTime() < now),
+    })),
+    companyChecks: p.companyChecks.map((c) => ({
+      id: c.id,
+      checkType: c.checkType,
+      result: c.result,
+      checkedDate: c.checkedDate ? c.checkedDate.toISOString() : null,
+      referenceOrSource: c.referenceOrSource,
+      comment: c.comment,
+    })),
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -64,6 +134,37 @@ function normalize(name: string): string {
     .replace(/\b(inc|ltd|llc|limited|corp|corporation|gmbh|plc)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Turns a CreatePartnerDto's flat `certifications` array (which may
+ * reference a site by its position in `manufacturerSites`, since neither
+ * list has real ids yet at request time) into a Prisma nested-create input.
+ * Prisma resolves a nested `manufacturerSites: { create: [...] }` list
+ * in the SAME transaction/statement, so we can't get a real site id back
+ * before the certifications are also being created — instead we lean on
+ * Prisma's own nested-write ordering: sites are declared first, then each
+ * certification that references one is connected via the site's own
+ * nested `certifications: { create: [...] }` list (passed through the
+ * `manufacturerSiteIndex` → site mapping done here), rather than trying to
+ * connect by a not-yet-existent foreign key.
+ */
+function buildManufacturerSitesCreate(
+  sites: { siteName: string; countryCode?: string; address?: string; isPrimary?: boolean }[] | undefined,
+  certifications: { manufacturerSiteIndex?: number }[] | undefined,
+  certDataFor: (cert: any) => Record<string, unknown>,
+) {
+  if (!sites?.length) return undefined;
+  return sites.map((site, index) => ({
+    siteName: site.siteName,
+    countryCode: site.countryCode,
+    address: site.address,
+    isPrimary: site.isPrimary ?? false,
+    certifications: {
+      create: (certifications ?? [])
+        .filter((c) => c.manufacturerSiteIndex === index)
+        .map((c) => certDataFor(c)),
+    },
+  }));
 }
 
 @Injectable()
@@ -102,6 +203,24 @@ export class PartnersService {
   }
 
   async create(user: RequestUser, dto: CreatePartnerDto): Promise<PartnerSummary> {
+    // Certifications that reference a manufacturer site (by index into
+    // dto.manufacturerSites) are nested under that site's own create;
+    // every other certification is nested directly on the partner. See
+    // buildManufacturerSitesCreate's doc comment above for why — Prisma
+    // can't connect to a sibling nested-create's not-yet-existent id.
+    const certDataFor = (c: NonNullable<typeof dto.certifications>[number]) => ({
+      type: c.type,
+      referenceNumber: c.referenceNumber,
+      revision: c.revision,
+      issuingBody: c.issuingBody,
+      issuedDate: c.issuedDate ? new Date(c.issuedDate) : undefined,
+      expiryDate: c.expiryDate ? new Date(c.expiryDate) : undefined,
+      verifiedAt: c.verifiedAt ? new Date(c.verifiedAt) : undefined,
+      status: c.status,
+      notes: c.notes,
+    });
+    const partnerLevelCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex === undefined);
+
     const p = await withTenantContext(user.organizationId, (tx) =>
       tx.partner.create({
         data: {
@@ -110,11 +229,34 @@ export class PartnersService {
           normalizedName: normalize(dto.name),
           countryCode: dto.countryCode,
           website: dto.website,
+          riskTier: dto.riskTier,
+          companyRegistrationNumber: dto.companyRegistrationNumber,
+          vatNumber: dto.vatNumber,
           roles: { create: dto.roleTypes.map((roleType) => ({ roleType })) },
           ...(dto.supplierDetail ? { supplierDetail: { create: dto.supplierDetail } } : {}),
           ...(dto.manufacturerDetail ? { manufacturerDetail: { create: dto.manufacturerDetail } } : {}),
           ...(dto.freightForwarderDetail ? { freightForwarderDetail: { create: dto.freightForwarderDetail } } : {}),
           ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
+          ...(dto.warehousingDetail ? { warehousingDetail: { create: dto.warehousingDetail } } : {}),
+          ...(dto.manufacturerSites?.length
+            ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites, dto.certifications, certDataFor) } }
+            : {}),
+          ...(partnerLevelCertifications.length
+            ? { certifications: { create: partnerLevelCertifications.map(certDataFor) } }
+            : {}),
+          ...(dto.companyChecks?.length
+            ? {
+                companyChecks: {
+                  create: dto.companyChecks.map((c) => ({
+                    checkType: c.checkType,
+                    result: c.result,
+                    checkedDate: c.checkedDate ? new Date(c.checkedDate) : undefined,
+                    referenceOrSource: c.referenceOrSource,
+                    comment: c.comment,
+                  })),
+                },
+              }
+            : {}),
         },
         include: PARTNER_INCLUDE,
       }),
@@ -126,7 +268,11 @@ export class PartnersService {
    * comment. A role-detail object here always upserts (create if this
    * Partner has never had that detail row, update if it has), since a
    * Partner might gain e.g. a SUPPLIER role well after being created as a
-   * CLIENT-only record. */
+   * CLIENT-only record. `addManufacturerSites`/`addCertifications`/
+   * `addCompanyChecks` are append-only lists, same reasoning as roles —
+   * editing or archiving one specific document is a future dedicated
+   * endpoint, not this one (PartnerCertification.status already has the
+   * CURRENT/ARCHIVED field that endpoint would flip). */
   async update(user: RequestUser, id: string, dto: UpdatePartnerDto): Promise<PartnerSummary> {
     const p = await withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.partner.findFirst({
@@ -145,6 +291,11 @@ export class PartnersService {
           ...(dto.countryCode !== undefined ? { countryCode: dto.countryCode } : {}),
           ...(dto.website !== undefined ? { website: dto.website } : {}),
           ...(dto.approvalStatus !== undefined ? { approvalStatus: dto.approvalStatus } : {}),
+          ...(dto.riskTier !== undefined ? { riskTier: dto.riskTier } : {}),
+          ...(dto.companyRegistrationNumber !== undefined
+            ? { companyRegistrationNumber: dto.companyRegistrationNumber }
+            : {}),
+          ...(dto.vatNumber !== undefined ? { vatNumber: dto.vatNumber } : {}),
           ...(newRoleTypes.length ? { roles: { create: newRoleTypes.map((roleType) => ({ roleType })) } } : {}),
           ...(dto.supplierDetail
             ? { supplierDetail: { upsert: { create: dto.supplierDetail, update: dto.supplierDetail } } }
@@ -161,6 +312,60 @@ export class PartnersService {
             : {}),
           ...(dto.clientDetail
             ? { clientDetail: { upsert: { create: dto.clientDetail, update: dto.clientDetail } } }
+            : {}),
+          ...(dto.warehousingDetail
+            ? { warehousingDetail: { upsert: { create: dto.warehousingDetail, update: dto.warehousingDetail } } }
+            : {}),
+          ...(dto.addManufacturerSites?.length
+            ? { 
+                manufacturerSites: {
+                  create: dto.addManufacturerSites.map((s) => ({
+                    siteName: s.siteName,
+                    countryCode: s.countryCode,
+                    address: s.address,
+                    isPrimary: s.isPrimary ?? false,
+                  })),
+                },
+              }
+            : {}),
+          ...(dto.addCertifications?.length
+            ? {
+                certifications: {
+                  create: dto.addCertifications.map((c) => ({
+                    type: c.type,
+                    referenceNumber: c.referenceNumber,
+                    revision: c.revision,
+                    issuingBody: c.issuingBody,
+                    issuedDate: c.issuedDate ? new Date(c.issuedDate) : undefined,
+                    expiryDate: c.expiryDate ? new Date(c.expiryDate) : undefined,
+                    verifiedAt: c.verifiedAt ? new Date(c.verifiedAt) : undefined,
+                    status: c.status,
+                    notes: c.notes,
+                    // Note: addCertifications on update is always
+                    // company-wide — site-scoping a document to one of
+                    // addManufacturerSites in the same call isn't
+                    // supported (unlike create, where
+                    // buildManufacturerSitesCreate nests it), since
+                    // Prisma can't connect two sibling nested-creates to
+                    // each other by not-yet-existent id. Add the site
+                    // first, then add its certification in a follow-up
+                    // call once the site has a real id, if that's needed.
+                  })),
+                },
+              }
+            : {}),
+          ...(dto.addCompanyChecks?.length
+            ? {
+                companyChecks: {
+                  create: dto.addCompanyChecks.map((c) => ({
+                    checkType: c.checkType,
+                    result: c.result,
+                    checkedDate: c.checkedDate ? new Date(c.checkedDate) : undefined,
+                    referenceOrSource: c.referenceOrSource,
+                    comment: c.comment,
+                  })),
+                },
+              }
             : {}),
         },
         include: PARTNER_INCLUDE,

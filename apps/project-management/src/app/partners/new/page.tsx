@@ -2,7 +2,12 @@
 
 import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { CreatePartnerInput } from "@universe/types";
+import type {
+  CreatePartnerCertificationInput,
+  CreatePartnerCompanyCheckInput,
+  CreatePartnerInput,
+  CreatePartnerManufacturerSiteInput,
+} from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Button, Select, CountrySelect } from "@universe/ui";
@@ -28,24 +33,167 @@ const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "
 // Matches ProjectLine.incoterm's allowed values (Incoterms 2020).
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 
+const RISK_TIERS = ["HIGH", "MEDIUM", "LOW"] as const;
+
+// Bioconnections FORM 008.1's "Scope of supply" checkboxes (Devices /
+// Equipment / Consumables / Services) — reused for both Manufacturer and
+// Supplier, stored as a comma-joined string against scopeOfSupply since
+// SQL Server has no array column here (same convention as every other
+// fixed-choice free-text field in this schema).
+const SCOPE_OF_SUPPLY_OPTIONS = ["DEVICES", "EQUIPMENT", "CONSUMABLES", "SERVICES"] as const;
+const SCOPE_OF_SUPPLY_LABELS: Record<string, string> = {
+  DEVICES: "Devices",
+  EQUIPMENT: "Equipment",
+  CONSUMABLES: "Consumables",
+  SERVICES: "Services",
+};
+
+// SOP014 Managing Logistics / SOP030 Assessment and Verification of
+// Pharmaceutical Product Transport couldn't be read in this environment
+// (scanned PDFs, no OCR here — see architecture-decisions.md) so this list
+// is a best-effort starting point, not confirmed against those SOPs' exact
+// wording. Flagged to Lewis; worth re-exporting/OCR-ing those two PDFs and
+// revisiting this list.
+const TRANSPORT_MODES = ["AIR", "SEA", "ROAD", "RAIL"] as const;
+const TRANSPORT_MODE_LABELS: Record<string, string> = {
+  AIR: "Air",
+  SEA: "Sea",
+  ROAD: "Road",
+  RAIL: "Rail",
+};
+
+// Bioconnections FORM 008.1's "Company Checks" table, in its original
+// order — see PartnerCompanyCheckType in packages/db/src/enums.ts. OTHER is
+// deliberately left off this fixed list; it exists in the enum for a
+// future "add another check" affordance, not needed for v1.
+const COMPANY_CHECK_TYPES = [
+  { value: "COMPANIES_HOUSE_REGISTRATION", label: "UK Companies House Registration" },
+  { value: "OTHER_NATIONAL_COMPANY_REGISTRATION", label: "Other National Company Registration" },
+  { value: "VAT_CERTIFICATE", label: "VAT Certificate" },
+  { value: "WEBSITE", label: "Website" },
+  { value: "FINANCIAL_CREDIT_STATUS", label: "Financial Credit Status" },
+  { value: "LOCATION", label: "Location" },
+  { value: "BUSINESS_INSURANCE", label: "Business Insurance" },
+] as const;
+
+// CertificationType (packages/db/src/enums.ts) — the generic documents/
+// certificates repeater below accepts any of these regardless of role,
+// since several (ISO_9001, COMPANY_REGISTRATION, VAT_CERTIFICATE…) are
+// relevant to more than one role. Grouped loosely for the dropdown.
+const CERTIFICATION_TYPES = [
+  "ISO_13485",
+  "ISO_9001",
+  "ISO_14001",
+  "ISO_17025",
+  "OTHER_ISO",
+  "FDA_REGISTRATION",
+  "GMP",
+  "GDP",
+  "MIA",
+  "WDA",
+  "EUDAMED_REGISTRATION",
+  "CE_MDR_CERTIFICATE",
+  "DECLARATION_OF_CONFORMITY",
+  "DEVICE_REGISTRATION",
+  "INSTRUCTIONS_FOR_USE",
+  "TECHNICAL_INFORMATION_SHEET",
+  "COMPANY_REGISTRATION",
+  "VAT_CERTIFICATE",
+  "FINANCIAL_CREDIT_CHECK",
+  "BUSINESS_INSURANCE",
+  "IATA_DGR_CERTIFICATION",
+  "AEO_ACCREDITATION",
+  "INSURANCE_CERTIFICATE",
+  "TECHNICAL_AGREEMENT",
+  "SERVICE_LEVEL_AGREEMENT",
+  "CODE_OF_CONDUCT_ACKNOWLEDGEMENT",
+  "REFERENCES",
+  "BONA_FIDE_REVIEW",
+  "OTHER_CERTIFICATION",
+] as const;
+const CERTIFICATION_TYPE_LABELS: Record<string, string> = {
+  ISO_13485: "ISO 13485",
+  ISO_9001: "ISO 9001",
+  ISO_14001: "ISO 14001",
+  ISO_17025: "ISO 17025",
+  OTHER_ISO: "Other ISO accreditation",
+  FDA_REGISTRATION: "FDA Registration",
+  GMP: "GMP Certificate",
+  GDP: "GDP Certificate",
+  MIA: "Manufacturer's/Importer's Authorisation (MIA)",
+  WDA: "Wholesale Dealer's Authorisation (WDA)",
+  EUDAMED_REGISTRATION: "EUDAMED Registration",
+  CE_MDR_CERTIFICATE: "CE / MDR Certificate",
+  DECLARATION_OF_CONFORMITY: "Declaration of Conformity",
+  DEVICE_REGISTRATION: "In-country Device Registration",
+  INSTRUCTIONS_FOR_USE: "Instructions for Use (IFU)",
+  TECHNICAL_INFORMATION_SHEET: "Technical Information Sheet",
+  COMPANY_REGISTRATION: "Company Registration Certificate",
+  VAT_CERTIFICATE: "VAT Certificate",
+  FINANCIAL_CREDIT_CHECK: "Financial Credit Check",
+  BUSINESS_INSURANCE: "Business Insurance Certificate",
+  IATA_DGR_CERTIFICATION: "IATA Dangerous Goods Regulations Certification",
+  AEO_ACCREDITATION: "Authorised Economic Operator (AEO) Accreditation",
+  INSURANCE_CERTIFICATE: "Insurance Certificate",
+  TECHNICAL_AGREEMENT: "Technical Agreement",
+  SERVICE_LEVEL_AGREEMENT: "Service Level Agreement",
+  CODE_OF_CONDUCT_ACKNOWLEDGEMENT: "Code of Conduct Acknowledgement",
+  REFERENCES: "References",
+  BONA_FIDE_REVIEW: "Bona Fide Review",
+  OTHER_CERTIFICATION: "Other",
+};
+
+type ManufacturerSiteRow = { siteName: string; countryCode: string; address: string; isPrimary: boolean };
+type CertificationRow = {
+  type: string;
+  referenceNumber: string;
+  revision: string;
+  issuingBody: string;
+  issuedDate: string;
+  expiryDate: string;
+  notes: string;
+  manufacturerSiteIndex: string; // "" = company-wide, else stringified index
+};
+type CompanyCheckRow = { result: string; checkedDate: string; referenceOrSource: string; comment: string };
+
 /**
- * New Stakeholder — tailored per role, 2026-10-01 (Lewis's follow-up to the
- * round 3 feedback). Previously this form only ever captured
- * name/country/website plus a flat list of role checkboxes — the
- * role-specific detail objects (SupplierDetail/ManufacturerDetail/
- * FreightForwarderDetail/ClientDetail) already existed in the schema and
- * were already accepted by CreatePartnerInput/PartnersService, but nothing
- * in the UI ever collected them, so every stakeholder type looked
- * identical on creation regardless of what the backend could actually
- * store for it.
+ * New Stakeholder — expanded 2026-10-02 per Lewis's round-4 feedback.
  *
- * Now: ticking a role immediately reveals that role's own field group
- * below the role list — the same adapt-on-selection behaviour whether the
- * role arrived pre-ticked from the "+ Add Stakeholder" menu
- * (/partners/new?role=CLIENT etc.) or was toggled by hand, and a company
- * holding several roles at once (e.g. Manufacturer + Supplier) sees both
- * groups together. WAREHOUSING has no dedicated detail table in the schema
- * yet, so it intentionally shows no extra fields — not an oversight.
+ * The round-3 version (2026-10-01) tailored fields per role but the set
+ * was still thin — a handful of identifiers, nothing that actually proves
+ * a supplier/manufacturer/freight forwarder was vetted the way Unimed's
+ * own SOPs require, and nothing to record scope of supply, risk tiering,
+ * or the documents a real onboarding packet always has attached.
+ *
+ * This version was designed against three real sources (see
+ * architecture-decisions.md, "Stakeholder onboarding: SOP-aligned
+ * expansion" for the full research trail and per-field provenance):
+ *   - Bioconnections' own "New Non-Pharmaceutical Supplier Form"
+ *     (FORM 008.1) — the Company Checks table and Scope of Supply
+ *     checkboxes below are a direct port of its structure.
+ *   - The real Becton Dickinson SharePoint folder Lewis shared — the
+ *     generic certifications/documents repeater (with optional
+ *     per-manufacturing-site scoping) mirrors what's actually kept there
+ *     (ISO 13485 per site, EUDAMED/CE-MDR/Declaration of Conformity at
+ *     product-family level, in-country device registrations).
+ *   - Unimed's own SOPs (011 Sales, 008 Supplier Management, 009
+ *     Purchasing, 010 Pharmaceutical Customer Qualification, 014 Managing
+ *     Logistics, 029 Managing Outsourced Warehousing, 030 Assessment and
+ *     Verification of Pharmaceutical Product Transport) — risk tiering,
+ *     the Client pharma-qualification fields, and the Warehousing fields
+ *     trace back to these. IMPORTANT CAVEAT, also called out inline below
+ *     and in the project docs: SOP 010, SOP 014 and SOP 030 are scanned
+ *     PDFs that could not be OCR'd in this environment, so the Freight
+ *     Forwarder transport-compliance fields and some Client fields here
+ *     are a reasonable best effort, not confirmed line-by-line against
+ *     those three SOPs' actual text. Also: only SOP 008 v11 could be found
+ *     in SharePoint, not the v12 Lewis referenced — worth confirming v12
+ *     exists somewhere else.
+ *
+ * Ticking a role still immediately reveals that role's own field group;
+ * Company Checks and the Documents/Certifications repeater appear once any
+ * non-Client role is ticked (they're a verification packet for a company
+ * Unimed sources from/ships through, not a customer).
  */
 export default function NewPartnerPage() {
   const router = useRouter();
@@ -61,6 +209,9 @@ export default function NewPartnerPage() {
   const [name, setName] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [website, setWebsite] = useState("");
+  const [riskTier, setRiskTier] = useState("");
+  const [companyRegistrationNumber, setCompanyRegistrationNumber] = useState("");
+  const [vatNumber, setVatNumber] = useState("");
   const [roleTypes, setRoleTypes] = useState<string[]>(
     initialRole && (ROLE_TYPES as readonly string[]).includes(initialRole) ? [initialRole] : []
   );
@@ -73,21 +224,93 @@ export default function NewPartnerPage() {
   const [supplierCode, setSupplierCode] = useState("");
   const [supplierProductCategory, setSupplierProductCategory] = useState("");
   const [fdaRegistrationNumber, setFdaRegistrationNumber] = useState("");
+  const [supplierScopeOfSupply, setSupplierScopeOfSupply] = useState<string[]>([]);
+  const [supplierScopeOfServices, setSupplierScopeOfServices] = useState("");
+  const [supplierCodeOfConductAcknowledged, setSupplierCodeOfConductAcknowledged] = useState(false);
+  const [supplierCodeOfConductDate, setSupplierCodeOfConductDate] = useState("");
 
   const [partNumberConvention, setPartNumberConvention] = useState("");
   const [countryOfManufactureCode, setCountryOfManufactureCode] = useState("");
+  const [manufacturerScopeOfSupply, setManufacturerScopeOfSupply] = useState<string[]>([]);
+  const [manufacturerScopeOfServices, setManufacturerScopeOfServices] = useState("");
+  const [manufacturerSites, setManufacturerSites] = useState<ManufacturerSiteRow[]>([]);
 
   const [preferredIncoterm, setPreferredIncoterm] = useState("");
   const [serviceRegions, setServiceRegions] = useState("");
+  const [modesOfTransport, setModesOfTransport] = useState<string[]>([]);
+  const [iataDgrCertified, setIataDgrCertified] = useState(false);
+  const [aeoAccredited, setAeoAccredited] = useState(false);
+  const [gdpTransportCapable, setGdpTransportCapable] = useState(false);
+  const [referencesProvided, setReferencesProvided] = useState(false);
 
   const [billingAddress, setBillingAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
+  const [productCategoryLicensingNotes, setProductCategoryLicensingNotes] = useState("");
+  const [destinationCountryRestrictionsNotes, setDestinationCountryRestrictionsNotes] = useState("");
+  const [salesOrderLimit, setSalesOrderLimit] = useState("");
+  const [salesOrderLimitCurrency, setSalesOrderLimitCurrency] = useState("");
+  const [isPharmaApprovedCustomer, setIsPharmaApprovedCustomer] = useState(false);
+  const [approvedCustomerLogRef, setApprovedCustomerLogRef] = useState("");
+  const [gdpTrainedOfficerAssigned, setGdpTrainedOfficerAssigned] = useState(false);
+
+  const [wdaNumber, setWdaNumber] = useState("");
+  const [technicalAgreementRef, setTechnicalAgreementRef] = useState("");
+  const [gdpAuditDate, setGdpAuditDate] = useState("");
+  const [nextGdpAuditDue, setNextGdpAuditDue] = useState("");
+  const [monthlyReconciliationContact, setMonthlyReconciliationContact] = useState("");
+
+  // --- Shared verification packet — Company Checks + Documents, see the
+  // doc comment above. Company Checks is a fixed set of rows (Bioconnections'
+  // table has a fixed set of checks, not a free list); Documents is an
+  // open-ended repeater since the number of certificates genuinely varies
+  // per company (see the Becton Dickinson folder: a handful of files for a
+  // small supplier, dozens for a manufacturer with several sites). ---
+  const [companyChecks, setCompanyChecks] = useState<Record<string, CompanyCheckRow>>(
+    Object.fromEntries(COMPANY_CHECK_TYPES.map((c) => [c.value, { result: "", checkedDate: "", referenceOrSource: "", comment: "" }]))
+  );
+  const [certifications, setCertifications] = useState<CertificationRow[]>([]);
 
   const hasRole = useMemo(() => (r: string) => roleTypes.includes(r), [roleTypes]);
+  const showVerificationPacket = useMemo(
+    () => hasRole("MANUFACTURER") || hasRole("SUPPLIER") || hasRole("FREIGHT_FORWARDER") || hasRole("WAREHOUSING"),
+    [hasRole]
+  );
 
   function toggleRole(role: string) {
     setRoleTypes((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
+  }
+
+  function toggleInList(list: string[], value: string, setList: (v: string[]) => void) {
+    setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+  }
+
+  function addManufacturerSite() {
+    setManufacturerSites((prev) => [...prev, { siteName: "", countryCode: "", address: "", isPrimary: prev.length === 0 }]);
+  }
+  function updateManufacturerSite(index: number, patch: Partial<ManufacturerSiteRow>) {
+    setManufacturerSites((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+  function removeManufacturerSite(index: number) {
+    setManufacturerSites((prev) => prev.filter((_, i) => i !== index));
+    // A document scoped to the removed site falls back to company-wide
+    // rather than silently pointing at a site that no longer exists.
+    setCertifications((prev) =>
+      prev.map((c) => (c.manufacturerSiteIndex === String(index) ? { ...c, manufacturerSiteIndex: "" } : c))
+    );
+  }
+
+  function addCertification() {
+    setCertifications((prev) => [
+      ...prev,
+      { type: "", referenceNumber: "", revision: "", issuingBody: "", issuedDate: "", expiryDate: "", notes: "", manufacturerSiteIndex: "" },
+    ]);
+  }
+  function updateCertification(index: number, patch: Partial<CertificationRow>) {
+    setCertifications((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  }
+  function removeCertification(index: number) {
+    setCertifications((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -99,17 +322,63 @@ export default function NewPartnerPage() {
     setSubmitting(true);
     setError(null);
     try {
+      const manufacturerSitesInput: CreatePartnerManufacturerSiteInput[] | undefined = hasRole("MANUFACTURER") && manufacturerSites.length
+        ? manufacturerSites.map((s) => ({
+            siteName: s.siteName,
+            countryCode: s.countryCode || undefined,
+            address: s.address || undefined,
+            isPrimary: s.isPrimary,
+          }))
+        : undefined;
+
+      const certificationsInput: CreatePartnerCertificationInput[] | undefined = certifications.length
+        ? certifications
+            .filter((c) => c.type)
+            .map((c) => ({
+              type: c.type,
+              referenceNumber: c.referenceNumber || undefined,
+              revision: c.revision || undefined,
+              issuingBody: c.issuingBody || undefined,
+              issuedDate: c.issuedDate || undefined,
+              expiryDate: c.expiryDate || undefined,
+              notes: c.notes || undefined,
+              manufacturerSiteIndex: c.manufacturerSiteIndex === "" ? undefined : Number(c.manufacturerSiteIndex),
+            }))
+        : undefined;
+
+      const companyChecksInput: CreatePartnerCompanyCheckInput[] | undefined = showVerificationPacket
+        ? Object.entries(companyChecks)
+            .filter(([, row]) => row.result)
+            .map(([checkType, row]) => ({
+              checkType,
+              result: row.result as "YES" | "NO" | "NOT_APPLICABLE",
+              checkedDate: row.checkedDate || undefined,
+              referenceOrSource: row.referenceOrSource || undefined,
+              comment: row.comment || undefined,
+            }))
+        : undefined;
+
       const input: CreatePartnerInput = {
         name,
         countryCode: countryCode || undefined,
         website: website || undefined,
+        riskTier: (riskTier || undefined) as CreatePartnerInput["riskTier"],
+        companyRegistrationNumber: companyRegistrationNumber || undefined,
+        vatNumber: vatNumber || undefined,
         roleTypes,
+        ...(manufacturerSitesInput?.length ? { manufacturerSites: manufacturerSitesInput } : {}),
+        ...(certificationsInput?.length ? { certifications: certificationsInput } : {}),
+        ...(companyChecksInput?.length ? { companyChecks: companyChecksInput } : {}),
         ...(hasRole("SUPPLIER")
           ? {
               supplierDetail: {
                 supplierCode: supplierCode || undefined,
                 productCategory: supplierProductCategory || undefined,
                 fdaRegistrationNumber: fdaRegistrationNumber || undefined,
+                scopeOfSupply: supplierScopeOfSupply.length ? supplierScopeOfSupply.join(",") : undefined,
+                scopeOfServicesDescription: supplierScopeOfServices || undefined,
+                codeOfConductAcknowledged: supplierCodeOfConductAcknowledged || undefined,
+                codeOfConductAcknowledgedDate: supplierCodeOfConductAcknowledged ? supplierCodeOfConductDate || undefined : undefined,
               },
             }
           : {}),
@@ -118,6 +387,8 @@ export default function NewPartnerPage() {
               manufacturerDetail: {
                 partNumberConvention: partNumberConvention || undefined,
                 countryOfManufactureCode: countryOfManufactureCode || undefined,
+                scopeOfSupply: manufacturerScopeOfSupply.length ? manufacturerScopeOfSupply.join(",") : undefined,
+                scopeOfServicesDescription: manufacturerScopeOfServices || undefined,
               },
             }
           : {}),
@@ -126,6 +397,11 @@ export default function NewPartnerPage() {
               freightForwarderDetail: {
                 preferredIncoterm: preferredIncoterm || undefined,
                 serviceRegions: serviceRegions || undefined,
+                modesOfTransport: modesOfTransport.length ? modesOfTransport.join(",") : undefined,
+                iataDgrCertified: iataDgrCertified || undefined,
+                aeoAccredited: aeoAccredited || undefined,
+                gdpTransportCapable: gdpTransportCapable || undefined,
+                referencesProvided: referencesProvided || undefined,
               },
             }
           : {}),
@@ -135,6 +411,24 @@ export default function NewPartnerPage() {
                 billingAddress: billingAddress || undefined,
                 deliveryAddress: deliveryAddress || undefined,
                 paymentTerms: paymentTerms || undefined,
+                productCategoryLicensingNotes: productCategoryLicensingNotes || undefined,
+                destinationCountryRestrictionsNotes: destinationCountryRestrictionsNotes || undefined,
+                salesOrderLimit: salesOrderLimit ? Number(salesOrderLimit) : undefined,
+                salesOrderLimitCurrency: salesOrderLimitCurrency || undefined,
+                isPharmaApprovedCustomer: isPharmaApprovedCustomer || undefined,
+                approvedCustomerLogRef: isPharmaApprovedCustomer ? approvedCustomerLogRef || undefined : undefined,
+                gdpTrainedOfficerAssigned: gdpTrainedOfficerAssigned || undefined,
+              },
+            }
+          : {}),
+        ...(hasRole("WAREHOUSING")
+          ? {
+              warehousingDetail: {
+                wdaNumber: wdaNumber || undefined,
+                technicalAgreementRef: technicalAgreementRef || undefined,
+                gdpAuditDate: gdpAuditDate || undefined,
+                nextGdpAuditDue: nextGdpAuditDue || undefined,
+                monthlyReconciliationContact: monthlyReconciliationContact || undefined,
               },
             }
           : {}),
@@ -149,7 +443,7 @@ export default function NewPartnerPage() {
   }
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 680 }}>
+    <main style={{ padding: "28px 32px 48px", maxWidth: 760 }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: "0 0 20px" }}>
         New Stakeholder
       </h1>
@@ -170,6 +464,29 @@ export default function NewPartnerPage() {
           Website
           <input style={inputStyle} value={website} onChange={(e) => setWebsite(e.target.value)} />
         </label>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <label style={{ display: "block" }}>
+            <span>Risk Tier</span>
+            <div style={{ marginTop: 4 }}>
+              <Select
+                value={riskTier}
+                onChange={setRiskTier}
+                allLabel="Not set"
+                ariaLabel="Risk tier"
+                options={RISK_TIERS.map((t) => ({ value: t, label: t.charAt(0) + t.slice(1).toLowerCase() }))}
+              />
+            </div>
+          </label>
+          <label>
+            Company Registration No.
+            <input style={inputStyle} value={companyRegistrationNumber} onChange={(e) => setCompanyRegistrationNumber(e.target.value)} />
+          </label>
+          <label>
+            VAT Number
+            <input style={inputStyle} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} />
+          </label>
+        </div>
 
         <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 16 }}>
           <legend style={{ fontWeight: 600, fontSize: 13.5, color: "var(--u-ink)" }}>Roles</legend>
@@ -198,6 +515,68 @@ export default function NewPartnerPage() {
               Payment Terms
               <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" />
             </label>
+            {/* SOP 010 Pharmaceutical Customer Qualification */}
+            <label>
+              Product Category Licensing Notes
+              <textarea
+                style={textareaStyle}
+                value={productCategoryLicensingNotes}
+                onChange={(e) => setProductCategoryLicensingNotes(e.target.value)}
+                placeholder="Licences/permits this customer holds for the product categories they buy (e.g. pharmacy licence, import permit)"
+              />
+            </label>
+            <label>
+              Destination Country Restrictions
+              <textarea
+                style={textareaStyle}
+                value={destinationCountryRestrictionsNotes}
+                onChange={(e) => setDestinationCountryRestrictionsNotes(e.target.value)}
+                placeholder="Any export/import restrictions that apply to shipments for this customer"
+              />
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+              <label>
+                Sales Order Limit
+                <input
+                  type="number"
+                  style={inputStyle}
+                  value={salesOrderLimit}
+                  onChange={(e) => setSalesOrderLimit(e.target.value)}
+                />
+              </label>
+              <label>
+                Currency
+                <input
+                  style={inputStyle}
+                  value={salesOrderLimitCurrency}
+                  onChange={(e) => setSalesOrderLimitCurrency(e.target.value.toUpperCase())}
+                  placeholder="USD"
+                  maxLength={3}
+                />
+              </label>
+            </div>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input
+                type="checkbox"
+                checked={isPharmaApprovedCustomer}
+                onChange={(e) => setIsPharmaApprovedCustomer(e.target.checked)}
+              />{" "}
+              Approved pharmaceutical customer (SOP010 qualification complete)
+            </label>
+            {isPharmaApprovedCustomer && (
+              <label>
+                Approved Customer Log Reference
+                <input style={inputStyle} value={approvedCustomerLogRef} onChange={(e) => setApprovedCustomerLogRef(e.target.value)} />
+              </label>
+            )}
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input
+                type="checkbox"
+                checked={gdpTrainedOfficerAssigned}
+                onChange={(e) => setGdpTrainedOfficerAssigned(e.target.checked)}
+              />{" "}
+              GDP-trained officer assigned to this account
+            </label>
           </RoleSection>
         )}
 
@@ -223,6 +602,70 @@ export default function NewPartnerPage() {
                 />
               </div>
             </label>
+            <ScopeOfSupplyField value={manufacturerScopeOfSupply} onToggle={(v) => toggleInList(manufacturerScopeOfSupply, v, setManufacturerScopeOfSupply)} />
+            <label>
+              Scope of Services
+              <textarea
+                style={textareaStyle}
+                value={manufacturerScopeOfServices}
+                onChange={(e) => setManufacturerScopeOfServices(e.target.value)}
+                placeholder="Free text description of services this manufacturer provides, if any"
+              />
+            </label>
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Manufacturing Sites</span>
+                <Button type="button" variant="secondary" onClick={addManufacturerSite}>
+                  + Add Site
+                </Button>
+              </div>
+              <p style={{ margin: "0 0 10px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
+                The Becton Dickinson folder keeps one set of certificates (e.g. ISO 13485) per manufacturing site —
+                add a site here if this manufacturer has more than one, then scope documents to it below.
+              </p>
+              {manufacturerSites.map((site, i) => (
+                <div
+                  key={i}
+                  style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 8 }}
+                >
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 8 }}>
+                    <label>
+                      Site Name
+                      <input style={inputStyle} value={site.siteName} onChange={(e) => updateManufacturerSite(i, { siteName: e.target.value })} />
+                    </label>
+                    <label style={{ display: "block" }}>
+                      <span>Country</span>
+                      <div style={{ marginTop: 4 }}>
+                        <CountrySelect
+                          value={site.countryCode}
+                          onChange={(v) => updateManufacturerSite(i, { countryCode: v })}
+                          options={countries}
+                          ariaLabel={`Country for site ${i + 1}`}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  <label>
+                    Address
+                    <input style={inputStyle} value={site.address} onChange={(e) => updateManufacturerSite(i, { address: e.target.value })} />
+                  </label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                    <label style={{ fontSize: 13, color: "var(--u-ink)" }}>
+                      <input
+                        type="checkbox"
+                        checked={site.isPrimary}
+                        onChange={(e) => updateManufacturerSite(i, { isPrimary: e.target.checked })}
+                      />{" "}
+                      Primary site
+                    </label>
+                    <Button type="button" variant="secondary" onClick={() => removeManufacturerSite(i)}>
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </RoleSection>
         )}
 
@@ -248,6 +691,35 @@ export default function NewPartnerPage() {
               FDA Registration Number
               <input style={inputStyle} value={fdaRegistrationNumber} onChange={(e) => setFdaRegistrationNumber(e.target.value)} />
             </label>
+            <ScopeOfSupplyField value={supplierScopeOfSupply} onToggle={(v) => toggleInList(supplierScopeOfSupply, v, setSupplierScopeOfSupply)} />
+            <label>
+              Scope of Services
+              <textarea
+                style={textareaStyle}
+                value={supplierScopeOfServices}
+                onChange={(e) => setSupplierScopeOfServices(e.target.value)}
+                placeholder="Free text description of services this supplier provides, if any"
+              />
+            </label>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input
+                type="checkbox"
+                checked={supplierCodeOfConductAcknowledged}
+                onChange={(e) => setSupplierCodeOfConductAcknowledged(e.target.checked)}
+              />{" "}
+              Supplier Code of Conduct acknowledged (SOP008)
+            </label>
+            {supplierCodeOfConductAcknowledged && (
+              <label>
+                Date Acknowledged
+                <input
+                  type="date"
+                  style={inputStyle}
+                  value={supplierCodeOfConductDate}
+                  onChange={(e) => setSupplierCodeOfConductDate(e.target.value)}
+                />
+              </label>
+            )}
           </RoleSection>
         )}
 
@@ -274,14 +746,221 @@ export default function NewPartnerPage() {
                 placeholder="Free text for now — e.g. West Africa, Southern Africa"
               />
             </label>
+            <div>
+              <span style={{ display: "block", marginBottom: 6, fontSize: 13.5, color: "var(--u-ink)" }}>Modes of Transport</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {TRANSPORT_MODES.map((m) => (
+                  <label key={m} style={{ fontSize: 13, color: "var(--u-ink)" }}>
+                    <input
+                      type="checkbox"
+                      checked={modesOfTransport.includes(m)}
+                      onChange={() => toggleInList(modesOfTransport, m, setModesOfTransport)}
+                    />{" "}
+                    {TRANSPORT_MODE_LABELS[m]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            {/* SOP014 Managing Logistics / SOP030 Assessment and Verification of
+                Pharmaceutical Product Transport — provisional, see doc comment
+                above this component: both PDFs are scanned and couldn't be
+                OCR'd in this environment, so these four checks are a
+                best-effort starting point pending confirmation against the
+                actual SOP text. */}
+            <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)", fontStyle: "italic" }}>
+              The four checks below are provisional — SOP014 and SOP030 could not be read in full to confirm exact
+              requirements. Worth re-checking against those SOPs directly.
+            </p>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input type="checkbox" checked={iataDgrCertified} onChange={(e) => setIataDgrCertified(e.target.checked)} /> IATA
+              Dangerous Goods Regulations certified
+            </label>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input type="checkbox" checked={aeoAccredited} onChange={(e) => setAeoAccredited(e.target.checked)} /> Authorised
+              Economic Operator (AEO) accredited
+            </label>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input
+                type="checkbox"
+                checked={gdpTransportCapable}
+                onChange={(e) => setGdpTransportCapable(e.target.checked)}
+              />{" "}
+              GDP-compliant (temperature-controlled) transport capable
+            </label>
+            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
+              <input
+                type="checkbox"
+                checked={referencesProvided}
+                onChange={(e) => setReferencesProvided(e.target.checked)}
+              />{" "}
+              References provided and checked
+            </label>
           </RoleSection>
         )}
 
         {hasRole("WAREHOUSING") && (
           <RoleSection title="Warehousing details">
-            <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-              No additional fields are tracked for Warehousing yet.
+            {/* SOP029 Managing Outsourced Warehousing */}
+            <label>
+              Wholesale Dealer's Authorisation (WDA) Number
+              <input style={inputStyle} value={wdaNumber} onChange={(e) => setWdaNumber(e.target.value)} />
+            </label>
+            <label>
+              Technical Agreement Reference
+              <input style={inputStyle} value={technicalAgreementRef} onChange={(e) => setTechnicalAgreementRef(e.target.value)} />
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                Last GDP Audit Date
+                <input type="date" style={inputStyle} value={gdpAuditDate} onChange={(e) => setGdpAuditDate(e.target.value)} />
+              </label>
+              <label>
+                Next GDP Audit Due
+                <input type="date" style={inputStyle} value={nextGdpAuditDue} onChange={(e) => setNextGdpAuditDue(e.target.value)} />
+              </label>
+            </div>
+            <label>
+              Monthly Reconciliation Contact
+              <input
+                style={inputStyle}
+                value={monthlyReconciliationContact}
+                onChange={(e) => setMonthlyReconciliationContact(e.target.value)}
+                placeholder="Name/email this warehouse sends monthly stock reconciliations to"
+              />
+            </label>
+          </RoleSection>
+        )}
+
+        {showVerificationPacket && (
+          <RoleSection title="Company checks">
+            <p style={{ margin: "0 0 4px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
+              From the standard supplier/manufacturer/freight forwarder verification checklist (Bioconnections FORM
+              008.1) — leave a row blank if not yet checked.
             </p>
+            {COMPANY_CHECK_TYPES.map(({ value, label }) => {
+              const row = companyChecks[value];
+              return (
+                <div
+                  key={value}
+                  style={{ display: "grid", gridTemplateColumns: "1.6fr 0.9fr 0.8fr 1.2fr 1.2fr", gap: 8, alignItems: "center" }}
+                >
+                  <span style={{ fontSize: 13, color: "var(--u-ink)" }}>{label}</span>
+                  <Select
+                    value={row.result}
+                    onChange={(v) =>
+                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], result: v } }))
+                    }
+                    allLabel="Not checked"
+                    ariaLabel={`${label} result`}
+                    options={[
+                      { value: "YES", label: "Yes" },
+                      { value: "NO", label: "No" },
+                      { value: "NOT_APPLICABLE", label: "N/A" },
+                    ]}
+                  />
+                  <input
+                    type="date"
+                    style={inputStyle}
+                    value={row.checkedDate}
+                    onChange={(e) =>
+                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], checkedDate: e.target.value } }))
+                    }
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Reference / source"
+                    value={row.referenceOrSource}
+                    onChange={(e) =>
+                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], referenceOrSource: e.target.value } }))
+                    }
+                  />
+                  <input
+                    style={inputStyle}
+                    placeholder="Comment"
+                    value={row.comment}
+                    onChange={(e) =>
+                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], comment: e.target.value } }))
+                    }
+                  />
+                </div>
+              );
+            })}
+          </RoleSection>
+        )}
+
+        {showVerificationPacket && (
+          <RoleSection title="Documents & certifications">
+            <p style={{ margin: "0 0 4px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
+              Mirrors the documents Unimed actually keeps per manufacturer/supplier (e.g. the Becton Dickinson
+              folder) — add one row per certificate, registration or agreement, scoped to a specific manufacturing
+              site where relevant.
+            </p>
+            {certifications.map((cert, i) => (
+              <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 8 }}>
+                  <label style={{ display: "block" }}>
+                    <span>Document Type</span>
+                    <div style={{ marginTop: 4 }}>
+                      <Select
+                        value={cert.type}
+                        onChange={(v) => updateCertification(i, { type: v })}
+                        allLabel="Select a type"
+                        ariaLabel={`Document type ${i + 1}`}
+                        options={CERTIFICATION_TYPES.map((t) => ({ value: t, label: CERTIFICATION_TYPE_LABELS[t] }))}
+                      />
+                    </div>
+                  </label>
+                  <label>
+                    Reference Number
+                    <input style={inputStyle} value={cert.referenceNumber} onChange={(e) => updateCertification(i, { referenceNumber: e.target.value })} />
+                  </label>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 8 }}>
+                  <label>
+                    Revision
+                    <input style={inputStyle} value={cert.revision} onChange={(e) => updateCertification(i, { revision: e.target.value })} />
+                  </label>
+                  <label>
+                    Issued
+                    <input type="date" style={inputStyle} value={cert.issuedDate} onChange={(e) => updateCertification(i, { issuedDate: e.target.value })} />
+                  </label>
+                  <label>
+                    Expiry
+                    <input type="date" style={inputStyle} value={cert.expiryDate} onChange={(e) => updateCertification(i, { expiryDate: e.target.value })} />
+                  </label>
+                </div>
+                <label>
+                  Issuing Body
+                  <input style={inputStyle} value={cert.issuingBody} onChange={(e) => updateCertification(i, { issuingBody: e.target.value })} />
+                </label>
+                {hasRole("MANUFACTURER") && manufacturerSites.length > 0 && (
+                  <label style={{ display: "block", marginTop: 8 }}>
+                    <span>Manufacturing Site</span>
+                    <div style={{ marginTop: 4 }}>
+                      <Select
+                        value={cert.manufacturerSiteIndex}
+                        onChange={(v) => updateCertification(i, { manufacturerSiteIndex: v })}
+                        allLabel="Company-wide (not site-specific)"
+                        ariaLabel={`Manufacturing site for document ${i + 1}`}
+                        options={manufacturerSites.map((s, idx) => ({ value: String(idx), label: s.siteName || `Site ${idx + 1}` }))}
+                      />
+                    </div>
+                  </label>
+                )}
+                <label style={{ display: "block", marginTop: 8 }}>
+                  Notes
+                  <textarea style={textareaStyle} value={cert.notes} onChange={(e) => updateCertification(i, { notes: e.target.value })} />
+                </label>
+                <div style={{ textAlign: "right", marginTop: 8 }}>
+                  <Button type="button" variant="secondary" onClick={() => removeCertification(i)}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="secondary" onClick={addCertification} style={{ alignSelf: "flex-start" }}>
+              + Add Document
+            </Button>
           </RoleSection>
         )}
 
@@ -292,6 +971,21 @@ export default function NewPartnerPage() {
         </Button>
       </form>
     </main>
+  );
+}
+
+function ScopeOfSupplyField({ value, onToggle }: { value: string[]; onToggle: (v: string) => void }) {
+  return (
+    <div>
+      <span style={{ display: "block", marginBottom: 6, fontSize: 13.5, color: "var(--u-ink)" }}>Scope of Supply</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+        {SCOPE_OF_SUPPLY_OPTIONS.map((o) => (
+          <label key={o} style={{ fontSize: 13, color: "var(--u-ink)" }}>
+            <input type="checkbox" checked={value.includes(o)} onChange={() => onToggle(o)} /> {SCOPE_OF_SUPPLY_LABELS[o]}
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
 
