@@ -782,6 +782,10 @@ export interface ProductCatalogMatch {
   gtin: string | null;
   standardUnit: string | null;
   addedByOrganizationName: string | null;
+  /** Added 2026-10-03 — archived entries are excluded from search() and
+   * list() by default (see ProductCatalogService), surfaced here only
+   * when the caller explicitly asks to include them. */
+  isArchived: boolean;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see

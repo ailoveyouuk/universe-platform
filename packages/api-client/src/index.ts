@@ -256,6 +256,7 @@ export class UniverseApiClient {
     sourceStandard?: string;
     page?: number;
     pageSize?: number;
+    includeArchived?: boolean;
   }): Promise<ProductCatalogListResult> {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
@@ -263,6 +264,7 @@ export class UniverseApiClient {
     if (params?.sourceStandard) qs.set("sourceStandard", params.sourceStandard);
     if (params?.page) qs.set("page", String(params.page));
     if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    if (params?.includeArchived) qs.set("includeArchived", "true");
     const query = qs.toString() ? `?${qs.toString()}` : "";
     return this.request(`/product-catalog${query}`);
   }

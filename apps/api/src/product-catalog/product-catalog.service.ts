@@ -103,11 +103,16 @@ export class ProductCatalogService {
     sourceStandard?: string;
     page?: number;
     pageSize?: number;
+    /** Added 2026-10-03 for the catalogue screen's archive functionality —
+     * archived entries stay excluded by default unless the caller
+     * explicitly asks for them, e.g. the "Show archived" toggle on the
+     * browse screen. */
+    includeArchived?: boolean;
   }): Promise<ProductCatalogListResult> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
     const where = {
-      isArchived: false,
+      ...(params.includeArchived ? {} : { isArchived: false }),
       ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
       ...(params.category ? { category: params.category } : {}),
       ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
@@ -262,6 +267,7 @@ export class ProductCatalogService {
     unspscCode: string | null;
     gtin: string | null;
     standardUnit: string | null;
+    isArchived: boolean;
     addedByOrganization: { name: string } | null;
   }): ProductCatalogMatch {
     return {
@@ -273,6 +279,7 @@ export class ProductCatalogService {
       gtin: row.gtin,
       standardUnit: row.standardUnit,
       addedByOrganizationName: row.addedByOrganization?.name ?? null,
+      isArchived: row.isArchived,
     };
   }
 }

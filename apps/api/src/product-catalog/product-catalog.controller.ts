@@ -34,6 +34,7 @@ export class ProductCatalogController {
     @Query("sourceStandard") sourceStandard?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("includeArchived") includeArchived?: string,
   ) {
     return this.productCatalogService.list({
       q,
@@ -41,6 +42,7 @@ export class ProductCatalogController {
       sourceStandard,
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
+      includeArchived: includeArchived === "true",
     });
   }
 

@@ -37,6 +37,7 @@ export default function ProductCatalogPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [sourceStandard, setSourceStandard] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
 
@@ -49,6 +50,7 @@ export default function ProductCatalogPage() {
         q: search || undefined,
         category: category || undefined,
         sourceStandard: sourceStandard || undefined,
+        includeArchived,
         page: page + 1,
         pageSize: pageSize === "all" ? 200 : pageSize,
       })
@@ -59,7 +61,7 @@ export default function ProductCatalogPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load the product catalogue"))
       .finally(() => setLoading(false));
-  }, [search, category, sourceStandard, page, pageSize]);
+  }, [search, category, sourceStandard, includeArchived, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -98,6 +100,14 @@ export default function ProductCatalogPage() {
           allLabel="All sources"
           ariaLabel="Filter by source standard"
         />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, color: "var(--u-ink)", padding: "0 4px" }}>
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => { setIncludeArchived(e.target.checked); setPage(0); }}
+          />
+          Show archived
+        </label>
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
@@ -168,7 +178,14 @@ function ProductRow({
         style={{ borderBottom: expanded ? "none" : "1px solid var(--u-border)", cursor: "pointer" }}
         className="u-card-hover"
       >
-        <td style={{ padding: 8, fontWeight: 600 }}>{product.name}</td>
+        <td style={{ padding: 8, fontWeight: 600 }}>
+          {product.name}
+          {product.isArchived && (
+            <span style={{ marginLeft: 8 }}>
+              <Pill tone="neutral">Archived</Pill>
+            </span>
+          )}
+        </td>
         <td style={{ padding: 8 }}>
           <Pill tone="neutral">{product.category}</Pill>
         </td>
@@ -221,6 +238,24 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Archive/restore — added 2026-10-03. Archiving is a soft delete: the
+  // entry stays in the database (ProductMaster.isArchived) and drops out
+  // of the catalogue's default browse/search/picker results rather than
+  // being destroyed, since other apps' historical records (project lines,
+  // product source approvals, etc.) still reference it by id.
+  async function setArchived(archived: boolean) {
+    setSaving(true);
+    setError(null);
+    try {
+      await apiClient.updateProductCatalogEntry(productId, { isArchived: archived });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to ${archived ? "archive" : "restore"} entry`);
     } finally {
       setSaving(false);
     }
@@ -287,11 +322,22 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
         <p style={{ gridColumn: "1 / -1", color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>{error}</p>
       )}
 
-      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </Button>
+      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+        {detail.isArchived ? (
+          <Button variant="secondary" size="sm" onClick={() => setArchived(false)} disabled={saving}>
+            Restore
+          </Button>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => setArchived(true)} disabled={saving}>
+            Archive
+          </Button>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
       </div>
     </div>
   );
