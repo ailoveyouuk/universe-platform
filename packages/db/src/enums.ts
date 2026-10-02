@@ -157,7 +157,10 @@ export const CertificationType = {
   TECHNICAL_INFORMATION_SHEET: "TECHNICAL_INFORMATION_SHEET",
   COMPANY_REGISTRATION: "COMPANY_REGISTRATION",
   VAT_CERTIFICATE: "VAT_CERTIFICATE",
-  FINANCIAL_CREDIT_CHECK: "FINANCIAL_CREDIT_CHECK",
+  /// Renamed 2026-10-03 from FINANCIAL_CREDIT_CHECK to match
+  /// PartnerCompanyCheckType.FINANCIAL_CREDIT_STATUS exactly — same
+  /// real-world document, two independently-drifted spellings.
+  FINANCIAL_CREDIT_STATUS: "FINANCIAL_CREDIT_STATUS",
   BUSINESS_INSURANCE: "BUSINESS_INSURANCE",
   /// IATA Dangerous Goods Regulations handling certification — freight
   /// forwarder.

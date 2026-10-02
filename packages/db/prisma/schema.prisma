@@ -892,16 +892,6 @@ model Project {
 /// show/hide — added 2026-09-24. The database always keeps every field
 /// available regardless of this config, so nothing is lost if a project
 /// reopens or skips a phase; this only controls what the UI foregrounds.
-model ProjectFieldGroup {
-  id           String @id @default(uuid())
-  status       String // see allowed values reference above
-  fieldGroupKey String // e.g. "core", "submission", "awarded", "completed", "pharma"
-  sortOrder    Int    @default(0)
-
-  @@unique([status, fieldGroupKey])
-  @@map("project_field_groups")
-}
-
 /// One row per Project.status transition — added 2026-09-30 per
 /// project-stage-navigation-plan.md. Exists because "time in stage" cannot
 /// be computed honestly from Project.updatedAt: that timestamp changes on

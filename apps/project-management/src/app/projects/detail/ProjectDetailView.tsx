@@ -21,9 +21,8 @@ const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] 
  * should be the most prominent element pre-submission, per the tender-
  * software research finding). "core" fields are always shown; everything
  * else is gated as commented below. The underlying data is never hidden —
- * this only controls what's foregrounded by default, matching
- * ProjectFieldGroup's own doc comment in schema.prisma — a "Show all
- * fields" toggle below bypasses all of this.
+ * this only controls what's foregrounded by default; a "Show all fields"
+ * toggle below bypasses all of this.
  */
 function isSubmissionDateRelevant(project: ProjectDetail): boolean {
   // Submission Date only exists once a project has actually been submitted.
