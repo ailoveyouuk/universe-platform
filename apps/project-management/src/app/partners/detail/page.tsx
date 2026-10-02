@@ -182,8 +182,11 @@ export default function PartnerDetailPage() {
 
       {partner.freightForwarderDetail && (
         <DetailSection title="Freight forwarder details">
-          <InfoCard label="Preferred incoterm">{partner.freightForwarderDetail.preferredIncoterm ?? "—"}</InfoCard>
-          <InfoCard label="Service regions">{partner.freightForwarderDetail.serviceRegions ?? "—"}</InfoCard>
+          <InfoCard label="Modes of transport">
+            {partner.freightForwarderDetail.modesOfTransport
+              ? partner.freightForwarderDetail.modesOfTransport.split(",").join(", ")
+              : "—"}
+          </InfoCard>
         </DetailSection>
       )}
 

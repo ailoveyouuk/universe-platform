@@ -61,8 +61,6 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
       : null,
     freightForwarderDetail: p.freightForwarderDetail
       ? {
-          preferredIncoterm: p.freightForwarderDetail.preferredIncoterm,
-          serviceRegions: p.freightForwarderDetail.serviceRegions,
           modesOfTransport: p.freightForwarderDetail.modesOfTransport,
           iataDgrCertified: p.freightForwarderDetail.iataDgrCertified,
           aeoAccredited: p.freightForwarderDetail.aeoAccredited,
@@ -77,11 +75,8 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
           paymentTerms: p.clientDetail.paymentTerms,
           productCategoryLicensingNotes: p.clientDetail.productCategoryLicensingNotes,
           destinationCountryRestrictionsNotes: p.clientDetail.destinationCountryRestrictionsNotes,
-          salesOrderLimit: p.clientDetail.salesOrderLimit ? Number(p.clientDetail.salesOrderLimit) : null,
-          salesOrderLimitCurrency: p.clientDetail.salesOrderLimitCurrency,
           isPharmaApprovedCustomer: p.clientDetail.isPharmaApprovedCustomer,
           approvedCustomerLogRef: p.clientDetail.approvedCustomerLogRef,
-          gdpTrainedOfficerAssigned: p.clientDetail.gdpTrainedOfficerAssigned,
         }
       : null,
     warehousingDetail: p.warehousingDetail

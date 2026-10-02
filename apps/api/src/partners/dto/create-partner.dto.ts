@@ -88,8 +88,6 @@ export class ManufacturerDetailDto {
 }
 
 export class FreightForwarderDetailDto {
-  @IsOptional() @IsString() preferredIncoterm?: string;
-  @IsOptional() @IsString() serviceRegions?: string;
   @IsOptional() @IsString() modesOfTransport?: string;
   @IsOptional() @IsBoolean() iataDgrCertified?: boolean;
   @IsOptional() @IsBoolean() aeoAccredited?: boolean;
@@ -103,11 +101,8 @@ export class ClientDetailDto {
   @IsOptional() @IsString() paymentTerms?: string;
   @IsOptional() @IsString() productCategoryLicensingNotes?: string;
   @IsOptional() @IsString() destinationCountryRestrictionsNotes?: string;
-  @IsOptional() @IsNumber() salesOrderLimit?: number;
-  @IsOptional() @IsString() salesOrderLimitCurrency?: string;
   @IsOptional() @IsBoolean() isPharmaApprovedCustomer?: boolean;
   @IsOptional() @IsString() approvedCustomerLogRef?: string;
-  @IsOptional() @IsBoolean() gdpTrainedOfficerAssigned?: boolean;
 }
 
 /** Added 2026-10-02 — Warehousing didn't have its own detail object

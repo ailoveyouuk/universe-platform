@@ -52,7 +52,7 @@ function formatDuration(ms: number): string {
  * (the project moved on) or now (still in that stage). Mirrors HubSpot's
  * documented "Latest Time in Stage" calculated property — see
  * procurement-lifecycle-benchmarking.md rec. #7. */
-function latestTimeInStage(history: StageHistoryEntry[], status: string): { enteredAt: Date; ms: number } | null {
+function latestTimeInStage(history: StageHistoryEntry[], status: string): { enteredAt: Date; ms: number; changedByName: string | null } | null {
   let lastIndex = -1;
   for (let i = 0; i < history.length; i++) {
     if (history[i].status === status) lastIndex = i;
@@ -61,7 +61,7 @@ function latestTimeInStage(history: StageHistoryEntry[], status: string): { ente
   const enteredAt = new Date(history[lastIndex].enteredAt);
   const next = history[lastIndex + 1];
   const end = next ? new Date(next.enteredAt).getTime() : Date.now();
-  return { enteredAt, ms: end - enteredAt.getTime() };
+  return { enteredAt, ms: end - enteredAt.getTime(), changedByName: history[lastIndex].changedByName };
 }
 
 /** "Cumulative time in stage" — summed across every visit, for a status a
@@ -126,7 +126,17 @@ function StageChevron({
 
 /** The terminal-exit banner — replaces the chevron track entirely when
  * status is one of TERMINAL_STAGES. See this file's top comment. */
-function TerminalBanner({ status, reason, enteredAt }: { status: string; reason: string | null; enteredAt: string | null }): ReactNode {
+function TerminalBanner({
+  status,
+  reason,
+  enteredAt,
+  changedByName,
+}: {
+  status: string;
+  reason: string | null;
+  enteredAt: string | null;
+  changedByName: string | null;
+}): ReactNode {
   return (
     <div
       role="status"
@@ -157,6 +167,7 @@ function TerminalBanner({ status, reason, enteredAt }: { status: string; reason:
           {enteredAt && (
             <span style={{ fontWeight: 400, color: "var(--u-ink-secondary)", marginLeft: 8, fontSize: 12 }}>
               {new Date(enteredAt).toLocaleDateString()}
+              {changedByName && ` by ${changedByName}`}
             </span>
           )}
         </div>
@@ -181,7 +192,14 @@ export function StageTracker({
 }): ReactNode {
   if ((TERMINAL_STAGES as readonly string[]).includes(status)) {
     const entry = [...statusHistory].reverse().find((h) => h.status === status);
-    return <TerminalBanner status={status} reason={status === "CANCELLED" ? reasonForCancellation ?? null : null} enteredAt={entry?.enteredAt ?? null} />;
+    return (
+      <TerminalBanner
+        status={status}
+        reason={status === "CANCELLED" ? reasonForCancellation ?? null : null}
+        enteredAt={entry?.enteredAt ?? null}
+        changedByName={entry?.changedByName ?? null}
+      />
+    );
   }
 
   const currentIndex = ACTIVE_STAGES.indexOf(status as (typeof ACTIVE_STAGES)[number]);
@@ -204,7 +222,7 @@ export function StageTracker({
             state === "future"
               ? undefined
               : latest
-                ? `Entered ${latest.enteredAt.toLocaleDateString()} — ${state === "current" ? "in this stage for" : "spent"} ${formatDuration(cumulative)}`
+                ? `Entered ${latest.enteredAt.toLocaleDateString()}${latest.changedByName ? ` by ${latest.changedByName}` : ""} — ${state === "current" ? "in this stage for" : "spent"} ${formatDuration(cumulative)}`
                 : undefined;
           return <StageChevron key={stage} label={STAGE_LABELS[stage]} state={state} tooltip={tooltip} />;
         })}
@@ -223,6 +241,7 @@ export function StageTracker({
               }}
             >
               In this stage for {formatDuration(latest.ms)}
+              {latest.changedByName && ` — moved here by ${latest.changedByName}`}
             </p>
           );
         })()}

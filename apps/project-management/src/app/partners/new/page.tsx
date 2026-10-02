@@ -34,8 +34,6 @@ const ROLE_LABELS: Record<string, string> = {
 // same fixed list rather than inventing a separate one.
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 
-// Matches ProjectLine.incoterm's allowed values (Incoterms 2020).
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 
 const RISK_TIERS = ["HIGH", "MEDIUM", "LOW"] as const;
 
@@ -52,12 +50,7 @@ const SCOPE_OF_SUPPLY_LABELS: Record<string, string> = {
   SERVICES: "Services",
 };
 
-// SOP014 Managing Logistics / SOP030 Assessment and Verification of
-// Pharmaceutical Product Transport couldn't be read in this environment
-// (scanned PDFs, no OCR here — see architecture-decisions.md) so this list
-// is a best-effort starting point, not confirmed against those SOPs' exact
-// wording. Flagged to Lewis; worth re-exporting/OCR-ing those two PDFs and
-// revisiting this list.
+// Transport modes for freight forwarders.
 const TRANSPORT_MODES = ["AIR", "SEA", "ROAD", "RAIL"] as const;
 const TRANSPORT_MODE_LABELS: Record<string, string> = {
   AIR: "Air",
@@ -345,8 +338,6 @@ export default function NewPartnerPage() {
   const [manufacturerScopeOfServices, setManufacturerScopeOfServices] = useState("");
   const [manufacturerSites, setManufacturerSites] = useState<ManufacturerSiteRow[]>([]);
 
-  const [preferredIncoterm, setPreferredIncoterm] = useState("");
-  const [serviceRegions, setServiceRegions] = useState("");
   const [modesOfTransport, setModesOfTransport] = useState<string[]>([]);
   const [iataDgrCertified, setIataDgrCertified] = useState(false);
   const [aeoAccredited, setAeoAccredited] = useState(false);
@@ -358,11 +349,8 @@ export default function NewPartnerPage() {
   const [paymentTerms, setPaymentTerms] = useState("");
   const [productCategoryLicensingNotes, setProductCategoryLicensingNotes] = useState("");
   const [destinationCountryRestrictionsNotes, setDestinationCountryRestrictionsNotes] = useState("");
-  const [salesOrderLimit, setSalesOrderLimit] = useState("");
-  const [salesOrderLimitCurrency, setSalesOrderLimitCurrency] = useState("");
   const [isPharmaApprovedCustomer, setIsPharmaApprovedCustomer] = useState(false);
   const [approvedCustomerLogRef, setApprovedCustomerLogRef] = useState("");
-  const [gdpTrainedOfficerAssigned, setGdpTrainedOfficerAssigned] = useState(false);
 
   const [wdaNumber, setWdaNumber] = useState("");
   const [technicalAgreementRef, setTechnicalAgreementRef] = useState("");
@@ -402,10 +390,11 @@ export default function NewPartnerPage() {
   }
 
   const hasRole = useMemo(() => (r: string) => roleTypes.includes(r), [roleTypes]);
-  const showVerificationPacket = useMemo(
-    () => hasRole("MANUFACTURER") || hasRole("SUPPLIER") || hasRole("FREIGHT_FORWARDER") || hasRole("WAREHOUSING"),
-    [hasRole]
-  );
+  // Every stakeholder type gets the standard company checks, documents and
+  // certifications packet — not just MANUFACTURER/SUPPLIER/FREIGHT_FORWARDER/
+  // WAREHOUSING. Gated only on at least one role being selected, same as the
+  // rest of the role-specific sections.
+  const showVerificationPacket = useMemo(() => roleTypes.length > 0, [roleTypes]);
 
   function toggleRole(role: string) {
     setRoleTypes((prev) => (prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]));
@@ -527,8 +516,6 @@ export default function NewPartnerPage() {
         ...(hasRole("FREIGHT_FORWARDER")
           ? {
               freightForwarderDetail: {
-                preferredIncoterm: preferredIncoterm || undefined,
-                serviceRegions: serviceRegions || undefined,
                 modesOfTransport: modesOfTransport.length ? modesOfTransport.join(",") : undefined,
                 iataDgrCertified: iataDgrCertified || undefined,
                 aeoAccredited: aeoAccredited || undefined,
@@ -545,11 +532,8 @@ export default function NewPartnerPage() {
                 paymentTerms: paymentTerms || undefined,
                 productCategoryLicensingNotes: productCategoryLicensingNotes || undefined,
                 destinationCountryRestrictionsNotes: destinationCountryRestrictionsNotes || undefined,
-                salesOrderLimit: salesOrderLimit ? Number(salesOrderLimit) : undefined,
-                salesOrderLimitCurrency: salesOrderLimitCurrency || undefined,
                 isPharmaApprovedCustomer: isPharmaApprovedCustomer || undefined,
                 approvedCustomerLogRef: isPharmaApprovedCustomer ? approvedCustomerLogRef || undefined : undefined,
-                gdpTrainedOfficerAssigned: gdpTrainedOfficerAssigned || undefined,
               },
             }
           : {}),
@@ -735,7 +719,6 @@ export default function NewPartnerPage() {
               Payment Terms
               <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" />
             </label>
-            {/* SOP 010 Pharmaceutical Customer Qualification */}
             <label>
               Product Category Licensing Notes
               <textarea
@@ -754,34 +737,13 @@ export default function NewPartnerPage() {
                 placeholder="Any export/import restrictions that apply to shipments for this customer"
               />
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
-              <label>
-                Sales Order Limit
-                <input
-                  type="number"
-                  style={inputStyle}
-                  value={salesOrderLimit}
-                  onChange={(e) => setSalesOrderLimit(e.target.value)}
-                />
-              </label>
-              <label>
-                Currency
-                <input
-                  style={inputStyle}
-                  value={salesOrderLimitCurrency}
-                  onChange={(e) => setSalesOrderLimitCurrency(e.target.value.toUpperCase())}
-                  placeholder="USD"
-                  maxLength={3}
-                />
-              </label>
-            </div>
             <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
               <input
                 type="checkbox"
                 checked={isPharmaApprovedCustomer}
                 onChange={(e) => setIsPharmaApprovedCustomer(e.target.checked)}
               />{" "}
-              Approved pharmaceutical customer (SOP010 qualification complete)
+              Approved pharmaceutical customer
             </label>
             {isPharmaApprovedCustomer && (
               <label>
@@ -789,14 +751,6 @@ export default function NewPartnerPage() {
                 <input style={inputStyle} value={approvedCustomerLogRef} onChange={(e) => setApprovedCustomerLogRef(e.target.value)} />
               </label>
             )}
-            <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
-              <input
-                type="checkbox"
-                checked={gdpTrainedOfficerAssigned}
-                onChange={(e) => setGdpTrainedOfficerAssigned(e.target.checked)}
-              />{" "}
-              GDP-trained officer assigned to this account
-            </label>
           </RoleSection>
         )}
 
@@ -908,7 +862,7 @@ export default function NewPartnerPage() {
                 checked={supplierCodeOfConductAcknowledged}
                 onChange={(e) => setSupplierCodeOfConductAcknowledged(e.target.checked)}
               />{" "}
-              Supplier Code of Conduct acknowledged (SOP008)
+              Supplier Code of Conduct acknowledged
             </label>
             {supplierCodeOfConductAcknowledged && (
               <label>
@@ -926,27 +880,6 @@ export default function NewPartnerPage() {
 
         {hasRole("FREIGHT_FORWARDER") && (
           <RoleSection title="Freight forwarder details">
-            <label style={{ display: "block" }}>
-              <span>Preferred Incoterm</span>
-              <div style={{ marginTop: 4 }}>
-                <Select
-                  value={preferredIncoterm}
-                  onChange={setPreferredIncoterm}
-                  allLabel="Select an incoterm"
-                  ariaLabel="Preferred incoterm"
-                  options={INCOTERMS.map((i) => ({ value: i, label: i }))}
-                />
-              </div>
-            </label>
-            <label>
-              Service Regions
-              <textarea
-                style={textareaStyle}
-                value={serviceRegions}
-                onChange={(e) => setServiceRegions(e.target.value)}
-                placeholder="Free text for now — e.g. West Africa, Southern Africa"
-              />
-            </label>
             <div>
               <span style={{ display: "block", marginBottom: 6, fontSize: 13.5, color: "var(--u-ink)" }}>Modes of Transport</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
@@ -962,16 +895,6 @@ export default function NewPartnerPage() {
                 ))}
               </div>
             </div>
-            {/* SOP014 Managing Logistics / SOP030 Assessment and Verification of
-                Pharmaceutical Product Transport — provisional, see doc comment
-                above this component: both PDFs are scanned and couldn't be
-                OCR'd in this environment, so these four checks are a
-                best-effort starting point pending confirmation against the
-                actual SOP text. */}
-            <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)", fontStyle: "italic" }}>
-              The four checks below are provisional — SOP014 and SOP030 could not be read in full to confirm exact
-              requirements. Worth re-checking against those SOPs directly.
-            </p>
             <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
               <input type="checkbox" checked={iataDgrCertified} onChange={(e) => setIataDgrCertified(e.target.checked)} /> IATA
               Dangerous Goods Regulations certified
@@ -1001,7 +924,6 @@ export default function NewPartnerPage() {
 
         {hasRole("WAREHOUSING") && (
           <RoleSection title="Warehousing details">
-            {/* SOP029 Managing Outsourced Warehousing */}
             <label>
               Wholesale Dealer's Authorisation (WDA) Number
               <input style={inputStyle} value={wdaNumber} onChange={(e) => setWdaNumber(e.target.value)} />

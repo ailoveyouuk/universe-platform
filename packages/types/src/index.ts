@@ -529,8 +529,6 @@ export interface PartnerManufacturerDetail {
 }
 
 export interface PartnerFreightForwarderDetail {
-  preferredIncoterm?: string | null;
-  serviceRegions?: string | null;
   modesOfTransport?: string | null;
   iataDgrCertified?: boolean;
   aeoAccredited?: boolean;
@@ -544,11 +542,8 @@ export interface PartnerClientDetail {
   paymentTerms?: string | null;
   productCategoryLicensingNotes?: string | null;
   destinationCountryRestrictionsNotes?: string | null;
-  salesOrderLimit?: number | null;
-  salesOrderLimitCurrency?: string | null;
   isPharmaApprovedCustomer?: boolean;
   approvedCustomerLogRef?: string | null;
-  gdpTrainedOfficerAssigned?: boolean;
 }
 
 /** Added 2026-10-02 — see WarehousingDetail in schema.prisma. */
