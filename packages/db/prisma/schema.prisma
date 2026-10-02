@@ -562,8 +562,22 @@ model FreightForwarderDetail {
 model ClientDetail {
   partnerId       String  @id
   partner         Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  billingAddress  String? @db.NVarChar(Max)
-  deliveryAddress String? @db.NVarChar(Max)
+  /// Billing and delivery address split into standard address fields, each
+  /// with its own country — added 2026-10-03. Every element is stored
+  /// separately (not one free-text block) so address data is structured
+  /// and usable across every app, not just displayed back as a blob.
+  billingAddressLine1   String?
+  billingAddressLine2   String?
+  billingCity           String?
+  billingRegion         String?
+  billingPostcode       String?
+  billingCountryCode    String?
+  deliveryAddressLine1  String?
+  deliveryAddressLine2  String?
+  deliveryCity          String?
+  deliveryRegion        String?
+  deliveryPostcode      String?
+  deliveryCountryCode   String?
   paymentTerms    String?
   /// Product categories checked against the client's own licences, and
   /// destination-country licensing/registration/conformity requirements —

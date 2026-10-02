@@ -119,8 +119,32 @@ export default function PartnerDetailPage() {
 
       {partner.clientDetail && (
         <DetailSection title="Client details">
-          <InfoCard label="Billing address">{partner.clientDetail.billingAddress ?? "—"}</InfoCard>
-          <InfoCard label="Delivery address">{partner.clientDetail.deliveryAddress ?? "—"}</InfoCard>
+          <InfoCard label="Billing address">
+            {formatAddress(
+              {
+                line1: partner.clientDetail.billingAddressLine1,
+                line2: partner.clientDetail.billingAddressLine2,
+                city: partner.clientDetail.billingCity,
+                region: partner.clientDetail.billingRegion,
+                postcode: partner.clientDetail.billingPostcode,
+                countryCode: partner.clientDetail.billingCountryCode,
+              },
+              countries
+            )}
+          </InfoCard>
+          <InfoCard label="Delivery address">
+            {formatAddress(
+              {
+                line1: partner.clientDetail.deliveryAddressLine1,
+                line2: partner.clientDetail.deliveryAddressLine2,
+                city: partner.clientDetail.deliveryCity,
+                region: partner.clientDetail.deliveryRegion,
+                postcode: partner.clientDetail.deliveryPostcode,
+                countryCode: partner.clientDetail.deliveryCountryCode,
+              },
+              countries
+            )}
+          </InfoCard>
           <InfoCard label="Payment terms">{partner.clientDetail.paymentTerms ?? "—"}</InfoCard>
         </DetailSection>
       )}
@@ -219,6 +243,29 @@ export default function PartnerDetailPage() {
       )}
     </main>
   );
+}
+
+/** Joins a structured address (added 2026-10-03, replacing the old
+ * single free-text billing/delivery address block) into one readable
+ * line for display — "—" when nothing is set at all. */
+function formatAddress(
+  address: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    region?: string | null;
+    postcode?: string | null;
+    countryCode?: string | null;
+  },
+  countries: { code: string; name: string }[]
+): string {
+  const countryName = address.countryCode
+    ? countries.find((c) => c.code === address.countryCode)?.name ?? address.countryCode
+    : null;
+  const parts = [address.line1, address.line2, address.city, address.region, address.postcode, countryName].filter(
+    (p): p is string => Boolean(p && p.trim())
+  );
+  return parts.length > 0 ? parts.join(", ") : "—";
 }
 
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {

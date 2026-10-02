@@ -537,8 +537,18 @@ export interface PartnerFreightForwarderDetail {
 }
 
 export interface PartnerClientDetail {
-  billingAddress?: string | null;
-  deliveryAddress?: string | null;
+  billingAddressLine1?: string | null;
+  billingAddressLine2?: string | null;
+  billingCity?: string | null;
+  billingRegion?: string | null;
+  billingPostcode?: string | null;
+  billingCountryCode?: string | null;
+  deliveryAddressLine1?: string | null;
+  deliveryAddressLine2?: string | null;
+  deliveryCity?: string | null;
+  deliveryRegion?: string | null;
+  deliveryPostcode?: string | null;
+  deliveryCountryCode?: string | null;
   paymentTerms?: string | null;
   productCategoryLicensingNotes?: string | null;
   destinationCountryRestrictionsNotes?: string | null;

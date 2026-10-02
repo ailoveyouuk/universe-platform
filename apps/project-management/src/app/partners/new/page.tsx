@@ -391,8 +391,22 @@ export default function NewPartnerPage() {
   const [gdpTransportCapable, setGdpTransportCapable] = useState(false);
   const [referencesProvided, setReferencesProvided] = useState(false);
 
-  const [billingAddress, setBillingAddress] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  // Billing and delivery address split into standard address fields, each
+  // with its own country selector — added 2026-10-03 so every element is
+  // stored separately and usable across every app, not just one free-text
+  // block per address.
+  const [billingAddressLine1, setBillingAddressLine1] = useState("");
+  const [billingAddressLine2, setBillingAddressLine2] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+  const [billingRegion, setBillingRegion] = useState("");
+  const [billingPostcode, setBillingPostcode] = useState("");
+  const [billingCountryCode, setBillingCountryCode] = useState("");
+  const [deliveryAddressLine1, setDeliveryAddressLine1] = useState("");
+  const [deliveryAddressLine2, setDeliveryAddressLine2] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryRegion, setDeliveryRegion] = useState("");
+  const [deliveryPostcode, setDeliveryPostcode] = useState("");
+  const [deliveryCountryCode, setDeliveryCountryCode] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [productCategoryLicensingNotes, setProductCategoryLicensingNotes] = useState("");
   const [destinationCountryRestrictionsNotes, setDestinationCountryRestrictionsNotes] = useState("");
@@ -574,8 +588,18 @@ export default function NewPartnerPage() {
         ...(hasRole("CLIENT")
           ? {
               clientDetail: {
-                billingAddress: billingAddress || undefined,
-                deliveryAddress: deliveryAddress || undefined,
+                billingAddressLine1: billingAddressLine1 || undefined,
+                billingAddressLine2: billingAddressLine2 || undefined,
+                billingCity: billingCity || undefined,
+                billingRegion: billingRegion || undefined,
+                billingPostcode: billingPostcode || undefined,
+                billingCountryCode: billingCountryCode || undefined,
+                deliveryAddressLine1: deliveryAddressLine1 || undefined,
+                deliveryAddressLine2: deliveryAddressLine2 || undefined,
+                deliveryCity: deliveryCity || undefined,
+                deliveryRegion: deliveryRegion || undefined,
+                deliveryPostcode: deliveryPostcode || undefined,
+                deliveryCountryCode: deliveryCountryCode || undefined,
                 paymentTerms: paymentTerms || undefined,
                 productCategoryLicensingNotes: productCategoryLicensingNotes || undefined,
                 destinationCountryRestrictionsNotes: destinationCountryRestrictionsNotes || undefined,
@@ -750,14 +774,72 @@ export default function NewPartnerPage() {
 
         {hasRole("CLIENT") && (
           <RoleSection title="Client details">
-            <label>
-              Billing Address
-              <textarea style={textareaStyle} value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
-            </label>
-            <label>
-              Delivery Address
-              <textarea style={textareaStyle} value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
-            </label>
+            <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14 }}>
+              <legend style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>Billing Address</legend>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label>
+                  Address Line 1
+                  <input style={inputStyle} value={billingAddressLine1} onChange={(e) => setBillingAddressLine1(e.target.value)} />
+                </label>
+                <label>
+                  Address Line 2
+                  <input style={inputStyle} value={billingAddressLine2} onChange={(e) => setBillingAddressLine2(e.target.value)} />
+                </label>
+                <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+                  <label>
+                    City
+                    <input style={inputStyle} value={billingCity} onChange={(e) => setBillingCity(e.target.value)} />
+                  </label>
+                  <label>
+                    Region / County
+                    <input style={inputStyle} value={billingRegion} onChange={(e) => setBillingRegion(e.target.value)} />
+                  </label>
+                  <label>
+                    Postcode
+                    <input style={inputStyle} value={billingPostcode} onChange={(e) => setBillingPostcode(e.target.value)} />
+                  </label>
+                </div>
+                <label style={{ display: "block" }}>
+                  <span>Country</span>
+                  <div style={{ marginTop: 4 }}>
+                    <CountrySelect value={billingCountryCode} onChange={setBillingCountryCode} options={countries} ariaLabel="Billing country" />
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+            <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14 }}>
+              <legend style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>Delivery Address</legend>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label>
+                  Address Line 1
+                  <input style={inputStyle} value={deliveryAddressLine1} onChange={(e) => setDeliveryAddressLine1(e.target.value)} />
+                </label>
+                <label>
+                  Address Line 2
+                  <input style={inputStyle} value={deliveryAddressLine2} onChange={(e) => setDeliveryAddressLine2(e.target.value)} />
+                </label>
+                <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 12 }}>
+                  <label>
+                    City
+                    <input style={inputStyle} value={deliveryCity} onChange={(e) => setDeliveryCity(e.target.value)} />
+                  </label>
+                  <label>
+                    Region / County
+                    <input style={inputStyle} value={deliveryRegion} onChange={(e) => setDeliveryRegion(e.target.value)} />
+                  </label>
+                  <label>
+                    Postcode
+                    <input style={inputStyle} value={deliveryPostcode} onChange={(e) => setDeliveryPostcode(e.target.value)} />
+                  </label>
+                </div>
+                <label style={{ display: "block" }}>
+                  <span>Country</span>
+                  <div style={{ marginTop: 4 }}>
+                    <CountrySelect value={deliveryCountryCode} onChange={setDeliveryCountryCode} options={countries} ariaLabel="Delivery country" />
+                  </div>
+                </label>
+              </div>
+            </fieldset>
             <label>
               Payment Terms
               <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" />

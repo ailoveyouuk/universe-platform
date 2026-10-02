@@ -96,8 +96,18 @@ export class FreightForwarderDetailDto {
 }
 
 export class ClientDetailDto {
-  @IsOptional() @IsString() billingAddress?: string;
-  @IsOptional() @IsString() deliveryAddress?: string;
+  @IsOptional() @IsString() billingAddressLine1?: string;
+  @IsOptional() @IsString() billingAddressLine2?: string;
+  @IsOptional() @IsString() billingCity?: string;
+  @IsOptional() @IsString() billingRegion?: string;
+  @IsOptional() @IsString() billingPostcode?: string;
+  @IsOptional() @IsString() billingCountryCode?: string;
+  @IsOptional() @IsString() deliveryAddressLine1?: string;
+  @IsOptional() @IsString() deliveryAddressLine2?: string;
+  @IsOptional() @IsString() deliveryCity?: string;
+  @IsOptional() @IsString() deliveryRegion?: string;
+  @IsOptional() @IsString() deliveryPostcode?: string;
+  @IsOptional() @IsString() deliveryCountryCode?: string;
   @IsOptional() @IsString() paymentTerms?: string;
   @IsOptional() @IsString() productCategoryLicensingNotes?: string;
   @IsOptional() @IsString() destinationCountryRestrictionsNotes?: string;
