@@ -237,6 +237,24 @@ module adminSwa 'modules/staticWebApp.bicep' = {
   }
 }
 
+// Product Database Management — added 2026-10-03, the first module for the
+// app's own Static Web App resource. Same shape as projectManagementSwa/
+// adminSwa above; not deployed by itself — this only takes effect once
+// Lewis re-runs deploy-infra.yml (or `az deployment group create` directly)
+// against the real subscription, same bootstrap step Admin's SWA needed
+// before deploy-static-web-apps.yml's "admin" job could run for real. Once
+// that's live, set SWA_TOKEN_PRODUCT_DATABASE (its deployment token) and
+// PRODUCT_DATABASE_URL (its hostname) as repo secrets/vars, and flip the
+// "product-database" entry in packages/ui/src/AppSwitcher.tsx's
+// UNIVERSE_APPS from status: "comingSoon" to "available".
+module productDatabaseSwa 'modules/staticWebApp.bicep' = {
+  name: 'productDatabaseSwa'
+  params: {
+    name: '${namePrefix}-product-database'
+    location: staticWebAppLocation
+  }
+}
+
 output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
@@ -245,3 +263,4 @@ output documentStorageAccountName string = storage.outputs.accountName
 output keyVaultName string = keyVault.outputs.vaultName
 output projectManagementUrl string = projectManagementSwa.outputs.defaultHostname
 output adminUrl string = adminSwa.outputs.defaultHostname
+output productDatabaseUrl string = productDatabaseSwa.outputs.defaultHostname

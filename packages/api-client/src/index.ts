@@ -5,6 +5,8 @@ import type {
   CreateOrganizationInput,
   CreatePartnerInput,
   CreateProductMasterInput,
+  ImportProductMasterResult,
+  ImportProductMasterRow,
   CreateProductSourceApprovalInput,
   CreateProjectInput,
   CreateSupplierEnquiryInput,
@@ -14,6 +16,7 @@ import type {
   PartnerPerformanceMetric,
   PartnerSummary,
   ProductCatalogDetail,
+  ProductCatalogListResult,
   ProductCatalogMatch,
   ProductMasterOption,
   ProductSourceApprovalSummary,
@@ -32,6 +35,7 @@ import type {
   StakeholderRegistryProduct,
   SupplierSearchResult,
   UpdatePartnerInput,
+  UpdateProductMasterInput,
   UpdateProductSourceApprovalInput,
   UpdateProjectInput,
   UpdateSupplierEnquiryInput,
@@ -235,6 +239,40 @@ export class UniverseApiClient {
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {
     return this.request("/product-catalog", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  /** Paginated browse for the Product Database Management app's catalogue
+   * screen — distinct from searchProductCatalog's 25-row typeahead. Added
+   * 2026-10-03. */
+  listProductCatalog(params?: {
+    q?: string;
+    category?: string;
+    sourceStandard?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ProductCatalogListResult> {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.category) qs.set("category", params.category);
+    if (params?.sourceStandard) qs.set("sourceStandard", params.sourceStandard);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request(`/product-catalog${query}`);
+  }
+
+  updateProductCatalogEntry(id: string, input: UpdateProductMasterInput): Promise<ProductCatalogMatch> {
+    return this.request(`/product-catalog/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  importProductCatalogRows(
+    sourceStandard: "HS_CODE" | "WHO_EML" | "UNSPSC" | "GS1_GTIN",
+    rows: ImportProductMasterRow[],
+  ): Promise<ImportProductMasterResult> {
+    return this.request("/product-catalog/import", {
+      method: "POST",
+      body: JSON.stringify({ sourceStandard, rows }),
+    });
   }
 
   // --- Quality Assurance (added 2026-10-01) ---

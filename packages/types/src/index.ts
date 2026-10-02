@@ -792,6 +792,54 @@ export interface CreateProductMasterInput {
   expectedQualityDocumentation?: string;
 }
 
+/** GET /product-catalog — paginated browse for the Product Database
+ * Management app's catalogue screen. Added 2026-10-03. */
+export interface ProductCatalogListResult {
+  items: ProductCatalogMatch[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** PATCH /product-catalog/:id body — every field optional, provenance
+ * fields excluded. See UpdateProductMasterDto's doc comment in apps/api.
+ * Added 2026-10-03. */
+export interface UpdateProductMasterInput {
+  name?: string;
+  category?: string;
+  hsCode?: string;
+  unspscCode?: string;
+  gtin?: string;
+  standardUnit?: string;
+  canonicalManufacturerPartNumber?: string;
+  expectedQualityDocumentation?: string;
+  isArchived?: boolean;
+}
+
+/** One row of a POST /product-catalog/import request body. See
+ * ImportProductMasterDto's doc comment in apps/api for the full design.
+ * Added 2026-10-03. */
+export interface ImportProductMasterRow {
+  name: string;
+  category: string;
+  hsCode?: string;
+  unspscCode?: string;
+  gtin?: string;
+  standardUnit?: string;
+}
+
+export type ProductSourceStandardForImport = "HS_CODE" | "WHO_EML" | "UNSPSC" | "GS1_GTIN";
+
+/** POST /product-catalog/import response — per-row outcome counts plus any
+ * row-level errors (never a hard failure for the whole batch; one bad row
+ * doesn't block the rest). Added 2026-10-03. */
+export interface ImportProductMasterResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+}
+
 /** A country from the shared, non-tenant-scoped Country reference table
  * (see schema.prisma) — powers the CountrySelect picker everywhere a
  * country field used to be a free-text ISO alpha-2 input. */

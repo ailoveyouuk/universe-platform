@@ -11,7 +11,8 @@ name: Deploy Static Web Apps
 # resources), then SWA_TOKEN_PROJECT_MANAGEMENT and SWA_TOKEN_ADMIN
 # repository secrets populated from their deployment tokens.
 #
-# Not runnable yet — no Static Web App resources exist to deploy to.
+# Not runnable yet for an app until its Static Web App resource exists (see
+# infra/bicep/main.bicep) and its SWA_TOKEN_* / *_URL secrets/vars are set.
 on:
   workflow_dispatch:
   push:
@@ -19,6 +20,7 @@ on:
     paths:
       - 'apps/project-management/**'
       - 'apps/admin/**'
+      - 'apps/product-database/**'
       - 'packages/ui/**'
       - 'packages/api-client/**'
       - 'packages/auth/**'
@@ -48,6 +50,30 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: apps/project-management/out
+          skip_app_build: true
+
+  product-database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm install
+      - run: npm run db:generate
+      - name: Build
+        run: npx turbo run build --filter=@universe/product-database
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_ID: ${{ vars.UNIVERSE_CIAM_TENANT_ID }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_SUBDOMAIN: ${{ vars.UNIVERSE_CIAM_TENANT_SUBDOMAIN }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_CLIENT_ID: ${{ vars.UNIVERSE_CIAM_CLIENT_ID }}
+          NEXT_PUBLIC_REDIRECT_URI: ${{ vars.PRODUCT_DATABASE_URL }}
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_PRODUCT_DATABASE }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: apps/product-database/out
           skip_app_build: true
 
   admin:

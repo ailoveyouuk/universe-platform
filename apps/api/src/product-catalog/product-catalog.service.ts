@@ -1,8 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import { prisma } from "@universe/db";
-import type { ProductCatalogDetail, ProductCatalogMatch } from "@universe/types";
+import type {
+  ProductCatalogDetail,
+  ProductCatalogListResult,
+  ProductCatalogMatch,
+  ImportProductMasterResult,
+} from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductMasterDto } from "./dto/create-product-master.dto";
+import type { UpdateProductMasterDto } from "./dto/update-product-master.dto";
+import type { ImportProductMasterRowDto } from "./dto/import-product-master.dto";
 
 /**
  * The shared, central product catalogue (ProductMaster) — search-or-create,
@@ -83,6 +90,139 @@ export class ProductCatalogService {
         required: a.required,
       })),
     };
+  }
+
+  /** Paginated browse/search for the Product Database Management app's
+   * catalogue screen — GET /product-catalog?q=&category=&sourceStandard=&page=&pageSize=.
+   * Distinct from search() above: that's a 25-row typeahead for the inline
+   * picker, this is the full list view with a real total count for
+   * pagination. Added 2026-10-03. */
+  async list(params: {
+    q?: string;
+    category?: string;
+    sourceStandard?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ProductCatalogListResult> {
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
+    const where = {
+      isArchived: false,
+      ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
+      ...(params.category ? { category: params.category } : {}),
+      ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
+    };
+    const [rows, total] = await Promise.all([
+      prisma.productMaster.findMany({
+        where,
+        include: { addedByOrganization: { select: { name: true } } },
+        orderBy: { name: "asc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.productMaster.count({ where }),
+    ]);
+    return { items: rows.map((r) => this.toMatch(r)), total, page, pageSize };
+  }
+
+  /** PATCH /product-catalog/:id — edits an existing entry. See
+   * UpdateProductMasterDto's doc comment: provenance fields
+   * (sourceStandard, addedByOrganizationId/Type) are deliberately not
+   * editable here. Added 2026-10-03. */
+  async update(id: string, dto: UpdateProductMasterDto): Promise<ProductCatalogMatch> {
+    const updated = await prisma.productMaster.update({
+      where: { id },
+      data: { ...dto },
+      include: { addedByOrganization: { select: { name: true } } },
+    });
+    return this.toMatch(updated);
+  }
+
+  /** POST /product-catalog/import — bulk upsert for reference-data
+   * importers (HS codes, WHO EML, UNSPSC, GS1 GTIN). See
+   * ImportProductMasterDto's doc comment for why this exists and what it
+   * is/isn't. Idempotent: a row is matched against an existing entry with
+   * the SAME sourceStandard and the same code value on whichever field
+   * that standard uses (hsCode for HS_CODE, unspscCode for UNSPSC, gtin
+   * for GS1_GTIN; WHO_EML has no single natural code column today, so it
+   * matches on sourceStandard + exact name instead — acceptable for a v1
+   * re-run-safe importer, worth revisiting if WHO EML's own code field
+   * gets modelled later). A match updates in place; no match creates a new
+   * row. Rows with neither a usable match key nor a name are skipped, not
+   * silently dropped — reported back in the result. Added 2026-10-03. */
+  async importBatch(
+    user: RequestUser,
+    sourceStandard: string,
+    rows: ImportProductMasterRowDto[],
+  ): Promise<ImportProductMasterResult> {
+    const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { type: true } });
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const errors: { row: number; message: string }[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row.name?.trim() || !row.category?.trim()) {
+        skipped++;
+        errors.push({ row: i, message: "Missing required name/category — skipped." });
+        continue;
+      }
+
+      try {
+        // Explicit per-standard branches rather than a computed Prisma
+        // `where` key — keeps this typecheckable against the generated
+        // Prisma client (a bracket-notation key here can't be verified
+        // against ProductMasterWhereInput at compile time, and this
+        // environment has no way to run `tsc` against the real generated
+        // client locally — see the build's standing verification caveat).
+        let existing: Awaited<ReturnType<typeof prisma.productMaster.findFirst>> = null;
+        if (sourceStandard === "HS_CODE" && row.hsCode) {
+          existing = await prisma.productMaster.findFirst({ where: { sourceStandard, hsCode: row.hsCode } });
+        } else if (sourceStandard === "UNSPSC" && row.unspscCode) {
+          existing = await prisma.productMaster.findFirst({ where: { sourceStandard, unspscCode: row.unspscCode } });
+        } else if (sourceStandard === "GS1_GTIN" && row.gtin) {
+          existing = await prisma.productMaster.findFirst({ where: { sourceStandard, gtin: row.gtin } });
+        } else {
+          existing = await prisma.productMaster.findFirst({ where: { sourceStandard, name: row.name.trim() } });
+        }
+
+        if (existing) {
+          await prisma.productMaster.update({
+            where: { id: existing.id },
+            data: {
+              name: row.name,
+              category: row.category,
+              hsCode: row.hsCode ?? existing.hsCode,
+              unspscCode: row.unspscCode ?? existing.unspscCode,
+              gtin: row.gtin ?? existing.gtin,
+              standardUnit: row.standardUnit ?? existing.standardUnit,
+            },
+          });
+          updated++;
+        } else {
+          await prisma.productMaster.create({
+            data: {
+              name: row.name,
+              category: row.category,
+              hsCode: row.hsCode,
+              unspscCode: row.unspscCode,
+              gtin: row.gtin,
+              standardUnit: row.standardUnit,
+              sourceStandard,
+              addedByOrganizationId: user.organizationId,
+              addedByOrganizationType: org?.type ?? null,
+            },
+          });
+          created++;
+        }
+      } catch (err) {
+        skipped++;
+        errors.push({ row: i, message: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
+
+    return { created, updated, skipped, errors };
   }
 
   /** Adds a new entry to the shared catalogue — POST /product-catalog. Only
