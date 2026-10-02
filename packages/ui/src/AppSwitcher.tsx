@@ -45,7 +45,14 @@ function appUrl(envVar: string, fallback?: string): string | undefined {
 export const UNIVERSE_APPS: UniverseAppEntry[] = [
   { key: "project-management", label: "Project Management", accent: "var(--u-brand-violet)", status: "current", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
   { key: "crm", label: "CRM", accent: "#336497", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
-  { key: "product-database", label: "Product Database", accent: "#2A704C", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE" },
+  {
+    key: "product-database",
+    label: "Product Database",
+    accent: "#2A704C",
+    status: "available",
+    href: appUrl("NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE", "https://delightful-stone-0f4d11d0f.1.azurestaticapps.net"),
+    envVar: "NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE",
+  },
   { key: "tender-issuance", label: "Tender Issuance", accent: "#B85D23", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE" },
   {
     key: "admin",
