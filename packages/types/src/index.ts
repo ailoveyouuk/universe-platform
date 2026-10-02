@@ -584,6 +584,10 @@ export interface PartnerCertificationSummary {
   status: string; // CURRENT | ARCHIVED
   notes: string | null;
   manufacturerSiteId: string | null;
+  /** See PartnerCertification.relatedCompanyCheckType's doc comment in
+   * schema.prisma — the PartnerCompanyCheckSummary.checkType this document
+   * is attached to as evidence, if any. */
+  relatedCompanyCheckType: string | null;
   /** True if expiryDate is set and in the past — convenience flag so every
    * consumer doesn't re-derive the same date comparison. */
   isExpired: boolean;
@@ -594,6 +598,9 @@ export interface PartnerCertificationSummary {
 export interface PartnerCompanyCheckSummary {
   id: string;
   checkType: string;
+  /** Only meaningful when checkType is "OTHER" — see
+   * PartnerCompanyCheck.customLabel's doc comment in schema.prisma. */
+  customLabel: string | null;
   result: string; // YES | NO | NOT_APPLICABLE
   checkedDate: string | null;
   referenceOrSource: string | null;
@@ -613,6 +620,9 @@ export interface PartnerSummary {
    * this Partner to the shared, cross-tenant identity registry row for the
    * same real-world company, if one has been matched/confirmed. */
   registryEntryId: string | null;
+  /** See Partner.sharedWithUniverseRegistry's doc comment in schema.prisma
+   * — the New Stakeholder form's consent toggle. */
+  sharedWithUniverseRegistry: boolean;
   lastApprovalReviewDate: string | null;
   nextApprovalReviewDue: string | null;
   roles: PartnerRoleSummary[];
@@ -640,10 +650,15 @@ export interface CreatePartnerCertificationInput {
   status?: string;
   notes?: string;
   manufacturerSiteIndex?: number;
+  /** See PartnerCertification.relatedCompanyCheckType's doc comment in
+   * schema.prisma. */
+  relatedCompanyCheckType?: string;
 }
 
 export interface CreatePartnerCompanyCheckInput {
   checkType: string;
+  /** Only meaningful when checkType is "OTHER". */
+  customLabel?: string;
   result: string;
   checkedDate?: string;
   referenceOrSource?: string;
@@ -667,6 +682,10 @@ export interface CreatePartnerInput {
   /** Set when the caller already confirmed a match from the
    * duplicate-prevention prompt — see CreatePartnerDto.registryEntryId. */
   registryEntryId?: string;
+  /** Off-by-default consent to share this stakeholder with the cross-tenant
+   * registry — see Partner.sharedWithUniverseRegistry's doc comment in
+   * schema.prisma and the New Stakeholder form's consent toggle. */
+  sharedWithUniverseRegistry?: boolean;
   /** At least one role required — a Partner with no role is meaningless. */
   roleTypes: string[];
   supplierDetail?: PartnerSupplierDetail;
@@ -687,6 +706,8 @@ export interface UpdatePartnerInput {
   riskTier?: string;
   companyRegistrationNumber?: string;
   vatNumber?: string;
+  /** See Partner.sharedWithUniverseRegistry's doc comment in schema.prisma. */
+  sharedWithUniverseRegistry?: boolean;
   /** Adds any role types not already present — does not remove existing
    * ones (see PartnersService.update's doc comment). */
   addRoleTypes?: string[];

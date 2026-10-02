@@ -127,8 +127,48 @@ export default function PartnerDetailPage() {
 
       {partner.manufacturerDetail && (
         <DetailSection title="Manufacturer details">
-          <InfoCard label="Part number convention">{partner.manufacturerDetail.partNumberConvention ?? "—"}</InfoCard>
-          <InfoCard label="Country of manufacture">{partner.manufacturerDetail.countryOfManufactureCode ?? "—"}</InfoCard>
+          <InfoCard label="Scope of supply">{partner.manufacturerDetail.scopeOfSupply || "—"}</InfoCard>
+          <InfoCard label="Scope of services">{partner.manufacturerDetail.scopeOfServicesDescription || "—"}</InfoCard>
+        </DetailSection>
+      )}
+
+      {partner.manufacturerSites.length > 0 && (
+        <DetailSection title="Manufacturing sites">
+          {partner.manufacturerSites.map((site) => (
+            <InfoCard key={site.id} label={site.isPrimary ? `${site.siteName || "Site"} (Primary)` : site.siteName || "Site"}>
+              {[countries.find((c) => c.code === site.countryCode)?.name ?? site.countryCode, site.address].filter(Boolean).join(" — ") || "—"}
+            </InfoCard>
+          ))}
+        </DetailSection>
+      )}
+
+      {partner.companyChecks.length > 0 && (
+        <DetailSection title="Company checks">
+          {partner.companyChecks.map((check) => {
+            const relatedDocs = partner.certifications.filter((c) => c.relatedCompanyCheckType === check.checkType);
+            const label = check.checkType === "OTHER" ? check.customLabel || "Other check" : check.checkType.replace(/_/g, " ");
+            return (
+              <InfoCard key={check.id} label={label}>
+                {check.result.replace(/_/g, " ")}
+                {check.checkedDate ? ` — checked ${new Date(check.checkedDate).toLocaleDateString()}` : ""}
+                {check.referenceOrSource ? ` — ${check.referenceOrSource}` : ""}
+                {relatedDocs.length > 0 ? ` — ${relatedDocs.length} document(s) attached` : ""}
+              </InfoCard>
+            );
+          })}
+        </DetailSection>
+      )}
+
+      {partner.certifications.length > 0 && (
+        <DetailSection title="Documents & certifications">
+          {partner.certifications.map((cert) => (
+            <InfoCard key={cert.id} label={cert.type.replace(/_/g, " ")}>
+              {[cert.referenceNumber, cert.issuingBody, cert.expiryDate ? `expires ${new Date(cert.expiryDate).toLocaleDateString()}` : null]
+                .filter(Boolean)
+                .join(" — ") || "—"}
+              {cert.isExpired && <span style={{ color: "var(--u-status-critical)", marginLeft: 8 }}>Expired</span>}
+            </InfoCard>
+          ))}
         </DetailSection>
       )}
 
@@ -146,6 +186,10 @@ export default function PartnerDetailPage() {
           <InfoCard label="Service regions">{partner.freightForwarderDetail.serviceRegions ?? "—"}</InfoCard>
         </DetailSection>
       )}
+
+      <DetailSection title="Universe registry sharing">
+        <InfoCard label="Shared with Universe registry">{partner.sharedWithUniverseRegistry ? "Yes" : "No"}</InfoCard>
+      </DetailSection>
 
       {registryDetail && (
         <DetailSection title="Universe registry">

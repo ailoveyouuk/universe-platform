@@ -419,6 +419,15 @@ model Partner {
   /// Product Database has a real, de-duplicated company to key off.
   registryEntryId String?
   registryEntry   StakeholderRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Added 2026-10-02 — an explicit, off-by-default opt-in from the adding
+  /// organisation, separate from registryEntryId itself. Off means this
+  /// Partner is never matched against or contributes to the shared,
+  /// cross-tenant stakeholder registry at all (fully private, no
+  /// duplicate-prevention benefit); on means its generic identity fields
+  /// (name/country/registration number only — never anything from the
+  /// adding organisation's own records) are shared for cross-tenant
+  /// duplicate-prevention, per the New Stakeholder form's consent toggle.
+  sharedWithUniverseRegistry Boolean @default(false)
   /// SOP008 §4.7.1's "Annual Bona Fide re-check" (FORM 008.2) generalized
   /// to any role with a re-approval cadence, rather than duplicating this
   /// pair of dates on every *Detail table.
@@ -647,6 +656,16 @@ model PartnerCertification {
   /// whole company. Null means company-wide.
   manufacturerSiteId String?
   manufacturerSite   ManufacturerSite? @relation(fields: [manufacturerSiteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Optionally scopes this document to one of the partner's Company
+  /// Checks (e.g. a VAT Certificate upload attached to the "VAT
+  /// Certificate" check) rather than the site above — the two scopes are
+  /// independent and a document can carry either, both, or neither. Stores
+  /// PartnerCompanyCheck.checkType directly (a free-text join key, same
+  /// convention as `type` below) rather than a check's own id, since a
+  /// partner has at most one row per checkType. Added 2026-10-02 alongside
+  /// the "Add Check" picker UI, so documents/certificates can be related
+  /// and logged against the specific check they evidence.
+  relatedCompanyCheckType String?
   type       String    // see allowed values reference above
   referenceNumber String? // certificate/registration/licence number
   /// Declarations of Conformity and similar documents get re-issued on a
@@ -697,6 +716,10 @@ model PartnerCompanyCheck {
   partnerId   String
   partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   checkType   String   // see allowed values reference above (PartnerCompanyCheckType)
+  /// Only meaningful when checkType == "OTHER" — the user-entered label
+  /// for a check not on the predefined list (e.g. "Export Licence Check").
+  /// Added 2026-10-02 alongside the "Add Check" picker UI.
+  customLabel String?
   result      String   // YES | NO | NOT_APPLICABLE
   checkedDate DateTime?
   /// e.g. the Companies House reference number, or the credit-check

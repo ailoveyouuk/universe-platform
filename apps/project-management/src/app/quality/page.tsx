@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type {
   PartnerPerformanceMetric,
   PartnerSummary,
-  ProductMasterOption,
+  ProductCatalogMatch,
   ProductSourceApprovalSummary,
   QualityDashboardSummary,
 } from "@universe/types";
@@ -21,6 +21,8 @@ import {
   ClockIcon,
   GaugeIcon,
   PlusIcon,
+  ProductPicker,
+  type ProductPickerOption,
 } from "@universe/ui";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED"] as const;
@@ -424,9 +426,19 @@ function QaTile({
 }
 
 function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
-  const [productSearch, setProductSearch] = useState("");
-  const [productOptions, setProductOptions] = useState<ProductMasterOption[]>([]);
+  // Product field now shares the exact ProductPicker component (and the
+  // ProductCatalogService backend it talks to) used by the project
+  // line-item "Matched Product" field in LineForm.tsx, per Lewis's
+  // instruction that this screen's existing product search "can be
+  // enhanced and utilised again... to ensure everything is tied together
+  // and consistent" rather than keeping its own bespoke dropdown. This
+  // also gains the "+ Add to the catalogue" affordance the old inline
+  // dropdown never had.
+  const [productQuery, setProductQuery] = useState("");
+  const [productOptions, setProductOptions] = useState<ProductCatalogMatch[]>([]);
   const [productId, setProductId] = useState("");
+  const [productLabel, setProductLabel] = useState<string | null>(null);
+  const [creatingProduct, setCreatingProduct] = useState(false);
   const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
   const [suppliers, setSuppliers] = useState<PartnerSummary[]>([]);
   const [manufacturerId, setManufacturerId] = useState("");
@@ -441,13 +453,40 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   }, []);
 
   useEffect(() => {
+    if (!productQuery.trim()) {
+      setProductOptions([]);
+      return;
+    }
     const handle = setTimeout(() => {
-      apiClient.searchQualityProducts(productSearch || undefined).then(setProductOptions).catch(() => setProductOptions([]));
+      apiClient.searchProductCatalog(productQuery).then(setProductOptions).catch(() => setProductOptions([]));
     }, 250);
     return () => clearTimeout(handle);
-  }, [productSearch]);
+  }, [productQuery]);
 
-  const productLabel = useMemo(() => productOptions.find((p) => p.id === productId)?.name ?? "", [productOptions, productId]);
+  function handleSelectProduct(option: ProductPickerOption) {
+    setProductId(option.id);
+    setProductLabel(option.name);
+    setProductQuery("");
+    setProductOptions([]);
+  }
+
+  function handleClearProduct() {
+    setProductId("");
+    setProductLabel(null);
+  }
+
+  async function handleCreateProduct(name: string) {
+    if (!name) return;
+    setCreatingProduct(true);
+    try {
+      const created = await apiClient.createProductCatalogEntry({ name, category: "CONSUMABLES" });
+      handleSelectProduct(created);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to add product to the catalogue");
+    } finally {
+      setCreatingProduct(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!productId || !manufacturerId) {
@@ -489,47 +528,19 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
           Product (search the shared catalogue)
-          <input
-            value={productId ? productLabel : productSearch}
-            onChange={(e) => {
-              setProductId("");
-              setProductSearch(e.target.value);
-            }}
+          <ProductPicker
+            query={productQuery}
+            onQueryChange={setProductQuery}
+            options={productOptions}
+            selectedId={productId}
+            selectedLabel={productLabel}
+            onSelect={handleSelectProduct}
+            onClear={handleClearProduct}
+            onCreateNew={handleCreateProduct}
+            creating={creatingProduct}
             placeholder="Start typing a product name…"
-            style={{
-              padding: "9px 12px",
-              fontSize: 13.5,
-              fontFamily: "var(--u-font-sans)",
-              borderRadius: "var(--u-radius-md)",
-              border: "1px solid var(--u-border)",
-              backgroundColor: "var(--u-surface)",
-              color: "var(--u-ink)",
-            }}
+            ariaLabel="Search the product catalogue"
           />
-          {!productId && productSearch && productOptions.length > 0 && (
-            <div
-              style={{
-                border: "1px solid var(--u-border)",
-                borderRadius: "var(--u-radius-md)",
-                backgroundColor: "var(--u-surface)",
-                maxHeight: 160,
-                overflowY: "auto",
-              }}
-            >
-              {productOptions.map((p) => (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    setProductId(p.id);
-                    setProductSearch("");
-                  }}
-                  style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", color: "var(--u-ink)" }}
-                >
-                  {p.name} <span style={{ color: "var(--u-ink-secondary)" }}>· {p.category}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>

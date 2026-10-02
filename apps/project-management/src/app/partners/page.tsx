@@ -39,9 +39,10 @@ import {
  */
 const ROLE_FILTERS = ["", "CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
 const APPROVAL_FILTERS = ["", "PENDING", "APPROVED", "REMOVED"] as const;
+const RISK_FILTERS = ["", "HIGH", "MEDIUM", "LOW"] as const;
 const RECENT_CATEGORIES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
 
-type SortKey = "name" | "roles" | "country" | "approval" | "created";
+type SortKey = "name" | "roles" | "country" | "approval" | "risk" | "created";
 
 export default function PartnersPage() {
   const router = useRouter();
@@ -59,6 +60,8 @@ export default function PartnersPage() {
   const [approvalFilter, setApprovalFilter] = useState<(typeof APPROVAL_FILTERS)[number]>(
     () => (APPROVAL_FILTERS as readonly string[]).includes(searchParams.get("approval") ?? "") ? (searchParams.get("approval") as any) : ""
   );
+  const [countryFilter, setCountryFilter] = useState("");
+  const [riskFilter, setRiskFilter] = useState<(typeof RISK_FILTERS)[number]>("");
   const [sortKey, setSortKey] = useState<SortKey>("created");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -81,13 +84,15 @@ export default function PartnersPage() {
     return partners.filter((p) => {
       if (roleFilter && !p.roles.some((r) => r.roleType === roleFilter)) return false;
       if (approvalFilter && p.approvalStatus !== approvalFilter) return false;
+      if (countryFilter && p.countryCode !== countryFilter) return false;
+      if (riskFilter && p.riskTier !== riskFilter) return false;
       if (q) {
-        const haystack = `${p.name} ${p.countryCode ?? ""} ${p.website ?? ""} ${p.roles.map((r) => r.roleType).join(" ")}`.toLowerCase();
+        const haystack = `${p.name} ${p.countryCode ?? ""} ${p.website ?? ""} ${p.companyRegistrationNumber ?? ""} ${p.vatNumber ?? ""} ${p.roles.map((r) => r.roleType).join(" ")}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [partners, search, roleFilter, approvalFilter]);
+  }, [partners, search, roleFilter, approvalFilter, countryFilter, riskFilter]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -102,6 +107,8 @@ export default function PartnersPage() {
           return (a.countryCode ?? "").localeCompare(b.countryCode ?? "") * dir;
         case "approval":
           return a.approvalStatus.localeCompare(b.approvalStatus) * dir;
+        case "risk":
+          return (a.riskTier ?? "").localeCompare(b.riskTier ?? "") * dir;
         case "created":
         default:
           return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
@@ -232,6 +239,20 @@ export default function PartnersPage() {
           allLabel="All approval states"
           ariaLabel="Filter by approval state"
         />
+        <Select
+          value={countryFilter}
+          onChange={(v) => { setCountryFilter(v); setPage(0); }}
+          options={countries.map((c) => ({ value: c.code, label: c.name }))}
+          allLabel="All countries"
+          ariaLabel="Filter by country"
+        />
+        <Select
+          value={riskFilter}
+          onChange={(v) => { setRiskFilter(v as any); setPage(0); }}
+          options={RISK_FILTERS.filter(Boolean).map((r) => ({ value: r, label: r }))}
+          allLabel="All risk tiers"
+          ariaLabel="Filter by risk tier"
+        />
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
@@ -247,6 +268,7 @@ export default function PartnersPage() {
                 <SortableHeader label="Country" sortKey="country" activeKey={sortKey} direction={sortDir} onSort={onSort} />
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Website</th>
                 <SortableHeader label="Approval" sortKey="approval" activeKey={sortKey} direction={sortDir} onSort={onSort} />
+                <SortableHeader label="Risk" sortKey="risk" activeKey={sortKey} direction={sortDir} onSort={onSort} />
                 <SortableHeader label="Added" sortKey="created" activeKey={sortKey} direction={sortDir} onSort={onSort} />
               </tr>
             </thead>
@@ -282,12 +304,13 @@ export default function PartnersPage() {
                       {p.approvalStatus}
                     </Pill>
                   </td>
+                  <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.riskTier ?? "—"}</td>
                   <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{new Date(p.createdAt).toLocaleDateString()}</td>
                 </tr>
               ))}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
+                  <td colSpan={7} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
                     No stakeholders match these filters.
                   </td>
                 </tr>

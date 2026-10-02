@@ -38,6 +38,12 @@ export class PartnerCertificationDto {
    * real site id server-side once the sites are created in the same
    * transaction. Omit for a company-wide (not site-specific) document. */
   @IsOptional() @IsNumber() manufacturerSiteIndex?: number;
+  /** Optionally relates this document to a specific company check (e.g. a
+   * VAT Certificate upload attached to the "VAT Certificate" check) — the
+   * checkType string itself, same free-text join-key convention as `type`
+   * above. See PartnerCertification.relatedCompanyCheckType's doc comment
+   * in schema.prisma. */
+  @IsOptional() @IsString() relatedCompanyCheckType?: string;
 }
 
 /** Bioconnections FORM 008.1's "Company Checks" table (Companies House,
@@ -45,6 +51,9 @@ export class PartnerCertificationDto {
  * see PartnerCompanyCheck's doc comment in schema.prisma. */
 export class PartnerCompanyCheckDto {
   @IsString() checkType!: string;
+  /** Only meaningful when checkType is "OTHER" — see
+   * PartnerCompanyCheck.customLabel's doc comment in schema.prisma. */
+  @IsOptional() @IsString() customLabel?: string;
   @IsIn(COMPANY_CHECK_RESULTS) result!: (typeof COMPANY_CHECK_RESULTS)[number];
   @IsOptional() @IsDateString() checkedDate?: string;
   @IsOptional() @IsString() referenceOrSource?: string;
@@ -140,6 +149,14 @@ export class CreatePartnerDto {
    * Omit to let the server run its own matching (creates a fresh registry
    * entry if nothing plausible is found). */
   @IsOptional() @IsString() registryEntryId?: string;
+
+  /** Off-by-default consent to share this stakeholder's generic identity
+   * fields (name/country/registration number only) with the cross-tenant
+   * registry for duplicate-prevention — see
+   * Partner.sharedWithUniverseRegistry's doc comment in schema.prisma and
+   * the New Stakeholder form's consent toggle. Omitted/false means
+   * registryEntryId above is never resolved/created for this Partner. */
+  @IsOptional() @IsBoolean() sharedWithUniverseRegistry?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)

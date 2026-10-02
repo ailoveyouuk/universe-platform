@@ -26,6 +26,19 @@ const TERMINAL_STAGES = ["UNAWARDED", "DECLINED", "CANCELLED"] as const;
 const ALL_STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const PROJECT_TYPES = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
 
+// Virtual, section-dashboard-only filter groups (not real statuses — see
+// ALL_STATUSES/the Status dropdown for those) — added 2026-10-03 per
+// Lewis's feedback that "Awarded" (now being actively worked on, post-
+// submission) deserved equal visual billing to "Active" (not yet
+// submitted), and that the old "Active" tile didn't actually filter to
+// anything (it just cleared every filter, since statusFilter === "" was
+// its own "active" state). "Awarded" here is deliberately AWARDED only —
+// Completed gets its own tile — since those are different things to a
+// project manager: one is still being delivered, the other is finished.
+const STATUS_GROUPS: Record<string, readonly string[]> = {
+  ACTIVE: ["IDENTIFIED", "IN_PROGRESS"],
+};
+
 type SortKey = "reference" | "title" | "client" | "status" | "due" | "daysLeft";
 
 /**
@@ -59,22 +72,31 @@ export default function ProjectsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load projects"));
   }, []);
 
+  function isOverdue(p: ProjectSummary): boolean {
+    return Boolean(p.dueDate) && new Date(p.dueDate as string) < new Date() && !["COMPLETED", "AWARDED", ...TERMINAL_STAGES].includes(p.status as any);
+  }
+
   const stats = useMemo(() => {
     const list = projects ?? [];
-    const active = list.filter((p) => !TERMINAL_STAGES.includes(p.status as any) && p.status !== "COMPLETED");
+    const active = list.filter((p) => STATUS_GROUPS.ACTIVE.includes(p.status));
     const submitted = list.filter((p) => p.status === "SUBMITTED");
-    const awarded = list.filter((p) => p.status === "AWARDED" || p.status === "COMPLETED");
-    const overdue = list.filter(
-      (p) => p.dueDate && new Date(p.dueDate) < new Date() && !["COMPLETED", "AWARDED", ...TERMINAL_STAGES].includes(p.status as any)
-    );
-    return { active: active.length, submitted: submitted.length, awarded: awarded.length, overdue: overdue.length };
+    const awarded = list.filter((p) => p.status === "AWARDED");
+    const completed = list.filter((p) => p.status === "COMPLETED");
+    const overdue = list.filter(isOverdue);
+    return { active: active.length, submitted: submitted.length, awarded: awarded.length, completed: completed.length, overdue: overdue.length };
   }, [projects]);
 
   const filtered = useMemo(() => {
     if (!projects) return [];
     const q = search.trim().toLowerCase();
     return projects.filter((p) => {
-      if (statusFilter && p.status !== statusFilter) return false;
+      if (statusFilter === "OVERDUE") {
+        if (!isOverdue(p)) return false;
+      } else if (statusFilter && STATUS_GROUPS[statusFilter]) {
+        if (!STATUS_GROUPS[statusFilter].includes(p.status)) return false;
+      } else if (statusFilter && p.status !== statusFilter) {
+        return false;
+      }
       if (typeFilter && p.projectType !== typeFilter) return false;
       if (q) {
         const haystack = `${p.referenceNumber} ${p.title} ${p.clientName ?? ""}`.toLowerCase();
@@ -134,13 +156,59 @@ export default function ProjectsPage() {
         </Link>
       </div>
 
-      {/* Section dashboard */}
+      {/* Section dashboard — Active (not yet submitted) and Awarded (now
+          being worked on) get equal visual billing, per Lewis's feedback
+          that Awarded projects were under-represented here before. Click
+          any tile to filter the table below to exactly that group; click
+          the active one again (or "All Projects") to clear it. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 20 }}>
-        <SectionStat label="Active" value={stats.active} icon={<ProjectsIcon size={18} />} onClick={() => { setStatusFilter(""); setPage(0); }} active={statusFilter === ""} />
-        <SectionStat label="Submitted" value={stats.submitted} icon={<ClockIcon size={18} />} onClick={() => { setStatusFilter("SUBMITTED"); setPage(0); }} active={statusFilter === "SUBMITTED"} />
-        <SectionStat label="Awarded / Completed" value={stats.awarded} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => { setStatusFilter("AWARDED"); setPage(0); }} active={statusFilter === "AWARDED"} />
-        <SectionStat label="Overdue" value={stats.overdue} icon={<AlertIcon size={18} />} tone="warning" onClick={() => { setSearch(""); setStatusFilter(""); setSortKey("due"); setSortDir("asc"); setPage(0); }} active={false} />
+        <SectionStat
+          label="Active (not submitted)"
+          value={stats.active}
+          icon={<ProjectsIcon size={18} />}
+          onClick={() => { setStatusFilter((f) => (f === "ACTIVE" ? "" : "ACTIVE")); setPage(0); }}
+          active={statusFilter === "ACTIVE"}
+        />
+        <SectionStat
+          label="Submitted"
+          value={stats.submitted}
+          icon={<ClockIcon size={18} />}
+          onClick={() => { setStatusFilter((f) => (f === "SUBMITTED" ? "" : "SUBMITTED")); setPage(0); }}
+          active={statusFilter === "SUBMITTED"}
+        />
+        <SectionStat
+          label="Awarded (in progress)"
+          value={stats.awarded}
+          icon={<CheckCircleIcon size={18} />}
+          tone="good"
+          onClick={() => { setStatusFilter((f) => (f === "AWARDED" ? "" : "AWARDED")); setPage(0); }}
+          active={statusFilter === "AWARDED"}
+        />
+        <SectionStat
+          label="Completed"
+          value={stats.completed}
+          icon={<CheckCircleIcon size={18} />}
+          onClick={() => { setStatusFilter((f) => (f === "COMPLETED" ? "" : "COMPLETED")); setPage(0); }}
+          active={statusFilter === "COMPLETED"}
+        />
+        <SectionStat
+          label="Overdue"
+          value={stats.overdue}
+          icon={<AlertIcon size={18} />}
+          tone="warning"
+          onClick={() => { setStatusFilter((f) => (f === "OVERDUE" ? "" : "OVERDUE")); setSortKey("due"); setSortDir("asc"); setPage(0); }}
+          active={statusFilter === "OVERDUE"}
+        />
       </div>
+      {statusFilter && (
+        <button
+          type="button"
+          onClick={() => { setStatusFilter(""); setPage(0); }}
+          style={{ background: "none", border: "none", padding: 0, marginTop: 10, fontSize: 12.5, color: "var(--u-ink-secondary)", textDecoration: "underline", cursor: "pointer" }}
+        >
+          Clear filter — show all projects
+        </button>
+      )}
 
       {/* Filters + search */}
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>

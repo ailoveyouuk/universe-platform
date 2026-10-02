@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
 import {
   ClientDetailDto,
   FreightForwarderDetailDto,
@@ -23,6 +23,10 @@ export class UpdatePartnerDto {
   @IsOptional() @IsIn(RISK_TIERS) riskTier?: (typeof RISK_TIERS)[number];
   @IsOptional() @IsString() companyRegistrationNumber?: string;
   @IsOptional() @IsString() vatNumber?: string;
+  /** See Partner.sharedWithUniverseRegistry's doc comment in schema.prisma
+   * and the consent toggle on the New Stakeholder form — lets a partner
+   * opt in (or back out) of the shared registry after creation. */
+  @IsOptional() @IsBoolean() sharedWithUniverseRegistry?: boolean;
 
   /** Adds any role types not already present on this Partner — never
    * removes one. Removing a role is a rarer, more deliberate action

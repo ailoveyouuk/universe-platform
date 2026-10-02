@@ -13,6 +13,7 @@ import type {
 } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
+import { useCurrentUser } from "../../../lib/AuthContext";
 import { Button, Select, CountrySelect } from "@universe/ui";
 
 // LOGISTICS removed 2026-10-01 — folded into Freight Forwarder/Warehousing
@@ -65,10 +66,10 @@ const TRANSPORT_MODE_LABELS: Record<string, string> = {
   RAIL: "Rail",
 };
 
-// Bioconnections FORM 008.1's "Company Checks" table, in its original
-// order — see PartnerCompanyCheckType in packages/db/src/enums.ts. OTHER is
-// deliberately left off this fixed list; it exists in the enum for a
-// future "add another check" affordance, not needed for v1.
+// The standard supplier/manufacturer/freight-forwarder verification
+// checklist — see PartnerCompanyCheckType in packages/db/src/enums.ts.
+// OTHER is appended separately below (ADD_CHECK_OPTIONS) since it needs a
+// custom label rather than a fixed one.
 const COMPANY_CHECK_TYPES = [
   { value: "COMPANIES_HOUSE_REGISTRATION", label: "UK Companies House Registration" },
   { value: "OTHER_NATIONAL_COMPANY_REGISTRATION", label: "Other National Company Registration" },
@@ -156,8 +157,17 @@ type CertificationRow = {
   expiryDate: string;
   notes: string;
   manufacturerSiteIndex: string; // "" = company-wide, else stringified index
+  relatedCompanyCheckType: string; // "" = not related to a specific check
 };
-type CompanyCheckRow = { result: string; checkedDate: string; referenceOrSource: string; comment: string };
+type CompanyCheckRow = { result: string; checkedDate: string; referenceOrSource: string; comment: string; customLabel: string };
+const BLANK_COMPANY_CHECK: CompanyCheckRow = { result: "", checkedDate: "", referenceOrSource: "", comment: "", customLabel: "" };
+// Company Checks is now an "Add Check" picker (changed 2026-10-03, per
+// Lewis's feedback that listing every possible check up front — most of
+// them never used — read as cluttered) rather than a fixed set of rows
+// always shown: COMPANY_CHECK_TYPES plus a synthetic "Other" option for a
+// check not on the predefined list (PartnerCompanyCheckType.OTHER already
+// existed in the enum for exactly this, just unused in the UI before now).
+const ADD_CHECK_OPTIONS = [...COMPANY_CHECK_TYPES, { value: "OTHER", label: "Other…" }] as const;
 
 /**
  * New Stakeholder — expanded 2026-10-02 per Lewis's round-4 feedback.
@@ -201,6 +211,7 @@ type CompanyCheckRow = { result: string; checkedDate: string; referenceOrSource:
 export default function NewPartnerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const me = useCurrentUser();
   // Pre-selected from the Stakeholders page's "+ Add Stakeholder" menu
   // (e.g. /partners/new?role=CLIENT) — "Manufacturer / Supplier" from that
   // menu lands here with role=MANUFACTURER pre-ticked; Supplier is one
@@ -237,6 +248,14 @@ export default function NewPartnerPage() {
   const [lightboxProducts, setLightboxProducts] = useState<StakeholderRegistryProduct[]>([]);
   const [lightboxLoading, setLightboxLoading] = useState(false);
 
+  // Consent toggle (added 2026-10-03) — off by default. See
+  // Partner.sharedWithUniverseRegistry's doc comment in schema.prisma:
+  // while off, the duplicate-prevention search below never runs and
+  // nothing is matched/created in the shared registry for this Partner at
+  // all. Deliberately separate from registryEntryId (which only tracks an
+  // already-confirmed match) so the gate is a single, simple boolean.
+  const [shareWithRegistry, setShareWithRegistry] = useState(false);
+
   // The form's own matching scope — the first role ticked, per Lewis's own
   // framing ("the system will know Client 2 is trying to add a
   // stakeholder-manufacturer"). A stakeholder with several roles still
@@ -245,7 +264,7 @@ export default function NewPartnerPage() {
   const primaryRoleType = roleTypes[0];
 
   useEffect(() => {
-    if (registryEntryId || !primaryRoleType || name.trim().length < 2) {
+    if (!shareWithRegistry || registryEntryId || !primaryRoleType || name.trim().length < 2) {
       setRegistryMatches([]);
       return;
     }
@@ -256,7 +275,7 @@ export default function NewPartnerPage() {
         .catch(() => setRegistryMatches([]));
     }, 300);
     return () => clearTimeout(handle);
-  }, [name, primaryRoleType, registryEntryId, dismissedMatchIds]);
+  }, [shareWithRegistry, name, primaryRoleType, registryEntryId, dismissedMatchIds]);
 
   function openRegistryLightbox(id: string) {
     setLightboxEntryId(id);
@@ -316,8 +335,12 @@ export default function NewPartnerPage() {
   const [supplierCodeOfConductAcknowledged, setSupplierCodeOfConductAcknowledged] = useState(false);
   const [supplierCodeOfConductDate, setSupplierCodeOfConductDate] = useState("");
 
-  const [partNumberConvention, setPartNumberConvention] = useState("");
-  const [countryOfManufactureCode, setCountryOfManufactureCode] = useState("");
+  // Part Number Convention and a standalone Country of Manufacture field
+  // were removed 2026-10-03 per Lewis's feedback: the former isn't needed
+  // right now, and the latter is now fully covered by Manufacturing Sites
+  // below (several real manufacturers have more than one site, each with
+  // its own country — a single top-level country field couldn't represent
+  // that, but the per-site country field already can).
   const [manufacturerScopeOfSupply, setManufacturerScopeOfSupply] = useState<string[]>([]);
   const [manufacturerScopeOfServices, setManufacturerScopeOfServices] = useState("");
   const [manufacturerSites, setManufacturerSites] = useState<ManufacturerSiteRow[]>([]);
@@ -353,10 +376,30 @@ export default function NewPartnerPage() {
   // open-ended repeater since the number of certificates genuinely varies
   // per company (see the Becton Dickinson folder: a handful of files for a
   // small supplier, dozens for a manufacturer with several sites). ---
-  const [companyChecks, setCompanyChecks] = useState<Record<string, CompanyCheckRow>>(
-    Object.fromEntries(COMPANY_CHECK_TYPES.map((c) => [c.value, { result: "", checkedDate: "", referenceOrSource: "", comment: "" }]))
-  );
+  const [companyChecks, setCompanyChecks] = useState<Record<string, CompanyCheckRow>>({});
+  const [addCheckValue, setAddCheckValue] = useState("");
   const [certifications, setCertifications] = useState<CertificationRow[]>([]);
+
+  function addCompanyCheck(checkType: string) {
+    if (!checkType || companyChecks[checkType]) return;
+    setCompanyChecks((prev) => ({ ...prev, [checkType]: { ...BLANK_COMPANY_CHECK } }));
+  }
+  function updateCompanyCheck(checkType: string, patch: Partial<CompanyCheckRow>) {
+    setCompanyChecks((prev) => ({ ...prev, [checkType]: { ...prev[checkType], ...patch } }));
+  }
+  function removeCompanyCheck(checkType: string) {
+    setCompanyChecks((prev) => {
+      const next = { ...prev };
+      delete next[checkType];
+      return next;
+    });
+    // A document related to the removed check falls back to unrelated
+    // rather than silently pointing at a check that no longer exists —
+    // same convention as removeManufacturerSite below.
+    setCertifications((prev) =>
+      prev.map((c) => (c.relatedCompanyCheckType === checkType ? { ...c, relatedCompanyCheckType: "" } : c))
+    );
+  }
 
   const hasRole = useMemo(() => (r: string) => roleTypes.includes(r), [roleTypes]);
   const showVerificationPacket = useMemo(
@@ -387,10 +430,10 @@ export default function NewPartnerPage() {
     );
   }
 
-  function addCertification() {
+  function addCertification(relatedCompanyCheckType = "") {
     setCertifications((prev) => [
       ...prev,
-      { type: "", referenceNumber: "", revision: "", issuingBody: "", issuedDate: "", expiryDate: "", notes: "", manufacturerSiteIndex: "" },
+      { type: "", referenceNumber: "", revision: "", issuingBody: "", issuedDate: "", expiryDate: "", notes: "", manufacturerSiteIndex: "", relatedCompanyCheckType },
     ]);
   }
   function updateCertification(index: number, patch: Partial<CertificationRow>) {
@@ -430,6 +473,7 @@ export default function NewPartnerPage() {
               expiryDate: c.expiryDate || undefined,
               notes: c.notes || undefined,
               manufacturerSiteIndex: c.manufacturerSiteIndex === "" ? undefined : Number(c.manufacturerSiteIndex),
+              relatedCompanyCheckType: c.relatedCompanyCheckType || undefined,
             }))
         : undefined;
 
@@ -438,6 +482,7 @@ export default function NewPartnerPage() {
             .filter(([, row]) => row.result)
             .map(([checkType, row]) => ({
               checkType,
+              customLabel: checkType === "OTHER" ? row.customLabel || undefined : undefined,
               result: row.result as "YES" | "NO" | "NOT_APPLICABLE",
               checkedDate: row.checkedDate || undefined,
               referenceOrSource: row.referenceOrSource || undefined,
@@ -453,6 +498,7 @@ export default function NewPartnerPage() {
         companyRegistrationNumber: companyRegistrationNumber || undefined,
         vatNumber: vatNumber || undefined,
         registryEntryId: registryEntryId || undefined,
+        sharedWithUniverseRegistry: shareWithRegistry,
         roleTypes,
         ...(manufacturerSitesInput?.length ? { manufacturerSites: manufacturerSitesInput } : {}),
         ...(certificationsInput?.length ? { certifications: certificationsInput } : {}),
@@ -473,8 +519,6 @@ export default function NewPartnerPage() {
         ...(hasRole("MANUFACTURER")
           ? {
               manufacturerDetail: {
-                partNumberConvention: partNumberConvention || undefined,
-                countryOfManufactureCode: countryOfManufactureCode || undefined,
                 scopeOfSupply: manufacturerScopeOfSupply.length ? manufacturerScopeOfSupply.join(",") : undefined,
                 scopeOfServicesDescription: manufacturerScopeOfServices || undefined,
               },
@@ -539,6 +583,35 @@ export default function NewPartnerPage() {
         <label>
           Company Name
           <input required style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            fontSize: 13,
+            color: "var(--u-ink)",
+            background: "var(--u-surface-alt)",
+            border: "1px solid var(--u-border)",
+            borderRadius: "var(--u-radius-md, 8px)",
+            padding: "12px 14px",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={shareWithRegistry}
+            onChange={(e) => setShareWithRegistry(e.target.checked)}
+            style={{ marginTop: 3, flexShrink: 0 }}
+          />
+          <span>
+            <strong>Share this stakeholder with the Universe registry.</strong> Off by default. Turning this on lets
+            other organisations on Universe find this company when they add the same manufacturer/supplier, avoiding
+            duplicate records, and — only once that company has its own Universe account and has chosen to publish
+            its profile — see its name and products. Nothing about {me?.organizationName ?? "your organisation"} is
+            ever shared: none of your own records, verification results, risk tier, documents or pricing are visible
+            or accessible to any other organisation, regardless of this setting.
+          </span>
         </label>
 
         {/* Stakeholder registry duplicate-prevention — see the state/effect
@@ -729,26 +802,6 @@ export default function NewPartnerPage() {
 
         {hasRole("MANUFACTURER") && (
           <RoleSection title="Manufacturer details">
-            <label>
-              Part Number Convention
-              <input
-                style={inputStyle}
-                value={partNumberConvention}
-                onChange={(e) => setPartNumberConvention(e.target.value)}
-                placeholder="How this manufacturer formats its part numbers"
-              />
-            </label>
-            <label style={{ display: "block" }}>
-              <span>Country of Manufacture</span>
-              <div style={{ marginTop: 4 }}>
-                <CountrySelect
-                  value={countryOfManufactureCode}
-                  onChange={setCountryOfManufactureCode}
-                  options={countries}
-                  ariaLabel="Country of manufacture"
-                />
-              </div>
-            </label>
             <ScopeOfSupplyField value={manufacturerScopeOfSupply} onToggle={(v) => toggleInList(manufacturerScopeOfSupply, v, setManufacturerScopeOfSupply)} />
             <label>
               Scope of Services
@@ -768,8 +821,9 @@ export default function NewPartnerPage() {
                 </Button>
               </div>
               <p style={{ margin: "0 0 10px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
-                The Becton Dickinson folder keeps one set of certificates (e.g. ISO 13485) per manufacturing site —
-                add a site here if this manufacturer has more than one, then scope documents to it below.
+                Add one row per manufacturing site — this also covers the country of manufacture: several
+                manufacturers make the same product at more than one location, each in its own country, so record
+                a site (and its country) for each one rather than a single company-wide country.
               </p>
               {manufacturerSites.map((site, i) => (
                 <div
@@ -980,71 +1034,117 @@ export default function NewPartnerPage() {
 
         {showVerificationPacket && (
           <RoleSection title="Company checks">
-            <p style={{ margin: "0 0 4px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
-              From the standard supplier/manufacturer/freight forwarder verification checklist (Bioconnections FORM
-              008.1) — leave a row blank if not yet checked.
+            <p style={{ margin: "0 0 10px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
+              From the standard supplier/manufacturer/freight forwarder verification checklist — add a check as you
+              complete it. Pick "Other…" for a check not on the list.
             </p>
-            {COMPANY_CHECK_TYPES.map(({ value, label }) => {
-              const row = companyChecks[value];
+            {Object.entries(companyChecks).map(([checkType, row]) => {
+              const label = ADD_CHECK_OPTIONS.find((o) => o.value === checkType)?.label ?? checkType;
               return (
                 <div
-                  key={value}
-                  style={{ display: "grid", gridTemplateColumns: "1.6fr 0.9fr 0.8fr 1.2fr 1.2fr", gap: 8, alignItems: "center" }}
+                  key={checkType}
+                  style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 10 }}
                 >
-                  <span style={{ fontSize: 13, color: "var(--u-ink)" }}>{label}</span>
-                  <Select
-                    value={row.result}
-                    onChange={(v) =>
-                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], result: v } }))
-                    }
-                    allLabel="Not checked"
-                    ariaLabel={`${label} result`}
-                    options={[
-                      { value: "YES", label: "Yes" },
-                      { value: "NO", label: "No" },
-                      { value: "NOT_APPLICABLE", label: "N/A" },
-                    ]}
-                  />
-                  <input
-                    type="date"
-                    style={inputStyle}
-                    value={row.checkedDate}
-                    onChange={(e) =>
-                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], checkedDate: e.target.value } }))
-                    }
-                  />
-                  <input
-                    style={inputStyle}
-                    placeholder="Reference / source"
-                    value={row.referenceOrSource}
-                    onChange={(e) =>
-                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], referenceOrSource: e.target.value } }))
-                    }
-                  />
-                  <input
-                    style={inputStyle}
-                    placeholder="Comment"
-                    value={row.comment}
-                    onChange={(e) =>
-                      setCompanyChecks((prev) => ({ ...prev, [value]: { ...prev[value], comment: e.target.value } }))
-                    }
-                  />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, gap: 10 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13.5 }}>{checkType === "OTHER" ? "Other check" : label}</span>
+                    <Button type="button" variant="secondary" onClick={() => removeCompanyCheck(checkType)}>
+                      Remove
+                    </Button>
+                  </div>
+                  {checkType === "OTHER" && (
+                    <label style={{ display: "block", marginBottom: 8 }}>
+                      Check Name
+                      <input
+                        style={inputStyle}
+                        placeholder="e.g. Export Licence Check"
+                        value={row.customLabel}
+                        onChange={(e) => updateCompanyCheck(checkType, { customLabel: e.target.value })}
+                      />
+                    </label>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
+                    <label style={{ display: "block" }}>
+                      <span>Result</span>
+                      <div style={{ marginTop: 4 }}>
+                        <Select
+                          value={row.result}
+                          onChange={(v) => updateCompanyCheck(checkType, { result: v })}
+                          allLabel="Not checked"
+                          ariaLabel={`${label} result`}
+                          options={[
+                            { value: "YES", label: "Yes" },
+                            { value: "NO", label: "No" },
+                            { value: "NOT_APPLICABLE", label: "N/A" },
+                          ]}
+                        />
+                      </div>
+                    </label>
+                    <label>
+                      Checked Date
+                      <input
+                        type="date"
+                        style={inputStyle}
+                        value={row.checkedDate}
+                        onChange={(e) => updateCompanyCheck(checkType, { checkedDate: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Reference / Source
+                      <input
+                        style={inputStyle}
+                        value={row.referenceOrSource}
+                        onChange={(e) => updateCompanyCheck(checkType, { referenceOrSource: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <label style={{ display: "block", marginBottom: 10 }}>
+                    Comment
+                    <input
+                      style={inputStyle}
+                      value={row.comment}
+                      onChange={(e) => updateCompanyCheck(checkType, { comment: e.target.value })}
+                    />
+                  </label>
+                  {certifications.filter((c) => c.relatedCompanyCheckType === checkType).length > 0 && (
+                    <p style={{ margin: "0 0 6px", fontSize: 12, color: "var(--u-ink-secondary)" }}>
+                      {certifications.filter((c) => c.relatedCompanyCheckType === checkType).length} document(s)
+                      attached below in Documents &amp; Certifications.
+                    </p>
+                  )}
+                  <Button type="button" variant="secondary" onClick={() => addCertification(checkType)}>
+                    + Add Document for This Check
+                  </Button>
                 </div>
               );
             })}
+            <label style={{ display: "block", maxWidth: 280 }}>
+              <span>Add Check</span>
+              <div style={{ marginTop: 4 }}>
+                <Select
+                  value={addCheckValue}
+                  onChange={(v) => {
+                    addCompanyCheck(v);
+                    setAddCheckValue("");
+                  }}
+                  allLabel="+ Add Check"
+                  ariaLabel="Add a company check"
+                  options={ADD_CHECK_OPTIONS.filter((o) => !companyChecks[o.value]).map((o) => ({ value: o.value, label: o.label }))}
+                />
+              </div>
+            </label>
           </RoleSection>
         )}
 
         {showVerificationPacket && (
           <RoleSection title="Documents & certifications">
             <p style={{ margin: "0 0 4px", color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
-              Mirrors the documents Unimed actually keeps per manufacturer/supplier (e.g. the Becton Dickinson
-              folder) — add one row per certificate, registration or agreement, scoped to a specific manufacturing
-              site where relevant.
+              Add one row per certificate, registration or agreement — scoped to a specific manufacturing site
+              and/or related to one of the Company Checks above where relevant, so they stay related and logged
+              together.
             </p>
             {certifications.map((cert, i) => (
               <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 8 }}>
                   <label style={{ display: "block" }}>
                     <span>Document Type</span>
                     <div style={{ marginTop: 4 }}>
@@ -1062,7 +1162,7 @@ export default function NewPartnerPage() {
                     <input style={inputStyle} value={cert.referenceNumber} onChange={(e) => updateCertification(i, { referenceNumber: e.target.value })} />
                   </label>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
                   <label>
                     Revision
                     <input style={inputStyle} value={cert.revision} onChange={(e) => updateCertification(i, { revision: e.target.value })} />
@@ -1094,6 +1194,26 @@ export default function NewPartnerPage() {
                     </div>
                   </label>
                 )}
+                {Object.keys(companyChecks).length > 0 && (
+                  <label style={{ display: "block", marginTop: 8 }}>
+                    <span>Related Check</span>
+                    <div style={{ marginTop: 4 }}>
+                      <Select
+                        value={cert.relatedCompanyCheckType}
+                        onChange={(v) => updateCertification(i, { relatedCompanyCheckType: v })}
+                        allLabel="Not related to a specific check"
+                        ariaLabel={`Related company check for document ${i + 1}`}
+                        options={Object.keys(companyChecks).map((checkType) => ({
+                          value: checkType,
+                          label:
+                            checkType === "OTHER"
+                              ? companyChecks[checkType].customLabel || "Other check"
+                              : ADD_CHECK_OPTIONS.find((o) => o.value === checkType)?.label ?? checkType,
+                        }))}
+                      />
+                    </div>
+                  </label>
+                )}
                 <label style={{ display: "block", marginTop: 8 }}>
                   Notes
                   <textarea style={textareaStyle} value={cert.notes} onChange={(e) => updateCertification(i, { notes: e.target.value })} />
@@ -1105,7 +1225,7 @@ export default function NewPartnerPage() {
                 </div>
               </div>
             ))}
-            <Button type="button" variant="secondary" onClick={addCertification} style={{ alignSelf: "flex-start" }}>
+            <Button type="button" variant="secondary" onClick={() => addCertification()} style={{ alignSelf: "flex-start" }}>
               + Add Document
             </Button>
           </RoleSection>

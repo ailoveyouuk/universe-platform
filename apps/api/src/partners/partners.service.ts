@@ -34,6 +34,7 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
     companyRegistrationNumber: p.companyRegistrationNumber,
     vatNumber: p.vatNumber,
     registryEntryId: p.registryEntryId,
+    sharedWithUniverseRegistry: p.sharedWithUniverseRegistry,
     lastApprovalReviewDate: p.lastApprovalReviewDate ? p.lastApprovalReviewDate.toISOString() : null,
     nextApprovalReviewDue: p.nextApprovalReviewDue ? p.nextApprovalReviewDue.toISOString() : null,
     roles: p.roles.map((r) => ({ roleType: r.roleType, isActive: r.isActive })),
@@ -113,11 +114,13 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
       status: c.status,
       notes: c.notes,
       manufacturerSiteId: c.manufacturerSiteId,
+      relatedCompanyCheckType: c.relatedCompanyCheckType,
       isExpired: Boolean(c.expiryDate && c.expiryDate.getTime() < now),
     })),
     companyChecks: p.companyChecks.map((c) => ({
       id: c.id,
       checkType: c.checkType,
+      customLabel: c.customLabel,
       result: c.result,
       checkedDate: c.checkedDate ? c.checkedDate.toISOString() : null,
       referenceOrSource: c.referenceOrSource,
@@ -208,6 +211,7 @@ export class PartnersService {
       verifiedAt: c.verifiedAt ? new Date(c.verifiedAt) : undefined,
       status: c.status,
       notes: c.notes,
+      relatedCompanyCheckType: c.relatedCompanyCheckType,
     });
     const partnerLevelCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex === undefined);
     const siteScopedCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex !== undefined);
@@ -226,13 +230,20 @@ export class PartnersService {
     //       net (covers API callers that skip the prompt, and the normal
     //       "no match was shown" case), which creates a fresh registry
     //       entry when nothing plausible is found.
-    const registryEntryId = await this.stakeholderRegistryService.resolveForPartnerCreate({
-      explicitRegistryEntryId: dto.registryEntryId,
-      name: dto.name,
-      countryCode: dto.countryCode,
-      registrationNumber: dto.companyRegistrationNumber,
-      roleTypes: dto.roleTypes,
-    });
+    // Off by default (Partner.sharedWithUniverseRegistry's doc comment) —
+    // only resolve/create a shared registry entry when the caller has
+    // explicitly opted in via the New Stakeholder form's consent toggle.
+    // Left off, this Partner stays fully private: no cross-tenant
+    // duplicate-prevention matching is run or contributed to at all.
+    const registryEntryId = dto.sharedWithUniverseRegistry
+      ? await this.stakeholderRegistryService.resolveForPartnerCreate({
+          explicitRegistryEntryId: dto.registryEntryId,
+          name: dto.name,
+          countryCode: dto.countryCode,
+          registrationNumber: dto.companyRegistrationNumber,
+          roleTypes: dto.roleTypes,
+        })
+      : null;
 
     const p = await withTenantContext(user.organizationId, async (tx) => {
       const created = await tx.partner.create({
@@ -246,6 +257,7 @@ export class PartnersService {
           companyRegistrationNumber: dto.companyRegistrationNumber,
           vatNumber: dto.vatNumber,
           registryEntryId,
+          sharedWithUniverseRegistry: dto.sharedWithUniverseRegistry ?? false,
           roles: { create: dto.roleTypes.map((roleType) => ({ roleType })) },
           ...(dto.supplierDetail ? { supplierDetail: { create: dto.supplierDetail } } : {}),
           ...(dto.manufacturerDetail ? { manufacturerDetail: { create: dto.manufacturerDetail } } : {}),
@@ -263,6 +275,7 @@ export class PartnersService {
                 companyChecks: {
                   create: dto.companyChecks.map((c) => ({
                     checkType: c.checkType,
+                    customLabel: c.customLabel,
                     result: c.result,
                     checkedDate: c.checkedDate ? new Date(c.checkedDate) : undefined,
                     referenceOrSource: c.referenceOrSource,
@@ -328,6 +341,9 @@ export class PartnersService {
             ? { companyRegistrationNumber: dto.companyRegistrationNumber }
             : {}),
           ...(dto.vatNumber !== undefined ? { vatNumber: dto.vatNumber } : {}),
+          ...(dto.sharedWithUniverseRegistry !== undefined
+            ? { sharedWithUniverseRegistry: dto.sharedWithUniverseRegistry }
+            : {}),
           ...(newRoleTypes.length ? { roles: { create: newRoleTypes.map((roleType) => ({ roleType })) } } : {}),
           ...(dto.supplierDetail
             ? { supplierDetail: { upsert: { create: dto.supplierDetail, update: dto.supplierDetail } } }
@@ -373,6 +389,7 @@ export class PartnersService {
                     verifiedAt: c.verifiedAt ? new Date(c.verifiedAt) : undefined,
                     status: c.status,
                     notes: c.notes,
+                    relatedCompanyCheckType: c.relatedCompanyCheckType,
                     // Note: addCertifications on update is always
                     // company-wide — site-scoping a document to one of
                     // addManufacturerSites in the same call isn't
@@ -391,6 +408,7 @@ export class PartnersService {
                 companyChecks: {
                   create: dto.addCompanyChecks.map((c) => ({
                     checkType: c.checkType,
+                    customLabel: c.customLabel,
                     result: c.result,
                     checkedDate: c.checkedDate ? new Date(c.checkedDate) : undefined,
                     referenceOrSource: c.referenceOrSource,

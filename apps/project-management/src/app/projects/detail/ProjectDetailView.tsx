@@ -203,7 +203,7 @@ export function ProjectDetailView() {
               Show all fields
             </label>
           </div>
-          <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             <div>
               <dt style={{ fontWeight: 600 }}>Client</dt>
               <dd>
@@ -273,7 +273,7 @@ export function ProjectDetailView() {
 
       {editingHeader && (
         <div style={{ background: "var(--u-surface-alt)", border: "1px solid var(--u-border)", borderRadius: 8, padding: 20, marginTop: 24 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Status
               <div style={{ marginTop: 2 }}>
