@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
 import { assertCanManageOrg } from "../common/authorization";
+import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type {
   CreateSupplierProductDto,
@@ -37,6 +38,8 @@ import type {
  */
 @Injectable()
 export class SupplierDirectoryService {
+  constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
+
   /** Anyone authenticated can search — this is the marketplace's core
    * function, not gated by a specific permission (buyers and suppliers
    * alike should be able to browse). */
@@ -105,12 +108,25 @@ export class SupplierDirectoryService {
    * saving a draft. */
   async setPublished(caller: RequestUser, published: boolean) {
     assertCanManageOrg(caller, caller.organizationId, "supplier.profile.manage");
-    return withTenantContext(caller.organizationId, (tx) =>
+    const result = await withTenantContext(caller.organizationId, (tx) =>
       tx.supplierProfile.update({
         where: { organizationId: caller.organizationId },
         data: { publishedAt: published ? new Date() : null },
       }),
     );
+    // Reconciliation (2026-10-02, sop-driven-quality-roadmap.md Section
+    // C "reverse direction"): publishing is the moment this organisation's
+    // real identity becomes something other orgs' Partner records are
+    // allowed to show, so this is also the moment to link any existing
+    // stakeholder registry entry that plausibly represents the same real
+    // company — see StakeholderRegistryService.reconcileOnPublish.
+    // Unpublishing deliberately does NOT unlink — the registry link itself
+    // just records "this is the same real company", independent of
+    // whether that company's profile happens to be published right now.
+    if (published) {
+      await this.stakeholderRegistryService.reconcileOnPublish(caller.organizationId);
+    }
+    return result;
   }
 
   async setCountryPresence(caller: RequestUser, dto: SetCountryPresenceDto) {

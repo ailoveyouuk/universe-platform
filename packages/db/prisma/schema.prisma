@@ -258,6 +258,12 @@ model Organization {
   supplierCountryPresence SupplierCountryPresence[]
   supplierLeadsAsSupplier SupplierLead[] @relation("SupplierLeadSupplier")
   supplierLeadsAsBuyer    SupplierLead[] @relation("SupplierLeadBuyer")
+  /// Added 2026-10-02 — see StakeholderRegistryEntry's doc comment
+  /// (duplicate-prevention + identity-consent scaffolding).
+  stakeholderRegistryEntries StakeholderRegistryEntry[]
+  /// Added 2026-10-02 — ProductMaster entries this org originally
+  /// contributed (see ProductMaster.addedByOrganizationId's doc comment).
+  productMastersAdded        ProductMaster[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -405,6 +411,14 @@ model Partner {
   riskTier       String?      // HIGH | MEDIUM | LOW
   companyRegistrationNumber String?
   vatNumber      String?
+  /// Added 2026-10-02 — see StakeholderRegistryEntry's doc comment.
+  /// Links this tenant-private Partner to the shared, cross-tenant
+  /// registry row for the same real-world company, so (a) a duplicate-
+  /// prevention prompt can be shown to any other organisation adding the
+  /// same stakeholder, and (b) identity-visibility gating in the Universe
+  /// Product Database has a real, de-duplicated company to key off.
+  registryEntryId String?
+  registryEntry   StakeholderRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// SOP008 §4.7.1's "Annual Bona Fide re-check" (FORM 008.2) generalized
   /// to any role with a re-approval cadence, rather than duplicating this
   /// pair of dates on every *Detail table.
@@ -439,6 +453,7 @@ model Partner {
 
   @@index([organizationId])
   @@index([organizationId, normalizedName])
+  @@index([registryEntryId])
   @@map("partners")
 }
 
@@ -1173,6 +1188,23 @@ model ProductMaster {
   /// sources. See allowed values reference above.
   sourceStandard               String?
   isArchived                   Boolean  @default(false)
+  /// Attribution — added 2026-10-02 (sop-driven-quality-roadmap.md Section
+  /// B1): which organisation originally contributed this entry, and in
+  /// what capacity, so the standardised central catalogue still records
+  /// provenance even though every org's contributions are normalized into
+  /// the same shape. Null for the originally-seeded reference data (HS
+  /// codes, WHO EML, etc.) that predates any org contribution. Not used
+  /// for access control — ProductMaster stays globally readable/writable
+  /// the same as today; this is a provenance tag only.
+  addedByOrganizationId        String?
+  addedByOrganization          Organization? @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Denormalized copy of Organization.type at the moment of contribution
+  /// (deliberately frozen, not a live lookup) — e.g. "PROCUREMENT_SERVICE_AGENT"
+  /// for Unimed adding a product while building a project, vs.
+  /// "MANUFACTURER" for a company adding its own. Frozen so the historical
+  /// record of who-added-what-in-what-capacity doesn't silently change if
+  /// an organisation's type is ever edited later.
+  addedByOrganizationType      String?
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
 
@@ -1187,6 +1219,7 @@ model ProductMaster {
   @@index([hsCode])
   @@index([unspscCode])
   @@index([gtin])
+  @@index([addedByOrganizationId])
   @@map("product_master")
 }
 
@@ -1529,6 +1562,76 @@ model TenderingBodyProfile {
 /// are ONLY meaningful for a manufacturer (regulatory approvals, production
 /// capacity), same split as SupplierProfile's own new Supplier/Distributor
 /// fields being manufacturer-irrelevant.
+// ---------------------------------------------------------------------------
+// Stakeholder registry — cross-tenant duplicate-prevention + identity
+// consent (added 2026-10-02, per claude/sop-driven-quality-roadmap.md
+// Section B3/C). NOT tenant-scoped and deliberately outside RLS, same
+// reasoning as product_master (see row-level-security.sql's exclusion
+// list) — nothing stored here is commercially sensitive, it is
+// specifically the thin, shared subset of a stakeholder's identity that's
+// safe for every organisation to see, so that:
+//
+//   (a) when Organisation B starts onboarding a manufacturer/supplier that
+//       Organisation A (or the company itself) has already added, B gets
+//       prompted with a safe preview and can link to the same record in
+//       one click instead of re-typing everything and creating an
+//       unrelated duplicate Partner; and
+//   (b) a product's manufacturer/supplier name can only ever be revealed
+//       in the Universe Product Database once there is a REAL, identified,
+//       consenting company behind it (linkedOrganizationId set AND that
+//       Organization's own SupplierProfile/ManufacturerProfile published)
+//       — not just whatever name one tenant happened to type into their
+//       own private Partner record.
+//
+// Every tenant-local Partner of a registrable stakeholder type (see
+// Partner.registryEntryId) that refers to the same real-world company
+// converges on one row here, found via PartnersService's matching logic
+// (name/country/registration-number) when a Partner is created, or
+// confirmed explicitly by a user from the duplicate-prevention prompt.
+// ---------------------------------------------------------------------------
+
+/// See the section header comment above for the full design rationale.
+model StakeholderRegistryEntry {
+  id   String @id @default(uuid())
+  /// Same normalize() convention as Partner.normalizedName (lowercased,
+  /// legal-suffix-stripped) — the primary fuzzy-matching key.
+  normalizedName String
+  /// As originally entered by whichever organisation (or the company
+  /// itself) first created this entry — kept distinct from normalizedName
+  /// so the lightbox/preview can show a real, readable name.
+  legalName      String
+  countryCode    String?
+  website        String?
+  /// Companies House (or equivalent national) reference — the strongest
+  /// single matching signal when present, since it's an external
+  /// identifier rather than a fuzzy name/country guess.
+  registrationNumber String?
+  /// JSON string array of PartnerRole.roleType values this entry has ever
+  /// been referenced as (e.g. ["MANUFACTURER","SUPPLIER"]) — a real-world
+  /// company can be onboarded under more than one stakeholder type across
+  /// different organisations, or even within one.
+  stakeholderTypes String @db.NVarChar(Max)
+  /// Set once/if this real-world company registers its own Universe
+  /// organisation and the match is confirmed (reconciled automatically
+  /// when that Organization publishes a SupplierProfile/ManufacturerProfile
+  /// — see StakeholderRegistryService). This alone does not expose
+  /// anything further; identity visibility in the Universe Product
+  /// Database additionally requires that Organization's own profile to be
+  /// published (publishedAt set) — see StakeholderRegistryService's
+  /// isIdentityPublic().
+  linkedOrganizationId String?
+  linkedOrganization   Organization? @relation(fields: [linkedOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partners Partner[]
+
+  @@index([normalizedName])
+  @@index([registrationNumber])
+  @@index([linkedOrganizationId])
+  @@map("stakeholder_registry_entries")
+}
+
 model ManufacturerProfile {
   id                             String   @id @default(uuid())
   organizationId                 String   @unique

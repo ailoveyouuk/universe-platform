@@ -134,6 +134,12 @@ export class CreatePartnerDto {
   @IsOptional() @IsIn(RISK_TIERS) riskTier?: (typeof RISK_TIERS)[number];
   @IsOptional() @IsString() companyRegistrationNumber?: string;
   @IsOptional() @IsString() vatNumber?: string;
+  /** Set when the caller has already confirmed a match against the
+   * stakeholder registry (the duplicate-prevention prompt's "add and link"
+   * action) — see PartnersService.create and StakeholderRegistryService.
+   * Omit to let the server run its own matching (creates a fresh registry
+   * entry if nothing plausible is found). */
+  @IsOptional() @IsString() registryEntryId?: string;
 
   @IsArray()
   @ArrayMinSize(1)

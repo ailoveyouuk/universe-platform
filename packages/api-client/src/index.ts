@@ -24,6 +24,9 @@ import type {
   SupplierLead,
   SupplierProduct,
   SupplierProfile,
+  StakeholderRegistryDetail,
+  StakeholderRegistryMatch,
+  StakeholderRegistryProduct,
   SupplierSearchResult,
   UpdatePartnerInput,
   UpdateProductSourceApprovalInput,
@@ -190,6 +193,23 @@ export class UniverseApiClient {
 
   updatePartner(id: string, input: UpdatePartnerInput): Promise<PartnerSummary> {
     return this.request(`/partners/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Stakeholder registry (added 2026-10-02) — duplicate-prevention +
+  // identity-consent gating, see StakeholderRegistryEntry in schema.prisma
+  // and claude/sop-driven-quality-roadmap.md Section B3/C. ---
+
+  searchStakeholderRegistry(type: string, q: string): Promise<StakeholderRegistryMatch[]> {
+    const query = `?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`;
+    return this.request(`/stakeholder-registry/search${query}`);
+  }
+
+  getStakeholderRegistryEntry(id: string): Promise<StakeholderRegistryDetail> {
+    return this.request(`/stakeholder-registry/${id}`);
+  }
+
+  getStakeholderRegistryProducts(id: string): Promise<StakeholderRegistryProduct[]> {
+    return this.request(`/stakeholder-registry/${id}/products`);
   }
 
   // --- Quality Assurance (added 2026-10-01) ---

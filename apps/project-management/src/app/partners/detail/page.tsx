@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { PartnerSummary } from "@universe/types";
+import type { PartnerSummary, StakeholderRegistryDetail, StakeholderRegistryProduct } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon } from "@universe/ui";
@@ -36,6 +36,8 @@ export default function PartnerDetailPage() {
   const id = searchParams.get("id");
   const [partner, setPartner] = useState<PartnerSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [registryDetail, setRegistryDetail] = useState<StakeholderRegistryDetail | null>(null);
+  const [registryProducts, setRegistryProducts] = useState<StakeholderRegistryProduct[]>([]);
   const countries = useCountries();
 
   useEffect(() => {
@@ -45,6 +47,22 @@ export default function PartnerDetailPage() {
       .then(setPartner)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load stakeholder"));
   }, [id]);
+
+  // Stakeholder registry linking — see claude/sop-driven-quality-roadmap.md
+  // Section B3/C. Only fetched when this Partner was matched/linked at
+  // creation; "products from this manufacturer" only ever populates once
+  // the linked entry's identity is public (StakeholderRegistryService.
+  // isIdentityPublic) — the linked organisation's own published catalogue.
+  useEffect(() => {
+    if (!partner?.registryEntryId) {
+      setRegistryDetail(null);
+      setRegistryProducts([]);
+      return;
+    }
+    const entryId = partner.registryEntryId;
+    apiClient.getStakeholderRegistryEntry(entryId).then(setRegistryDetail).catch(() => setRegistryDetail(null));
+    apiClient.getStakeholderRegistryProducts(entryId).then(setRegistryProducts).catch(() => setRegistryProducts([]));
+  }, [partner?.registryEntryId]);
 
   if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No stakeholder specified.</main>;
   if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
@@ -126,6 +144,30 @@ export default function PartnerDetailPage() {
         <DetailSection title="Freight forwarder details">
           <InfoCard label="Preferred incoterm">{partner.freightForwarderDetail.preferredIncoterm ?? "—"}</InfoCard>
           <InfoCard label="Service regions">{partner.freightForwarderDetail.serviceRegions ?? "—"}</InfoCard>
+        </DetailSection>
+      )}
+
+      {registryDetail && (
+        <DetailSection title="Universe registry">
+          <InfoCard label="Status">
+            {registryDetail.isLinkedToPublishedOrganization
+              ? `Registered on Universe as ${registryDetail.linkedOrganizationName}`
+              : "Known to Universe (not yet registered)"}
+          </InfoCard>
+          {registryDetail.countryPresence.length > 0 && (
+            <InfoCard label="Operates in">{registryDetail.countryPresence.join(", ")}</InfoCard>
+          )}
+        </DetailSection>
+      )}
+
+      {registryProducts.length > 0 && (
+        <DetailSection title="Products from this manufacturer">
+          {registryProducts.map((p) => (
+            <InfoCard key={p.id} label={p.category ?? "Product"}>
+              {p.name}
+              {p.description ? ` — ${p.description}` : ""}
+            </InfoCard>
+          ))}
         </DetailSection>
       )}
     </main>

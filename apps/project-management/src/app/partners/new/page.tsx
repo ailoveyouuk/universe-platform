@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type {
   CreatePartnerCertificationInput,
   CreatePartnerCompanyCheckInput,
   CreatePartnerInput,
   CreatePartnerManufacturerSiteInput,
+  StakeholderRegistryDetail,
+  StakeholderRegistryMatch,
+  StakeholderRegistryProduct,
 } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
@@ -216,6 +219,90 @@ export default function NewPartnerPage() {
     initialRole && (ROLE_TYPES as readonly string[]).includes(initialRole) ? [initialRole] : []
   );
 
+  // --- Stakeholder registry duplicate-prevention (added 2026-10-02) — see
+  // StakeholderRegistryEntry in schema.prisma and
+  // claude/sop-driven-quality-roadmap.md Section C. Debounced search
+  // against the shared, cross-tenant registry as the user types a name and
+  // picks a role, same "250ms setTimeout" pattern as the product search on
+  // the Quality page. `registryEntryId` is what actually gets sent on
+  // submit, once the user has either confirmed a suggested match or
+  // explicitly dismissed it (in which case we create a fresh registry
+  // entry server-side instead — see PartnersService.create).
+  const [registryMatches, setRegistryMatches] = useState<StakeholderRegistryMatch[]>([]);
+  const [dismissedMatchIds, setDismissedMatchIds] = useState<string[]>([]);
+  const [registryEntryId, setRegistryEntryId] = useState<string | null>(null);
+  const [linkedMatchName, setLinkedMatchName] = useState<string | null>(null);
+  const [lightboxEntryId, setLightboxEntryId] = useState<string | null>(null);
+  const [lightboxDetail, setLightboxDetail] = useState<StakeholderRegistryDetail | null>(null);
+  const [lightboxProducts, setLightboxProducts] = useState<StakeholderRegistryProduct[]>([]);
+  const [lightboxLoading, setLightboxLoading] = useState(false);
+
+  // The form's own matching scope — the first role ticked, per Lewis's own
+  // framing ("the system will know Client 2 is trying to add a
+  // stakeholder-manufacturer"). A stakeholder with several roles still
+  // matches on the first one selected; broadening this to search across
+  // every ticked role is a natural follow-up, not required for v1.
+  const primaryRoleType = roleTypes[0];
+
+  useEffect(() => {
+    if (registryEntryId || !primaryRoleType || name.trim().length < 2) {
+      setRegistryMatches([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      apiClient
+        .searchStakeholderRegistry(primaryRoleType, name.trim())
+        .then((matches) => setRegistryMatches(matches.filter((m) => !dismissedMatchIds.includes(m.id))))
+        .catch(() => setRegistryMatches([]));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [name, primaryRoleType, registryEntryId, dismissedMatchIds]);
+
+  function openRegistryLightbox(id: string) {
+    setLightboxEntryId(id);
+    setLightboxLoading(true);
+    setLightboxDetail(null);
+    setLightboxProducts([]);
+    Promise.all([apiClient.getStakeholderRegistryEntry(id), apiClient.getStakeholderRegistryProducts(id)])
+      .then(([detail, products]) => {
+        setLightboxDetail(detail);
+        setLightboxProducts(products);
+      })
+      .catch(() => setLightboxDetail(null))
+      .finally(() => setLightboxLoading(false));
+  }
+
+  function closeLightbox() {
+    setLightboxEntryId(null);
+    setLightboxDetail(null);
+    setLightboxProducts([]);
+  }
+
+  /** One-click "Add this manufacturer" — links to the shared registry
+   * entry and pre-fills whatever the form hasn't already got filled in, so
+   * nothing needs retyping. Does NOT touch approvalStatus or skip this
+   * organisation's own onboarding/evidence checks — see the roadmap doc's
+   * explicit boundary on this. */
+  function linkToRegistryMatch(match: StakeholderRegistryMatch) {
+    setRegistryEntryId(match.id);
+    setLinkedMatchName(match.legalName);
+    if (!countryCode && match.countryCode) setCountryCode(match.countryCode);
+    if (!website && match.website) setWebsite(match.website);
+    if (!companyRegistrationNumber && match.registrationNumber) setCompanyRegistrationNumber(match.registrationNumber);
+    setRegistryMatches([]);
+    closeLightbox();
+  }
+
+  function dismissRegistryMatch(id: string) {
+    setDismissedMatchIds((prev) => [...prev, id]);
+    setRegistryMatches((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  function unlinkRegistryMatch() {
+    setRegistryEntryId(null);
+    setLinkedMatchName(null);
+  }
+
   const countries = useCountries();
 
   // --- Role-specific detail state — one block per detail table, only
@@ -365,6 +452,7 @@ export default function NewPartnerPage() {
         riskTier: (riskTier || undefined) as CreatePartnerInput["riskTier"],
         companyRegistrationNumber: companyRegistrationNumber || undefined,
         vatNumber: vatNumber || undefined,
+        registryEntryId: registryEntryId || undefined,
         roleTypes,
         ...(manufacturerSitesInput?.length ? { manufacturerSites: manufacturerSitesInput } : {}),
         ...(certificationsInput?.length ? { certifications: certificationsInput } : {}),
@@ -452,6 +540,65 @@ export default function NewPartnerPage() {
           Company Name
           <input required style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
+
+        {/* Stakeholder registry duplicate-prevention — see the state/effect
+            block above and claude/sop-driven-quality-roadmap.md Section C.
+            Shows at most while nothing is linked yet; a linked match gets
+            its own confirmation chip instead (rendered just below). */}
+        {!registryEntryId && registryMatches.length > 0 && (
+          <div
+            style={{
+              background: "var(--u-surface-subtle, #F5F6FA)",
+              border: "1px solid var(--u-border)",
+              borderRadius: "var(--u-radius-md)",
+              padding: "10px 14px",
+              fontSize: 13.5,
+              color: "var(--u-ink)",
+            }}
+          >
+            {registryMatches.map((m) => (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span>
+                  {m.isLinkedToPublishedOrganization
+                    ? <>This looks like <strong>{m.linkedOrganizationName}</strong> — already registered on Universe.</>
+                    : <>A {ROLE_LABELS[primaryRoleType] ?? "stakeholder"} matching this name has already been added by another organisation on Universe.</>}
+                </span>
+                <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button type="button" onClick={() => openRegistryLightbox(m.id)} style={linkButtonStyle}>
+                    View record
+                  </button>
+                  <button type="button" onClick={() => dismissRegistryMatch(m.id)} style={linkButtonStyle}>
+                    Not this one
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {registryEntryId && (
+          <div
+            style={{
+              background: "var(--u-surface-subtle, #F0F7F0)",
+              border: "1px solid var(--u-border)",
+              borderRadius: "var(--u-radius-md)",
+              padding: "10px 14px",
+              fontSize: 13.5,
+              color: "var(--u-ink)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>
+              Linked to Universe record{linkedMatchName ? <> for <strong>{linkedMatchName}</strong></> : null} — fields
+              were pre-filled where available. You'll still run your own onboarding checks on this stakeholder.
+            </span>
+            <button type="button" onClick={unlinkRegistryMatch} style={linkButtonStyle}>
+              Undo
+            </button>
+          </div>
+        )}
 
         <label style={{ display: "block" }}>
           <span>Country</span>
@@ -970,6 +1117,16 @@ export default function NewPartnerPage() {
           {submitting ? "Creating…" : "Create Stakeholder"}
         </Button>
       </form>
+
+      {lightboxEntryId && (
+        <RegistryLightbox
+          loading={lightboxLoading}
+          detail={lightboxDetail}
+          products={lightboxProducts}
+          onClose={closeLightbox}
+          onAdd={(match) => linkToRegistryMatch(match)}
+        />
+      )}
     </main>
   );
 }
@@ -1008,6 +1165,18 @@ function RoleSection({ title, children }: { title: string; children: React.React
   );
 }
 
+const linkButtonStyle: CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  color: "var(--u-org-accent, var(--u-brand-violet))",
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+  textDecoration: "underline",
+  whiteSpace: "nowrap",
+};
+
 const inputStyle: CSSProperties = {
   display: "block",
   width: "100%",
@@ -1023,3 +1192,147 @@ const textareaStyle: CSSProperties = {
   minHeight: 64,
   resize: "vertical",
 };
+
+/**
+ * The duplicate-prevention lightbox — see
+ * claude/sop-driven-quality-roadmap.md Section C. Shows only the
+ * deliberately thin, always-safe registry fields plus (when the entry is
+ * linked to a published Universe organisation) that organisation's own
+ * self-published profile and product catalogue — never anything from
+ * another tenant's own private Partner record. A simple inline overlay
+ * rather than a shared Modal component for now (no shared Modal exists yet
+ * in @universe/ui) — worth promoting into one if a second app needs the
+ * same pattern.
+ */
+function RegistryLightbox({
+  loading,
+  detail,
+  products,
+  onClose,
+  onAdd,
+}: {
+  loading: boolean;
+  detail: StakeholderRegistryDetail | null;
+  products: StakeholderRegistryProduct[];
+  onClose: () => void;
+  onAdd: (match: StakeholderRegistryMatch) => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(20, 20, 30, 0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: 24,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: "var(--u-surface-raised, #fff)",
+          borderRadius: "var(--u-radius-md)",
+          padding: 24,
+          maxWidth: 480,
+          width: "100%",
+          maxHeight: "80vh",
+          overflowY: "auto",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.25)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {loading && <p style={{ color: "var(--u-ink-secondary)" }}>Loading…</p>}
+
+        {!loading && !detail && <p style={{ color: "var(--u-ink-secondary)" }}>Record not found.</p>}
+
+        {!loading && detail && (
+          <>
+            <h2 style={{ fontFamily: "var(--u-font-display)", fontSize: 18, margin: "0 0 4px" }}>{detail.legalName}</h2>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+              {detail.stakeholderTypes.join(", ")}
+              {detail.isLinkedToPublishedOrganization ? " · Registered on Universe" : " · Added by another organisation on Universe"}
+            </p>
+
+            <dl style={{ margin: "0 0 16px", fontSize: 13.5, color: "var(--u-ink)" }}>
+              {detail.countryCode && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <dt style={{ fontWeight: 600, width: 120 }}>Country</dt>
+                  <dd style={{ margin: 0 }}>{detail.countryCode}</dd>
+                </div>
+              )}
+              {detail.website && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <dt style={{ fontWeight: 600, width: 120 }}>Website</dt>
+                  <dd style={{ margin: 0 }}>{detail.website}</dd>
+                </div>
+              )}
+              {detail.registrationNumber && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <dt style={{ fontWeight: 600, width: 120 }}>Registration No.</dt>
+                  <dd style={{ margin: 0 }}>{detail.registrationNumber}</dd>
+                </div>
+              )}
+              {detail.countryPresence.length > 0 && (
+                <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <dt style={{ fontWeight: 600, width: 120 }}>Operates in</dt>
+                  <dd style={{ margin: 0 }}>{detail.countryPresence.join(", ")}</dd>
+                </div>
+              )}
+            </dl>
+
+            {detail.manufacturerProfile && (
+              <div style={{ marginBottom: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>
+                {detail.manufacturerProfile.whoPrequalified && <p style={{ margin: "0 0 4px" }}>WHO Prequalified</p>}
+                {detail.manufacturerProfile.isLocalManufacturer && <p style={{ margin: "0 0 4px" }}>Local manufacturer</p>}
+              </div>
+            )}
+
+            {products.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h3 style={{ fontSize: 13.5, margin: "0 0 8px" }}>Products published by this organisation</h3>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
+                  {products.map((p) => (
+                    <li key={p.id}>
+                      {p.name}
+                      {p.category ? ` — ${p.category}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Close
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() =>
+                  onAdd({
+                    id: detail.id,
+                    legalName: detail.legalName,
+                    countryCode: detail.countryCode,
+                    website: detail.website,
+                    registrationNumber: detail.registrationNumber,
+                    stakeholderTypes: detail.stakeholderTypes,
+                    isKnownToUniverse: detail.isKnownToUniverse,
+                    linkedOrganizationName: detail.linkedOrganizationName,
+                    isLinkedToPublishedOrganization: detail.isLinkedToPublishedOrganization,
+                  })
+                }
+              >
+                Add this stakeholder
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

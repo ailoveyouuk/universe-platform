@@ -9,9 +9,10 @@ import { SupplierEnquiriesModule } from "./supplier-enquiries/supplier-enquiries
 import { DocumentsModule } from "./documents/documents.module";
 import { QualityModule } from "./quality/quality.module";
 import { GeoModule } from "./geo/geo.module";
+import { StakeholderRegistryModule } from "./stakeholder-registry/stakeholder-registry.module";
 
 @Module({
-  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule, QualityModule, GeoModule],
+  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule, QualityModule, GeoModule, StakeholderRegistryModule],
   controllers: [MeController],
 })
 export class AppModule {}

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
 import type { PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
+import { normalizeStakeholderName } from "../common/normalize-name";
+import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreatePartnerDto } from "./dto/create-partner.dto";
 import type { UpdatePartnerDto } from "./dto/update-partner.dto";
@@ -31,6 +33,7 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
     riskTier: p.riskTier,
     companyRegistrationNumber: p.companyRegistrationNumber,
     vatNumber: p.vatNumber,
+    registryEntryId: p.registryEntryId,
     lastApprovalReviewDate: p.lastApprovalReviewDate ? p.lastApprovalReviewDate.toISOString() : null,
     nextApprovalReviewDue: p.nextApprovalReviewDue ? p.nextApprovalReviewDue.toISOString() : null,
     roles: p.roles.map((r) => ({ roleType: r.roleType, isActive: r.isActive })),
@@ -124,17 +127,9 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
   };
 }
 
-/** Lowercases and strips common legal suffixes/punctuation — mirrors
- * Partner.normalizedName's doc comment (dedup/fuzzy-match aid). Deliberately
- * simple; not meant to be a full normalization library. */
-function normalize(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[.,]/g, "")
-    .replace(/\b(inc|ltd|llc|limited|corp|corporation|gmbh|plc)\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// normalize() moved to ../common/normalize-name.ts (normalizeStakeholderName)
+// — shared with StakeholderRegistryService so Partner/registry matching use
+// the exact same normalization.
 
 /** Turns a CreatePartnerDto's `manufacturerSites` array into a plain Prisma
  * nested-create input — site-scoped certifications are deliberately NOT
@@ -162,6 +157,8 @@ function buildManufacturerSitesCreate(
 
 @Injectable()
 export class PartnersService {
+  constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
+
   // Every method wraps its Prisma work in withTenantContext(user.organizationId, ...)
   // — see packages/db/src/tenant-context.ts. Azure SQL Row-Level Security on the
   // partners table default-denies any query that doesn't carry that session context,
@@ -215,17 +212,40 @@ export class PartnersService {
     const partnerLevelCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex === undefined);
     const siteScopedCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex !== undefined);
 
+    // Stakeholder registry linking (2026-10-02, duplicate-prevention +
+    // identity-consent scaffolding — see StakeholderRegistryService's doc
+    // comment). Resolved BEFORE the tenant transaction below since
+    // stakeholder_registry_entries carries no organizationId/RLS (same
+    // category as product_master) — a bare, non-tenant-scoped lookup.
+    // Two paths:
+    //   (a) dto.registryEntryId set — the caller already confirmed a match
+    //       via the duplicate-prevention prompt (or explicitly chose "link
+    //       to this record"); trust it directly, just folding this
+    //       Partner's roleTypes into the entry's known stakeholderTypes.
+    //   (b) not set — run the same matching logic server-side as a safety
+    //       net (covers API callers that skip the prompt, and the normal
+    //       "no match was shown" case), which creates a fresh registry
+    //       entry when nothing plausible is found.
+    const registryEntryId = await this.stakeholderRegistryService.resolveForPartnerCreate({
+      explicitRegistryEntryId: dto.registryEntryId,
+      name: dto.name,
+      countryCode: dto.countryCode,
+      registrationNumber: dto.companyRegistrationNumber,
+      roleTypes: dto.roleTypes,
+    });
+
     const p = await withTenantContext(user.organizationId, async (tx) => {
       const created = await tx.partner.create({
         data: {
           organizationId: user.organizationId,
           name: dto.name,
-          normalizedName: normalize(dto.name),
+          normalizedName: normalizeStakeholderName(dto.name),
           countryCode: dto.countryCode,
           website: dto.website,
           riskTier: dto.riskTier,
           companyRegistrationNumber: dto.companyRegistrationNumber,
           vatNumber: dto.vatNumber,
+          registryEntryId,
           roles: { create: dto.roleTypes.map((roleType) => ({ roleType })) },
           ...(dto.supplierDetail ? { supplierDetail: { create: dto.supplierDetail } } : {}),
           ...(dto.manufacturerDetail ? { manufacturerDetail: { create: dto.manufacturerDetail } } : {}),
@@ -299,7 +319,7 @@ export class PartnersService {
       return tx.partner.update({
         where: { id },
         data: {
-          ...(dto.name !== undefined ? { name: dto.name, normalizedName: normalize(dto.name) } : {}),
+          ...(dto.name !== undefined ? { name: dto.name, normalizedName: normalizeStakeholderName(dto.name) } : {}),
           ...(dto.countryCode !== undefined ? { countryCode: dto.countryCode } : {}),
           ...(dto.website !== undefined ? { website: dto.website } : {}),
           ...(dto.approvalStatus !== undefined ? { approvalStatus: dto.approvalStatus } : {}),

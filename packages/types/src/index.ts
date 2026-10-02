@@ -602,6 +602,10 @@ export interface PartnerSummary {
   riskTier: string | null;
   companyRegistrationNumber: string | null;
   vatNumber: string | null;
+  /** See StakeholderRegistryEntry's doc comment in schema.prisma — links
+   * this Partner to the shared, cross-tenant identity registry row for the
+   * same real-world company, if one has been matched/confirmed. */
+  registryEntryId: string | null;
   lastApprovalReviewDate: string | null;
   nextApprovalReviewDue: string | null;
   roles: PartnerRoleSummary[];
@@ -653,6 +657,9 @@ export interface CreatePartnerInput {
   riskTier?: string;
   companyRegistrationNumber?: string;
   vatNumber?: string;
+  /** Set when the caller already confirmed a match from the
+   * duplicate-prevention prompt — see CreatePartnerDto.registryEntryId. */
+  registryEntryId?: string;
   /** At least one role required — a Partner with no role is meaningless. */
   roleTypes: string[];
   supplierDetail?: PartnerSupplierDetail;
@@ -797,4 +804,57 @@ export interface PartnerPerformanceMetric {
    * actualDeliveryDate set, floored at 0 (an early delivery counts as 0
    * days late, not negative). null when no line has both dates. */
   avgDaysLate: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Stakeholder registry (added 2026-10-02) — cross-tenant duplicate-
+// prevention + identity-consent gating. See StakeholderRegistryEntry's doc
+// comment in schema.prisma and claude/sop-driven-quality-roadmap.md
+// Section B3/C for the full design.
+// ---------------------------------------------------------------------------
+
+/** One search/match result — GET /stakeholder-registry/search. Identity
+ * (linkedOrganizationName) is only ever populated when
+ * isLinkedToPublishedOrganization is true; otherwise the match is "known to
+ * Universe" but deliberately anonymous, per the consent-gating design. */
+export interface StakeholderRegistryMatch {
+  id: string;
+  legalName: string;
+  countryCode: string | null;
+  website: string | null;
+  registrationNumber: string | null;
+  stakeholderTypes: string[];
+  isKnownToUniverse: boolean;
+  linkedOrganizationName: string | null;
+  isLinkedToPublishedOrganization: boolean;
+}
+
+/** The duplicate-prevention lightbox's full detail view — GET
+ * /stakeholder-registry/:id. manufacturerProfile/countryPresence are only
+ * populated when isLinkedToPublishedOrganization is true (the linked
+ * company's own self-published data, never another tenant's private
+ * assessment of them). */
+export interface StakeholderRegistryDetail extends StakeholderRegistryMatch {
+  manufacturerProfile: {
+    whoPrequalified: boolean;
+    sraApprovals: string | null;
+    nationalRegistrations: string | null;
+    otherCertifications: string | null;
+    isLocalManufacturer: boolean;
+  } | null;
+  countryPresence: string[];
+}
+
+/** "Products belonging to that manufacturer" — GET
+ * /stakeholder-registry/:id/products. Only ever populated when the entry's
+ * identity is public (see StakeholderRegistryService.isIdentityPublic) —
+ * the linked organisation's own published SupplierProduct catalogue.
+ * Deliberately carries no pricing field; SupplierProduct never has one. */
+export interface StakeholderRegistryProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  specifications: string | null;
+  gtin: string | null;
 }
