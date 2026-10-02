@@ -65,8 +65,21 @@ export default function QualityPage() {
     apiClient.getQualityDashboard().then(setDashboard).catch(() => setDashboard(null));
     apiClient
       .listProductSourceApprovals(statusFilter || undefined)
-      .then(setApprovals)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load product approvals"));
+      .then((data) => {
+        setApprovals(data);
+        setError(null);
+      })
+      .catch((err) => {
+        // The raw message here is "API request failed: 500 Internal Server
+        // Error — {...}" (packages/api-client's request() helper) — fine
+        // for a developer console, not for a user-facing banner (2026-10-02,
+        // Lewis flagged this exact JSON dump showing up on a tablet). Full
+        // detail still goes to the console; the banner below stays plain-
+        // English and offers a retry instead.
+        console.error("Failed to load product sourcing approvals:", err);
+        setApprovals(null);
+        setError("Couldn't load product sourcing approvals. This is usually temporary — try again in a moment.");
+      });
   }
 
   useEffect(() => {
@@ -186,8 +199,30 @@ export default function QualityPage() {
           </div>
         </div>
 
-        {error && <div style={{ color: "var(--u-status-critical)", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-        {!approvals && <div style={{ padding: 24, color: "var(--u-ink-secondary)", fontSize: 14 }}>Loading…</div>}
+        {error && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              padding: "12px 16px",
+              marginBottom: 12,
+              borderRadius: "var(--u-radius-md)",
+              border: "1px solid var(--u-status-critical)",
+              backgroundColor: "rgba(220,38,38,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink)" }}>
+              <AlertIcon size={16} />
+              {error}
+            </div>
+            <Button variant="secondary" onClick={reload}>
+              Try again
+            </Button>
+          </div>
+        )}
+        {!error && !approvals && <div style={{ padding: 24, color: "var(--u-ink-secondary)", fontSize: 14 }}>Loading…</div>}
         {approvals && approvals.length === 0 && (
           <div
             style={{
