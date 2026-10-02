@@ -88,8 +88,12 @@ export class UniverseApiClient {
     return this.request(`/projects/${id}`);
   }
 
-  getProjectFinancialSummary(): Promise<ProjectFinancialSummary> {
-    return this.request("/projects/financial-summary");
+  getProjectFinancialSummary(currency?: string): Promise<ProjectFinancialSummary> {
+    return this.request(`/projects/financial-summary${currency ? `?currency=${currency}` : ""}`);
+  }
+
+  getSingleProjectFinancialSummary(projectId: string, currency?: string): Promise<ProjectFinancialSummary> {
+    return this.request(`/projects/${projectId}/financial-summary${currency ? `?currency=${currency}` : ""}`);
   }
 
   createProject(input: CreateProjectInput): Promise<ProjectSummary> {

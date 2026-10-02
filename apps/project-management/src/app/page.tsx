@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ProjectSummary, PartnerSummary, ProjectFinancialSummary } from "@universe/types";
+import { SUPPORTED_CURRENCIES } from "@universe/types";
 import {
   Button,
   AddMenu,
@@ -50,20 +51,40 @@ export default function HomePage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
-  // Financial Overview (added 2026-10-02) — org-wide rollup across every
-  // ProjectLine's LOCKED reporting-currency amounts. See
-  // ProjectFinancialSummary's doc comment in packages/types for why this
-  // lives here rather than per-project: it's a stand-in for the future
-  // "Insights" app, per Lewis's own phrasing. null while loading/on
-  // failure (e.g. no lines priced yet) — financialSummary renders nothing
-  // rather than a misleading all-zero panel in that case.
+  // Financial Overview (added 2026-10-02, made currency-agnostic
+  // 2026-10-03) — org-wide rollup across every ProjectLine's LOCKED
+  // base-currency amounts. See ProjectFinancialSummary's doc comment in
+  // packages/types for why this lives here rather than per-project: it's
+  // a stand-in for the future "Insights" app, per Lewis's own phrasing.
+  // Universe is a global, multi-tenant platform (not built around any one
+  // organisation's home currency — corrected 2026-10-03, see
+  // ExchangeRatesService's doc comment), so `displayCurrency` is a
+  // viewer-chosen SELECTOR, not a fixed reporting currency: changing it
+  // re-fetches the same rollup re-expressed live in that currency.
+  // financialSummary is null while loading/on failure (e.g. no lines
+  // priced yet) — the panel renders nothing rather than a misleading
+  // all-zero display in that case.
   const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient.listProjects().then(setProjects).catch(() => setProjects([]));
     apiClient.listPartners().then(setPartners).catch(() => setPartners([]));
-    apiClient.getProjectFinancialSummary().then(setFinancialSummary).catch(() => setFinancialSummary(null));
   }, []);
+
+  useEffect(() => {
+    apiClient
+      .getProjectFinancialSummary(displayCurrency ?? undefined)
+      .then((summary) => {
+        setFinancialSummary(summary);
+        // First load: default the selector to whatever the API resolved
+        // as the base currency, so the dropdown shows a real selection
+        // rather than a blank placeholder.
+        if (displayCurrency === null) setDisplayCurrency(summary.displayCurrencyCode);
+      })
+      .catch(() => setFinancialSummary(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayCurrency]);
 
   function isOverdue(p: ProjectSummary): boolean {
     return Boolean(p.dueDate) && new Date(p.dueDate as string) < new Date() && !TERMINAL_STATUSES.includes(p.status);
@@ -166,19 +187,41 @@ export default function HomePage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
               <TrendingUpIcon size={16} />
-              Financial Overview ({financialSummary.reportingCurrencyCode})
+              Financial Overview
             </h2>
-            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
-              {financialSummary.linesWithPricing} of {financialSummary.totalLines} line{financialSummary.totalLines === 1 ? "" : "s"} priced
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+                {financialSummary.linesWithPricing} of {financialSummary.totalLines} line{financialSummary.totalLines === 1 ? "" : "s"} priced
+              </span>
+              {/* Currency selector — Universe is a global, multi-tenant platform,
+                  not built around any one organisation's home currency, so this
+                  view is re-expressed live in whatever currency the viewer picks
+                  rather than being fixed. See ExchangeRatesService's doc comment. */}
+              <select
+                className="u-native-select"
+                value={displayCurrency ?? financialSummary.displayCurrencyCode}
+                onChange={(e) => setDisplayCurrency(e.target.value)}
+                style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--u-border)" }}
+              >
+                {SUPPORTED_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "0 0 14px" }}>
-            Each line's native-currency price is converted once, at the FX rate for the date it was entered, and locked — these totals won't shift as rates move.
+            Each line’s native-currency price is converted once, at the FX rate for the date it was entered, and locked — these totals will not shift as rates move. Switching currency above re-expresses them live, as a view only.
+            {financialSummary.conversionUnavailable && (
+              <span style={{ color: "var(--u-status-critical)" }}> Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.</span>
+            )}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
-            <FinancialStat label="Total supplier cost" value={financialSummary.totalSupplierCostReportingCcy} currency={financialSummary.reportingCurrencyCode} />
-            <FinancialStat label="Total sales value" value={financialSummary.totalSalesValueReportingCcy} currency={financialSummary.reportingCurrencyCode} />
-            <FinancialStat label="Total margin" value={financialSummary.totalMarginReportingCcy} currency={financialSummary.reportingCurrencyCode} tone={Number(financialSummary.totalMarginReportingCcy) >= 0 ? "good" : "critical"} />
+            <FinancialStat label="Product cost" value={financialSummary.totalProductCost} currency={financialSummary.displayCurrencyCode} />
+            <FinancialStat label="Freight cost" value={financialSummary.totalFreightCost} currency={financialSummary.displayCurrencyCode} />
+            <FinancialStat label="Margin" value={financialSummary.totalMargin} currency={financialSummary.displayCurrencyCode} tone={Number(financialSummary.totalMargin) >= 0 ? "good" : "critical"} />
+            <FinancialStat label="Total invoice value" value={financialSummary.totalInvoiceValue} currency={financialSummary.displayCurrencyCode} />
           </div>
         </section>
       )}

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -21,13 +21,21 @@ export class ProjectsController {
   // declaration order, and a single dynamic segment would otherwise treat
   // "financial-summary" as an :id value and shadow this entirely.
   @Get("financial-summary")
-  getFinancialSummary(@CurrentUser() user: RequestUser) {
-    return this.projectsService.getFinancialSummary(user);
+  getFinancialSummary(@CurrentUser() user: RequestUser, @Query("currency") currency?: string) {
+    return this.projectsService.getFinancialSummary(user, currency);
   }
 
   @Get(":id")
   findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.projectsService.findOne(user, id);
+  }
+
+  // A distinct two-segment path from the flat "financial-summary" route
+  // above — no declaration-order concern here, Nest/Express match by
+  // segment count too, so ":id" alone never shadows ":id/financial-summary".
+  @Get(":id/financial-summary")
+  getProjectFinancialSummary(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("currency") currency?: string) {
+    return this.projectsService.getProjectFinancialSummary(user, id, currency);
   }
 
   @Post()

@@ -2,40 +2,56 @@ import { Injectable, Logger } from "@nestjs/common";
 import { prisma } from "@universe/db";
 
 /**
- * Daily FX conversion for ProjectLine pricing -- see ExchangeRateSnapshot's
- * and ProjectLine's "Currency conversion" doc comments in schema.prisma.
+ * Daily FX conversion for pricing across the platform -- see
+ * ExchangeRateSnapshot's and ProjectLine's "Currency conversion" doc
+ * comments in schema.prisma.
  *
- * Lewis's direction (2026-10-02): a product's price, entered in its own
- * native currency, needs a converted-and-LOCKED equivalent in Unimed's
- * reporting currency, using the FX rate for the day the price was
- * entered -- never re-fluctuating with a later day's rate. "Daily interval"
- * doesn't require a literal cron job here: a rate is a fact about a
- * calendar date, so fetching it lazily the first time that date is needed
- * and caching it in ExchangeRateSnapshot (unique on date+base) gives the
- * same one-fetch-per-day behaviour a scheduled job would, without a new
- * dependency. (Also pragmatic: this sandbox's local npm registry access is
- * blocked by the org's egress policy, confirmed 2026-10-02 -- `npm install
- * @nestjs/schedule` 403'd -- so a cron-module dependency wasn't installable
- * here even if we wanted one.)
+ * IMPORTANT -- generalized 2026-10-03: Universe is a global, multi-tenant
+ * platform, not built around any one organisation's home currency. An
+ * earlier pass of this feature hardcoded "GBP" as the reporting currency
+ * because the build happened to be working with Unimed at the time --
+ * corrected directly by Lewis: that doesn't belong in a currency-agnostic
+ * platform. DEFAULT_BASE_CURRENCY below is a neutral internal computation
+ * currency (every native-currency price is converted into it and locked,
+ * so multi-currency lines can be summed at all), NOT a reporting currency
+ * tied to any organisation -- the viewer-facing currency is a separate,
+ * dynamic SELECTOR (see convertFromBase() below) that re-expresses an
+ * already-computed base-currency total into whatever currency the viewer
+ * picks, live, with no locking (it's a display lens, not a historical
+ * record). "USD" is used as the default base purely because it's the most
+ * universally liquid/supported reference currency for a global FX feed --
+ * not a reporting-currency choice for any tenant. Worth revisiting later
+ * if a genuinely per-organization base currency is wanted; not built here,
+ * since nothing in the current request asked for per-org configurability.
  *
- * Data source: Frankfurter (frankfurter.app) -- free, no API key, ECB daily
- * reference rates, supports historical date lookups. Chosen per Lewis's
- * "a free/open exchange-rate API" direction. Known limitation: ECB only
- * publishes rates for ~30 major currencies (not every currency Unimed's
- * supply chain might touch) -- convertToReportingCcy() degrades gracefully
- * (returns nulls, logs a warning) rather than failing the whole line save
- * when a currency isn't covered, so entering the native price always
+ * "Daily interval" doesn't require a literal cron job here: a rate is a
+ * fact about a calendar date, so fetching it lazily the first time that
+ * date is needed and caching it in ExchangeRateSnapshot (unique on
+ * date+base) gives the same one-fetch-per-day behaviour a scheduled job
+ * would, without a new dependency. (Also pragmatic: this sandbox's local
+ * npm registry access is blocked by the org's egress policy, confirmed
+ * 2026-10-02 -- `npm install @nestjs/schedule` 403'd -- so a cron-module
+ * dependency wasn't installable here even if we wanted one.)
+ *
+ * Data source: Frankfurter (frankfurter.app) -- free, no API key, ECB
+ * daily reference rates, supports historical date lookups. Known
+ * limitation: ECB only publishes rates for ~30 major currencies (see
+ * SUPPORTED_CURRENCIES in packages/types) -- not every currency in the
+ * world. Both convertToBaseCcy() and convertFromBase() degrade gracefully
+ * (return nulls, log a warning) rather than failing the whole request when
+ * a currency isn't covered, so entering/viewing a native price always
  * works even when the converted figure can't be computed.
  */
 @Injectable()
 export class ExchangeRatesService {
   private readonly logger = new Logger(ExchangeRatesService.name);
 
-  /** Unimed's reporting/dashboard currency -- hardcoded for now (Unimed is
-   * UK-based). Stored on each ProjectLine as reportingCurrencyCode at the
-   * point of conversion (not just assumed) so this could become
-   * per-organization later without reinterpreting already-locked rows. */
-  static readonly REPORTING_CURRENCY = "GBP";
+  /** Neutral internal computation/aggregation currency -- see the class
+   * doc comment above for why this is NOT a reporting currency tied to any
+   * one organisation. Stored on each ProjectLine as reportingCurrencyCode
+   * at the point of conversion (not just assumed) so this could change
+   * later without reinterpreting already-locked rows. */
+  static readonly DEFAULT_BASE_CURRENCY = "USD";
 
   private readonly FRANKFURTER_BASE_URL = "https://api.frankfurter.app";
 
@@ -52,14 +68,14 @@ export class ExchangeRatesService {
   }
 
   /** Fetches (from cache, else Frankfurter) the rate snapshot covering the
-   * given date, for REPORTING_CURRENCY as base. Returns null -- never
+   * given date, for DEFAULT_BASE_CURRENCY as base. Returns null -- never
    * throws -- if Frankfurter is unreachable or returns something
-   * unexpected, so a price save never fails just because the FX feed had
-   * a bad moment; callers treat null as "conversion unavailable right
-   * now" and leave the reporting-currency fields unset. */
+   * unexpected, so a price save/view never fails just because the FX feed
+   * had a bad moment; callers treat null as "conversion unavailable right
+   * now". */
   async getSnapshotForDate(rawDate: Date): Promise<{ id: string; date: Date; rates: Record<string, number> } | null> {
     const date = this.toCalendarDate(rawDate);
-    const base = ExchangeRatesService.REPORTING_CURRENCY;
+    const base = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
 
     const cached = await prisma.exchangeRateSnapshot.findUnique({
       where: { date_baseCurrencyCode: { date, baseCurrencyCode: base } },
@@ -97,37 +113,37 @@ export class ExchangeRatesService {
 
   /**
    * Converts a unit price + its native-currency total into
-   * REPORTING_CURRENCY, locked to the rate for `asOfDate` (normally "now" --
-   * the date the price was entered/changed). Returns null fields (not a
-   * thrown error) when the currency isn't covered by the snapshot or the
-   * snapshot itself couldn't be fetched, so the caller can still save the
-   * native-currency price regardless.
+   * DEFAULT_BASE_CURRENCY, locked to the rate for `asOfDate` (normally
+   * "now" -- the date the price was entered/changed). Returns null fields
+   * (not a thrown error) when the currency isn't covered by the snapshot
+   * or the snapshot itself couldn't be fetched, so the caller can still
+   * save the native-currency price regardless.
    */
-  async convertToReportingCcy(
+  async convertToBaseCcy(
     nativeUnitAmount: number,
     nativeTotalAmount: number,
     nativeCurrency: string,
     asOfDate: Date,
   ): Promise<{
-    reportingCurrencyCode: string;
+    baseCurrencyCode: string;
     lockedAt: Date;
     exchangeRateSnapshotId: string | null;
-    unitReportingCcy: number | null;
-    totalReportingCcy: number | null;
+    unitInBase: number | null;
+    totalInBase: number | null;
   }> {
-    const reportingCurrencyCode = ExchangeRatesService.REPORTING_CURRENCY;
+    const baseCurrencyCode = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
     const lockedAt = new Date();
     const currency = nativeCurrency.toUpperCase();
 
-    // Already in the reporting currency -- no snapshot needed, factor is
+    // Already in the base currency -- no snapshot needed, factor is
     // exactly 1 by definition.
-    if (currency === reportingCurrencyCode) {
+    if (currency === baseCurrencyCode) {
       return {
-        reportingCurrencyCode,
+        baseCurrencyCode,
         lockedAt,
         exchangeRateSnapshotId: null,
-        unitReportingCcy: nativeUnitAmount,
-        totalReportingCcy: nativeTotalAmount,
+        unitInBase: nativeUnitAmount,
+        totalInBase: nativeTotalAmount,
       };
     }
 
@@ -135,21 +151,45 @@ export class ExchangeRatesService {
     const rate = snapshot?.rates[currency];
     if (!snapshot || !rate) {
       if (snapshot && !rate) {
-        this.logger.warn(`No Frankfurter rate for currency ${currency} (reporting ccy ${reportingCurrencyCode}) -- leaving line's converted amounts unset.`);
+        this.logger.warn(`No Frankfurter rate for currency ${currency} (base ccy ${baseCurrencyCode}) -- leaving this amount's converted figures unset.`);
       }
-      return { reportingCurrencyCode, lockedAt, exchangeRateSnapshotId: snapshot?.id ?? null, unitReportingCcy: null, totalReportingCcy: null };
+      return { baseCurrencyCode, lockedAt, exchangeRateSnapshotId: snapshot?.id ?? null, unitInBase: null, totalInBase: null };
     }
 
     // snapshot.rates maps currencyCode -> units of currencyCode per 1 unit
-    // of reportingCurrencyCode (Frankfurter's `?from=<reportingCcy>` shape),
-    // so converting FROM that currency TO the reporting currency divides.
+    // of baseCurrencyCode (Frankfurter's `?from=<base>` shape), so
+    // converting FROM that currency TO the base currency divides.
     return {
-      reportingCurrencyCode,
+      baseCurrencyCode,
       lockedAt,
       exchangeRateSnapshotId: snapshot.id,
-      unitReportingCcy: round2(nativeUnitAmount / rate),
-      totalReportingCcy: round2(nativeTotalAmount / rate),
+      unitInBase: round2(nativeUnitAmount / rate),
+      totalInBase: round2(nativeTotalAmount / rate),
     };
+  }
+
+  /**
+   * LIVE (never locked) conversion of an already-base-currency amount into
+   * whatever currency a viewer picks -- the mechanism behind the currency
+   * SELECTOR on the dashboard and per-project financial summaries. Always
+   * uses the rate for `asOfDate` (callers pass "now" for a live view),
+   * since this is a display preference, not a fact to preserve. Returns
+   * null (not a thrown error) if the target currency isn't covered or the
+   * snapshot can't be fetched.
+   */
+  async convertFromBase(amountInBase: number, targetCurrency: string, asOfDate: Date): Promise<number | null> {
+    const target = targetCurrency.toUpperCase();
+    if (target === ExchangeRatesService.DEFAULT_BASE_CURRENCY) return round2(amountInBase);
+
+    const snapshot = await this.getSnapshotForDate(asOfDate);
+    const rate = snapshot?.rates[target];
+    if (!snapshot || !rate) {
+      if (snapshot && !rate) {
+        this.logger.warn(`No Frankfurter rate for currency ${target} -- can't convert from base for display.`);
+      }
+      return null;
+    }
+    return round2(amountInBase * rate);
   }
 }
 

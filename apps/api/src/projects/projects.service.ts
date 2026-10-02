@@ -156,6 +156,10 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     freightCurrency: l.freightCurrency,
     insuredValue: decimalToString(l.insuredValue),
     insuredCurrency: l.insuredCurrency,
+    freightInsuranceCost: decimalToString(l.freightInsuranceCost),
+    freightAdditionalCost: decimalToString(l.freightAdditionalCost),
+    freightAdditionalCostDescription: l.freightAdditionalCostDescription,
+    freightTotalCost: decimalToString(l.freightTotalCost),
     warehouseReferenceNumber: l.warehouseReferenceNumber,
     goodsCollectedDate: l.goodsCollectedDate?.toISOString() ?? null,
     goodsManufacturedDate: l.goodsManufacturedDate?.toISOString() ?? null,
@@ -182,10 +186,16 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     internalInvoiceDate: l.internalInvoiceDate?.toISOString() ?? null,
     grossMargin: decimalToString(l.grossMargin),
     margin: decimalToString(l.margin),
+    productMarginPercent: decimalToString(l.productMarginPercent),
+    productMarginAmount: decimalToString(l.productMarginAmount),
+    freightMarginPercent: decimalToString(l.freightMarginPercent),
+    freightMarginAmount: decimalToString(l.freightMarginAmount),
     reportingCurrencyCode: l.reportingCurrencyCode,
     supplierPriceLockedAt: l.supplierPriceLockedAt?.toISOString() ?? null,
     supplierUnitPriceReportingCcy: decimalToString(l.supplierUnitPriceReportingCcy),
     supplierTotalPriceReportingCcy: decimalToString(l.supplierTotalPriceReportingCcy),
+    freightPriceLockedAt: l.freightPriceLockedAt?.toISOString() ?? null,
+    freightTotalCostReportingCcy: decimalToString(l.freightTotalCostReportingCcy),
     salesPriceLockedAt: l.salesPriceLockedAt?.toISOString() ?? null,
     salesUnitPriceReportingCcy: decimalToString(l.salesUnitPriceReportingCcy),
     salesTotalPriceReportingCcy: decimalToString(l.salesTotalPriceReportingCcy),
@@ -304,38 +314,97 @@ export class ProjectsService {
     return projects.map(toSummary);
   }
 
-  /** Org-wide rollup across every ProjectLine's LOCKED reporting-currency
+  /** Org-wide rollup across every ProjectLine's LOCKED base-currency
    * amounts — see ProjectFinancialSummary's doc comment in packages/types.
-   * Sums supplierTotalPriceReportingCcy/salesTotalPriceReportingCcy as
-   * they already stand on each line (each one individually locked to its
-   * own entry date's rate — see ExchangeRatesService), so this rollup
-   * itself needs no FX call at all; it's pure addition over already-locked
-   * numbers. Lines with no price yet (null on both) are counted in
-   * totalLines but not linesWithPricing or either total. */
-  async getFinancialSummary(user: RequestUser): Promise<ProjectFinancialSummary> {
+   * `currency`, if given, re-expresses the rollup in that currency LIVE
+   * (today's rate, not locked) via summarizeLines()/convertFromBase() —
+   * the mechanism behind the dashboard's currency selector. */
+  async getFinancialSummary(user: RequestUser, currency?: string): Promise<ProjectFinancialSummary> {
     const lines = await withTenantContext(user.organizationId, (tx) =>
       tx.projectLine.findMany({
         where: tenantScope(user.organizationId),
-        select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
+        select: { supplierTotalPriceReportingCcy: true, freightTotalCostReportingCcy: true, salesTotalPriceReportingCcy: true },
       }),
     );
+    return this.summarizeLines(lines, currency);
+  }
 
-    let totalCost = 0;
-    let totalSales = 0;
+  /** Same rollup as getFinancialSummary, scoped to one project's own lines
+   * — the "subtotal of all lines added together" Lewis asked for on a
+   * project's own financial view. */
+  async getProjectFinancialSummary(user: RequestUser, projectId: string, currency?: string): Promise<ProjectFinancialSummary> {
+    const project = await withTenantContext(user.organizationId, (tx) =>
+      tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } }),
+    );
+    if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+    const lines = await withTenantContext(user.organizationId, (tx) =>
+      tx.projectLine.findMany({
+        where: { projectId, ...tenantScope(user.organizationId) },
+        select: { supplierTotalPriceReportingCcy: true, freightTotalCostReportingCcy: true, salesTotalPriceReportingCcy: true },
+      }),
+    );
+    return this.summarizeLines(lines, currency);
+  }
+
+  /** Shared rollup logic for both financial-summary endpoints above.
+   * Sums each line's already-LOCKED base-currency figures (pure addition,
+   * no FX call needed for that part — each line was individually locked
+   * to its own entry date's rate, see ExchangeRatesService), then, if the
+   * caller asked for a different display currency, converts the four
+   * aggregate totals LIVE (today's rate) via convertFromBase(). Falls back
+   * to the base currency (flagging conversionUnavailable) if that live
+   * conversion can't be done — never silently shows a wrong number. Lines
+   * with no price yet (null on all three fields) are counted in
+   * totalLines but not linesWithPricing or any total. */
+  private async summarizeLines(
+    lines: { supplierTotalPriceReportingCcy: unknown; freightTotalCostReportingCcy: unknown; salesTotalPriceReportingCcy: unknown }[],
+    currency?: string,
+  ): Promise<ProjectFinancialSummary> {
+    const base = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
+    const display = (currency || base).toUpperCase();
+
+    let totalProductCost = 0;
+    let totalFreightCost = 0;
+    let totalInvoiceValue = 0;
     let linesWithPricing = 0;
     for (const l of lines) {
       const cost = decimalToNumber(l.supplierTotalPriceReportingCcy);
-      const sales = decimalToNumber(l.salesTotalPriceReportingCcy);
-      if (cost !== null) totalCost += cost;
-      if (sales !== null) totalSales += sales;
-      if (cost !== null || sales !== null) linesWithPricing += 1;
+      const freight = decimalToNumber(l.freightTotalCostReportingCcy);
+      const invoice = decimalToNumber(l.salesTotalPriceReportingCcy);
+      if (cost !== null) totalProductCost += cost;
+      if (freight !== null) totalFreightCost += freight;
+      if (invoice !== null) totalInvoiceValue += invoice;
+      if (cost !== null || freight !== null || invoice !== null) linesWithPricing += 1;
+    }
+    const totalMargin = totalInvoiceValue - (totalProductCost + totalFreightCost);
+
+    let conversionUnavailable = false;
+    let [outProductCost, outFreightCost, outMargin, outInvoice] = [totalProductCost, totalFreightCost, totalMargin, totalInvoiceValue];
+
+    if (display !== base) {
+      const now = new Date();
+      const [p, f, m, i] = await Promise.all([
+        this.exchangeRates.convertFromBase(totalProductCost, display, now),
+        this.exchangeRates.convertFromBase(totalFreightCost, display, now),
+        this.exchangeRates.convertFromBase(totalMargin, display, now),
+        this.exchangeRates.convertFromBase(totalInvoiceValue, display, now),
+      ]);
+      if (p === null || f === null || m === null || i === null) {
+        conversionUnavailable = true;
+      } else {
+        [outProductCost, outFreightCost, outMargin, outInvoice] = [p, f, m, i];
+      }
     }
 
     return {
-      reportingCurrencyCode: ExchangeRatesService.REPORTING_CURRENCY,
-      totalSupplierCostReportingCcy: String(round2(totalCost)),
-      totalSalesValueReportingCcy: String(round2(totalSales)),
-      totalMarginReportingCcy: String(round2(totalSales - totalCost)),
+      baseCurrencyCode: base,
+      displayCurrencyCode: conversionUnavailable ? base : display,
+      conversionUnavailable,
+      totalProductCost: String(round2(outProductCost)),
+      totalFreightCost: String(round2(outFreightCost)),
+      totalMargin: String(round2(outMargin)),
+      totalInvoiceValue: String(round2(outInvoice)),
       linesWithPricing,
       totalLines: lines.length,
     };
@@ -516,33 +585,83 @@ export class ProjectsService {
    * THIS request — so touching unrelated fields never re-locks the rate to
    * a new date for no reason.
    */
+  /**
+   * Builds the full margin-based client invoice per line — see
+   * ProjectLine's "Margin-based client invoice build" doc comment in
+   * schema.prisma. Three stages, each mutating `data` in place:
+   *
+   * 1. Product/supplier side: supplierPaymentAmountTotal (unit x qty, in
+   *    supplierPaymentCurrency) + its locked base-currency equivalent
+   *    (unchanged from the previous round) + productMarginAmount
+   *    (supplierPaymentAmountTotal x productMarginPercent / 100, native —
+   *    new this round).
+   * 2. Freight side (new this round): freightTotalCost (freightCost +
+   *    freightInsuranceCost + freightAdditionalCost, all in
+   *    freightCurrency, NOT multiplied by quantity — freight is a
+   *    per-line cost, not a per-unit one) + its own locked base-currency
+   *    equivalent (freight can be, and often is, priced in a different
+   *    currency than the product) + freightMarginAmount.
+   * 3. Client invoice: combines both sides' base-currency, WITH-margin
+   *    figures (a % markup is proportional, so "convert then apply %" and
+   *    "apply % then convert" give the same number — no separate
+   *    with-margin base-currency column needed, just the arithmetic
+   *    below), then converts that combined base-currency total into
+   *    clientPaymentCurrency — this is clientPaymentAmount, no longer
+   *    free-text manual entry. unitSalesPrice = clientPaymentAmount /
+   *    quantity, a derived display convenience.
+   *
+   * Currency-agnostic throughout (see ExchangeRatesService's doc comment)
+   * — nothing here assumes any particular organisation's home currency.
+   */
   private async applyPricing(
     data: Record<string, unknown>,
     dto: ProjectLineDto,
     existing: {
       quantity: number | null;
       supplierUnitPrice: unknown;
+      supplierPaymentAmountTotal: unknown;
       supplierPaymentCurrency: string | null;
-      unitSalesPrice: unknown;
+      supplierTotalPriceReportingCcy: unknown;
+      freightCost: unknown;
+      freightInsuranceCost: unknown;
+      freightAdditionalCost: unknown;
+      freightCurrency: string | null;
+      freightTotalCost: unknown;
+      freightTotalCostReportingCcy: unknown;
+      productMarginPercent: unknown;
+      freightMarginPercent: unknown;
       clientPaymentCurrency: string | null;
     } | null,
   ) {
     const quantity = dto.quantity !== undefined ? dto.quantity : existing?.quantity ?? null;
+    const now = new Date();
 
+    // --- 1. Product/supplier side ---
     const supplierUnitPrice = dto.supplierUnitPrice !== undefined ? dto.supplierUnitPrice : decimalToNumber(existing?.supplierUnitPrice);
     const supplierCurrency = dto.supplierPaymentCurrency !== undefined ? dto.supplierPaymentCurrency : existing?.supplierPaymentCurrency ?? null;
     const supplierTouched = dto.supplierUnitPrice !== undefined || dto.quantity !== undefined || dto.supplierPaymentCurrency !== undefined;
 
+    let supplierTotalNative: number | null = null;
+    let supplierTotalBase: number | null = null;
+
     if (supplierUnitPrice !== null && quantity !== null) {
-      const total = round2(supplierUnitPrice * quantity);
-      data.supplierPaymentAmountTotal = total;
+      supplierTotalNative = round2(supplierUnitPrice * quantity);
+      data.supplierPaymentAmountTotal = supplierTotalNative;
       if (supplierTouched && supplierCurrency) {
-        const conv = await this.exchangeRates.convertToReportingCcy(supplierUnitPrice, total, supplierCurrency, new Date());
-        data.reportingCurrencyCode = conv.reportingCurrencyCode;
+        const conv = await this.exchangeRates.convertToBaseCcy(supplierUnitPrice, supplierTotalNative, supplierCurrency, now);
+        data.reportingCurrencyCode = conv.baseCurrencyCode;
         data.supplierPriceLockedAt = conv.lockedAt;
         data.supplierExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
-        data.supplierUnitPriceReportingCcy = conv.unitReportingCcy;
-        data.supplierTotalPriceReportingCcy = conv.totalReportingCcy;
+        data.supplierUnitPriceReportingCcy = conv.unitInBase;
+        data.supplierTotalPriceReportingCcy = conv.totalInBase;
+        supplierTotalBase = conv.totalInBase;
+      } else {
+        // This request didn't touch price/qty/currency — reuse the
+        // existing locked base-currency figure for the margin/invoice
+        // math below rather than recomputing (e.g. a request that only
+        // changes productMarginPercent still needs the product's
+        // already-locked base-currency total).
+        supplierTotalBase = decimalToNumber(existing?.supplierTotalPriceReportingCcy);
       }
     } else {
       data.supplierPaymentAmountTotal = null;
@@ -554,29 +673,94 @@ export class ProjectsService {
       }
     }
 
-    const unitSalesPrice = dto.unitSalesPrice !== undefined ? dto.unitSalesPrice : decimalToNumber(existing?.unitSalesPrice);
-    const clientCurrency = dto.clientPaymentCurrency !== undefined ? dto.clientPaymentCurrency : existing?.clientPaymentCurrency ?? null;
-    const salesTouched = dto.unitSalesPrice !== undefined || dto.quantity !== undefined || dto.clientPaymentCurrency !== undefined;
+    const productMarginPercent = dto.productMarginPercent !== undefined ? dto.productMarginPercent : decimalToNumber(existing?.productMarginPercent);
+    data.productMarginPercent = productMarginPercent;
+    const productMarginAmount = supplierTotalNative !== null && productMarginPercent !== null ? round2(supplierTotalNative * (productMarginPercent / 100)) : null;
+    data.productMarginAmount = productMarginAmount;
 
-    if (unitSalesPrice !== null && quantity !== null) {
-      const total = round2(unitSalesPrice * quantity);
-      data.clientPaymentAmount = total;
-      if (salesTouched && clientCurrency) {
-        const conv = await this.exchangeRates.convertToReportingCcy(unitSalesPrice, total, clientCurrency, new Date());
-        data.reportingCurrencyCode = conv.reportingCurrencyCode;
-        data.salesPriceLockedAt = conv.lockedAt;
-        data.salesExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
-        data.salesUnitPriceReportingCcy = conv.unitReportingCcy;
-        data.salesTotalPriceReportingCcy = conv.totalReportingCcy;
-      }
+    // --- 2. Freight side ---
+    const freightCost = dto.freightCost !== undefined ? dto.freightCost : decimalToNumber(existing?.freightCost);
+    const freightInsuranceCost = dto.freightInsuranceCost !== undefined ? dto.freightInsuranceCost : decimalToNumber(existing?.freightInsuranceCost);
+    const freightAdditionalCost = dto.freightAdditionalCost !== undefined ? dto.freightAdditionalCost : decimalToNumber(existing?.freightAdditionalCost);
+    const freightCurrency = dto.freightCurrency !== undefined ? dto.freightCurrency : existing?.freightCurrency ?? null;
+    const freightTouched = dto.freightCost !== undefined || dto.freightInsuranceCost !== undefined || dto.freightAdditionalCost !== undefined || dto.freightCurrency !== undefined;
+
+    const freightComponents = [freightCost, freightInsuranceCost, freightAdditionalCost].filter((v): v is number => v !== null && v !== undefined);
+    const freightTotalNative = freightComponents.length > 0 ? round2(freightComponents.reduce((a, b) => a + b, 0)) : null;
+    data.freightTotalCost = freightTotalNative;
+
+    let freightTotalBase: number | null = null;
+    if (freightTotalNative !== null && freightTouched && freightCurrency) {
+      const conv = await this.exchangeRates.convertToBaseCcy(freightTotalNative, freightTotalNative, freightCurrency, now);
+      data.freightPriceLockedAt = conv.lockedAt;
+      data.freightExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
+      data.freightTotalCostReportingCcy = conv.totalInBase;
+      freightTotalBase = conv.totalInBase;
+    } else if (freightTotalNative === null) {
+      data.freightPriceLockedAt = null;
+      data.freightExchangeRateSnapshotId = null;
+      data.freightTotalCostReportingCcy = null;
     } else {
-      data.clientPaymentAmount = null;
-      if (salesTouched) {
-        data.salesPriceLockedAt = null;
+      // Freight amount/currency unchanged this request — reuse the
+      // existing locked base-currency figure for the invoice math below.
+      freightTotalBase = decimalToNumber(existing?.freightTotalCostReportingCcy);
+    }
+
+    const freightMarginPercent = dto.freightMarginPercent !== undefined ? dto.freightMarginPercent : decimalToNumber(existing?.freightMarginPercent);
+    data.freightMarginPercent = freightMarginPercent;
+    const freightMarginAmount = freightTotalNative !== null && freightMarginPercent !== null ? round2(freightTotalNative * (freightMarginPercent / 100)) : null;
+    data.freightMarginAmount = freightMarginAmount;
+
+    // --- 3. Client invoice (product + margin, plus freight + margin) ---
+    const clientCurrency = dto.clientPaymentCurrency !== undefined ? dto.clientPaymentCurrency : existing?.clientPaymentCurrency ?? null;
+    const invoiceTouched =
+      supplierTouched ||
+      dto.productMarginPercent !== undefined ||
+      freightTouched ||
+      dto.freightMarginPercent !== undefined ||
+      dto.clientPaymentCurrency !== undefined ||
+      dto.quantity !== undefined;
+
+    const productWithMarginBase = supplierTotalBase !== null ? supplierTotalBase * (1 + (productMarginPercent ?? 0) / 100) : null;
+    const freightWithMarginBase = freightTotalBase !== null ? freightTotalBase * (1 + (freightMarginPercent ?? 0) / 100) : null;
+
+    if (invoiceTouched && (productWithMarginBase !== null || freightWithMarginBase !== null)) {
+      const invoiceTotalBase = round2((productWithMarginBase ?? 0) + (freightWithMarginBase ?? 0));
+      data.salesTotalPriceReportingCcy = invoiceTotalBase;
+      data.salesUnitPriceReportingCcy = quantity ? round2(invoiceTotalBase / quantity) : null;
+      data.reportingCurrencyCode = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
+
+      if (clientCurrency) {
+        const snapshot = await this.exchangeRates.getSnapshotForDate(now);
+        const ccy = clientCurrency.toUpperCase();
+        let clientPaymentAmountNative: number | null = null;
+        let clientSnapshotId: string | null = null;
+        if (ccy === ExchangeRatesService.DEFAULT_BASE_CURRENCY) {
+          clientPaymentAmountNative = invoiceTotalBase;
+        } else {
+          const rate = snapshot?.rates[ccy];
+          if (snapshot && rate) {
+            clientPaymentAmountNative = round2(invoiceTotalBase * rate);
+            clientSnapshotId = snapshot.id;
+          }
+        }
+        data.clientPaymentAmount = clientPaymentAmountNative;
+        data.unitSalesPrice = clientPaymentAmountNative !== null && quantity ? round2(clientPaymentAmountNative / quantity) : null;
+        data.salesPriceLockedAt = now;
+        data.salesExchangeRateSnapshotId = clientSnapshotId;
+      } else {
+        data.clientPaymentAmount = null;
+        data.unitSalesPrice = null;
+        data.salesPriceLockedAt = now;
         data.salesExchangeRateSnapshotId = null;
-        data.salesUnitPriceReportingCcy = null;
-        data.salesTotalPriceReportingCcy = null;
       }
+    } else if (invoiceTouched) {
+      data.clientPaymentAmount = null;
+      data.unitSalesPrice = null;
+      data.salesPriceLockedAt = null;
+      data.salesExchangeRateSnapshotId = null;
+      data.salesUnitPriceReportingCcy = null;
+      data.salesTotalPriceReportingCcy = null;
     }
   }
 

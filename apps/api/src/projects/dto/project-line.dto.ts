@@ -39,6 +39,11 @@ export class ProjectLineDto {
   @IsOptional() @IsString() freightCurrency?: string;
   @IsOptional() @IsNumber() insuredValue?: number;
   @IsOptional() @IsString() insuredCurrency?: string;
+  /** The PREMIUM for freight insurance — distinct from insuredValue above
+   * (the sum insured). Shares freightCurrency. Added 2026-10-03. */
+  @IsOptional() @IsNumber() freightInsuranceCost?: number;
+  @IsOptional() @IsNumber() freightAdditionalCost?: number;
+  @IsOptional() @IsString() freightAdditionalCostDescription?: string;
   @IsOptional() @IsString() warehouseReferenceNumber?: string;
   @IsOptional() @IsString() goodsCollectedDate?: string;
   @IsOptional() @IsString() goodsManufacturedDate?: string;
@@ -71,6 +76,12 @@ export class ProjectLineDto {
   @IsOptional() @IsString() internalInvoiceDate?: string;
   @IsOptional() @IsNumber() grossMargin?: number;
   @IsOptional() @IsNumber() margin?: number;
+  /** Markup % applied to supplierPaymentAmountTotal on the way to the
+   * client invoice — see ProjectsService.applyPricing. Added 2026-10-03. */
+  @IsOptional() @IsNumber() @Min(0) productMarginPercent?: number;
+  /** Markup % applied to freightTotalCost — deliberately separate from
+   * productMarginPercent. Added 2026-10-03. */
+  @IsOptional() @IsNumber() @Min(0) freightMarginPercent?: number;
   @IsOptional() @IsString() strength?: string;
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsString() packSize?: string;

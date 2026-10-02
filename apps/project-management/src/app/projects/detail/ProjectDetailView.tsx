@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect } from "@universe/ui";
-import type { PartnerSummary, ProjectDetail, UpdateProjectInput } from "@universe/types";
+import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, UpdateProjectInput } from "@universe/types";
+import { SUPPORTED_CURRENCIES } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
@@ -76,6 +77,15 @@ export function ProjectDetailView() {
   const [addingLine, setAddingLine] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
+  // Financial Summary (added 2026-10-03) — this project's own lines
+  // subtotal, the "subtotal of all lines added together" Lewis asked
+  // for, alongside the dashboard's org-wide rollup. Same currency-
+  // selector pattern as the dashboard (see page.tsx) — Universe is
+  // currency-agnostic, so this is a viewer-chosen display lens, not a
+  // fixed reporting currency. null while loading/on failure.
+  const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
+  const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
+
   const load = useCallback(() => {
     if (!id) return;
     apiClient
@@ -94,6 +104,18 @@ export function ProjectDetailView() {
     apiClient.listPartners("SUPPLIER").then(setSuppliers).catch(() => {});
     apiClient.listPartners("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    apiClient
+      .getSingleProjectFinancialSummary(id, displayCurrency ?? undefined)
+      .then((summary) => {
+        setFinancialSummary(summary);
+        if (displayCurrency === null) setDisplayCurrency(summary.displayCurrencyCode);
+      })
+      .catch(() => setFinancialSummary(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, displayCurrency, project?.lines.length]);
 
   function startEditHeader() {
     if (!project) return;
@@ -402,6 +424,44 @@ export function ProjectDetailView() {
 
       {(showAllFields || showLines) && (
         <>
+      {financialSummary && financialSummary.linesWithPricing > 0 && (
+        <div
+          style={{
+            marginTop: 32,
+            border: "1px solid var(--u-border)",
+            borderRadius: "var(--u-radius-lg)",
+            backgroundColor: "var(--u-surface-raised)",
+            padding: "16px 18px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+            <h3 style={{ margin: 0, fontSize: 14 }}>Financial Summary (this project)</h3>
+            <select
+              className="u-native-select"
+              value={displayCurrency ?? financialSummary.displayCurrencyCode}
+              onChange={(e) => setDisplayCurrency(e.target.value)}
+              style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--u-border)" }}
+            >
+              {SUPPORTED_CURRENCIES.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </select>
+          </div>
+          {financialSummary.conversionUnavailable && (
+            <p style={{ fontSize: 12, color: "var(--u-status-critical)", margin: "0 0 8px" }}>
+              Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.
+            </p>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
+            <ProjectFinancialStat label="Product cost" value={financialSummary.totalProductCost} currency={financialSummary.displayCurrencyCode} />
+            <ProjectFinancialStat label="Freight cost" value={financialSummary.totalFreightCost} currency={financialSummary.displayCurrencyCode} />
+            <ProjectFinancialStat label="Margin" value={financialSummary.totalMargin} currency={financialSummary.displayCurrencyCode} />
+            <ProjectFinancialStat label="Subtotal (all lines)" value={financialSummary.totalInvoiceValue} currency={financialSummary.displayCurrencyCode} emphasize />
+          </div>
+        </div>
+      )}
       <div style={{ marginTop: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Line Items ({project.lines.length})</h2>
         {!addingLine && (
@@ -516,5 +576,20 @@ function PartnerRef({ id, name }: { id: string | null; name: string | null }) {
     <Link href={`/partners/detail?id=${id}`} style={{ textDecoration: "none" }}>
       <TextLink as="span">{name ?? "—"}</TextLink>
     </Link>
+  );
+}
+
+/** One figure inside the project's Financial Summary panel — same
+ * formatting convention as the dashboard's FinancialStat (page.tsx).
+ * Added 2026-10-03. */
+function ProjectFinancialStat({ label, value, currency, emphasize }: { label: string; value: string; currency: string; emphasize?: boolean }) {
+  const formatted = new Intl.NumberFormat("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: emphasize ? 18 : 15, fontWeight: emphasize ? 700 : 600, color: "var(--u-ink)" }}>
+        {currency} {formatted}
+      </div>
+    </div>
   );
 }

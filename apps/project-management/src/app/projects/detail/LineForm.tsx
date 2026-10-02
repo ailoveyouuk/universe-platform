@@ -47,9 +47,17 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     supplierPriceLockedAt: _supplierPriceLockedAt,
     supplierUnitPriceReportingCcy: _supplierUnitPriceReportingCcy,
     supplierTotalPriceReportingCcy: _supplierTotalPriceReportingCcy,
+    freightPriceLockedAt: _freightPriceLockedAt,
+    freightTotalCostReportingCcy: _freightTotalCostReportingCcy,
     salesPriceLockedAt: _salesPriceLockedAt,
     salesUnitPriceReportingCcy: _salesUnitPriceReportingCcy,
     salesTotalPriceReportingCcy: _salesTotalPriceReportingCcy,
+    // Computed-only (2026-10-03 margin-based invoice build) — see
+    // ProjectLine's "Margin-based client invoice build" doc comment in
+    // schema.prisma. Not part of ProjectLineInput.
+    freightTotalCost: _freightTotalCost,
+    productMarginAmount: _productMarginAmount,
+    freightMarginAmount: _freightMarginAmount,
     ...rest
   } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
@@ -62,10 +70,14 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
   return {
     ...rest,
     freightCost: rest.freightCost === null ? null : Number(rest.freightCost),
+    freightInsuranceCost: rest.freightInsuranceCost === null ? null : Number(rest.freightInsuranceCost),
+    freightAdditionalCost: rest.freightAdditionalCost === null ? null : Number(rest.freightAdditionalCost),
     supplierUnitPrice: rest.supplierUnitPrice === null ? null : Number(rest.supplierUnitPrice),
     supplierPaymentAmountTotal: rest.supplierPaymentAmountTotal === null ? null : Number(rest.supplierPaymentAmountTotal),
     supplierAmountPaid: rest.supplierAmountPaid === null ? null : Number(rest.supplierAmountPaid),
     insuredValue: rest.insuredValue === null ? null : Number(rest.insuredValue),
+    productMarginPercent: rest.productMarginPercent === null ? null : Number(rest.productMarginPercent),
+    freightMarginPercent: rest.freightMarginPercent === null ? null : Number(rest.freightMarginPercent),
     unitSalesPrice: rest.unitSalesPrice === null ? null : Number(rest.unitSalesPrice),
     clientPaymentAmount: rest.clientPaymentAmount === null ? null : Number(rest.clientPaymentAmount),
     grossMargin: rest.grossMargin === null ? null : Number(rest.grossMargin),
@@ -174,6 +186,45 @@ export function LineForm({
   function computedTotal(unitPrice: number | null | undefined, quantity: number | null | undefined): string {
     if (unitPrice === null || unitPrice === undefined || quantity === null || quantity === undefined) return "";
     return String(Math.round(unitPrice * quantity * 100) / 100);
+  }
+
+  /** Client-side preview of freightCost + freightInsuranceCost +
+   * freightAdditionalCost — same cosmetic-preview convention as
+   * computedTotal above; see ProjectsService.applyPricing. */
+  function freightTotalPreview(): string {
+    const parts = [form.freightCost, form.freightInsuranceCost, form.freightAdditionalCost].filter(
+      (v): v is number => v !== null && v !== undefined,
+    );
+    if (parts.length === 0) return "";
+    return String(Math.round(parts.reduce((a, b) => a + b, 0) * 100) / 100);
+  }
+
+  /** Client-side preview of a margin amount (total x percent / 100). */
+  function marginAmountPreview(total: string, percent: number | null | undefined): string {
+    if (total === "" || percent === null || percent === undefined) return "";
+    return String(Math.round(Number(total) * (percent / 100) * 100) / 100);
+  }
+
+  /** Divides a preview total string by quantity, for a per-unit preview. */
+  function perUnitPreview(total: string, quantity: number | null | undefined): string {
+    if (total === "" || !quantity) return "";
+    return String(Math.round((Number(total) / quantity) * 100) / 100);
+  }
+
+  /** Client-side preview of the full margin-based client invoice total —
+   * product total + product margin + freight total + freight margin.
+   * Ignores currency conversion (same cosmetic-preview convention as
+   * computedTotal); the authoritative, currency-converted figure always
+   * comes back from the API on save, see ProjectsService.applyPricing's
+   * "Client invoice" step. */
+  function invoiceTotalPreview(): string {
+    const productTotal = computedTotal(form.supplierUnitPrice, form.quantity);
+    const freightTotal = freightTotalPreview();
+    const productMargin = marginAmountPreview(productTotal, form.productMarginPercent);
+    const freightMargin = marginAmountPreview(freightTotal, form.freightMarginPercent);
+    const parts = [productTotal, productMargin, freightTotal, freightMargin].filter((v) => v !== "");
+    if (parts.length === 0) return "";
+    return String(Math.round(parts.reduce((a, b) => a + Number(b), 0) * 100) / 100);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -360,6 +411,37 @@ export function LineForm({
         <Field label="Freight Currency">
           <input maxLength={3} style={inputStyle} value={form.freightCurrency ?? ""} onChange={(e) => update("freightCurrency", e.target.value.toUpperCase() || null)} />
         </Field>
+        <Field label="Freight Insurance Cost">
+          <input
+            type="number"
+            step="0.01"
+            style={inputStyle}
+            value={form.freightInsuranceCost ?? ""}
+            onChange={(e) => update("freightInsuranceCost", numOrNull(e.target.value))}
+          />
+        </Field>
+        <Field label="Freight Additional Cost">
+          <input
+            type="number"
+            step="0.01"
+            style={inputStyle}
+            value={form.freightAdditionalCost ?? ""}
+            onChange={(e) => update("freightAdditionalCost", numOrNull(e.target.value))}
+          />
+        </Field>
+        <Field label="Freight Additional Cost Description">
+          <input
+            style={inputStyle}
+            value={form.freightAdditionalCostDescription ?? ""}
+            onChange={(e) => update("freightAdditionalCostDescription", e.target.value || null)}
+          />
+        </Field>
+        {/* Computed (freightCost + freightInsuranceCost +
+            freightAdditionalCost) server-side — same cosmetic-preview
+            convention as the Financials section's calculated fields. */}
+        <Field label="Freight Total Cost (calculated)">
+          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={freightTotalPreview()} readOnly disabled />
+        </Field>
         <Field label="Insured Value">
           <input
             type="number"
@@ -445,19 +527,68 @@ export function LineForm({
             ))}
           </select>
         </Field>
-        <Field label="Unit Sales Price">
-          <input type="number" step="0.01" style={inputStyle} value={form.unitSalesPrice ?? ""} onChange={(e) => update("unitSalesPrice", numOrNull(e.target.value))} />
+        <Field label="Product Margin %">
+          <input type="number" step="0.01" style={inputStyle} value={form.productMarginPercent ?? ""} onChange={(e) => update("productMarginPercent", numOrNull(e.target.value))} />
         </Field>
-        {/* Computed server-side, same convention as Supplier Payment Total
-            above. */}
+        <Field label="Product Margin Amount (calculated)">
+          <input
+            type="number"
+            step="0.01"
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={marginAmountPreview(computedTotal(form.supplierUnitPrice, form.quantity), form.productMarginPercent)}
+            readOnly
+            disabled
+          />
+        </Field>
+        {existing && existing.reportingCurrencyCode && existing.freightTotalCostReportingCcy && (
+          <Field label={`Freight Cost (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.freightPriceLockedAt) || "—"})`}>
+            <input
+              style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+              value={`${existing.freightTotalCostReportingCcy ?? "—"} total`}
+              readOnly
+              disabled
+            />
+          </Field>
+        )}
+        <Field label="Freight Margin %">
+          <input type="number" step="0.01" style={inputStyle} value={form.freightMarginPercent ?? ""} onChange={(e) => update("freightMarginPercent", numOrNull(e.target.value))} />
+        </Field>
+        <Field label="Freight Margin Amount (calculated)">
+          <input
+            type="number"
+            step="0.01"
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={marginAmountPreview(freightTotalPreview(), form.freightMarginPercent)}
+            readOnly
+            disabled
+          />
+        </Field>
+        {/* Unit Sales Price / Client Payment Amount are now fully computed
+            server-side from the margin-based invoice formula (product
+            total + product margin + freight total + freight margin,
+            converted to Client Payment Currency) — no longer independent
+            free-text entry, see ProjectsService.applyPricing's "Client
+            invoice" step. Shown read-only here; invoiceTotalPreview() is
+            the same cosmetic, currency-conversion-ignoring preview
+            convention as computedTotal above. */}
+        <Field label="Unit Sales Price (calculated)">
+          <input
+            type="number"
+            step="0.01"
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={perUnitPreview(invoiceTotalPreview(), form.quantity)}
+            readOnly
+            disabled
+          />
+        </Field>
         <Field label="Client Payment Amount (calculated)">
-          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={computedTotal(form.unitSalesPrice, form.quantity)} readOnly disabled />
+          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={invoiceTotalPreview()} readOnly disabled />
         </Field>
         <Field label="Client Payment Currency">
           <input maxLength={3} style={inputStyle} value={form.clientPaymentCurrency ?? ""} onChange={(e) => update("clientPaymentCurrency", e.target.value.toUpperCase() || null)} />
         </Field>
         {existing && existing.reportingCurrencyCode && (existing.salesUnitPriceReportingCcy || existing.salesTotalPriceReportingCcy) && (
-          <Field label={`Client Price (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.salesPriceLockedAt) || "—"})`}>
+          <Field label={`Client Invoice (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.salesPriceLockedAt) || "—"})`}>
             <input
               style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
               value={`${existing.salesUnitPriceReportingCcy ?? "—"} / ${existing.salesTotalPriceReportingCcy ?? "—"} total`}
@@ -475,10 +606,16 @@ export function LineForm({
         <Field label="Internal Invoice Date">
           <input type="date" style={inputStyle} value={toDateInput(form.internalInvoiceDate)} onChange={(e) => update("internalInvoiceDate", e.target.value || null)} />
         </Field>
-        <Field label="Gross Margin">
+        {/* Legacy manual-entry fields, predating the margin-based client
+            invoice build (2026-10-03) — no longer populated or read by
+            ProjectsService.applyPricing. Left in place (not removed) so
+            historical values entered before that date remain visible and
+            editable; flagged for Lewis to confirm whether these should be
+            hidden or removed outright. */}
+        <Field label="Gross Margin (legacy, unused)">
           <input type="number" step="0.01" style={inputStyle} value={form.grossMargin ?? ""} onChange={(e) => update("grossMargin", numOrNull(e.target.value))} />
         </Field>
-        <Field label="Margin %">
+        <Field label="Margin % (legacy, unused)">
           <input type="number" step="0.01" style={inputStyle} value={form.margin ?? ""} onChange={(e) => update("margin", numOrNull(e.target.value))} />
         </Field>
       </Section>

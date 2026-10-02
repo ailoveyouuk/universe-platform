@@ -243,6 +243,18 @@ export interface ProjectLineSummary {
    * comment in schema.prisma. Added 2026-09-30. */
   insuredValue: string | null;
   insuredCurrency: string | null;
+  /** The PREMIUM paid for freight insurance — distinct from insuredValue
+   * above (the sum insured, a contract figure, not a cost). Shares
+   * freightCurrency. Added 2026-10-03. */
+  freightInsuranceCost: string | null;
+  /** Any freight-related cost that isn't the core freight price or
+   * insurance premium (customs duties, demurrage, etc). Shares
+   * freightCurrency. Added 2026-10-03. */
+  freightAdditionalCost: string | null;
+  freightAdditionalCostDescription: string | null;
+  /** Computed server-side: freightCost + freightInsuranceCost +
+   * freightAdditionalCost, in freightCurrency. Added 2026-10-03. */
+  freightTotalCost: string | null;
   warehouseReferenceNumber: string | null;
   goodsCollectedDate: string | null;
   goodsManufacturedDate: string | null;
@@ -269,25 +281,56 @@ export interface ProjectLineSummary {
   /** Computed server-side (supplierPaymentAmountTotal - supplierAmountPaid),
    * never stored — same convention as daysRemainingForSubmission above. */
   supplierRemainingBalance: string | null;
+  /** Computed server-side: clientPaymentAmount / quantity. Added 2026-10-03
+   * — previously manual entry. See ProjectLine's "Margin-based client
+   * invoice build" doc comment in schema.prisma. */
   unitSalesPrice: string | null;
+  /** Computed server-side (2026-10-03 rework): (manufacturer/supplier
+   * product total + productMarginAmount) + (freight total + freightMarginAmount),
+   * converted into clientPaymentCurrency. Previously manual entry. */
   clientPaymentAmount: string | null;
   clientPaymentCurrency: string | null;
   clientPaymentDate: string | null;
   internalInvoiceNumber: string | null;
   internalInvoiceDate: string | null;
+  /** Legacy manual-entry fields, predating the margin-based invoice build
+   * — no longer populated or read. See schema.prisma's doc comment. */
   grossMargin: string | null;
   margin: string | null;
-  /** Currency conversion (added 2026-10-02) — see ProjectLine's "Currency
-   * conversion" doc comment in schema.prisma / ExchangeRatesService.
-   * supplierPaymentAmountTotal/clientPaymentAmount above are now
-   * server-computed (unitPrice x quantity) in their own NATIVE currency;
-   * the fields below are the reporting-currency (GBP) equivalents, locked
-   * to the FX rate on the date the native price was last saved — never
-   * read-write from the frontend, display-only. */
+  /** Input: markup % applied to supplierPaymentAmountTotal on the way to
+   * the client invoice. Added 2026-10-03. */
+  productMarginPercent: string | null;
+  /** Computed: supplierPaymentAmountTotal x productMarginPercent / 100, in
+   * supplierPaymentCurrency. */
+  productMarginAmount: string | null;
+  /** Input: markup % applied to freightTotalCost — deliberately separate
+   * from productMarginPercent, since freight is commonly marked up
+   * differently (or not at all). Added 2026-10-03. */
+  freightMarginPercent: string | null;
+  /** Computed: freightTotalCost x freightMarginPercent / 100, in
+   * freightCurrency. */
+  freightMarginAmount: string | null;
+  /** Currency conversion (added 2026-10-02, generalized 2026-10-03 — see
+   * ExchangeRatesService's doc comment: Universe is currency-agnostic,
+   * not built around any one organisation's home currency).
+   * supplierPaymentAmountTotal/clientPaymentAmount/freightTotalCost above
+   * are now server-computed, in their own NATIVE currencies; the fields
+   * below are each converted into the platform's neutral base currency
+   * (ExchangeRatesService.DEFAULT_BASE_CURRENCY, currently "USD") and
+   * LOCKED to the FX rate on the date last saved — never read-write from
+   * the frontend, display-only. The dashboard/financial-view's currency
+   * SELECTOR re-expresses these LIVE into whatever currency a viewer
+   * picks; see ProjectFinancialSummary. */
   reportingCurrencyCode: string | null;
   supplierPriceLockedAt: string | null;
   supplierUnitPriceReportingCcy: string | null;
   supplierTotalPriceReportingCcy: string | null;
+  /** Freight's own lock — freight can be (and often is) priced in a
+   * different native currency than the product. Added 2026-10-03. */
+  freightPriceLockedAt: string | null;
+  freightTotalCostReportingCcy: string | null;
+  /** Repurposed 2026-10-03 — now the CLIENT INVOICE's lock (previously the
+   * manually-entered "sales" side's lock). */
   salesPriceLockedAt: string | null;
   salesUnitPriceReportingCcy: string | null;
   salesTotalPriceReportingCcy: string | null;
@@ -380,6 +423,9 @@ export interface ProjectLineInput {
   freightCurrency?: string | null;
   insuredValue?: number | null;
   insuredCurrency?: string | null;
+  freightInsuranceCost?: number | null;
+  freightAdditionalCost?: number | null;
+  freightAdditionalCostDescription?: string | null;
   warehouseReferenceNumber?: string | null;
   goodsCollectedDate?: string | null;
   goodsManufacturedDate?: string | null;
@@ -404,6 +450,8 @@ export interface ProjectLineInput {
   internalInvoiceDate?: string | null;
   grossMargin?: number | null;
   margin?: number | null;
+  productMarginPercent?: number | null;
+  freightMarginPercent?: number | null;
   strength?: string | null;
   form?: string | null;
   packSize?: string | null;
@@ -420,21 +468,55 @@ export interface ProjectLineInput {
   qualificationPathwayExpiryDate?: string | null;
 }
 
-/** GET /projects/financial-summary — an org-wide rollup across every
- * ProjectLine's LOCKED reporting-currency amounts (see ProjectLine's
- * "Currency conversion" doc comment in schema.prisma), for the main
- * dashboard's financial view. Added 2026-10-02 per Lewis's instruction
- * that the dashboard show "accurate currency conversion based on the
- * actual price in its native currency at that date" — a stand-in for
- * this living in a future "Insights" app, per Lewis's own phrasing
- * ("potentially can be rolled into the insights app"). linesWithPricing
- * vs totalLines lets the dashboard show "N of M lines priced" rather than
- * silently understating the total when most lines have no price yet. */
+/** The ~30 currencies Frankfurter (the FX data source — see
+ * ExchangeRatesService) publishes ECB reference rates for. This is a hard
+ * practical ceiling on which currencies can ever be converted/displayed
+ * via the currency selector — a line priced in anything outside this list
+ * still saves its native-currency price fine, it just can't be converted.
+ * Used to populate the currency-selector dropdown on the dashboard and
+ * per-project financial summary. Kept here (not generated) since it
+ * changes only if Frankfurter's own coverage changes. */
+export const SUPPORTED_CURRENCIES = [
+  "AUD", "BGN", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "EUR", "GBP",
+  "HKD", "HUF", "IDR", "ILS", "INR", "ISK", "JPY", "KRW", "MXN", "MYR",
+  "NOK", "NZD", "PHP", "PLN", "RON", "SEK", "SGD", "THB", "TRY", "USD",
+  "ZAR",
+] as const;
+export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
+
+/** GET /projects/financial-summary (and GET /projects/:id/financial-
+ * summary for a single project's own lines) — a rollup across every
+ * ProjectLine's LOCKED base-currency amounts (see ProjectLine's "Currency
+ * conversion"/"Margin-based client invoice build" doc comments in
+ * schema.prisma), for the main dashboard's and a project's own financial
+ * view. Added 2026-10-02, reworked 2026-10-03 to be currency-agnostic —
+ * see ExchangeRatesService's doc comment: Universe is a global platform,
+ * not built around any one organisation's home currency, so the
+ * dashboard/financial-view now carry an explicit currency SELECTOR
+ * (`?currency=` on the endpoint) rather than a fixed reporting currency.
+ * `baseCurrencyCode` is the platform's neutral internal computation
+ * currency (every line's LOCKED conversion target); `displayCurrencyCode`
+ * is whatever the viewer actually asked to see this in (defaults to
+ * baseCurrencyCode, converted LIVE — not locked — when it differs, via
+ * ExchangeRatesService.convertFromBase()). linesWithPricing vs totalLines
+ * lets the UI show "N of M lines priced" rather than silently
+ * understating the total when most lines have no price yet. */
 export interface ProjectFinancialSummary {
-  reportingCurrencyCode: string;
-  totalSupplierCostReportingCcy: string;
-  totalSalesValueReportingCcy: string;
-  totalMarginReportingCcy: string;
+  baseCurrencyCode: string;
+  displayCurrencyCode: string;
+  /** true when displayCurrencyCode differs from baseCurrencyCode AND the
+   * live conversion for one or more figures below couldn't be computed
+   * (currency not covered by Frankfurter, or the FX feed was unreachable)
+   * — the UI should flag this rather than silently show a wrong number. */
+  conversionUnavailable: boolean;
+  /** Pre-margin manufacturer/supplier product cost, summed across lines. */
+  totalProductCost: string;
+  /** Pre-margin freight cost (price + insurance + any additional cost), summed across lines. */
+  totalFreightCost: string;
+  /** Combined product margin + freight margin, summed across lines. */
+  totalMargin: string;
+  /** The full client-invoice rollup — totalProductCost + totalFreightCost + totalMargin. */
+  totalInvoiceValue: string;
   linesWithPricing: number;
   totalLines: number;
 }

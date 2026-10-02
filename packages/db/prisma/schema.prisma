@@ -999,6 +999,28 @@ model ProjectLine {
   /// value, so these are not interchangeable numbers.
   insuredValue                  Decimal?  @db.Decimal(18, 2)
   insuredCurrency                String?  @db.Char(3)
+  /// The PREMIUM paid for freight insurance — distinct from insuredValue
+  /// above (the sum insured/coverage amount, an Incoterms-driven contract
+  /// figure, not a cost). Added 2026-10-03 per Lewis's full financial-field
+  /// scoping request. Assumed to share freightCurrency rather than having
+  /// its own currency column — a judgment call, flagged for confirmation;
+  /// in practice insurance is near-universally quoted in the same currency
+  /// as the freight contract it covers.
+  freightInsuranceCost          Decimal?  @db.Decimal(18, 2)
+  /// Any freight-related cost that isn't the core freight price or the
+  /// insurance premium — customs duties, demurrage, documentation fees,
+  /// etc. Added 2026-10-03. A single bucket for now (with a free-text
+  /// description of what it covers) rather than a repeatable line-item
+  /// list — flagged as a v1 simplification, worth revisiting if a project
+  /// line genuinely needs more than one "other" freight cost at once.
+  /// Shares freightCurrency, same judgment call as freightInsuranceCost.
+  freightAdditionalCost         Decimal?  @db.Decimal(18, 2)
+  freightAdditionalCostDescription String? @db.NVarChar(Max)
+  /// Computed server-side (freightCost + freightInsuranceCost +
+  /// freightAdditionalCost, all in freightCurrency) — see
+  /// ProjectsService.applyPricing. The pre-margin freight cost base that
+  /// freightMarginPercent below is applied to.
+  freightTotalCost              Decimal?  @db.Decimal(18, 2)
   warehouseReferenceNumber      String?
   goodsCollectedDate            DateTime?
   goodsManufacturedDate         DateTime?
@@ -1032,36 +1054,76 @@ model ProjectLine {
   /// grossMargin/margin below.
   supplierAmountPaid            Decimal?  @db.Decimal(18, 2)
   supplierPaymentStatus         String?   // see allowed values reference above
+  /// Computed server-side as clientPaymentAmount / quantity (the full
+  /// margin-based invoice build below) — not a manual entry any more, same
+  /// convention as supplierPaymentAmountTotal. Kept as its own column
+  /// (rather than always re-deriving it at read time) since it's a plain
+  /// display convenience and the arithmetic is trivial to keep in sync.
   unitSalesPrice                Decimal?  @db.Decimal(18, 2)
+  /// Computed server-side (2026-10-03 rework — see "Margin-based client
+  /// invoice build" below) as (product cost + product margin) + (freight
+  /// cost + freight margin), each side converted into THIS field's own
+  /// clientPaymentCurrency. No longer free-text manual entry — same
+  /// convention as supplierPaymentAmountTotal.
   clientPaymentAmount           Decimal?  @db.Decimal(18, 2)
   clientPaymentCurrency         String?   @db.Char(3)
   clientPaymentDate             DateTime?
   /// The platform operator's own invoice raised to the client.
   internalInvoiceNumber         String?
   internalInvoiceDate           DateTime?
-  /// Stored for legacy parity; prefer computing in the API layer so it can't
-  /// drift out of sync. Kept override-able since sales may need to adjust.
+  /// Legacy manual-entry fields, predating the margin-based invoice build
+  /// below — kept for backward compatibility with any already-entered
+  /// data, but no longer populated or read by ProjectsService. The
+  /// equivalent figure going forward is the arithmetic difference between
+  /// clientPaymentAmount and (supplierPaymentAmountTotal + freightTotalCost),
+  /// computed at report time, not stored per line.
   grossMargin                   Decimal?  @db.Decimal(18, 2)
   margin                        Decimal?  @db.Decimal(5, 2)
 
-  // --- Currency conversion (added 2026-10-02) ---
-  // Lewis's direction: product price wired per-line as both a unit price
-  // AND a total (unit price x quantity), in the price's own native
-  // currency, converted to Unimed's reporting currency at the FX rate for
-  // the day the price was last entered/changed — and that conversion then
-  // LOCKED (never recomputed from a later day's rate, even though the
-  // ExchangeRateSnapshot table itself is refreshed daily). ExchangeRatesService
-  // in apps/api owns the fetch/cache/convert logic; ProjectsService calls it
-  // on every addLine/updateLine that touches price, quantity or currency.
-  //
-  // supplierPaymentAmountTotal/clientPaymentAmount above are now computed
-  // server-side as unitPrice x quantity (no longer free-text manual entry —
-  // see ProjectsService) in their NATIVE currency; the fields below are the
-  // reporting-currency (GBP) equivalents, locked at the date of entry.
-  /// Fixed to ExchangeRatesService.REPORTING_CURRENCY ("GBP") at the time of
-  /// conversion and stored (not just assumed) so a later change to the
-  /// platform's reporting currency can't silently reinterpret an old,
-  /// already-locked conversion.
+  // --- Margin-based client invoice build (added 2026-10-03) ---
+  // Lewis's full financial-field scoping request: the client invoice total
+  // per line is now built, not typed in — (manufacturer/supplier product
+  // total + a margin % on top) plus (freight total [price + insurance +
+  // any additional cost] + a SEPARATE margin % on top), each side
+  // converted into clientPaymentCurrency and summed. See
+  // ProjectsService.applyPricing for the actual computation.
+  /// Input: the markup % applied to supplierPaymentAmountTotal (the
+  /// manufacturer/supplier product cost) on the way to the client invoice.
+  productMarginPercent          Decimal?  @db.Decimal(5, 2)
+  /// Computed: supplierPaymentAmountTotal x productMarginPercent / 100, in
+  /// supplierPaymentCurrency — stored for transparency/audit, not just
+  /// folded silently into clientPaymentAmount.
+  productMarginAmount           Decimal?  @db.Decimal(18, 2)
+  /// Input: the markup % applied to freightTotalCost (freight price +
+  /// insurance + any additional cost) on the way to the client invoice —
+  /// deliberately separate from productMarginPercent, since freight is
+  /// commonly marked up at a different rate (or not at all) from the
+  /// product itself.
+  freightMarginPercent          Decimal?  @db.Decimal(5, 2)
+  /// Computed: freightTotalCost x freightMarginPercent / 100, in
+  /// freightCurrency.
+  freightMarginAmount           Decimal?  @db.Decimal(18, 2)
+
+  // --- Currency conversion (added 2026-10-02, generalized 2026-10-03) ---
+  // Universe is a global, tenant-agnostic platform — NOT built around any
+  // one organisation's home currency (corrected explicitly by Lewis
+  // 2026-10-03: an earlier pass of this feature hardcoded Unimed's own
+  // GBP reporting basis, which doesn't belong in a platform meant to be
+  // currency-agnostic for every tenant). Every native-currency price gets
+  // converted into ExchangeRatesService.DEFAULT_BASE_CURRENCY ("USD" — a
+  // neutral computation/aggregation currency, not any one org's reporting
+  // currency) at the FX rate for the day the price was last
+  // entered/changed, and that conversion is LOCKED (never recomputed from
+  // a later day's rate). This base-currency figure is what the dashboard
+  // and per-project financial summaries roll up across lines/currencies —
+  // their own currency SELECTOR then converts the base-currency rollup
+  // into whichever currency the viewer picks, LIVE (today's rate, not
+  // locked — a display lens, not a historical record). See
+  // ExchangeRatesService.convertFromBase() for that live-conversion path.
+  /// The base currency these *ReportingCcy fields are expressed in, fixed
+  /// at the time of conversion and stored (not just assumed) so a later
+  /// change to the platform's default base currency can't silently
+  /// reinterpret an old, already-locked conversion.
   reportingCurrencyCode         String?   @db.Char(3)
   /// The calendar date supplierUnitPrice/quantity/supplierPaymentCurrency
   /// was last saved — i.e. the date whose snapshot supplierExchangeRateSnapshotId
@@ -1069,14 +1131,37 @@ model ProjectLine {
   supplierPriceLockedAt         DateTime?
   supplierExchangeRateSnapshotId String?
   supplierExchangeRateSnapshot  ExchangeRateSnapshot? @relation("LineSupplierRate", fields: [supplierExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Base-currency equivalent of supplierPaymentAmountTotal — PRE-margin
+  /// (the product margin is a dimensionless %, so it's applied to this
+  /// figure arithmetically at report time rather than needing its own
+  /// locked base-currency column — see getFinancialSummary).
   supplierUnitPriceReportingCcy  Decimal?  @db.Decimal(18, 2)
   supplierTotalPriceReportingCcy Decimal?  @db.Decimal(18, 2)
-  /// Same pattern as the supplier-side trio above, mirrored for the
-  /// client/sales side (unitSalesPrice/quantity/clientPaymentCurrency).
+  /// Freight's own lock, mirroring the supplier trio above — added
+  /// 2026-10-03 alongside the freight cost breakdown fields. Freight can
+  /// be, and often is, in a different native currency from the product
+  /// itself, so it needs an independent conversion/lock, not a shared one.
+  freightPriceLockedAt           DateTime?
+  freightExchangeRateSnapshotId  String?
+  freightExchangeRateSnapshot    ExchangeRateSnapshot? @relation("LineFreightRate", fields: [freightExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Base-currency equivalent of freightTotalCost — PRE-margin, same
+  /// reasoning as supplierTotalPriceReportingCcy above.
+  freightTotalCostReportingCcy   Decimal?  @db.Decimal(18, 2)
+  /// Repurposed 2026-10-03 (previously the manually-entered "sales" side's
+  /// lock, back when unitSalesPrice/clientPaymentAmount were free text) —
+  /// now locks the CLIENT INVOICE conversion: clientPaymentAmount's
+  /// base-currency equivalent, i.e. the fully-margined, fully-combined
+  /// per-line invoice total, which is what dashboard/project financial
+  /// rollups actually sum across lines regardless of each line's own
+  /// clientPaymentCurrency.
   salesPriceLockedAt            DateTime?
   salesExchangeRateSnapshotId   String?
   salesExchangeRateSnapshot     ExchangeRateSnapshot? @relation("LineSalesRate", fields: [salesExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// = salesTotalPriceReportingCcy / quantity — kept for symmetry with
+  /// supplierUnitPriceReportingCcy, not independently meaningful.
   salesUnitPriceReportingCcy    Decimal?  @db.Decimal(18, 2)
+  /// The base-currency equivalent of clientPaymentAmount (the fully-built
+  /// invoice total) — THE figure every rollup/dashboard sums.
   salesTotalPriceReportingCcy   Decimal?  @db.Decimal(18, 2)
 
   // --- Pharma-only batch block (shown/required only when
@@ -1332,6 +1417,7 @@ model ExchangeRateSnapshot {
   fetchedAt        DateTime @default(now())
 
   projectLinesAsSupplierRate ProjectLine[] @relation("LineSupplierRate")
+  projectLinesAsFreightRate  ProjectLine[] @relation("LineFreightRate")
   projectLinesAsSalesRate    ProjectLine[] @relation("LineSalesRate")
 
   @@unique([date, baseCurrencyCode])
