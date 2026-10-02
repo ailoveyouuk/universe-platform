@@ -45,7 +45,7 @@ export class SupplierEnquiriesService {
       const supplier = await tx.partner.findFirst({
         where: { id: dto.supplierId, ...tenantScope(user.organizationId) },
       });
-      if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found in your organization`);
+      if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found in your organisation`);
 
       await tx.supplierEnquiry.create({
         data: {
@@ -82,7 +82,7 @@ export class SupplierEnquiriesService {
         const supplier = await tx.partner.findFirst({
           where: { id: dto.supplierId, ...tenantScope(user.organizationId) },
         });
-        if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found in your organization`);
+        if (!supplier) throw new NotFoundException(`Supplier ${dto.supplierId} not found in your organisation`);
       }
 
       await tx.supplierEnquiry.update({

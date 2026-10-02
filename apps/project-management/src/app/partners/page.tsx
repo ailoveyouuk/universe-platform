@@ -155,7 +155,7 @@ export default function PartnersPage() {
         <div>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Stakeholders</h1>
           <p style={{ color: "var(--u-ink-secondary)", marginTop: 6, fontSize: 14 }}>
-            Clients, manufacturers, suppliers, freight forwarders and warehousing your organization works with.
+            Clients, manufacturers, suppliers, freight forwarders and warehousing your organisation works with.
           </p>
         </div>
         <AddMenu

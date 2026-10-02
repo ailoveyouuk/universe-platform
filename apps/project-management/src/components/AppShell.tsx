@@ -155,8 +155,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             </h1>
             <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, margin: "6px 0 10px", lineHeight: 1.5 }}>
               {status === "initializing" && "Loading your workspace…"}
-              {status === "unauthorized" && (error || "Your account isn't recognized on this platform yet.")}
-              {status === "signedOut" && "Sign in with your organization's Microsoft account to continue to Project Management."}
+              {status === "unauthorized" && (error || "Your account isn't recognised on this platform yet.")}
+              {status === "signedOut" && "Sign in with your organisation's Microsoft account to continue to Project Management."}
             </p>
             {status === "signedOut" && (
               <Button variant="primary" onClick={signIn} style={{ marginTop: 8 }}>

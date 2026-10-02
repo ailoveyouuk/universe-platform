@@ -15,7 +15,7 @@ export function assertCanManageOrg(user: RequestUser, targetOrganizationId: stri
   if (user.platformStaffRole !== "NONE") return;
 
   if (user.organizationId !== targetOrganizationId) {
-    throw new ForbiddenException("You can only manage your own organization.");
+    throw new ForbiddenException("You can only manage your own organisation.");
   }
   if (!user.permissions.includes(permission)) {
     throw new ForbiddenException(`Missing permission: ${permission}`);

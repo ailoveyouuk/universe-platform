@@ -36,20 +36,20 @@ export default function OrganizationsPage() {
     apiClient
       .listOrganizations()
       .then(setOrganizations)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load organizations"));
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load organisations"));
   }, []);
 
   return (
     <main style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Organizations</h1>
-        {isPlatformStaff && <Link href="/organizations/new">+ Create Organization</Link>}
+        <h1>Organisations</h1>
+        {isPlatformStaff && <Link href="/organizations/new">+ Create Organisation</Link>}
       </div>
 
       {!isPlatformStaff && (
         <p style={{ color: "#6B7280", fontSize: 13, maxWidth: 560 }}>
-          Onboarding a new organization is platform-staff only during the pilot — there's no
-          self-service path. You can still see and manage users within your own organization from
+          Onboarding a new organisation is platform-staff only during the pilot — there's no
+          self-service path. You can still see and manage users within your own organisation from
           the Users page.
         </p>
       )}
@@ -92,7 +92,7 @@ export default function OrganizationsPage() {
             {organizations.length === 0 && (
               <tr>
                 <td colSpan={4} style={{ padding: 8, color: "#6B7280" }}>
-                  No organizations yet.
+                  No organisations yet.
                 </td>
               </tr>
             )}

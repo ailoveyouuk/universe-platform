@@ -163,7 +163,7 @@ export class EntraAuthGuard implements CanActivate {
     //    "not on the allowed list" case Lewis described.
     if (!user) {
       throw new ForbiddenException(
-        "This Microsoft account has not been added to Universe. Ask your organization admin to add you.",
+        "This Microsoft account has not been added to Universe. Ask your organisation admin to add you.",
       );
     }
 

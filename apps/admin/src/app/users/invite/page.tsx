@@ -77,7 +77,7 @@ export default function InviteUserPage() {
     <main style={{ padding: 32, maxWidth: 560 }}>
       <h1>Invite a User</h1>
       <p style={{ color: "#6B7280", fontSize: 13 }}>
-        This adds them to the allowed list with an organization and role. They gain access the
+        This adds them to the allowed list with an organisation and role. They gain access the
         first time they sign in via Microsoft on any Universe app with this exact email address —
         nothing happens on their side until then.
       </p>
@@ -115,7 +115,7 @@ export default function InviteUserPage() {
         </label>
 
         <label>
-          Organization
+          Organisation
           {isPlatformStaff ? (
             <select
               required
@@ -136,14 +136,14 @@ export default function InviteUserPage() {
             <input
               disabled
               style={{ ...inputStyle, background: "#F3F4F6" }}
-              value={organizations.find((o) => o.id === form.organizationId)?.name ?? "Your organization"}
+              value={organizations.find((o) => o.id === form.organizationId)?.name ?? "Your organisation"}
             />
           )}
         </label>
 
         <fieldset style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: 16 }}>
           <legend style={{ fontWeight: 600 }}>Role(s)</legend>
-          {roles.length === 0 && <p style={{ color: "#6B7280", fontSize: 13 }}>Select an organization first.</p>}
+          {roles.length === 0 && <p style={{ color: "#6B7280", fontSize: 13 }}>Select an organisation first.</p>}
           {roles.map((r) => (
             <label key={r.id} style={{ display: "block", marginBottom: 4 }}>
               <input

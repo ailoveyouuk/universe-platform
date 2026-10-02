@@ -21,6 +21,6 @@ export class CreateOrganizationDto {
    * mechanism (that's unconditional on every org), just an audit gate so a
    * form can't be submitted without someone consciously checking the box. */
   @IsBoolean()
-  @IsIn([true], { message: "confirmedAgreementOnFile must be true — the signed agreement must be on file before an organization is provisioned" })
+  @IsIn([true], { message: "confirmedAgreementOnFile must be true — the signed agreement must be on file before an organisation is provisioned" })
   confirmedAgreementOnFile!: boolean;
 }

@@ -67,7 +67,7 @@ export default function NewOrganizationPage() {
       return;
     }
     if (!form.confirmedAgreementOnFile) {
-      setError("Confirm the signed agreement is on file before provisioning this organization.");
+      setError("Confirm the signed agreement is on file before provisioning this organisation.");
       return;
     }
     setSubmitting(true);
@@ -76,7 +76,7 @@ export default function NewOrganizationPage() {
       await apiClient.createOrganization(form);
       router.push("/organizations");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create organization");
+      setError(err instanceof Error ? err.message : "Failed to create organisation");
     } finally {
       setSubmitting(false);
     }
@@ -85,9 +85,9 @@ export default function NewOrganizationPage() {
   if (me && !isPlatformStaff) {
     return (
       <main style={{ padding: 32, maxWidth: 560 }}>
-        <h1>Create Organization</h1>
+        <h1>Create Organisation</h1>
         <p style={{ color: "#B91C1C" }}>
-          Onboarding a new organization is platform-staff only during the pilot — your account
+          Onboarding a new organisation is platform-staff only during the pilot — your account
           doesn&apos;t have that role. This would also be rejected server-side if submitted.
         </p>
       </main>
@@ -96,15 +96,15 @@ export default function NewOrganizationPage() {
 
   return (
     <main style={{ padding: 32, maxWidth: 560 }}>
-      <h1>Create Organization</h1>
+      <h1>Create Organisation</h1>
       <p style={{ color: "#6B7280", fontSize: 13 }}>
-        Provisions a new tenant. There is no default/&quot;house&quot; organization on Universe —
+        Provisions a new tenant. There is no default/&quot;house&quot; organisation on Universe —
         every tenant, including the very first pilot, is created this same way.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
         <fieldset style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: 12 }}>
-          <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 4px" }}>Organization Type</legend>
+          <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 4px" }}>Organisation Type</legend>
           {/* Expanded 2026-09-26 from the original Buyer/Supplier pair — see
               claude/stakeholder-taxonomy-research.md in the Claude project.
               Six real-world categories, five distinct role templates (the
@@ -119,7 +119,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Procurement Service Agent</strong> — runs projects/tenders on behalf of a
-              client (e.g. Unimed). The default role template (Organization Admin, Project
+              client (e.g. Unimed). The default role template (Organisation Admin, Project
               Manager, Read Only).
             </span>
           </label>
@@ -133,9 +133,9 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Tendering &amp; Purchasing Body</strong> — a government, faith-based
-              organization, or funded implementing partner that issues and manages its own
+              organisation, or funded implementing partner that issues and manages its own
               tenders directly. Same role template as Procurement Service Agent; deliberately
-              has no visibility into any other organization&apos;s projects.
+              has no visibility into any other organisation&apos;s projects.
             </span>
           </label>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
@@ -148,7 +148,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Manufacturer</strong> — gets the Manufacturer Admin role. Manages a public
-              profile and product catalog, searchable and selectable by every buyer organization
+              profile and product catalogue, searchable and selectable by every buyer organisation
               on the platform once published.
             </span>
           </label>
@@ -162,7 +162,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Supplier / Distributor</strong> — gets the Supplier Admin role. Manages a
-              public profile and product catalog, same marketplace mechanics as Manufacturer.
+              public profile and product catalogue, same marketplace mechanics as Manufacturer.
             </span>
           </label>
           <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
@@ -174,7 +174,7 @@ export default function NewOrganizationPage() {
               style={{ marginTop: 2 }}
             />
             <span>
-              <strong>Funder / Donor</strong> — a Global Fund/Gavi/foundation-style organization
+              <strong>Funder / Donor</strong> — a Global Fund/Gavi/foundation-style organisation
               that funds but doesn&apos;t run procurement itself. Read-only role template;
               grant-scoped visibility is not built yet, so this org type has no real project
               access today beyond managing its own users.
@@ -190,14 +190,14 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Data / Insights User</strong> — researchers, market-shaping bodies, and
-              market-intelligence firms. Read-only, anonymized aggregate only — no project,
-              CRM, or product-catalog access of any kind.
+              market-intelligence firms. Read-only, anonymised aggregate only — no project,
+              CRM, or product-catalogue access of any kind.
             </span>
           </label>
         </fieldset>
 
         <label>
-          Organization Name
+          Organisation Name
           <input
             required
             style={inputStyle}
@@ -230,19 +230,19 @@ export default function NewOrganizationPage() {
             style={{ marginTop: 2 }}
           />
           <span>
-            I confirm this organization has signed Universe&apos;s Privacy Policy and Data Sharing
-            Agreement. This is required before an organization is provisioned.{" "}
+            I confirm this organisation has signed Universe&apos;s Privacy Policy and Data Sharing
+            Agreement. This is required before an organisation is provisioned.{" "}
             {form.type === "SUPPLIER" || form.type === "MANUFACTURER" ? (
               <>
-                For a Supplier or Manufacturer organization, this includes consent for their
-                profile, product catalog, and contact details to be identifiable and searchable by
-                every buyer organization on the platform once published — the opposite of the
-                buyer-side anonymized aggregate, and the point of joining the marketplace.
+                For a Supplier or Manufacturer organisation, this includes consent for their
+                profile, product catalogue, and contact details to be identifiable and searchable by
+                every buyer organisation on the platform once published — the opposite of the
+                buyer-side anonymised aggregate, and the point of joining the marketplace.
               </>
             ) : (
               <>
-                This includes consent for anonymized, aggregated pricing/specification data to feed
-                the Insights app — Universe never stores or shares identifying data (organization
+                This includes consent for anonymised, aggregated pricing/specification data to feed
+                the Insights app — Universe never stores or shares identifying data (organisation
                 name, manufacturer, client) in that aggregate, only de-identified data grouped by
                 product category.
               </>
@@ -257,7 +257,7 @@ export default function NewOrganizationPage() {
           disabled={submitting || !form.name || !slugValid || !form.confirmedAgreementOnFile}
           style={{ padding: "10px 16px", alignSelf: "flex-start" }}
         >
-          {submitting ? "Creating…" : "Create Organization"}
+          {submitting ? "Creating…" : "Create Organisation"}
         </button>
       </form>
     </main>

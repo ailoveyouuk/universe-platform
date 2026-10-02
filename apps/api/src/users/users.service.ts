@@ -58,7 +58,7 @@ export class UsersService {
     }
     const foreignRole = roles.find((r) => r.organizationId && r.organizationId !== dto.organizationId);
     if (foreignRole) {
-      throw new BadRequestException(`Role "${foreignRole.name}" does not belong to the target organization.`);
+      throw new BadRequestException(`Role "${foreignRole.name}" does not belong to the target organisation.`);
     }
 
     const created = await prisma.user.create({

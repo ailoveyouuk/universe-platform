@@ -638,7 +638,7 @@ export default function NewPartnerPage() {
         <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 16 }}>
           <legend style={{ fontWeight: 600, fontSize: 13.5, color: "var(--u-ink)" }}>Roles</legend>
           <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13 }}>
-            Select every role this stakeholder plays for your organization — a company can be, e.g., both a
+            Select every role this stakeholder plays for your organisation — a company can be, e.g., both a
             Manufacturer and a Supplier. Ticking a role reveals its own fields below.
           </p>
           {ROLE_TYPES.map((r) => (

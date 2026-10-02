@@ -48,7 +48,7 @@ export default function UsersPage() {
             <tr style={{ textAlign: "left", borderBottom: "2px solid #E5E7EB" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Email</th>
-              <th style={{ padding: 8 }}>Organization</th>
+              <th style={{ padding: 8 }}>Organisation</th>
               <th style={{ padding: 8 }}>Role(s)</th>
               <th style={{ padding: 8 }}>Status</th>
               <th style={{ padding: 8 }}>Invited</th>

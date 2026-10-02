@@ -308,7 +308,7 @@ export class ProjectsService {
         const client = await tx.partner.findFirst({
           where: { id: dto.clientId, ...tenantScope(user.organizationId) },
         });
-        if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organization`);
+        if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organisation`);
       }
 
       // Project is now a header only; the fields the old flat model held for
@@ -369,7 +369,7 @@ export class ProjectsService {
         const client = await tx.partner.findFirst({
           where: { id: dto.clientId, ...tenantScope(user.organizationId) },
         });
-        if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organization`);
+        if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organisation`);
       }
 
       const updated = await tx.project.update({
@@ -433,7 +433,7 @@ export class ProjectsService {
     ))];
     if (!ids.length) return;
     const count = await tx.partner.count({ where: { id: { in: ids }, ...tenantScope(user.organizationId) } });
-    if (count !== ids.length) throw new NotFoundException("One or more referenced partners were not found in your organization");
+    if (count !== ids.length) throw new NotFoundException("One or more referenced partners were not found in your organisation");
   }
 
   async addLine(user: RequestUser, projectId: string, dto: ProjectLineDto): Promise<ProjectDetail> {

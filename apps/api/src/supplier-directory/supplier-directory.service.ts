@@ -192,7 +192,7 @@ export class SupplierDirectoryService {
     if (!product) throw new NotFoundException("Supplier product not found or not published.");
 
     if (product.organizationId === caller.organizationId) {
-      throw new BadRequestException("Cannot select your own organization's product.");
+      throw new BadRequestException("Cannot select your own organisation's product.");
     }
 
     // supplier_leads carries no RLS policy — see this class's header

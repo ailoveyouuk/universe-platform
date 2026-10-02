@@ -488,7 +488,7 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
-          Product (search the shared catalog)
+          Product (search the shared catalogue)
           <input
             value={productId ? productLabel : productSearch}
             onChange={(e) => {
