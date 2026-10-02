@@ -125,7 +125,20 @@ distinction — this is NOT one deployment per organization):
    # admin login too (CREATE SECURITY POLICY is also DDL).
    DATABASE_URL="<admin connection string>" npm run seed --workspace=@universe/db
    ```
-8. Provision your first real organization (see the main README's "Getting
+8. **Create the dedicated migrations login** (added 2026-10-02, once
+   `deploy-api.yml` gained its own "Apply database migrations" step) using
+   `infra/sql/create-migrations-login.sql` — same pattern as step 3, run
+   against the `universe` database as the admin login. This is a THIRD,
+   narrower login than either the admin login or `universe_api_app`:
+   `db_ddladmin` (so it can run migration DDL) plus `db_datareader`/
+   `db_datawriter` (so `prisma migrate deploy` can read/write its own
+   `_prisma_migrations` bookkeeping table) — never `db_owner`, and never
+   the full server admin credential. Set the resulting connection string as
+   the GitHub repository secret `DATABASE_URL` (Settings → Secrets and
+   variables → Actions) — this is separate from Key Vault's `database-url`
+   secret from step 4, which stays on `universe_api_app`'s unprivileged
+   credential and is never used for migrations.
+9. Provision your first real organization (see the main README's "Getting
    started" section — there is no default organization).
 
 ## Known gaps, honestly

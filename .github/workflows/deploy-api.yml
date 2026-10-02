@@ -8,16 +8,26 @@ name: Deploy API
 # PREREQUISITES: same Azure OIDC setup as deploy-infra.yml, plus
 # AZURE_CONTAINER_REGISTRY (login server, e.g. universepilotacr.azurecr.io)
 # and AZURE_CONTAINER_APP_NAME repository secrets/variables, plus a
-# DATABASE_URL repository secret pointing at the production Azure SQL
-# database (sqlserver://<server>.database.windows.net;database=<db>;
-# user=<user>;password=<password>;encrypt=true). This secret did not exist
-# anywhere in the workflows before 2026-10-02 — see architecture-decisions.md
-# ("CI: run prisma migrate deploy against production") for how this gap was
-# found (the Quality page's "product sourcing approvals" 500 error, caused
-# by product_source_approvals never being created in the live database even
+# DATABASE_URL repository secret for the "Apply database migrations" step
+# below. This secret did not exist anywhere in the workflows before
+# 2026-10-02 — see architecture-decisions.md ("CI: run prisma migrate
+# deploy against production") for how this gap was found (the Quality
+# page's "product sourcing approvals" 500 error, caused by
+# product_source_approvals never being created in the live database even
 # though the Prisma model and app code had already shipped) and why this
-# step below is the fix. Lewis needs to add DATABASE_URL to this repo's
-# GitHub Actions secrets before this workflow can deploy successfully.
+# step is the fix.
+#
+# IMPORTANT: DATABASE_URL here must use the dedicated `universe_migrations`
+# login (infra/sql/create-migrations-login.sql), NOT universe_api_app's
+# connection string (the one in Key Vault's `database-url` secret) and NOT
+# the server admin login. universe_api_app deliberately has no DDL rights
+# at all (see infra/sql/create-app-login.sql) — prisma migrate deploy needs
+# to run real CREATE/ALTER TABLE statements, so it would fail with a
+# permissions error using that credential. The server admin login would
+# work too, but hands this CI pipeline a far bigger blast radius than the
+# one task (running already-committed migration SQL) needs — run
+# create-migrations-login.sql once (see its own header for the full
+# walkthrough) and use that login's connection string here instead.
 #
 # Not runnable yet — no Azure subscription, no registry, nothing to push
 # to. Written and ready for the moment there is.
