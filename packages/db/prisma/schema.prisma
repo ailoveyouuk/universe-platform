@@ -270,7 +270,7 @@ model Organization {
   procurementAgentProfile ProcurementAgentProfile?
   tenderingBodyProfile    TenderingBodyProfile?
   manufacturerProfile     ManufacturerProfile?
-  manufacturerSites       ManufacturerSite[]
+  manufacturerSites       OrganizationManufacturerSite[]
   funderProfile           FunderProfile?
   dataInsightsUserProfile DataInsightsUserProfile?
   /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
@@ -1264,7 +1264,7 @@ model Country {
   // Onboarding data model, 2026-09-26
   organizationsRegisteredHere Organization[] @relation("OrganizationCountryOfRegistration")
   organizationCountryPresence OrganizationCountryPresence[]
-  manufacturerSites           ManufacturerSite[]
+  manufacturerSites           OrganizationManufacturerSite[]
 
   @@map("countries")
 }
@@ -1557,7 +1557,7 @@ model ManufacturerProfile {
 /// One row per manufacturing site — a manufacturer can have several, each
 /// independently certified, per org-onboarding-data-model.md. Many-to-one
 /// with Organization (not 1:1 like the profile tables above).
-model ManufacturerSite {
+model OrganizationManufacturerSite {
   id                     String   @id @default(uuid())
   organizationId         String
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
