@@ -426,9 +426,9 @@ model Partner {
   /// relationship-specific data (e.g. pricing) with the particular
   /// organisation that created this record — not wired to anything yet.
   sharedWithUniverseRegistry Boolean @default(false)
-  /// SOP008 §4.7.1's "Annual Bona Fide re-check" (FORM 008.2) generalized
-  /// to any role with a re-approval cadence, rather than duplicating this
-  /// pair of dates on every *Detail table.
+  /// Annual "Bona Fide re-check" generalized to any role with a
+  /// re-approval cadence, rather than duplicating this pair of dates on
+  /// every *Detail table.
   lastApprovalReviewDate DateTime?
   nextApprovalReviewDue  DateTime?
   isArchived     Boolean      @default(false)
@@ -493,8 +493,8 @@ model SupplierDetail {
   /// "Scope of services (e.g. warehousing, consultancy)" free-text field
   /// from the same form.
   scopeOfServicesDescription String? @db.NVarChar(Max)
-  /// SOP008 §4.1.12: Unimed's Code of Conduct is sent to every approved
-  /// supplier for "Read & Understood" acknowledgement; a copy is retained.
+  /// Unimed's Code of Conduct is sent to every approved supplier for
+  /// "Read & Understood" acknowledgement; a copy is retained.
   /// The retained copy itself is a PartnerCertification
   /// (type: CODE_OF_CONDUCT_ACKNOWLEDGEMENT) — these two fields are just
   /// the quick-glance status.
@@ -593,26 +593,25 @@ model ClientDetail {
 }
 
 /// Added 2026-10-02. Warehousing didn't have its own detail table until
-/// now — SOP029 Managing Outsourced Warehousing (fully read) makes clear
-/// it's a distinct, governed partner relationship (own Technical
+/// now — it's a distinct, governed partner relationship (own Technical
 /// Agreement, own WDA, own GDP audit cadence), not a bare PartnerRole tag
 /// with no fields behind it.
 model WarehousingDetail {
   partnerId    String  @id
   partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// SOP029 §2.6: the warehouse operates to its own WDA (Wholesale
-  /// Distribution Authorisation) and MHRA-audited procedures.
+  /// The warehouse operates to its own WDA (Wholesale Distribution
+  /// Authorisation) and MHRA-audited procedures.
   wdaNumber    String?
-  /// SOP029 §3/§2.6: the relationship is governed by a Technical Agreement
-  /// defining GDP/WDA responsibilities for both parties. The agreement
+  /// The relationship is governed by a Technical Agreement defining
+  /// GDP/WDA responsibilities for both parties. The agreement
   /// document itself is a PartnerCertification
   /// (type: TECHNICAL_AGREEMENT) — this is just the quick-reference number.
   technicalAgreementRef String?
   gdpAuditDate     DateTime?
   nextGdpAuditDue  DateTime?
-  /// SOP029 §4.5.2: monthly stock reconciliation between the warehouse's
-  /// stock report and Unimed's project trackers — who at the warehouse
-  /// that reconciliation is run with.
+  /// Monthly stock reconciliation between the warehouse's stock report
+  /// and Unimed's project trackers — who at the warehouse that
+  /// reconciliation is run with.
   monthlyReconciliationContact String?
 
   @@map("partner_warehousing_details")
@@ -664,8 +663,8 @@ model PartnerCertification {
   issuingBody String?
   issuedDate DateTime?
   expiryDate DateTime?
-  /// SOP008 §4.1.4/§4.1.11: pharma certs are verified against the
-  /// relevant Regulatory Authority database (e.g. MHRA GMDP/EudraGMDP),
+  /// Pharma certs are verified against the relevant Regulatory Authority
+  /// database (e.g. MHRA GMDP/EudraGMDP),
   /// non-pharma certs via the accreditation body's own online portal —
   /// and the verification itself must be saved as evidence. This is a
   /// separate dated event from the certificate's own issue/expiry, which
@@ -675,8 +674,8 @@ model PartnerCertification {
   verifiedAt   DateTime?
   verifiedById String?
   /// CURRENT | ARCHIVED — superseded/expired documents move to ARCHIVED
-  /// rather than being deleted, preserving the audit trail SOP008 §4.7.4
-  /// requires (mirrors the BD folder's own Archive subfolders).
+  /// rather than being deleted, preserving the audit trail (mirrors the
+  /// BD folder's own Archive subfolders).
   status     String    @default("CURRENT")
   notes      String?   @db.NVarChar(Max)
   documentId String?

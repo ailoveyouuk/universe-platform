@@ -116,8 +116,7 @@ export class ClientDetailDto {
 }
 
 /** Added 2026-10-02 — Warehousing didn't have its own detail object
- * before; see WarehousingDetail's doc comment in schema.prisma (SOP029
- * Managing Outsourced Warehousing). */
+ * before; see WarehousingDetail's doc comment in schema.prisma. */
 export class WarehousingDetailDto {
   @IsOptional() @IsString() wdaNumber?: string;
   @IsOptional() @IsString() technicalAgreementRef?: string;

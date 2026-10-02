@@ -166,12 +166,12 @@ export const CertificationType = {
   INSURANCE_CERTIFICATE: "INSURANCE_CERTIFICATE",
   TECHNICAL_AGREEMENT: "TECHNICAL_AGREEMENT",
   SERVICE_LEVEL_AGREEMENT: "SERVICE_LEVEL_AGREEMENT",
-  /// SOP008 §4.1.12: Unimed's Code of Conduct, sent to every approved
-  /// supplier for "Read & Understood" acknowledgement, copy retained.
+  /// Unimed's Code of Conduct, sent to every approved supplier for
+  /// "Read & Understood" acknowledgement, copy retained.
   CODE_OF_CONDUCT_ACKNOWLEDGEMENT: "CODE_OF_CONDUCT_ACKNOWLEDGEMENT",
   REFERENCES: "REFERENCES",
-  /// SOP008 §4.7.1: FORM 008.2, the annual Bona Fide re-check record for
-  /// approved pharmaceutical (and GDP-impacting outsourced) suppliers.
+  /// The annual Bona Fide re-check record for approved pharmaceutical
+  /// (and GDP-impacting outsourced) suppliers.
   BONA_FIDE_REVIEW: "BONA_FIDE_REVIEW",
   OTHER: "OTHER",
 } as const;
@@ -208,7 +208,7 @@ export const PartnerCompanyCheckResult = {
 export type PartnerCompanyCheckResult =
   (typeof PartnerCompanyCheckResult)[keyof typeof PartnerCompanyCheckResult];
 
-/// Added 2026-10-02 — see Partner.riskTier in schema.prisma (SOP008's
+/// Added 2026-10-02 — see Partner.riskTier in schema.prisma (a
 /// High/Medium/Low risk-tiering model, generalized to any partner role).
 export const PartnerRiskTier = {
   HIGH: "HIGH",
