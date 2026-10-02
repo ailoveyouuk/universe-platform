@@ -183,6 +183,19 @@ export default function PartnerDetailPage() {
         </DetailSection>
       )}
 
+      {partner.financialDetail && (
+        <DetailSection title="Financial information">
+          <InfoCard label="Bank name">{partner.financialDetail.bankName ?? "—"}</InfoCard>
+          <InfoCard label="Account holder">{partner.financialDetail.accountHolderName ?? "—"}</InfoCard>
+          <InfoCard label="Account number">{partner.financialDetail.accountNumber ?? "—"}</InfoCard>
+          <InfoCard label="Sort code">{partner.financialDetail.sortCode ?? "—"}</InfoCard>
+          <InfoCard label="IBAN">{partner.financialDetail.iban ?? "—"}</InfoCard>
+          <InfoCard label="SWIFT / BIC">{partner.financialDetail.swiftBic ?? "—"}</InfoCard>
+          <InfoCard label="Branch address">{partner.financialDetail.branchAddress ?? "—"}</InfoCard>
+          <InfoCard label="Currency">{partner.financialDetail.currencyCode ?? "—"}</InfoCard>
+        </DetailSection>
+      )}
+
       {partner.certifications.length > 0 && (
         <DetailSection title="Documents & certifications">
           {partner.certifications.map((cert) => (

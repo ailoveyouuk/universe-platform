@@ -566,6 +566,20 @@ export interface PartnerWarehousingDetail {
   monthlyReconciliationContact?: string | null;
 }
 
+/** Added 2026-10-03 — see PartnerFinancialDetail in schema.prisma.
+ * Standard banking/financial information, applies to every stakeholder
+ * role, not gated to a specific one. */
+export interface PartnerFinancialDetail {
+  bankName?: string | null;
+  accountHolderName?: string | null;
+  accountNumber?: string | null;
+  sortCode?: string | null;
+  iban?: string | null;
+  swiftBic?: string | null;
+  branchAddress?: string | null;
+  currencyCode?: string | null;
+}
+
 /** A manufacturer's registered manufacturing site — see ManufacturerSite
  * in schema.prisma (the Becton Dickinson folder pattern). */
 export interface PartnerManufacturerSite {
@@ -637,6 +651,7 @@ export interface PartnerSummary {
   freightForwarderDetail: PartnerFreightForwarderDetail | null;
   clientDetail: PartnerClientDetail | null;
   warehousingDetail: PartnerWarehousingDetail | null;
+  financialDetail: PartnerFinancialDetail | null;
   manufacturerSites: PartnerManufacturerSite[];
   certifications: PartnerCertificationSummary[];
   companyChecks: PartnerCompanyCheckSummary[];
@@ -699,6 +714,7 @@ export interface CreatePartnerInput {
   freightForwarderDetail?: PartnerFreightForwarderDetail;
   clientDetail?: PartnerClientDetail;
   warehousingDetail?: PartnerWarehousingDetail;
+  financialDetail?: PartnerFinancialDetail;
   manufacturerSites?: CreatePartnerManufacturerSiteInput[];
   certifications?: CreatePartnerCertificationInput[];
   companyChecks?: CreatePartnerCompanyCheckInput[];
@@ -722,6 +738,7 @@ export interface UpdatePartnerInput {
   freightForwarderDetail?: PartnerFreightForwarderDetail;
   clientDetail?: PartnerClientDetail;
   warehousingDetail?: PartnerWarehousingDetail;
+  financialDetail?: PartnerFinancialDetail;
   addManufacturerSites?: CreatePartnerManufacturerSiteInput[];
   addCertifications?: CreatePartnerCertificationInput[];
   addCompanyChecks?: CreatePartnerCompanyCheckInput[];

@@ -445,6 +445,12 @@ model Partner {
   freightForwarderDetail FreightForwarderDetail?
   clientDetail     ClientDetail?
   warehousingDetail WarehousingDetail?
+  /// Added 2026-10-03 — standard company checks/documents/certificates
+  /// already applied to every stakeholder role (see showVerificationPacket
+  /// on the New Stakeholder form); financial information is the other
+  /// half of that same "standard for all stakeholders" requirement, not
+  /// role-gated either.
+  financialDetail  PartnerFinancialDetail?
   manufacturerSites ManufacturerSite[]
   companyChecks    PartnerCompanyCheck[]
   contacts         Contact[]
@@ -599,6 +605,25 @@ model ClientDetail {
 /// now — it's a distinct, governed partner relationship (own Technical
 /// Agreement, own WDA, own GDP audit cadence), not a bare PartnerRole tag
 /// with no fields behind it.
+/// Added 2026-10-03. Standard financial/banking information for a
+/// stakeholder — one per Partner, applies to every role (not gated to
+/// manufacturer/supplier/etc, same reasoning as the Company Checks and
+/// Documents/Certifications packet applying to all roles).
+model PartnerFinancialDetail {
+  partnerId         String  @id
+  partner           Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  bankName          String?
+  accountHolderName String?
+  accountNumber     String?
+  sortCode          String?
+  iban              String?
+  swiftBic          String?
+  branchAddress     String? @db.NVarChar(Max)
+  currencyCode      String?
+
+  @@map("partner_financial_details")
+}
+
 model WarehousingDetail {
   partnerId    String  @id
   partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)

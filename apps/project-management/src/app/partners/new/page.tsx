@@ -434,6 +434,18 @@ export default function NewPartnerPage() {
   const [paymentTerms, setPaymentTerms] = useState("");
   const [productCategoryLicenses, setProductCategoryLicenses] = useState<string[]>([]);
   const [productCategoryLicensingOtherNotes, setProductCategoryLicensingOtherNotes] = useState("");
+
+  // Standard financial/banking information — added 2026-10-03, applies to
+  // every stakeholder role (not gated to a specific one, same as the
+  // Company Checks and Documents/Certifications packet below).
+  const [bankName, setBankName] = useState("");
+  const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [sortCode, setSortCode] = useState("");
+  const [iban, setIban] = useState("");
+  const [swiftBic, setSwiftBic] = useState("");
+  const [branchAddress, setBranchAddress] = useState("");
+  const [currencyCode, setCurrencyCode] = useState("");
   const [destinationCountryRestrictionsNotes, setDestinationCountryRestrictionsNotes] = useState("");
   const [isPharmaApprovedCustomer, setIsPharmaApprovedCustomer] = useState(false);
   const [approvedCustomerLogRef, setApprovedCustomerLogRef] = useState("");
@@ -578,6 +590,20 @@ export default function NewPartnerPage() {
         ...(manufacturerSitesInput?.length ? { manufacturerSites: manufacturerSitesInput } : {}),
         ...(certificationsInput?.length ? { certifications: certificationsInput } : {}),
         ...(companyChecksInput?.length ? { companyChecks: companyChecksInput } : {}),
+        ...(bankName || accountHolderName || accountNumber || sortCode || iban || swiftBic || branchAddress || currencyCode
+          ? {
+              financialDetail: {
+                bankName: bankName || undefined,
+                accountHolderName: accountHolderName || undefined,
+                accountNumber: accountNumber || undefined,
+                sortCode: sortCode || undefined,
+                iban: iban || undefined,
+                swiftBic: swiftBic || undefined,
+                branchAddress: branchAddress || undefined,
+                currencyCode: currencyCode || undefined,
+              },
+            }
+          : {}),
         ...(hasRole("SUPPLIER")
           ? {
               supplierDetail: {
@@ -1319,6 +1345,49 @@ export default function NewPartnerPage() {
             <Button type="button" variant="secondary" onClick={() => addCertification()} style={{ alignSelf: "flex-start" }}>
               + Add Document
             </Button>
+          </RoleSection>
+        )}
+
+        {showVerificationPacket && (
+          <RoleSection title="Financial information">
+            <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+              <label>
+                Bank Name
+                <input style={inputStyle} value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </label>
+              <label>
+                Currency
+                <input style={inputStyle} value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)} placeholder="e.g. GBP" />
+              </label>
+            </div>
+            <label>
+              Account Holder Name
+              <input style={inputStyle} value={accountHolderName} onChange={(e) => setAccountHolderName(e.target.value)} />
+            </label>
+            <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                Account Number
+                <input style={inputStyle} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+              </label>
+              <label>
+                Sort Code
+                <input style={inputStyle} value={sortCode} onChange={(e) => setSortCode(e.target.value)} />
+              </label>
+            </div>
+            <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label>
+                IBAN
+                <input style={inputStyle} value={iban} onChange={(e) => setIban(e.target.value)} />
+              </label>
+              <label>
+                SWIFT / BIC
+                <input style={inputStyle} value={swiftBic} onChange={(e) => setSwiftBic(e.target.value)} />
+              </label>
+            </div>
+            <label>
+              Branch Address
+              <textarea style={textareaStyle} value={branchAddress} onChange={(e) => setBranchAddress(e.target.value)} />
+            </label>
           </RoleSection>
         )}
 

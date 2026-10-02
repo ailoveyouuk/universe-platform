@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
 import {
   ClientDetailDto,
+  FinancialDetailDto,
   FreightForwarderDetailDto,
   ManufacturerDetailDto,
   ManufacturerSiteDto,
@@ -42,6 +43,7 @@ export class UpdatePartnerDto {
   @IsOptional() @ValidateNested() @Type(() => FreightForwarderDetailDto) freightForwarderDetail?: FreightForwarderDetailDto;
   @IsOptional() @ValidateNested() @Type(() => ClientDetailDto) clientDetail?: ClientDetailDto;
   @IsOptional() @ValidateNested() @Type(() => WarehousingDetailDto) warehousingDetail?: WarehousingDetailDto;
+  @IsOptional() @ValidateNested() @Type(() => FinancialDetailDto) financialDetail?: FinancialDetailDto;
 
   /** Additive, same as roles — adds new sites/documents/checks rather than
    * replacing the existing list. Removing or archiving an individual

@@ -15,6 +15,7 @@ const PARTNER_INCLUDE = {
   freightForwarderDetail: true,
   clientDetail: true,
   warehousingDetail: true,
+  financialDetail: true,
   manufacturerSites: true,
   certifications: true,
   companyChecks: true,
@@ -99,6 +100,18 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
             ? p.warehousingDetail.nextGdpAuditDue.toISOString()
             : null,
           monthlyReconciliationContact: p.warehousingDetail.monthlyReconciliationContact,
+        }
+      : null,
+    financialDetail: p.financialDetail
+      ? {
+          bankName: p.financialDetail.bankName,
+          accountHolderName: p.financialDetail.accountHolderName,
+          accountNumber: p.financialDetail.accountNumber,
+          sortCode: p.financialDetail.sortCode,
+          iban: p.financialDetail.iban,
+          swiftBic: p.financialDetail.swiftBic,
+          branchAddress: p.financialDetail.branchAddress,
+          currencyCode: p.financialDetail.currencyCode,
         }
       : null,
     manufacturerSites: p.manufacturerSites.map((s) => ({
@@ -273,6 +286,7 @@ export class PartnersService {
           ...(dto.freightForwarderDetail ? { freightForwarderDetail: { create: dto.freightForwarderDetail } } : {}),
           ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
           ...(dto.warehousingDetail ? { warehousingDetail: { create: dto.warehousingDetail } } : {}),
+          ...(dto.financialDetail ? { financialDetail: { create: dto.financialDetail } } : {}),
           ...(dto.manufacturerSites?.length
             ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites) } }
             : {}),
@@ -372,6 +386,9 @@ export class PartnersService {
             : {}),
           ...(dto.warehousingDetail
             ? { warehousingDetail: { upsert: { create: dto.warehousingDetail, update: dto.warehousingDetail } } }
+            : {}),
+          ...(dto.financialDetail
+            ? { financialDetail: { upsert: { create: dto.financialDetail, update: dto.financialDetail } } }
             : {}),
           ...(dto.addManufacturerSites?.length
             ? { 

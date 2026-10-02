@@ -126,6 +126,20 @@ export class WarehousingDetailDto {
   @IsOptional() @IsString() monthlyReconciliationContact?: string;
 }
 
+/** Standard financial/banking information for a stakeholder — applies to
+ * every role, not gated to a specific one (same reasoning as the Company
+ * Checks and Documents/Certifications packet). */
+export class FinancialDetailDto {
+  @IsOptional() @IsString() bankName?: string;
+  @IsOptional() @IsString() accountHolderName?: string;
+  @IsOptional() @IsString() accountNumber?: string;
+  @IsOptional() @IsString() sortCode?: string;
+  @IsOptional() @IsString() iban?: string;
+  @IsOptional() @IsString() swiftBic?: string;
+  @IsOptional() @IsString() branchAddress?: string;
+  @IsOptional() @IsString() currencyCode?: string;
+}
+
 /**
  * A Partner is a real-world company a tenant does business with (client,
  * supplier, manufacturer, freight forwarder), scoped to the caller's own
@@ -172,6 +186,7 @@ export class CreatePartnerDto {
   @IsOptional() @ValidateNested() @Type(() => FreightForwarderDetailDto) freightForwarderDetail?: FreightForwarderDetailDto;
   @IsOptional() @ValidateNested() @Type(() => ClientDetailDto) clientDetail?: ClientDetailDto;
   @IsOptional() @ValidateNested() @Type(() => WarehousingDetailDto) warehousingDetail?: WarehousingDetailDto;
+  @IsOptional() @ValidateNested() @Type(() => FinancialDetailDto) financialDetail?: FinancialDetailDto;
 
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ManufacturerSiteDto)
   manufacturerSites?: ManufacturerSiteDto[];
