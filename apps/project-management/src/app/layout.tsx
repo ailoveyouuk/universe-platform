@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&family=JetBrains+Mono:wght@500&display=swap"
         />
       </head>
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>
+      <body style={{ margin: 0, fontFamily: "var(--u-font-sans)" }}>
         <AppShell>{children}</AppShell>
       </body>
     </html>

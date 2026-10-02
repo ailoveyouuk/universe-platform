@@ -129,13 +129,23 @@ html, body {
 *, *::before, *::after {
   box-sizing: border-box;
 }
-input, textarea, select {
+input, textarea, select, button {
   color: var(--u-ink);
-  background-color: var(--u-surface-raised);
   font-family: var(--u-font-sans);
   box-sizing: border-box;
   max-width: 100%;
 }
+input, textarea, select {
+  background-color: var(--u-surface-raised);
+}
+/* Buttons don't inherit font-family from the page by default in most
+   browsers (a long-standing UA quirk) - they fall back to the OS UI font,
+   which is what made buttons look like they belonged to a different app
+   than the surrounding Inter text, most visible on iPad/mobile where the
+   OS font differs more from Inter than desktop's often-similar system
+   font does. Explicit font-family above fixes that; color is inherited
+   from the parent by default for buttons so it's set explicitly too in
+   case a parent doesn't set var(--u-ink) itself. */
 input::placeholder, textarea::placeholder {
   color: var(--u-ink-secondary);
   opacity: 1;
@@ -168,6 +178,23 @@ input[type="checkbox"], input[type="radio"] {
 .u-card-hover:hover {
   box-shadow: var(--u-shadow-card);
   transform: translateY(-1px);
+}
+
+/*
+ * Responsive form-grid utility — added 2026-10-02 for the mobile/tablet
+ * sweep. Several forms lay fields out in fixed multi-column CSS grids
+ * (e.g. "1fr 1fr 1fr") via inline styles, which don't collapse on narrow
+ * viewports and is a second source (alongside the box-sizing fix above)
+ * of field clipping/cramping on iPad and mobile. Apply this class
+ * alongside the inline gridTemplateColumns (inline wins on desktop/tablet
+ * widths; this !important rule takes over only below the breakpoint, the
+ * one case a stylesheet rule can override an inline style) to force a
+ * single column on phone-width screens.
+ */
+@media (max-width: 640px) {
+  .u-form-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* Sidebar: an overlay drawer below 900px, a static rail above it. */

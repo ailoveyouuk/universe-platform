@@ -669,7 +669,7 @@ export default function NewPartnerPage() {
           <input style={inputStyle} value={website} onChange={(e) => setWebsite(e.target.value)} />
         </label>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
           <label style={{ display: "block" }}>
             <span>Risk Tier</span>
             <div style={{ marginTop: 4 }}>
@@ -784,7 +784,7 @@ export default function NewPartnerPage() {
                   key={i}
                   style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 8 }}
                 >
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 8 }}>
+                  <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 8 }}>
                     <label>
                       Site Name
                       <input style={inputStyle} value={site.siteName} onChange={(e) => updateManufacturerSite(i, { siteName: e.target.value })} />
@@ -932,7 +932,7 @@ export default function NewPartnerPage() {
               Technical Agreement Reference
               <input style={inputStyle} value={technicalAgreementRef} onChange={(e) => setTechnicalAgreementRef(e.target.value)} />
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label>
                 Last GDP Audit Date
                 <input type="date" style={inputStyle} value={gdpAuditDate} onChange={(e) => setGdpAuditDate(e.target.value)} />
