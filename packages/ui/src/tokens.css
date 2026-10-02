@@ -10,12 +10,23 @@
  * app-wide restyle). Everything else in this file stays available for the
  * next incremental brand-application pass.
  *
- * Values are LIGHT-mode by default (:root), overridden under
- * prefers-color-scheme: dark — matches the design system's own two-theme
- * shape (color.themes: light, dark).
+ * Updated 2026-10-02 — the app now ALWAYS renders the light theme,
+ * regardless of the device/browser's own OS-level dark-mode preference.
+ * It previously followed `prefers-color-scheme: dark` automatically, which
+ * is exactly what caused the app to look darker and inconsistent on
+ * iPad/mobile (where the OS or browser defaults to dark) vs desktop (where
+ * it didn't) even though nothing in the app itself had changed. The dark
+ * palette is kept below under `:root[data-theme="dark"]` so a real,
+ * explicit theme toggle can opt in later — nothing sets that attribute
+ * today, so dark mode is effectively off everywhere until one does.
+ * `color-scheme: light` below also stops native form controls (selects,
+ * checkboxes, scrollbars) from rendering in the browser's own dark style
+ * on mobile regardless of this.
  */
 
 :root {
+  color-scheme: light;
+  box-sizing: border-box;
   /* Color */
   --u-ink: #14121F;
   --u-ink-secondary: #6B6C7E;
@@ -63,19 +74,18 @@
   --u-icon-lg: 24px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --u-ink: #F5F5FA;
-    --u-ink-secondary: #A8A9C0;
-    --u-surface: #14121F;
-    --u-surface-alt: #1E1C38;
-    --u-brand-violet: #9B84D9;
-    --u-brand-violet-on: #14121F;
-    --u-accent-magenta: #E85FAE;
-    --u-accent-magenta-tint: #3A1A2E;
-    --u-border: rgba(255, 255, 255, 0.14);
-    --u-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
-  }
+:root[data-theme="dark"] {
+  --u-ink: #F5F5FA;
+  --u-ink-secondary: #A8A9C0;
+  --u-surface: #14121F;
+  --u-surface-alt: #1E1C38;
+  --u-brand-violet: #9B84D9;
+  --u-brand-violet-on: #14121F;
+  --u-accent-magenta: #E85FAE;
+  --u-accent-magenta-tint: #3A1A2E;
+  --u-border: rgba(255, 255, 255, 0.14);
+  --u-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
 }
 
 /*
@@ -91,10 +101,8 @@
   --u-transition-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --u-surface-raised: #211F3D;
-  }
+:root[data-theme="dark"] {
+  --u-surface-raised: #211F3D;
 }
 
 /*
@@ -118,10 +126,15 @@ html, body {
   background: var(--u-surface);
   color: var(--u-ink);
 }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 input, textarea, select {
   color: var(--u-ink);
   background-color: var(--u-surface-raised);
   font-family: var(--u-font-sans);
+  box-sizing: border-box;
+  max-width: 100%;
 }
 input::placeholder, textarea::placeholder {
   color: var(--u-ink-secondary);
