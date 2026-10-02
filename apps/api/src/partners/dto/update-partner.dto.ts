@@ -23,9 +23,9 @@ export class UpdatePartnerDto {
   @IsOptional() @IsIn(RISK_TIERS) riskTier?: (typeof RISK_TIERS)[number];
   @IsOptional() @IsString() companyRegistrationNumber?: string;
   @IsOptional() @IsString() vatNumber?: string;
-  /** See Partner.sharedWithUniverseRegistry's doc comment in schema.prisma
-   * and the consent toggle on the New Stakeholder form — lets a partner
-   * opt in (or back out) of the shared registry after creation. */
+  /** See Partner.sharedWithUniverseRegistry's doc comment in schema.prisma.
+   * Reserved for a future relationship-specific-data consent; identity-level
+   * registry matching is mandatory and does not depend on this flag. */
   @IsOptional() @IsBoolean() sharedWithUniverseRegistry?: boolean;
 
   /** Adds any role types not already present on this Partner — never

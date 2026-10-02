@@ -225,20 +225,22 @@ export class PartnersService {
     //       net (covers API callers that skip the prompt, and the normal
     //       "no match was shown" case), which creates a fresh registry
     //       entry when nothing plausible is found.
-    // Off by default (Partner.sharedWithUniverseRegistry's doc comment) —
-    // only resolve/create a shared registry entry when the caller has
-    // explicitly opted in via the New Stakeholder form's consent toggle.
-    // Left off, this Partner stays fully private: no cross-tenant
-    // duplicate-prevention matching is run or contributed to at all.
-    const registryEntryId = dto.sharedWithUniverseRegistry
-      ? await this.stakeholderRegistryService.resolveForPartnerCreate({
-          explicitRegistryEntryId: dto.registryEntryId,
-          name: dto.name,
-          countryCode: dto.countryCode,
-          registrationNumber: dto.companyRegistrationNumber,
-          roleTypes: dto.roleTypes,
-        })
-      : null;
+    // Mandatory and unconditional — identity-level registry matching runs
+    // for every Partner created, regardless of dto.sharedWithUniverseRegistry.
+    // Only name/country/registration number/roleTypes are ever shared for
+    // this matching (see resolveForPartnerCreate) — never pricing or any
+    // other relationship-specific data belonging to the creating
+    // organization. sharedWithUniverseRegistry is reserved for a future,
+    // separate consent that would govern sharing that kind of data with the
+    // specific organization that created this record; it does not gate
+    // identity matching/autopopulate, which is always on.
+    const registryEntryId = await this.stakeholderRegistryService.resolveForPartnerCreate({
+      explicitRegistryEntryId: dto.registryEntryId,
+      name: dto.name,
+      countryCode: dto.countryCode,
+      registrationNumber: dto.companyRegistrationNumber,
+      roleTypes: dto.roleTypes,
+    });
 
     const p = await withTenantContext(user.organizationId, async (tx) => {
       const created = await tx.partner.create({

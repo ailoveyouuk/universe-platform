@@ -241,13 +241,17 @@ export default function NewPartnerPage() {
   const [lightboxProducts, setLightboxProducts] = useState<StakeholderRegistryProduct[]>([]);
   const [lightboxLoading, setLightboxLoading] = useState(false);
 
-  // Consent toggle (added 2026-10-03) — off by default. See
-  // Partner.sharedWithUniverseRegistry's doc comment in schema.prisma:
-  // while off, the duplicate-prevention search below never runs and
-  // nothing is matched/created in the shared registry for this Partner at
-  // all. Deliberately separate from registryEntryId (which only tracks an
-  // already-confirmed match) so the gate is a single, simple boolean.
-  const [shareWithRegistry, setShareWithRegistry] = useState(false);
+  // Identity-level matching against the Universe registry is mandatory and
+  // always on — every organisation created here is matched/registered for
+  // duplicate-prevention and cross-app autopopulate accuracy, regardless of
+  // which Partner is doing the creating. Only name/country/registration
+  // number/role data is ever shared for this matching (see
+  // resolveForPartnerCreate on the API side) — none of a Partner's own
+  // records, verification results, risk tier, documents or pricing are ever
+  // shared. sharedWithUniverseRegistry is reserved for a future, separate
+  // consent covering relationship-specific data (e.g. pricing) with the
+  // organisation that created the record; it is not wired to anything yet,
+  // so it is always sent as true here.
 
   // The form's own matching scope — the first role ticked, per Lewis's own
   // framing ("the system will know Client 2 is trying to add a
@@ -257,7 +261,7 @@ export default function NewPartnerPage() {
   const primaryRoleType = roleTypes[0];
 
   useEffect(() => {
-    if (!shareWithRegistry || registryEntryId || !primaryRoleType || name.trim().length < 2) {
+    if (registryEntryId || !primaryRoleType || name.trim().length < 2) {
       setRegistryMatches([]);
       return;
     }
@@ -268,7 +272,7 @@ export default function NewPartnerPage() {
         .catch(() => setRegistryMatches([]));
     }, 300);
     return () => clearTimeout(handle);
-  }, [shareWithRegistry, name, primaryRoleType, registryEntryId, dismissedMatchIds]);
+  }, [name, primaryRoleType, registryEntryId, dismissedMatchIds]);
 
   function openRegistryLightbox(id: string) {
     setLightboxEntryId(id);
@@ -487,7 +491,7 @@ export default function NewPartnerPage() {
         companyRegistrationNumber: companyRegistrationNumber || undefined,
         vatNumber: vatNumber || undefined,
         registryEntryId: registryEntryId || undefined,
-        sharedWithUniverseRegistry: shareWithRegistry,
+        sharedWithUniverseRegistry: true,
         roleTypes,
         ...(manufacturerSitesInput?.length ? { manufacturerSites: manufacturerSitesInput } : {}),
         ...(certificationsInput?.length ? { certifications: certificationsInput } : {}),
@@ -569,7 +573,7 @@ export default function NewPartnerPage() {
           <input required style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
-        <label
+        <div
           style={{
             display: "flex",
             alignItems: "flex-start",
@@ -582,21 +586,17 @@ export default function NewPartnerPage() {
             padding: "12px 14px",
           }}
         >
-          <input
-            type="checkbox"
-            checked={shareWithRegistry}
-            onChange={(e) => setShareWithRegistry(e.target.checked)}
-            style={{ marginTop: 3, flexShrink: 0 }}
-          />
           <span>
-            <strong>Share this stakeholder with the Universe registry.</strong> Off by default. Turning this on lets
-            other organisations on Universe find this company when they add the same manufacturer/supplier, avoiding
-            duplicate records, and — only once that company has its own Universe account and has chosen to publish
-            its profile — see its name and products. Nothing about {me?.organizationName ?? "your organisation"} is
-            ever shared: none of your own records, verification results, risk tier, documents or pricing are visible
-            or accessible to any other organisation, regardless of this setting.
+            <strong>This company is matched against the Universe registry.</strong> This is a standard, mandatory
+            part of every record for connected accuracy across the platform — other organisations on Universe
+            creating the same manufacturer/supplier will be matched to this one instead of creating a duplicate, and
+            — only once that company has its own Universe account and has chosen to publish its profile — can see
+            its name and products. Nothing about {me?.organizationName ?? "your organisation"} is ever shared as
+            part of this: none of your own records, verification results, risk tier, documents or pricing are
+            visible or accessible to any other organisation. That kind of relationship-specific sharing (e.g.
+            pricing with the organisation that created this record) is a separate consent, not controlled here.
           </span>
-        </label>
+        </div>
 
         {/* Stakeholder registry duplicate-prevention — see the state/effect
             block above and claude/sop-driven-quality-roadmap.md Section C.

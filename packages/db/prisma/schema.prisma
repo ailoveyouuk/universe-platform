@@ -419,14 +419,14 @@ model Partner {
   /// Product Database has a real, de-duplicated company to key off.
   registryEntryId String?
   registryEntry   StakeholderRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// Added 2026-10-02 — an explicit, off-by-default opt-in from the adding
-  /// organisation, separate from registryEntryId itself. Off means this
-  /// Partner is never matched against or contributes to the shared,
-  /// cross-tenant stakeholder registry at all (fully private, no
-  /// duplicate-prevention benefit); on means its generic identity fields
-  /// (name/country/registration number only — never anything from the
-  /// adding organisation's own records) are shared for cross-tenant
-  /// duplicate-prevention, per the New Stakeholder form's consent toggle.
+  /// Updated 2026-10-02 — identity-level registry matching (generic fields
+  /// only: name/country/registration number — never anything from the
+  /// adding organisation's own records) is now mandatory for every Partner
+  /// and does NOT depend on this flag; it always runs so autopopulate and
+  /// duplicate-prevention stay accurate across the platform. This field is
+  /// reserved for a future, separate consent that would let a Partner share
+  /// relationship-specific data (e.g. pricing) with the particular
+  /// organisation that created this record — not wired to anything yet.
   sharedWithUniverseRegistry Boolean @default(false)
   /// SOP008 §4.7.1's "Annual Bona Fide re-check" (FORM 008.2) generalized
   /// to any role with a re-approval cadence, rather than duplicating this

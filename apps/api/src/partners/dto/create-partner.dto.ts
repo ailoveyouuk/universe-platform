@@ -145,12 +145,11 @@ export class CreatePartnerDto {
    * entry if nothing plausible is found). */
   @IsOptional() @IsString() registryEntryId?: string;
 
-  /** Off-by-default consent to share this stakeholder's generic identity
-   * fields (name/country/registration number only) with the cross-tenant
-   * registry for duplicate-prevention — see
-   * Partner.sharedWithUniverseRegistry's doc comment in schema.prisma and
-   * the New Stakeholder form's consent toggle. Omitted/false means
-   * registryEntryId above is never resolved/created for this Partner. */
+  /** Reserved for a future consent covering relationship-specific data
+   * (e.g. pricing) shared with the specific organization that created this
+   * record — see Partner.sharedWithUniverseRegistry's doc comment in
+   * schema.prisma. Does NOT gate identity-level registry matching: that
+   * runs unconditionally for every Partner regardless of this flag. */
   @IsOptional() @IsBoolean() sharedWithUniverseRegistry?: boolean;
 
   @IsArray()
