@@ -7,7 +7,17 @@ name: Deploy API
 #
 # PREREQUISITES: same Azure OIDC setup as deploy-infra.yml, plus
 # AZURE_CONTAINER_REGISTRY (login server, e.g. universepilotacr.azurecr.io)
-# and AZURE_CONTAINER_APP_NAME repository secrets/variables.
+# and AZURE_CONTAINER_APP_NAME repository secrets/variables, plus a
+# DATABASE_URL repository secret pointing at the production Azure SQL
+# database (sqlserver://<server>.database.windows.net;database=<db>;
+# user=<user>;password=<password>;encrypt=true). This secret did not exist
+# anywhere in the workflows before 2026-10-02 — see architecture-decisions.md
+# ("CI: run prisma migrate deploy against production") for how this gap was
+# found (the Quality page's "product sourcing approvals" 500 error, caused
+# by product_source_approvals never being created in the live database even
+# though the Prisma model and app code had already shipped) and why this
+# step below is the fix. Lewis needs to add DATABASE_URL to this repo's
+# GitHub Actions secrets before this workflow can deploy successfully.
 #
 # Not runnable yet — no Azure subscription, no registry, nothing to push
 # to. Written and ready for the moment there is.
@@ -48,6 +58,28 @@ jobs:
           docker build -f apps/api/Dockerfile -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        # Needed only to run prisma migrate deploy below — the API itself
+        # ships as the Docker image built above, this install is just for
+        # the Prisma CLI and packages/db's generated client.
+        run: npm install
+
+      - name: Apply database migrations (prisma migrate deploy)
+        # Runs BEFORE the container app is pointed at the new image, so the
+        # schema a new app version expects already exists when it starts
+        # handling traffic. migrate deploy only applies migrations already
+        # committed under packages/db/prisma/migrations — it never generates
+        # new ones and is safe to run against a database that's already up
+        # to date (no-op). See the PREREQUISITES comment above re:
+        # DATABASE_URL.
+        run: npm run migrate:deploy --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Update Container App
         run: |
