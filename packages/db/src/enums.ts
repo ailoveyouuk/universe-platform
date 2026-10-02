@@ -130,10 +130,9 @@ export const PartnerApprovalStatus = {
 } as const;
 export type PartnerApprovalStatus = (typeof PartnerApprovalStatus)[keyof typeof PartnerApprovalStatus];
 
-/// Expanded 2026-10-02 after the SOP008/Bioconnections FORM 008.1/BD-folder
-/// research pass (architecture doc, "Stakeholder onboarding: SOP-aligned
-/// expansion") — covers every document type actually observed in Unimed's
-/// real supplier files, not just the original four.
+/// Expanded 2026-10-02 after a research pass on Unimed's real supplier
+/// files — covers every document type actually observed, not just the
+/// original four.
 export const CertificationType = {
   ISO_13485: "ISO_13485",
   ISO_9001: "ISO_9001",

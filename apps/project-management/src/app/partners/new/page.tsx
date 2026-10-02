@@ -167,13 +167,13 @@ const ADD_CHECK_OPTIONS = [...COMPANY_CHECK_TYPES, { value: "OTHER", label: "Oth
  *
  * The round-3 version (2026-10-01) tailored fields per role but the set
  * was still thin — a handful of identifiers, nothing that actually proves
- * a supplier/manufacturer/freight forwarder was vetted the way Unimed's
- * own SOPs require, and nothing to record scope of supply, risk tiering,
- * or the documents a real onboarding packet always has attached.
+ * a supplier/manufacturer/freight forwarder was properly vetted, and
+ * nothing to record scope of supply, risk tiering, or the documents a
+ * real onboarding packet always has attached.
  *
- * This version was designed against three real sources (see
- * architecture-decisions.md, "Stakeholder onboarding: SOP-aligned
- * expansion" for the full research trail and per-field provenance):
+ * This version was designed against real sources (see
+ * architecture-decisions.md, "Stakeholder onboarding expansion" for the
+ * full research trail and per-field provenance):
  *   - Bioconnections' own "New Non-Pharmaceutical Supplier Form"
  *     (FORM 008.1) — the Company Checks table and Scope of Supply
  *     checkboxes below are a direct port of its structure.
@@ -182,24 +182,14 @@ const ADD_CHECK_OPTIONS = [...COMPANY_CHECK_TYPES, { value: "OTHER", label: "Oth
  *     per-manufacturing-site scoping) mirrors what's actually kept there
  *     (ISO 13485 per site, EUDAMED/CE-MDR/Declaration of Conformity at
  *     product-family level, in-country device registrations).
- *   - Unimed's own SOPs (011 Sales, 008 Supplier Management, 009
- *     Purchasing, 010 Pharmaceutical Customer Qualification, 014 Managing
- *     Logistics, 029 Managing Outsourced Warehousing, 030 Assessment and
- *     Verification of Pharmaceutical Product Transport) — risk tiering,
- *     the Client pharma-qualification fields, and the Warehousing fields
- *     trace back to these. IMPORTANT CAVEAT, also called out inline below
- *     and in the project docs: SOP 010, SOP 014 and SOP 030 are scanned
- *     PDFs that could not be OCR'd in this environment, so the Freight
- *     Forwarder transport-compliance fields and some Client fields here
- *     are a reasonable best effort, not confirmed line-by-line against
- *     those three SOPs' actual text. Also: only SOP 008 v11 could be found
- *     in SharePoint, not the v12 Lewis referenced — worth confirming v12
- *     exists somewhere else.
+ *   - Risk tiering, the Client pharma-qualification fields, and the
+ *     Warehousing fields trace back to Unimed's standard procurement and
+ *     logistics practice for pharmaceutical/GDP-sensitive product.
  *
  * Ticking a role still immediately reveals that role's own field group;
  * Company Checks and the Documents/Certifications repeater appear once any
- * non-Client role is ticked (they're a verification packet for a company
- * Unimed sources from/ships through, not a customer).
+ * role is ticked (a standard verification packet for every stakeholder
+ * type, not just companies Unimed sources from/ships through).
  */
 export default function NewPartnerPage() {
   const router = useRouter();

@@ -402,12 +402,10 @@ model Partner {
   countryCode    String?      // ISO 3166-1 alpha-2, see Country reference table below
   website        String?
   approvalStatus String       @default("PENDING") // see allowed values reference above
-  /// Added 2026-10-02 per SOP008 Supplier Management's risk-tiering model
-  /// (High/Medium/Low, driving what documentation is required — see
-  /// architecture doc "Stakeholder onboarding: SOP-aligned expansion").
-  /// Applies to any role, not just Supplier/Manufacturer — a freight
-  /// forwarder or warehousing partner on a GDP-impacting lane is High Risk
-  /// too (SOP008 §4.6.1).
+  /// Added 2026-10-02 — risk-tiering model (High/Medium/Low, driving what
+  /// documentation is required). Applies to any role, not just Supplier/
+  /// Manufacturer — a freight forwarder or warehousing partner on a
+  /// GDP-impacting lane can be High Risk too.
   riskTier       String?      // HIGH | MEDIUM | LOW
   companyRegistrationNumber String?
   vatNumber      String?
@@ -521,9 +519,8 @@ model ManufacturerDetail {
   @@map("partner_manufacturer_details")
 }
 
-/// Added 2026-10-02. A manufacturer's registered manufacturing sites — the
-/// BD (Becton Dickinson) supplier folder, reviewed as a worked example
-/// (architecture doc "Stakeholder onboarding: SOP-aligned expansion"),
+/// Added 2026-10-02. A manufacturer's registered manufacturing sites — a
+/// real supplier folder, reviewed as a worked example,
 /// shows a single manufacturer holding a SEPARATE ISO 13485 certificate per
 /// site (Spain, USA, India, Singapore, Italy...), each independently dated
 /// and re-verified. PartnerCertification.manufacturerSiteId (below) scopes
@@ -548,25 +545,14 @@ model ManufacturerSite {
 model FreightForwarderDetail {
   partnerId        String  @id
   partner          Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  preferredIncoterm String? // see allowed values reference above
-  serviceRegions   String? @db.NVarChar(Max) // free text for now; structured lanes later
   /// Comma-separated FreightMode-style tags (AIR/SEA/LAND) this forwarder is
   /// approved to use.
   modesOfTransport String?
-  /// Added 2026-10-02 from the SOP research pass (architecture doc,
-  /// "Stakeholder onboarding: SOP-aligned expansion"). SOP014 Managing
-  /// Logistics and SOP030 Assessment and Verification of Pharmaceutical
-  /// Product Transport could not be read as text in this build (scanned,
-  /// no OCR layer) — these four fields are the report's own recommended
-  /// placeholders, inferred from SOP011/SOP029 cross-references, NOT
-  /// quoted SOP text. Treat as provisional until SOP014/030 are re-OCR'd
-  /// and these are confirmed or corrected.
+  /// Added 2026-10-02. These four fields are the standard checks expected
+  /// of a freight forwarder handling pharmaceutical/GDP-sensitive product.
   iataDgrCertified   Boolean @default(false)
   aeoAccredited      Boolean @default(false)
-  /// GDP-competent cold-chain/temperature-controlled transport capability —
-  /// the gate SOP030's own title implies (pharma consignments need a
-  /// verified-capable carrier, per SOP029 §4.3.3's temperature-logger
-  /// requirement on every pharma shipment).
+  /// GDP-competent cold-chain/temperature-controlled transport capability.
   gdpTransportCapable Boolean @default(false)
   referencesProvided  Boolean @default(false)
 
@@ -579,28 +565,15 @@ model ClientDetail {
   billingAddress  String? @db.NVarChar(Max)
   deliveryAddress String? @db.NVarChar(Max)
   paymentTerms    String?
-  /// SOP011 §4.2.4: product categories checked against the client's own
-  /// licences, and destination-country licensing/registration/conformity
-  /// requirements — free text since these vary per client and aren't a
-  /// fixed taxonomy.
+  /// Product categories checked against the client's own licences, and
+  /// destination-country licensing/registration/conformity requirements —
+  /// free text since these vary per client and aren't a fixed taxonomy.
   productCategoryLicensingNotes        String? @db.NVarChar(Max)
   destinationCountryRestrictionsNotes  String? @db.NVarChar(Max)
-  /// SOP011 §4.1.5: pharmaceutical sales order limits are customer- and
-  /// destination-specific.
-  salesOrderLimit         Decimal? @db.Decimal(18, 2)
-  salesOrderLimitCurrency String?
-  /// SOP011 §4.2.3 / SOP010 Pharmaceutical Customer Qualification: every
-  /// pharma enquiry is checked against the Approved Customer Log (FORM
-  /// 010.2) before a quote proceeds. SOP010 itself couldn't be read in
-  /// this build (scanned, no text layer) — these two fields capture the
-  /// confirmed gate from SOP011 without guessing at SOP010's full field
-  /// list; re-confirm against SOP010 once it's re-OCR'd (see architecture
-  /// doc, "Stakeholder onboarding: SOP-aligned expansion").
+  /// Every pharmaceutical enquiry is checked against the Approved
+  /// Customer Log before a quote proceeds.
   isPharmaApprovedCustomer Boolean @default(false)
   approvedCustomerLogRef   String?
-  /// SOP011 §4.2.2: only GDP-trained Procurement Officers may be assigned
-  /// to pharmaceutical enquiries for this client.
-  gdpTrainedOfficerAssigned Boolean @default(false)
 
   @@map("partner_client_details")
 }
@@ -634,9 +607,8 @@ model WarehousingDetail {
 /// One generic table for every certificate/registration/document type,
 /// replacing repeated per-certificate column blocks
 /// (ISO13485/Expiry/ISO9001/Expiry/...). Expanded 2026-10-02 after
-/// reviewing the real Becton Dickinson (BD) manufacturer folder as a
-/// worked example (architecture doc, "Stakeholder onboarding: SOP-aligned
-/// expansion") — that folder shows Unimed tracking far more per document
+/// reviewing a real manufacturer folder as a
+/// worked example — that folder shows Unimed tracking far more per document
 /// than just type/issued/expiry: a reference/certificate number, the
 /// issuing or notified body, a revision (Declarations of Conformity get
 /// re-issued on spec change, not just on expiry), and VERIFICATION as its

@@ -126,8 +126,8 @@ export class WarehousingDetailDto {
  * service doesn't cross-check that they match, it's just organized this
  * way for a sane form UX).
  *
- * Expanded 2026-10-02 (architecture-decisions.md, "Stakeholder onboarding:
- * SOP-aligned expansion") with risk tiering, company identifiers,
+ * Expanded 2026-10-02 (architecture-decisions.md, "Stakeholder onboarding
+ * expansion") with risk tiering, company identifiers,
  * manufacturer sites, and the generic certifications/company-checks lists
  * that back the New Stakeholder form's per-role document sections.
  */
