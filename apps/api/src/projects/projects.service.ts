@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext } from "@universe/db";
-import type { ProjectDetail, ProjectDocumentSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
+import type { ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import type { CreateProjectDto } from "./dto/create-project.dto";
 import type { UpdateProjectDto } from "./dto/update-project.dto";
 import type { ProjectLineDto } from "./dto/project-line.dto";
@@ -80,6 +81,14 @@ type DocumentWithUploader = ProjectWithLines["documents"][number];
 
 function decimalToString(d: unknown): string | null {
   return d === null || d === undefined ? null : String(d);
+}
+
+function decimalToNumber(d: unknown): number | null {
+  return d === null || d === undefined ? null : Number(d);
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 /** Remaining balance = amount due - amount paid, computed here rather than
@@ -173,6 +182,13 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     internalInvoiceDate: l.internalInvoiceDate?.toISOString() ?? null,
     grossMargin: decimalToString(l.grossMargin),
     margin: decimalToString(l.margin),
+    reportingCurrencyCode: l.reportingCurrencyCode,
+    supplierPriceLockedAt: l.supplierPriceLockedAt?.toISOString() ?? null,
+    supplierUnitPriceReportingCcy: decimalToString(l.supplierUnitPriceReportingCcy),
+    supplierTotalPriceReportingCcy: decimalToString(l.supplierTotalPriceReportingCcy),
+    salesPriceLockedAt: l.salesPriceLockedAt?.toISOString() ?? null,
+    salesUnitPriceReportingCcy: decimalToString(l.salesUnitPriceReportingCcy),
+    salesTotalPriceReportingCcy: decimalToString(l.salesTotalPriceReportingCcy),
     strength: l.strength,
     form: l.form,
     packSize: l.packSize,
@@ -275,6 +291,8 @@ export class ProjectsService {
    * during the Phase 1 smoke test, 2026-09-30 (see backend-launch-checklist.md).
    * Matches the pattern already established in supplier-directory.service.ts. */
 
+  constructor(private readonly exchangeRates: ExchangeRatesService) {}
+
   async findAll(user: RequestUser): Promise<ProjectSummary[]> {
     const projects = await withTenantContext(user.organizationId, (tx) =>
       tx.project.findMany({
@@ -284,6 +302,43 @@ export class ProjectsService {
       }),
     );
     return projects.map(toSummary);
+  }
+
+  /** Org-wide rollup across every ProjectLine's LOCKED reporting-currency
+   * amounts — see ProjectFinancialSummary's doc comment in packages/types.
+   * Sums supplierTotalPriceReportingCcy/salesTotalPriceReportingCcy as
+   * they already stand on each line (each one individually locked to its
+   * own entry date's rate — see ExchangeRatesService), so this rollup
+   * itself needs no FX call at all; it's pure addition over already-locked
+   * numbers. Lines with no price yet (null on both) are counted in
+   * totalLines but not linesWithPricing or either total. */
+  async getFinancialSummary(user: RequestUser): Promise<ProjectFinancialSummary> {
+    const lines = await withTenantContext(user.organizationId, (tx) =>
+      tx.projectLine.findMany({
+        where: tenantScope(user.organizationId),
+        select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
+      }),
+    );
+
+    let totalCost = 0;
+    let totalSales = 0;
+    let linesWithPricing = 0;
+    for (const l of lines) {
+      const cost = decimalToNumber(l.supplierTotalPriceReportingCcy);
+      const sales = decimalToNumber(l.salesTotalPriceReportingCcy);
+      if (cost !== null) totalCost += cost;
+      if (sales !== null) totalSales += sales;
+      if (cost !== null || sales !== null) linesWithPricing += 1;
+    }
+
+    return {
+      reportingCurrencyCode: ExchangeRatesService.REPORTING_CURRENCY,
+      totalSupplierCostReportingCcy: String(round2(totalCost)),
+      totalSalesValueReportingCcy: String(round2(totalSales)),
+      totalMarginReportingCcy: String(round2(totalSales - totalCost)),
+      linesWithPricing,
+      totalLines: lines.length,
+    };
   }
 
   async findOne(user: RequestUser, id: string): Promise<ProjectDetail> {
@@ -436,14 +491,106 @@ export class ProjectsService {
     if (count !== ids.length) throw new NotFoundException("One or more referenced partners were not found in your organisation");
   }
 
+  /**
+   * Computes supplierPaymentAmountTotal/clientPaymentAmount (unit price x
+   * quantity, in the price's own native currency) and their locked
+   * reporting-currency equivalents, mutating `data` in place. See
+   * ExchangeRatesService's doc comment and ProjectLine's "Currency
+   * conversion" block in schema.prisma.
+   *
+   * Lewis's direction: the total is now an arithmetic FACT (unit x qty),
+   * not a manually-typed figure — unlike grossMargin/margin, which stay a
+   * business judgment call and so stay override-able — so this always
+   * overwrites supplierPaymentAmountTotal/clientPaymentAmount, ignoring
+   * whatever the DTO sent for either (both are still accepted on the DTO
+   * for backward compatibility with existing callers; the service is the
+   * single source of truth for the total from here on).
+   *
+   * `existing` is the line's current DB row (null for a brand-new line);
+   * merging against it is what lets a partial PATCH that only changes,
+   * say, clientPoNumber leave pricing/conversion untouched, while a PATCH
+   * that changes supplierUnitPrice (even alone, without re-sending
+   * quantity) still recomputes correctly against the quantity already on
+   * the row. Conversion is only (re-)fetched when a dto field that could
+   * actually move the native-currency amount or its currency was part of
+   * THIS request — so touching unrelated fields never re-locks the rate to
+   * a new date for no reason.
+   */
+  private async applyPricing(
+    data: Record<string, unknown>,
+    dto: ProjectLineDto,
+    existing: {
+      quantity: number | null;
+      supplierUnitPrice: unknown;
+      supplierPaymentCurrency: string | null;
+      unitSalesPrice: unknown;
+      clientPaymentCurrency: string | null;
+    } | null,
+  ) {
+    const quantity = dto.quantity !== undefined ? dto.quantity : existing?.quantity ?? null;
+
+    const supplierUnitPrice = dto.supplierUnitPrice !== undefined ? dto.supplierUnitPrice : decimalToNumber(existing?.supplierUnitPrice);
+    const supplierCurrency = dto.supplierPaymentCurrency !== undefined ? dto.supplierPaymentCurrency : existing?.supplierPaymentCurrency ?? null;
+    const supplierTouched = dto.supplierUnitPrice !== undefined || dto.quantity !== undefined || dto.supplierPaymentCurrency !== undefined;
+
+    if (supplierUnitPrice !== null && quantity !== null) {
+      const total = round2(supplierUnitPrice * quantity);
+      data.supplierPaymentAmountTotal = total;
+      if (supplierTouched && supplierCurrency) {
+        const conv = await this.exchangeRates.convertToReportingCcy(supplierUnitPrice, total, supplierCurrency, new Date());
+        data.reportingCurrencyCode = conv.reportingCurrencyCode;
+        data.supplierPriceLockedAt = conv.lockedAt;
+        data.supplierExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
+        data.supplierUnitPriceReportingCcy = conv.unitReportingCcy;
+        data.supplierTotalPriceReportingCcy = conv.totalReportingCcy;
+      }
+    } else {
+      data.supplierPaymentAmountTotal = null;
+      if (supplierTouched) {
+        data.supplierPriceLockedAt = null;
+        data.supplierExchangeRateSnapshotId = null;
+        data.supplierUnitPriceReportingCcy = null;
+        data.supplierTotalPriceReportingCcy = null;
+      }
+    }
+
+    const unitSalesPrice = dto.unitSalesPrice !== undefined ? dto.unitSalesPrice : decimalToNumber(existing?.unitSalesPrice);
+    const clientCurrency = dto.clientPaymentCurrency !== undefined ? dto.clientPaymentCurrency : existing?.clientPaymentCurrency ?? null;
+    const salesTouched = dto.unitSalesPrice !== undefined || dto.quantity !== undefined || dto.clientPaymentCurrency !== undefined;
+
+    if (unitSalesPrice !== null && quantity !== null) {
+      const total = round2(unitSalesPrice * quantity);
+      data.clientPaymentAmount = total;
+      if (salesTouched && clientCurrency) {
+        const conv = await this.exchangeRates.convertToReportingCcy(unitSalesPrice, total, clientCurrency, new Date());
+        data.reportingCurrencyCode = conv.reportingCurrencyCode;
+        data.salesPriceLockedAt = conv.lockedAt;
+        data.salesExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
+        data.salesUnitPriceReportingCcy = conv.unitReportingCcy;
+        data.salesTotalPriceReportingCcy = conv.totalReportingCcy;
+      }
+    } else {
+      data.clientPaymentAmount = null;
+      if (salesTouched) {
+        data.salesPriceLockedAt = null;
+        data.salesExchangeRateSnapshotId = null;
+        data.salesUnitPriceReportingCcy = null;
+        data.salesTotalPriceReportingCcy = null;
+      }
+    }
+  }
+
   async addLine(user: RequestUser, projectId: string, dto: ProjectLineDto): Promise<ProjectDetail> {
     await withTenantContext(user.organizationId, async (tx) => {
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
       if (!project) throw new NotFoundException(`Project ${projectId} not found`);
       await this.assertPartnersOwned(tx, user, dto);
 
+      const data = lineDataFromDto(dto);
+      await this.applyPricing(data, dto, null);
+
       await tx.projectLine.create({
-        data: { organizationId: user.organizationId, projectId, ...lineDataFromDto(dto) },
+        data: { organizationId: user.organizationId, projectId, ...data },
       });
     });
     return this.findOne(user, projectId);
@@ -457,7 +604,10 @@ export class ProjectsService {
       if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
       await this.assertPartnersOwned(tx, user, dto);
 
-      await tx.projectLine.update({ where: { id: lineId }, data: lineDataFromDto(dto) });
+      const data = lineDataFromDto(dto);
+      await this.applyPricing(data, dto, line);
+
+      await tx.projectLine.update({ where: { id: lineId }, data });
     });
     return this.findOne(user, projectId);
   }

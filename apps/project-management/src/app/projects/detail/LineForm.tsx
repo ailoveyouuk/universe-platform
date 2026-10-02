@@ -29,7 +29,29 @@ function toDateInput(value: string | null | undefined): string {
  * line, 2026-09-30. Strip them explicitly here instead of relying on the
  * type system to catch it next time.*/
 function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
-  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, productMasterName: _productMasterName, otif: _otif, supplierRemainingBalance: _supplierRemainingBalance, ...rest } = existing;
+  const {
+    id: _id,
+    projectId: _projectId,
+    manufacturerName: _manufacturerName,
+    supplierName: _supplierName,
+    freightForwarderName: _freightForwarderName,
+    productMasterName: _productMasterName,
+    otif: _otif,
+    supplierRemainingBalance: _supplierRemainingBalance,
+    // Currency conversion fields (added 2026-10-02) — server-computed,
+    // display-only (see ProjectLineSummary's doc comment in
+    // packages/types) — not part of ProjectLineInput, so they'd 400
+    // against the API's forbidNonWhitelisted ValidationPipe the same way
+    // the other display-only fields above would.
+    reportingCurrencyCode: _reportingCurrencyCode,
+    supplierPriceLockedAt: _supplierPriceLockedAt,
+    supplierUnitPriceReportingCcy: _supplierUnitPriceReportingCcy,
+    supplierTotalPriceReportingCcy: _supplierTotalPriceReportingCcy,
+    salesPriceLockedAt: _salesPriceLockedAt,
+    salesUnitPriceReportingCcy: _salesUnitPriceReportingCcy,
+    salesTotalPriceReportingCcy: _salesTotalPriceReportingCcy,
+    ...rest
+  } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
   // ProjectLineSummary's doc comment: "JSON has no Decimal/Date type") but
   // ProjectLineInput — the PATCH/POST body — types them as number|null, same
@@ -142,6 +164,16 @@ export function LineForm({
 
   function numOrNull(v: string): number | null {
     return v === "" ? null : Number(v);
+  }
+
+  /** Client-side preview of ProjectsService.applyPricing's unit-price x
+   * quantity arithmetic — purely cosmetic (so the "(calculated)" fields
+   * don't just sit blank while editing); the API recomputes and returns
+   * the authoritative figure on save, which is what's actually persisted
+   * and what the reporting-currency fields above are locked against. */
+  function computedTotal(unitPrice: number | null | undefined, quantity: number | null | undefined): string {
+    if (unitPrice === null || unitPrice === undefined || quantity === null || quantity === undefined) return "";
+    return String(Math.round(unitPrice * quantity * 100) / 100);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -373,12 +405,27 @@ export function LineForm({
         <Field label="Supplier Unit Price">
           <input type="number" step="0.01" style={inputStyle} value={form.supplierUnitPrice ?? ""} onChange={(e) => update("supplierUnitPrice", numOrNull(e.target.value))} />
         </Field>
-        <Field label="Supplier Payment Total">
-          <input type="number" step="0.01" style={inputStyle} value={form.supplierPaymentAmountTotal ?? ""} onChange={(e) => update("supplierPaymentAmountTotal", numOrNull(e.target.value))} />
+        {/* Computed (unit price x quantity) server-side as of 2026-10-02 —
+            no longer free-text, see ProjectsService.applyPricing. Shown
+            here as a live client-side preview of the same arithmetic so
+            the form doesn't look blank while editing; the authoritative
+            value always comes back from the API on save. */}
+        <Field label="Supplier Payment Total (calculated)">
+          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={computedTotal(form.supplierUnitPrice, form.quantity)} readOnly disabled />
         </Field>
         <Field label="Supplier Payment Currency">
           <input maxLength={3} style={inputStyle} value={form.supplierPaymentCurrency ?? ""} onChange={(e) => update("supplierPaymentCurrency", e.target.value.toUpperCase() || null)} />
         </Field>
+        {existing && existing.reportingCurrencyCode && (existing.supplierUnitPriceReportingCcy || existing.supplierTotalPriceReportingCcy) && (
+          <Field label={`Supplier Price (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.supplierPriceLockedAt) || "—"})`}>
+            <input
+              style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+              value={`${existing.supplierUnitPriceReportingCcy ?? "—"} / ${existing.supplierTotalPriceReportingCcy ?? "—"} total`}
+              readOnly
+              disabled
+            />
+          </Field>
+        )}
         <Field label="Supplier Payment Date">
           <input type="date" style={inputStyle} value={toDateInput(form.supplierPaymentDate)} onChange={(e) => update("supplierPaymentDate", e.target.value || null)} />
         </Field>
@@ -401,12 +448,24 @@ export function LineForm({
         <Field label="Unit Sales Price">
           <input type="number" step="0.01" style={inputStyle} value={form.unitSalesPrice ?? ""} onChange={(e) => update("unitSalesPrice", numOrNull(e.target.value))} />
         </Field>
-        <Field label="Client Payment Amount">
-          <input type="number" step="0.01" style={inputStyle} value={form.clientPaymentAmount ?? ""} onChange={(e) => update("clientPaymentAmount", numOrNull(e.target.value))} />
+        {/* Computed server-side, same convention as Supplier Payment Total
+            above. */}
+        <Field label="Client Payment Amount (calculated)">
+          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={computedTotal(form.unitSalesPrice, form.quantity)} readOnly disabled />
         </Field>
         <Field label="Client Payment Currency">
           <input maxLength={3} style={inputStyle} value={form.clientPaymentCurrency ?? ""} onChange={(e) => update("clientPaymentCurrency", e.target.value.toUpperCase() || null)} />
         </Field>
+        {existing && existing.reportingCurrencyCode && (existing.salesUnitPriceReportingCcy || existing.salesTotalPriceReportingCcy) && (
+          <Field label={`Client Price (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.salesPriceLockedAt) || "—"})`}>
+            <input
+              style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+              value={`${existing.salesUnitPriceReportingCcy ?? "—"} / ${existing.salesTotalPriceReportingCcy ?? "—"} total`}
+              readOnly
+              disabled
+            />
+          </Field>
+        )}
         <Field label="Client Payment Date">
           <input type="date" style={inputStyle} value={toDateInput(form.clientPaymentDate)} onChange={(e) => update("clientPaymentDate", e.target.value || null)} />
         </Field>

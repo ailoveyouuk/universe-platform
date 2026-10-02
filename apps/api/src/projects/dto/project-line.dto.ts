@@ -49,6 +49,11 @@ export class ProjectLineDto {
   @IsOptional() @IsBoolean() supplierOnTime?: boolean;
   @IsOptional() @IsBoolean() supplierInFull?: boolean;
   @IsOptional() @IsNumber() supplierUnitPrice?: number;
+  /** Accepted but ignored as of 2026-10-02 — ProjectsService.applyPricing
+   * now always computes this as supplierUnitPrice x quantity (a fact, not
+   * a judgment call, unlike grossMargin/margin below), in the native
+   * supplierPaymentCurrency. Kept on the DTO so older/other callers
+   * sending it don't 400 against `forbidNonWhitelisted: true`. */
   @IsOptional() @IsNumber() supplierPaymentAmountTotal?: number;
   @IsOptional() @IsString() supplierPaymentCurrency?: string;
   @IsOptional() @IsString() supplierPaymentDate?: string;
@@ -56,6 +61,9 @@ export class ProjectLineDto {
   @IsOptional() @IsNumber() supplierAmountPaid?: number;
   @IsOptional() @IsIn(PAYMENT_STATUSES) supplierPaymentStatus?: (typeof PAYMENT_STATUSES)[number];
   @IsOptional() @IsNumber() unitSalesPrice?: number;
+  /** Accepted but ignored as of 2026-10-02 — same reasoning as
+   * supplierPaymentAmountTotal above (computed server-side from
+   * unitSalesPrice x quantity). */
   @IsOptional() @IsNumber() clientPaymentAmount?: number;
   @IsOptional() @IsString() clientPaymentCurrency?: string;
   @IsOptional() @IsString() clientPaymentDate?: string;

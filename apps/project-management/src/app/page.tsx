@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ProjectSummary, PartnerSummary } from "@universe/types";
+import type { ProjectSummary, PartnerSummary, ProjectFinancialSummary } from "@universe/types";
 import {
   Button,
   AddMenu,
@@ -50,10 +50,19 @@ export default function HomePage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
+  // Financial Overview (added 2026-10-02) — org-wide rollup across every
+  // ProjectLine's LOCKED reporting-currency amounts. See
+  // ProjectFinancialSummary's doc comment in packages/types for why this
+  // lives here rather than per-project: it's a stand-in for the future
+  // "Insights" app, per Lewis's own phrasing. null while loading/on
+  // failure (e.g. no lines priced yet) — financialSummary renders nothing
+  // rather than a misleading all-zero panel in that case.
+  const [financialSummary, setFinancialSummary] = useState<ProjectFinancialSummary | null>(null);
 
   useEffect(() => {
     apiClient.listProjects().then(setProjects).catch(() => setProjects([]));
     apiClient.listPartners().then(setPartners).catch(() => setPartners([]));
+    apiClient.getProjectFinancialSummary().then(setFinancialSummary).catch(() => setFinancialSummary(null));
   }, []);
 
   function isOverdue(p: ProjectSummary): boolean {
@@ -143,6 +152,36 @@ export default function HomePage() {
         <StatTile href="/partners?role=CLIENT" label="Clients" value={stakeholderStats?.clients} icon={<BuildingIcon size={20} />} tone="neutral" />
         <StatTile href="/partners?approval=APPROVED" label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
       </div>
+
+      {financialSummary && financialSummary.linesWithPricing > 0 && (
+        <section
+          style={{
+            border: "1px solid var(--u-border)",
+            borderRadius: "var(--u-radius-lg)",
+            backgroundColor: "var(--u-surface-raised)",
+            padding: "18px 20px",
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+              <TrendingUpIcon size={16} />
+              Financial Overview ({financialSummary.reportingCurrencyCode})
+            </h2>
+            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              {financialSummary.linesWithPricing} of {financialSummary.totalLines} line{financialSummary.totalLines === 1 ? "" : "s"} priced
+            </span>
+          </div>
+          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "0 0 14px" }}>
+            Each line's native-currency price is converted once, at the FX rate for the date it was entered, and locked — these totals won't shift as rates move.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
+            <FinancialStat label="Total supplier cost" value={financialSummary.totalSupplierCostReportingCcy} currency={financialSummary.reportingCurrencyCode} />
+            <FinancialStat label="Total sales value" value={financialSummary.totalSalesValueReportingCcy} currency={financialSummary.reportingCurrencyCode} />
+            <FinancialStat label="Total margin" value={financialSummary.totalMarginReportingCcy} currency={financialSummary.reportingCurrencyCode} tone={Number(financialSummary.totalMarginReportingCcy) >= 0 ? "good" : "critical"} />
+          </div>
+        </section>
+      )}
 
       <div
         style={{
@@ -262,6 +301,31 @@ function ProjectPanel({
         </div>
       )}
     </section>
+  );
+}
+
+/** One figure inside the Financial Overview panel — formats a numeric
+ * string (the API's Decimal-as-string convention) with thousands
+ * separators, since this is a sum across potentially many lines. */
+function FinancialStat({
+  label,
+  value,
+  currency,
+  tone,
+}: {
+  label: string;
+  value: string;
+  currency: string;
+  tone?: "good" | "critical";
+}) {
+  const formatted = new Intl.NumberFormat("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: tone === "good" ? "var(--u-status-good)" : tone === "critical" ? "var(--u-status-critical)" : "var(--u-ink)" }}>
+        {currency} {formatted}
+      </div>
+    </div>
   );
 }
 

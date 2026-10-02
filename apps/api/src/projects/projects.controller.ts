@@ -17,6 +17,14 @@ export class ProjectsController {
     return this.projectsService.findAll(user);
   }
 
+  // Declared BEFORE the ":id" route below — Nest/Express match routes in
+  // declaration order, and a single dynamic segment would otherwise treat
+  // "financial-summary" as an :id value and shadow this entirely.
+  @Get("financial-summary")
+  getFinancialSummary(@CurrentUser() user: RequestUser) {
+    return this.projectsService.getFinancialSummary(user);
+  }
+
   @Get(":id")
   findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.projectsService.findOne(user, id);

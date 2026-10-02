@@ -277,6 +277,20 @@ export interface ProjectLineSummary {
   internalInvoiceDate: string | null;
   grossMargin: string | null;
   margin: string | null;
+  /** Currency conversion (added 2026-10-02) — see ProjectLine's "Currency
+   * conversion" doc comment in schema.prisma / ExchangeRatesService.
+   * supplierPaymentAmountTotal/clientPaymentAmount above are now
+   * server-computed (unitPrice x quantity) in their own NATIVE currency;
+   * the fields below are the reporting-currency (GBP) equivalents, locked
+   * to the FX rate on the date the native price was last saved — never
+   * read-write from the frontend, display-only. */
+  reportingCurrencyCode: string | null;
+  supplierPriceLockedAt: string | null;
+  supplierUnitPriceReportingCcy: string | null;
+  supplierTotalPriceReportingCcy: string | null;
+  salesPriceLockedAt: string | null;
+  salesUnitPriceReportingCcy: string | null;
+  salesTotalPriceReportingCcy: string | null;
   strength: string | null;
   form: string | null;
   packSize: string | null;
@@ -404,6 +418,25 @@ export interface ProjectLineInput {
   maPl?: string | null;
   qualificationPathway?: string | null;
   qualificationPathwayExpiryDate?: string | null;
+}
+
+/** GET /projects/financial-summary — an org-wide rollup across every
+ * ProjectLine's LOCKED reporting-currency amounts (see ProjectLine's
+ * "Currency conversion" doc comment in schema.prisma), for the main
+ * dashboard's financial view. Added 2026-10-02 per Lewis's instruction
+ * that the dashboard show "accurate currency conversion based on the
+ * actual price in its native currency at that date" — a stand-in for
+ * this living in a future "Insights" app, per Lewis's own phrasing
+ * ("potentially can be rolled into the insights app"). linesWithPricing
+ * vs totalLines lets the dashboard show "N of M lines priced" rather than
+ * silently understating the total when most lines have no price yet. */
+export interface ProjectFinancialSummary {
+  reportingCurrencyCode: string;
+  totalSupplierCostReportingCcy: string;
+  totalSalesValueReportingCcy: string;
+  totalMarginReportingCcy: string;
+  linesWithPricing: number;
+  totalLines: number;
 }
 
 /** One row of a project's status-transition history — see

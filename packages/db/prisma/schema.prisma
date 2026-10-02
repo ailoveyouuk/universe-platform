@@ -1044,6 +1044,41 @@ model ProjectLine {
   grossMargin                   Decimal?  @db.Decimal(18, 2)
   margin                        Decimal?  @db.Decimal(5, 2)
 
+  // --- Currency conversion (added 2026-10-02) ---
+  // Lewis's direction: product price wired per-line as both a unit price
+  // AND a total (unit price x quantity), in the price's own native
+  // currency, converted to Unimed's reporting currency at the FX rate for
+  // the day the price was last entered/changed — and that conversion then
+  // LOCKED (never recomputed from a later day's rate, even though the
+  // ExchangeRateSnapshot table itself is refreshed daily). ExchangeRatesService
+  // in apps/api owns the fetch/cache/convert logic; ProjectsService calls it
+  // on every addLine/updateLine that touches price, quantity or currency.
+  //
+  // supplierPaymentAmountTotal/clientPaymentAmount above are now computed
+  // server-side as unitPrice x quantity (no longer free-text manual entry —
+  // see ProjectsService) in their NATIVE currency; the fields below are the
+  // reporting-currency (GBP) equivalents, locked at the date of entry.
+  /// Fixed to ExchangeRatesService.REPORTING_CURRENCY ("GBP") at the time of
+  /// conversion and stored (not just assumed) so a later change to the
+  /// platform's reporting currency can't silently reinterpret an old,
+  /// already-locked conversion.
+  reportingCurrencyCode         String?   @db.Char(3)
+  /// The calendar date supplierUnitPrice/quantity/supplierPaymentCurrency
+  /// was last saved — i.e. the date whose snapshot supplierExchangeRateSnapshotId
+  /// is locked to. Only recomputed when one of those three actually changes.
+  supplierPriceLockedAt         DateTime?
+  supplierExchangeRateSnapshotId String?
+  supplierExchangeRateSnapshot  ExchangeRateSnapshot? @relation("LineSupplierRate", fields: [supplierExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierUnitPriceReportingCcy  Decimal?  @db.Decimal(18, 2)
+  supplierTotalPriceReportingCcy Decimal?  @db.Decimal(18, 2)
+  /// Same pattern as the supplier-side trio above, mirrored for the
+  /// client/sales side (unitSalesPrice/quantity/clientPaymentCurrency).
+  salesPriceLockedAt            DateTime?
+  salesExchangeRateSnapshotId   String?
+  salesExchangeRateSnapshot     ExchangeRateSnapshot? @relation("LineSalesRate", fields: [salesExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesUnitPriceReportingCcy    Decimal?  @db.Decimal(18, 2)
+  salesTotalPriceReportingCcy   Decimal?  @db.Decimal(18, 2)
+
   // --- Pharma-only batch block (shown/required only when
   //     Project.projectType == "PHARMACEUTICAL") ---
   strength                      String?
@@ -1269,6 +1304,38 @@ model ProductAttributeDefinition {
 
   @@unique([category, attributeKey])
   @@map("product_attribute_definitions")
+}
+
+/// Daily FX reference-rate cache (added 2026-10-02) — see ProjectLine's
+/// "Currency conversion" block above. One row per (date, baseCurrencyCode):
+/// fetched lazily from Frankfurter (frankfurter.app, free/no-key, ECB
+/// reference rates) the first time a line's price needs converting for
+/// that calendar date, then reused for every other conversion on the same
+/// date — so this is a cache keyed by day, not a literal cron-driven daily
+/// job. NOT tenant-scoped: an FX rate is the same fact for every
+/// organization, same reasoning as Country/Region reference data below.
+model ExchangeRateSnapshot {
+  id               String   @id @default(uuid())
+  /// The calendar date these rates apply to. May be earlier than the date
+  /// actually requested — if that date fell on a weekend/holiday with no
+  /// published ECB rate, Frankfurter returns its most recent prior business
+  /// day's rates instead, and we store the date IT reports, not the one we
+  /// asked for, so lockedAt fields always match a real published rate.
+  date             DateTime @db.Date
+  baseCurrencyCode String   @db.Char(3)
+  /// JSON map of currencyCode -> units of that currency per 1 unit of
+  /// baseCurrencyCode — i.e. Frankfurter's own `?from=<base>` response
+  /// shape, stored verbatim rather than normalized into rows (a handful of
+  /// lookups per snapshot, never queried by rate value itself).
+  ratesJson        String   @db.NVarChar(Max)
+  source           String   @default("frankfurter")
+  fetchedAt        DateTime @default(now())
+
+  projectLinesAsSupplierRate ProjectLine[] @relation("LineSupplierRate")
+  projectLinesAsSalesRate    ProjectLine[] @relation("LineSalesRate")
+
+  @@unique([date, baseCurrencyCode])
+  @@map("exchange_rate_snapshots")
 }
 
 /// Insert-only — pricing is stored and added to, never overwritten, so

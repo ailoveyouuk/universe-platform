@@ -21,6 +21,7 @@ import type {
   ProductMasterOption,
   ProductSourceApprovalSummary,
   ProjectDetail,
+  ProjectFinancialSummary,
   ProjectLineInput,
   ProjectSummary,
   QualityDashboardSummary,
@@ -85,6 +86,10 @@ export class UniverseApiClient {
 
   getProject(id: string): Promise<ProjectDetail> {
     return this.request(`/projects/${id}`);
+  }
+
+  getProjectFinancialSummary(): Promise<ProjectFinancialSummary> {
+    return this.request("/projects/financial-summary");
   }
 
   createProject(input: CreateProjectInput): Promise<ProjectSummary> {
