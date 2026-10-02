@@ -136,34 +136,27 @@ function normalize(name: string): string {
     .trim();
 }
 
-/** Turns a CreatePartnerDto's flat `certifications` array (which may
- * reference a site by its position in `manufacturerSites`, since neither
- * list has real ids yet at request time) into a Prisma nested-create input.
- * Prisma resolves a nested `manufacturerSites: { create: [...] }` list
- * in the SAME transaction/statement, so we can't get a real site id back
- * before the certifications are also being created — instead we lean on
- * Prisma's own nested-write ordering: sites are declared first, then each
- * certification that references one is connected via the site's own
- * nested `certifications: { create: [...] }` list (passed through the
- * `manufacturerSiteIndex` → site mapping done here), rather than trying to
- * connect by a not-yet-existent foreign key.
+/** Turns a CreatePartnerDto's `manufacturerSites` array into a plain Prisma
+ * nested-create input — site-scoped certifications are deliberately NOT
+ * nested here. PartnerCertification has TWO required-at-write-time
+ * relations (partnerId and, when site-scoped, manufacturerSiteId), and a
+ * triple-nested create (partner → manufacturerSites → certifications)
+ * only lets Prisma auto-fill the FK for the relation actually being
+ * traversed (manufacturerSiteId); partnerId still has to be supplied
+ * explicitly, and the partner doesn't have a real id yet either at this
+ * point in the same create() call. So site-scoped certifications are
+ * created in a separate follow-up step below, once both the partner's and
+ * each site's real ids are known — see create()'s second write.
  */
 function buildManufacturerSitesCreate(
   sites: { siteName: string; countryCode?: string; address?: string; isPrimary?: boolean }[] | undefined,
-  certifications: { manufacturerSiteIndex?: number }[] | undefined,
-  certDataFor: (cert: any) => Record<string, unknown>,
 ) {
   if (!sites?.length) return undefined;
-  return sites.map((site, index) => ({
+  return sites.map((site) => ({
     siteName: site.siteName,
     countryCode: site.countryCode,
     address: site.address,
     isPrimary: site.isPrimary ?? false,
-    certifications: {
-      create: (certifications ?? [])
-        .filter((c) => c.manufacturerSiteIndex === index)
-        .map((c) => certDataFor(c)),
-    },
   }));
 }
 
@@ -204,10 +197,10 @@ export class PartnersService {
 
   async create(user: RequestUser, dto: CreatePartnerDto): Promise<PartnerSummary> {
     // Certifications that reference a manufacturer site (by index into
-    // dto.manufacturerSites) are nested under that site's own create;
-    // every other certification is nested directly on the partner. See
-    // buildManufacturerSitesCreate's doc comment above for why — Prisma
-    // can't connect to a sibling nested-create's not-yet-existent id.
+    // dto.manufacturerSites) can't be nested into the same create() call
+    // as their site — see buildManufacturerSitesCreate's doc comment
+    // above. They're created in a second step below instead, once the
+    // partner and its sites both have real ids.
     const certDataFor = (c: NonNullable<typeof dto.certifications>[number]) => ({
       type: c.type,
       referenceNumber: c.referenceNumber,
@@ -220,9 +213,10 @@ export class PartnersService {
       notes: c.notes,
     });
     const partnerLevelCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex === undefined);
+    const siteScopedCertifications = (dto.certifications ?? []).filter((c) => c.manufacturerSiteIndex !== undefined);
 
-    const p = await withTenantContext(user.organizationId, (tx) =>
-      tx.partner.create({
+    const p = await withTenantContext(user.organizationId, async (tx) => {
+      const created = await tx.partner.create({
         data: {
           organizationId: user.organizationId,
           name: dto.name,
@@ -239,7 +233,7 @@ export class PartnersService {
           ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
           ...(dto.warehousingDetail ? { warehousingDetail: { create: dto.warehousingDetail } } : {}),
           ...(dto.manufacturerSites?.length
-            ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites, dto.certifications, certDataFor) } }
+            ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites) } }
             : {}),
           ...(partnerLevelCertifications.length
             ? { certifications: { create: partnerLevelCertifications.map(certDataFor) } }
@@ -258,9 +252,27 @@ export class PartnersService {
               }
             : {}),
         },
-        include: PARTNER_INCLUDE,
-      }),
-    );
+        include: { manufacturerSites: true },
+      });
+
+      if (siteScopedCertifications.length) {
+        // Each dto certification's manufacturerSiteIndex is a position into
+        // dto.manufacturerSites — created.manufacturerSites comes back from
+        // Prisma in the same order the nested create array was given, so
+        // the index still lines up with a real site id here.
+        await tx.partnerCertification.createMany({
+          data: siteScopedCertifications
+            .filter((c) => created.manufacturerSites[c.manufacturerSiteIndex!] !== undefined)
+            .map((c) => ({
+              ...certDataFor(c),
+              partnerId: created.id,
+              manufacturerSiteId: created.manufacturerSites[c.manufacturerSiteIndex!].id,
+            })),
+        });
+      }
+
+      return tx.partner.findFirstOrThrow({ where: { id: created.id }, include: PARTNER_INCLUDE });
+    });
     return toSummary(p);
   }
 
