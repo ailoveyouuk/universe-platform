@@ -214,6 +214,12 @@ export interface ProjectLineSummary {
   id: string;
   projectId: string;
   clientProductDescription: string | null;
+  /** Links this line to the shared, central product catalogue once it's
+   * been matched/added via the ProductPicker (@universe/ui) — see
+   * ProductCatalogMatch below and claude/product-catalog-build.md. Not
+   * required; plenty of lines will never be matched, especially early on. */
+  productMasterId: string | null;
+  productMasterName: string | null;
   quantity: number | null;
   productCategory: string | null;
   countryOfManufactureCode: string | null;
@@ -341,6 +347,7 @@ export interface UpdateSupplierEnquiryInput {
  * project creation. */
 export interface ProjectLineInput {
   clientProductDescription?: string | null;
+  productMasterId?: string | null;
   quantity?: number | null;
   productCategory?: string | null;
   countryOfManufactureCode?: string | null;
@@ -710,6 +717,58 @@ export interface ProductMasterOption {
   id: string;
   name: string;
   category: string;
+}
+
+/** Search-or-create result for the shared product catalog's own
+ * search/create flow (ProductCatalogService) — distinct from
+ * ProductMasterOption above, which stays minimal for the QA "new approval"
+ * picker. Carries the provenance tag (see ProductMaster.addedByOrganizationId's
+ * doc comment in schema.prisma) purely for display ("added by Acme
+ * Manufacturing") — never used for access control; ProductMaster stays
+ * globally readable/writable. Added 2026-10-02 alongside the Project
+ * Management line-item product picker — see
+ * claude/product-catalog-build.md for the full design and the intended
+ * reuse path for CRM / the future Supplier Portal app. */
+export interface ProductCatalogMatch {
+  id: string;
+  name: string;
+  category: string;
+  hsCode: string | null;
+  unspscCode: string | null;
+  gtin: string | null;
+  standardUnit: string | null;
+  addedByOrganizationName: string | null;
+}
+
+/** One category-scoped dynamic field from ProductAttributeDefinition — see
+ * that model's doc comment in schema.prisma. Zero rows are seeded today
+ * (no importer built yet); this plumbing is ready regardless. */
+export interface ProductCatalogAttribute {
+  attributeKey: string;
+  label: string;
+  dataType: string;
+  enumOptions: string[] | null;
+  required: boolean;
+}
+
+export interface ProductCatalogDetail extends ProductCatalogMatch {
+  canonicalManufacturerPartNumber: string | null;
+  expectedQualityDocumentation: string | null;
+  attributeDefinitions: ProductCatalogAttribute[];
+}
+
+/** POST /product-catalog body — adds a new entry to the shared catalogue.
+ * See CreateProductMasterDto's doc comment in apps/api for the full
+ * design. */
+export interface CreateProductMasterInput {
+  name: string;
+  category: string;
+  hsCode?: string;
+  unspscCode?: string;
+  gtin?: string;
+  standardUnit?: string;
+  canonicalManufacturerPartNumber?: string;
+  expectedQualityDocumentation?: string;
 }
 
 /** A country from the shared, non-tenant-scoped Country reference table

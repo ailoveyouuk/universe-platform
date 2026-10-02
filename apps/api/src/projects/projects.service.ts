@@ -45,6 +45,12 @@ const PROJECT_DETAIL_INCLUDE = {
       manufacturer: true,
       supplier: true,
       freightForwarder: true,
+      // Shared product catalog match (added 2026-10-02) — see
+      // ProjectLine.productMasterId's doc comment in schema.prisma and
+      // claude/product-catalog-build.md. Select only what toLineSummary
+      // needs for display; the picker fetches full detail itself via
+      // GET /product-catalog/:id when a line is being edited.
+      productMaster: { select: { id: true, name: true } },
       // Supplier Enquiries (Phase 2, 2026-09-30) — RFQ tracking per line,
       // newest-contacted-first so an active enquiry in progress surfaces
       // above older, already-resolved ones. Prisma's back-relation field on
@@ -118,6 +124,8 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     id: l.id,
     projectId: l.projectId,
     clientProductDescription: l.clientProductDescription,
+    productMasterId: l.productMasterId,
+    productMasterName: l.productMaster?.name ?? null,
     quantity: l.quantity,
     productCategory: l.productCategory,
     countryOfManufactureCode: l.countryOfManufactureCode,

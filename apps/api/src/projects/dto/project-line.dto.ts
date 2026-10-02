@@ -20,6 +20,7 @@ const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "
  */
 export class ProjectLineDto {
   @IsOptional() @IsString() clientProductDescription?: string;
+  @IsOptional() @IsString() productMasterId?: string;
   @IsOptional() @IsInt() @Min(0) quantity?: number;
   @IsOptional() @IsIn(PRODUCT_CATEGORIES) productCategory?: (typeof PRODUCT_CATEGORIES)[number];
   @IsOptional() @IsString() countryOfManufactureCode?: string;

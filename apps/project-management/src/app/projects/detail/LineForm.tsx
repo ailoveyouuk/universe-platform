@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type CSSProperties, type FormEvent } from "react";
-import type { PartnerSummary, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { Button, CountrySelect } from "@universe/ui";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import type { PartnerSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import { Button, CountrySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
+import { apiClient } from "../../../lib/apiClient";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -28,7 +29,7 @@ function toDateInput(value: string | null | undefined): string {
  * line, 2026-09-30. Strip them explicitly here instead of relying on the
  * type system to catch it next time.*/
 function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
-  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, otif: _otif, supplierRemainingBalance: _supplierRemainingBalance, ...rest } = existing;
+  const { id: _id, projectId: _projectId, manufacturerName: _manufacturerName, supplierName: _supplierName, freightForwarderName: _freightForwarderName, productMasterName: _productMasterName, otif: _otif, supplierRemainingBalance: _supplierRemainingBalance, ...rest } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
   // ProjectLineSummary's doc comment: "JSON has no Decimal/Date type") but
   // ProjectLineInput — the PATCH/POST body — types them as number|null, same
@@ -80,6 +81,61 @@ export function LineForm({
   const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
   const countries = useCountries();
 
+  // Product catalog picker (added 2026-10-02) — search-or-create against
+  // the shared ProductMaster catalogue, same pattern as the stakeholder
+  // registry's duplicate-prevention prompt in partners/new/page.tsx. See
+  // claude/product-catalog-build.md. Kept as line-form-local state (not
+  // lifted into ProjectLineInput) since it's purely the search UI's own
+  // working state — the only thing that ends up on the form is
+  // productMasterId itself.
+  const [productQuery, setProductQuery] = useState("");
+  const [productOptions, setProductOptions] = useState<ProductCatalogMatch[]>([]);
+  const [productLabel, setProductLabel] = useState<string | null>(existing?.productMasterName ?? null);
+  const [creatingProduct, setCreatingProduct] = useState(false);
+
+  useEffect(() => {
+    if (!productQuery.trim()) {
+      setProductOptions([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      apiClient
+        .searchProductCatalog(productQuery, form.productCategory ?? undefined)
+        .then(setProductOptions)
+        .catch(() => setProductOptions([]));
+    }, 250);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productQuery]);
+
+  function handleSelectProduct(option: ProductPickerOption) {
+    update("productMasterId", option.id);
+    setProductLabel(option.name);
+    setProductQuery("");
+    setProductOptions([]);
+  }
+
+  function handleClearProduct() {
+    update("productMasterId", null);
+    setProductLabel(null);
+  }
+
+  async function handleCreateProduct(name: string) {
+    if (!name) return;
+    setCreatingProduct(true);
+    try {
+      const created = await apiClient.createProductCatalogEntry({
+        name,
+        category: form.productCategory ?? "CONSUMABLES",
+      });
+      handleSelectProduct(created);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add product to the catalogue");
+    } finally {
+      setCreatingProduct(false);
+    }
+  }
+
   function update<K extends keyof ProjectLineInput>(key: K, value: ProjectLineInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
@@ -112,6 +168,20 @@ export function LineForm({
             style={{ ...inputStyle, minHeight: 60 }}
             value={form.clientProductDescription ?? ""}
             onChange={(e) => update("clientProductDescription", e.target.value)}
+          />
+        </Field>
+        <Field label="Matched Product (shared catalogue)" span={2}>
+          <ProductPicker
+            query={productQuery}
+            onQueryChange={setProductQuery}
+            options={productOptions}
+            selectedId={form.productMasterId}
+            selectedLabel={productLabel}
+            onSelect={handleSelectProduct}
+            onClear={handleClearProduct}
+            onCreateNew={handleCreateProduct}
+            creating={creatingProduct}
+            ariaLabel="Search the product catalogue"
           />
         </Field>
         <Field label="Product Category">

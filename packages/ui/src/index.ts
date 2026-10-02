@@ -15,4 +15,5 @@ export * from "./SearchInput";
 export * from "./SortableHeader";
 export * from "./Select";
 export * from "./CountrySelect";
+export * from "./ProductPicker";
 export * from "./AppSwitcher";

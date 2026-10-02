@@ -5,6 +5,7 @@ import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductSourceApprovalDto } from "./dto/create-product-source-approval.dto";
 import type { UpdateProductSourceApprovalDto } from "./dto/update-product-source-approval.dto";
+import { ProductCatalogService } from "../product-catalog/product-catalog.service";
 
 const APPROVAL_INCLUDE = {
   productMaster: true,
@@ -63,6 +64,13 @@ function toSummary(a: ApprovalWithDetails): ProductSourceApprovalSummary {
 
 @Injectable()
 export class ProductSourceApprovalsService {
+  // Delegates product search to the shared catalog service rather than
+  // duplicating the ProductMaster query — see ProductCatalogService's doc
+  // comment (apps/api/src/product-catalog/product-catalog.service.ts).
+  // Refactored 2026-10-02 when that shared service was built; this is
+  // the first concrete reuse of it, not just a documented intention.
+  constructor(private readonly productCatalogService: ProductCatalogService) {}
+
   // Same tenant-isolation pattern as PartnersService — see its doc comment.
   // product_source_approvals is RLS-protected (infra/sql/row-level-security.sql),
   // so every query here must run inside withTenantContext.
@@ -132,16 +140,13 @@ export class ProductSourceApprovalsService {
    * every other service method and in case this needs to become
    * org-aware later (e.g. ranking by the org's own usage). */
   async searchProducts(_user: RequestUser, search?: string): Promise<ProductMasterOption[]> {
-    const rows = await prisma.productMaster.findMany({
-      where: {
-        isArchived: false,
-        ...(search ? { name: { contains: search } } : {}),
-      },
-      select: { id: true, name: true, category: true },
-      orderBy: { name: "asc" },
-      take: 25,
-    });
-    return rows;
+    // Thin adapter over the shared catalog search (see
+    // ProductCatalogService.search) — this endpoint's existing response
+    // shape (ProductMasterOption) predates ProductCatalogMatch's richer
+    // provenance fields, so only the three fields this picker ever used are
+    // projected back out, to avoid a wider change to this screen.
+    const matches = await this.productCatalogService.search(search);
+    return matches.map((m) => ({ id: m.id, name: m.name, category: m.category }));
   }
 
   async getDashboard(user: RequestUser): Promise<QualityDashboardSummary> {

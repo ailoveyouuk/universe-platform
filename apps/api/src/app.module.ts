@@ -10,9 +10,10 @@ import { DocumentsModule } from "./documents/documents.module";
 import { QualityModule } from "./quality/quality.module";
 import { GeoModule } from "./geo/geo.module";
 import { StakeholderRegistryModule } from "./stakeholder-registry/stakeholder-registry.module";
+import { ProductCatalogModule } from "./product-catalog/product-catalog.module";
 
 @Module({
-  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule, QualityModule, GeoModule, StakeholderRegistryModule],
+  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule, QualityModule, GeoModule, StakeholderRegistryModule, ProductCatalogModule],
   controllers: [MeController],
 })
 export class AppModule {}

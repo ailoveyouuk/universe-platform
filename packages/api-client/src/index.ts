@@ -4,6 +4,7 @@ import type {
   CountryOption,
   CreateOrganizationInput,
   CreatePartnerInput,
+  CreateProductMasterInput,
   CreateProductSourceApprovalInput,
   CreateProjectInput,
   CreateSupplierEnquiryInput,
@@ -12,6 +13,8 @@ import type {
   OrganizationSummary,
   PartnerPerformanceMetric,
   PartnerSummary,
+  ProductCatalogDetail,
+  ProductCatalogMatch,
   ProductMasterOption,
   ProductSourceApprovalSummary,
   ProjectDetail,
@@ -210,6 +213,28 @@ export class UniverseApiClient {
 
   getStakeholderRegistryProducts(id: string): Promise<StakeholderRegistryProduct[]> {
     return this.request(`/stakeholder-registry/${id}/products`);
+  }
+
+  // --- Product catalog (added 2026-10-02) — the shared, central
+  // ProductMaster search-or-create flow. See ProductCatalogService's doc
+  // comment in apps/api and claude/product-catalog-build.md: CRM and the
+  // future Supplier Portal app should call these same three methods rather
+  // than rebuilding product search/creation. ---
+
+  searchProductCatalog(q?: string, category?: string): Promise<ProductCatalogMatch[]> {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (category) params.set("category", category);
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return this.request(`/product-catalog/search${query}`);
+  }
+
+  getProductCatalogEntry(id: string): Promise<ProductCatalogDetail> {
+    return this.request(`/product-catalog/${id}`);
+  }
+
+  createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {
+    return this.request("/product-catalog", { method: "POST", body: JSON.stringify(input) });
   }
 
   // --- Quality Assurance (added 2026-10-01) ---
