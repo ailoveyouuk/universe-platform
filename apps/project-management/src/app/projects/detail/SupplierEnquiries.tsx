@@ -211,7 +211,7 @@ export function SupplierEnquiries({
       )}
 
       {adding && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, background: "var(--u-surface-alt)", padding: 10, borderRadius: 6 }}>
+        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, background: "var(--u-surface-alt)", padding: 10, borderRadius: 6 }}>
           <label style={{ fontSize: 12 }}>
             Supplier
             <select className="u-native-select" style={{ ...inputStyle, display: "block", width: "100%", marginTop: 2 }} value={newSupplierId} onChange={(e) => setNewSupplierId(e.target.value)}>
