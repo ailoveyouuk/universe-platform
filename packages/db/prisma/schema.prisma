@@ -1629,6 +1629,11 @@ model StakeholderRegistryEntry {
   /// single matching signal when present, since it's an external
   /// identifier rather than a fuzzy name/country guess.
   registrationNumber String?
+  /// A second strong, external matching signal alongside
+  /// registrationNumber — equally unique to one company. Added 2026-10-03
+  /// so autopopulate/duplicate-prevention also triggers off VAT number,
+  /// not just name and registration number.
+  vatNumber String?
   /// JSON string array of PartnerRole.roleType values this entry has ever
   /// been referenced as (e.g. ["MANUFACTURER","SUPPLIER"]) — a real-world
   /// company can be onboarded under more than one stakeholder type across
@@ -1651,6 +1656,7 @@ model StakeholderRegistryEntry {
 
   @@index([normalizedName])
   @@index([registrationNumber])
+  @@index([vatNumber])
   @@index([linkedOrganizationId])
   @@map("stakeholder_registry_entries")
 }

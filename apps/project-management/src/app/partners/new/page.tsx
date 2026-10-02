@@ -232,8 +232,26 @@ export default function NewPartnerPage() {
   // submit, once the user has either confirmed a suggested match or
   // explicitly dismissed it (in which case we create a fresh registry
   // entry server-side instead — see PartnersService.create).
-  const [registryMatches, setRegistryMatches] = useState<StakeholderRegistryMatch[]>([]);
+  // Separate match lists per triggering field (name, company registration
+  // number, VAT number — added 2026-10-03, same duplicate-prevention
+  // pattern as name, since a registration/VAT number is just as unique to
+  // one company) so each field's own debounced search can't clobber
+  // another's in-flight results; registryMatches below is their merged,
+  // deduped view for rendering.
+  const [nameMatches, setNameMatches] = useState<StakeholderRegistryMatch[]>([]);
+  const [registrationNumberMatches, setRegistrationNumberMatches] = useState<StakeholderRegistryMatch[]>([]);
+  const [vatNumberMatches, setVatNumberMatches] = useState<StakeholderRegistryMatch[]>([]);
   const [dismissedMatchIds, setDismissedMatchIds] = useState<string[]>([]);
+  const registryMatches = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: StakeholderRegistryMatch[] = [];
+    for (const m of [...nameMatches, ...registrationNumberMatches, ...vatNumberMatches]) {
+      if (seen.has(m.id) || dismissedMatchIds.includes(m.id)) continue;
+      seen.add(m.id);
+      merged.push(m);
+    }
+    return merged;
+  }, [nameMatches, registrationNumberMatches, vatNumberMatches, dismissedMatchIds]);
   const [registryEntryId, setRegistryEntryId] = useState<string | null>(null);
   const [linkedMatchName, setLinkedMatchName] = useState<string | null>(null);
   const [lightboxEntryId, setLightboxEntryId] = useState<string | null>(null);
@@ -262,17 +280,50 @@ export default function NewPartnerPage() {
 
   useEffect(() => {
     if (registryEntryId || !primaryRoleType || name.trim().length < 2) {
-      setRegistryMatches([]);
+      setNameMatches([]);
       return;
     }
     const handle = setTimeout(() => {
       apiClient
         .searchStakeholderRegistry(primaryRoleType, name.trim())
-        .then((matches) => setRegistryMatches(matches.filter((m) => !dismissedMatchIds.includes(m.id))))
-        .catch(() => setRegistryMatches([]));
+        .then(setNameMatches)
+        .catch(() => setNameMatches([]));
     }, 300);
     return () => clearTimeout(handle);
-  }, [name, primaryRoleType, registryEntryId, dismissedMatchIds]);
+  }, [name, primaryRoleType, registryEntryId]);
+
+  // Company Registration Number and VAT Number are each unique to a
+  // specific company, same as name — so they get the same autopopulate/
+  // duplicate-prevention prompt, matched as an exact external identifier
+  // rather than a fuzzy name search (see StakeholderRegistryService.search's
+  // `field` param).
+  useEffect(() => {
+    if (registryEntryId || !primaryRoleType || companyRegistrationNumber.trim().length < 2) {
+      setRegistrationNumberMatches([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      apiClient
+        .searchStakeholderRegistry(primaryRoleType, companyRegistrationNumber.trim(), "registrationNumber")
+        .then(setRegistrationNumberMatches)
+        .catch(() => setRegistrationNumberMatches([]));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [companyRegistrationNumber, primaryRoleType, registryEntryId]);
+
+  useEffect(() => {
+    if (registryEntryId || !primaryRoleType || vatNumber.trim().length < 2) {
+      setVatNumberMatches([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      apiClient
+        .searchStakeholderRegistry(primaryRoleType, vatNumber.trim(), "vatNumber")
+        .then(setVatNumberMatches)
+        .catch(() => setVatNumberMatches([]));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [vatNumber, primaryRoleType, registryEntryId]);
 
   function openRegistryLightbox(id: string) {
     setLightboxEntryId(id);
@@ -305,13 +356,15 @@ export default function NewPartnerPage() {
     if (!countryCode && match.countryCode) setCountryCode(match.countryCode);
     if (!website && match.website) setWebsite(match.website);
     if (!companyRegistrationNumber && match.registrationNumber) setCompanyRegistrationNumber(match.registrationNumber);
-    setRegistryMatches([]);
+    if (!vatNumber && match.vatNumber) setVatNumber(match.vatNumber);
+    setNameMatches([]);
+    setRegistrationNumberMatches([]);
+    setVatNumberMatches([]);
     closeLightbox();
   }
 
   function dismissRegistryMatch(id: string) {
     setDismissedMatchIds((prev) => [...prev, id]);
-    setRegistryMatches((prev) => prev.filter((m) => m.id !== id));
   }
 
   function unlinkRegistryMatch() {
@@ -618,7 +671,7 @@ export default function NewPartnerPage() {
                 <span>
                   {m.isLinkedToPublishedOrganization
                     ? <>This looks like <strong>{m.linkedOrganizationName}</strong> — already registered on Universe.</>
-                    : <>A {ROLE_LABELS[primaryRoleType] ?? "stakeholder"} matching this name has already been added by another organisation on Universe.</>}
+                    : <>A {ROLE_LABELS[primaryRoleType] ?? "stakeholder"} matching this name, registration number or VAT number has already been added by another organisation on Universe.</>}
                 </span>
                 <span style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <button type="button" onClick={() => openRegistryLightbox(m.id)} style={linkButtonStyle}>

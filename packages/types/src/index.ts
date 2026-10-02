@@ -946,6 +946,7 @@ export interface StakeholderRegistryMatch {
   countryCode: string | null;
   website: string | null;
   registrationNumber: string | null;
+  vatNumber: string | null;
   stakeholderTypes: string[];
   isKnownToUniverse: boolean;
   linkedOrganizationName: string | null;

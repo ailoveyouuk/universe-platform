@@ -227,18 +227,19 @@ export class PartnersService {
     //       entry when nothing plausible is found.
     // Mandatory and unconditional — identity-level registry matching runs
     // for every Partner created, regardless of dto.sharedWithUniverseRegistry.
-    // Only name/country/registration number/roleTypes are ever shared for
-    // this matching (see resolveForPartnerCreate) — never pricing or any
-    // other relationship-specific data belonging to the creating
-    // organization. sharedWithUniverseRegistry is reserved for a future,
-    // separate consent that would govern sharing that kind of data with the
-    // specific organization that created this record; it does not gate
-    // identity matching/autopopulate, which is always on.
+    // Only name/country/registration number/VAT number/roleTypes are ever
+    // shared for this matching (see resolveForPartnerCreate) — never
+    // pricing or any other relationship-specific data belonging to the
+    // creating organization. sharedWithUniverseRegistry is reserved for a
+    // future, separate consent that would govern sharing that kind of data
+    // with the specific organization that created this record; it does
+    // not gate identity matching/autopopulate, which is always on.
     const registryEntryId = await this.stakeholderRegistryService.resolveForPartnerCreate({
       explicitRegistryEntryId: dto.registryEntryId,
       name: dto.name,
       countryCode: dto.countryCode,
       registrationNumber: dto.companyRegistrationNumber,
+      vatNumber: dto.vatNumber,
       roleTypes: dto.roleTypes,
     });
 

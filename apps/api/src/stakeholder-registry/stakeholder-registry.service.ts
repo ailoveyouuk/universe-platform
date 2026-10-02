@@ -44,12 +44,29 @@ export class StakeholderRegistryService {
    * 2 is trying to add a stakeholder-manufacturer". Deliberately
    * conservative (name/country only, no fuzzy-scoring library) for a first
    * version — see the doc's "matching quality, stated plainly" note; this
-   * always surfaces a confirm step, never silently merges anything. */
-  async search(type: string | undefined, q: string | undefined): Promise<StakeholderRegistryMatch[]> {
+   * always surfaces a confirm step, never silently merges anything.
+   *
+   * `field` (added 2026-10-03) lets the same endpoint back the Company
+   * Registration Number / VAT Number autopopulate prompts, not just the
+   * name field: "registrationNumber" and "vatNumber" do an exact match on
+   * that external identifier (strong signal, no fuzzy contains needed),
+   * while the default ("name") keeps the original fuzzy legalName search. */
+  async search(
+    type: string | undefined,
+    q: string | undefined,
+    field?: "name" | "registrationNumber" | "vatNumber",
+  ): Promise<StakeholderRegistryMatch[]> {
     if (!q || q.trim().length < 2) return [];
+    const trimmed = q.trim();
+    const matchClause =
+      field === "registrationNumber"
+        ? { registrationNumber: trimmed }
+        : field === "vatNumber"
+          ? { vatNumber: trimmed }
+          : { legalName: { contains: trimmed } };
     const rows = await prisma.stakeholderRegistryEntry.findMany({
       where: {
-        legalName: { contains: q.trim() },
+        ...matchClause,
         ...(type ? { stakeholderTypes: { contains: `"${type}"` } } : {}),
       },
       include: { linkedOrganization: { include: { supplierProfile: true } } },
@@ -135,6 +152,7 @@ export class StakeholderRegistryService {
     name: string;
     countryCode?: string;
     registrationNumber?: string;
+    vatNumber?: string;
     roleTypes: string[];
   }): Promise<string> {
     if (args.explicitRegistryEntryId) {
@@ -153,6 +171,7 @@ export class StakeholderRegistryService {
     name: string;
     countryCode?: string;
     registrationNumber?: string;
+    vatNumber?: string;
     roleTypes: string[];
   }): Promise<string> {
     const normalizedName = normalizeStakeholderName(args.name);
@@ -160,6 +179,10 @@ export class StakeholderRegistryService {
     let existing = args.registrationNumber
       ? await prisma.stakeholderRegistryEntry.findFirst({ where: { registrationNumber: args.registrationNumber } })
       : null;
+
+    if (!existing && args.vatNumber) {
+      existing = await prisma.stakeholderRegistryEntry.findFirst({ where: { vatNumber: args.vatNumber } });
+    }
 
     if (!existing) {
       existing = await prisma.stakeholderRegistryEntry.findFirst({
@@ -178,6 +201,7 @@ export class StakeholderRegistryService {
         legalName: args.name,
         countryCode: args.countryCode,
         registrationNumber: args.registrationNumber,
+        vatNumber: args.vatNumber,
         stakeholderTypes: JSON.stringify(args.roleTypes),
       },
     });
@@ -240,6 +264,7 @@ export class StakeholderRegistryService {
     countryCode: string | null;
     website: string | null;
     registrationNumber: string | null;
+    vatNumber: string | null;
     stakeholderTypes: string;
     linkedOrganizationId: string | null;
     linkedOrganization: { name: string; supplierProfile: { publishedAt: Date | null } | null } | null;
@@ -251,6 +276,7 @@ export class StakeholderRegistryService {
       countryCode: entry.countryCode,
       website: entry.website,
       registrationNumber: entry.registrationNumber,
+      vatNumber: entry.vatNumber,
       stakeholderTypes: JSON.parse(entry.stakeholderTypes || "[]"),
       isKnownToUniverse: true,
       // The organisation NAME is only ever included once the identity is

@@ -15,8 +15,12 @@ export class StakeholderRegistryController {
   constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
 
   @Get("search")
-  search(@Query("type") type?: string, @Query("q") q?: string) {
-    return this.stakeholderRegistryService.search(type, q);
+  search(
+    @Query("type") type?: string,
+    @Query("q") q?: string,
+    @Query("field") field?: "name" | "registrationNumber" | "vatNumber",
+  ) {
+    return this.stakeholderRegistryService.search(type, q, field);
   }
 
   @Get(":id")

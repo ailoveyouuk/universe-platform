@@ -206,8 +206,14 @@ export class UniverseApiClient {
   // identity-consent gating, see StakeholderRegistryEntry in schema.prisma
   // and claude/sop-driven-quality-roadmap.md Section B3/C. ---
 
-  searchStakeholderRegistry(type: string, q: string): Promise<StakeholderRegistryMatch[]> {
-    const query = `?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`;
+  searchStakeholderRegistry(
+    type: string,
+    q: string,
+    field?: "name" | "registrationNumber" | "vatNumber",
+  ): Promise<StakeholderRegistryMatch[]> {
+    const query = `?type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}${
+      field ? `&field=${encodeURIComponent(field)}` : ""
+    }`;
     return this.request(`/stakeholder-registry/search${query}`);
   }
 
