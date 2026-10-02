@@ -162,7 +162,7 @@ export function ProjectDetailView() {
     <main style={{ padding: 32, maxWidth: 1000 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>{project.title}</h1>
+          <h1 style={{ marginBottom: 4, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{project.title}</h1>
           <p style={{ color: "var(--u-ink-secondary)", margin: 0 }}>{project.referenceNumber}</p>
         </div>
         <StatusBadge status={project.status} />

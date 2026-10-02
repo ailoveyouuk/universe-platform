@@ -97,6 +97,43 @@
   }
 }
 
+/*
+ * Base contrast fix — added 2026-10-02 after a real tablet screenshot
+ * showed page headings and several body sections rendering as invisible
+ * dark-on-dark text, and plain <input>/<textarea>/<select> elements
+ * rendering as a stark browser-default white box with black text against
+ * the app's otherwise dark theme. Root cause: body (in layout.tsx) never
+ * set its own `color`/`background`, so any element that didn't explicitly
+ * set `color: var(--u-ink)` fell back to the browser's own default
+ * (effectively black) — invisible against a dark page background set
+ * further down the tree. Native form controls have their own UA-default
+ * white background/black text regardless of page theme, which is the
+ * second half of the same complaint (a harsh white box against a dark
+ * page). Fixing both here, once, app-wide, rather than patching every
+ * component's inline styles individually — a page-specific `color` or
+ * `backgroundColor` set inline still wins (inline specificity beats this),
+ * so nothing already explicitly styled changes.
+ */
+html, body {
+  background: var(--u-surface);
+  color: var(--u-ink);
+}
+input, textarea, select {
+  color: var(--u-ink);
+  background-color: var(--u-surface-raised);
+  font-family: var(--u-font-sans);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--u-ink-secondary);
+  opacity: 1;
+}
+/* Checkboxes/radios keep their native rendering (recoloring these
+   cross-browser is its own project) but should tint to the brand colour
+   rather than the OS default blue, for a touch more cohesion. */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--u-brand-violet);
+}
+
 @keyframes u-fade-in {
   from {
     opacity: 0;
