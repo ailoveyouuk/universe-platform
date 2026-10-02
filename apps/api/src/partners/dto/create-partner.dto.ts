@@ -109,7 +109,8 @@ export class ClientDetailDto {
   @IsOptional() @IsString() deliveryPostcode?: string;
   @IsOptional() @IsString() deliveryCountryCode?: string;
   @IsOptional() @IsString() paymentTerms?: string;
-  @IsOptional() @IsString() productCategoryLicensingNotes?: string;
+  @IsOptional() @IsString() productCategoryLicenses?: string;
+  @IsOptional() @IsString() productCategoryLicensingOtherNotes?: string;
   @IsOptional() @IsString() destinationCountryRestrictionsNotes?: string;
   @IsOptional() @IsBoolean() isPharmaApprovedCustomer?: boolean;
   @IsOptional() @IsString() approvedCustomerLogRef?: string;

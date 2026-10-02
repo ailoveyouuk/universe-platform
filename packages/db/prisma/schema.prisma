@@ -579,10 +579,13 @@ model ClientDetail {
   deliveryPostcode      String?
   deliveryCountryCode   String?
   paymentTerms    String?
-  /// Product categories checked against the client's own licences, and
-  /// destination-country licensing/registration/conformity requirements —
-  /// free text since these vary per client and aren't a fixed taxonomy.
-  productCategoryLicensingNotes        String? @db.NVarChar(Max)
+  /// Added 2026-10-03 — predefined standard product-category licences/
+  /// permits this client holds (ProductLicensingType values, comma-
+  /// joined — same fixed-choice convention as scopeOfSupply), replacing
+  /// the old free-text field. productCategoryLicensingOtherNotes covers
+  /// anything not on the predefined list, paired with OTHER above.
+  productCategoryLicenses              String? @db.NVarChar(Max)
+  productCategoryLicensingOtherNotes   String? @db.NVarChar(Max)
   destinationCountryRestrictionsNotes  String? @db.NVarChar(Max)
   /// Every pharmaceutical enquiry is checked against the Approved
   /// Customer Log before a quote proceeds.

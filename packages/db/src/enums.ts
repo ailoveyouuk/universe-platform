@@ -312,3 +312,47 @@ export const DataInsightsInstitutionType = {
 } as const;
 export type DataInsightsInstitutionType =
   (typeof DataInsightsInstitutionType)[keyof typeof DataInsightsInstitutionType];
+
+/// Added 2026-10-03 — standard product-category licences/permits a client
+/// is expected to hold, replacing a free-text field on ClientDetail
+/// (Lewis: "pre defined elements that can be selected from multiple
+/// choice options...so they don't have to be entered as free text, as
+/// they will also be linked through all apps"). Covers the standard UK
+/// and international aspects expected of a pharmaceutical/healthcare-
+/// product client; OTHER covers anything not on this list, paired with a
+/// free-text note on ClientDetail for that case only.
+export const ProductLicensingType = {
+  /// UK — Wholesale Dealer's Authorisation (Human) / Medicines.
+  MHRA_WDA_H: "MHRA_WDA_H",
+  /// UK — Manufacturer's/Importer's Authorisation.
+  MHRA_MIA: "MHRA_MIA",
+  /// UK — Manufacturer's/importer's authorisation for unlicensed
+  /// "Specials".
+  MHRA_MS: "MHRA_MS",
+  /// UK — Home Office Controlled Drugs Licence.
+  HOME_OFFICE_CONTROLLED_DRUGS_LICENCE: "HOME_OFFICE_CONTROLLED_DRUGS_LICENCE",
+  /// UK — General Pharmaceutical Council registration (pharmacy premises
+  /// or responsible pharmacist).
+  GPHC_REGISTRATION: "GPHC_REGISTRATION",
+  /// UK — UK Conformity Assessed marking for medical devices.
+  UKCA_MARKING: "UKCA_MARKING",
+  /// UK/EU — Good Distribution Practice certificate.
+  GDP_CERTIFICATE: "GDP_CERTIFICATE",
+  /// EU — CE marking under the EU Medical Device Regulation.
+  CE_MDR_MARKING: "CE_MDR_MARKING",
+  /// EU — European device-registration database registration.
+  EUDAMED_REGISTRATION: "EUDAMED_REGISTRATION",
+  /// US — FDA establishment/product registration.
+  FDA_REGISTRATION: "FDA_REGISTRATION",
+  /// Canada — Health Canada Establishment Licence.
+  HEALTH_CANADA_ESTABLISHMENT_LICENCE: "HEALTH_CANADA_ESTABLISHMENT_LICENCE",
+  /// Australia — Therapeutic Goods Administration licence/registration.
+  TGA_LICENCE: "TGA_LICENCE",
+  /// WHO Prequalification of Medicines/Devices Programme.
+  WHO_PREQUALIFICATION: "WHO_PREQUALIFICATION",
+  /// General import/export authorisation for the relevant product
+  /// category, where not covered by a more specific licence above.
+  IMPORT_EXPORT_LICENCE: "IMPORT_EXPORT_LICENCE",
+  OTHER: "OTHER",
+} as const;
+export type ProductLicensingType = (typeof ProductLicensingType)[keyof typeof ProductLicensingType];

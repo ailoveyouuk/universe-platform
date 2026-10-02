@@ -50,6 +50,30 @@ const SCOPE_OF_SUPPLY_LABELS: Record<string, string> = {
   SERVICES: "Services",
 };
 
+// Standard product-category licences/permits a client is expected to
+// hold — see ProductLicensingType in packages/db/src/enums.ts. OTHER
+// pairs with a free-text note (productCategoryLicensingOtherNotes)
+// rather than a custom label, same reasoning as COMPANY_CHECK_TYPES'
+// OTHER but simpler since there's only ever one "other" note, not a
+// repeating list.
+const PRODUCT_LICENSING_OPTIONS = [
+  { value: "MHRA_WDA_H", label: "MHRA WDA(H) — Wholesale Dealer's Authorisation (Human)" },
+  { value: "MHRA_MIA", label: "MHRA MIA — Manufacturer's/Importer's Authorisation" },
+  { value: "MHRA_MS", label: "MHRA MS — Specials Manufacturer's/Importer's Authorisation" },
+  { value: "HOME_OFFICE_CONTROLLED_DRUGS_LICENCE", label: "Home Office Controlled Drugs Licence" },
+  { value: "GPHC_REGISTRATION", label: "GPhC Registration" },
+  { value: "UKCA_MARKING", label: "UKCA Marking" },
+  { value: "GDP_CERTIFICATE", label: "GDP Certificate" },
+  { value: "CE_MDR_MARKING", label: "CE Marking (EU MDR)" },
+  { value: "EUDAMED_REGISTRATION", label: "EUDAMED Registration" },
+  { value: "FDA_REGISTRATION", label: "FDA Registration (US)" },
+  { value: "HEALTH_CANADA_ESTABLISHMENT_LICENCE", label: "Health Canada Establishment Licence" },
+  { value: "TGA_LICENCE", label: "TGA Licence (Australia)" },
+  { value: "WHO_PREQUALIFICATION", label: "WHO Prequalification" },
+  { value: "IMPORT_EXPORT_LICENCE", label: "General Import/Export Licence" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
 // Transport modes for freight forwarders.
 const TRANSPORT_MODES = ["AIR", "SEA", "ROAD", "RAIL"] as const;
 const TRANSPORT_MODE_LABELS: Record<string, string> = {
@@ -408,7 +432,8 @@ export default function NewPartnerPage() {
   const [deliveryPostcode, setDeliveryPostcode] = useState("");
   const [deliveryCountryCode, setDeliveryCountryCode] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
-  const [productCategoryLicensingNotes, setProductCategoryLicensingNotes] = useState("");
+  const [productCategoryLicenses, setProductCategoryLicenses] = useState<string[]>([]);
+  const [productCategoryLicensingOtherNotes, setProductCategoryLicensingOtherNotes] = useState("");
   const [destinationCountryRestrictionsNotes, setDestinationCountryRestrictionsNotes] = useState("");
   const [isPharmaApprovedCustomer, setIsPharmaApprovedCustomer] = useState(false);
   const [approvedCustomerLogRef, setApprovedCustomerLogRef] = useState("");
@@ -601,7 +626,10 @@ export default function NewPartnerPage() {
                 deliveryPostcode: deliveryPostcode || undefined,
                 deliveryCountryCode: deliveryCountryCode || undefined,
                 paymentTerms: paymentTerms || undefined,
-                productCategoryLicensingNotes: productCategoryLicensingNotes || undefined,
+                productCategoryLicenses: productCategoryLicenses.length ? productCategoryLicenses.join(",") : undefined,
+                productCategoryLicensingOtherNotes: productCategoryLicenses.includes("OTHER")
+                  ? productCategoryLicensingOtherNotes || undefined
+                  : undefined,
                 destinationCountryRestrictionsNotes: destinationCountryRestrictionsNotes || undefined,
                 isPharmaApprovedCustomer: isPharmaApprovedCustomer || undefined,
                 approvedCustomerLogRef: isPharmaApprovedCustomer ? approvedCustomerLogRef || undefined : undefined,
@@ -844,15 +872,31 @@ export default function NewPartnerPage() {
               Payment Terms
               <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" />
             </label>
-            <label>
-              Product Category Licensing Notes
-              <textarea
-                style={textareaStyle}
-                value={productCategoryLicensingNotes}
-                onChange={(e) => setProductCategoryLicensingNotes(e.target.value)}
-                placeholder="Licences/permits this customer holds for the product categories they buy (e.g. pharmacy licence, import permit)"
-              />
-            </label>
+            <div>
+              <span style={{ display: "block", marginBottom: 6, fontSize: 13.5, color: "var(--u-ink)" }}>
+                Product Category Licensing
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {PRODUCT_LICENSING_OPTIONS.map((o) => (
+                  <label key={o.value} style={{ fontSize: 13, color: "var(--u-ink)" }}>
+                    <input
+                      type="checkbox"
+                      checked={productCategoryLicenses.includes(o.value)}
+                      onChange={() => toggleInList(productCategoryLicenses, o.value, setProductCategoryLicenses)}
+                    />{" "}
+                    {o.label}
+                  </label>
+                ))}
+                {productCategoryLicenses.includes("OTHER") && (
+                  <input
+                    style={{ ...inputStyle, marginTop: 2 }}
+                    value={productCategoryLicensingOtherNotes}
+                    onChange={(e) => setProductCategoryLicensingOtherNotes(e.target.value)}
+                    placeholder="Describe the other licence/permit held"
+                  />
+                )}
+              </div>
+            </div>
             <label>
               Destination Country Restrictions
               <textarea

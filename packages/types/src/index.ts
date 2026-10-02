@@ -550,7 +550,8 @@ export interface PartnerClientDetail {
   deliveryPostcode?: string | null;
   deliveryCountryCode?: string | null;
   paymentTerms?: string | null;
-  productCategoryLicensingNotes?: string | null;
+  productCategoryLicenses?: string | null;
+  productCategoryLicensingOtherNotes?: string | null;
   destinationCountryRestrictionsNotes?: string | null;
   isPharmaApprovedCustomer?: boolean;
   approvedCustomerLogRef?: string | null;
