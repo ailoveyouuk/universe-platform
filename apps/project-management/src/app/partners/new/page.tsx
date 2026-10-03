@@ -1600,6 +1600,7 @@ function RegistryLightbox({
                     countryCode: detail.countryCode,
                     website: detail.website,
                     registrationNumber: detail.registrationNumber,
+                    vatNumber: detail.vatNumber,
                     stakeholderTypes: detail.stakeholderTypes,
                     isKnownToUniverse: detail.isKnownToUniverse,
                     linkedOrganizationName: detail.linkedOrganizationName,
