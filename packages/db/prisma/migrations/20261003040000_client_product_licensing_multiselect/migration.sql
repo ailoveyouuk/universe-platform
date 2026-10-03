@@ -11,12 +11,20 @@ ALTER TABLE [dbo].[partner_client_details] ADD
     [productCategoryLicenses] NVARCHAR(max),
     [productCategoryLicensingOtherNotes] NVARCHAR(max);
 
+-- Batch separator required — see the identical fix/explanation in
+-- 20261003030000_split_client_billing_delivery_address/migration.sql
+-- (same SQL Server single-batch-compiles-first issue, found and fixed
+-- the same day once it broke the previous migration in production).
+GO
+
 -- Best-effort carry-over: existing free text can't be mapped onto the
 -- predefined list automatically, so it moves to the new "other notes"
 -- field rather than being dropped.
 UPDATE [dbo].[partner_client_details]
     SET [productCategoryLicensingOtherNotes] = [productCategoryLicensingNotes]
     WHERE [productCategoryLicensingNotes] IS NOT NULL;
+
+GO
 
 ALTER TABLE [dbo].[partner_client_details] DROP COLUMN [productCategoryLicensingNotes];
 
