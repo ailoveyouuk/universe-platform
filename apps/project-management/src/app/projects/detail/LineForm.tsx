@@ -38,6 +38,14 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     productMasterName: _productMasterName,
     otif: _otif,
     supplierRemainingBalance: _supplierRemainingBalance,
+    // Nested relation array (SupplierEnquiry rows, each with its own
+    // independent add/edit lifecycle via SupplierEnquiries.tsx) — not
+    // part of ProjectLineInput, same reason as the other relation/
+    // display-only fields stripped here. Missing from this list is what
+    // caused the "property enquiries should not exist" 400 surfaced by
+    // the 2026-10-03 round 7 live smoke test (see
+    // currency-conversion-and-pricing.md "Round 3").
+    enquiries: _enquiries,
     // Currency conversion fields (added 2026-10-02) — server-computed,
     // display-only (see ProjectLineSummary's doc comment in
     // packages/types) — not part of ProjectLineInput, so they'd 400
