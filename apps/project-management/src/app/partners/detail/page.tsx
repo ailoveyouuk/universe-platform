@@ -208,7 +208,7 @@ export default function PartnerDetailPage() {
         </h2>
         {applicableStandards.length === 0 ? (
           <div style={{ padding: "12px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, color: "var(--u-ink-secondary)" }}>
-            No evidence standards apply to this stakeholder&apos;s current role(s) yet. Standards are managed in Admin → Evidence Standards.
+            No evidence standards apply to this stakeholder&apos;s current role(s) yet. Standards are managed under Quality → Evidence Standards.
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
