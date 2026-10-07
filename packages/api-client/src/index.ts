@@ -43,6 +43,21 @@ import type {
   UpdateSupplierProductInput,
   UpsertSupplierProfileInput,
   UserSummary,
+  EvidenceStandardSummary,
+  StakeholderEvidenceRecordSummary,
+  CreateEvidenceStandardInput,
+  UpdateEvidenceStandardInput,
+  CreateEvidenceRecordInput,
+  UpdateEvidenceRecordInput,
+  VerifyEvidenceRecordInput,
+  ProductBatchSummary,
+  ProductBatchDetail,
+  BatchTemperatureLogSummary,
+  CreateProductBatchInput,
+  UpdateProductBatchInput,
+  SearchProductBatchesInput,
+  CreateTemperatureLogInput,
+  ReviewTemperatureLogInput,
 } from "@universe/types";
 
 /**
@@ -70,7 +85,21 @@ export class UniverseApiClient {
 
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`API request failed: ${res.status} ${res.statusText} — ${body}`);
+      // Nest's default error body is {"statusCode":...,"message":"...","error":"..."}
+      // — surface just the human-readable message when the body parses as
+      // that shape (e.g. EvidenceService.gateFailureMessage's text on a
+      // blocked partner approval), falling back to the raw body for
+      // anything else so nothing silently disappears. Added 2026-10-08
+      // alongside the evidence-gating UI, which needs this exact message.
+      let message = body;
+      try {
+        const parsed = JSON.parse(body) as { message?: string | string[] };
+        if (typeof parsed.message === "string") message = parsed.message;
+        else if (Array.isArray(parsed.message)) message = parsed.message.join(" ");
+      } catch {
+        // body wasn't JSON — use it as-is
+      }
+      throw new Error(message || `API request failed: ${res.status} ${res.statusText}`);
     }
 
     return (await res.json()) as T;
@@ -415,5 +444,77 @@ export class UniverseApiClient {
 
   getMySupplierLeads(): Promise<SupplierLead[]> {
     return this.request("/supplier-directory/leads/me");
+  }
+
+  // --- Evidence & standards catalog (GDP gap-closing, Gap 3 — added
+  // 2026-10-07/08). See EvidenceStandardSummary/StakeholderEvidenceRecordSummary
+  // doc comments in @universe/types and EvidenceService in apps/api. ---
+
+  listEvidenceStandards(stakeholderType?: string, includeInactive?: boolean): Promise<EvidenceStandardSummary[]> {
+    const qs = new URLSearchParams();
+    if (stakeholderType) qs.set("stakeholderType", stakeholderType);
+    if (includeInactive) qs.set("includeInactive", "true");
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request(`/evidence-standards${query}`);
+  }
+
+  createEvidenceStandard(input: CreateEvidenceStandardInput): Promise<EvidenceStandardSummary> {
+    return this.request("/evidence-standards", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateEvidenceStandard(id: string, input: UpdateEvidenceStandardInput): Promise<EvidenceStandardSummary> {
+    return this.request(`/evidence-standards/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  listEvidenceRecordsForPartner(partnerId: string): Promise<StakeholderEvidenceRecordSummary[]> {
+    return this.request(`/partners/${partnerId}/evidence-records`);
+  }
+
+  createEvidenceRecord(input: CreateEvidenceRecordInput): Promise<StakeholderEvidenceRecordSummary> {
+    return this.request("/evidence-records", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateEvidenceRecord(id: string, input: UpdateEvidenceRecordInput): Promise<StakeholderEvidenceRecordSummary> {
+    return this.request(`/evidence-records/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  /** Gap 2's e-signature meaning statement — see verifyRecord's doc
+   * comment in EvidenceService. */
+  verifyEvidenceRecord(id: string, input: VerifyEvidenceRecordInput): Promise<StakeholderEvidenceRecordSummary> {
+    return this.request(`/evidence-records/${id}/verify`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Product batches & temperature logs (Gaps 5/6 — added 2026-10-07/08).
+  // See ProductBatchSummary/ProductBatchDetail/BatchTemperatureLogSummary
+  // doc comments in @universe/types and ProductBatchesService in apps/api. ---
+
+  searchProductBatches(params?: SearchProductBatchesInput): Promise<ProductBatchSummary[]> {
+    const qs = new URLSearchParams();
+    if (params?.batchNumber) qs.set("batchNumber", params.batchNumber);
+    if (params?.productMasterId) qs.set("productMasterId", params.productMasterId);
+    if (params?.manufacturerId) qs.set("manufacturerId", params.manufacturerId);
+    if (params?.status) qs.set("status", params.status);
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return this.request(`/batches${query}`);
+  }
+
+  getProductBatch(id: string): Promise<ProductBatchDetail> {
+    return this.request(`/batches/${id}`);
+  }
+
+  createProductBatch(input: CreateProductBatchInput): Promise<ProductBatchSummary> {
+    return this.request("/batches", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateProductBatch(id: string, input: UpdateProductBatchInput): Promise<ProductBatchSummary> {
+    return this.request(`/batches/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  addBatchTemperatureLog(batchId: string, input: CreateTemperatureLogInput): Promise<BatchTemperatureLogSummary> {
+    return this.request(`/batches/${batchId}/temperature-logs`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  reviewBatchTemperatureLog(logId: string, input: ReviewTemperatureLogInput): Promise<BatchTemperatureLogSummary> {
+    return this.request(`/batches/temperature-logs/${logId}/review`, { method: "PATCH", body: JSON.stringify(input) });
   }
 }

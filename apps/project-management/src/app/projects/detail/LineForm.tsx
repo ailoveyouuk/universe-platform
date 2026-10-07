@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import type { PartnerSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import type { PartnerSummary, ProductBatchSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
 import { CURRENCY_OPTIONS } from "@universe/types";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
@@ -127,6 +127,51 @@ export function LineForm({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
   const countries = useCountries();
+
+  // Linked batch record (Gaps 5/6, compliance-standards-gap-analysis.md —
+  // added 2026-10-08) — distinct from the free-text Batch Number above,
+  // which stays untouched: this links the line to a first-class
+  // ProductBatch so its temperature-log history is traceable from both
+  // directions. A simple search-as-you-type combobox since there's no
+  // dedicated batch picker component yet (unlike ProductPicker).
+  const [batchQuery, setBatchQuery] = useState("");
+  const [batchOptions, setBatchOptions] = useState<ProductBatchSummary[]>([]);
+  const [linkedBatchLabel, setLinkedBatchLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!form.productBatchId) {
+      setLinkedBatchLabel(null);
+      return;
+    }
+    apiClient
+      .getProductBatch(form.productBatchId)
+      .then((b) => setLinkedBatchLabel(b.batchNumber))
+      .catch(() => setLinkedBatchLabel(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!batchQuery.trim()) {
+      setBatchOptions([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      apiClient.searchProductBatches({ batchNumber: batchQuery }).then(setBatchOptions).catch(() => setBatchOptions([]));
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [batchQuery]);
+
+  function selectBatch(b: ProductBatchSummary) {
+    update("productBatchId", b.id);
+    setLinkedBatchLabel(b.batchNumber);
+    setBatchQuery("");
+    setBatchOptions([]);
+  }
+
+  function clearBatch() {
+    update("productBatchId", null);
+    setLinkedBatchLabel(null);
+  }
 
   /** The 15 post-award fields (client/internal PO, warehouse ref,
    * collection/delivery dates, supplier payment/invoice fields) stay
@@ -597,6 +642,54 @@ export function LineForm({
           </Field>
           <Field label="Batch Number">
             <input style={inputStyle} value={form.batchNumber ?? ""} onChange={(e) => update("batchNumber", e.target.value || null)} />
+          </Field>
+          <Field label="Linked Batch Record (traceability)">
+            {linkedBatchLabel ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                <span style={{ fontSize: 13, color: "var(--u-ink)" }}>{linkedBatchLabel}</span>
+                <button type="button" onClick={clearBatch} style={{ fontSize: 12, color: "var(--u-ink-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div style={{ position: "relative" }}>
+                <input
+                  style={inputStyle}
+                  value={batchQuery}
+                  onChange={(e) => setBatchQuery(e.target.value)}
+                  placeholder="Search batch number…"
+                />
+                {batchOptions.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      zIndex: 5,
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      marginTop: 4,
+                      border: "1px solid var(--u-border)",
+                      borderRadius: 6,
+                      backgroundColor: "var(--u-surface-raised)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                      maxHeight: 180,
+                      overflowY: "auto",
+                    }}
+                  >
+                    {batchOptions.map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => selectBatch(b)}
+                        style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", color: "var(--u-ink)" }}
+                      >
+                        {b.batchNumber}
+                        {b.manufacturerName ? ` — ${b.manufacturerName}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </Field>
           <Field label="Expiry Date">
             <input type="date" style={inputStyle} value={toDateInput(form.expiryDate)} onChange={(e) => update("expiryDate", e.target.value || null)} />

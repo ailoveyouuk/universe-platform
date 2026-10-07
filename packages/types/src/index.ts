@@ -1356,3 +1356,122 @@ export interface BatchTemperatureLogSummary {
   reviewedAt: string | null;
   recordedAt: string;
 }
+
+// --- Evidence & batch traceability inputs (GDP gap-closing frontend,
+// 2026-10-08) — mirrors apps/api/src/evidence and apps/api/src/batches'
+// DTOs. See EvidenceStandardSummary/StakeholderEvidenceRecordSummary/
+// ProductBatchSummary/BatchTemperatureLogSummary above for the matching
+// read shapes. ---
+
+export interface CreateEvidenceStandardInput {
+  name: string;
+  description?: string;
+  category: string;
+  appliesToStakeholderTypes: string[];
+  evidenceType: string;
+  isMandatory?: boolean;
+  requiresExpiry?: boolean;
+  reVerificationFrequencyMonths?: number;
+  sortOrder?: number;
+}
+
+export interface UpdateEvidenceStandardInput {
+  name?: string;
+  description?: string;
+  category?: string;
+  appliesToStakeholderTypes?: string[];
+  evidenceType?: string;
+  isMandatory?: boolean;
+  requiresExpiry?: boolean;
+  reVerificationFrequencyMonths?: number;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface CreateEvidenceRecordInput {
+  partnerId: string;
+  standardId: string;
+  referenceNumber?: string;
+  issuingBody?: string;
+  issuedDate?: string;
+  expiryDate?: string;
+  result?: string;
+  documentId?: string;
+  notes?: string;
+}
+
+export interface UpdateEvidenceRecordInput {
+  referenceNumber?: string;
+  issuingBody?: string;
+  issuedDate?: string;
+  expiryDate?: string;
+  result?: string;
+  documentId?: string;
+  notes?: string;
+}
+
+export interface VerifyEvidenceRecordInput {
+  approve: boolean;
+  notes?: string;
+}
+
+export interface CreateProductBatchInput {
+  batchNumber: string;
+  productMasterId?: string;
+  manufacturerId?: string;
+  manufacturedDate?: string;
+  expiryDate?: string;
+  storageConditions?: string;
+  qualificationPathway?: string;
+  qualificationPathwayExpiryDate?: string;
+  maPl?: string;
+  notes?: string;
+}
+
+export interface UpdateProductBatchInput {
+  productMasterId?: string | null;
+  manufacturerId?: string | null;
+  manufacturedDate?: string | null;
+  expiryDate?: string | null;
+  storageConditions?: string | null;
+  qualificationPathway?: string | null;
+  qualificationPathwayExpiryDate?: string | null;
+  maPl?: string | null;
+  status?: string;
+  notes?: string | null;
+}
+
+export interface SearchProductBatchesInput {
+  batchNumber?: string;
+  productMasterId?: string;
+  manufacturerId?: string;
+  status?: string;
+}
+
+export interface CreateTemperatureLogInput {
+  projectLineId?: string;
+  loggerReference?: string;
+  readingSummary?: string;
+  hasExcursion?: boolean;
+  excursionNotes?: string;
+  recordedAt?: string;
+}
+
+export interface ReviewTemperatureLogInput {
+  excursionNotes?: string;
+}
+
+/** Richer read shape for GET /batches/:id — one batch plus its product/
+ * manufacturer names, its full temperature-log history, and every project
+ * line it has ever been placed on (the "every place batch X went" view —
+ * see ProductBatchesService.getDetail's doc comment in apps/api). */
+export interface ProductBatchDetail extends ProductBatchSummary {
+  productMasterName: string | null;
+  temperatureLogs: BatchTemperatureLogSummary[];
+  projectLines: {
+    id: string;
+    projectId: string;
+    projectReferenceNumber: string;
+    clientName: string | null;
+  }[];
+}

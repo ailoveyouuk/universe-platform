@@ -1,10 +1,71 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
+import type { BatchTemperatureLogSummary, ProductBatchDetail, ProductBatchSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductBatchDto, SearchProductBatchesDto, UpdateProductBatchDto } from "./dto/product-batch.dto";
 import type { CreateTemperatureLogDto, ReviewTemperatureLogDto } from "./dto/temperature-log.dto";
+
+function toBatchSummary(row: {
+  id: string;
+  productMasterId: string | null;
+  manufacturerId: string | null;
+  manufacturer?: { name: string } | null;
+  batchNumber: string;
+  manufacturedDate: Date | null;
+  expiryDate: Date | null;
+  storageConditions: string | null;
+  qualificationPathway: string | null;
+  qualificationPathwayExpiryDate: Date | null;
+  maPl: string | null;
+  status: string;
+  notes: string | null;
+}): ProductBatchSummary {
+  return {
+    id: row.id,
+    productMasterId: row.productMasterId,
+    manufacturerId: row.manufacturerId,
+    manufacturerName: row.manufacturer?.name,
+    batchNumber: row.batchNumber,
+    manufacturedDate: row.manufacturedDate ? row.manufacturedDate.toISOString() : null,
+    expiryDate: row.expiryDate ? row.expiryDate.toISOString() : null,
+    storageConditions: row.storageConditions,
+    qualificationPathway: row.qualificationPathway,
+    qualificationPathwayExpiryDate: row.qualificationPathwayExpiryDate ? row.qualificationPathwayExpiryDate.toISOString() : null,
+    maPl: row.maPl,
+    status: row.status,
+    notes: row.notes,
+  };
+}
+
+function toTemperatureLogSummary(row: {
+  id: string;
+  productBatchId: string;
+  projectLineId: string | null;
+  loggerReference: string | null;
+  readingSummary: string | null;
+  hasExcursion: boolean;
+  excursionNotes: string | null;
+  reviewed: boolean;
+  reviewedById: string | null;
+  reviewedAt: Date | null;
+  recordedAt: Date;
+}): BatchTemperatureLogSummary {
+  return {
+    id: row.id,
+    productBatchId: row.productBatchId,
+    projectLineId: row.projectLineId,
+    loggerReference: row.loggerReference,
+    readingSummary: row.readingSummary,
+    hasExcursion: row.hasExcursion,
+    excursionNotes: row.excursionNotes,
+    reviewed: row.reviewed,
+    reviewedById: row.reviewedById,
+    reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+    recordedAt: row.recordedAt.toISOString(),
+  };
+}
 
 /**
  * Gaps 5/6 (compliance-standards-gap-analysis.md) — full batch-level
@@ -15,8 +76,8 @@ import type { CreateTemperatureLogDto, ReviewTemperatureLogDto } from "./dto/tem
  */
 @Injectable()
 export class ProductBatchesService {
-  async create(user: RequestUser, dto: CreateProductBatchDto) {
-    return withTenantContext(user.organizationId, (tx) =>
+  async create(user: RequestUser, dto: CreateProductBatchDto): Promise<ProductBatchSummary> {
+    const row = await withTenantContext(user.organizationId, (tx) =>
       tx.productBatch.create({
         data: {
           organizationId: user.organizationId,
@@ -32,15 +93,17 @@ export class ProductBatchesService {
           notes: dto.notes ?? null,
           createdById: user.id,
         },
+        include: { manufacturer: { select: { name: true } } },
       }),
     );
+    return toBatchSummary(row);
   }
 
   /** The actual traceability ask — search/filter by batch, product,
    * manufacturer, status; "every place batch X went" comes from the
    * caller then calling getDetail(id) on the matched row. */
-  async search(user: RequestUser, query: SearchProductBatchesDto) {
-    return withTenantContext(user.organizationId, (tx) =>
+  async search(user: RequestUser, query: SearchProductBatchesDto): Promise<ProductBatchSummary[]> {
+    const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.productBatch.findMany({
         where: {
           ...tenantScope(user.organizationId),
@@ -53,12 +116,13 @@ export class ProductBatchesService {
         orderBy: { createdAt: "desc" },
       }),
     );
+    return rows.map(toBatchSummary);
   }
 
   /** "From one batch, see every project/client/quantity/delivery it was
    * ever part of, and every data-logger excursion recorded against it" —
    * the one-query view the roadmap doc asked for. */
-  async getDetail(user: RequestUser, id: string) {
+  async getDetail(user: RequestUser, id: string): Promise<ProductBatchDetail> {
     const batch = await withTenantContext(user.organizationId, (tx) =>
       tx.productBatch.findFirst({
         where: { id, ...tenantScope(user.organizationId) },
@@ -75,10 +139,20 @@ export class ProductBatchesService {
       }),
     );
     if (!batch) throw new NotFoundException(`Product batch ${id} not found`);
-    return batch;
+    return {
+      ...toBatchSummary(batch),
+      productMasterName: batch.productMaster?.name ?? null,
+      temperatureLogs: batch.temperatureLogs.map(toTemperatureLogSummary),
+      projectLines: batch.projectLines.map((line) => ({
+        id: line.id,
+        projectId: line.project.id,
+        projectReferenceNumber: line.project.referenceNumber,
+        clientName: line.project.client?.name ?? null,
+      })),
+    };
   }
 
-  async update(user: RequestUser, id: string, dto: UpdateProductBatchDto) {
+  async update(user: RequestUser, id: string, dto: UpdateProductBatchDto): Promise<ProductBatchSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.productBatch.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Product batch ${id} not found`);
@@ -121,6 +195,7 @@ export class ProductBatchesService {
           ...(dto.status !== undefined ? { status: dto.status } : {}),
           ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
         },
+        include: { manufacturer: { select: { name: true } } },
       });
 
       await recordFieldChanges(tx, {
@@ -131,18 +206,18 @@ export class ProductBatchesService {
         changes,
       });
 
-      return updated;
+      return toBatchSummary(updated);
     });
   }
 
   // --- Temperature logs (Gap 5 — cold chain / data-logger monitoring) ---
 
-  async addTemperatureLog(user: RequestUser, batchId: string, dto: CreateTemperatureLogDto) {
+  async addTemperatureLog(user: RequestUser, batchId: string, dto: CreateTemperatureLogDto): Promise<BatchTemperatureLogSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const batch = await tx.productBatch.findFirst({ where: { id: batchId, ...tenantScope(user.organizationId) } });
       if (!batch) throw new NotFoundException(`Product batch ${batchId} not found`);
 
-      return tx.batchTemperatureLog.create({
+      const row = await tx.batchTemperatureLog.create({
         data: {
           organizationId: user.organizationId,
           productBatchId: batchId,
@@ -154,6 +229,7 @@ export class ProductBatchesService {
           recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : undefined,
         },
       });
+      return toTemperatureLogSummary(row);
     });
   }
 
@@ -162,12 +238,12 @@ export class ProductBatchesService {
    * as evidence verification (Gap 2/3), appropriate here since a
    * reviewed-but-unactioned excursion is exactly the kind of gap a GDP
    * audit looks for. */
-  async reviewTemperatureLog(user: RequestUser, logId: string, dto: ReviewTemperatureLogDto) {
+  async reviewTemperatureLog(user: RequestUser, logId: string, dto: ReviewTemperatureLogDto): Promise<BatchTemperatureLogSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.batchTemperatureLog.findFirst({ where: { id: logId, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Temperature log ${logId} not found`);
 
-      return tx.batchTemperatureLog.update({
+      const row = await tx.batchTemperatureLog.update({
         where: { id: logId },
         data: {
           reviewed: true,
@@ -176,6 +252,7 @@ export class ProductBatchesService {
           ...(dto.excursionNotes !== undefined ? { excursionNotes: dto.excursionNotes } : {}),
         },
       });
+      return toTemperatureLogSummary(row);
     });
   }
 }

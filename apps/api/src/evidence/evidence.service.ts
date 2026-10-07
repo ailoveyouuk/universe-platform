@@ -1,12 +1,81 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@prisma/client";
+import type { EvidenceStandardSummary, StakeholderEvidenceRecordSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateEvidenceStandardDto, UpdateEvidenceStandardDto } from "./dto/evidence-standard.dto";
 import type { CreateEvidenceRecordDto, UpdateEvidenceRecordDto, VerifyEvidenceRecordDto } from "./dto/evidence-record.dto";
+
+/** Prisma's row has appliesToStakeholderTypes as the comma-joined storage
+ * string (no array column on SQL Server) — this is the one place that
+ * splits it back into a real string[], matching EvidenceStandardSummary's
+ * contract (see its doc comment in packages/types). */
+function toStandardSummary(row: {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  appliesToStakeholderTypes: string;
+  evidenceType: string;
+  isMandatory: boolean;
+  requiresExpiry: boolean;
+  reVerificationFrequencyMonths: number | null;
+  active: boolean;
+  sortOrder: number;
+}): EvidenceStandardSummary {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    appliesToStakeholderTypes: row.appliesToStakeholderTypes.split(",").filter(Boolean),
+    evidenceType: row.evidenceType,
+    isMandatory: row.isMandatory,
+    requiresExpiry: row.requiresExpiry,
+    reVerificationFrequencyMonths: row.reVerificationFrequencyMonths,
+    active: row.active,
+    sortOrder: row.sortOrder,
+  };
+}
+
+function toRecordSummary(
+  row: {
+    id: string;
+    partnerId: string;
+    standardId: string;
+    referenceNumber: string | null;
+    issuingBody: string | null;
+    issuedDate: Date | null;
+    expiryDate: Date | null;
+    result: string | null;
+    documentId: string | null;
+    status: string;
+    verifiedById: string | null;
+    verifiedAt: Date | null;
+    notes: string | null;
+  },
+  standardName?: string,
+): StakeholderEvidenceRecordSummary {
+  return {
+    id: row.id,
+    partnerId: row.partnerId,
+    standardId: row.standardId,
+    standardName,
+    referenceNumber: row.referenceNumber,
+    issuingBody: row.issuingBody,
+    issuedDate: row.issuedDate ? row.issuedDate.toISOString() : null,
+    expiryDate: row.expiryDate ? row.expiryDate.toISOString() : null,
+    result: row.result,
+    documentId: row.documentId,
+    status: row.status,
+    verifiedById: row.verifiedById,
+    verifiedAt: row.verifiedAt ? row.verifiedAt.toISOString() : null,
+    notes: row.notes,
+  };
+}
 
 /**
  * Gap 3 (compliance-standards-gap-analysis.md) — the Standards & Evidence
@@ -28,8 +97,8 @@ import type { CreateEvidenceRecordDto, UpdateEvidenceRecordDto, VerifyEvidenceRe
 export class EvidenceService {
   // --- Catalog (EvidenceStandardDefinition) ---
 
-  async createStandard(user: RequestUser, dto: CreateEvidenceStandardDto) {
-    return withTenantContext(user.organizationId, (tx) =>
+  async createStandard(user: RequestUser, dto: CreateEvidenceStandardDto): Promise<EvidenceStandardSummary> {
+    const row = await withTenantContext(user.organizationId, (tx) =>
       tx.evidenceStandardDefinition.create({
         data: {
           organizationId: user.organizationId,
@@ -45,28 +114,30 @@ export class EvidenceService {
         },
       }),
     );
+    return toStandardSummary(row);
   }
 
   /** Lists this org's catalog, optionally narrowed to standards applicable
    * to one stakeholder type (used by both the catalog-management screen
    * and the "log evidence" form on a given Partner, which only wants the
    * standards relevant to that partner's own active roles). */
-  async listStandards(user: RequestUser, stakeholderType?: string) {
+  async listStandards(user: RequestUser, stakeholderType?: string, includeInactive = false): Promise<EvidenceStandardSummary[]> {
     const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.evidenceStandardDefinition.findMany({
-        where: { ...tenantScope(user.organizationId), active: true },
+        where: { ...tenantScope(user.organizationId), ...(includeInactive ? {} : { active: true }) },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       }),
     );
-    if (!stakeholderType) return rows;
-    return rows.filter((r) => r.appliesToStakeholderTypes.split(",").includes(stakeholderType));
+    const summaries = rows.map(toStandardSummary);
+    if (!stakeholderType) return summaries;
+    return summaries.filter((r) => r.appliesToStakeholderTypes.includes(stakeholderType));
   }
 
-  async updateStandard(user: RequestUser, id: string, dto: UpdateEvidenceStandardDto) {
+  async updateStandard(user: RequestUser, id: string, dto: UpdateEvidenceStandardDto): Promise<EvidenceStandardSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.evidenceStandardDefinition.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Evidence standard ${id} not found`);
-      return tx.evidenceStandardDefinition.update({
+      const updated = await tx.evidenceStandardDefinition.update({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name } : {}),
@@ -81,14 +152,15 @@ export class EvidenceService {
           ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
         },
       });
+      return toStandardSummary(updated);
     });
   }
 
   // --- Evidence records (StakeholderEvidenceRecord) ---
 
-  async createRecord(user: RequestUser, dto: CreateEvidenceRecordDto) {
-    return withTenantContext(user.organizationId, (tx) =>
-      tx.stakeholderEvidenceRecord.create({
+  async createRecord(user: RequestUser, dto: CreateEvidenceRecordDto): Promise<StakeholderEvidenceRecordSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const row = await tx.stakeholderEvidenceRecord.create({
         data: {
           organizationId: user.organizationId,
           partnerId: dto.partnerId,
@@ -101,21 +173,24 @@ export class EvidenceService {
           documentId: dto.documentId ?? null,
           notes: dto.notes ?? null,
         },
-      }),
-    );
+      });
+      const standard = await tx.evidenceStandardDefinition.findFirst({ where: { id: row.standardId } });
+      return toRecordSummary(row, standard?.name);
+    });
   }
 
-  async listRecordsForPartner(user: RequestUser, partnerId: string) {
-    return withTenantContext(user.organizationId, (tx) =>
+  async listRecordsForPartner(user: RequestUser, partnerId: string): Promise<StakeholderEvidenceRecordSummary[]> {
+    const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.stakeholderEvidenceRecord.findMany({
         where: { partnerId, ...tenantScope(user.organizationId) },
         include: { standard: true },
         orderBy: { createdAt: "desc" },
       }),
     );
+    return rows.map((row) => toRecordSummary(row, row.standard.name));
   }
 
-  async updateRecord(user: RequestUser, id: string, dto: UpdateEvidenceRecordDto) {
+  async updateRecord(user: RequestUser, id: string, dto: UpdateEvidenceRecordDto): Promise<StakeholderEvidenceRecordSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.stakeholderEvidenceRecord.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Evidence record ${id} not found`);
@@ -149,14 +224,15 @@ export class EvidenceService {
         changes,
       });
 
-      return updated;
+      const standard = await tx.evidenceStandardDefinition.findFirst({ where: { id: updated.standardId } });
+      return toRecordSummary(updated, standard?.name);
     });
   }
 
   /** Gap 2's e-signature meaning statement, wired to a real control for
    * the first time (previously defined but unused — see
    * certification-statements.ts's own doc comment on EVIDENCE_VERIFICATION_V1). */
-  async verifyRecord(user: RequestUser, id: string, dto: VerifyEvidenceRecordDto) {
+  async verifyRecord(user: RequestUser, id: string, dto: VerifyEvidenceRecordDto): Promise<StakeholderEvidenceRecordSummary> {
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.stakeholderEvidenceRecord.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Evidence record ${id} not found`);
@@ -183,7 +259,8 @@ export class EvidenceService {
         certificationStatement: CERTIFICATION_STATEMENTS.EVIDENCE_VERIFICATION_V1,
       });
 
-      return updated;
+      const standard = await tx.evidenceStandardDefinition.findFirst({ where: { id: updated.standardId } });
+      return toRecordSummary(updated, standard?.name);
     });
   }
 

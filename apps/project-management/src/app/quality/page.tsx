@@ -122,9 +122,17 @@ export default function QualityPage() {
             performance scorecards.
           </p>
         </div>
-        <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))" onClick={() => setShowNewForm((v) => !v)}>
-          New Product Approval
-        </Button>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link href="/quality/evidence-standards" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">Evidence Standards</Button>
+          </Link>
+          <Link href="/batches" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">Batches</Button>
+          </Link>
+          <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))" onClick={() => setShowNewForm((v) => !v)}>
+            New Product Approval
+          </Button>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 32 }}>

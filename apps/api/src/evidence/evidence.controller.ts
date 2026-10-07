@@ -22,8 +22,12 @@ export class EvidenceController {
   }
 
   @Get("evidence-standards")
-  listStandards(@CurrentUser() user: RequestUser, @Query("stakeholderType") stakeholderType?: string) {
-    return this.evidenceService.listStandards(user, stakeholderType);
+  listStandards(
+    @CurrentUser() user: RequestUser,
+    @Query("stakeholderType") stakeholderType?: string,
+    @Query("includeInactive") includeInactive?: string,
+  ) {
+    return this.evidenceService.listStandards(user, stakeholderType, includeInactive === "true");
   }
 
   @Patch("evidence-standards/:id")

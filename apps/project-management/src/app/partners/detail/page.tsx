@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
-import type { PartnerSummary, StakeholderRegistryDetail, StakeholderRegistryProduct } from "@universe/types";
+import type {
+  EvidenceStandardSummary,
+  PartnerSummary,
+  StakeholderEvidenceRecordSummary,
+  StakeholderRegistryDetail,
+  StakeholderRegistryProduct,
+} from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { Pill, TextLink, BuildingIcon } from "@universe/ui";
+import { Pill, TextLink, BuildingIcon, Button, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 
 const ROLE_LABELS: Record<string, string> = {
   CLIENT: "Client",
@@ -13,6 +19,17 @@ const ROLE_LABELS: Record<string, string> = {
   SUPPLIER: "Supplier",
   FREIGHT_FORWARDER: "Freight Forwarder",
   WAREHOUSING: "Warehousing",
+};
+
+const inputStyle: CSSProperties = {
+  display: "block",
+  width: "100%",
+  padding: 8,
+  marginTop: 4,
+  border: "1px solid var(--u-border)",
+  borderRadius: 6,
+  fontFamily: "var(--u-font-sans)",
+  fontSize: 13,
 };
 
 /**
@@ -25,11 +42,13 @@ const ROLE_LABELS: Record<string, string> = {
  * projects/detail — see that file's note on why (Next static export +
  * dynamic-route limitation).
  *
- * Read-only for now: uses the existing getPartner() call, which already
- * returns the per-role detail blocks (supplierDetail etc.) — no new API
- * surface needed for this pass. Certification/expiry data isn't shown
- * here yet; that's wired up as part of the Quality Assurance section
- * (see quality/page.tsx), which does add a new read endpoint for it.
+ * "Compliance & Evidence" section + the Approve action added 2026-10-08
+ * as the frontend half of the GDP gap-closing build (Gap 3 — see
+ * EvidenceService.getGateStatus in apps/api and
+ * claude/compliance-standards-gap-analysis.md). Before this, approving a
+ * stakeholder wasn't wired into the UI anywhere at all — approvalStatus
+ * only ever moved at creation time — so this is also the first place the
+ * gate actually gets exercised by a real user action.
  */
 export default function PartnerDetailPage() {
   const searchParams = useSearchParams();
@@ -38,14 +57,31 @@ export default function PartnerDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [registryDetail, setRegistryDetail] = useState<StakeholderRegistryDetail | null>(null);
   const [registryProducts, setRegistryProducts] = useState<StakeholderRegistryProduct[]>([]);
+  const [standards, setStandards] = useState<EvidenceStandardSummary[]>([]);
+  const [records, setRecords] = useState<StakeholderEvidenceRecordSummary[]>([]);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [openStandardId, setOpenStandardId] = useState<string | null>(null);
   const countries = useCountries();
 
-  useEffect(() => {
+  function loadPartner() {
     if (!id) return;
     apiClient
       .getPartner(id)
       .then(setPartner)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load stakeholder"));
+  }
+
+  function loadEvidence() {
+    if (!id) return;
+    apiClient.listEvidenceStandards().then(setStandards).catch(() => setStandards([]));
+    apiClient.listEvidenceRecordsForPartner(id).then(setRecords).catch(() => setRecords([]));
+  }
+
+  useEffect(() => {
+    loadPartner();
+    loadEvidence();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Stakeholder registry linking — see claude/sop-driven-quality-roadmap.md
@@ -64,9 +100,31 @@ export default function PartnerDetailPage() {
     apiClient.getStakeholderRegistryProducts(entryId).then(setRegistryProducts).catch(() => setRegistryProducts([]));
   }, [partner?.registryEntryId]);
 
+  async function handleApprove() {
+    if (!id) return;
+    setApproving(true);
+    setApproveError(null);
+    try {
+      await apiClient.updatePartner(id, { approvalStatus: "APPROVED" });
+      loadPartner();
+    } catch (err) {
+      // On the gate failing (EvidenceService.gateFailureMessage), this is
+      // already the exact human-readable sentence naming the missing
+      // standards — see apiClient's request() helper, updated 2026-10-08
+      // specifically so this message doesn't need re-parsing here.
+      setApproveError(err instanceof Error ? err.message : "Failed to approve this stakeholder");
+    } finally {
+      setApproving(false);
+    }
+  }
+
   if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No stakeholder specified.</main>;
   if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
   if (!partner) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</main>;
+
+  const activeRoleTypes = partner.roles.filter((r) => r.isActive).map((r) => r.roleType);
+  const applicableStandards = standards.filter((s) => s.appliesToStakeholderTypes.some((t) => activeRoleTypes.includes(t)));
+  const canApprove = partner.approvalStatus !== "APPROVED" && partner.approvalStatus !== "REMOVED";
 
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
@@ -98,10 +156,37 @@ export default function PartnerDetailPage() {
             </div>
           </div>
         </div>
-        <Pill tone={partner.approvalStatus === "APPROVED" ? "good" : partner.approvalStatus === "REMOVED" ? "neutral" : "warning"}>
-          {partner.approvalStatus}
-        </Pill>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Pill tone={partner.approvalStatus === "APPROVED" ? "good" : partner.approvalStatus === "REMOVED" ? "neutral" : "warning"}>
+            {partner.approvalStatus}
+          </Pill>
+          {canApprove && (
+            <Button variant="primary" onClick={handleApprove} disabled={approving}>
+              {approving ? "Approving…" : "Approve stakeholder"}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {approveError && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "12px 16px",
+            marginTop: 16,
+            borderRadius: "var(--u-radius-md)",
+            border: "1px solid var(--u-status-critical)",
+            backgroundColor: "rgba(220,38,38,0.08)",
+            fontSize: 13,
+            color: "var(--u-ink)",
+          }}
+        >
+          <AlertIcon size={16} />
+          {approveError}
+        </div>
+      )}
 
       <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 28 }}>
         <InfoCard label="Country">{countries.find((c) => c.code === partner.countryCode)?.name ?? partner.countryCode ?? "—"}</InfoCard>
@@ -116,6 +201,31 @@ export default function PartnerDetailPage() {
         </InfoCard>
         <InfoCard label="Added">{new Date(partner.createdAt).toLocaleDateString()}</InfoCard>
       </div>
+
+      <section style={{ marginTop: 28 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldIcon size={16} /> Compliance &amp; evidence
+        </h2>
+        {applicableStandards.length === 0 ? (
+          <div style={{ padding: "12px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+            No evidence standards apply to this stakeholder&apos;s current role(s) yet. Standards are managed in Admin → Evidence Standards.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {applicableStandards.map((standard) => (
+              <EvidenceStandardRow
+                key={standard.id}
+                standard={standard}
+                record={records.find((r) => r.standardId === standard.id) ?? null}
+                partnerId={partner.id}
+                open={openStandardId === standard.id}
+                onToggleOpen={() => setOpenStandardId(openStandardId === standard.id ? null : standard.id)}
+                onChanged={loadEvidence}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {partner.clientDetail && (
         <DetailSection title="Client details">
@@ -255,6 +365,168 @@ export default function PartnerDetailPage() {
         </DetailSection>
       )}
     </main>
+  );
+}
+
+/** One row of the Compliance & evidence section — a standard plus
+ * whatever evidence record (if any) currently exists against it for this
+ * partner, with the one action that's actually valid for its current
+ * state: log evidence (none yet), verify/reject (PENDING), or just the
+ * result (VERIFIED/REJECTED/expired). */
+function EvidenceStandardRow({
+  standard,
+  record,
+  partnerId,
+  open,
+  onToggleOpen,
+  onChanged,
+}: {
+  standard: EvidenceStandardSummary;
+  record: StakeholderEvidenceRecordSummary | null;
+  partnerId: string;
+  open: boolean;
+  onToggleOpen: () => void;
+  onChanged: () => void;
+}) {
+  const [verifying, setVerifying] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const isExpired = Boolean(record?.expiryDate && standard.requiresExpiry && new Date(record.expiryDate) < new Date());
+  const effectiveStatus = record ? (isExpired && record.status === "VERIFIED" ? "EXPIRED" : record.status) : "MISSING";
+
+  const tone: "good" | "warning" | "critical" | "neutral" =
+    effectiveStatus === "VERIFIED" ? "good" : effectiveStatus === "PENDING" ? "neutral" : effectiveStatus === "MISSING" ? "warning" : "critical";
+  const icon =
+    effectiveStatus === "VERIFIED" ? <CheckCircleIcon size={16} /> : effectiveStatus === "PENDING" ? <ClockIcon size={16} /> : <AlertIcon size={16} />;
+  const toneColor =
+    tone === "good" ? "var(--u-status-good, #16a34a)" : tone === "critical" ? "var(--u-status-critical)" : tone === "warning" ? "#946014" : "var(--u-ink-secondary)";
+
+  async function handleVerify(approve: boolean) {
+    if (!record) return;
+    setVerifying(true);
+    setActionError(null);
+    try {
+      await apiClient.verifyEvidenceRecord(record.id, { approve });
+      onChanged();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to update this record");
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  return (
+    <div style={{ borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-surface-raised)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)" }}>
+            {standard.name}
+            {standard.isMandatory && <span style={{ color: "var(--u-status-critical)", marginLeft: 4 }}>*</span>}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>
+            {standard.category.replace(/_/g, " ")}
+            {record?.referenceNumber ? ` — ${record.referenceNumber}` : ""}
+            {record?.expiryDate ? ` — expires ${new Date(record.expiryDate).toLocaleDateString()}` : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: toneColor }}>
+            {icon}
+            {effectiveStatus.charAt(0) + effectiveStatus.slice(1).toLowerCase()}
+          </span>
+          {effectiveStatus === "PENDING" && (
+            <>
+              <Button variant="secondary" onClick={() => handleVerify(true)} disabled={verifying}>
+                Verify
+              </Button>
+              <Button variant="secondary" onClick={() => handleVerify(false)} disabled={verifying}>
+                Reject
+              </Button>
+            </>
+          )}
+          {(effectiveStatus === "MISSING" || effectiveStatus === "REJECTED" || effectiveStatus === "EXPIRED") && (
+            <Button variant="secondary" onClick={onToggleOpen}>
+              {open ? "Cancel" : "Log evidence"}
+            </Button>
+          )}
+        </div>
+      </div>
+      {actionError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{actionError}</div>}
+      {open && (
+        <LogEvidenceForm
+          standardId={standard.id}
+          partnerId={partnerId}
+          onSaved={() => {
+            onChanged();
+            onToggleOpen();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: string; partnerId: string; onSaved: () => void }) {
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [issuingBody, setIssuingBody] = useState("");
+  const [issuedDate, setIssuedDate] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.createEvidenceRecord({
+        partnerId,
+        standardId,
+        referenceNumber: referenceNumber || undefined,
+        issuingBody: issuingBody || undefined,
+        issuedDate: issuedDate || undefined,
+        expiryDate: expiryDate || undefined,
+        notes: notes || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to log evidence");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Reference number
+          <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issuing body
+          <input style={inputStyle} value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issued date
+          <input type="date" style={inputStyle} value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Expiry date
+          <input type="date" style={inputStyle} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+        </label>
+      </div>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Notes
+        <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </label>
+      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      <div>
+        <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving…" : "Save evidence"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
