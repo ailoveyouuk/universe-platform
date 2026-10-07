@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { EvidenceDueForReviewSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button, Pill, ClockIcon, ChevronLeftIcon, TextLink } from "@universe/ui";
+import { Button, ClockIcon, ChevronLeftIcon, TextLink } from "@universe/ui";
 
 const WINDOW_OPTIONS = [7, 30, 90] as const;
 
@@ -98,9 +98,20 @@ export default function ReVerificationDuePage() {
                 </div>
                 <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>{r.standardName}</div>
               </div>
-              <Pill tone={r.isOverdue ? "critical" : "warning"}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "3px 11px",
+                  borderRadius: "var(--u-radius-pill)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  backgroundColor: r.isOverdue ? "rgba(220,38,38,0.1)" : "rgba(250,178,25,0.16)",
+                  color: r.isOverdue ? "var(--u-status-critical)" : "#946014",
+                }}
+              >
                 {r.isOverdue ? "Overdue" : "Due"} {new Date(r.dueDate).toLocaleDateString()}
-              </Pill>
+              </span>
             </div>
           ))}
         </div>

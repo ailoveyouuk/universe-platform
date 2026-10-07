@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { RiskAssessmentSummary } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
-import { Button, Pill, Select, AlertIcon } from "@universe/ui";
+import { Button, Select, AlertIcon } from "@universe/ui";
 
 const SEVERITY_OPTIONS = [
   { value: "LOW", label: "Low" },
@@ -36,10 +36,14 @@ const inputStyle: CSSProperties = {
 
 const textareaStyle: CSSProperties = { ...inputStyle, minHeight: 60, resize: "vertical" };
 
-function severityTone(severity: string): "good" | "warning" | "critical" | "neutral" {
-  if (severity === "CRITICAL" || severity === "HIGH") return "critical";
-  if (severity === "MEDIUM") return "warning";
-  return "neutral";
+/** Pill (from @universe/ui) has no "critical" tone — see its own type —
+ * so CRITICAL/HIGH severity is rendered as a plain custom-coloured span
+ * instead, same convention as EvidenceStandardRow's status indicator on
+ * the Partner detail page (partners/detail/page.tsx). */
+function severityStyle(severity: string): { bg: string; fg: string } {
+  if (severity === "CRITICAL" || severity === "HIGH") return { bg: "rgba(220,38,38,0.1)", fg: "var(--u-status-critical)" };
+  if (severity === "MEDIUM") return { bg: "rgba(250,178,25,0.16)", fg: "#946014" };
+  return { bg: "var(--u-surface-alt)", fg: "var(--u-ink-secondary)" };
 }
 
 /**
@@ -127,7 +131,20 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <Pill tone={severityTone(r.severity)}>{r.severity}</Pill>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    padding: "3px 11px",
+                    borderRadius: "var(--u-radius-pill)",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    backgroundColor: severityStyle(r.severity).bg,
+                    color: severityStyle(r.severity).fg,
+                  }}
+                >
+                  {r.severity}
+                </span>
                 <div style={{ width: 130 }}>
                   <Select value={r.status} onChange={(v) => handleStatusChange(r.id, v)} options={STATUS_OPTIONS} ariaLabel="Risk status" />
                 </div>
