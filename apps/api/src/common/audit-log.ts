@@ -62,15 +62,22 @@ function normalize(value: unknown): string | null {
  * building the Prisma `data` object itself.
  */
 export function diffForAudit(
-  before: Record<string, unknown>,
-  after: Record<string, unknown>,
+  before: object,
+  after: object,
   fields: readonly string[],
 ): FieldChangeInput[] {
+  // Callers pass real objects here (DTO class instances, Prisma row
+  // results) that have no index signature of their own, so TS won't let
+  // the parameters be typed as Record<string, unknown> directly without
+  // forcing every call site to cast. Widening the parameter types to
+  // `object` and casting once, internally, keeps every call site plain.
+  const beforeRecord = before as Record<string, unknown>;
+  const afterRecord = after as Record<string, unknown>;
   const changes: FieldChangeInput[] = [];
   for (const field of fields) {
-    if (after[field] === undefined) continue;
-    const oldNorm = normalize(before[field]);
-    const newNorm = normalize(after[field]);
+    if (afterRecord[field] === undefined) continue;
+    const oldNorm = normalize(beforeRecord[field]);
+    const newNorm = normalize(afterRecord[field]);
     if (oldNorm !== newNorm) {
       changes.push({ field, oldValue: oldNorm, newValue: newNorm });
     }

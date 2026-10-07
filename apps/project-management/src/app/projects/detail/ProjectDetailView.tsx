@@ -168,6 +168,29 @@ export function ProjectDetailView() {
     }
   }
 
+  /** Client-side preview of ProjectsService.applyPricing's freight-total
+   * arithmetic (freightCost + freightInsuranceCost + freightAdditionalCost)
+   * — purely cosmetic, same convention as LineForm.tsx's computedTotal/
+   * invoiceTotalPreview: the API recomputes and returns the authoritative
+   * figure on save (project.freightTotalCost / *ReportingCcy), which is
+   * what's actually persisted and locked. Ignores currency conversion. */
+  function freightTotalPreview(): string {
+    const parts = [headerForm.freightCost, headerForm.freightInsuranceCost, headerForm.freightAdditionalCost].filter(
+      (v): v is number => v !== null && v !== undefined,
+    );
+    if (parts.length === 0) return "";
+    return String(Math.round(parts.reduce((a, b) => a + b, 0) * 100) / 100);
+  }
+
+  /** Client-side preview of the freight margin amount (freight total x
+   * freightMarginPercent / 100) — same cosmetic-preview convention as
+   * above; the authoritative figure is project.freightMarginAmount. */
+  function freightMarginAmountPreview(): string {
+    const total = freightTotalPreview();
+    if (total === "" || headerForm.freightMarginPercent === null || headerForm.freightMarginPercent === undefined) return "";
+    return String(Math.round(Number(total) * (headerForm.freightMarginPercent / 100) * 100) / 100);
+  }
+
   /** The small, dedicated status-change control next to the StageTracker —
    * separate from the full "Edit Project Details" form, per
    * project-stage-navigation-plan.md: changing status stays an explicit
