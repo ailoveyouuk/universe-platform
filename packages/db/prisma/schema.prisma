@@ -268,6 +268,14 @@ model Organization {
   fieldChangeLogs             FieldChangeLog[]
   /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 4.
   riskAssessments             RiskAssessment[]
+  /// Added 2026-10-07 — GDP gap-closing build, Gap 3 (Standards & Evidence
+  /// scaffolding): each organisation builds its own catalog of standards.
+  evidenceStandardDefinitions EvidenceStandardDefinition[]
+  stakeholderEvidenceRecords  StakeholderEvidenceRecord[]
+  /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6 (batch
+  /// traceability + cold-chain temperature logging).
+  productBatches              ProductBatch[]
+  batchTemperatureLogs        BatchTemperatureLog[]
   /// Added 2026-10-07 — organizationId backfill, see each model's doc
   /// comment (compliance-standards-gap-analysis.md Gap 1 cross-check).
   partnerCertifications        PartnerCertification[]
@@ -482,6 +490,13 @@ model Partner {
   productLinesAsManufacturer ProductLine[] @relation("ProductLineManufacturer")
   productSourceApprovalsAsManufacturer ProductSourceApproval[] @relation("ProductSourceManufacturer")
   productSourceApprovalsAsSupplier     ProductSourceApproval[] @relation("ProductSourceSupplier")
+  /// Added 2026-10-07 — GDP gap-closing build, Gap 3. Evidence logged
+  /// against this partner (any role) across whatever standards the
+  /// organisation's own EvidenceStandardDefinition catalog defines.
+  evidenceRecords  StakeholderEvidenceRecord[]
+  /// Added 2026-10-07 — Gaps 5/6. This partner acting as a batch's
+  /// manufacturer of record.
+  productBatchesAsManufacturer ProductBatch[]
 
   @@index([organizationId])
   @@index([organizationId, normalizedName])
@@ -1283,6 +1298,16 @@ model ProjectLine {
   form                          String?
   packSize                      String?
   batchNumber                   String?
+  /// Added 2026-10-07 (GDP gap-closing build, Gaps 5/6) — links this line
+  /// to the first-class ProductBatch entity when one has been matched/
+  /// created, so "every place batch X was shipped" is a direct indexed
+  /// join instead of a free-text match on batchNumber above. Additive,
+  /// not a replacement: batchNumber is kept, unvalidated, for lines that
+  /// predate this or haven't been matched yet (see ProductBatch's doc
+  /// comment and sop-driven-quality-roadmap.md Section A's migration
+  /// note — existing free-text batchNumber data is not auto-migrated).
+  productBatchId                String?
+  productBatch                  ProductBatch? @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   expiryDate                    DateTime?
   storageConditions             String?
   dataLoggerReference           String?
@@ -1313,6 +1338,7 @@ model ProjectLine {
   @@index([projectId])
   @@index([supplierId])
   @@index([manufacturerId])
+  @@index([productBatchId])
   @@map("project_lines")
 }
 
@@ -1367,6 +1393,8 @@ model ProjectDocument {
   uploadedAt     DateTime @default(now())
 
   partnerCertifications PartnerCertification[]
+  /// Added 2026-10-07 — GDP gap-closing build, Gap 3.
+  stakeholderEvidenceRecords StakeholderEvidenceRecord[]
 
   @@index([organizationId])
   @@map("project_documents")
@@ -1473,6 +1501,8 @@ model ProductMaster {
   priceHistory         ProductPriceHistory[]
   supplierProducts     SupplierProduct[]
   productSourceApprovals ProductSourceApproval[]
+  /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6.
+  productBatches         ProductBatch[]
 
   @@index([category])
   @@index([hsCode])
@@ -2140,4 +2170,202 @@ model RiskAssessment {
   @@index([subjectType, subjectId])
   @@index([reviewDate])
   @@map("risk_assessments")
+}
+
+// ---------------------------------------------------------------------------
+// GDP gap-closing build (added 2026-10-07) — closes the two gaps identified
+// as genuinely missing for Good Distribution Practice in
+// claude/compliance-standards-gap-analysis.md's "GDP compliance assessment"
+// addendum, both already fully designed in sop-driven-quality-roadmap.md:
+//
+// Gap 3 — Standards & Evidence scaffolding: EvidenceStandardDefinition +
+// StakeholderEvidenceRecord, replacing the hardcoded PartnerCertification/
+// PartnerCompanyCheck type lists with a per-organisation configurable
+// catalog, and gating Partner.approvalStatus on mandatory evidence being
+// VERIFIED. (The roadmap doc also proposed a separate OnboardingRequirementSet
+// table; deliberately NOT built as its own table here — a "requirement set"
+// for a stakeholder type is just EvidenceStandardDefinition rows filtered by
+// appliesToStakeholderTypes + isMandatory for the org, so a materialized
+// join table would only duplicate that filter, not add new information. See
+// EvidenceService.getApplicableStandards/getGateStatus.)
+//
+// Gaps 5/6 — batch traceability + cold-chain temperature logging:
+// ProductBatch promotes the batch from a free-text field on ProjectLine to
+// a first-class, searchable entity; BatchTemperatureLog gives data-logger
+// readings/excursions their own child table instead of one flat field per
+// line. Carrier/route qualification (also named in Gap 5) is deliberately
+// NOT a new table — it's modeled as an EvidenceStandardDefinition row
+// scoped to the FREIGHT_FORWARDER stakeholder type (category REGULATORY,
+// with reVerificationFrequencyMonths driving requalification), reusing Gap
+// 3's infrastructure rather than building a second, parallel mechanism for
+// the same "qualified until a date, then needs re-checking" shape.
+// ---------------------------------------------------------------------------
+
+/// Gap 3 — the configurable catalog of standards/evidence an organisation
+/// can require from its stakeholders. Replaces the hardcoded allowed-value
+/// lists on PartnerCertification.type/PartnerCompanyCheck.checkType with a
+/// real, per-organisation, admin-editable table — Unimed's current MHRA/
+/// GDP/ISO/WHO-MQAS requirements become the first seeded rows, not a
+/// blueprint baked into code for every tenant. See
+/// sop-driven-quality-roadmap.md "Proposed core scaffolding", item 1.
+model EvidenceStandardDefinition {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name           String
+  description    String?      @db.NVarChar(Max)
+  /// QUALITY | BUSINESS | FINANCIAL | REGULATORY | INSURANCE | OTHER — see
+  /// EvidenceStandardCategory in packages/db/src/enums.ts.
+  category       String
+  /// Comma-joined PartnerRoleType values this standard applies to (e.g.
+  /// "MANUFACTURER,SUPPLIER") — same multiselect-as-comma-joined-string
+  /// convention as ClientDetail.productCategoryLicenses, since the SQL
+  /// Server connector has no native array/set column type.
+  appliesToStakeholderTypes String  @db.NVarChar(Max)
+  /// DOCUMENT | CHECK — see EvidenceType in packages/db/src/enums.ts;
+  /// drives which fields the frontend's "log evidence" form shows.
+  evidenceType   String
+  /// Drives gating: Partner.approvalStatus cannot move to APPROVED while
+  /// any isMandatory standard applicable to that partner's active roles
+  /// has no StakeholderEvidenceRecord with status VERIFIED (and, if
+  /// requiresExpiry, a non-expired one) — see EvidenceService.getGateStatus.
+  isMandatory    Boolean      @default(true)
+  requiresExpiry Boolean      @default(false)
+  /// When set, a VERIFIED record against this standard is flagged as due
+  /// for re-verification this many months after its own verifiedAt — the
+  /// generic mechanism behind "annual Bona Fide recheck", "annual customer
+  /// requalification", and freight-forwarder route requalification alike,
+  /// rather than a bespoke field/feature per case.
+  reVerificationFrequencyMonths Int?
+  active         Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  evidenceRecords StakeholderEvidenceRecord[]
+
+  @@index([organizationId])
+  @@index([organizationId, active])
+  @@map("evidence_standard_definitions")
+}
+
+/// Gap 3 — one logged piece of evidence against a standard, for one
+/// partner. Generalises PartnerCertification (DOCUMENT shape) and
+/// PartnerCompanyCheck (CHECK shape) into a single table keyed to a
+/// catalog row instead of a hardcoded type string. Existing
+/// PartnerCertification/PartnerCompanyCheck rows are NOT migrated into
+/// this table by this change — both tables stay exactly as they are for
+/// Unimed's existing data (see sop-driven-quality-roadmap.md's suggested
+/// build order, item 5, for the planned follow-up migration); this is the
+/// new write path going forward, usable immediately for any standard an
+/// org adds to its own catalog.
+model StakeholderEvidenceRecord {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId      String
+  partner        Partner      @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  standardId     String
+  standard       EvidenceStandardDefinition @relation(fields: [standardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referenceNumber String?
+  issuingBody    String?
+  issuedDate     DateTime?
+  expiryDate     DateTime?
+  /// Only meaningful for evidenceType == CHECK — YES | NO | NOT_APPLICABLE,
+  /// same convention as PartnerCompanyCheck.result.
+  result         String?
+  documentId     String?
+  document       ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// PENDING | VERIFIED | EXPIRED | REJECTED — see EvidenceRecordStatus.
+  status         String       @default("PENDING")
+  verifiedById   String?
+  verifiedAt     DateTime?
+  notes          String?      @db.NVarChar(Max)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([partnerId])
+  @@index([standardId])
+  @@index([expiryDate])
+  @@map("stakeholder_evidence_records")
+}
+
+/// Gaps 5/6 — promotes a product batch from a free-text field on
+/// ProjectLine to a first-class, searchable, tenant-scoped entity, so
+/// "every place batch X was shipped, and was it kept in spec" is one
+/// indexed query instead of a manual text search across project lines.
+/// See sop-driven-quality-roadmap.md "Full batch-level traceability for
+/// pharma projects".
+model ProductBatch {
+  id                              String        @id @default(uuid())
+  organizationId                  String
+  organization                    Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId                 String?
+  productMaster                   ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerId                  String?
+  manufacturer                    Partner?      @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber                     String
+  manufacturedDate                DateTime?
+  expiryDate                      DateTime?
+  storageConditions               String?
+  /// Which regulatory pathway qualified this batch — same allowed values
+  /// as ProjectLine.qualificationPathway (WHO PQ / SRA / ERP), moved here
+  /// as the canonical per-batch record rather than re-entered per line.
+  qualificationPathway            String?
+  qualificationPathwayExpiryDate  DateTime?
+  /// Marketing Authorization / Product License number.
+  maPl                            String?
+  /// ACTIVE | QUARANTINED | EXPIRED | WITHDRAWN — see ProductBatchStatus.
+  /// Tracked once per batch instead of per line, so quarantining a batch
+  /// is a single update that's visible everywhere that batch is referenced.
+  status                          String        @default("ACTIVE")
+  notes                           String?       @db.NVarChar(Max)
+  createdById                     String?
+  createdAt                       DateTime      @default(now())
+  updatedAt                       DateTime      @updatedAt
+
+  projectLines      ProjectLine[]
+  temperatureLogs   BatchTemperatureLog[]
+
+  @@index([organizationId])
+  @@index([organizationId, batchNumber])
+  @@index([productMasterId])
+  @@index([manufacturerId])
+  @@index([status])
+  @@map("product_batches")
+}
+
+/// Gaps 5/6 — one data-logger reading/excursion event against a batch.
+/// Previously a single flat dataLoggerReference/dataLoggerReportReviewed/
+/// excursionReview field-set per ProjectLine, which could not hold more
+/// than one logger event per shipment; this gives cold-chain monitoring
+/// its own child table, scoped to the batch (the WHO/EU GDP-relevant unit)
+/// rather than the commercial line.
+model BatchTemperatureLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productBatchId String
+  productBatch   ProductBatch @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Optional — which specific shipment/delivery this reading belongs to,
+  /// when the batch has been linked to one or more ProjectLines.
+  projectLineId  String?
+  loggerReference String?
+  /// Free-text summary of the logger's reading/report for now (e.g. "2-8C
+  /// maintained throughout, no excursions" or "+11C for 40min at hr 6") —
+  /// a structured min/max/duration time-series is a larger, separate
+  /// build (full IoT logger ingestion) this doesn't attempt.
+  readingSummary String?      @db.NVarChar(Max)
+  hasExcursion   Boolean      @default(false)
+  excursionNotes String?      @db.NVarChar(Max)
+  reviewed       Boolean      @default(false)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  recordedAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([productBatchId])
+  @@map("batch_temperature_logs")
 }

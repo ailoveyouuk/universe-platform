@@ -83,6 +83,10 @@ export class ProjectLineDto {
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsString() packSize?: string;
   @IsOptional() @IsString() batchNumber?: string;
+  /** Added 2026-10-07 (GDP gap-closing build, Gaps 5/6) — links this line
+   * to a first-class ProductBatch when one has been matched/created.
+   * Additive: batchNumber above is unaffected and still accepted/saved. */
+  @IsOptional() @IsString() productBatchId?: string;
   @IsOptional() @IsString() expiryDate?: string;
   @IsOptional() @IsString() storageConditions?: string;
   @IsOptional() @IsString() dataLoggerReference?: string;

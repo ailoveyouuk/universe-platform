@@ -191,6 +191,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     form: l.form,
     packSize: l.packSize,
     batchNumber: l.batchNumber,
+    productBatchId: l.productBatchId,
     expiryDate: l.expiryDate?.toISOString() ?? null,
     storageConditions: l.storageConditions,
     dataLoggerReference: l.dataLoggerReference,

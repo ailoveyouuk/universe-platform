@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
+import { EvidenceService } from "../evidence/evidence.service";
 import type { PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { normalizeStakeholderName } from "../common/normalize-name";
@@ -181,7 +182,10 @@ function buildManufacturerSitesCreate(
 
 @Injectable()
 export class PartnersService {
-  constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
+  constructor(
+    private readonly stakeholderRegistryService: StakeholderRegistryService,
+    private readonly evidenceService: EvidenceService,
+  ) {}
 
   // Every method wraps its Prisma work in withTenantContext(user.organizationId, ...)
   // — see packages/db/src/tenant-context.ts. Azure SQL Row-Level Security on the
@@ -374,6 +378,23 @@ export class PartnersService {
         "sharedWithUniverseRegistry",
       ] as const;
       const changes = diffForAudit(existing, dto, auditedFields);
+
+      // Gap 3 (compliance-standards-gap-analysis.md's GDP compliance
+      // assessment addendum) — gating. Moving approvalStatus to APPROVED
+      // is blocked while any mandatory EvidenceStandardDefinition
+      // applicable to this partner's active roles has no current,
+      // VERIFIED StakeholderEvidenceRecord. Checked in the SAME
+      // transaction as the update it's gating, so there's no window for
+      // a concurrent evidence change to race it. Only enforced on the
+      // transition INTO APPROVED, not on every save of an already-
+      // approved partner, so existing approved partners aren't
+      // retroactively broken by a newly-added mandatory standard.
+      if (dto.approvalStatus === "APPROVED" && existing.approvalStatus !== "APPROVED") {
+        const gate = await this.evidenceService.getGateStatus(tx, user.organizationId, id);
+        if (!gate.satisfied) {
+          throw new BadRequestException(EvidenceService.gateFailureMessage(gate.missingStandards));
+        }
+      }
 
       const updated = await tx.partner.update({
         where: { id },

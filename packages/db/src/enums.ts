@@ -130,6 +130,48 @@ export const PartnerApprovalStatus = {
 } as const;
 export type PartnerApprovalStatus = (typeof PartnerApprovalStatus)[keyof typeof PartnerApprovalStatus];
 
+// --- Added 2026-10-07, GDP gap-closing build (Gaps 3, 5, 6 — see
+// claude/compliance-standards-gap-analysis.md's "GDP compliance assessment"
+// addendum). Standards & Evidence scaffolding (Gap 3) + batch traceability/
+// temperature logging (Gaps 5/6). ---
+
+export const EvidenceStandardCategory = {
+  QUALITY: "QUALITY",
+  BUSINESS: "BUSINESS",
+  FINANCIAL: "FINANCIAL",
+  REGULATORY: "REGULATORY",
+  INSURANCE: "INSURANCE",
+  OTHER: "OTHER",
+} as const;
+export type EvidenceStandardCategory = (typeof EvidenceStandardCategory)[keyof typeof EvidenceStandardCategory];
+
+/// DOCUMENT = a cert/licence with issue+expiry (today's PartnerCertification
+/// shape); CHECK = a dated yes/no/n-a verification (today's
+/// PartnerCompanyCheck shape). EvidenceStandardDefinition drives which shape
+/// a given standard uses, replacing the hardcoded type lists on those two
+/// older tables (which stay in place, untouched, for existing data).
+export const EvidenceType = {
+  DOCUMENT: "DOCUMENT",
+  CHECK: "CHECK",
+} as const;
+export type EvidenceType = (typeof EvidenceType)[keyof typeof EvidenceType];
+
+export const EvidenceRecordStatus = {
+  PENDING: "PENDING",
+  VERIFIED: "VERIFIED",
+  EXPIRED: "EXPIRED",
+  REJECTED: "REJECTED",
+} as const;
+export type EvidenceRecordStatus = (typeof EvidenceRecordStatus)[keyof typeof EvidenceRecordStatus];
+
+export const ProductBatchStatus = {
+  ACTIVE: "ACTIVE",
+  QUARANTINED: "QUARANTINED",
+  EXPIRED: "EXPIRED",
+  WITHDRAWN: "WITHDRAWN",
+} as const;
+export type ProductBatchStatus = (typeof ProductBatchStatus)[keyof typeof ProductBatchStatus];
+
 /// Expanded 2026-10-02 after a research pass on Unimed's real supplier
 /// files — covers every document type actually observed, not just the
 /// original four.

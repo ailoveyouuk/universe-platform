@@ -324,6 +324,9 @@ export interface ProjectLineSummary {
   form: string | null;
   packSize: string | null;
   batchNumber: string | null;
+  /** Added 2026-10-07 (GDP gap-closing build, Gaps 5/6) — see
+   * ProductBatch in schema.prisma. */
+  productBatchId: string | null;
   expiryDate: string | null;
   storageConditions: string | null;
   dataLoggerReference: string | null;
@@ -437,6 +440,7 @@ export interface ProjectLineInput {
   form?: string | null;
   packSize?: string | null;
   batchNumber?: string | null;
+  productBatchId?: string | null;
   expiryDate?: string | null;
   storageConditions?: string | null;
   dataLoggerReference?: string | null;
@@ -1281,4 +1285,74 @@ export interface FieldChangeLogEntry {
   reason: string | null;
   source: string;
   certificationStatement: string | null;
+}
+
+/** Gap 3 (compliance-standards-gap-analysis.md's GDP compliance assessment
+ * addendum) — one row of an organisation's own Standards & Evidence
+ * catalog. appliesToStakeholderTypes is a real string[] at this boundary
+ * (PartnerRoleType values) — the API encodes/decodes the comma-joined
+ * storage form, callers never see it. */
+export interface EvidenceStandardSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  appliesToStakeholderTypes: string[];
+  evidenceType: string;
+  isMandatory: boolean;
+  requiresExpiry: boolean;
+  reVerificationFrequencyMonths: number | null;
+  active: boolean;
+  sortOrder: number;
+}
+
+/** One piece of evidence logged against a standard, for one partner. */
+export interface StakeholderEvidenceRecordSummary {
+  id: string;
+  partnerId: string;
+  standardId: string;
+  standardName?: string;
+  referenceNumber: string | null;
+  issuingBody: string | null;
+  issuedDate: string | null;
+  expiryDate: string | null;
+  result: string | null;
+  documentId: string | null;
+  status: string;
+  verifiedById: string | null;
+  verifiedAt: string | null;
+  notes: string | null;
+}
+
+/** Gaps 5/6 — a first-class, searchable batch record. See ProductBatch's
+ * doc comment in schema.prisma. */
+export interface ProductBatchSummary {
+  id: string;
+  productMasterId: string | null;
+  manufacturerId: string | null;
+  manufacturerName?: string;
+  batchNumber: string;
+  manufacturedDate: string | null;
+  expiryDate: string | null;
+  storageConditions: string | null;
+  qualificationPathway: string | null;
+  qualificationPathwayExpiryDate: string | null;
+  maPl: string | null;
+  status: string;
+  notes: string | null;
+}
+
+/** One cold-chain data-logger reading/excursion event against a batch. */
+export interface BatchTemperatureLogSummary {
+  id: string;
+  productBatchId: string;
+  projectLineId: string | null;
+  loggerReference: string | null;
+  readingSummary: string | null;
+  hasExcursion: boolean;
+  excursionNotes: string | null;
+  reviewed: boolean;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  recordedAt: string;
 }

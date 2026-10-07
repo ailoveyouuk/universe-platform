@@ -183,7 +183,30 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
 
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments AFTER UPDATE,
+
+    -- evidence_standard_definitions / stakeholder_evidence_records /
+    -- product_batches / batch_temperature_logs — GDP gap-closing build,
+    -- added 2026-10-07 (compliance-standards-gap-analysis.md Gaps 3, 5, 6).
+    -- Added to this policy in the SAME migration that creates the tables,
+    -- unlike partner_certifications/partner_company_checks/
+    -- partner_approval_history above, which went five days without RLS
+    -- coverage after being created — see that finding's own note.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.evidence_standard_definitions,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.evidence_standard_definitions AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.evidence_standard_definitions AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.stakeholder_evidence_records,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.stakeholder_evidence_records AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.stakeholder_evidence_records AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_batches,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_batches AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_batches AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs AFTER UPDATE
 WITH (STATE = ON);
 GO
 

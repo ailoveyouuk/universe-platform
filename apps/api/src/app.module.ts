@@ -13,6 +13,8 @@ import { StakeholderRegistryModule } from "./stakeholder-registry/stakeholder-re
 import { ProductCatalogModule } from "./product-catalog/product-catalog.module";
 import { RiskAssessmentsModule } from "./risk-assessments/risk-assessments.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
+import { EvidenceModule } from "./evidence/evidence.module";
+import { ProductBatchesModule } from "./batches/product-batches.module";
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { AuditLogModule } from "./audit-log/audit-log.module";
     ProductCatalogModule,
     RiskAssessmentsModule,
     AuditLogModule,
+    EvidenceModule,
+    ProductBatchesModule,
   ],
   controllers: [MeController],
 })
