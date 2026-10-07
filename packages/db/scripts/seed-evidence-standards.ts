@@ -60,10 +60,16 @@ const WARE = "WAREHOUSING";
 const STANDARDS: StandardSeed[] = [
   // --- QUALITY ---
   {
+    // Widened 2026-10-07: Unimed's real Non-Pharmaceutical Supplier
+    // Register shows ISO 13485 held routinely by SUPPLIER-role
+    // stakeholders too (distributors of medical devices, not just the
+    // manufacturers themselves) — originally MANUFACTURER-only, which
+    // meant real supplier evidence on file for this standard never
+    // counted toward their approval gate.
     name: "ISO 13485 — Medical Devices QMS Certificate",
-    description: "Quality management system certification for medical device manufacturers.",
+    description: "Quality management system certification for medical device manufacturers and distributors.",
     category: "QUALITY",
-    appliesToStakeholderTypes: [MANU],
+    appliesToStakeholderTypes: [MANU, SUPP],
     evidenceType: "DOCUMENT",
     isMandatory: true,
     requiresExpiry: true,
@@ -78,6 +84,19 @@ const STANDARDS: StandardSeed[] = [
     isMandatory: false,
     requiresExpiry: true,
     sortOrder: 20,
+  },
+  {
+    // Added 2026-10-07: the Supplier Register tracks this as its own
+    // column (separate from ISO 9001/13485) and at least one real
+    // supplier (Zarys International Group) holds it on file.
+    name: "ISO 14001 — Environmental Management System Certificate",
+    description: "Environmental management system certification.",
+    category: "QUALITY",
+    appliesToStakeholderTypes: [MANU, SUPP, FREIGHT, WARE],
+    evidenceType: "DOCUMENT",
+    isMandatory: false,
+    requiresExpiry: true,
+    sortOrder: 25,
   },
   {
     name: "GMP Certificate",
@@ -141,6 +160,22 @@ const STANDARDS: StandardSeed[] = [
     isMandatory: true,
     requiresExpiry: true,
     sortOrder: 80,
+  },
+  {
+    // Added 2026-10-07: the Supplier Register carries a real "FDA
+    // Registration" column (a registration number, not a yes/no), held
+    // by several real manufacturers AND suppliers on file (e.g. Taizhou
+    // Rich, Aimmax Medical Products, Anhui Anyu, 365 Medical). No expiry
+    // column for it in the register — treated as not requiring expiry
+    // tracking here, same as the register itself.
+    name: "FDA Registration",
+    description: "US FDA establishment/device registration number, where applicable.",
+    category: "REGULATORY",
+    appliesToStakeholderTypes: [MANU, SUPP],
+    evidenceType: "DOCUMENT",
+    isMandatory: false,
+    requiresExpiry: false,
+    sortOrder: 85,
   },
   {
     name: "CE / MDR Certificate",

@@ -72,6 +72,11 @@ type SupplierSeed = {
    * doesn't carry one, rather than guessing. */
   verifiedAt: string | null;
   isoClaims: IsoClaim[];
+  /** The register's own "FDA Registration" column — a distinct
+   * standard from any ISO claim (see FDA Registration in the catalog),
+   * not a certificate reference number for one of the isoClaims above.
+   * null where the register says N/A for this supplier. */
+  fdaRegistrationNumber: string | null;
 };
 
 const SUPPLIERS: SupplierSeed[] = [
@@ -79,8 +84,9 @@ const SUPPLIERS: SupplierSeed[] = [
     canonicalName: "365 Medical (Bunzl)", supplierCode: "CnP", sourceTab: "Others Register",
     evidenceStatusMode: "VERIFIED_OR_EXPIRED", verifiedAt: "2022-09-13",
     isoClaims: [
-      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: "3010586164", expiryDate: "2023-09-27" },
+      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2023-09-27" },
     ],
+    fdaRegistrationNumber: "3010586164",
   },
   {
     canonicalName: "HK Wentworth Ltd (AF First Aid)", supplierCode: "MLC", sourceTab: "Others Register",
@@ -88,6 +94,7 @@ const SUPPLIERS: SupplierSeed[] = [
     isoClaims: [
       { standardName: "ISO 9001 — Quality Management System Certificate", referenceNumber: null, expiryDate: "2024-02-24" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "A&D Instruments", supplierCode: "MLE", sourceTab: "Others Register",
@@ -96,6 +103,7 @@ const SUPPLIERS: SupplierSeed[] = [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2027-07-06" },
       { standardName: "ISO 9001 — Quality Management System Certificate", referenceNumber: null, expiryDate: "2026-05-08" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "Abdos Life Sciences Pvt Ltd", supplierCode: "CnP", sourceTab: "Others Register",
@@ -104,6 +112,7 @@ const SUPPLIERS: SupplierSeed[] = [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2027-11-04" },
       { standardName: "ISO 9001 — Quality Management System Certificate", referenceNumber: null, expiryDate: "2027-11-04" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "AdLite Medical", supplierCode: "MLE", sourceTab: "Yifeng Register",
@@ -111,13 +120,15 @@ const SUPPLIERS: SupplierSeed[] = [
     isoClaims: [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2024-04-05" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "Aimmax Medical Products", supplierCode: "MLC", sourceTab: "Yifeng Register",
     evidenceStatusMode: "VERIFIED_OR_EXPIRED", verifiedAt: null,
     isoClaims: [
-      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: "3007594380 (2022)", expiryDate: "2028-02-23" },
+      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2028-02-23" },
     ],
+    fdaRegistrationNumber: "3007594380 (2022)",
   },
   {
     canonicalName: "AMCAREMED Technology", supplierCode: "MLE", sourceTab: "Yifeng Register",
@@ -125,13 +136,15 @@ const SUPPLIERS: SupplierSeed[] = [
     isoClaims: [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2024-10-20" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "Anhui Anyu", supplierCode: "MLC", sourceTab: "Yifeng Register",
     evidenceStatusMode: "VERIFIED_OR_EXPIRED", verifiedAt: null,
     isoClaims: [
-      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: "3012359113 (2022)", expiryDate: "2023-08-07" },
+      { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2023-08-07" },
     ],
+    fdaRegistrationNumber: "3012359113 (2022)",
   },
   {
     canonicalName: "AccuBio Tech Co. Ltd", supplierCode: "MLC", sourceTab: "PENDING APPROVAL",
@@ -139,6 +152,7 @@ const SUPPLIERS: SupplierSeed[] = [
     isoClaims: [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2026-07-15" },
     ],
+    fdaRegistrationNumber: null,
   },
   {
     canonicalName: "Alpha Labs", supplierCode: "MLC", sourceTab: "PENDING APPROVAL",
@@ -147,6 +161,7 @@ const SUPPLIERS: SupplierSeed[] = [
       { standardName: "ISO 13485 — Medical Devices QMS Certificate", referenceNumber: null, expiryDate: "2027-10-15" },
       { standardName: "ISO 9001 — Quality Management System Certificate", referenceNumber: null, expiryDate: "2027-10-15" },
     ],
+    fdaRegistrationNumber: null,
   },
 ];
 
@@ -236,6 +251,36 @@ async function main() {
         console.log(
           `  [evidence] created: ${s.canonicalName} / ${claim.standardName} (${status}, exp ${claim.expiryDate})`,
         );
+      }
+
+      if (s.fdaRegistrationNumber) {
+        const fdaStandard = await tx.evidenceStandardDefinition.findFirst({
+          where: { organizationId: org.id, name: "FDA Registration" },
+        });
+        if (!fdaStandard) {
+          console.log(`  [evidence] SKIPPED — "FDA Registration" standard not found (run seed:evidence-standards first)`);
+        } else {
+          const existingFda = await tx.stakeholderEvidenceRecord.findFirst({
+            where: { organizationId: org.id, partnerId: partner.id, standardId: fdaStandard.id },
+          });
+          if (existingFda) {
+            console.log(`  [evidence] already on file: ${s.canonicalName} / FDA Registration`);
+          } else {
+            const fdaStatus = s.evidenceStatusMode === "PENDING" ? "PENDING" : "VERIFIED";
+            await tx.stakeholderEvidenceRecord.create({
+              data: {
+                organizationId: org.id,
+                partnerId: partner.id,
+                standardId: fdaStandard.id,
+                referenceNumber: s.fdaRegistrationNumber,
+                status: fdaStatus,
+                verifiedAt: s.verifiedAt ? new Date(s.verifiedAt) : null,
+                notes: `TEST BATCH IMPORT. Source: Supplier Register "${s.sourceTab}" tab, "FDA Registration" column.`,
+              },
+            });
+            console.log(`  [evidence] created: ${s.canonicalName} / FDA Registration (${fdaStatus}, ${s.fdaRegistrationNumber})`);
+          }
+        }
       }
     }
   });

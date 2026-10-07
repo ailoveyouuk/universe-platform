@@ -68,8 +68,12 @@ const COMPANY_EVIDENCE: CompanyEvidenceSeed[] = [
     source: "Supplier Register (Others Register tab) — no separate certificate reference number column in the register",
   },
   {
+    // "3016826509 (2022)" is Taizhou Rich's FDA Registration number, a
+    // separate standard (see the FDA Registration entry further below)
+    // — not the ISO 13485 certificate's own reference, which the
+    // register doesn't give separately.
     stakeholder: "Taizhou Rich", standardName: "ISO 13485 — Medical Devices QMS Certificate",
-    referenceNumber: "3016826509 (2022)", expiryDate: "2026-12-15", verifiedAt: "2026-07-10",
+    referenceNumber: null, expiryDate: "2026-12-15", verifiedAt: "2026-07-10",
     source: "Supplier Register (Yifeng Register tab)",
   },
   {
@@ -103,6 +107,22 @@ const COMPANY_EVIDENCE: CompanyEvidenceSeed[] = [
     referenceNumber: null, expiryDate: null, verifiedAt: "2026-09-11",
     source: 'Product Database only (bare "13485" claim) — no matching entry found in the Supplier Register',
   },
+  {
+    // Added 2026-10-07 after widening the ISO 14001 standard — Zarys is
+    // the only one of these 5 stakeholders the register shows holding it.
+    stakeholder: "Zarys International", standardName: "ISO 14001 — Environmental Management System Certificate",
+    referenceNumber: null, expiryDate: "2028-11-16", verifiedAt: "2026-08-04",
+    source: 'Supplier Register (Others Register tab, registered as "Zarys International Group")',
+  },
+];
+
+/** Added 2026-10-07 after widening the catalog to include FDA
+ * Registration — real registration numbers the Supplier Register
+ * carries for several of these stakeholders, as their own column
+ * distinct from any ISO certificate. No expiry column for it in the
+ * register, matching the standard's requiresExpiry: false. */
+const FDA_REGISTRATION_EVIDENCE: { stakeholder: string; referenceNumber: string; verifiedAt: string }[] = [
+  { stakeholder: "Taizhou Rich", referenceNumber: "3016826509 (2022)", verifiedAt: "2026-07-10" },
 ];
 
 /** Added 2026-10-07 from the Supplier Register's "Code of Conduct sent" column — real dated evidence
@@ -383,6 +403,38 @@ async function main() {
         },
       });
       console.log(`  [evidence] created: ${coc.stakeholder} / Code of Conduct Acknowledgement (VERIFIED)`);
+    }
+
+    console.log();
+    for (const fda of FDA_REGISTRATION_EVIDENCE) {
+      const partnerId = partnerIdByName.get(fda.stakeholder);
+      if (!partnerId) continue;
+      const standard = await tx.evidenceStandardDefinition.findFirst({
+        where: { organizationId: org.id, name: "FDA Registration" },
+      });
+      if (!standard) {
+        console.log(`  [evidence] SKIPPED — "FDA Registration" standard not found (run seed:evidence-standards first)`);
+        continue;
+      }
+      const existing = await tx.stakeholderEvidenceRecord.findFirst({
+        where: { organizationId: org.id, partnerId, standardId: standard.id },
+      });
+      if (existing) {
+        console.log(`  [evidence] already on file: ${fda.stakeholder} / FDA Registration`);
+        continue;
+      }
+      await tx.stakeholderEvidenceRecord.create({
+        data: {
+          organizationId: org.id,
+          partnerId,
+          standardId: standard.id,
+          referenceNumber: fda.referenceNumber,
+          status: "VERIFIED",
+          verifiedAt: new Date(fda.verifiedAt),
+          notes: "TEST BATCH IMPORT. Source: Supplier Register \"FDA Registration\" column.",
+        },
+      });
+      console.log(`  [evidence] created: ${fda.stakeholder} / FDA Registration (${fda.referenceNumber})`);
     }
 
     console.log();
