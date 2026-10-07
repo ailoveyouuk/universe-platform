@@ -45,13 +45,72 @@ const STAKEHOLDERS: StakeholderSeed[] = [
   { canonicalName: "Globus (Anhui Intco Medical Products)", roles: ["MANUFACTURER"] },
 ];
 
-const COMPANY_EVIDENCE: { stakeholder: string; standardName: string; verifiedAt: string }[] = [
-  { stakeholder: "Yifeng Yingtai", standardName: "ISO 9001 — Quality Management System Certificate", verifiedAt: "2026-07-10" },
-  { stakeholder: "Taizhou Rich", standardName: "ISO 13485 — Medical Devices QMS Certificate", verifiedAt: "2026-07-10" },
-  { stakeholder: "Jiangyin Nanquan", standardName: "ISO 13485 — Medical Devices QMS Certificate", verifiedAt: "2026-07-10" },
-  { stakeholder: "Zarys International", standardName: "ISO 13485 — Medical Devices QMS Certificate", verifiedAt: "2026-08-04" },
-  { stakeholder: "Globus", standardName: "ISO 9001 — Quality Management System Certificate", verifiedAt: "2026-09-11" },
-  { stakeholder: "Globus (Anhui Intco Medical Products)", standardName: "ISO 13485 — Medical Devices QMS Certificate", verifiedAt: "2026-09-11" },
+/** Enriched 2026-10-07 against Unimed's real Non-Pharmaceutical Supplier
+ * Register (FORM_008.3) and, for Zarys, the actual signed certificate PDF
+ * in SharePoint — richer and more accurate than the Product Database's
+ * own free-text certification columns, which only ever carried a bare
+ * standard number with no reference/expiry for most of these. */
+type CompanyEvidenceSeed = {
+  stakeholder: string;
+  standardName: string;
+  referenceNumber: string | null;
+  /** ISO date string, or null when no expiry was recorded anywhere for
+   * this claim — only true for the one Globus-manufacturer row below. */
+  expiryDate: string | null;
+  verifiedAt: string;
+  source: string;
+};
+
+const COMPANY_EVIDENCE: CompanyEvidenceSeed[] = [
+  {
+    stakeholder: "Yifeng Yingtai", standardName: "ISO 9001 — Quality Management System Certificate",
+    referenceNumber: null, expiryDate: "2027-05-31", verifiedAt: "2024-06-21",
+    source: "Supplier Register (Others Register tab) — no separate certificate reference number column in the register",
+  },
+  {
+    stakeholder: "Taizhou Rich", standardName: "ISO 13485 — Medical Devices QMS Certificate",
+    referenceNumber: "3016826509 (2022)", expiryDate: "2026-12-15", verifiedAt: "2026-07-10",
+    source: "Supplier Register (Yifeng Register tab)",
+  },
+  {
+    stakeholder: "Jiangyin Nanquan", standardName: "ISO 13485 — Medical Devices QMS Certificate",
+    referenceNumber: null, expiryDate: "2027-10-31", verifiedAt: "2026-07-10",
+    source: 'Supplier Register (Yifeng Register tab, registered there as "Jiangyin Nanquan Macromolecule")',
+  },
+  {
+    stakeholder: "Zarys International", standardName: "ISO 13485 — Medical Devices QMS Certificate",
+    referenceNumber: "SX 2739190-1", expiryDate: "2029-06-08", verifiedAt: "2026-08-04",
+    source: 'Supplier Register (Others Register tab, registered as "Zarys International Group") and the signed certificate PDF in SharePoint (NEW Suppliers Info/Zarys)',
+  },
+  {
+    stakeholder: "Zarys International", standardName: "ISO 9001 — Quality Management System Certificate",
+    referenceNumber: null, expiryDate: "2028-11-16", verifiedAt: "2026-08-04",
+    source: "Supplier Register (Others Register tab)",
+  },
+  {
+    stakeholder: "Globus", standardName: "ISO 9001 — Quality Management System Certificate",
+    referenceNumber: null, expiryDate: "2028-09-07", verifiedAt: "2026-09-11",
+    source: 'Supplier Register (Others Register tab, registered as "Globus (Shetland) Ltd")',
+  },
+  // Globus (Anhui Intco Medical Products) — NOT found as its own entry anywhere in the Supplier
+  // Register, under this or any similar name. Unimed's vetting appears to be on "Globus (Shetland)
+  // Ltd" (the actual supplier of record) only — the Chinese factory behind that brand has not been
+  // independently vetted as far as this register shows. Kept as the Product Database's original bare,
+  // unreferenced claim rather than inventing a register match — flagged for Lewis to confirm whether
+  // that's intentional (Unimed only ever vets its direct supplier, not every sub-tier factory) or a gap.
+  {
+    stakeholder: "Globus (Anhui Intco Medical Products)", standardName: "ISO 13485 — Medical Devices QMS Certificate",
+    referenceNumber: null, expiryDate: null, verifiedAt: "2026-09-11",
+    source: 'Product Database only (bare "13485" claim) — no matching entry found in the Supplier Register',
+  },
+];
+
+/** Added 2026-10-07 from the Supplier Register's "Code of Conduct sent" column — real dated evidence
+ * the Product Database never captured at all. */
+const CODE_OF_CONDUCT_EVIDENCE: { stakeholder: string; sentAt: string }[] = [
+  { stakeholder: "Yifeng Yingtai", sentAt: "2026-09-02" },
+  { stakeholder: "Zarys International", sentAt: "2026-09-02" },
+  { stakeholder: "Globus", sentAt: "2026-09-11" },
 ];
 
 type ProductSeed = { name: string; category: string };
@@ -270,22 +329,60 @@ async function main() {
         console.log(`  [evidence] already on file: ${ev.stakeholder} / ${ev.standardName}`);
         continue;
       }
+      const expiry = ev.expiryDate ? new Date(ev.expiryDate) : null;
+      const status = expiry && expiry < new Date() ? "EXPIRED" : "VERIFIED";
+      await tx.stakeholderEvidenceRecord.create({
+        data: {
+          organizationId: org.id,
+          partnerId,
+          standardId: standard.id,
+          referenceNumber: ev.referenceNumber,
+          expiryDate: expiry,
+          status,
+          verifiedAt: new Date(ev.verifiedAt),
+          notes:
+            `TEST BATCH IMPORT. Source: ${ev.source}.` +
+            (ev.expiryDate
+              ? ""
+              : " No expiry date was recorded for this claim in any source — re-verification should obtain one, not just re-confirm this record."),
+        },
+      });
+      console.log(
+        `  [evidence] created: ${ev.stakeholder} / ${ev.standardName} (${status}` +
+          (expiry ? `, exp ${ev.expiryDate}` : ", no expiry on file") +
+          `)`,
+      );
+    }
+
+    console.log();
+    for (const coc of CODE_OF_CONDUCT_EVIDENCE) {
+      const partnerId = partnerIdByName.get(coc.stakeholder);
+      if (!partnerId) continue;
+      const standard = await tx.evidenceStandardDefinition.findFirst({
+        where: { organizationId: org.id, name: "Code of Conduct Acknowledgement" },
+      });
+      if (!standard) {
+        console.log(`  [evidence] SKIPPED — "Code of Conduct Acknowledgement" standard not found`);
+        continue;
+      }
+      const existing = await tx.stakeholderEvidenceRecord.findFirst({
+        where: { organizationId: org.id, partnerId, standardId: standard.id },
+      });
+      if (existing) {
+        console.log(`  [evidence] Code of Conduct already on file: ${coc.stakeholder}`);
+        continue;
+      }
       await tx.stakeholderEvidenceRecord.create({
         data: {
           organizationId: org.id,
           partnerId,
           standardId: standard.id,
           status: "VERIFIED",
-          verifiedAt: new Date(ev.verifiedAt),
-          notes:
-            "TEST BATCH IMPORT (legacy/partial): source spreadsheet captured only the bare ISO standard " +
-            "number against this stakeholder, with no certificate reference number or expiry date ever " +
-            "recorded. Imported as VERIFIED to reflect that Unimed's procurement team did check this at " +
-            "the time, per the historical process — but re-verification should obtain the actual " +
-            "certificate detail rather than just re-confirming this record.",
+          verifiedAt: new Date(coc.sentAt),
+          notes: 'TEST BATCH IMPORT. Source: Supplier Register "Code of Conduct sent" column.',
         },
       });
-      console.log(`  [evidence] created: ${ev.stakeholder} / ${ev.standardName} (VERIFIED, no expiry on file)`);
+      console.log(`  [evidence] created: ${coc.stakeholder} / Code of Conduct Acknowledgement (VERIFIED)`);
     }
 
     console.log();
