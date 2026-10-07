@@ -19,7 +19,8 @@
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
     "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts",
     "import:product-db-test-batch": "tsx scripts/import-product-db-test-batch.ts",
-    "import:supplier-register-test-batch": "tsx scripts/import-supplier-register-test-batch.ts"
+    "import:supplier-register-test-batch": "tsx scripts/import-supplier-register-test-batch.ts",
+    "fix:stale-test-batch-evidence": "tsx scripts/correct-stale-test-batch-evidence.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
