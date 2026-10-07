@@ -15,6 +15,7 @@ import { Pill, TextLink, BuildingIcon, Button, AlertIcon, CheckCircleIcon, Clock
 import { AuditHistory } from "../../../components/AuditHistory";
 import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
+import { useCurrentUser } from "../../../lib/AuthContext";
 
 const ROLE_LABELS: Record<string, string> = {
   CLIENT: "Client",
@@ -54,6 +55,7 @@ const inputStyle: CSSProperties = {
  * gate actually gets exercised by a real user action.
  */
 export default function PartnerDetailPage() {
+  const me = useCurrentUser();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const [partner, setPartner] = useState<PartnerSummary | null>(null);
@@ -127,7 +129,15 @@ export default function PartnerDetailPage() {
 
   const activeRoleTypes = partner.roles.filter((r) => r.isActive).map((r) => r.roleType);
   const applicableStandards = standards.filter((s) => s.appliesToStakeholderTypes.some((t) => activeRoleTypes.includes(t)));
-  const canApprove = partner.approvalStatus !== "APPROVED" && partner.approvalStatus !== "REMOVED";
+  // QA/procurement segregation of duties (Lewis, 2026-10-08) — the server
+  // already enforces partners.approve (PartnersService.update), but a
+  // procurement-only user clicking a button that's always going to 403
+  // is a bad UX, not a security boundary — hiding it here is purely
+  // cosmetic, not the actual control.
+  const canApprove =
+    partner.approvalStatus !== "APPROVED" &&
+    partner.approvalStatus !== "REMOVED" &&
+    (me?.permissions.includes("partners.approve") ?? false);
 
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
@@ -230,6 +240,7 @@ export default function PartnerDetailPage() {
                 open={openStandardId === standard.id}
                 onToggleOpen={() => setOpenStandardId(openStandardId === standard.id ? null : standard.id)}
                 onChanged={loadEvidence}
+                canVerify={me?.permissions.includes("evidence.verify") ?? false}
               />
             ))}
           </div>
@@ -392,6 +403,7 @@ function EvidenceStandardRow({
   open,
   onToggleOpen,
   onChanged,
+  canVerify,
 }: {
   standard: EvidenceStandardSummary;
   record: StakeholderEvidenceRecordSummary | null;
@@ -399,6 +411,10 @@ function EvidenceStandardRow({
   open: boolean;
   onToggleOpen: () => void;
   onChanged: () => void;
+  /** QA/procurement segregation of duties (Lewis, 2026-10-08) — purely
+   * cosmetic, same reasoning as canApprove above; evidence.verify is
+   * enforced server-side regardless. */
+  canVerify: boolean;
 }) {
   const [verifying, setVerifying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -446,7 +462,7 @@ function EvidenceStandardRow({
             {icon}
             {effectiveStatus.charAt(0) + effectiveStatus.slice(1).toLowerCase()}
           </span>
-          {effectiveStatus === "PENDING" && (
+          {effectiveStatus === "PENDING" && canVerify && (
             <>
               <Button variant="secondary" onClick={() => handleVerify(true)} disabled={verifying}>
                 Verify
@@ -455,6 +471,9 @@ function EvidenceStandardRow({
                 Reject
               </Button>
             </>
+          )}
+          {effectiveStatus === "PENDING" && !canVerify && (
+            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>Awaiting QA review</span>
           )}
           {(effectiveStatus === "MISSING" || effectiveStatus === "REJECTED" || effectiveStatus === "EXPIRED") && (
             <Button variant="secondary" onClick={onToggleOpen}>

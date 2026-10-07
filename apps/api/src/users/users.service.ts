@@ -14,7 +14,7 @@ function toSummary(u: {
   status: string;
   organizationId: string;
   organization: { name: string };
-  userRoles: { role: { name: string } }[];
+  userRoles: { role: { id: string; name: string } }[];
   invitedAt: Date;
   firstSignInAt: Date | null;
 }): UserSummary {
@@ -27,6 +27,7 @@ function toSummary(u: {
     organizationId: u.organizationId,
     organizationName: u.organization.name,
     roleNames: u.userRoles.map((ur) => ur.role.name),
+    roleIds: u.userRoles.map((ur) => ur.role.id),
     invitedAt: u.invitedAt.toISOString(),
     firstSignInAt: u.firstSignInAt?.toISOString() ?? null,
   };
@@ -127,6 +128,55 @@ export class UsersService {
         recordId: id,
         changedById: caller.id,
         changes: [{ field: "status", oldValue: target.status, newValue: "DEACTIVATED" }],
+        source: "API",
+      });
+      return result;
+    });
+    return toSummary(updated);
+  }
+
+  /**
+   * Replaces a user's whole role set — added 2026-10-08 so an org admin can
+   * grant an existing user the new "Quality Assurance"/"Responsible Person"
+   * roles (or any other role) without having to deactivate and re-invite
+   * them, which invite() can't do for an email that's already in the
+   * system. Same permission as invite/deactivate: org.users.manage, own
+   * organisation only (platform staff exempted via assertCanManageOrg).
+   */
+  async updateRoles(caller: RequestUser, id: string, roleIds: string[]): Promise<UserSummary> {
+    const target = await prisma.user.findUnique({ where: { id } });
+    if (!target) throw new NotFoundException(`User ${id} not found`);
+
+    assertCanManageOrg(caller, target.organizationId, "org.users.manage");
+
+    const roles = await prisma.role.findMany({ where: { id: { in: roleIds } } });
+    if (roles.length !== roleIds.length) {
+      throw new BadRequestException("One or more roles were not found.");
+    }
+    const foreignRole = roles.find((r) => r.organizationId && r.organizationId !== target.organizationId);
+    if (foreignRole) {
+      throw new BadRequestException(`Role "${foreignRole.name}" does not belong to this user's organisation.`);
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const before = await tx.userRole.findMany({ where: { userId: id }, include: { role: true } });
+      await tx.userRole.deleteMany({ where: { userId: id } });
+      if (roleIds.length) {
+        await tx.userRole.createMany({ data: roleIds.map((roleId) => ({ userId: id, roleId })) });
+      }
+      const result = await tx.user.update({ where: { id }, data: {}, include });
+      await recordFieldChanges(tx, {
+        organizationId: target.organizationId,
+        tableName: "users",
+        recordId: id,
+        changedById: caller.id,
+        changes: [
+          {
+            field: "roles",
+            oldValue: before.map((ur) => ur.role.name).join(", ") || null,
+            newValue: roles.map((r) => r.name).join(", ") || null,
+          },
+        ],
         source: "API",
       });
       return result;

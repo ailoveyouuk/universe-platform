@@ -87,6 +87,12 @@ export interface UserSummary {
   organizationId: string;
   organizationName: string;
   roleNames: string[];
+  /** Parallel array to roleNames (same order, same length) — added
+   * 2026-10-08 so a roles-editing UI can pre-check a user's current roles
+   * without a second lookup. roleNames alone can't do this: role names
+   * aren't guaranteed unique across appScope in theory, and matching by
+   * name is fragile versus matching by id. */
+  roleIds: string[];
   invitedAt: string;
   firstSignInAt: string | null;
 }
@@ -1552,4 +1558,51 @@ export interface UpdateControlledDocumentInput {
   effectiveDate?: string | null;
   approvedById?: string | null;
   documentId?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// QA Queue (added 2026-10-08) — Lewis's QA/procurement segregation-of-duties
+// request: everything currently waiting on a Quality Assurance / Responsible
+// Person review, in one place, categorised by what kind of thing it is
+// (stakeholder role type, or product), with a flat concatenated view too.
+// Three underlying sources are normalized into one QaQueueItem shape so the
+// frontend can render them uniformly: a Partner awaiting approval, a
+// StakeholderEvidenceRecord awaiting verification, and a
+// ProductSourceApproval awaiting sourcing sign-off.
+
+export type QaQueueItemKind = "PARTNER_APPROVAL" | "EVIDENCE_VERIFICATION" | "PRODUCT_APPROVAL";
+
+export interface QaQueueItem {
+  kind: QaQueueItemKind;
+  /** The record this item is actually about — the evidence record's own
+   * id for EVIDENCE_VERIFICATION, the partner's id for PARTNER_APPROVAL,
+   * the product-source-approval's id for PRODUCT_APPROVAL. */
+  id: string;
+  title: string;
+  /** Short line of extra context (e.g. the evidence standard's name, or
+   * "Manufacturer · Supplier" for a product source). */
+  detail: string;
+  /** Every stakeholder-role-type / "PRODUCT" category this item belongs
+   * to — a multi-role Partner's approval appears once per applicable role
+   * in the categorised view, but once in the flat `all` list. */
+  categories: string[];
+  queuedAt: string;
+  ageDays: number;
+  /** Deep links to everything relevant this item touches, so QA doesn't
+   * have to go hunting — partner/product detail pages, and (where this
+   * item's partner/product is itself referenced by other records) a
+   * short list of related entities. Paths are relative, app-root-based
+   * (e.g. "/partners/detail?id=..."). */
+  links: { label: string; path: string }[];
+}
+
+export interface QaQueueCategory {
+  key: string;
+  label: string;
+  items: QaQueueItem[];
+}
+
+export interface QaQueueSummary {
+  categories: QaQueueCategory[];
+  all: QaQueueItem[];
 }

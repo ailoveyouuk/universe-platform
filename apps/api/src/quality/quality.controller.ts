@@ -6,6 +6,7 @@ import { CreateProductSourceApprovalDto } from "./dto/create-product-source-appr
 import { UpdateProductSourceApprovalDto } from "./dto/update-product-source-approval.dto";
 import { ProductSourceApprovalsService } from "./product-source-approvals.service";
 import { PartnerPerformanceService } from "./partner-performance.service";
+import { QaQueueService } from "./qa-queue.service";
 
 @Controller("quality")
 @UseGuards(EntraAuthGuard)
@@ -13,6 +14,7 @@ export class QualityController {
   constructor(
     private readonly approvalsService: ProductSourceApprovalsService,
     private readonly performanceService: PartnerPerformanceService,
+    private readonly qaQueueService: QaQueueService,
   ) {}
 
   @Get("dashboard")
@@ -43,5 +45,10 @@ export class QualityController {
   @Get("performance")
   getPerformance(@CurrentUser() user: RequestUser, @Query("roleType") roleType?: string) {
     return this.performanceService.getPerformance(user, roleType);
+  }
+
+  @Get("qa-queue")
+  getQaQueue(@CurrentUser() user: RequestUser) {
+    return this.qaQueueService.getQueue(user);
   }
 }

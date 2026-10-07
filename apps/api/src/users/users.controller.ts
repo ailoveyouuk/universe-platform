@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { InviteUserDto } from "./dto/invite-user.dto";
+import { UpdateUserRolesDto } from "./dto/update-user-roles.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
@@ -23,5 +24,10 @@ export class UsersController {
   @Delete(":id")
   deactivate(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.usersService.deactivate(user, id);
+  }
+
+  @Patch(":id/roles")
+  updateRoles(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateUserRolesDto) {
+    return this.usersService.updateRoles(user, id, dto.roleIds);
   }
 }

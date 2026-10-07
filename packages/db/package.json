@@ -16,7 +16,8 @@
     "test:db:reset": "tsx scripts/reset-test-db.ts",
     "enrich:unimed-onboarding": "tsx scripts/enrich-unimed-onboarding-data.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
-    "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts"
+    "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
+    "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"

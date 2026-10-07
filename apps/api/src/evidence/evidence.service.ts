@@ -5,6 +5,7 @@ import type { EvidenceDueForReviewSummary, EvidenceStandardSummary, StakeholderE
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
+import { assertHasPermission } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateEvidenceStandardDto, UpdateEvidenceStandardDto } from "./dto/evidence-standard.dto";
 import type { CreateEvidenceRecordDto, UpdateEvidenceRecordDto, VerifyEvidenceRecordDto } from "./dto/evidence-record.dto";
@@ -233,6 +234,12 @@ export class EvidenceService {
    * the first time (previously defined but unused — see
    * certification-statements.ts's own doc comment on EVIDENCE_VERIFICATION_V1). */
   async verifyRecord(user: RequestUser, id: string, dto: VerifyEvidenceRecordDto): Promise<StakeholderEvidenceRecordSummary> {
+    // QA/procurement segregation of duties (Lewis, 2026-10-08) — logging
+    // evidence (createRecord/updateRecord) stays open to whoever can edit
+    // the partner; actually verifying/rejecting it is restricted to
+    // evidence.verify (Quality Assurance / Responsible Person /
+    // Organization Admin).
+    assertHasPermission(user, "evidence.verify");
     return withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.stakeholderEvidenceRecord.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Evidence record ${id} not found`);

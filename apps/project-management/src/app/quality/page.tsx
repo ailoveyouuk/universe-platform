@@ -10,6 +10,7 @@ import type {
   QualityDashboardSummary,
 } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { useCurrentUser } from "../../lib/AuthContext";
 import {
   Button,
   Select,
@@ -55,6 +56,11 @@ const ROLE_LABELS: Record<string, string> = {
  * time" at the data-entry level.
  */
 export default function QualityPage() {
+  const me = useCurrentUser();
+  // QA/procurement segregation of duties (Lewis, 2026-10-08) — purely
+  // cosmetic (products.approve is enforced server-side regardless); keeps
+  // a procurement-only user from hitting an always-403 status change.
+  const canApproveProducts = me?.permissions.includes("products.approve") ?? false;
   const [dashboard, setDashboard] = useState<QualityDashboardSummary | null>(null);
   const [approvals, setApprovals] = useState<ProductSourceApprovalSummary[] | null>(null);
   const [performance, setPerformance] = useState<PartnerPerformanceMetric[] | null>(null);
@@ -125,6 +131,9 @@ export default function QualityPage() {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Link href="/quality/evidence-standards" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Evidence Standards</Button>
+          </Link>
+          <Link href="/quality/qa-queue" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">QA Queue</Button>
           </Link>
           <Link href="/batches" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Batches</Button>
@@ -289,16 +298,20 @@ export default function QualityPage() {
                       )}
                     </td>
                     <td style={{ padding: "10px 14px", width: 150 }}>
-                      <Select
-                        value={a.status}
-                        onChange={(v) => handleStatusChange(a.id, v)}
-                        ariaLabel={`Status for ${a.productMasterName}`}
-                        options={[
-                          { value: "PENDING", label: "Pending" },
-                          { value: "APPROVED", label: "Approved" },
-                          { value: "REJECTED", label: "Rejected" },
-                        ]}
-                      />
+                      {canApproveProducts ? (
+                        <Select
+                          value={a.status}
+                          onChange={(v) => handleStatusChange(a.id, v)}
+                          ariaLabel={`Status for ${a.productMasterName}`}
+                          options={[
+                            { value: "PENDING", label: "Pending" },
+                            { value: "APPROVED", label: "Approved" },
+                            { value: "REJECTED", label: "Rejected" },
+                          ]}
+                        />
+                      ) : (
+                        <Pill tone="neutral">{a.status}</Pill>
+                      )}
                     </td>
                     <td style={{ padding: "10px 14px" }}>
                       {a.isQualified ? (

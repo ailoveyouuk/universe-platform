@@ -31,6 +31,22 @@ export const DEFAULT_DATA_SHARING_SCOPE = ["pricing", "specifications", "quality
  * definition — no organization, including whichever one pilots Universe
  * first, gets special-cased treatment.
  */
+/**
+ * "Quality Assurance" and "Responsible Person" (added 2026-10-08, Lewis's
+ * QA/procurement segregation-of-duties request) are deliberately two
+ * separate named roles with the IDENTICAL permission set below, not one
+ * role with two labels — Responsible Person is a real, legally-named role
+ * under GDP/WDA licensing (the individual named on a Wholesale
+ * Distribution Authorisation as personally accountable for compliance),
+ * distinct in meaning from an internal QA function even though Universe
+ * doesn't yet model anything that depends on telling them apart. A user
+ * can hold both (UserRole is many-to-many — see Role/UserRole in
+ * schema.prisma), or either alone. Neither includes projects.* —
+ * assign Project Manager alongside if a QA/RP user also needs project
+ * access; these two are additive permission bundles, not full seats.
+ */
+const QA_PERMISSION_KEYS = ["partners.approve", "evidence.verify", "products.approve", "qa.queue.view"];
+
 export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
   {
     name: "Organization Admin",
@@ -44,6 +60,10 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "projects.financials.edit",
       "org.users.manage",
       "org.roles.manage",
+      // An Organization Admin is never locked out of QA-gated actions by
+      // this role split — see backfill-qa-roles.ts for existing
+      // organizations created before this permission set existed.
+      ...QA_PERMISSION_KEYS,
     ],
   },
   {
@@ -61,6 +81,16 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     name: "Read Only",
     appScope: "project-management",
     permissionKeys: ["projects.view"],
+  },
+  {
+    name: "Quality Assurance",
+    appScope: "project-management",
+    permissionKeys: QA_PERMISSION_KEYS,
+  },
+  {
+    name: "Responsible Person",
+    appScope: "project-management",
+    permissionKeys: QA_PERMISSION_KEYS,
   },
 ];
 

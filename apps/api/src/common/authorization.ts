@@ -22,6 +22,33 @@ export function assertCanManageOrg(user: RequestUser, targetOrganizationId: stri
   }
 }
 
+/**
+ * Simple permission check for an action already known to be scoped to the
+ * caller's own organisation (the caller already looked up the record via
+ * tenantScope()/withTenantContext(), so there's no separate "own org"
+ * question to ask the way assertCanManageOrg's admin-ish callers have).
+ * Platform staff bypass, same as assertCanManageOrg — Universe's own
+ * operating team isn't expected to hold every tenant's own QA/procurement
+ * roles to support a customer.
+ *
+ * Added 2026-10-08 for the QA/procurement segregation-of-duties work
+ * (Lewis: a procurement officer should be able to create a stakeholder
+ * record and log evidence against it, but moving a stakeholder to
+ * APPROVED, verifying evidence, or approving a product source should be
+ * restricted to a Quality Assurance / Responsible Person role). This is
+ * deliberately the "soft" segregation Lewis asked for — it checks the
+ * caller's role-granted permission, not whether the caller is also the
+ * person who created/logged the record being approved. A harder rule
+ * (blocking self-verification) was explicitly NOT requested — see
+ * compliance-standards-gap-analysis.md.
+ */
+export function assertHasPermission(user: RequestUser, permission: string): void {
+  if (user.platformStaffRole !== "NONE") return;
+  if (!user.permissions.includes(permission)) {
+    throw new ForbiddenException(`Missing permission: ${permission}`);
+  }
+}
+
 export function assertPlatformStaff(user: RequestUser): void {
   if (user.platformStaffRole === "NONE") {
     throw new ForbiddenException("Platform staff only.");

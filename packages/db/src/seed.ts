@@ -42,6 +42,18 @@ const PERMISSIONS = [
   { key: "manufacturer.leads.view", description: "View buyer interest in your organization's products" },
   { key: "funder.grants.view", description: "(placeholder — feature not yet built) View grant-scoped procurement activity for funded projects" },
   { key: "insights.aggregate.view", description: "(placeholder — Insights app not yet built) View anonymized cross-tenant sector insights" },
+
+  // Added 2026-10-08 — QA/procurement segregation of duties (Lewis: a
+  // procurement officer should be able to create a stakeholder and log
+  // evidence against it, but moving a stakeholder to APPROVED, verifying
+  // evidence, or approving a product source should require a Quality
+  // Assurance / Responsible Person role). See assertHasPermission in
+  // apps/api/src/common/authorization.ts and DEFAULT_ROLE_TEMPLATE's new
+  // "Quality Assurance"/"Responsible Person" roles in organizations.ts.
+  { key: "partners.approve", description: "Approve a stakeholder (move Partner.approvalStatus to APPROVED)" },
+  { key: "evidence.verify", description: "Verify or reject evidence logged against a stakeholder" },
+  { key: "products.approve", description: "Approve or reject a product source (manufacturer/supplier) qualification" },
+  { key: "qa.queue.view", description: "View the QA queue — stakeholders, evidence, and product sources awaiting QA review" },
 ];
 
 async function main() {

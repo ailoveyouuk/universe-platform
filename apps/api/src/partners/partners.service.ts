@@ -5,6 +5,7 @@ import type { PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { normalizeStakeholderName } from "../common/normalize-name";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { assertHasPermission } from "../common/authorization";
 import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -390,6 +391,16 @@ export class PartnersService {
       // approved partner, so existing approved partners aren't
       // retroactively broken by a newly-added mandatory standard.
       if (dto.approvalStatus === "APPROVED" && existing.approvalStatus !== "APPROVED") {
+        // QA/procurement segregation of duties (Lewis, 2026-10-08) —
+        // a procurement officer can create/edit a stakeholder record
+        // freely, but moving it to APPROVED is restricted to whoever
+        // holds partners.approve (Quality Assurance / Responsible
+        // Person / Organization Admin roles). Checked before the
+        // evidence gate below so a procurement-only user gets a clear
+        // "you don't have this permission" rather than a confusing
+        // evidence-completeness message for an action they can't take
+        // regardless of evidence state.
+        assertHasPermission(user, "partners.approve");
         const gate = await this.evidenceService.getGateStatus(tx, user.organizationId, id);
         if (!gate.satisfied) {
           throw new BadRequestException(EvidenceService.gateFailureMessage(gate.missingStandards));

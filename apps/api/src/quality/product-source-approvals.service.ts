@@ -6,6 +6,7 @@ import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductSourceApprovalDto } from "./dto/create-product-source-approval.dto";
 import type { UpdateProductSourceApprovalDto } from "./dto/update-product-source-approval.dto";
 import { ProductCatalogService } from "../product-catalog/product-catalog.service";
+import { assertHasPermission } from "../common/authorization";
 
 const APPROVAL_INCLUDE = {
   productMaster: true,
@@ -91,6 +92,13 @@ export class ProductSourceApprovalsService {
 
   async create(user: RequestUser, dto: CreateProductSourceApprovalDto): Promise<ProductSourceApprovalSummary> {
     const status = dto.status ?? "PENDING";
+    // QA/procurement segregation of duties (Lewis, 2026-10-08) — logging a
+    // new sourcing record defaults to PENDING and needs no permission; only
+    // creating one that's already APPROVED (or REJECTED) skips the normal
+    // QA review, so that path is gated the same as the update() transition.
+    if (status !== "PENDING") {
+      assertHasPermission(user, "products.approve");
+    }
     const row = await withTenantContext(user.organizationId, (tx) =>
       tx.productSourceApproval.create({
         data: {
@@ -115,6 +123,10 @@ export class ProductSourceApprovalsService {
       const existing = await tx.productSourceApproval.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) return null;
       const movingToApproved = dto.status === "APPROVED" && existing.status !== "APPROVED";
+      const movingToRejected = dto.status === "REJECTED" && existing.status !== "REJECTED";
+      if (movingToApproved || movingToRejected) {
+        assertHasPermission(user, "products.approve");
+      }
       return tx.productSourceApproval.update({
         where: { id },
         data: {

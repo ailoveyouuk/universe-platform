@@ -25,6 +25,7 @@ import type {
   ProjectLineInput,
   ProjectSummary,
   QualityDashboardSummary,
+  QaQueueSummary,
   RequestDocumentUploadInput,
   RequestDocumentUploadResult,
   RoleSummary,
@@ -335,6 +336,10 @@ export class UniverseApiClient {
     return this.request("/quality/dashboard");
   }
 
+  getQaQueue(): Promise<QaQueueSummary> {
+    return this.request("/quality/qa-queue");
+  }
+
   searchQualityProducts(search?: string): Promise<ProductMasterOption[]> {
     const query = search ? `?search=${encodeURIComponent(search)}` : "";
     return this.request(`/quality/products${query}`);
@@ -393,6 +398,13 @@ export class UniverseApiClient {
 
   deactivateUser(id: string): Promise<UserSummary> {
     return this.request(`/users/${id}`, { method: "DELETE" });
+  }
+
+  updateUserRoles(id: string, roleIds: string[]): Promise<UserSummary> {
+    return this.request(`/users/${id}/roles`, {
+      method: "PATCH",
+      body: JSON.stringify({ roleIds }),
+    });
   }
 
   // --- Supplier/manufacturer marketplace (added 2026-09-24) ---
