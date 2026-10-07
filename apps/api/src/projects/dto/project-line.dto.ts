@@ -1,8 +1,6 @@
 import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
-const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
 /** Added 2026-09-30, replacing the old supplierPaymentStatusPercent field —
  * see ProjectLine.supplierPaymentStatus's doc comment in schema.prisma /
  * procurement-lifecycle-benchmarking.md rec. #2. */
@@ -17,6 +15,18 @@ const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "
  * packages/types. Dates are plain ISO date strings (not IsDateString's
  * stricter datetime check) since these are calendar dates from a date
  * picker, not timestamps.
+ *
+ * incoterm/freightMode and the whole freight cost block (freightForwarderId,
+ * freightCost, insuredValue, freightInsuranceCost, freightAdditionalCost,
+ * freightMarginPercent, etc.) moved to UpdateProjectDto 2026-10-03 — see
+ * that file. Freight is now a per-project charge, not per-line.
+ *
+ * internalOnTime/supplierOnTime/supplierInFull are deliberately NOT on
+ * this DTO any more (2026-10-03) — they're computed server-side on every
+ * save from quantityReceived/the relevant dates (see
+ * ProjectsService.computeOnTimeInFull), never client-settable. Sending
+ * them would 400 against forbidNonWhitelisted the same way any other
+ * unlisted field does.
  */
 export class ProjectLineDto {
   @IsOptional() @IsString() clientProductDescription?: string;
@@ -24,8 +34,6 @@ export class ProjectLineDto {
   @IsOptional() @IsInt() @Min(0) quantity?: number;
   @IsOptional() @IsIn(PRODUCT_CATEGORIES) productCategory?: (typeof PRODUCT_CATEGORIES)[number];
   @IsOptional() @IsString() countryOfManufactureCode?: string;
-  @IsOptional() @IsIn(INCOTERMS) incoterm?: (typeof INCOTERMS)[number];
-  @IsOptional() @IsIn(FREIGHT_MODES) freightMode?: (typeof FREIGHT_MODES)[number];
   @IsOptional() @IsString() manufacturerId?: string;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientPoNumber?: string;
@@ -34,25 +42,17 @@ export class ProjectLineDto {
   @IsOptional() @IsString() internalPoDatePlaced?: string;
   @IsOptional() @IsString() gad?: string;
   @IsOptional() @IsString() supplierGad?: string;
-  @IsOptional() @IsString() freightForwarderId?: string;
-  @IsOptional() @IsNumber() freightCost?: number;
-  @IsOptional() @IsString() freightCurrency?: string;
-  @IsOptional() @IsNumber() insuredValue?: number;
-  @IsOptional() @IsString() insuredCurrency?: string;
-  /** The PREMIUM for freight insurance — distinct from insuredValue above
-   * (the sum insured). Shares freightCurrency. Added 2026-10-03. */
-  @IsOptional() @IsNumber() freightInsuranceCost?: number;
-  @IsOptional() @IsNumber() freightAdditionalCost?: number;
-  @IsOptional() @IsString() freightAdditionalCostDescription?: string;
   @IsOptional() @IsString() warehouseReferenceNumber?: string;
   @IsOptional() @IsString() goodsCollectedDate?: string;
   @IsOptional() @IsString() goodsManufacturedDate?: string;
   @IsOptional() @IsString() goodsDeliveredToClientDate?: string;
-  @IsOptional() @IsString() promisedDeliveryDate?: string;
+  /** Renamed from promisedDeliveryDate 2026-10-03. */
+  @IsOptional() @IsString() projectedDeliveryDate?: string;
   @IsOptional() @IsString() actualDeliveryDate?: string;
-  @IsOptional() @IsBoolean() internalOnTime?: boolean;
-  @IsOptional() @IsBoolean() supplierOnTime?: boolean;
-  @IsOptional() @IsBoolean() supplierInFull?: boolean;
+  /** The quantity actually received from the supplier — added 2026-10-03
+   * so supplierInFull can be a real computed value. See
+   * ProjectsService.computeOnTimeInFull. */
+  @IsOptional() @IsInt() @Min(0) quantityReceived?: number;
   @IsOptional() @IsNumber() supplierUnitPrice?: number;
   /** Accepted but ignored as of 2026-10-02 — ProjectsService.applyPricing
    * now always computes this as supplierUnitPrice x quantity (a fact, not
@@ -79,9 +79,6 @@ export class ProjectLineDto {
   /** Markup % applied to supplierPaymentAmountTotal on the way to the
    * client invoice — see ProjectsService.applyPricing. Added 2026-10-03. */
   @IsOptional() @IsNumber() @Min(0) productMarginPercent?: number;
-  /** Markup % applied to freightTotalCost — deliberately separate from
-   * productMarginPercent. Added 2026-10-03. */
-  @IsOptional() @IsNumber() @Min(0) freightMarginPercent?: number;
   @IsOptional() @IsString() strength?: string;
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsString() packSize?: string;

@@ -21,6 +21,11 @@ export class UpdatePartnerDto {
   @IsOptional() @IsString() countryCode?: string;
   @IsOptional() @IsString() website?: string;
   @IsOptional() @IsIn(APPROVAL_STATUSES) approvalStatus?: (typeof APPROVAL_STATUSES)[number];
+  /** Added 2026-10-07 (compliance-standards-gap-analysis.md Gap 1/2) —
+   * optional free-text reason for an approvalStatus change, carried onto
+   * the resulting PartnerApprovalHistory row. Only meaningful alongside
+   * approvalStatus; ignored otherwise. */
+  @IsOptional() @IsString() approvalReason?: string;
   @IsOptional() @IsIn(RISK_TIERS) riskTier?: (typeof RISK_TIERS)[number];
   @IsOptional() @IsString() companyRegistrationNumber?: string;
   @IsOptional() @IsString() vatNumber?: string;

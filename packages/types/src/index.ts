@@ -223,8 +223,6 @@ export interface ProjectLineSummary {
   quantity: number | null;
   productCategory: string | null;
   countryOfManufactureCode: string | null;
-  incoterm: string | null;
-  freightMode: string | null;
   manufacturerId: string | null;
   manufacturerName: string | null;
   supplierId: string | null;
@@ -235,34 +233,28 @@ export interface ProjectLineSummary {
   internalPoDatePlaced: string | null;
   gad: string | null;
   supplierGad: string | null;
-  freightForwarderId: string | null;
-  freightForwarderName: string | null;
-  freightCost: string | null;
-  freightCurrency: string | null;
-  /** Distinct from freightCost — see ProjectLine.insuredValue's doc
-   * comment in schema.prisma. Added 2026-09-30. */
-  insuredValue: string | null;
-  insuredCurrency: string | null;
-  /** The PREMIUM paid for freight insurance — distinct from insuredValue
-   * above (the sum insured, a contract figure, not a cost). Shares
-   * freightCurrency. Added 2026-10-03. */
-  freightInsuranceCost: string | null;
-  /** Any freight-related cost that isn't the core freight price or
-   * insurance premium (customs duties, demurrage, etc). Shares
-   * freightCurrency. Added 2026-10-03. */
-  freightAdditionalCost: string | null;
-  freightAdditionalCostDescription: string | null;
-  /** Computed server-side: freightCost + freightInsuranceCost +
-   * freightAdditionalCost, in freightCurrency. Added 2026-10-03. */
-  freightTotalCost: string | null;
+  /** Freight cost/vendor/terms fields moved to ProjectSummary/ProjectDetail
+   * 2026-10-03 — freight is now a per-project charge, not per-line. See
+   * ProjectDetail's "Freight & Logistics" fields. */
   warehouseReferenceNumber: string | null;
   goodsCollectedDate: string | null;
   goodsManufacturedDate: string | null;
   goodsDeliveredToClientDate: string | null;
-  promisedDeliveryDate: string | null;
+  /** Renamed from promisedDeliveryDate 2026-10-03. */
+  projectedDeliveryDate: string | null;
   actualDeliveryDate: string | null;
+  /** The quantity actually received from the supplier — added 2026-10-03
+   * so supplierInFull below has something real to compare against. */
+  quantityReceived: number | null;
+  /** Computed server-side 2026-10-03 (previously a manual dropdown) —
+   * actualDeliveryDate <= projectedDeliveryDate. Null until both dates
+   * are set. */
   internalOnTime: boolean | null;
+  /** Computed server-side 2026-10-03 (previously a manual dropdown) —
+   * goodsCollectedDate <= supplierGad. Null until both dates are set. */
   supplierOnTime: boolean | null;
+  /** Computed server-side 2026-10-03 (previously a manual dropdown) —
+   * quantityReceived >= quantity. Null until quantityReceived is set. */
   supplierInFull: boolean | null;
   /** Computed server-side: internalOnTime && supplierOnTime && supplierInFull
    * (null if any contributing flag is unset) — the industry-standard
@@ -285,9 +277,12 @@ export interface ProjectLineSummary {
    * — previously manual entry. See ProjectLine's "Margin-based client
    * invoice build" doc comment in schema.prisma. */
   unitSalesPrice: string | null;
-  /** Computed server-side (2026-10-03 rework): (manufacturer/supplier
-   * product total + productMarginAmount) + (freight total + freightMarginAmount),
-   * converted into clientPaymentCurrency. Previously manual entry. */
+  /** Computed server-side. PRODUCT ONLY as of 2026-10-03 (manufacturer/
+   * supplier product total + productMarginAmount), converted into
+   * clientPaymentCurrency — freight is no longer folded into any one
+   * line's invoice total; it's billed to the client as its own separate
+   * project-level charge instead. See ProjectDetail's "Freight &
+   * Logistics" fields and ProjectFinancialSummary. */
   clientPaymentAmount: string | null;
   clientPaymentCurrency: string | null;
   clientPaymentDate: string | null;
@@ -303,13 +298,8 @@ export interface ProjectLineSummary {
   /** Computed: supplierPaymentAmountTotal x productMarginPercent / 100, in
    * supplierPaymentCurrency. */
   productMarginAmount: string | null;
-  /** Input: markup % applied to freightTotalCost — deliberately separate
-   * from productMarginPercent, since freight is commonly marked up
-   * differently (or not at all). Added 2026-10-03. */
-  freightMarginPercent: string | null;
-  /** Computed: freightTotalCost x freightMarginPercent / 100, in
-   * freightCurrency. */
-  freightMarginAmount: string | null;
+  // freightMarginPercent/freightMarginAmount moved to ProjectDetail
+  // 2026-10-03 — freight margin is now a per-project figure.
   /** Currency conversion (added 2026-10-02, generalized 2026-10-03 — see
    * ExchangeRatesService's doc comment: Universe is currency-agnostic,
    * not built around any one organisation's home currency).
@@ -325,10 +315,6 @@ export interface ProjectLineSummary {
   supplierPriceLockedAt: string | null;
   supplierUnitPriceReportingCcy: string | null;
   supplierTotalPriceReportingCcy: string | null;
-  /** Freight's own lock — freight can be (and often is) priced in a
-   * different native currency than the product. Added 2026-10-03. */
-  freightPriceLockedAt: string | null;
-  freightTotalCostReportingCcy: string | null;
   /** Repurposed 2026-10-03 — now the CLIENT INVOICE's lock (previously the
    * manually-entered "sales" side's lock). */
   salesPriceLockedAt: string | null;
@@ -408,8 +394,6 @@ export interface ProjectLineInput {
   quantity?: number | null;
   productCategory?: string | null;
   countryOfManufactureCode?: string | null;
-  incoterm?: string | null;
-  freightMode?: string | null;
   manufacturerId?: string | null;
   supplierId?: string | null;
   clientPoNumber?: string | null;
@@ -418,23 +402,21 @@ export interface ProjectLineInput {
   internalPoDatePlaced?: string | null;
   gad?: string | null;
   supplierGad?: string | null;
-  freightForwarderId?: string | null;
-  freightCost?: number | null;
-  freightCurrency?: string | null;
-  insuredValue?: number | null;
-  insuredCurrency?: string | null;
-  freightInsuranceCost?: number | null;
-  freightAdditionalCost?: number | null;
-  freightAdditionalCostDescription?: string | null;
+  // Freight fields removed 2026-10-03 — freight moved to
+  // UpdateProjectInput, see that interface below.
   warehouseReferenceNumber?: string | null;
   goodsCollectedDate?: string | null;
   goodsManufacturedDate?: string | null;
   goodsDeliveredToClientDate?: string | null;
-  promisedDeliveryDate?: string | null;
+  projectedDeliveryDate?: string | null;
   actualDeliveryDate?: string | null;
-  internalOnTime?: boolean | null;
-  supplierOnTime?: boolean | null;
-  supplierInFull?: boolean | null;
+  /** Added 2026-10-03 — see ProjectLineSummary's doc comment; this is
+   * what internalOnTime/supplierOnTime/supplierInFull now compute from.
+   * internalOnTime/supplierOnTime/supplierInFull themselves are NOT in
+   * this input any more — they're server-computed on every save, never
+   * client-settable (the API rejects them via forbidNonWhitelisted if
+   * sent). */
+  quantityReceived?: number | null;
   supplierUnitPrice?: number | null;
   supplierPaymentAmountTotal?: number | null;
   supplierPaymentCurrency?: string | null;
@@ -451,7 +433,6 @@ export interface ProjectLineInput {
   grossMargin?: number | null;
   margin?: number | null;
   productMarginPercent?: number | null;
-  freightMarginPercent?: number | null;
   strength?: string | null;
   form?: string | null;
   packSize?: string | null;
@@ -484,6 +465,59 @@ export const SUPPORTED_CURRENCIES = [
 ] as const;
 export type SupportedCurrencyCode = (typeof SUPPORTED_CURRENCIES)[number];
 
+/** Full English names for every SUPPORTED_CURRENCIES code, added
+ * 2026-10-03 so every currency picker in the app (freight/insured/
+ * supplier-payment/client-payment currency, and any future one) can show
+ * "British Pound Sterling (GBP)" rather than asking the user to type a
+ * bare 3-letter code from memory — see @universe/ui's CurrencySelect.
+ * A static list (not fetched from anywhere) since it changes only if
+ * SUPPORTED_CURRENCIES itself does. */
+export const CURRENCY_NAMES: Record<SupportedCurrencyCode, string> = {
+  AUD: "Australian Dollar",
+  BGN: "Bulgarian Lev",
+  BRL: "Brazilian Real",
+  CAD: "Canadian Dollar",
+  CHF: "Swiss Franc",
+  CNY: "Chinese Yuan",
+  CZK: "Czech Koruna",
+  DKK: "Danish Krone",
+  EUR: "Euro",
+  GBP: "British Pound Sterling",
+  HKD: "Hong Kong Dollar",
+  HUF: "Hungarian Forint",
+  IDR: "Indonesian Rupiah",
+  ILS: "Israeli New Shekel",
+  INR: "Indian Rupee",
+  ISK: "Icelandic Krona",
+  JPY: "Japanese Yen",
+  KRW: "South Korean Won",
+  MXN: "Mexican Peso",
+  MYR: "Malaysian Ringgit",
+  NOK: "Norwegian Krone",
+  NZD: "New Zealand Dollar",
+  PHP: "Philippine Peso",
+  PLN: "Polish Zloty",
+  RON: "Romanian Leu",
+  SEK: "Swedish Krona",
+  SGD: "Singapore Dollar",
+  THB: "Thai Baht",
+  TRY: "Turkish Lira",
+  USD: "US Dollar",
+  ZAR: "South African Rand",
+};
+
+/** One currency option for CurrencySelect — { code, name } pairs, same
+ * shape convention as CountryOption below, built from SUPPORTED_CURRENCIES
+ * + CURRENCY_NAMES rather than fetched, since it's a fixed, small list. */
+export interface CurrencyOption {
+  code: SupportedCurrencyCode;
+  name: string;
+}
+export const CURRENCY_OPTIONS: CurrencyOption[] = SUPPORTED_CURRENCIES.map((code) => ({
+  code,
+  name: CURRENCY_NAMES[code],
+}));
+
 /** GET /projects/financial-summary (and GET /projects/:id/financial-
  * summary for a single project's own lines) — a rollup across every
  * ProjectLine's LOCKED base-currency amounts (see ProjectLine's "Currency
@@ -511,11 +545,16 @@ export interface ProjectFinancialSummary {
   conversionUnavailable: boolean;
   /** Pre-margin manufacturer/supplier product cost, summed across lines. */
   totalProductCost: string;
-  /** Pre-margin freight cost (price + insurance + any additional cost), summed across lines. */
+  /** Pre-margin freight cost, summed across every project in scope's OWN
+   * single freight record — freight moved to the project level 2026-10-03,
+   * so this is no longer a per-line sum (see ProjectDetail's "Freight &
+   * Logistics" fields). */
   totalFreightCost: string;
-  /** Combined product margin + freight margin, summed across lines. */
+  /** Combined product margin (summed across lines) + freight margin
+   * (summed across projects). */
   totalMargin: string;
-  /** The full client-invoice rollup — totalProductCost + totalFreightCost + totalMargin. */
+  /** The full client-side rollup — each line's own product-only invoice
+   * total, plus each project's own separate freight invoice charge. */
   totalInvoiceValue: string;
   linesWithPricing: number;
   totalLines: number;
@@ -542,6 +581,44 @@ export interface ProjectDetail extends ProjectSummary {
   reasonForCancellation: string | null;
   projectNotes: string | null;
   projectFolderUrl: string | null;
+  // --- Freight & Logistics (moved here from each ProjectLine 2026-10-03,
+  // per Lewis's request — freight is arranged once for the whole
+  // project, not per line. See Project's doc comment in schema.prisma. ---
+  incoterm: string | null;
+  freightMode: string | null;
+  freightForwarderId: string | null;
+  freightForwarderName: string | null;
+  freightCost: string | null;
+  freightCurrency: string | null;
+  insuredValue: string | null;
+  insuredCurrency: string | null;
+  freightInsuranceCost: string | null;
+  freightAdditionalCost: string | null;
+  freightAdditionalCostDescription: string | null;
+  /** Computed server-side: freightCost + freightInsuranceCost +
+   * freightAdditionalCost, in freightCurrency. */
+  freightTotalCost: string | null;
+  /** Input: markup % applied to freightTotalCost on the way to the
+   * freight charge shown to the client. */
+  freightMarginPercent: string | null;
+  /** Computed: freightTotalCost x freightMarginPercent / 100, in
+   * freightCurrency. */
+  freightMarginAmount: string | null;
+  /** Freight's own currency-conversion lock — freight can be, and often
+   * is, priced in a different native currency than any one line's
+   * product. Display-only, same convention as ProjectLineSummary's
+   * reporting-currency fields. */
+  freightPriceLockedAt: string | null;
+  /** Freight's base-currency code lock — see ProjectLineSummary's
+   * reportingCurrencyCode doc comment for the full mechanism. */
+  reportingCurrencyCode: string | null;
+  /** Base-currency equivalent of freightTotalCost — PRE-margin. */
+  freightTotalCostReportingCcy: string | null;
+  /** Base-currency equivalent of freightTotalCost x (1 +
+   * freightMarginPercent/100) — the WITH-margin figure actually charged
+   * to the client. This is what ProjectFinancialSummary's totalFreightCost/
+   * totalInvoiceValue roll up, alongside each line's own invoice total. */
+  freightInvoiceAmountReportingCcy: string | null;
   lines: ProjectLineSummary[];
   /** Ordered oldest-first — see ProjectStatusHistoryEntry above. Added
    * 2026-09-30. */
@@ -611,6 +688,18 @@ export interface UpdateProjectInput {
   /** Only meaningful when status is COMPLETED — see
    * Project.completionStage's doc comment in schema.prisma. */
   completionStage?: string | null;
+  // --- Freight & Logistics (moved here from ProjectLineInput 2026-10-03)
+  incoterm?: string | null;
+  freightMode?: string | null;
+  freightForwarderId?: string | null;
+  freightCost?: number | null;
+  freightCurrency?: string | null;
+  insuredValue?: number | null;
+  insuredCurrency?: string | null;
+  freightInsuranceCost?: number | null;
+  freightAdditionalCost?: number | null;
+  freightAdditionalCostDescription?: string | null;
+  freightMarginPercent?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1128,4 +1217,68 @@ export interface StakeholderRegistryProduct {
   category: string | null;
   specifications: string | null;
   gtin: string | null;
+}
+
+/** Gap 4 (compliance-standards-gap-analysis.md) — a minimal, generic risk
+ * register entry (ICH Q9/ISO 14971/ISO 31000's shared shape: identify,
+ * assess, mitigate, assign an owner, review periodically). subjectType/
+ * subjectId is a free-text polymorphic reference (e.g. "PARTNER" + a
+ * Partner id, "PROJECT" + a Project id) rather than a nullable FK per
+ * possible subject — see RiskAssessment's doc comment in schema.prisma. */
+export interface RiskAssessmentSummary {
+  id: string;
+  subjectType: string;
+  subjectId: string;
+  title: string;
+  description: string | null;
+  severity: string;
+  likelihood: string;
+  mitigation: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  status: string;
+  reviewDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRiskAssessmentInput {
+  subjectType: string;
+  subjectId: string;
+  title: string;
+  description?: string | null;
+  severity: string;
+  likelihood: string;
+  mitigation?: string | null;
+  ownerId?: string | null;
+  reviewDate?: string | null;
+}
+
+export interface UpdateRiskAssessmentInput {
+  title?: string;
+  description?: string | null;
+  severity?: string;
+  likelihood?: string;
+  mitigation?: string | null;
+  ownerId?: string | null;
+  status?: string;
+  reviewDate?: string | null;
+}
+
+/** Gap 1 (compliance-standards-gap-analysis.md) — one row of the generic
+ * audit trail, as read back for an "Audit history" view on a record. See
+ * FieldChangeLog's doc comment in schema.prisma. */
+export interface FieldChangeLogEntry {
+  id: string;
+  tableName: string;
+  recordId: string;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedById: string | null;
+  changedByName: string | null;
+  changedAt: string;
+  reason: string | null;
+  source: string;
+  certificationStatement: string | null;
 }

@@ -4,6 +4,7 @@ import type { UserSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { InviteUserDto } from "./dto/invite-user.dto";
+import { recordFieldChanges } from "../common/audit-log";
 
 function toSummary(u: {
   id: string;
@@ -99,16 +100,36 @@ export class UsersService {
     return users.map(toSummary);
   }
 
+  /** Gap 9 (compliance-standards-gap-analysis.md) — ISO 27001-style access
+   * review trail: deactivating a user is an access-control change, so it's
+   * logged through the same generic FieldChangeLog every other audited
+   * write uses, not left as a bare status flip with only `updatedAt` to
+   * show for it. Wrapped in its own prisma.$transaction (this service
+   * doesn't run through withTenantContext at all today — a pre-existing
+   * gap, see azure-infra-notes.md — so this is the narrowest fix that
+   * still keeps the status update and its log entry atomic with each
+   * other). */
   async deactivate(caller: RequestUser, id: string): Promise<UserSummary> {
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) throw new NotFoundException(`User ${id} not found`);
 
     assertCanManageOrg(caller, target.organizationId, "org.users.manage");
 
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { status: "DEACTIVATED" },
-      include,
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.user.update({
+        where: { id },
+        data: { status: "DEACTIVATED" },
+        include,
+      });
+      await recordFieldChanges(tx, {
+        organizationId: target.organizationId,
+        tableName: "users",
+        recordId: id,
+        changedById: caller.id,
+        changes: [{ field: "status", oldValue: target.status, newValue: "DEACTIVATED" }],
+        source: "API",
+      });
+      return result;
     });
     return toSummary(updated);
   }

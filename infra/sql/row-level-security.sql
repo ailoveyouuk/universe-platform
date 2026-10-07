@@ -78,11 +78,17 @@ GO
 -- 2. Security policy — FILTER (SELECT/UPDATE/DELETE) + BLOCK (INSERT/UPDATE)
 --    predicates on every table carrying organizationId directly. Table list
 --    generated from the schema.prisma organizationId audit, 2026-09-24,
---    updated 2026-09-30 to add project_status_history:
+--    updated 2026-09-30 to add project_status_history, 2026-10-07 to add
+--    partner_certifications/partner_company_checks/partner_approval_history
+--    (a real pre-existing RLS gap, see compliance-standards-gap-analysis.md
+--    Gap 1) and the new field_change_log/risk_assessments tables:
 --      users, roles, partners, contacts, projects, project_lines,
 --      supplier_enquiries, project_documents, product_lines,
 --      product_price_history, data_sharing_consents,
---      project_status_history, product_source_approvals (added 2026-10-01)
+--      project_status_history, product_source_approvals (added 2026-10-01),
+--      partner_certifications, partner_company_checks,
+--      partner_approval_history, field_change_log, risk_assessments
+--      (added 2026-10-07)
 --    NOT included, and deliberately so: product_master (shared reference
 --    catalog, not tenant-scoped — see schema.prisma "PRODUCT CLASSIFICATION"
 --    comment) and regions/countries (global reference data).
@@ -148,7 +154,36 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     -- table in this policy (carries organizationId directly).
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_source_approvals AFTER UPDATE,
+
+    -- partner_certifications / partner_company_checks /
+    -- partner_approval_history — added 2026-10-07. These three tables
+    -- existed since 2026-10-01/02 but were never given an organizationId
+    -- column or added here — see compliance-standards-gap-analysis.md
+    -- Gap 1 cross-check and each model's own schema.prisma doc comment for
+    -- the full account of this gap and its fix.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_certifications,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_certifications AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_certifications AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_company_checks,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_company_checks AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_company_checks AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_approval_history,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_approval_history AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_approval_history AFTER UPDATE,
+
+    -- field_change_log / risk_assessments — new compliance scaffolding
+    -- tables, added 2026-10-07 (compliance-standards-gap-analysis.md Gaps
+    -- 1 and 4). Tenant-scoped the same way as every other table here.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.field_change_log,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.field_change_log AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.field_change_log AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.risk_assessments AFTER UPDATE
 WITH (STATE = ON);
 GO
 

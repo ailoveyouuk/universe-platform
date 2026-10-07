@@ -264,6 +264,15 @@ model Organization {
   /// Added 2026-10-02 — ProductMaster entries this org originally
   /// contributed (see ProductMaster.addedByOrganizationId's doc comment).
   productMastersAdded        ProductMaster[]
+  /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 1/9.
+  fieldChangeLogs             FieldChangeLog[]
+  /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 4.
+  riskAssessments             RiskAssessment[]
+  /// Added 2026-10-07 — organizationId backfill, see each model's doc
+  /// comment (compliance-standards-gap-analysis.md Gap 1 cross-check).
+  partnerCertifications        PartnerCertification[]
+  partnerCompanyChecks         PartnerCompanyCheck[]
+  partnerApprovalHistoryEntries PartnerApprovalHistory[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -327,6 +336,8 @@ model User {
   createdSupplierProducts SupplierProduct[]
   /// Added 2026-09-30 — see ProjectStatusHistory model.
   recordedProjectStatusChanges ProjectStatusHistory[]
+  /// Added 2026-10-07 — see RiskAssessment.owner.
+  ownedRiskAssessments RiskAssessment[]
 
   @@index([organizationId])
   @@map("users")
@@ -457,7 +468,15 @@ model Partner {
   projectsAsClient Project[]              @relation("ProjectClient")
   linesAsManufacturer ProjectLine[]       @relation("LineManufacturer")
   linesAsSupplier  ProjectLine[]          @relation("LineSupplier")
-  linesAsFreightForwarder ProjectLine[]   @relation("LineFreightForwarder")
+  // linesAsFreightForwarder relation removed 2026-10-03 — ProjectLine no
+  // longer has a freightForwarderId field (moved to Project). Historical
+  // rows had this FK cleared by the migration before the column dropped.
+  /// Added 2026-10-03 — freight moved from per-line to per-project (see
+  /// Project's "Freight & Logistics" block below); this is the project-
+  /// level freight-forwarder relation, distinct from the old per-line one
+  /// above (kept only because historical ProjectLine rows may still
+  /// reference it until this migration runs).
+  projectsAsFreightForwarder Project[]   @relation("ProjectFreightForwarder")
   supplierEnquiries SupplierEnquiry[]
   productLinesAsSupplier ProductLine[]    @relation("ProductLineSupplier")
   productLinesAsManufacturer ProductLine[] @relation("ProductLineManufacturer")
@@ -662,6 +681,17 @@ model WarehousingDetail {
 /// here rather than needing their own columns.
 model PartnerCertification {
   id         String    @id @default(uuid())
+  /// Added 2026-10-07 (compliance-standards-gap-analysis.md Gap 1 cross-
+  /// check) — denormalized the same way as every other tenant table.
+  /// MISSING until now: this table (and PartnerCompanyCheck/
+  /// PartnerApprovalHistory alongside it) carried no organizationId at
+  /// all and was never added to row-level-security.sql's table list, so a
+  /// raw query against it had no database-layer RLS backstop — only the
+  /// partnerId -> Partner join gave it any tenant scoping, and only when
+  /// a caller remembered to make that join. Backfilled from partnerId's
+  /// own Partner.organizationId; see the migration for the backfill query.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   partnerId  String
   partner    Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Scopes this certification to one of the manufacturer's registered
@@ -713,6 +743,7 @@ model PartnerCertification {
   @@index([partnerId])
   @@index([expiryDate])
   @@index([manufacturerSiteId])
+  @@index([organizationId])
   @@map("partner_certifications")
 }
 
@@ -726,6 +757,9 @@ model PartnerCertification {
 /// documents the stakeholder supplies.
 model PartnerCompanyCheck {
   id          String   @id @default(uuid())
+  /// Added 2026-10-07 — same RLS-gap fix as PartnerCertification above.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   partnerId   String
   partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   checkType   String   // see allowed values reference above (PartnerCompanyCheckType)
@@ -743,6 +777,7 @@ model PartnerCompanyCheck {
   createdAt   DateTime @default(now())
 
   @@index([partnerId])
+  @@index([organizationId])
   @@map("partner_company_checks")
 }
 
@@ -750,14 +785,26 @@ model PartnerCompanyCheck {
 /// events, alongside Partner.approvalStatus for the current state.
 model PartnerApprovalHistory {
   id           String    @id @default(uuid())
+  /// Added 2026-10-07 — same RLS-gap fix as PartnerCertification above.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   partnerId    String
   partner      Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   action       String    // e.g. "APPROVED" | "REMOVED" | "REINSTATED" — free text for now
   reason       String?   @db.NVarChar(Max)
+  /// Added 2026-10-07 (compliance-standards-gap-analysis.md Gap 2) — the
+  /// exact certification/"e-signature meaning" statement text shown to the
+  /// approver at the moment of this action, captured verbatim (not just a
+  /// version number) so the record is self-contained even if the
+  /// statement's wording is edited later. Null for actions recorded before
+  /// this existed, or for an action type that has no statement defined.
+  /// See apps/api/src/common/certification-statements.ts.
+  certificationStatement String? @db.NVarChar(Max)
   actionDate   DateTime  @default(now())
   actionById   String?
 
   @@index([partnerId])
+  @@index([organizationId])
   @@map("partner_approval_history")
 }
 
@@ -873,6 +920,78 @@ model Project {
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
 
+
+  // --- Freight & Logistics (moved here from ProjectLine 2026-10-03, per
+  // Lewis's explicit request: freight is arranged once for the whole
+  // project, not individually per line item, so re-entering/recomputing
+  // it per line was both wrong and tedious. Each line's own client
+  // invoice is now PRODUCT-ONLY (see ProjectLine's "Margin-based client
+  // invoice build" doc comment) — freight is billed to the client as its
+  // own separate project-level charge, confirmed with Lewis via
+  // AskUserQuestion rather than guessed (the alternative, apportioning
+  // freight across lines by quantity/value, was explicitly not chosen).
+  // Incoterm and freight mode moved here too (previously on ProjectLine's
+  // "Procurement" block) since they're also a per-project commercial
+  // arrangement, not a per-line one. ---
+  incoterm                 String?   // see allowed values reference above
+  freightMode               String?   // see allowed values reference above
+  freightForwarderId        String?
+  freightForwarder          Partner?  @relation("ProjectFreightForwarder", fields: [freightForwarderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  freightCost                Decimal?  @db.Decimal(18, 2)
+  freightCurrency            String?   @db.Char(3)
+  /// Incoterms 2020's CIP term requires the seller to insure at a minimum
+  /// of 110% of contract value — distinct from freightCost, which is the
+  /// freight contract price itself, not the insured sum.
+  insuredValue               Decimal?  @db.Decimal(18, 2)
+  insuredCurrency            String?   @db.Char(3)
+  /// The PREMIUM paid for freight insurance — distinct from insuredValue
+  /// above (the sum insured/coverage amount). Assumed to share
+  /// freightCurrency, same judgment call carried over from the per-line
+  /// version of this field.
+  freightInsuranceCost       Decimal?  @db.Decimal(18, 2)
+  /// Any freight-related cost that isn't the core freight price or the
+  /// insurance premium — customs duties, demurrage, documentation fees,
+  /// etc. A single bucket for now (with a free-text description of what
+  /// it covers), same v1 simplification carried over from the per-line
+  /// version. Shares freightCurrency.
+  freightAdditionalCost      Decimal?  @db.Decimal(18, 2)
+  freightAdditionalCostDescription String? @db.NVarChar(Max)
+  /// Computed server-side (freightCost + freightInsuranceCost +
+  /// freightAdditionalCost, all in freightCurrency) — see
+  /// ProjectsService.applyProjectFreightPricing.
+  freightTotalCost           Decimal?  @db.Decimal(18, 2)
+  /// Input: the markup % applied to freightTotalCost on the way to the
+  /// freight charge shown to the client — kept separate from any one
+  /// line's productMarginPercent, since freight is commonly marked up at
+  /// a different rate (or not at all) from the product itself.
+  freightMarginPercent       Decimal?  @db.Decimal(5, 2)
+  /// Computed: freightTotalCost x freightMarginPercent / 100, in
+  /// freightCurrency.
+  freightMarginAmount        Decimal?  @db.Decimal(18, 2)
+  /// Freight's own currency-conversion lock, same convention as the
+  /// supplier/sales trios that remain on ProjectLine — see schema's
+  /// "Currency conversion" doc comment there for the full mechanism.
+  /// Recomputed only when freightCost/freightInsuranceCost/
+  /// freightAdditionalCost/freightCurrency actually change.
+  freightPriceLockedAt       DateTime?
+  freightExchangeRateSnapshotId String?
+  freightExchangeRateSnapshot ExchangeRateSnapshot? @relation("ProjectFreightRate", fields: [freightExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Freight's base-currency code lock, same convention as ProjectLine's
+  /// reportingCurrencyCode — see that field's doc comment for the full
+  /// mechanism (Universe is currency-agnostic; this records WHICH base
+  /// currency freightTotalCostReportingCcy/freightInvoiceAmountReportingCcy
+  /// below were locked in, in case the platform base currency ever
+  /// changes historically).
+  reportingCurrencyCode     String?   @db.Char(3)
+  /// Base-currency equivalent of freightTotalCost — PRE-margin.
+  freightTotalCostReportingCcy Decimal? @db.Decimal(18, 2)
+  /// Base-currency equivalent of freightTotalCost x (1 + freightMarginPercent/100)
+  /// — the WITH-margin figure actually charged to the client, in base
+  /// currency. This (not freightTotalCostReportingCcy) is what the
+  /// project/org financial rollups add into totalInvoiceValue, alongside
+  /// each line's own salesTotalPriceReportingCcy.
+  freightInvoiceAmountReportingCcy Decimal? @db.Decimal(18, 2)
+
   leads     ProjectLead[]
   contacts  ProjectContact[]
   lines     ProjectLine[]
@@ -885,6 +1004,7 @@ model Project {
   @@unique([organizationId, referenceNumber])
   @@index([organizationId, status])
   @@index([clientId])
+  @@index([freightForwarderId])
   @@map("projects")
 }
 
@@ -970,11 +1090,16 @@ model ProjectLine {
   attributes                    String?   @db.NVarChar(Max)
   quantity                      Int?
   productCategory                String?  // see allowed values reference above
-  countryOfManufactureCode       String?  // ISO 3166-1 alpha-2
 
   // --- Procurement ---
-  incoterm                      String?   // see allowed values reference above
-  freightMode                   String?   // see allowed values reference above
+  // incoterm/freightMode moved to Project (project-level, 2026-10-03) —
+  // see Project's "Freight & Logistics" block. countryOfManufactureCode
+  // and goodsManufacturedDate moved INTO this section 2026-10-03 (both
+  // previously sat elsewhere — country under Item Identification,
+  // manufactured date under Freight & Logistics — per Lewis's explicit
+  // reorganisation request).
+  countryOfManufactureCode       String?  // ISO 3166-1 alpha-2
+  goodsManufacturedDate          DateTime?
   manufacturerId                String?
   manufacturer                  Partner?  @relation("LineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   supplierId                    String?
@@ -989,49 +1114,43 @@ model ProjectLine {
   supplierGad                   DateTime?
 
   // --- Freight & logistics ---
-  freightForwarderId            String?
-  freightForwarder               Partner? @relation("LineFreightForwarder", fields: [freightForwarderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  freightCost                   Decimal?  @db.Decimal(18, 2)
-  freightCurrency                String?  @db.Char(3)
-  /// Distinct from freightCost/contract value — added 2026-09-30 per
-  /// benchmarking doc rec. #5: Incoterms 2020's CIP term specifically
-  /// requires the seller to insure at a minimum of 110% of contract
-  /// value, so these are not interchangeable numbers.
-  insuredValue                  Decimal?  @db.Decimal(18, 2)
-  insuredCurrency                String?  @db.Char(3)
-  /// The PREMIUM paid for freight insurance — distinct from insuredValue
-  /// above (the sum insured/coverage amount, an Incoterms-driven contract
-  /// figure, not a cost). Added 2026-10-03 per Lewis's full financial-field
-  /// scoping request. Assumed to share freightCurrency rather than having
-  /// its own currency column — a judgment call, flagged for confirmation;
-  /// in practice insurance is near-universally quoted in the same currency
-  /// as the freight contract it covers.
-  freightInsuranceCost          Decimal?  @db.Decimal(18, 2)
-  /// Any freight-related cost that isn't the core freight price or the
-  /// insurance premium — customs duties, demurrage, documentation fees,
-  /// etc. Added 2026-10-03. A single bucket for now (with a free-text
-  /// description of what it covers) rather than a repeatable line-item
-  /// list — flagged as a v1 simplification, worth revisiting if a project
-  /// line genuinely needs more than one "other" freight cost at once.
-  /// Shares freightCurrency, same judgment call as freightInsuranceCost.
-  freightAdditionalCost         Decimal?  @db.Decimal(18, 2)
-  freightAdditionalCostDescription String? @db.NVarChar(Max)
-  /// Computed server-side (freightCost + freightInsuranceCost +
-  /// freightAdditionalCost, all in freightCurrency) — see
-  /// ProjectsService.applyPricing. The pre-margin freight cost base that
-  /// freightMarginPercent below is applied to.
-  freightTotalCost              Decimal?  @db.Decimal(18, 2)
+  // Freight cost/vendor/terms fields (freightForwarderId, freightCost,
+  // insuredValue, freightInsuranceCost, freightAdditionalCost,
+  // freightTotalCost, freightMarginPercent/Amount, and their currency-
+  // conversion locks below) moved to Project 2026-10-03 — see Project's
+  // "Freight & Logistics" block. What stays here is per-line SHIPMENT
+  // TRACKING: even when one freight contract covers a whole project,
+  // different lines/lots can still be collected/delivered on different
+  // dates, so these dates remain per-line.
   warehouseReferenceNumber      String?
   goodsCollectedDate            DateTime?
-  goodsManufacturedDate         DateTime?
   goodsDeliveredToClientDate    DateTime?
-  /// Promised/actual date pairs (added 2026-09-24) — replace boolean-only
-  /// on-time flags so "days late" can be computed rather than just yes/no,
-  /// which is far richer for KPI/benchmarking purposes.
-  promisedDeliveryDate          DateTime?
+  /// Renamed from promisedDeliveryDate 2026-10-03 per Lewis — "projected"
+  /// reads less like a contractual promise and more like what it actually
+  /// is, an internal planning estimate.
+  projectedDeliveryDate         DateTime?
   actualDeliveryDate            DateTime?
+  /// The quantity actually received from the supplier — added 2026-10-03
+  /// specifically so supplierInFull below can be a real computed value
+  /// rather than a manual guess; previously there was no field at all
+  /// recording what was actually received, only what was ordered
+  /// (quantity, above), so "in full" had nothing to compare against.
+  quantityReceived              Int?
+  /// Computed server-side 2026-10-03 (previously a manual dropdown) — see
+  /// ProjectsService.computeOnTimeInFull. actualDeliveryDate <=
+  /// projectedDeliveryDate (Unimed's own promise to the CLIENT was met).
+  /// Null until both dates are set.
   internalOnTime                Boolean?
+  /// Computed server-side 2026-10-03 (previously a manual dropdown) —
+  /// goodsCollectedDate <= supplierGad (the SUPPLIER's own committed
+  /// arrival/collection date was met). Judgment call: GAD/supplierGad's
+  /// exact definitions are still an open question (see architecture-
+  /// decisions.md "Open questions") — this is a reasonable reading given
+  /// available fields, worth Lewis confirming once GAD's meaning is
+  /// settled for good.
   supplierOnTime                Boolean?
+  /// Computed server-side 2026-10-03 (previously a manual dropdown) —
+  /// quantityReceived >= quantity. Null until quantityReceived is entered.
   supplierInFull                Boolean?
 
   // --- Financials ---
@@ -1137,16 +1256,10 @@ model ProjectLine {
   /// locked base-currency column — see getFinancialSummary).
   supplierUnitPriceReportingCcy  Decimal?  @db.Decimal(18, 2)
   supplierTotalPriceReportingCcy Decimal?  @db.Decimal(18, 2)
-  /// Freight's own lock, mirroring the supplier trio above — added
-  /// 2026-10-03 alongside the freight cost breakdown fields. Freight can
-  /// be, and often is, in a different native currency from the product
-  /// itself, so it needs an independent conversion/lock, not a shared one.
-  freightPriceLockedAt           DateTime?
-  freightExchangeRateSnapshotId  String?
-  freightExchangeRateSnapshot    ExchangeRateSnapshot? @relation("LineFreightRate", fields: [freightExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// Base-currency equivalent of freightTotalCost — PRE-margin, same
-  /// reasoning as supplierTotalPriceReportingCcy above.
-  freightTotalCostReportingCcy   Decimal?  @db.Decimal(18, 2)
+  // freightPriceLockedAt/freightExchangeRateSnapshotId/
+  // freightTotalCostReportingCcy moved to Project 2026-10-03, alongside
+  // the rest of the per-line freight fields — see Project's "Freight &
+  // Logistics" block.
   /// Repurposed 2026-10-03 (previously the manually-entered "sales" side's
   /// lock, back when unitSalesPrice/clientPaymentAmount were free text) —
   /// now locks the CLIENT INVOICE conversion: clientPaymentAmount's
@@ -1417,7 +1530,11 @@ model ExchangeRateSnapshot {
   fetchedAt        DateTime @default(now())
 
   projectLinesAsSupplierRate ProjectLine[] @relation("LineSupplierRate")
-  projectLinesAsFreightRate  ProjectLine[] @relation("LineFreightRate")
+  // projectLinesAsFreightRate relation removed 2026-10-03 — see note on
+  // Partner.linesAsFreightForwarder above; same migration.
+  /// Added 2026-10-03 — the project-level freight lock, see Project's
+  /// "Freight & Logistics" block below.
+  projectsAsFreightRate      Project[]     @relation("ProjectFreightRate")
   projectLinesAsSalesRate    ProjectLine[] @relation("LineSalesRate")
 
   @@unique([date, baseCurrencyCode])
@@ -1903,4 +2020,124 @@ model DataInsightsUserProfile {
   updatedAt                  DateTime  @updatedAt
 
   @@map("data_insights_user_profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Compliance scaffolding — added 2026-10-07, see
+// claude/compliance-standards-gap-analysis.md. Generic, organisation-
+// agnostic infrastructure (same "core scaffolding, not org-specific
+// process bloat" principle sop-driven-quality-roadmap.md already
+// established for the Evidence work), not features tied to any one
+// stakeholder's SOPs.
+// ---------------------------------------------------------------------------
+
+/// Gap 1 — a generic, field-level audit trail. ALCOA+/FDA 21 CFR Part 11/
+/// EU Annex 11/MHRA GxP Data Integrity Guidance all require that a changed
+/// or deleted value's PREVIOUS state be retained, attributable to a
+/// specific individual, timestamped, and (where relevant) carry a reason —
+/// a bare `updatedAt` column satisfies none of that, since the prior value
+/// is simply gone. Before this, the only tables with any change history at
+/// all were ProjectStatusHistory (status field only) and
+/// PartnerApprovalHistory (approval decisions only, and — see that
+/// model's own fix above — not even written to by any service yet).
+///
+/// Deliberately ONE ROW PER CHANGED FIELD, not one row per request/mutation
+/// — so "every past value of this one field" is a simple, indexed query
+/// (tableName + recordId + fieldName) rather than a scan through
+/// differently-shaped per-request snapshots. Written from the shared
+/// `recordFieldChanges()` helper (apps/api/src/common/audit-log.ts) inside
+/// the SAME withTenantContext transaction as the write it's auditing, so a
+/// rolled-back write can never leave an orphaned log entry (or vice versa).
+///
+/// Never updated or deleted by application code once written — there is
+/// deliberately no update/delete path in the service layer for this model,
+/// which is itself the "audit trail cannot be disabled by standard users"
+/// control MHRA's guidance calls for. (A genuinely separate, future
+/// platform-staff-only correction mechanism, if one is ever needed, should
+/// be a NEW row referencing the old one, never an edit/delete of history.)
+model FieldChangeLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// The Prisma @@map table name being audited, e.g. "projects",
+  /// "project_lines", "partners" — free text by design (not an enum),
+  /// since this log is meant to cover every tenant table over time
+  /// without a schema change each time a new one is wired in.
+  tableName      String
+  recordId       String
+  fieldName      String
+  /// Stringified before/after values (Dates as ISO, numbers/decimals via
+  /// their own toString()) — see diffForAudit()'s normalize() helper. Not
+  /// typed per-field on purpose: a generic log can't know every table's
+  /// column types, and a human-readable string is sufficient for an audit
+  /// review, which is this table's entire purpose.
+  oldValue       String?      @db.NVarChar(Max)
+  newValue       String?      @db.NVarChar(Max)
+  changedById    String?
+  changedAt      DateTime     @default(now())
+  /// Free-text reason, where the caller supplied one (not every change
+  /// has or needs one — a required-reason policy, if wanted, belongs in
+  /// the DTO/service layer, not enforced here).
+  reason         String?      @db.NVarChar(Max)
+  /// UI | API | MIGRATION | SYSTEM — which path produced this change.
+  /// Defaults to "API" (recordFieldChanges()'s default) since that's the
+  /// only path wired in today; MIGRATION/SYSTEM are reserved for a
+  /// one-off backfill or scheduled job that changes data without a human
+  /// request behind it.
+  source         String       @default("API")
+  /// Gap 2 — when this row represents an approval/verification action
+  /// ("e-signature" in Part 11/Annex 11 terms), the exact certification
+  /// statement text shown to the signer at that moment, captured verbatim.
+  /// Null for an ordinary field edit with no certification semantics.
+  certificationStatement String? @db.NVarChar(Max)
+
+  @@index([organizationId])
+  @@index([tableName, recordId])
+  @@index([changedAt])
+  @@map("field_change_log")
+}
+
+/// Gap 4 — a minimal, generic risk-assessment record (ICH Q9 Quality Risk
+/// Management / ISO 14971 / ISO 31000's shared shape: identify, assess,
+/// mitigate, assign an owner, review periodically). Deliberately NOT the
+/// full Deviation/CAPA/Recall process-management suite the first draft of
+/// sop-driven-quality-roadmap.md proposed and then dropped as "Unimed's
+/// own SOP-driven process, not core platform" — this is lighter-weight
+/// core scaffolding any organisation can use for its own risk register,
+/// the same way EvidenceStandardDefinition generalised certification
+/// tracking rather than hardcoding Unimed's own list.
+model RiskAssessment {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// What this risk is about — a free-text subject type ("PARTNER",
+  /// "PROJECT", "PRODUCT_BATCH", ...) + id pair, the same
+  /// generic-polymorphic-reference convention as FieldChangeLog's
+  /// tableName/recordId, rather than a nullable FK per possible subject
+  /// (which would need a schema change every time a new subject type
+  /// comes up).
+  subjectType    String
+  subjectId      String
+  title          String
+  description    String?      @db.NVarChar(Max)
+  /// LOW | MEDIUM | HIGH | CRITICAL — free text for now, same convention
+  /// as Partner.riskTier, rather than a hardcoded enum.
+  severity       String
+  /// LOW | MEDIUM | HIGH — likelihood of the risk materialising.
+  likelihood     String
+  /// Free-text mitigation/control plan.
+  mitigation     String?      @db.NVarChar(Max)
+  ownerId        String?
+  owner          User?        @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// OPEN | MITIGATED | ACCEPTED | CLOSED.
+  status         String       @default("OPEN")
+  reviewDate     DateTime?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([subjectType, subjectId])
+  @@index([reviewDate])
+  @@map("risk_assessments")
 }

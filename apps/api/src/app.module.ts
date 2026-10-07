@@ -11,9 +11,25 @@ import { QualityModule } from "./quality/quality.module";
 import { GeoModule } from "./geo/geo.module";
 import { StakeholderRegistryModule } from "./stakeholder-registry/stakeholder-registry.module";
 import { ProductCatalogModule } from "./product-catalog/product-catalog.module";
+import { RiskAssessmentsModule } from "./risk-assessments/risk-assessments.module";
+import { AuditLogModule } from "./audit-log/audit-log.module";
 
 @Module({
-  imports: [ProjectsModule, UsersModule, OrganizationsModule, SupplierDirectoryModule, PartnersModule, SupplierEnquiriesModule, DocumentsModule, QualityModule, GeoModule, StakeholderRegistryModule, ProductCatalogModule],
+  imports: [
+    ProjectsModule,
+    UsersModule,
+    OrganizationsModule,
+    SupplierDirectoryModule,
+    PartnersModule,
+    SupplierEnquiriesModule,
+    DocumentsModule,
+    QualityModule,
+    GeoModule,
+    StakeholderRegistryModule,
+    ProductCatalogModule,
+    RiskAssessmentsModule,
+    AuditLogModule,
+  ],
   controllers: [MeController],
 })
 export class AppModule {}

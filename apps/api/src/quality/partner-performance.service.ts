@@ -58,16 +58,30 @@ export class PartnerPerformanceService {
       const lines = await tx.projectLine.findMany({
         where: tenantScope(user.organizationId),
         select: {
+          projectId: true,
           manufacturerId: true,
           supplierId: true,
-          freightForwarderId: true,
           internalOnTime: true,
           supplierOnTime: true,
           supplierInFull: true,
-          promisedDeliveryDate: true,
+          projectedDeliveryDate: true,
           actualDeliveryDate: true,
         },
       });
+
+      // freightForwarderId moved from ProjectLine to Project 2026-10-03 —
+      // see Project's "Freight & Logistics" doc comment in schema.prisma.
+      // A FREIGHT_FORWARDER's "lines" are now every line belonging to a
+      // project where that partner is the project's own freight forwarder,
+      // not a per-line match any more.
+      const freightForwarderByProject = new Map<string, string | null>(
+        (
+          await tx.project.findMany({
+            where: tenantScope(user.organizationId),
+            select: { id: true, freightForwarderId: true },
+          })
+        ).map((p) => [p.id, p.freightForwarderId]),
+      );
 
       const enquiries = await tx.supplierEnquiry.findMany({
         where: tenantScope(user.organizationId),
@@ -87,7 +101,7 @@ export class PartnerPerformanceService {
               ? l.manufacturerId === partner.id
               : role === "SUPPLIER"
                 ? l.supplierId === partner.id
-                : l.freightForwarderId === partner.id,
+                : freightForwarderByProject.get(l.projectId) === partner.id,
           );
 
           const onTimeFlags = roleLines
@@ -112,7 +126,7 @@ export class PartnerPerformanceService {
               : onTimePercent; // approximation for roles with no separate in-full flag — see class doc comment
 
           const lateSpans = roleLines
-            .map((l) => daysLate(l.promisedDeliveryDate, l.actualDeliveryDate))
+            .map((l) => daysLate(l.projectedDeliveryDate, l.actualDeliveryDate))
             .filter((v): v is number => v !== null);
           const avgDaysLate =
             lateSpans.length === 0 ? null : Math.round((lateSpans.reduce((a, b) => a + b, 0) / lateSpans.length) * 10) / 10;

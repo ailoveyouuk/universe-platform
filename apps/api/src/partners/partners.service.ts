@@ -3,6 +3,8 @@ import { prisma, withTenantContext } from "@universe/db";
 import type { PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { normalizeStakeholderName } from "../common/normalize-name";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreatePartnerDto } from "./dto/create-partner.dto";
@@ -291,12 +293,20 @@ export class PartnersService {
             ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites) } }
             : {}),
           ...(partnerLevelCertifications.length
-            ? { certifications: { create: partnerLevelCertifications.map(certDataFor) } }
+            ? {
+                certifications: {
+                  create: partnerLevelCertifications.map((c) => ({
+                    ...certDataFor(c),
+                    organizationId: user.organizationId,
+                  })),
+                },
+              }
             : {}),
           ...(dto.companyChecks?.length
             ? {
                 companyChecks: {
                   create: dto.companyChecks.map((c) => ({
+                    organizationId: user.organizationId,
                     checkType: c.checkType,
                     customLabel: c.customLabel,
                     result: c.result,
@@ -321,6 +331,7 @@ export class PartnersService {
             .filter((c) => created.manufacturerSites[c.manufacturerSiteIndex!] !== undefined)
             .map((c) => ({
               ...certDataFor(c),
+              organizationId: user.organizationId,
               partnerId: created.id,
               manufacturerSiteId: created.manufacturerSites[c.manufacturerSiteIndex!].id,
             })),
@@ -352,7 +363,19 @@ export class PartnersService {
       const existingRoleTypes = new Set(existing.roles.map((r) => r.roleType));
       const newRoleTypes = (dto.addRoleTypes ?? []).filter((rt) => !existingRoleTypes.has(rt));
 
-      return tx.partner.update({
+      const auditedFields = [
+        "name",
+        "countryCode",
+        "website",
+        "approvalStatus",
+        "riskTier",
+        "companyRegistrationNumber",
+        "vatNumber",
+        "sharedWithUniverseRegistry",
+      ] as const;
+      const changes = diffForAudit(existing, dto, auditedFields);
+
+      const updated = await tx.partner.update({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name, normalizedName: normalizeStakeholderName(dto.name) } : {}),
@@ -406,6 +429,7 @@ export class PartnersService {
             ? {
                 certifications: {
                   create: dto.addCertifications.map((c) => ({
+                    organizationId: user.organizationId,
                     type: c.type,
                     referenceNumber: c.referenceNumber,
                     revision: c.revision,
@@ -433,6 +457,7 @@ export class PartnersService {
             ? {
                 companyChecks: {
                   create: dto.addCompanyChecks.map((c) => ({
+                    organizationId: user.organizationId,
                     checkType: c.checkType,
                     customLabel: c.customLabel,
                     result: c.result,
@@ -446,6 +471,38 @@ export class PartnersService {
         },
         include: PARTNER_INCLUDE,
       });
+
+      // Gap 1 — generic field-level audit trail.
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "partners",
+        recordId: id,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+
+      // Gap 2 — PartnerApprovalHistory was defined in the schema but
+      // nothing ever wrote to it (confirmed via a repo-wide grep while
+      // building this). Wire it up now: every approvalStatus change gets
+      // its own history row, and an APPROVED action carries the
+      // certification/"e-signature meaning" statement the UI should show
+      // next to the control that triggers it.
+      if (dto.approvalStatus !== undefined && dto.approvalStatus !== existing.approvalStatus) {
+        await tx.partnerApprovalHistory.create({
+          data: {
+            organizationId: user.organizationId,
+            partnerId: id,
+            action: dto.approvalStatus,
+            reason: dto.approvalReason ?? null,
+            actionById: user.id,
+            certificationStatement:
+              dto.approvalStatus === "APPROVED" ? CERTIFICATION_STATEMENTS.PARTNER_APPROVAL_V1 : null,
+          },
+        });
+      }
+
+      return updated;
     });
     if (!p) throw new NotFoundException(`Partner ${id} not found`);
     return toSummary(p);

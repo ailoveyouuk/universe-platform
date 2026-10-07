@@ -2,15 +2,25 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { Button, CountrySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
+import { CURRENCY_OPTIONS } from "@universe/types";
+import { Button, CountrySelect, CurrencySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
 import { apiClient } from "../../../lib/apiClient";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
-const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
 const PAYMENT_STATUSES = ["NOT_STARTED", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
 const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "WHOPES", "GHTF", "OTHER"] as const;
+/** A project's "awarded or later" statuses — the point at which the
+ * post-award fields below (client/internal PO numbers, warehouse ref,
+ * collection/delivery dates, supplier payment/invoice fields) actually
+ * have anything meaningful to enter. Added 2026-10-03 per Lewis: during
+ * IN_PROGRESS (pre-award) there's genuinely no data for these yet, so
+ * showing empty inputs for them is just noise — see isAwardedOrLater's
+ * usage below. The underlying data is never hidden once it exists (a
+ * line that already has these values keeps showing them even if the
+ * project moves backward) — same "foreground, don't hide" convention
+ * ProjectDetailView.tsx already uses for its own stage-based fields. */
+const AWARDED_OR_LATER_STATUSES = ["AWARDED", "COMPLETED"] as const;
 
 /** date input helper: an ISO datetime string -> yyyy-mm-dd for <input type="date">. */
 function toDateInput(value: string | null | undefined): string {
@@ -20,7 +30,7 @@ function toDateInput(value: string | null | undefined): string {
 
 /** ProjectLineSummary (the API read shape) carries id/projectId plus a few
  * server-computed display fields (manufacturerName, supplierName,
- * freightForwarderName) that ProjectLineInput (the PATCH/POST body) doesn't
+ * productMasterName) that ProjectLineInput (the PATCH/POST body) doesn't
  * accept — main.ts's ValidationPipe runs with forbidNonWhitelisted: true, so
  * sending those straight back 400s. Spreading `existing` into the form's
  * initial state bypassed TypeScript's excess-property check (it only
@@ -34,7 +44,6 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     projectId: _projectId,
     manufacturerName: _manufacturerName,
     supplierName: _supplierName,
-    freightForwarderName: _freightForwarderName,
     productMasterName: _productMasterName,
     otif: _otif,
     supplierRemainingBalance: _supplierRemainingBalance,
@@ -55,17 +64,13 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     supplierPriceLockedAt: _supplierPriceLockedAt,
     supplierUnitPriceReportingCcy: _supplierUnitPriceReportingCcy,
     supplierTotalPriceReportingCcy: _supplierTotalPriceReportingCcy,
-    freightPriceLockedAt: _freightPriceLockedAt,
-    freightTotalCostReportingCcy: _freightTotalCostReportingCcy,
     salesPriceLockedAt: _salesPriceLockedAt,
     salesUnitPriceReportingCcy: _salesUnitPriceReportingCcy,
     salesTotalPriceReportingCcy: _salesTotalPriceReportingCcy,
     // Computed-only (2026-10-03 margin-based invoice build) — see
     // ProjectLine's "Margin-based client invoice build" doc comment in
     // schema.prisma. Not part of ProjectLineInput.
-    freightTotalCost: _freightTotalCost,
     productMarginAmount: _productMarginAmount,
-    freightMarginAmount: _freightMarginAmount,
     ...rest
   } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
@@ -77,15 +82,11 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
   // rejected the excess fields above.
   return {
     ...rest,
-    freightCost: rest.freightCost === null ? null : Number(rest.freightCost),
-    freightInsuranceCost: rest.freightInsuranceCost === null ? null : Number(rest.freightInsuranceCost),
-    freightAdditionalCost: rest.freightAdditionalCost === null ? null : Number(rest.freightAdditionalCost),
     supplierUnitPrice: rest.supplierUnitPrice === null ? null : Number(rest.supplierUnitPrice),
     supplierPaymentAmountTotal: rest.supplierPaymentAmountTotal === null ? null : Number(rest.supplierPaymentAmountTotal),
     supplierAmountPaid: rest.supplierAmountPaid === null ? null : Number(rest.supplierAmountPaid),
-    insuredValue: rest.insuredValue === null ? null : Number(rest.insuredValue),
+    quantityReceived: rest.quantityReceived === null ? null : Number(rest.quantityReceived),
     productMarginPercent: rest.productMarginPercent === null ? null : Number(rest.productMarginPercent),
-    freightMarginPercent: rest.freightMarginPercent === null ? null : Number(rest.freightMarginPercent),
     unitSalesPrice: rest.unitSalesPrice === null ? null : Number(rest.unitSalesPrice),
     clientPaymentAmount: rest.clientPaymentAmount === null ? null : Number(rest.clientPaymentAmount),
     grossMargin: rest.grossMargin === null ? null : Number(rest.grossMargin),
@@ -104,17 +105,21 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
 export function LineForm({
   existing,
   isPharma,
+  projectStatus,
   manufacturers,
   suppliers,
-  freightForwarders,
   onSave,
   onCancel,
 }: {
   existing: ProjectLineSummary | null;
   isPharma: boolean;
+  /** The parent Project's status — drives the 15-field stage gate below
+   * (see AWARDED_OR_LATER_STATUSES). Freight forwarder is no longer a
+   * per-line concern (moved to project level 2026-10-03), so
+   * freightForwarders is no longer a prop here. */
+  projectStatus: string;
   manufacturers: PartnerSummary[];
   suppliers: PartnerSummary[];
-  freightForwarders: PartnerSummary[];
   onSave: (input: ProjectLineInput) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -122,6 +127,34 @@ export function LineForm({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
   const countries = useCountries();
+
+  /** The 15 post-award fields (client/internal PO, warehouse ref,
+   * collection/delivery dates, supplier payment/invoice fields) stay
+   * hidden until the project reaches AWARDED — but never hidden again
+   * once any of them already has a value, per the "foreground, don't
+   * hide existing data" convention ProjectDetailView.tsx already uses
+   * for its own stage-based fields. Added 2026-10-03 per Lewis: during
+   * IN_PROGRESS there's genuinely no data for these yet. */
+  const hasAnyPostAwardData = Boolean(
+    existing &&
+      (existing.clientPoNumber ||
+        existing.clientPoReceiptDate ||
+        existing.internalPoNumber ||
+        existing.internalPoDatePlaced ||
+        existing.warehouseReferenceNumber ||
+        existing.goodsCollectedDate ||
+        existing.goodsDeliveredToClientDate ||
+        existing.actualDeliveryDate ||
+        existing.supplierPaymentDate ||
+        existing.supplierDocumentsReceivedDate ||
+        existing.supplierAmountPaid ||
+        existing.supplierPaymentStatus ||
+        existing.clientPaymentDate ||
+        existing.internalInvoiceNumber ||
+        existing.internalInvoiceDate),
+  );
+  const isAwardedOrLater =
+    (AWARDED_OR_LATER_STATUSES as readonly string[]).includes(projectStatus) || hasAnyPostAwardData;
 
   // Product catalog picker (added 2026-10-02) — search-or-create against
   // the shared ProductMaster catalogue, same pattern as the stakeholder
@@ -196,17 +229,6 @@ export function LineForm({
     return String(Math.round(unitPrice * quantity * 100) / 100);
   }
 
-  /** Client-side preview of freightCost + freightInsuranceCost +
-   * freightAdditionalCost — same cosmetic-preview convention as
-   * computedTotal above; see ProjectsService.applyPricing. */
-  function freightTotalPreview(): string {
-    const parts = [form.freightCost, form.freightInsuranceCost, form.freightAdditionalCost].filter(
-      (v): v is number => v !== null && v !== undefined,
-    );
-    if (parts.length === 0) return "";
-    return String(Math.round(parts.reduce((a, b) => a + b, 0) * 100) / 100);
-  }
-
   /** Client-side preview of a margin amount (total x percent / 100). */
   function marginAmountPreview(total: string, percent: number | null | undefined): string {
     if (total === "" || percent === null || percent === undefined) return "";
@@ -219,18 +241,18 @@ export function LineForm({
     return String(Math.round((Number(total) / quantity) * 100) / 100);
   }
 
-  /** Client-side preview of the full margin-based client invoice total —
-   * product total + product margin + freight total + freight margin.
+  /** Client-side preview of the margin-based client invoice total —
+   * product total + product margin ONLY (freight moved to a separate
+   * project-level charge 2026-10-03, see ProjectDetailView.tsx's Freight
+   * & Logistics section — it is no longer part of any line's invoice).
    * Ignores currency conversion (same cosmetic-preview convention as
    * computedTotal); the authoritative, currency-converted figure always
    * comes back from the API on save, see ProjectsService.applyPricing's
    * "Client invoice" step. */
   function invoiceTotalPreview(): string {
     const productTotal = computedTotal(form.supplierUnitPrice, form.quantity);
-    const freightTotal = freightTotalPreview();
     const productMargin = marginAmountPreview(productTotal, form.productMarginPercent);
-    const freightMargin = marginAmountPreview(freightTotal, form.freightMarginPercent);
-    const parts = [productTotal, productMargin, freightTotal, freightMargin].filter((v) => v !== "");
+    const parts = [productTotal, productMargin].filter((v) => v !== "");
     if (parts.length === 0) return "";
     return String(Math.round(parts.reduce((a, b) => a + Number(b), 0) * 100) / 100);
   }
@@ -298,6 +320,9 @@ export function LineForm({
             onChange={(e) => update("quantity", numOrNull(e.target.value))}
           />
         </Field>
+      </Section>
+
+      <Section title="Procurement">
         <Field label="Country of Manufacture">
           <CountrySelect
             value={form.countryOfManufactureCode ?? ""}
@@ -306,9 +331,6 @@ export function LineForm({
             ariaLabel="Country of manufacture"
           />
         </Field>
-      </Section>
-
-      <Section title="Procurement">
         <Field label="Manufacturer">
           <select className="u-native-select"
             style={inputStyle}
@@ -337,37 +359,8 @@ export function LineForm({
             ))}
           </select>
         </Field>
-        <Field label="Incoterm">
-          <select className="u-native-select" style={inputStyle} value={form.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value || null)}>
-            <option value="">—</option>
-            {INCOTERMS.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Client PO Number">
-          <input style={inputStyle} value={form.clientPoNumber ?? ""} onChange={(e) => update("clientPoNumber", e.target.value || null)} />
-        </Field>
-        <Field label="Client PO Receipt Date">
-          <input
-            type="date"
-            style={inputStyle}
-            value={toDateInput(form.clientPoReceiptDate)}
-            onChange={(e) => update("clientPoReceiptDate", e.target.value || null)}
-          />
-        </Field>
-        <Field label="Internal PO Number">
-          <input style={inputStyle} value={form.internalPoNumber ?? ""} onChange={(e) => update("internalPoNumber", e.target.value || null)} />
-        </Field>
-        <Field label="Internal PO Date Placed">
-          <input
-            type="date"
-            style={inputStyle}
-            value={toDateInput(form.internalPoDatePlaced)}
-            onChange={(e) => update("internalPoDatePlaced", e.target.value || null)}
-          />
+        <Field label="Goods Manufactured Date">
+          <input type="date" style={inputStyle} value={toDateInput(form.goodsManufacturedDate)} onChange={(e) => update("goodsManufacturedDate", e.target.value || null)} />
         </Field>
         <Field label="GAD">
           <input type="date" style={inputStyle} value={toDateInput(form.gad)} onChange={(e) => update("gad", e.target.value || null)} />
@@ -380,114 +373,92 @@ export function LineForm({
             onChange={(e) => update("supplierGad", e.target.value || null)}
           />
         </Field>
+        {isAwardedOrLater && (
+          <>
+            <Field label="Client PO Number">
+              <input style={inputStyle} value={form.clientPoNumber ?? ""} onChange={(e) => update("clientPoNumber", e.target.value || null)} />
+            </Field>
+            <Field label="Client PO Receipt Date">
+              <input
+                type="date"
+                style={inputStyle}
+                value={toDateInput(form.clientPoReceiptDate)}
+                onChange={(e) => update("clientPoReceiptDate", e.target.value || null)}
+              />
+            </Field>
+            <Field label="Internal PO Number">
+              <input style={inputStyle} value={form.internalPoNumber ?? ""} onChange={(e) => update("internalPoNumber", e.target.value || null)} />
+            </Field>
+            <Field label="Internal PO Date Placed">
+              <input
+                type="date"
+                style={inputStyle}
+                value={toDateInput(form.internalPoDatePlaced)}
+                onChange={(e) => update("internalPoDatePlaced", e.target.value || null)}
+              />
+            </Field>
+          </>
+        )}
       </Section>
 
       <Section title="Freight & Logistics">
-        <Field label="Freight Forwarder">
-          <select className="u-native-select"
-            style={inputStyle}
-            value={form.freightForwarderId ?? ""}
-            onChange={(e) => update("freightForwarderId", e.target.value || null)}
-          >
-            <option value="">—</option>
-            {freightForwarders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Freight Mode">
-          <select className="u-native-select" style={inputStyle} value={form.freightMode ?? ""} onChange={(e) => update("freightMode", e.target.value || null)}>
-            <option value="">—</option>
-            {FREIGHT_MODES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Freight Cost">
-          <input
-            type="number"
-            step="0.01"
-            style={inputStyle}
-            value={form.freightCost ?? ""}
-            onChange={(e) => update("freightCost", numOrNull(e.target.value))}
-          />
-        </Field>
-        <Field label="Freight Currency">
-          <input maxLength={3} style={inputStyle} value={form.freightCurrency ?? ""} onChange={(e) => update("freightCurrency", e.target.value.toUpperCase() || null)} />
-        </Field>
-        <Field label="Freight Insurance Cost">
-          <input
-            type="number"
-            step="0.01"
-            style={inputStyle}
-            value={form.freightInsuranceCost ?? ""}
-            onChange={(e) => update("freightInsuranceCost", numOrNull(e.target.value))}
-          />
-        </Field>
-        <Field label="Freight Additional Cost">
-          <input
-            type="number"
-            step="0.01"
-            style={inputStyle}
-            value={form.freightAdditionalCost ?? ""}
-            onChange={(e) => update("freightAdditionalCost", numOrNull(e.target.value))}
-          />
-        </Field>
-        <Field label="Freight Additional Cost Description">
-          <input
-            style={inputStyle}
-            value={form.freightAdditionalCostDescription ?? ""}
-            onChange={(e) => update("freightAdditionalCostDescription", e.target.value || null)}
-          />
-        </Field>
-        {/* Computed (freightCost + freightInsuranceCost +
-            freightAdditionalCost) server-side — same cosmetic-preview
-            convention as the Financials section's calculated fields. */}
-        <Field label="Freight Total Cost (calculated)">
-          <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={freightTotalPreview()} readOnly disabled />
-        </Field>
-        <Field label="Insured Value">
-          <input
-            type="number"
-            step="0.01"
-            style={inputStyle}
-            value={form.insuredValue ?? ""}
-            onChange={(e) => update("insuredValue", numOrNull(e.target.value))}
-          />
-        </Field>
-        <Field label="Insured Currency">
-          <input maxLength={3} style={inputStyle} value={form.insuredCurrency ?? ""} onChange={(e) => update("insuredCurrency", e.target.value.toUpperCase() || null)} />
-        </Field>
         <Field label="Warehouse Reference Number">
           <input style={inputStyle} value={form.warehouseReferenceNumber ?? ""} onChange={(e) => update("warehouseReferenceNumber", e.target.value || null)} />
         </Field>
-        <Field label="Goods Collected Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.goodsCollectedDate)} onChange={(e) => update("goodsCollectedDate", e.target.value || null)} />
+        <Field label="Projected Delivery Date">
+          <input type="date" style={inputStyle} value={toDateInput(form.projectedDeliveryDate)} onChange={(e) => update("projectedDeliveryDate", e.target.value || null)} />
         </Field>
-        <Field label="Goods Manufactured Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.goodsManufacturedDate)} onChange={(e) => update("goodsManufacturedDate", e.target.value || null)} />
+        {isAwardedOrLater && (
+          <>
+            <Field label="Goods Collected Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.goodsCollectedDate)} onChange={(e) => update("goodsCollectedDate", e.target.value || null)} />
+            </Field>
+            <Field label="Goods Delivered to Client Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.goodsDeliveredToClientDate)} onChange={(e) => update("goodsDeliveredToClientDate", e.target.value || null)} />
+            </Field>
+            <Field label="Actual Delivery Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.actualDeliveryDate)} onChange={(e) => update("actualDeliveryDate", e.target.value || null)} />
+            </Field>
+          </>
+        )}
+        <Field label="Quantity Received">
+          <input
+            type="number"
+            min={0}
+            style={inputStyle}
+            value={form.quantityReceived ?? ""}
+            onChange={(e) => update("quantityReceived", numOrNull(e.target.value))}
+          />
         </Field>
-        <Field label="Goods Delivered to Client Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.goodsDeliveredToClientDate)} onChange={(e) => update("goodsDeliveredToClientDate", e.target.value || null)} />
+        {/* internalOnTime / supplierOnTime / supplierInFull are
+            server-computed on every save from the dates + quantityReceived
+            above (see ProjectsService.computeOnTimeInFull) — no longer
+            client-settable dropdowns as of 2026-10-03. Shown read-only
+            here from `existing` (the last-saved value); they won't reflect
+            edits made in this form until the line is saved and reloaded. */}
+        <Field label="Internal On-Time (calculated)">
+          <input
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={existing?.internalOnTime === null || existing?.internalOnTime === undefined ? "—" : existing.internalOnTime ? "Yes" : "No"}
+            readOnly
+            disabled
+          />
         </Field>
-        <Field label="Promised Delivery Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.promisedDeliveryDate)} onChange={(e) => update("promisedDeliveryDate", e.target.value || null)} />
+        <Field label="Supplier On-Time (calculated)">
+          <input
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={existing?.supplierOnTime === null || existing?.supplierOnTime === undefined ? "—" : existing.supplierOnTime ? "Yes" : "No"}
+            readOnly
+            disabled
+          />
         </Field>
-        <Field label="Actual Delivery Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.actualDeliveryDate)} onChange={(e) => update("actualDeliveryDate", e.target.value || null)} />
-        </Field>
-        <Field label="Internal On-Time">
-          <Checkbox checked={form.internalOnTime} onChange={(v) => update("internalOnTime", v)} />
-        </Field>
-        <Field label="Supplier On-Time">
-          <Checkbox checked={form.supplierOnTime} onChange={(v) => update("supplierOnTime", v)} />
-        </Field>
-        <Field label="Supplier In Full">
-          <Checkbox checked={form.supplierInFull} onChange={(v) => update("supplierInFull", v)} />
+        <Field label="Supplier In Full (calculated)">
+          <input
+            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
+            value={existing?.supplierInFull === null || existing?.supplierInFull === undefined ? "—" : existing.supplierInFull ? "Yes" : "No"}
+            readOnly
+            disabled
+          />
         </Field>
       </Section>
 
@@ -504,37 +475,46 @@ export function LineForm({
           <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={computedTotal(form.supplierUnitPrice, form.quantity)} readOnly disabled />
         </Field>
         <Field label="Supplier Payment Currency">
-          <input maxLength={3} style={inputStyle} value={form.supplierPaymentCurrency ?? ""} onChange={(e) => update("supplierPaymentCurrency", e.target.value.toUpperCase() || null)} />
+          <CurrencySelect
+            value={form.supplierPaymentCurrency ?? ""}
+            onChange={(code) => update("supplierPaymentCurrency", code || null)}
+            options={CURRENCY_OPTIONS}
+            ariaLabel="Supplier payment currency"
+          />
         </Field>
         {existing && existing.reportingCurrencyCode && (existing.supplierUnitPriceReportingCcy || existing.supplierTotalPriceReportingCcy) && (
           <Field label={`Supplier Price (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.supplierPriceLockedAt) || "—"})`}>
             <input
               style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
-              value={`${existing.supplierUnitPriceReportingCcy ?? "—"} / ${existing.supplierTotalPriceReportingCcy ?? "—"} total`}
+              value={`Unit: ${existing.supplierUnitPriceReportingCcy ?? "—"} · Total: ${existing.supplierTotalPriceReportingCcy ?? "—"}`}
               readOnly
               disabled
             />
           </Field>
         )}
-        <Field label="Supplier Payment Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.supplierPaymentDate)} onChange={(e) => update("supplierPaymentDate", e.target.value || null)} />
-        </Field>
-        <Field label="Supplier Documents Received Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.supplierDocumentsReceivedDate)} onChange={(e) => update("supplierDocumentsReceivedDate", e.target.value || null)} />
-        </Field>
-        <Field label="Supplier Amount Paid">
-          <input type="number" step="0.01" style={inputStyle} value={form.supplierAmountPaid ?? ""} onChange={(e) => update("supplierAmountPaid", numOrNull(e.target.value))} />
-        </Field>
-        <Field label="Supplier Payment Status">
-          <select className="u-native-select" style={inputStyle} value={form.supplierPaymentStatus ?? ""} onChange={(e) => update("supplierPaymentStatus", e.target.value || null)}>
-            <option value="">Select…</option>
-            {PAYMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {isAwardedOrLater && (
+          <>
+            <Field label="Supplier Payment Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.supplierPaymentDate)} onChange={(e) => update("supplierPaymentDate", e.target.value || null)} />
+            </Field>
+            <Field label="Supplier Documents Received Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.supplierDocumentsReceivedDate)} onChange={(e) => update("supplierDocumentsReceivedDate", e.target.value || null)} />
+            </Field>
+            <Field label="Supplier Amount Paid">
+              <input type="number" step="0.01" style={inputStyle} value={form.supplierAmountPaid ?? ""} onChange={(e) => update("supplierAmountPaid", numOrNull(e.target.value))} />
+            </Field>
+            <Field label="Supplier Payment Status">
+              <select className="u-native-select" style={inputStyle} value={form.supplierPaymentStatus ?? ""} onChange={(e) => update("supplierPaymentStatus", e.target.value || null)}>
+                <option value="">Select…</option>
+                {PAYMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace(/_/g, " ")}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </>
+        )}
         <Field label="Product Margin %">
           <input type="number" step="0.01" style={inputStyle} value={form.productMarginPercent ?? ""} onChange={(e) => update("productMarginPercent", numOrNull(e.target.value))} />
         </Field>
@@ -548,33 +528,12 @@ export function LineForm({
             disabled
           />
         </Field>
-        {existing && existing.reportingCurrencyCode && existing.freightTotalCostReportingCcy && (
-          <Field label={`Freight Cost (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.freightPriceLockedAt) || "—"})`}>
-            <input
-              style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
-              value={`${existing.freightTotalCostReportingCcy ?? "—"} total`}
-              readOnly
-              disabled
-            />
-          </Field>
-        )}
-        <Field label="Freight Margin %">
-          <input type="number" step="0.01" style={inputStyle} value={form.freightMarginPercent ?? ""} onChange={(e) => update("freightMarginPercent", numOrNull(e.target.value))} />
-        </Field>
-        <Field label="Freight Margin Amount (calculated)">
-          <input
-            type="number"
-            step="0.01"
-            style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
-            value={marginAmountPreview(freightTotalPreview(), form.freightMarginPercent)}
-            readOnly
-            disabled
-          />
-        </Field>
-        {/* Unit Sales Price / Client Payment Amount are now fully computed
+        {/* Unit Sales Price / Client Payment Amount are now computed
             server-side from the margin-based invoice formula (product
-            total + product margin + freight total + freight margin,
-            converted to Client Payment Currency) — no longer independent
+            total + product margin ONLY — freight is a separate
+            project-level charge as of 2026-10-03, see
+            ProjectDetailView.tsx's Freight & Logistics section),
+            converted to Client Payment Currency — no longer independent
             free-text entry, see ProjectsService.applyPricing's "Client
             invoice" step. Shown read-only here; invoiceTotalPreview() is
             the same cosmetic, currency-conversion-ignoring preview
@@ -593,39 +552,36 @@ export function LineForm({
           <input type="number" step="0.01" style={{ ...inputStyle, background: "var(--u-surface-alt)" }} value={invoiceTotalPreview()} readOnly disabled />
         </Field>
         <Field label="Client Payment Currency">
-          <input maxLength={3} style={inputStyle} value={form.clientPaymentCurrency ?? ""} onChange={(e) => update("clientPaymentCurrency", e.target.value.toUpperCase() || null)} />
+          <CurrencySelect
+            value={form.clientPaymentCurrency ?? ""}
+            onChange={(code) => update("clientPaymentCurrency", code || null)}
+            options={CURRENCY_OPTIONS}
+            ariaLabel="Client payment currency"
+          />
         </Field>
         {existing && existing.reportingCurrencyCode && (existing.salesUnitPriceReportingCcy || existing.salesTotalPriceReportingCcy) && (
           <Field label={`Client Invoice (${existing.reportingCurrencyCode}, locked ${toDateInput(existing.salesPriceLockedAt) || "—"})`}>
             <input
               style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
-              value={`${existing.salesUnitPriceReportingCcy ?? "—"} / ${existing.salesTotalPriceReportingCcy ?? "—"} total`}
+              value={`Unit: ${existing.salesUnitPriceReportingCcy ?? "—"} · Total: ${existing.salesTotalPriceReportingCcy ?? "—"}`}
               readOnly
               disabled
             />
           </Field>
         )}
-        <Field label="Client Payment Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.clientPaymentDate)} onChange={(e) => update("clientPaymentDate", e.target.value || null)} />
-        </Field>
-        <Field label="Internal Invoice Number">
-          <input style={inputStyle} value={form.internalInvoiceNumber ?? ""} onChange={(e) => update("internalInvoiceNumber", e.target.value || null)} />
-        </Field>
-        <Field label="Internal Invoice Date">
-          <input type="date" style={inputStyle} value={toDateInput(form.internalInvoiceDate)} onChange={(e) => update("internalInvoiceDate", e.target.value || null)} />
-        </Field>
-        {/* Legacy manual-entry fields, predating the margin-based client
-            invoice build (2026-10-03) — no longer populated or read by
-            ProjectsService.applyPricing. Left in place (not removed) so
-            historical values entered before that date remain visible and
-            editable; flagged for Lewis to confirm whether these should be
-            hidden or removed outright. */}
-        <Field label="Gross Margin (legacy, unused)">
-          <input type="number" step="0.01" style={inputStyle} value={form.grossMargin ?? ""} onChange={(e) => update("grossMargin", numOrNull(e.target.value))} />
-        </Field>
-        <Field label="Margin % (legacy, unused)">
-          <input type="number" step="0.01" style={inputStyle} value={form.margin ?? ""} onChange={(e) => update("margin", numOrNull(e.target.value))} />
-        </Field>
+        {isAwardedOrLater && (
+          <>
+            <Field label="Client Payment Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.clientPaymentDate)} onChange={(e) => update("clientPaymentDate", e.target.value || null)} />
+            </Field>
+            <Field label="Internal Invoice Number">
+              <input style={inputStyle} value={form.internalInvoiceNumber ?? ""} onChange={(e) => update("internalInvoiceNumber", e.target.value || null)} />
+            </Field>
+            <Field label="Internal Invoice Date">
+              <input type="date" style={inputStyle} value={toDateInput(form.internalInvoiceDate)} onChange={(e) => update("internalInvoiceDate", e.target.value || null)} />
+            </Field>
+          </>
+        )}
       </Section>
 
       {isPharma && (

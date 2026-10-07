@@ -4,6 +4,7 @@ import type { ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, Pr
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { CreateProjectDto } from "./dto/create-project.dto";
 import type { UpdateProjectDto } from "./dto/update-project.dto";
 import type { ProjectLineDto } from "./dto/project-line.dto";
@@ -41,11 +42,13 @@ function toSummary(p: {
 
 const PROJECT_DETAIL_INCLUDE = {
   client: true,
+  // Added 2026-10-03, alongside freight moving from ProjectLine to
+  // Project — see Project's "Freight & Logistics" block.
+  freightForwarder: true,
   lines: {
     include: {
       manufacturer: true,
       supplier: true,
-      freightForwarder: true,
       // Shared product catalog match (added 2026-10-02) — see
       // ProjectLine.productMasterId's doc comment in schema.prisma and
       // claude/product-catalog-build.md. Select only what toLineSummary
@@ -138,8 +141,6 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     quantity: l.quantity,
     productCategory: l.productCategory,
     countryOfManufactureCode: l.countryOfManufactureCode,
-    incoterm: l.incoterm,
-    freightMode: l.freightMode,
     manufacturerId: l.manufacturerId,
     manufacturerName: l.manufacturer?.name ?? null,
     supplierId: l.supplierId,
@@ -150,22 +151,13 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     internalPoDatePlaced: l.internalPoDatePlaced?.toISOString() ?? null,
     gad: l.gad?.toISOString() ?? null,
     supplierGad: l.supplierGad?.toISOString() ?? null,
-    freightForwarderId: l.freightForwarderId,
-    freightForwarderName: l.freightForwarder?.name ?? null,
-    freightCost: decimalToString(l.freightCost),
-    freightCurrency: l.freightCurrency,
-    insuredValue: decimalToString(l.insuredValue),
-    insuredCurrency: l.insuredCurrency,
-    freightInsuranceCost: decimalToString(l.freightInsuranceCost),
-    freightAdditionalCost: decimalToString(l.freightAdditionalCost),
-    freightAdditionalCostDescription: l.freightAdditionalCostDescription,
-    freightTotalCost: decimalToString(l.freightTotalCost),
     warehouseReferenceNumber: l.warehouseReferenceNumber,
     goodsCollectedDate: l.goodsCollectedDate?.toISOString() ?? null,
     goodsManufacturedDate: l.goodsManufacturedDate?.toISOString() ?? null,
     goodsDeliveredToClientDate: l.goodsDeliveredToClientDate?.toISOString() ?? null,
-    promisedDeliveryDate: l.promisedDeliveryDate?.toISOString() ?? null,
+    projectedDeliveryDate: l.projectedDeliveryDate?.toISOString() ?? null,
     actualDeliveryDate: l.actualDeliveryDate?.toISOString() ?? null,
+    quantityReceived: l.quantityReceived,
     internalOnTime: l.internalOnTime,
     supplierOnTime: l.supplierOnTime,
     supplierInFull: l.supplierInFull,
@@ -188,14 +180,10 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     margin: decimalToString(l.margin),
     productMarginPercent: decimalToString(l.productMarginPercent),
     productMarginAmount: decimalToString(l.productMarginAmount),
-    freightMarginPercent: decimalToString(l.freightMarginPercent),
-    freightMarginAmount: decimalToString(l.freightMarginAmount),
     reportingCurrencyCode: l.reportingCurrencyCode,
     supplierPriceLockedAt: l.supplierPriceLockedAt?.toISOString() ?? null,
     supplierUnitPriceReportingCcy: decimalToString(l.supplierUnitPriceReportingCcy),
     supplierTotalPriceReportingCcy: decimalToString(l.supplierTotalPriceReportingCcy),
-    freightPriceLockedAt: l.freightPriceLockedAt?.toISOString() ?? null,
-    freightTotalCostReportingCcy: decimalToString(l.freightTotalCostReportingCcy),
     salesPriceLockedAt: l.salesPriceLockedAt?.toISOString() ?? null,
     salesUnitPriceReportingCcy: decimalToString(l.salesUnitPriceReportingCcy),
     salesTotalPriceReportingCcy: decimalToString(l.salesTotalPriceReportingCcy),
@@ -251,6 +239,25 @@ function toDetail(p: ProjectWithLines): ProjectDetail {
     reasonForCancellation: p.reasonForCancellation,
     projectNotes: p.projectNotes,
     projectFolderUrl: p.projectFolderUrl,
+    // --- Freight & Logistics (moved here from ProjectLine 2026-10-03) ---
+    incoterm: p.incoterm,
+    freightMode: p.freightMode,
+    freightForwarderId: p.freightForwarderId,
+    freightForwarderName: p.freightForwarder?.name ?? null,
+    freightCost: decimalToString(p.freightCost),
+    freightCurrency: p.freightCurrency,
+    insuredValue: decimalToString(p.insuredValue),
+    insuredCurrency: p.insuredCurrency,
+    freightInsuranceCost: decimalToString(p.freightInsuranceCost),
+    freightAdditionalCost: decimalToString(p.freightAdditionalCost),
+    freightAdditionalCostDescription: p.freightAdditionalCostDescription,
+    freightTotalCost: decimalToString(p.freightTotalCost),
+    freightMarginPercent: decimalToString(p.freightMarginPercent),
+    freightMarginAmount: decimalToString(p.freightMarginAmount),
+    freightPriceLockedAt: p.freightPriceLockedAt?.toISOString() ?? null,
+    reportingCurrencyCode: p.reportingCurrencyCode,
+    freightTotalCostReportingCcy: decimalToString(p.freightTotalCostReportingCcy),
+    freightInvoiceAmountReportingCcy: decimalToString(p.freightInvoiceAmountReportingCcy),
     lines: p.lines.map(toLineSummary),
     statusHistory: p.statusHistory.map(toStatusHistoryEntry),
     documents: p.documents.map(toDocumentSummary),
@@ -269,8 +276,8 @@ function lineDataFromDto(dto: ProjectLineDto) {
     "goodsCollectedDate",
     "goodsManufacturedDate",
     "goodsDeliveredToClientDate",
-    "promisedDeliveryDate",
     "actualDeliveryDate",
+    "projectedDeliveryDate",
     "supplierPaymentDate",
     "supplierDocumentsReceivedDate",
     "clientPaymentDate",
@@ -314,51 +321,68 @@ export class ProjectsService {
     return projects.map(toSummary);
   }
 
-  /** Org-wide rollup across every ProjectLine's LOCKED base-currency
-   * amounts — see ProjectFinancialSummary's doc comment in packages/types.
-   * `currency`, if given, re-expresses the rollup in that currency LIVE
-   * (today's rate, not locked) via summarizeLines()/convertFromBase() —
-   * the mechanism behind the dashboard's currency selector. */
+  /** Org-wide rollup — see ProjectFinancialSummary's doc comment in
+   * packages/types. Sums every line's LOCKED product invoice total plus
+   * every PROJECT's own single, separate LOCKED freight invoice total
+   * (freight moved from per-line to per-project 2026-10-03 — see
+   * Project's "Freight & Logistics" doc comment in schema.prisma; it's
+   * no longer part of any one line's clientPaymentAmount, so it has to
+   * be summed from projects, not lines). `currency`, if given,
+   * re-expresses the rollup in that currency LIVE (today's rate, not
+   * locked) via summarize()/convertFromBase() — the mechanism behind the
+   * dashboard's currency selector. */
   async getFinancialSummary(user: RequestUser, currency?: string): Promise<ProjectFinancialSummary> {
-    const lines = await withTenantContext(user.organizationId, (tx) =>
-      tx.projectLine.findMany({
-        where: tenantScope(user.organizationId),
-        select: { supplierTotalPriceReportingCcy: true, freightTotalCostReportingCcy: true, salesTotalPriceReportingCcy: true },
-      }),
+    const [lines, projects] = await withTenantContext(user.organizationId, (tx) =>
+      Promise.all([
+        tx.projectLine.findMany({
+          where: tenantScope(user.organizationId),
+          select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
+        }),
+        tx.project.findMany({
+          where: tenantScope(user.organizationId),
+          select: { freightTotalCostReportingCcy: true, freightInvoiceAmountReportingCcy: true },
+        }),
+      ]),
     );
-    return this.summarizeLines(lines, currency);
+    return this.summarize(lines, projects, currency);
   }
 
-  /** Same rollup as getFinancialSummary, scoped to one project's own lines
-   * — the "subtotal of all lines added together" Lewis asked for on a
-   * project's own financial view. */
+  /** Same rollup as getFinancialSummary, scoped to one project — its own
+   * lines' product totals plus its OWN single freight record (not summed
+   * from lines any more). */
   async getProjectFinancialSummary(user: RequestUser, projectId: string, currency?: string): Promise<ProjectFinancialSummary> {
     const project = await withTenantContext(user.organizationId, (tx) =>
-      tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } }),
+      tx.project.findFirst({
+        where: { id: projectId, ...tenantScope(user.organizationId) },
+        select: { freightTotalCostReportingCcy: true, freightInvoiceAmountReportingCcy: true },
+      }),
     );
     if (!project) throw new NotFoundException(`Project ${projectId} not found`);
 
     const lines = await withTenantContext(user.organizationId, (tx) =>
       tx.projectLine.findMany({
         where: { projectId, ...tenantScope(user.organizationId) },
-        select: { supplierTotalPriceReportingCcy: true, freightTotalCostReportingCcy: true, salesTotalPriceReportingCcy: true },
+        select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
       }),
     );
-    return this.summarizeLines(lines, currency);
+    return this.summarize(lines, [project], currency);
   }
 
   /** Shared rollup logic for both financial-summary endpoints above.
-   * Sums each line's already-LOCKED base-currency figures (pure addition,
-   * no FX call needed for that part — each line was individually locked
-   * to its own entry date's rate, see ExchangeRatesService), then, if the
-   * caller asked for a different display currency, converts the four
-   * aggregate totals LIVE (today's rate) via convertFromBase(). Falls back
-   * to the base currency (flagging conversionUnavailable) if that live
-   * conversion can't be done — never silently shows a wrong number. Lines
-   * with no price yet (null on all three fields) are counted in
-   * totalLines but not linesWithPricing or any total. */
-  private async summarizeLines(
-    lines: { supplierTotalPriceReportingCcy: unknown; freightTotalCostReportingCcy: unknown; salesTotalPriceReportingCcy: unknown }[],
+   * Sums each line's already-LOCKED product cost/invoice figures (pure
+   * addition, no FX call needed for that part — each was individually
+   * locked to its own entry date's rate, see ExchangeRatesService) plus
+   * each project's own already-LOCKED freight cost/invoice figures, then,
+   * if the caller asked for a different display currency, converts the
+   * four aggregate totals LIVE (today's rate) via convertFromBase().
+   * Falls back to the base currency (flagging conversionUnavailable) if
+   * that live conversion can't be done — never silently shows a wrong
+   * number. A line with no price yet is counted in totalLines but not
+   * linesWithPricing or any total; same for a project with no freight
+   * entered yet. */
+  private async summarize(
+    lines: { supplierTotalPriceReportingCcy: unknown; salesTotalPriceReportingCcy: unknown }[],
+    projects: { freightTotalCostReportingCcy: unknown; freightInvoiceAmountReportingCcy: unknown }[],
     currency?: string,
   ): Promise<ProjectFinancialSummary> {
     const base = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
@@ -370,12 +394,16 @@ export class ProjectsService {
     let linesWithPricing = 0;
     for (const l of lines) {
       const cost = decimalToNumber(l.supplierTotalPriceReportingCcy);
-      const freight = decimalToNumber(l.freightTotalCostReportingCcy);
       const invoice = decimalToNumber(l.salesTotalPriceReportingCcy);
       if (cost !== null) totalProductCost += cost;
-      if (freight !== null) totalFreightCost += freight;
       if (invoice !== null) totalInvoiceValue += invoice;
-      if (cost !== null || freight !== null || invoice !== null) linesWithPricing += 1;
+      if (cost !== null || invoice !== null) linesWithPricing += 1;
+    }
+    for (const p of projects) {
+      const freight = decimalToNumber(p.freightTotalCostReportingCcy);
+      const freightInvoice = decimalToNumber(p.freightInvoiceAmountReportingCcy);
+      if (freight !== null) totalFreightCost += freight;
+      if (freightInvoice !== null) totalInvoiceValue += freightInvoice;
     }
     const totalMargin = totalInvoiceValue - (totalProductCost + totalFreightCost);
 
@@ -495,6 +523,43 @@ export class ProjectsService {
         });
         if (!client) throw new NotFoundException(`Client ${dto.clientId} not found in your organisation`);
       }
+      if (dto.freightForwarderId) {
+        const forwarder = await tx.partner.findFirst({
+          where: { id: dto.freightForwarderId, ...tenantScope(user.organizationId) },
+        });
+        if (!forwarder) throw new NotFoundException(`Freight forwarder ${dto.freightForwarderId} not found in your organisation`);
+      }
+
+      const freightData: Record<string, unknown> = {};
+      await this.applyProjectFreightPricing(freightData, dto, existing);
+
+      // Gap 1 — generic field-level audit trail. Diffed against the DTO's
+      // own fields BEFORE the update call below, same "before" snapshot
+      // (`existing`) ProjectStatusHistory already reads for its own
+      // status-only check a few lines down. freightCost/freightCurrency/
+      // etc. are deliberately excluded here — applyProjectFreightPricing
+      // above already computes freightTotalCost/freightTotalCostReportingCcy
+      // from them, and auditing the COMPUTED figures after the update
+      // (see below) is more useful than auditing the raw inputs twice.
+      const auditedFields = [
+        "title",
+        "status",
+        "clientId",
+        "donorReference",
+        "deliveryCountryCode",
+        "startDate",
+        "dueDate",
+        "submissionDate",
+        "managementResponsibility",
+        "reasonForCancellation",
+        "projectNotes",
+        "completionStage",
+        "incoterm",
+        "freightMode",
+        "freightForwarderId",
+        "freightAdditionalCostDescription",
+      ] as const;
+      const changes = diffForAudit(existing, dto, auditedFields);
 
       const updated = await tx.project.update({
         where: { id },
@@ -515,6 +580,13 @@ export class ProjectsService {
           ...(dto.reasonForCancellation !== undefined ? { reasonForCancellation: dto.reasonForCancellation } : {}),
           ...(dto.projectNotes !== undefined ? { projectNotes: dto.projectNotes } : {}),
           ...(dto.completionStage !== undefined ? { completionStage: dto.completionStage } : {}),
+          ...(dto.incoterm !== undefined ? { incoterm: dto.incoterm } : {}),
+          ...(dto.freightMode !== undefined ? { freightMode: dto.freightMode } : {}),
+          ...(dto.freightForwarderId !== undefined ? { freightForwarderId: dto.freightForwarderId } : {}),
+          ...(dto.freightAdditionalCostDescription !== undefined
+            ? { freightAdditionalCostDescription: dto.freightAdditionalCostDescription }
+            : {}),
+          ...freightData,
         },
         include: PROJECT_DETAIL_INCLUDE,
       });
@@ -532,6 +604,27 @@ export class ProjectsService {
           data: { organizationId: user.organizationId, projectId: id, status: dto.status, changedById: user.id },
         });
       }
+
+      // Also audit the COMPUTED freight figures (not the raw cost inputs
+      // excluded from `changes` above) — these are the numbers that
+      // actually feed ProjectFinancialSummary, so they're what a review
+      // of "what changed about this project's freight charge" should show.
+      const freightComputedChanges = diffForAudit(existing, updated, [
+        "freightTotalCost",
+        "freightTotalCostReportingCcy",
+        "freightMarginPercent",
+        "freightMarginAmount",
+        "freightInvoiceAmountReportingCcy",
+      ] as const);
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "projects",
+        recordId: id,
+        changedById: user.id,
+        changes: [...changes, ...freightComputedChanges],
+        source: "API",
+      });
 
       return updated;
     });
@@ -552,7 +645,9 @@ export class ProjectsService {
     // filter naturally matches distinct rows, so comparing its result
     // against a non-deduplicated ids.length undercounts and rejects a
     // perfectly valid line with a false "not found in your organization".
-    const ids = [...new Set([dto.manufacturerId, dto.supplierId, dto.freightForwarderId].filter(
+    // freightForwarderId removed 2026-10-03 — it's on UpdateProjectDto now
+    // (project-level), checked separately in update() below.
+    const ids = [...new Set([dto.manufacturerId, dto.supplierId].filter(
       (v): v is string => typeof v === "string",
     ))];
     if (!ids.length) return;
@@ -622,21 +717,14 @@ export class ProjectsService {
       supplierPaymentAmountTotal: unknown;
       supplierPaymentCurrency: string | null;
       supplierTotalPriceReportingCcy: unknown;
-      freightCost: unknown;
-      freightInsuranceCost: unknown;
-      freightAdditionalCost: unknown;
-      freightCurrency: string | null;
-      freightTotalCost: unknown;
-      freightTotalCostReportingCcy: unknown;
       productMarginPercent: unknown;
-      freightMarginPercent: unknown;
       clientPaymentCurrency: string | null;
     } | null,
   ) {
     const quantity = dto.quantity !== undefined ? dto.quantity : existing?.quantity ?? null;
     const now = new Date();
 
-    // --- 1. Product/supplier side ---
+    // --- Product/supplier side ---
     const supplierUnitPrice = dto.supplierUnitPrice !== undefined ? dto.supplierUnitPrice : decimalToNumber(existing?.supplierUnitPrice);
     const supplierCurrency = dto.supplierPaymentCurrency !== undefined ? dto.supplierPaymentCurrency : existing?.supplierPaymentCurrency ?? null;
     const supplierTouched = dto.supplierUnitPrice !== undefined || dto.quantity !== undefined || dto.supplierPaymentCurrency !== undefined;
@@ -678,54 +766,22 @@ export class ProjectsService {
     const productMarginAmount = supplierTotalNative !== null && productMarginPercent !== null ? round2(supplierTotalNative * (productMarginPercent / 100)) : null;
     data.productMarginAmount = productMarginAmount;
 
-    // --- 2. Freight side ---
-    const freightCost = dto.freightCost !== undefined ? dto.freightCost : decimalToNumber(existing?.freightCost);
-    const freightInsuranceCost = dto.freightInsuranceCost !== undefined ? dto.freightInsuranceCost : decimalToNumber(existing?.freightInsuranceCost);
-    const freightAdditionalCost = dto.freightAdditionalCost !== undefined ? dto.freightAdditionalCost : decimalToNumber(existing?.freightAdditionalCost);
-    const freightCurrency = dto.freightCurrency !== undefined ? dto.freightCurrency : existing?.freightCurrency ?? null;
-    const freightTouched = dto.freightCost !== undefined || dto.freightInsuranceCost !== undefined || dto.freightAdditionalCost !== undefined || dto.freightCurrency !== undefined;
-
-    const freightComponents = [freightCost, freightInsuranceCost, freightAdditionalCost].filter((v): v is number => v !== null && v !== undefined);
-    const freightTotalNative = freightComponents.length > 0 ? round2(freightComponents.reduce((a, b) => a + b, 0)) : null;
-    data.freightTotalCost = freightTotalNative;
-
-    let freightTotalBase: number | null = null;
-    if (freightTotalNative !== null && freightTouched && freightCurrency) {
-      const conv = await this.exchangeRates.convertToBaseCcy(freightTotalNative, freightTotalNative, freightCurrency, now);
-      data.freightPriceLockedAt = conv.lockedAt;
-      data.freightExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
-      data.freightTotalCostReportingCcy = conv.totalInBase;
-      freightTotalBase = conv.totalInBase;
-    } else if (freightTotalNative === null) {
-      data.freightPriceLockedAt = null;
-      data.freightExchangeRateSnapshotId = null;
-      data.freightTotalCostReportingCcy = null;
-    } else {
-      // Freight amount/currency unchanged this request — reuse the
-      // existing locked base-currency figure for the invoice math below.
-      freightTotalBase = decimalToNumber(existing?.freightTotalCostReportingCcy);
-    }
-
-    const freightMarginPercent = dto.freightMarginPercent !== undefined ? dto.freightMarginPercent : decimalToNumber(existing?.freightMarginPercent);
-    data.freightMarginPercent = freightMarginPercent;
-    const freightMarginAmount = freightTotalNative !== null && freightMarginPercent !== null ? round2(freightTotalNative * (freightMarginPercent / 100)) : null;
-    data.freightMarginAmount = freightMarginAmount;
-
-    // --- 3. Client invoice (product + margin, plus freight + margin) ---
+    // --- Client invoice (2026-10-03: PRODUCT ONLY) ---
+    // Freight moved to the project level (see applyProjectFreightPricing
+    // below) and is no longer folded into any one line's invoice total —
+    // confirmed with Lewis via AskUserQuestion: freight is billed as its
+    // own separate project-level charge, not apportioned across lines.
     const clientCurrency = dto.clientPaymentCurrency !== undefined ? dto.clientPaymentCurrency : existing?.clientPaymentCurrency ?? null;
     const invoiceTouched =
       supplierTouched ||
       dto.productMarginPercent !== undefined ||
-      freightTouched ||
-      dto.freightMarginPercent !== undefined ||
       dto.clientPaymentCurrency !== undefined ||
       dto.quantity !== undefined;
 
     const productWithMarginBase = supplierTotalBase !== null ? supplierTotalBase * (1 + (productMarginPercent ?? 0) / 100) : null;
-    const freightWithMarginBase = freightTotalBase !== null ? freightTotalBase * (1 + (freightMarginPercent ?? 0) / 100) : null;
 
-    if (invoiceTouched && (productWithMarginBase !== null || freightWithMarginBase !== null)) {
-      const invoiceTotalBase = round2((productWithMarginBase ?? 0) + (freightWithMarginBase ?? 0));
+    if (invoiceTouched && productWithMarginBase !== null) {
+      const invoiceTotalBase = round2(productWithMarginBase);
       data.salesTotalPriceReportingCcy = invoiceTotalBase;
       data.salesUnitPriceReportingCcy = quantity ? round2(invoiceTotalBase / quantity) : null;
       data.reportingCurrencyCode = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
@@ -764,6 +820,117 @@ export class ProjectsService {
     }
   }
 
+  /**
+   * Project-level counterpart of applyPricing above, added 2026-10-03
+   * when freight moved from ProjectLine to Project (one freight contract
+   * per project, not per line — see Project's "Freight & Logistics" doc
+   * comment in schema.prisma). Computes freightTotalCost (freightCost +
+   * freightInsuranceCost + freightAdditionalCost, in freightCurrency),
+   * its locked base-currency equivalent, freightMarginAmount, and
+   * freightInvoiceAmountReportingCcy (the WITH-margin figure actually
+   * charged to the client) — mutating `data` in place, same convention as
+   * applyPricing. This freight invoice figure is NOT attached to any
+   * line's clientPaymentAmount; it's its own project-level charge, summed
+   * in alongside each line's product-only invoice total by
+   * getFinancialSummary/getProjectFinancialSummary below.
+   */
+  private async applyProjectFreightPricing(
+    data: Record<string, unknown>,
+    dto: UpdateProjectDto,
+    existing: {
+      freightCost: unknown;
+      freightInsuranceCost: unknown;
+      freightAdditionalCost: unknown;
+      freightCurrency: string | null;
+      freightTotalCostReportingCcy: unknown;
+      freightMarginPercent: unknown;
+    },
+  ) {
+    const now = new Date();
+
+    const freightCost = dto.freightCost !== undefined ? dto.freightCost : decimalToNumber(existing.freightCost);
+    const freightInsuranceCost = dto.freightInsuranceCost !== undefined ? dto.freightInsuranceCost : decimalToNumber(existing.freightInsuranceCost);
+    const freightAdditionalCost = dto.freightAdditionalCost !== undefined ? dto.freightAdditionalCost : decimalToNumber(existing.freightAdditionalCost);
+    const freightCurrency = dto.freightCurrency !== undefined ? dto.freightCurrency : existing.freightCurrency ?? null;
+    const freightTouched = dto.freightCost !== undefined || dto.freightInsuranceCost !== undefined || dto.freightAdditionalCost !== undefined || dto.freightCurrency !== undefined;
+
+    const freightComponents = [freightCost, freightInsuranceCost, freightAdditionalCost].filter((v): v is number => v !== null && v !== undefined);
+    const freightTotalNative = freightComponents.length > 0 ? round2(freightComponents.reduce((a, b) => a + b, 0)) : null;
+    data.freightTotalCost = freightTotalNative;
+    if (freightCost !== undefined) data.freightCost = freightCost;
+    if (freightInsuranceCost !== undefined) data.freightInsuranceCost = freightInsuranceCost;
+    if (freightAdditionalCost !== undefined) data.freightAdditionalCost = freightAdditionalCost;
+    if (freightCurrency !== undefined) data.freightCurrency = freightCurrency;
+    if (dto.insuredValue !== undefined) data.insuredValue = dto.insuredValue;
+    if (dto.insuredCurrency !== undefined) data.insuredCurrency = dto.insuredCurrency;
+
+    let freightTotalBase: number | null = null;
+    if (freightTotalNative !== null && freightTouched && freightCurrency) {
+      const conv = await this.exchangeRates.convertToBaseCcy(freightTotalNative, freightTotalNative, freightCurrency, now);
+      data.reportingCurrencyCode = conv.baseCurrencyCode;
+      data.freightPriceLockedAt = conv.lockedAt;
+      data.freightExchangeRateSnapshotId = conv.exchangeRateSnapshotId;
+      data.freightTotalCostReportingCcy = conv.totalInBase;
+      freightTotalBase = conv.totalInBase;
+    } else if (freightTotalNative === null) {
+      data.freightPriceLockedAt = null;
+      data.freightExchangeRateSnapshotId = null;
+      data.freightTotalCostReportingCcy = null;
+    } else {
+      freightTotalBase = decimalToNumber(existing.freightTotalCostReportingCcy);
+    }
+
+    const freightMarginPercent = dto.freightMarginPercent !== undefined ? dto.freightMarginPercent : decimalToNumber(existing.freightMarginPercent);
+    data.freightMarginPercent = freightMarginPercent;
+    const freightMarginAmount = freightTotalNative !== null && freightMarginPercent !== null ? round2(freightTotalNative * (freightMarginPercent / 100)) : null;
+    data.freightMarginAmount = freightMarginAmount;
+    data.freightInvoiceAmountReportingCcy =
+      freightTotalBase !== null ? round2(freightTotalBase * (1 + (freightMarginPercent ?? 0) / 100)) : null;
+  }
+
+  /**
+   * Computes internalOnTime/supplierOnTime/supplierInFull server-side
+   * (2026-10-03, replacing manual dropdowns — Lewis's instruction: these
+   * should be facts derived from dates/quantities already entered, not a
+   * judgment call typed in). Returns null for any flag whose inputs
+   * aren't both present yet (never defaults to false — an unknown date
+   * pair means the flag genuinely isn't knowable yet, not that it failed).
+   *
+   * - internalOnTime: actualDeliveryDate <= projectedDeliveryDate (Unimed's
+   *   own promise to the CLIENT was met).
+   * - supplierOnTime: goodsCollectedDate <= supplierGad (the SUPPLIER's own
+   *   committed date was met). Judgment call, flagged in schema.prisma and
+   *   architecture-decisions.md: GAD/supplierGad's exact definitions are
+   *   still an open question — this is a reasonable reading given the
+   *   fields available, worth confirming once that's settled.
+   * - supplierInFull: quantityReceived >= quantity.
+   */
+  private computeOnTimeInFull(line: {
+    actualDeliveryDate: Date | string | null | undefined;
+    projectedDeliveryDate: Date | string | null | undefined;
+    goodsCollectedDate: Date | string | null | undefined;
+    supplierGad: Date | string | null | undefined;
+    quantity: number | null | undefined;
+    quantityReceived: number | null | undefined;
+  }): { internalOnTime: boolean | null; supplierOnTime: boolean | null; supplierInFull: boolean | null } {
+    const toTime = (v: Date | string | null | undefined) => (v ? new Date(v).getTime() : null);
+
+    const actual = toTime(line.actualDeliveryDate);
+    const projected = toTime(line.projectedDeliveryDate);
+    const internalOnTime = actual !== null && projected !== null ? actual <= projected : null;
+
+    const collected = toTime(line.goodsCollectedDate);
+    const supplierCommitted = toTime(line.supplierGad);
+    const supplierOnTime = collected !== null && supplierCommitted !== null ? collected <= supplierCommitted : null;
+
+    const supplierInFull =
+      line.quantityReceived !== null && line.quantityReceived !== undefined && line.quantity !== null && line.quantity !== undefined
+        ? line.quantityReceived >= line.quantity
+        : null;
+
+    return { internalOnTime, supplierOnTime, supplierInFull };
+  }
+
   async addLine(user: RequestUser, projectId: string, dto: ProjectLineDto): Promise<ProjectDetail> {
     await withTenantContext(user.organizationId, async (tx) => {
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
@@ -772,6 +939,17 @@ export class ProjectsService {
 
       const data = lineDataFromDto(dto);
       await this.applyPricing(data, dto, null);
+      Object.assign(
+        data,
+        this.computeOnTimeInFull({
+          actualDeliveryDate: data.actualDeliveryDate as Date | null | undefined,
+          projectedDeliveryDate: data.projectedDeliveryDate as Date | null | undefined,
+          goodsCollectedDate: data.goodsCollectedDate as Date | null | undefined,
+          supplierGad: data.supplierGad as Date | null | undefined,
+          quantity: dto.quantity ?? null,
+          quantityReceived: dto.quantityReceived ?? null,
+        }),
+      );
 
       await tx.projectLine.create({
         data: { organizationId: user.organizationId, projectId, ...data },
@@ -790,8 +968,42 @@ export class ProjectsService {
 
       const data = lineDataFromDto(dto);
       await this.applyPricing(data, dto, line);
+      // internalOnTime/supplierOnTime/supplierInFull are computed from
+      // the merged (this request's changes + already-stored) state, not
+      // just whatever this one PATCH happened to touch — a request that
+      // only changes, say, clientPoNumber must not wipe an already-
+      // computable on-time/in-full flag back to null.
+      Object.assign(
+        data,
+        this.computeOnTimeInFull({
+          actualDeliveryDate: data.actualDeliveryDate !== undefined ? (data.actualDeliveryDate as Date | null) : line.actualDeliveryDate,
+          projectedDeliveryDate: data.projectedDeliveryDate !== undefined ? (data.projectedDeliveryDate as Date | null) : line.projectedDeliveryDate,
+          goodsCollectedDate: data.goodsCollectedDate !== undefined ? (data.goodsCollectedDate as Date | null) : line.goodsCollectedDate,
+          supplierGad: data.supplierGad !== undefined ? (data.supplierGad as Date | null) : line.supplierGad,
+          quantity: dto.quantity !== undefined ? dto.quantity : line.quantity,
+          quantityReceived: dto.quantityReceived !== undefined ? dto.quantityReceived : line.quantityReceived,
+        }),
+      );
+
+      // Gap 1 — generic field-level audit trail. `data` is the finalized
+      // write payload (post lineDataFromDto/applyPricing/
+      // computeOnTimeInFull), not the raw DTO, so every key in it is
+      // genuinely about to be written — diffing against it directly
+      // (rather than against `dto`) correctly captures computed fields
+      // like the server-side on-time/in-full flags and pricing totals,
+      // not just whatever the caller's PATCH body happened to touch.
+      const changes = diffForAudit(line, data, Object.keys(data));
 
       await tx.projectLine.update({ where: { id: lineId }, data });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_lines",
+        recordId: lineId,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
     });
     return this.findOne(user, projectId);
   }

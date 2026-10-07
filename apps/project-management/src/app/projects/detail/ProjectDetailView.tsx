@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, UpdateProjectInput } from "@universe/types";
-import { SUPPORTED_CURRENCIES } from "@universe/types";
+import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
@@ -14,6 +14,13 @@ import { ProjectDocuments } from "./ProjectDocuments";
 
 const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
+/** Project-level freight fields (moved here from ProjectLineInput
+ * 2026-10-03, per Lewis's request — freight is arranged once for the
+ * whole project, not per line). Same lists as
+ * apps/api/src/projects/dto/update-project.dto.ts's INCOTERMS/
+ * FREIGHT_MODES. */
+const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
+const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
 
 /**
  * Which header fields foreground at which stage — see
@@ -132,6 +139,17 @@ export function ProjectDetailView() {
       reasonForCancellation: project.reasonForCancellation,
       projectNotes: project.projectNotes,
       completionStage: project.completionStage,
+      incoterm: project.incoterm,
+      freightMode: project.freightMode,
+      freightForwarderId: project.freightForwarderId,
+      freightCost: project.freightCost === null ? null : Number(project.freightCost),
+      freightCurrency: project.freightCurrency,
+      insuredValue: project.insuredValue === null ? null : Number(project.insuredValue),
+      insuredCurrency: project.insuredCurrency,
+      freightInsuranceCost: project.freightInsuranceCost === null ? null : Number(project.freightInsuranceCost),
+      freightAdditionalCost: project.freightAdditionalCost === null ? null : Number(project.freightAdditionalCost),
+      freightAdditionalCostDescription: project.freightAdditionalCostDescription,
+      freightMarginPercent: project.freightMarginPercent === null ? null : Number(project.freightMarginPercent),
     });
     setEditingHeader(true);
   }
@@ -411,6 +429,170 @@ export function ProjectDetailView() {
               />
             </label>
           </div>
+
+          {/* Freight & Logistics (moved here from LineForm.tsx 2026-10-03,
+              per Lewis's request — freight is calculated once for the
+              whole project, not per product line. See Project's doc
+              comment in schema.prisma and ProjectsService.applyProjectFreightPricing. */}
+          <h3 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginTop: 24, marginBottom: 8 }}>
+            Freight & Logistics
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <label style={{ fontSize: 13 }}>
+              Freight Forwarder
+              <select className="u-native-select"
+                style={fieldInputStyle}
+                value={headerForm.freightForwarderId ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightForwarderId: e.target.value || null }))}
+              >
+                <option value="">—</option>
+                {freightForwarders.map((fwd) => (
+                  <option key={fwd.id} value={fwd.id}>
+                    {fwd.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Incoterm
+              <select className="u-native-select" style={fieldInputStyle} value={headerForm.incoterm ?? ""} onChange={(e) => setHeaderForm((f) => ({ ...f, incoterm: e.target.value || null }))}>
+                <option value="">—</option>
+                {INCOTERMS.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Mode
+              <select className="u-native-select" style={fieldInputStyle} value={headerForm.freightMode ?? ""} onChange={(e) => setHeaderForm((f) => ({ ...f, freightMode: e.target.value || null }))}>
+                <option value="">—</option>
+                {FREIGHT_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Cost
+              <input
+                type="number"
+                step="0.01"
+                style={fieldInputStyle}
+                value={headerForm.freightCost ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightCost: e.target.value === "" ? null : Number(e.target.value) }))}
+              />
+            </label>
+            <label style={{ fontSize: 13, display: "block" }}>
+              <span>Freight Currency</span>
+              <div style={{ marginTop: 4 }}>
+                <CurrencySelect
+                  value={headerForm.freightCurrency ?? ""}
+                  onChange={(code) => setHeaderForm((f) => ({ ...f, freightCurrency: code || null }))}
+                  options={CURRENCY_OPTIONS}
+                  ariaLabel="Freight currency"
+                />
+              </div>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Insurance Cost
+              <input
+                type="number"
+                step="0.01"
+                style={fieldInputStyle}
+                value={headerForm.freightInsuranceCost ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightInsuranceCost: e.target.value === "" ? null : Number(e.target.value) }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Additional Cost
+              <input
+                type="number"
+                step="0.01"
+                style={fieldInputStyle}
+                value={headerForm.freightAdditionalCost ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightAdditionalCost: e.target.value === "" ? null : Number(e.target.value) }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Additional Cost Description
+              <input
+                style={fieldInputStyle}
+                value={headerForm.freightAdditionalCostDescription ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightAdditionalCostDescription: e.target.value || null }))}
+              />
+            </label>
+            {/* Computed server-side (freightCost + freightInsuranceCost +
+                freightAdditionalCost) — same cosmetic-preview convention
+                as LineForm.tsx's calculated fields. */}
+            <label style={{ fontSize: 13 }}>
+              Freight Total Cost (calculated)
+              <input
+                type="number"
+                step="0.01"
+                style={{ ...fieldInputStyle, background: "var(--u-surface-alt)" }}
+                value={freightTotalPreview()}
+                readOnly
+                disabled
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Insured Value
+              <input
+                type="number"
+                step="0.01"
+                style={fieldInputStyle}
+                value={headerForm.insuredValue ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, insuredValue: e.target.value === "" ? null : Number(e.target.value) }))}
+              />
+            </label>
+            <label style={{ fontSize: 13, display: "block" }}>
+              <span>Insured Currency</span>
+              <div style={{ marginTop: 4 }}>
+                <CurrencySelect
+                  value={headerForm.insuredCurrency ?? ""}
+                  onChange={(code) => setHeaderForm((f) => ({ ...f, insuredCurrency: code || null }))}
+                  options={CURRENCY_OPTIONS}
+                  ariaLabel="Insured currency"
+                />
+              </div>
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Margin %
+              <input
+                type="number"
+                step="0.01"
+                style={fieldInputStyle}
+                value={headerForm.freightMarginPercent ?? ""}
+                onChange={(e) => setHeaderForm((f) => ({ ...f, freightMarginPercent: e.target.value === "" ? null : Number(e.target.value) }))}
+              />
+            </label>
+            <label style={{ fontSize: 13 }}>
+              Freight Margin Amount (calculated)
+              <input
+                type="number"
+                step="0.01"
+                style={{ ...fieldInputStyle, background: "var(--u-surface-alt)" }}
+                value={freightMarginAmountPreview()}
+                readOnly
+                disabled
+              />
+            </label>
+            {project.reportingCurrencyCode && project.freightTotalCostReportingCcy && (
+              <label style={{ fontSize: 13, display: "block" }}>
+                <span>{`Freight Cost (${project.reportingCurrencyCode}, locked ${(project.freightPriceLockedAt ?? "").slice(0, 10) || "—"})`}</span>
+                <input
+                  style={{ ...fieldInputStyle, background: "var(--u-surface-alt)" }}
+                  value={`Total: ${project.freightTotalCostReportingCcy}`}
+                  readOnly
+                  disabled
+                />
+              </label>
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <Button variant="primary" onClick={saveHeader} disabled={savingHeader}>
               {savingHeader ? "Saving…" : "Save"}
@@ -475,9 +657,9 @@ export function ProjectDetailView() {
         <LineForm
           existing={null}
           isPharma={isPharma}
+          projectStatus={project.status}
           manufacturers={manufacturers}
           suppliers={suppliers}
-          freightForwarders={freightForwarders}
           onCancel={() => setAddingLine(false)}
           onSave={async (input) => {
             const updated = await apiClient.addProjectLine(project.id, input);
@@ -525,9 +707,9 @@ export function ProjectDetailView() {
             <LineForm
               existing={line}
               isPharma={isPharma}
+              projectStatus={project.status}
               manufacturers={manufacturers}
               suppliers={suppliers}
-              freightForwarders={freightForwarders}
               onCancel={() => setEditingLineId(null)}
               onSave={async (input) => {
                 const updated = await apiClient.updateProjectLine(project.id, line.id, input);
