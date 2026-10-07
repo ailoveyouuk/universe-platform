@@ -1376,8 +1376,15 @@ model SupplierEnquiry {
 model ProjectDocument {
   id             String   @id @default(uuid())
   organizationId String // denormalized for direct RLS scoping
-  projectId      String
-  project        Project  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Nullable since 2026-10-08 (stakeholder-evidence document upload —
+  /// see claude/product-db-test-batch-import.md "Round 4"). A row with
+  /// projectId null is a "standalone" document — uploaded against a
+  /// StakeholderEvidenceRecord (or, in future, a ControlledDocument)
+  /// rather than a Project. Everything else about it (blob storage,
+  /// container-per-org, the SAS upload/download flow) is identical; only
+  /// the owning-context FK differs. See documents-standalone.controller.ts.
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   type           String // see allowed values reference above
   title          String
   url            String // blob storage URL (no SAS — see blob-storage.service.ts) or a legacy SharePoint link

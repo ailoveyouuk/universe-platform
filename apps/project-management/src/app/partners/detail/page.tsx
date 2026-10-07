@@ -458,6 +458,7 @@ function EvidenceStandardRow({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          {record?.documentId && <DocumentLink documentId={record.documentId} />}
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: toneColor }}>
             {icon}
             {effectiveStatus.charAt(0) + effectiveStatus.slice(1).toLowerCase()}
@@ -502,19 +503,94 @@ function EvidenceStandardRow({
   );
 }
 
+/** Added 2026-10-08 alongside the standalone document upload — a record
+ * with a documentId gets a small link that mints a fresh, short-lived
+ * download SAS on click (same "never store the SAS, mint on demand"
+ * posture as BlobStorageService.getDownloadUrl) and opens it in a new
+ * tab. Loading/error state is intentionally minimal — this is a single
+ * link, not a form. */
+function DocumentLink({ documentId }: { documentId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      const { downloadUrl } = await apiClient.getStandaloneDocumentDownloadUrl(documentId);
+      window.open(downloadUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      // A broken/expired link here is a minor inconvenience, not worth a
+      // full error banner on the row — the user can just try again.
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      style={{
+        fontSize: 12,
+        color: "var(--u-brand-violet)",
+        background: "none",
+        border: "none",
+        padding: 0,
+        cursor: loading ? "default" : "pointer",
+        textDecoration: "underline",
+      }}
+    >
+      {loading ? "Opening…" : "View document"}
+    </button>
+  );
+}
+
 function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: string; partnerId: string; onSaved: () => void }) {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [issuingBody, setIssuingBody] = useState("");
   const [issuedDate, setIssuedDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+
+  /** Added 2026-10-08 — same two-step SAS flow as the Project documents
+   * feature (requestDocumentUploadUrl/uploadDocumentFile/confirmDocumentUpload),
+   * just using the standalone (non-project) endpoints, since a stakeholder
+   * evidence record isn't attached to a Project. See
+   * DocumentsStandaloneController / documents.service.ts's "Standalone
+   * documents" section in apps/api. Attaching a file is optional — a
+   * record can still be logged as metadata-only, same as before this was
+   * added. */
+  async function uploadFileAndGetDocumentId(): Promise<string | undefined> {
+    if (!file) return undefined;
+    setUploadStage("Requesting upload URL…");
+    const { uploadUrl, blobName } = await apiClient.requestStandaloneDocumentUploadUrl({
+      fileName: file.name,
+      contentType: file.type || "application/octet-stream",
+    });
+    setUploadStage("Uploading file…");
+    await apiClient.uploadDocumentFile(uploadUrl, file);
+    setUploadStage("Confirming upload…");
+    const doc = await apiClient.confirmStandaloneDocumentUpload({
+      blobName,
+      fileName: file.name,
+      type: "EVIDENCE",
+      title: file.name,
+      fileSizeBytes: file.size,
+      mimeType: file.type || undefined,
+    });
+    setUploadStage(null);
+    return doc.id;
+  }
 
   async function handleSubmit() {
     setSubmitting(true);
     setFormError(null);
     try {
+      const documentId = await uploadFileAndGetDocumentId();
       await apiClient.createEvidenceRecord({
         partnerId,
         standardId,
@@ -522,10 +598,12 @@ function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: strin
         issuingBody: issuingBody || undefined,
         issuedDate: issuedDate || undefined,
         expiryDate: expiryDate || undefined,
+        documentId,
         notes: notes || undefined,
       });
       onSaved();
     } catch (err) {
+      setUploadStage(null);
       setFormError(err instanceof Error ? err.message : "Failed to log evidence");
     } finally {
       setSubmitting(false);
@@ -553,13 +631,21 @@ function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: strin
         </label>
       </div>
       <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Supporting document (optional)
+        <input
+          type="file"
+          style={{ ...inputStyle, padding: "6px 8px" }}
+          onChange={(e) => setFile(e.target.files && e.target.files.length > 0 ? e.target.files[0] : null)}
+        />
+      </label>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
         Notes
         <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
       {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
-      <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving…" : "Save evidence"}
+          {submitting ? uploadStage ?? "Saving…" : "Save evidence"}
         </Button>
       </div>
     </div>

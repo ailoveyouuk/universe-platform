@@ -1,13 +1,14 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import { withTenantContext } from "@universe/db";
-import type { ProjectDetail } from "@universe/types";
+import type { ProjectDetail, StandaloneDocumentSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ProjectsService } from "../projects/projects.service";
 import { BlobStorageService } from "./blob-storage.service";
 import type { RequestUploadDto } from "./dto/request-upload.dto";
 import type { ConfirmUploadDto } from "./dto/confirm-upload.dto";
+import type { ConfirmStandaloneUploadDto } from "./dto/confirm-standalone-upload.dto";
 
 /**
  * Phase 2b (Documents) — Blob Storage, decided 2026-10-01 by Lewis (see
@@ -113,5 +114,80 @@ export class DocumentsService {
     });
     if (doc.blobName) await this.blobStorageService.deleteBlob(user.organizationId, doc.blobName);
     return this.projectsService.findOne(user, projectId);
+  }
+
+  // --- Standalone documents (added 2026-10-08, stakeholder-evidence
+  // document upload — see claude/product-db-test-batch-import.md "Round
+  // 4"). Same two-step SAS flow and the same BlobStorageService/
+  // per-org container as the project-scoped methods above; the only
+  // difference is there's no owning Project to check ownership against —
+  // a standalone document is scoped by organizationId alone (RLS), and a
+  // row is "standalone" by having projectId null (see ProjectDocument's
+  // doc comment in schema.prisma). Returned as StandaloneDocumentSummary
+  // rather than ProjectDetail, since there's no project to re-fetch. ---
+
+  /** Blob names for standalone documents live under their own "standalone/"
+   * prefix so they're trivially distinguishable from project-scoped blobs
+   * if anyone ever has to look directly in the container — mirrors
+   * buildBlobName's per-project namespacing above, just keyed on a fixed
+   * prefix instead of a projectId since there's no project to namespace by. */
+  private buildStandaloneBlobName(fileName: string): string {
+    const safe = fileName.replace(/[^a-zA-Z0-9.\-_ ]/g, "_").slice(-150);
+    return `standalone/${randomUUID()}-${safe}`;
+  }
+
+  requestStandaloneUpload(user: RequestUser, dto: RequestUploadDto): Promise<{ uploadUrl: string; blobName: string }> {
+    const blobName = this.buildStandaloneBlobName(dto.fileName);
+    return this.blobStorageService.getUploadUrl(user.organizationId, blobName, dto.contentType);
+  }
+
+  async confirmStandaloneUpload(user: RequestUser, dto: ConfirmStandaloneUploadDto): Promise<StandaloneDocumentSummary> {
+    const row = await withTenantContext(user.organizationId, (tx) =>
+      tx.projectDocument.create({
+        data: {
+          organizationId: user.organizationId,
+          projectId: null,
+          type: dto.type,
+          title: dto.title,
+          url: this.blobStorageService.blobUrl(user.organizationId, dto.blobName),
+          blobName: dto.blobName,
+          fileName: dto.fileName,
+          fileSizeBytes: dto.fileSizeBytes,
+          mimeType: dto.mimeType,
+          uploadedById: user.id,
+        },
+        include: { uploadedBy: true },
+      }),
+    );
+    return {
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      fileName: row.fileName,
+      fileSizeBytes: row.fileSizeBytes,
+      mimeType: row.mimeType,
+      uploadedByName: row.uploadedBy ? `${row.uploadedBy.forename} ${row.uploadedBy.surname}` : null,
+      uploadedAt: row.uploadedAt.toISOString(),
+    };
+  }
+
+  async getStandaloneDownloadUrl(user: RequestUser, documentId: string): Promise<{ downloadUrl: string }> {
+    const doc = await withTenantContext(user.organizationId, (tx) =>
+      tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, ...tenantScope(user.organizationId) } }),
+    );
+    if (!doc) throw new NotFoundException(`Document ${documentId} not found`);
+    if (!doc.blobName) return { downloadUrl: doc.url };
+    const downloadUrl = await this.blobStorageService.getDownloadUrl(user.organizationId, doc.blobName);
+    return { downloadUrl };
+  }
+
+  async deleteStandalone(user: RequestUser, documentId: string): Promise<void> {
+    const doc = await withTenantContext(user.organizationId, async (tx) => {
+      const document = await tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, ...tenantScope(user.organizationId) } });
+      if (!document) throw new NotFoundException(`Document ${documentId} not found`);
+      await tx.projectDocument.delete({ where: { id: documentId } });
+      return document;
+    });
+    if (doc.blobName) await this.blobStorageService.deleteBlob(user.organizationId, doc.blobName);
   }
 }

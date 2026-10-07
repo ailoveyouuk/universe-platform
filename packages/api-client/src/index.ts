@@ -1,6 +1,7 @@
 import type {
   AuthenticatedUser,
   ConfirmDocumentUploadInput,
+  StandaloneDocumentSummary,
   CountryOption,
   CreateOrganizationInput,
   CreatePartnerInput,
@@ -228,6 +229,27 @@ export class UniverseApiClient {
 
   deleteDocument(projectId: string, documentId: string): Promise<ProjectDetail> {
     return this.request(`/projects/${projectId}/documents/${documentId}`, { method: "DELETE" });
+  }
+
+  // --- Standalone documents (added 2026-10-08, stakeholder-evidence
+  // document upload). Same two-step SAS flow as the project-scoped
+  // methods above, just without a projectId — see
+  // DocumentsStandaloneController in apps/api. ---
+
+  requestStandaloneDocumentUploadUrl(input: RequestDocumentUploadInput): Promise<RequestDocumentUploadResult> {
+    return this.request(`/documents/upload-url`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  confirmStandaloneDocumentUpload(input: ConfirmDocumentUploadInput): Promise<StandaloneDocumentSummary> {
+    return this.request(`/documents`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  getStandaloneDocumentDownloadUrl(documentId: string): Promise<{ downloadUrl: string }> {
+    return this.request(`/documents/${documentId}/download-url`);
+  }
+
+  deleteStandaloneDocument(documentId: string): Promise<void> {
+    return this.request(`/documents/${documentId}`, { method: "DELETE" });
   }
 
   // --- Partners (added 2026-09-27) ---

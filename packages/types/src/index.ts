@@ -681,6 +681,23 @@ export interface ConfirmDocumentUploadInput {
   mimeType?: string;
 }
 
+/** Added 2026-10-08 (stakeholder-evidence document upload). A document
+ * uploaded through the standalone (non-project) /documents endpoints —
+ * same underlying ProjectDocument row as a project document, just with
+ * projectId null, so this is its own read shape rather than reusing
+ * ProjectDocument's (which assumes a project context for display). */
+export interface StandaloneDocumentSummary {
+  id: string;
+  title: string;
+  type: string;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  mimeType: string | null;
+  uploadedByName: string | null;
+  uploadedAt: string;
+}
+
+
 /** PATCH /projects/:id — header fields only; line data goes through the
  * dedicated line endpoints above. */
 export interface UpdateProjectInput {
