@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@prisma/client";
-import type { EvidenceStandardSummary, StakeholderEvidenceRecordSummary } from "@universe/types";
+import type { EvidenceDueForReviewSummary, EvidenceStandardSummary, StakeholderEvidenceRecordSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
@@ -268,21 +268,44 @@ export class EvidenceService {
    * "Gating" — a standard with reVerificationFrequencyMonths set flips a
    * verified record back to due-for-review automatically). `withinDays`
    * (default 30) controls the look-ahead window shown on the dashboard. */
-  async listDueForReVerification(user: RequestUser, withinDays = 30) {
+  /**
+   * Gap 3's re-verification-due dashboard. Previously returned the raw
+   * Prisma rows (nested `standard`/`partner` relation objects) straight
+   * off the wire — a second, independently-discovered instance of the
+   * same mapped-type-vs-raw-row mismatch fixed in toStandardSummary/
+   * toRecordSummary above, caught while wiring up this method's frontend
+   * consumer. Now mapped to EvidenceDueForReviewSummary (see
+   * packages/types) so the frontend gets a flat, typed shape with the
+   * due date already computed, instead of re-deriving it client-side.
+   */
+  async listDueForReVerification(user: RequestUser, withinDays = 30): Promise<EvidenceDueForReviewSummary[]> {
     const records = await withTenantContext(user.organizationId, (tx) =>
       tx.stakeholderEvidenceRecord.findMany({
         where: { ...tenantScope(user.organizationId), status: "VERIFIED", verifiedAt: { not: null } },
         include: { standard: true, partner: { select: { id: true, name: true } } },
       }),
     );
-    const cutoff = new Date(Date.now() + withinDays * 24 * 60 * 60 * 1000);
-    return records.filter((r) => {
+    const now = new Date();
+    const cutoff = new Date(now.getTime() + withinDays * 24 * 60 * 60 * 1000);
+    const due: EvidenceDueForReviewSummary[] = [];
+    for (const r of records) {
       const months = r.standard.reVerificationFrequencyMonths;
-      if (!months || !r.verifiedAt) return false;
-      const due = new Date(r.verifiedAt);
-      due.setMonth(due.getMonth() + months);
-      return due <= cutoff;
-    });
+      if (!months || !r.verifiedAt) continue;
+      const dueDate = new Date(r.verifiedAt);
+      dueDate.setMonth(dueDate.getMonth() + months);
+      if (dueDate > cutoff) continue;
+      due.push({
+        id: r.id,
+        partnerId: r.partnerId,
+        partnerName: r.partner.name,
+        standardId: r.standardId,
+        standardName: r.standard.name,
+        verifiedAt: r.verifiedAt.toISOString(),
+        dueDate: dueDate.toISOString(),
+        isOverdue: dueDate < now,
+      });
+    }
+    return due.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   }
 
   /**

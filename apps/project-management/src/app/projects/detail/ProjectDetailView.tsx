@@ -11,6 +11,8 @@ import { useCountries } from "../../../lib/useCountries";
 import { LineForm } from "./LineForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
+import { AuditHistory } from "../../../components/AuditHistory";
+import { RiskRegister } from "../../../components/RiskRegister";
 
 const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
@@ -755,6 +757,9 @@ export function ProjectDetailView() {
       )}
 
       <ProjectDocuments project={project} onUpdated={setProject} />
+
+      <RiskRegister subjectType="PROJECT" subjectId={project.id} />
+      <AuditHistory tableName="projects" recordId={project.id} />
     </main>
   );
 }

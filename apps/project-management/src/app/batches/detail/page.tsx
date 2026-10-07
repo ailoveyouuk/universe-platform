@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import type { ProductBatchDetail } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { Button, Select, Pill, TextLink, GridIcon, AlertIcon, ChevronLeftIcon } from "@universe/ui";
+import { AuditHistory } from "../../../components/AuditHistory";
+import { RiskRegister } from "../../../components/RiskRegister";
 
 const STATUS_OPTIONS = ["ACTIVE", "QUARANTINED", "EXPIRED", "WITHDRAWN"] as const;
 
@@ -234,6 +236,9 @@ export default function BatchDetailPage() {
           </div>
         )}
       </section>
+
+      <RiskRegister subjectType="PRODUCT_BATCH" subjectId={batch.id} />
+      <AuditHistory tableName="product_batches" recordId={batch.id} />
     </main>
   );
 }

@@ -276,6 +276,8 @@ model Organization {
   /// traceability + cold-chain temperature logging).
   productBatches              ProductBatch[]
   batchTemperatureLogs        BatchTemperatureLog[]
+  /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
+  controlledDocuments         ControlledDocument[]
   /// Added 2026-10-07 — organizationId backfill, see each model's doc
   /// comment (compliance-standards-gap-analysis.md Gap 1 cross-check).
   partnerCertifications        PartnerCertification[]
@@ -346,6 +348,8 @@ model User {
   recordedProjectStatusChanges ProjectStatusHistory[]
   /// Added 2026-10-07 — see RiskAssessment.owner.
   ownedRiskAssessments RiskAssessment[]
+  /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
+  approvedControlledDocuments ControlledDocument[]
 
   @@index([organizationId])
   @@map("users")
@@ -1395,6 +1399,8 @@ model ProjectDocument {
   partnerCertifications PartnerCertification[]
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3.
   stakeholderEvidenceRecords StakeholderEvidenceRecord[]
+  /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
+  controlledDocuments ControlledDocument[]
 
   @@index([organizationId])
   @@map("project_documents")
@@ -2170,6 +2176,58 @@ model RiskAssessment {
   @@index([subjectType, subjectId])
   @@index([reviewDate])
   @@map("risk_assessments")
+}
+
+/// Gap 7 (compliance-standards-gap-analysis.md) — a minimal controlled-
+/// document register for an organisation's own SOPs/policies: the
+/// artifacts this whole GDP/compliance build exists to let a stakeholder
+/// evidence compliance AGAINST, but which Universe itself had no module
+/// to version-control as living documents. Deliberately thin — version
+/// number, effective date, an approval attribution, and a supersedes/
+/// supersededBy chain for current-vs-superseded state — not a general
+/// document-management system with check-in/check-out or review
+/// workflows, same "core scaffolding, not a full process suite"
+/// principle as every other gap closed in this build.
+model ControlledDocument {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title          String
+  /// Free text, same convention as EvidenceStandardDefinition.category —
+  /// e.g. "QUALITY_MANUAL", "SOP", "POLICY", "WORK_INSTRUCTION".
+  category       String
+  /// Free-text version label (e.g. "1.0", "2.3", "v4") rather than a
+  /// strict semver — Unimed's own SOPs are versioned inconsistently
+  /// today, and this register is meant to record what an organisation
+  /// actually calls its own version, not impose a new scheme on it.
+  version        String
+  effectiveDate  DateTime?
+  /// The prior version this one replaces, and the reverse pointer — a
+  /// one-directional chain per document lineage, same self-relation
+  /// convention as User.invitedBy/invitedUsers above. supersededById is
+  /// set on the OLD row when a NEW version is created referencing it via
+  /// supersedesId, keeping "is this the current version" a simple null
+  /// check (isCurrent = supersededById === null) rather than a separate
+  /// status field that could drift out of sync with the chain itself.
+  supersedesId    String?              @unique
+  supersedes      ControlledDocument?  @relation("ControlledDocumentSupersedes", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supersededBy    ControlledDocument?  @relation("ControlledDocumentSupersedes")
+  approvedById   String?
+  approvedBy     User?        @relation(fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedAt     DateTime?
+  /// Optional link to the actual file (Blob Storage, same as every other
+  /// document reference in the schema) — nullable since a register entry
+  /// can exist (e.g. recording a historical version) before or without
+  /// the file itself being uploaded.
+  documentId     String?
+  document       ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, category])
+  @@map("controlled_documents")
 }
 
 // ---------------------------------------------------------------------------

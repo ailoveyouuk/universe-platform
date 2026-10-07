@@ -1475,3 +1475,81 @@ export interface ProductBatchDetail extends ProductBatchSummary {
     clientName: string | null;
   }[];
 }
+
+// --- Follow-up frontend pass (added 2026-10-07/08) — closes the
+// remaining UI-less items from compliance-standards-gap-analysis.md's
+// "What still needs doing" list: Gap 1's audit-log viewer, Gap 2's
+// certification-statement display, Gap 3's re-verification dashboard,
+// Gap 4's risk-register screen, and Gap 7's controlled-document module. ---
+
+/** Gap 2 — the versioned "e-signature meaning" statement text itself,
+ * moved here (single source of truth) so the frontend can display the
+ * exact wording next to an approval/verification control instead of just
+ * capturing it blind on the backend. apps/api/src/common/certification-
+ * statements.ts re-exports this rather than duplicating it. Append-only
+ * by convention — see that file's original doc comment, preserved here. */
+export const CERTIFICATION_STATEMENTS = {
+  PARTNER_APPROVAL_V1:
+    "By approving this stakeholder, I certify that I have reviewed the evidence on file, that it meets this organisation's qualification requirements, and that I am an authorised approver acting on this organisation's behalf.",
+  EVIDENCE_VERIFICATION_V1:
+    "By marking this evidence as verified, I certify that I have examined the supporting document/record myself and confirm it is genuine, current, and satisfies the standard it is being logged against.",
+} as const;
+
+export type CertificationStatementKey = keyof typeof CERTIFICATION_STATEMENTS;
+
+/** Gap 3 — one row of the re-verification-due dashboard (GET
+ * /evidence-records/due-for-review), replacing the raw Prisma rows the
+ * endpoint returned before this pass (a latent instance of the same
+ * mapped-type-vs-raw-row mismatch fixed elsewhere in evidence.service.ts
+ * — see EvidenceService.listDueForReVerification). dueDate is computed
+ * server-side from verifiedAt + the standard's reVerificationFrequencyMonths
+ * so the frontend never has to re-derive it. */
+export interface EvidenceDueForReviewSummary {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  standardId: string;
+  standardName: string;
+  verifiedAt: string;
+  dueDate: string;
+  isOverdue: boolean;
+}
+
+/** Gap 7 (compliance-standards-gap-analysis.md) — a minimal controlled-
+ * document register for an organisation's own SOPs/policies: version
+ * numbers, an effective date, who approved the current version, and a
+ * clear current-vs-superseded chain. Deliberately NOT a general document-
+ * management system — no workflow beyond "create the next version,"
+ * matching this whole round's "core scaffolding, not a full process
+ * suite" principle. */
+export interface ControlledDocumentSummary {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  effectiveDate: string | null;
+  supersedesId: string | null;
+  supersededById: string | null;
+  approvedById: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  documentId: string | null;
+  isCurrent: boolean;
+  createdAt: string;
+}
+
+export interface CreateControlledDocumentInput {
+  title: string;
+  category: string;
+  version: string;
+  effectiveDate?: string | null;
+  supersedesId?: string | null;
+  documentId?: string | null;
+}
+
+export interface UpdateControlledDocumentInput {
+  title?: string;
+  effectiveDate?: string | null;
+  approvedById?: string | null;
+  documentId?: string | null;
+}

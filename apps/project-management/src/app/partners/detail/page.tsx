@@ -12,6 +12,9 @@ import type {
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon, Button, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
+import { AuditHistory } from "../../../components/AuditHistory";
+import { RiskRegister } from "../../../components/RiskRegister";
+import { CertificationNotice } from "../../../components/CertificationNotice";
 
 const ROLE_LABELS: Record<string, string> = {
   CLIENT: "Client",
@@ -167,6 +170,12 @@ export default function PartnerDetailPage() {
           )}
         </div>
       </div>
+
+      {canApprove && (
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <CertificationNotice statement="PARTNER_APPROVAL_V1" />
+        </div>
+      )}
 
       {approveError && (
         <div
@@ -364,6 +373,9 @@ export default function PartnerDetailPage() {
           ))}
         </DetailSection>
       )}
+
+      <RiskRegister subjectType="PARTNER" subjectId={partner.id} />
+      <AuditHistory tableName="partners" recordId={partner.id} />
     </main>
   );
 }
@@ -452,6 +464,11 @@ function EvidenceStandardRow({
         </div>
       </div>
       {actionError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{actionError}</div>}
+      {effectiveStatus === "PENDING" && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <CertificationNotice statement="EVIDENCE_VERIFICATION_V1" />
+        </div>
+      )}
       {open && (
         <LogEvidenceForm
           standardId={standard.id}

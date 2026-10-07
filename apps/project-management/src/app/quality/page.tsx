@@ -129,6 +129,12 @@ export default function QualityPage() {
           <Link href="/batches" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Batches</Button>
           </Link>
+          <Link href="/quality/re-verification" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">Re-verification Due</Button>
+          </Link>
+          <Link href="/quality/controlled-documents" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">Controlled Documents</Button>
+          </Link>
           <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))" onClick={() => setShowNewForm((v) => !v)}>
             New Product Approval
           </Button>

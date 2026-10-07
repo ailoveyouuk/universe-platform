@@ -58,6 +58,14 @@ import type {
   SearchProductBatchesInput,
   CreateTemperatureLogInput,
   ReviewTemperatureLogInput,
+  FieldChangeLogEntry,
+  RiskAssessmentSummary,
+  CreateRiskAssessmentInput,
+  UpdateRiskAssessmentInput,
+  EvidenceDueForReviewSummary,
+  ControlledDocumentSummary,
+  CreateControlledDocumentInput,
+  UpdateControlledDocumentInput,
 } from "@universe/types";
 
 /**
@@ -516,5 +524,54 @@ export class UniverseApiClient {
 
   reviewBatchTemperatureLog(logId: string, input: ReviewTemperatureLogInput): Promise<BatchTemperatureLogSummary> {
     return this.request(`/batches/temperature-logs/${logId}/review`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Follow-up frontend pass (added 2026-10-07/08) — Gap 1's audit-log
+  // viewer, Gap 3's re-verification dashboard, Gap 4's risk register, and
+  // Gap 7's controlled-document module. See AuditLogService,
+  // RiskAssessmentsService, EvidenceService.listDueForReVerification, and
+  // ControlledDocumentsService in apps/api. ---
+
+  /** Gap 1 — the full field-change history for one record, newest first. */
+  getAuditLog(tableName: string, recordId: string): Promise<FieldChangeLogEntry[]> {
+    const qs = new URLSearchParams({ tableName, recordId });
+    return this.request(`/audit-log?${qs.toString()}`);
+  }
+
+  /** Gap 4 — the risk register entries logged against one subject
+   * (e.g. subjectType "PARTNER" + a Partner id). */
+  listRiskAssessments(subjectType: string, subjectId: string): Promise<RiskAssessmentSummary[]> {
+    const qs = new URLSearchParams({ subjectType, subjectId });
+    return this.request(`/risk-assessments?${qs.toString()}`);
+  }
+
+  createRiskAssessment(input: CreateRiskAssessmentInput): Promise<RiskAssessmentSummary> {
+    return this.request("/risk-assessments", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateRiskAssessment(id: string, input: UpdateRiskAssessmentInput): Promise<RiskAssessmentSummary> {
+    return this.request(`/risk-assessments/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  /** Gap 3 — evidence records coming due (or overdue) for re-verification,
+   * across every partner in the organisation. */
+  listEvidenceDueForReview(withinDays?: number): Promise<EvidenceDueForReviewSummary[]> {
+    const qs = withinDays !== undefined ? `?withinDays=${withinDays}` : "";
+    return this.request(`/evidence-records/due-for-review${qs}`);
+  }
+
+  // --- Gap 7 — controlled documents (Unimed's own SOPs/policies). ---
+
+  listControlledDocuments(category?: string): Promise<ControlledDocumentSummary[]> {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : "";
+    return this.request(`/controlled-documents${qs}`);
+  }
+
+  createControlledDocument(input: CreateControlledDocumentInput): Promise<ControlledDocumentSummary> {
+    return this.request("/controlled-documents", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateControlledDocument(id: string, input: UpdateControlledDocumentInput): Promise<ControlledDocumentSummary> {
+    return this.request(`/controlled-documents/${id}`, { method: "PATCH", body: JSON.stringify(input) });
   }
 }
