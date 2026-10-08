@@ -10,6 +10,7 @@ async function main() {
     const [
       partners, roles, certs, products, projects, lines, statusHist, logMetrics, priceHist,
       evidenceStandards, evidenceRecords, batches, tempLogs, risks, controlledDocs,
+      contacts, companyChecks, approvalHistory, registryTotal, registryUnlinked,
     ] = await Promise.all([
       tx.partner.count({ where: { organizationId: org.id } }),
       tx.partnerRole.count({ where: { partner: { organizationId: org.id } } }),
@@ -26,10 +27,16 @@ async function main() {
       tx.batchTemperatureLog.count({ where: { organizationId: org.id } }),
       tx.riskAssessment.count({ where: { organizationId: org.id } }),
       tx.controlledDocument.count({ where: { organizationId: org.id } }),
+      tx.contact.count({ where: { organizationId: org.id } }),
+      tx.partnerCompanyCheck.count({ where: { organizationId: org.id } }),
+      tx.partnerApprovalHistory.count({ where: { organizationId: org.id } }),
+      tx.stakeholderRegistryEntry.count(),
+      tx.stakeholderRegistryEntry.count({ where: { linkedOrganizationId: null, partners: { none: {} } } }),
     ]);
     console.log({
       partners, roles, certs, productsGlobal: products, projects, lines, statusHist, logMetrics, priceHist,
       evidenceStandards, evidenceRecords, batches, tempLogs, risks, controlledDocs,
+      contacts, companyChecks, approvalHistory, registryTotalGlobal: registryTotal, registryUnlinkedGlobal: registryUnlinked,
     });
 
     const byStatus = await tx.project.groupBy({ by: ["status"], where: { organizationId: org.id }, _count: true });
