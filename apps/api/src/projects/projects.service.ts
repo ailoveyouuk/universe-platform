@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, prisma, withTenantContext } from "@universe/db";
-import type { ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary } from "@universe/types";
+import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
+import type { ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
@@ -61,6 +61,9 @@ const PROJECT_DETAIL_INCLUDE = {
       // ProjectLine is named supplierEnquiries (see schema.prisma) — mapped
       // to the shorter `enquiries` in ProjectLineSummary below.
       supplierEnquiries: { include: { supplier: true }, orderBy: { createdAt: "desc" as const } },
+      // Supply-chain CO2/distance/efficiency metric (added 2026-10-08) —
+      // see ProjectLineLogisticsMetric in schema.prisma.
+      logisticsMetric: true,
     },
     orderBy: { createdAt: "asc" as const },
   },
@@ -79,6 +82,7 @@ const PROJECT_DETAIL_INCLUDE = {
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
 type LineWithPartners = ProjectWithLines["lines"][number];
 type EnquiryWithSupplier = LineWithPartners["supplierEnquiries"][number];
+type LineLogisticsMetric = NonNullable<LineWithPartners["logisticsMetric"]>;
 type StatusHistoryWithUser = ProjectWithLines["statusHistory"][number];
 type DocumentWithUploader = ProjectWithLines["documents"][number];
 
@@ -116,6 +120,26 @@ function computeOtif(internalOnTime: boolean | null, supplierOnTime: boolean | n
   return internalOnTime && supplierOnTime && supplierInFull;
 }
 
+function toLogisticsMetricSummary(m: LineLogisticsMetric): LogisticsMetricSummary {
+  return {
+    manufactureCountryCode: m.manufactureCountryCode,
+    destinationCountryCode: m.destinationCountryCode,
+    transportMode: m.transportMode,
+    incoterm: m.incoterm,
+    commodityGroup: m.commodityGroup,
+    weightKgUsed: decimalToString(m.weightKgUsed) ?? "0",
+    weightEstimated: m.weightEstimated,
+    distanceKm: decimalToString(m.distanceKm) ?? "0",
+    co2FactorKgPerTonneKm: decimalToString(m.co2FactorKgPerTonneKm) ?? "0",
+    co2TotalKg: decimalToString(m.co2TotalKg) ?? "0",
+    durationDays: m.durationDays,
+    efficiencyScore: m.efficiencyScore,
+    scoreBand: m.scoreBand,
+    methodologyVersion: m.methodologyVersion,
+    calculatedAt: m.calculatedAt.toISOString(),
+  };
+}
+
 function toEnquirySummary(e: EnquiryWithSupplier): SupplierEnquirySummary {
   return {
     id: e.id,
@@ -140,6 +164,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     productMasterName: l.productMaster?.name ?? null,
     quantity: l.quantity,
     productCategory: l.productCategory,
+    weightKg: decimalToString(l.weightKg),
     countryOfManufactureCode: l.countryOfManufactureCode,
     manufacturerId: l.manufacturerId,
     manufacturerName: l.manufacturer?.name ?? null,
@@ -203,6 +228,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     qualificationPathway: l.qualificationPathway,
     qualificationPathwayExpiryDate: l.qualificationPathwayExpiryDate?.toISOString() ?? null,
     enquiries: l.supplierEnquiries.map(toEnquirySummary),
+    logisticsMetric: l.logisticsMetric ? toLogisticsMetricSummary(l.logisticsMetric) : null,
   };
 }
 
@@ -952,9 +978,11 @@ export class ProjectsService {
         }),
       );
 
-      await tx.projectLine.create({
+      const created = await tx.projectLine.create({
         data: { organizationId: user.organizationId, projectId, ...data },
       });
+
+      await this.recomputeLineLogisticsMetric(tx, user.organizationId, projectId, created.id, project, created);
     });
     return this.findOne(user, projectId);
   }
@@ -965,6 +993,8 @@ export class ProjectsService {
         where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
       });
       if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
       await this.assertPartnersOwned(tx, user, dto);
 
       const data = lineDataFromDto(dto);
@@ -995,7 +1025,7 @@ export class ProjectsService {
       // not just whatever the caller's PATCH body happened to touch.
       const changes = diffForAudit(line, data, Object.keys(data));
 
-      await tx.projectLine.update({ where: { id: lineId }, data });
+      const updated = await tx.projectLine.update({ where: { id: lineId }, data });
 
       await recordFieldChanges(tx, {
         organizationId: user.organizationId,
@@ -1005,7 +1035,98 @@ export class ProjectsService {
         changes,
         source: "API",
       });
+
+      await this.recomputeLineLogisticsMetric(tx, user.organizationId, projectId, lineId, project, updated);
     });
     return this.findOne(user, projectId);
+  }
+
+  /**
+   * Recomputes (or clears) this line's ProjectLineLogisticsMetric row —
+   * see computeLogisticsMetric (@universe/db) for the actual methodology.
+   * Called from both addLine and updateLine so the metric always reflects
+   * the latest saved state of the line/project, never a stale snapshot.
+   * Country centroids are read from the plain (non-tenant-scoped) prisma
+   * client, same convention as GeoService — Country is global reference
+   * data, not RLS-protected.
+   */
+  private async recomputeLineLogisticsMetric(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    projectId: string,
+    lineId: string,
+    project: { deliveryCountryCode: string | null; freightMode: string | null; incoterm: string | null },
+    line: {
+      countryOfManufactureCode: string | null;
+      weightKg: Prisma.Decimal | number | null;
+      productCategory: string | null;
+      goodsCollectedDate: Date | null;
+      goodsDeliveredToClientDate: Date | null;
+    },
+  ): Promise<void> {
+    const manufactureCountryCode = line.countryOfManufactureCode;
+    const destinationCountryCode = project.deliveryCountryCode;
+    const mode: TransportMode | null =
+      project.freightMode === "AIR" || project.freightMode === "SEA" || project.freightMode === "LAND"
+        ? project.freightMode
+        : null;
+
+    let manufactureCentroid: { lat: number; lng: number } | null = null;
+    let destinationCentroid: { lat: number; lng: number } | null = null;
+    if (manufactureCountryCode && destinationCountryCode && mode) {
+      const [originCountry, destCountry] = await Promise.all([
+        prisma.country.findUnique({ where: { code: manufactureCountryCode }, select: { latitude: true, longitude: true } }),
+        prisma.country.findUnique({ where: { code: destinationCountryCode }, select: { latitude: true, longitude: true } }),
+      ]);
+      if (originCountry?.latitude != null && originCountry?.longitude != null) {
+        manufactureCentroid = { lat: originCountry.latitude, lng: originCountry.longitude };
+      }
+      if (destCountry?.latitude != null && destCountry?.longitude != null) {
+        destinationCentroid = { lat: destCountry.latitude, lng: destCountry.longitude };
+      }
+    }
+
+    const result = computeLogisticsMetric({
+      manufactureCentroid,
+      destinationCentroid,
+      transportMode: mode,
+      weightKg: line.weightKg != null ? Number(line.weightKg) : null,
+      productCategory: line.productCategory,
+      goodsCollectedDate: line.goodsCollectedDate,
+      goodsDeliveredToClientDate: line.goodsDeliveredToClientDate,
+    });
+
+    if (!result) {
+      // Not enough data (yet) to compute — clear any stale row rather than
+      // leave an outdated metric standing after, e.g., the manufacture
+      // country is removed.
+      await tx.projectLineLogisticsMetric.deleteMany({ where: { projectLineId: lineId } });
+      return;
+    }
+
+    const metricData = {
+      organizationId,
+      projectId,
+      manufactureCountryCode,
+      destinationCountryCode,
+      transportMode: mode,
+      incoterm: project.incoterm ?? null,
+      commodityGroup: line.productCategory ?? null,
+      weightKgUsed: result.weightKgUsed,
+      weightEstimated: result.weightEstimated,
+      distanceKm: result.distanceKm,
+      co2FactorKgPerTonneKm: result.co2FactorKgPerTonneKm,
+      co2TotalKg: result.co2TotalKg,
+      durationDays: result.durationDays,
+      efficiencyScore: result.efficiencyScore,
+      scoreBand: result.scoreBand,
+      methodologyVersion: result.methodologyVersion,
+    };
+
+    await tx.projectLineLogisticsMetric.upsert({
+      where: { projectLineId: lineId },
+      create: { projectLineId: lineId, ...metricData },
+      update: metricData,
+    });
   }
 }

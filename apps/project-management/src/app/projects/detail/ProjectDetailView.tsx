@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect } from "@universe/ui";
-import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, UpdateProjectInput } from "@universe/types";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference } from "@universe/ui";
+import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -718,8 +718,17 @@ export function ProjectDetailView() {
                     {" · "}
                   </>
                 )}
-                {line.otif !== null && <>OTIF: {line.otif ? "Yes" : "No"}</>}
+                {line.otif !== null && (
+                  <>
+                    OTIF: {line.otif ? "Yes" : "No"}{" "}
+                    <StandardsReference
+                      label="OTIF"
+                      detail="On-Time In-Full — a standard supply-chain performance metric used by CIPS, the UN, and PAHO, among others. See procurement-lifecycle-benchmarking.md."
+                    />
+                  </>
+                )}
               </p>
+              {line.logisticsMetric && <LogisticsMetricBadge metric={line.logisticsMetric} />}
             </div>
             {editingLineId !== line.id && (
               <Button variant="ghost" size="sm" onClick={() => setEditingLineId(line.id)}>
@@ -780,6 +789,57 @@ const fieldInputStyle = {
  * Lewis's "anything tied to backend data should be interactive"
  * instruction. Falls back to plain text when there's no id (a line
  * created before this field was populated, or genuinely unset). */
+/**
+ * Compact, colour-coded summary of a line's computed supply-chain CO2/
+ * distance/efficiency metric — added 2026-10-08. See LogisticsMetricSummary
+ * (packages/types) and supply-chain-co2-efficiency.md for the full
+ * methodology. This is the org-private view (this organisation's own
+ * line) — the anonymized cross-tenant dashboard lives at /logistics/global.
+ */
+const SCORE_BAND_COLORS: Record<string, string> = {
+  RED: "#c0392b",
+  AMBER: "#d68910",
+  YELLOW: "#b7950b",
+  GREEN: "#1e8449",
+};
+
+function LogisticsMetricBadge({ metric }: { metric: NonNullable<ProjectLineSummary["logisticsMetric"]> }) {
+  const color = SCORE_BAND_COLORS[metric.scoreBand] ?? "#666";
+  const distance = Math.round(Number(metric.distanceKm)).toLocaleString();
+  const co2 = Math.round(Number(metric.co2TotalKg)).toLocaleString();
+  return (
+    <p style={{ fontSize: 13, margin: "6px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
+          borderRadius: "50%",
+          background: color,
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: 12,
+        }}
+        title={`Efficiency/CO2 impact score: ${metric.efficiencyScore}/10 (${metric.scoreBand})`}
+      >
+        {metric.efficiencyScore}
+      </span>
+      <span style={{ color: "var(--u-ink-secondary)" }}>
+        {metric.manufactureCountryCode ?? "—"} → {metric.destinationCountryCode ?? "—"} · {distance} km ·{" "}
+        {metric.transportMode ?? "—"} · ~{co2} kg CO2e
+        {metric.weightEstimated && " (weight estimated)"}
+        {metric.durationDays !== null && ` · ${metric.durationDays}d`}
+      </span>
+      <StandardsReference
+        label="GLEC Framework"
+        detail="Distance/CO2 estimate: GLEC Framework (aligned with ISO 14083), by transport mode. Distance is a great-circle approximation between country centroids, not an actual shipping route. See supply-chain-co2-efficiency.md for the full methodology."
+      />
+    </p>
+  );
+}
+
 function PartnerRef({ id, name }: { id: string | null; name: string | null }) {
   if (!id) return <>{name ?? "—"}</>;
   return (

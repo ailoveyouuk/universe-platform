@@ -69,3 +69,119 @@ export async function getAggregatedPricing(category: string): Promise<CategoryPr
 
   return rows.map((r) => ({ ...r, category }));
 }
+
+export interface LogisticsRouteFilters {
+  manufactureCountryCode?: string;
+  destinationCountryCode?: string;
+  transportMode?: string;
+  incoterm?: string;
+  commodityGroup?: string;
+  minDurationDays?: number;
+  maxDurationDays?: number;
+}
+
+export interface LogisticsRouteSummary {
+  manufactureCountryCode: string | null;
+  destinationCountryCode: string | null;
+  transportMode: string | null;
+  incoterm: string | null;
+  commodityGroup: string | null;
+  sourceCount: number;
+  shipmentCount: number;
+  avgDistanceKm: number;
+  avgCo2TotalKg: number;
+  avgDurationDays: number | null;
+  avgEfficiencyScore: number;
+}
+
+/**
+ * The only read path the future global logistics dashboard should use —
+ * same MINIMUM_COHORT_SIZE enforcement as getAggregatedPricing above.
+ * Groups by the full (manufactureCountryCode, destinationCountryCode,
+ * transportMode, incoterm, commodityGroup) combination Lewis asked for
+ * ("country of manufacture to destination / co2 metric / distance / modes
+ * of transport / incoterm"), filterable on any of those plus a duration
+ * range. Two sort orders cover Lewis's two named views: "most common"
+ * (by shipmentCount, callers sort client-side or pass orderBy) and "most
+ * CO2-efficient" (by avgEfficiencyScore) — both are the same underlying
+ * query, just ordered differently, so this returns the full filtered set
+ * and leaves ordering to the caller rather than two near-duplicate
+ * queries.
+ */
+export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilters = {}): Promise<LogisticsRouteSummary[]> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.manufactureCountryCode) {
+    conditions.push(`manufactureCountryCode = @P${params.length + 1}`);
+    params.push(filters.manufactureCountryCode);
+  }
+  if (filters.destinationCountryCode) {
+    conditions.push(`destinationCountryCode = @P${params.length + 1}`);
+    params.push(filters.destinationCountryCode);
+  }
+  if (filters.transportMode) {
+    conditions.push(`transportMode = @P${params.length + 1}`);
+    params.push(filters.transportMode);
+  }
+  if (filters.incoterm) {
+    conditions.push(`incoterm = @P${params.length + 1}`);
+    params.push(filters.incoterm);
+  }
+  if (filters.commodityGroup) {
+    conditions.push(`commodityGroup = @P${params.length + 1}`);
+    params.push(filters.commodityGroup);
+  }
+  if (filters.minDurationDays !== undefined) {
+    conditions.push(`durationDays >= @P${params.length + 1}`);
+    params.push(filters.minDurationDays);
+  }
+  if (filters.maxDurationDays !== undefined) {
+    conditions.push(`durationDays <= @P${params.length + 1}`);
+    params.push(filters.maxDurationDays);
+  }
+
+  // $queryRawUnsafe is used here (not $queryRaw's tagged-template form)
+  // because the WHERE clause is built from a variable number of optional
+  // filters — every value is still passed as a bound parameter, never
+  // string-interpolated, so this isn't susceptible to SQL injection.
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = await insightsPrisma.$queryRawUnsafe<
+    {
+      manufactureCountryCode: string | null;
+      destinationCountryCode: string | null;
+      transportMode: string | null;
+      incoterm: string | null;
+      commodityGroup: string | null;
+      sourceCount: number;
+      shipmentCount: number;
+      avgDistanceKm: number;
+      avgCo2TotalKg: number;
+      avgDurationDays: number | null;
+      avgEfficiencyScore: number;
+    }[]
+  >(
+    `
+    SELECT
+      manufactureCountryCode,
+      destinationCountryCode,
+      transportMode,
+      incoterm,
+      commodityGroup,
+      COUNT(DISTINCT sourceHash) AS sourceCount,
+      COUNT(*) AS shipmentCount,
+      AVG(CAST(distanceKm AS FLOAT)) AS avgDistanceKm,
+      AVG(CAST(co2TotalKg AS FLOAT)) AS avgCo2TotalKg,
+      AVG(CAST(durationDays AS FLOAT)) AS avgDurationDays,
+      AVG(CAST(efficiencyScore AS FLOAT)) AS avgEfficiencyScore
+    FROM aggregated_logistics_metrics
+    ${whereClause}
+    GROUP BY manufactureCountryCode, destinationCountryCode, transportMode, incoterm, commodityGroup
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    `,
+    ...params,
+  );
+
+  return rows;
+}

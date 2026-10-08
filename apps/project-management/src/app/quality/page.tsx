@@ -24,6 +24,7 @@ import {
   PlusIcon,
   ProductPicker,
   type ProductPickerOption,
+  StandardsReference,
 } from "@universe/ui";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED"] as const;
@@ -378,7 +379,17 @@ export default function QualityPage() {
                 <tr style={{ backgroundColor: "var(--u-surface-alt)", textAlign: "left" }}>
                   {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues"].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", fontWeight: 600, color: "var(--u-ink-secondary)", fontSize: 12 }}>
-                      {h}
+                      {h === "OTIF" ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          {h}
+                          <StandardsReference
+                            label=""
+                            detail="On-Time In-Full — a standard supply-chain performance metric used by CIPS, the UN, and PAHO, among others. See procurement-lifecycle-benchmarking.md."
+                          />
+                        </span>
+                      ) : (
+                        h
+                      )}
                     </th>
                   ))}
                 </tr>

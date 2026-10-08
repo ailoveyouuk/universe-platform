@@ -69,6 +69,10 @@ import type {
   ControlledDocumentSummary,
   CreateControlledDocumentInput,
   UpdateControlledDocumentInput,
+  LogisticsFilters,
+  OrgLogisticsLineSummary,
+  LogisticsRouteSummary,
+  StakeholderRatingBucket,
 } from "@universe/types";
 
 /**
@@ -612,5 +616,39 @@ export class UniverseApiClient {
 
   updateControlledDocument(id: string, input: UpdateControlledDocumentInput): Promise<ControlledDocumentSummary> {
     return this.request(`/controlled-documents/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Supply-chain CO2/distance/efficiency (added 2026-10-08) — see
+  // supply-chain-co2-efficiency.md. getLogisticsLines is org-private
+  // (this organization's own lines); getGlobalLogisticsRoutes and
+  // getGlobalStakeholderRatings are the anonymized, cross-tenant views.
+  // All three share the same filter shape. ---
+
+  private logisticsQueryString(filters?: LogisticsFilters): string {
+    if (!filters) return "";
+    const qs = new URLSearchParams();
+    if (filters.manufactureCountryCode) qs.set("manufactureCountryCode", filters.manufactureCountryCode);
+    if (filters.destinationCountryCode) qs.set("destinationCountryCode", filters.destinationCountryCode);
+    if (filters.transportMode) qs.set("transportMode", filters.transportMode);
+    if (filters.incoterm) qs.set("incoterm", filters.incoterm);
+    if (filters.commodityGroup) qs.set("commodityGroup", filters.commodityGroup);
+    if (filters.scoreBand) qs.set("scoreBand", filters.scoreBand);
+    if (filters.minDurationDays !== undefined) qs.set("minDurationDays", String(filters.minDurationDays));
+    if (filters.maxDurationDays !== undefined) qs.set("maxDurationDays", String(filters.maxDurationDays));
+    if (filters.search) qs.set("search", filters.search);
+    const s = qs.toString();
+    return s ? `?${s}` : "";
+  }
+
+  getLogisticsLines(filters?: LogisticsFilters): Promise<OrgLogisticsLineSummary[]> {
+    return this.request(`/logistics-insights/lines${this.logisticsQueryString(filters)}`);
+  }
+
+  getGlobalLogisticsRoutes(filters?: LogisticsFilters): Promise<LogisticsRouteSummary[]> {
+    return this.request(`/logistics-insights/global/routes${this.logisticsQueryString(filters)}`);
+  }
+
+  getGlobalStakeholderRatings(): Promise<StakeholderRatingBucket[]> {
+    return this.request("/logistics-insights/global/stakeholder-ratings");
   }
 }

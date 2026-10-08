@@ -102,3 +102,61 @@ model AggregatedProductPrice {
   @@index([category, effectiveMonth])
   @@map("aggregated_product_prices")
 }
+
+// ---------------------------------------------------------------------------
+// Supply-chain CO2 / distance / efficiency — anonymized cross-tenant
+// aggregate (added 2026-10-08). Same anonymization approach as
+// AggregatedProductPrice above (sourceHash, no organizationId/Partner/
+// Project reference, region-level not country-level granularity is NOT
+// used here deliberately — see field-by-field note below — and
+// MINIMUM_COHORT_SIZE enforced at READ time in src/query.ts, never at
+// write time).
+//
+// Lewis's explicit decision (2026-10-08): this table is populated and its
+// read endpoints are live from the start, rather than held behind the
+// same "needs legal review" flag noted on DataSharingConsent above — see
+// supply-chain-co2-efficiency.md for the full note on that tradeoff and
+// what revisiting it later would involve (narrowing DataSharingConsent's
+// scope categories, requiring an explicit "logistics" consent entry).
+//
+// Field-by-field anonymization:
+//   - manufactureCountryCode / destinationCountryCode: COUNTRY level, not
+//     WHO-region like AggregatedProductPrice — deliberate, since Lewis's
+//     request specifically asked for "most common country of manufacture
+//     to destination" breakdowns, which region-level granularity cannot
+//     answer. This is a materially less anonymous choice than the pricing
+//     aggregate's region-level one; it's offset by MINIMUM_COHORT_SIZE
+//     still gating every read, same as pricing.
+//   - transportMode / incoterm / commodityGroup: structured, enum-like
+//     fields, not free text.
+//   - distanceKm / co2TotalKg / co2FactorKgPerTonneKm / durationDays /
+//     efficiencyScore: the actual computed figures — this is the point of
+//     the feature.
+//   - sourceHash: same HMAC-SHA256(organizationId, INSIGHTS_HASH_SECRET)
+//     scheme as AggregatedProductPrice.
+//
+// NOT stored here, ever: organizationId, any Partner/Project/line
+// reference, any free-text field.
+// ---------------------------------------------------------------------------
+model AggregatedLogisticsMetric {
+  id                     String   @id @default(uuid())
+  manufactureCountryCode String?
+  destinationCountryCode String?
+  transportMode          String?
+  incoterm               String?
+  commodityGroup         String?
+  distanceKm             Decimal  @db.Decimal(10, 1)
+  co2FactorKgPerTonneKm  Decimal  @db.Decimal(10, 4)
+  co2TotalKg             Decimal  @db.Decimal(14, 2)
+  durationDays           Int?
+  efficiencyScore        Int
+  scoreBand              String
+  effectiveMonth         DateTime
+  sourceHash             String
+  createdAt              DateTime @default(now())
+
+  @@index([manufactureCountryCode, destinationCountryCode])
+  @@index([transportMode])
+  @@index([effectiveMonth])
+  @@map("aggregated_logistics_metrics")
+}

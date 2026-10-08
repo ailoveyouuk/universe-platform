@@ -18,3 +18,4 @@ export * from "@prisma/client";
 export * from "./organizations";
 export * from "./enums";
 export * from "./tenant-context";
+export * from "./logistics-metrics";

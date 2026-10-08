@@ -287,3 +287,13 @@ export function LockIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function InfoIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 11v5" />
+      <circle cx="12" cy="8.3" r="0.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

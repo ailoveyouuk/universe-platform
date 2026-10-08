@@ -6,10 +6,12 @@
   "types": "src/index.ts",
   "scripts": {
     "generate": "prisma generate",
+    "build": "tsc",
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
-    "aggregate": "tsx src/aggregate-etl.ts"
+    "aggregate": "tsx src/aggregate-etl.ts",
+    "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

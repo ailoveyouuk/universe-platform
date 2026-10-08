@@ -228,6 +228,10 @@ export interface ProjectLineSummary {
   productMasterName: string | null;
   quantity: number | null;
   productCategory: string | null;
+  /** Net cargo weight in kg — added 2026-10-08 for the supply-chain CO2/
+   * distance feature. Optional/retrofit; most existing lines won't have
+   * it. */
+  weightKg: string | null;
   countryOfManufactureCode: string | null;
   manufacturerId: string | null;
   manufacturerName: string | null;
@@ -349,6 +353,35 @@ export interface ProjectLineSummary {
    * schema 2026-09-24, given an API/UI in Phase 2, 2026-09-30. Newest
    * dateContacted first — see ProjectsService's PROJECT_DETAIL_INCLUDE. */
   enquiries: SupplierEnquirySummary[];
+  /** Added 2026-10-08 — the computed distance/CO2/efficiency metric for
+   * this line, null until there's enough data (manufacture country,
+   * project delivery country, freight mode) to calculate from. See
+   * LogisticsMetricSummary below. */
+  logisticsMetric: LogisticsMetricSummary | null;
+}
+
+/** One computed row per ProjectLine — see ProjectLineLogisticsMetric in
+ * schema.prisma for the full methodology writeup. Org-private by
+ * default (this is the host organisation's own view of its own line);
+ * the separate, anonymized cross-tenant aggregate is
+ * AggregatedLogisticsMetric (@universe/insights-db), read via the
+ * /logistics-insights endpoints, never this interface. */
+export interface LogisticsMetricSummary {
+  manufactureCountryCode: string | null;
+  destinationCountryCode: string | null;
+  transportMode: string | null;
+  incoterm: string | null;
+  commodityGroup: string | null;
+  weightKgUsed: string;
+  weightEstimated: boolean;
+  distanceKm: string;
+  co2FactorKgPerTonneKm: string;
+  co2TotalKg: string;
+  durationDays: number | null;
+  efficiencyScore: number;
+  scoreBand: string;
+  methodologyVersion: string;
+  calculatedAt: string;
 }
 
 /** One structured RFQ record against a ProjectLine — see
@@ -402,6 +435,8 @@ export interface ProjectLineInput {
   productMasterId?: string | null;
   quantity?: number | null;
   productCategory?: string | null;
+  /** Added 2026-10-08 — see ProjectLineSummary's doc comment. */
+  weightKg?: number | null;
   countryOfManufactureCode?: string | null;
   manufacturerId?: string | null;
   supplierId?: string | null;
@@ -1636,4 +1671,75 @@ export interface QaQueueCategory {
 export interface QaQueueSummary {
   categories: QaQueueCategory[];
   all: QaQueueItem[];
+}
+
+
+// ---------------------------------------------------------------------------
+// Supply-chain CO2 / distance / efficiency — frontend-facing types for both
+// the org-private line list and the global anonymized dashboard (added
+// 2026-10-08). See LogisticsMetricSummary above for the per-line shape.
+// ---------------------------------------------------------------------------
+
+/** One row in the org-private "Logistics & CO2" view — a line's computed
+ * metric plus just enough project/line context to be useful in a list
+ * (reference number, title, product description, manufacturer/supplier
+ * names). Org-scoped like everything else under /logistics-insights/lines
+ * — this is NOT the anonymized global data. */
+export interface OrgLogisticsLineSummary {
+  projectLineId: string;
+  projectId: string;
+  projectReferenceNumber: string;
+  projectTitle: string;
+  clientProductDescription: string | null;
+  manufacturerName: string | null;
+  supplierName: string | null;
+  metric: LogisticsMetricSummary;
+}
+
+/** Filters accepted by GET /logistics-insights/lines (org-private) and
+ * GET /logistics-insights/global/routes (anonymized, cross-tenant). The
+ * same shape serves both — "full filtering and search of all metrics...
+ * commodity groupings, countries, transport modes, incoterms, and all
+ * other deep filtering with duration" per Lewis's request. */
+export interface LogisticsFilters {
+  manufactureCountryCode?: string;
+  destinationCountryCode?: string;
+  transportMode?: string;
+  incoterm?: string;
+  commodityGroup?: string;
+  scoreBand?: string;
+  minDurationDays?: number;
+  maxDurationDays?: number;
+  search?: string;
+}
+
+/** One row of the global, anonymized, cross-tenant "most common" /
+ * "most CO2-efficient" route breakdown — see getAggregatedLogisticsRoutes
+ * in @universe/insights-db for the full methodology. sourceCount is the
+ * number of distinct contributing organizations (never which ones); a
+ * route combination with fewer than MINIMUM_COHORT_SIZE contributors is
+ * never returned at all. */
+export interface LogisticsRouteSummary {
+  manufactureCountryCode: string | null;
+  destinationCountryCode: string | null;
+  transportMode: string | null;
+  incoterm: string | null;
+  commodityGroup: string | null;
+  sourceCount: number;
+  shipmentCount: number;
+  avgDistanceKm: number;
+  avgCo2TotalKg: number;
+  avgDurationDays: number | null;
+  avgEfficiencyScore: number;
+}
+
+/** One bucket of the global stakeholder-rating distribution — Lewis's "25
+ * projects 6/10, 50 8/10, 10 manufacturers are 4/10..." request. Counts
+ * only, never a named entity; a bucket below MINIMUM_COHORT_SIZE entities
+ * is never returned. */
+export interface StakeholderRatingBucket {
+  entityType: "PROJECT" | "MANUFACTURER" | "SUPPLIER" | "PROCURING_ORGANIZATION";
+  scoreBand: string;
+  averageScoreFloor: number;
+  count: number;
 }

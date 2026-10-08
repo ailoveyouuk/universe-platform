@@ -16,6 +16,7 @@ import { AuditLogModule } from "./audit-log/audit-log.module";
 import { EvidenceModule } from "./evidence/evidence.module";
 import { ControlledDocumentsModule } from "./controlled-documents/controlled-documents.module";
 import { ProductBatchesModule } from "./batches/product-batches.module";
+import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights.module";
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ProductBatchesModule } from "./batches/product-batches.module";
     EvidenceModule,
     ControlledDocumentsModule,
     ProductBatchesModule,
+    LogisticsInsightsModule,
   ],
   controllers: [MeController],
 })

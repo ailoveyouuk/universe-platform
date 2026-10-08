@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { insightsPrisma } from "./index";
+import { MINIMUM_COHORT_SIZE } from "./query";
 
 /**
  * Universe Insights aggregation pipeline (2026-09-24 — see architecture doc,
@@ -154,4 +155,151 @@ async function sanitizeAttributes(category: string, rawAttributes: string | null
   }
 
   return Object.keys(sanitized).length > 0 ? JSON.stringify(sanitized) : null;
+}
+
+/**
+ * Supply-chain CO2/distance aggregation (added 2026-10-08) — writes one
+ * AggregatedLogisticsMetric row per consented org's ProjectLineLogisticsMetric
+ * row created since `since`, same append-only/sourceHash convention as
+ * runAggregationPipeline above. A SEPARATE pipeline (not folded into
+ * runAggregationPipeline) since it reads a different tenant table and
+ * writes a different insights table — keeping them separate means a
+ * change to one's cadence/window doesn't require touching the other.
+ *
+ * Run manually for now via `npm run aggregate:logistics --workspace=@universe/insights-db`.
+ */
+export async function runLogisticsAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({
+      where: { revokedAt: null },
+      select: { organizationId: true },
+    });
+    return rows.map((r) => r.organizationId);
+  });
+
+  let written = 0;
+
+  for (const organizationId of consentedOrgIds) {
+    const sourceHash = hashOrganizationId(organizationId);
+
+    const metricRows = await withTenantContext(organizationId, async (tx) =>
+      tx.projectLineLogisticsMetric.findMany({ where: { calculatedAt: { gte: since } } }),
+    );
+
+    for (const row of metricRows) {
+      await insightsPrisma.aggregatedLogisticsMetric.create({
+        data: {
+          manufactureCountryCode: row.manufactureCountryCode,
+          destinationCountryCode: row.destinationCountryCode,
+          transportMode: row.transportMode,
+          incoterm: row.incoterm,
+          commodityGroup: row.commodityGroup,
+          distanceKm: row.distanceKm,
+          co2FactorKgPerTonneKm: row.co2FactorKgPerTonneKm,
+          co2TotalKg: row.co2TotalKg,
+          durationDays: row.durationDays,
+          efficiencyScore: row.efficiencyScore,
+          scoreBand: row.scoreBand,
+          effectiveMonth: truncateToMonth(row.calculatedAt),
+          sourceHash,
+        },
+      });
+      written += 1;
+    }
+  }
+
+  return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
+}
+
+/**
+ * Stakeholder efficiency-rating distribution (added 2026-10-08) —
+ * Lewis's "25 projects 6/10, 50 8/10, 10 manufacturers are 4/10, 60
+ * procurement service agents are 4/10" request. Deliberately NOT an
+ * ETL'd/stored aggregate like the two pipelines above: computing each
+ * stakeholder's (project/manufacturer/supplier/procuring-organization)
+ * AVERAGE efficiency score is a point-in-time snapshot, not an append-
+ * only event stream (an entity's average shifts as more lines are added),
+ * so it's recomputed fresh on every call rather than accumulated. It
+ * reads tenant data live (via withPlatformStaffContext, same cross-tenant
+ * access already used by the pipelines above) and returns ONLY counts
+ * per (entityType, scoreBand) bucket — never an entity's name/id — with
+ * MINIMUM_COHORT_SIZE enforced as a floor on bucket size before it's
+ * returned, consistent with this package's disclosure-control convention
+ * everywhere else.
+ */
+export interface StakeholderRatingBucket {
+  entityType: "PROJECT" | "MANUFACTURER" | "SUPPLIER" | "PROCURING_ORGANIZATION";
+  scoreBand: string;
+  averageScoreFloor: number; // the lower bound of the 1-10 scores rolled into this bucket (1,4,6,8)
+  count: number;
+}
+
+function bandFor(score: number): string {
+  if (score <= 3) return "RED";
+  if (score <= 5) return "AMBER";
+  if (score <= 7) return "YELLOW";
+  return "GREEN";
+}
+
+export async function getStakeholderRatingDistribution(): Promise<StakeholderRatingBucket[]> {
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null }, select: { organizationId: true } });
+    return rows.map((r) => r.organizationId);
+  });
+
+  // entityType -> entityId -> running {sum, count}
+  const projectScores = new Map<string, { sum: number; count: number }>();
+  const manufacturerScores = new Map<string, { sum: number; count: number }>();
+  const supplierScores = new Map<string, { sum: number; count: number }>();
+  const organizationScores = new Map<string, { sum: number; count: number }>(); // "procuring organization" = the org itself
+
+  for (const organizationId of consentedOrgIds) {
+    const rows = await withTenantContext(organizationId, async (tx) =>
+      tx.projectLineLogisticsMetric.findMany({
+        select: {
+          efficiencyScore: true,
+          projectId: true,
+          projectLine: { select: { manufacturerId: true, supplierId: true } },
+        },
+      }),
+    );
+
+    const acc = (map: Map<string, { sum: number; count: number }>, key: string | null | undefined, score: number) => {
+      if (!key) return;
+      const entry = map.get(key) ?? { sum: 0, count: 0 };
+      entry.sum += score;
+      entry.count += 1;
+      map.set(key, entry);
+    };
+
+    for (const row of rows) {
+      acc(projectScores, row.projectId, row.efficiencyScore);
+      acc(manufacturerScores, row.projectLine?.manufacturerId, row.efficiencyScore);
+      acc(supplierScores, row.projectLine?.supplierId, row.efficiencyScore);
+      acc(organizationScores, organizationId, row.efficiencyScore);
+    }
+  }
+
+  function toBuckets(
+    entityType: StakeholderRatingBucket["entityType"],
+    map: Map<string, { sum: number; count: number }>,
+  ): StakeholderRatingBucket[] {
+    const bandCounts = new Map<string, number>();
+    for (const { sum, count } of map.values()) {
+      const avg = sum / count;
+      const band = bandFor(Math.round(avg));
+      bandCounts.set(band, (bandCounts.get(band) ?? 0) + 1);
+    }
+    const floorFor: Record<string, number> = { RED: 1, AMBER: 4, YELLOW: 6, GREEN: 8 };
+    return Array.from(bandCounts.entries())
+      .filter(([, count]) => count >= MINIMUM_COHORT_SIZE)
+      .map(([scoreBand, count]) => ({ entityType, scoreBand, averageScoreFloor: floorFor[scoreBand], count }));
+  }
+
+  return [
+    ...toBuckets("PROJECT", projectScores),
+    ...toBuckets("MANUFACTURER", manufacturerScores),
+    ...toBuckets("SUPPLIER", supplierScores),
+    ...toBuckets("PROCURING_ORGANIZATION", organizationScores),
+  ];
 }

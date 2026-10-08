@@ -11,7 +11,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "db:generate": "npm run generate --workspace=@universe/db",
+    "db:generate": "npm run generate --workspace=@universe/db && npm run generate --workspace=@universe/insights-db",
     "db:migrate": "npm run migrate:dev --workspace=@universe/db",
     "test:db": "node scripts/test-db.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""

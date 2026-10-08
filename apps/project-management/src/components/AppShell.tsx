@@ -14,6 +14,7 @@ import {
   ProjectsIcon,
   PartnersIcon,
   ShieldIcon,
+  GaugeIcon,
   LogoutIcon,
   UserIcon,
   BellIcon,
@@ -30,6 +31,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/projects", label: "Projects", icon: () => <ProjectsIcon size={19} />, inNav: true },
   { href: "/partners", label: "Stakeholders", icon: () => <PartnersIcon size={19} />, inNav: true },
   { href: "/quality", label: "Quality", icon: () => <ShieldIcon size={19} />, inNav: true },
+  { href: "/logistics", label: "Logistics & CO2", icon: () => <GaugeIcon size={19} />, inNav: true },
 ];
 
 function crumbsFor(pathname: string) {

@@ -71,6 +71,12 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     // ProjectLine's "Margin-based client invoice build" doc comment in
     // schema.prisma. Not part of ProjectLineInput.
     productMarginAmount: _productMarginAmount,
+    // Computed-only (2026-10-08 supply-chain CO2/distance feature) — see
+    // LogisticsMetricSummary in packages/types. Not part of
+    // ProjectLineInput; the org-private Logistics view (ApiClient.
+    // getLogisticsLines) is where this is displayed/filtered, not this
+    // form.
+    logisticsMetric: _logisticsMetric,
     ...rest
   } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
@@ -91,6 +97,8 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     clientPaymentAmount: rest.clientPaymentAmount === null ? null : Number(rest.clientPaymentAmount),
     grossMargin: rest.grossMargin === null ? null : Number(rest.grossMargin),
     margin: rest.margin === null ? null : Number(rest.margin),
+    // Added 2026-10-08 — see weightKg's doc comment in schema.prisma.
+    weightKg: rest.weightKg === null ? null : Number(rest.weightKg),
   };
 }
 
@@ -363,6 +371,16 @@ export function LineForm({
             style={inputStyle}
             value={form.quantity ?? ""}
             onChange={(e) => update("quantity", numOrNull(e.target.value))}
+          />
+        </Field>
+        <Field label="Net weight (kg)">
+          <input
+            type="number"
+            min={0}
+            step="0.001"
+            style={inputStyle}
+            value={form.weightKg ?? ""}
+            onChange={(e) => update("weightKg", numOrNull(e.target.value))}
           />
         </Field>
       </Section>

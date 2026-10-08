@@ -35,6 +35,12 @@ COPY --from=pruner /repo/out/full/ .
 # upstream.
 COPY --from=pruner /repo/tsconfig.base.json ./tsconfig.base.json
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
+# @universe/insights-db (added 2026-10-08, supply-chain CO2 feature) uses
+# its own separate database and a CUSTOM prisma generator output
+# (packages/insights-db/generated/client, not the default node_modules/
+# .prisma location) — needs its own explicit generate call, same reasoning
+# as the line above for packages/db.
+RUN npx prisma generate --schema=packages/insights-db/prisma/schema.prisma
 # `turbo run build --filter=@universe/api` also builds @universe/auth,
 # @universe/db and @universe/types first (turbo.json's build task has
 # dependsOn: ["^build"]) now that each of those packages has its own
@@ -58,7 +64,12 @@ RUN npx turbo run build --filter=@universe/api
 # Patching "main"/"types" to the now-built "dist/index.js"/"dist/index.d.ts"
 # here, in the builder image only (never the actual repo files), gives
 # production a plain-Node-loadable entry point without touching dev at all.
-RUN for pkg in auth db types; do \
+# insights-db added 2026-10-08 — same reasoning as auth/db/types: its
+# package.json still points main/types at src/index.ts for local
+# dev (ts-node/tsx can load .ts directly); this runtime image has no such
+# hook, so it needs pointing at the now-built dist/ here, same as the
+# other three.
+RUN for pkg in auth db types insights-db; do \
       npm pkg set main=dist/index.js types=dist/index.d.ts -w packages/$pkg; \
     done
 
