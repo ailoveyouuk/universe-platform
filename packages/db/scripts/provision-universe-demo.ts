@@ -1,18 +1,23 @@
 /**
- * Provisioning script for the "Unimed (Demo)" organization — added
+ * Provisioning script for the "Universe Demo" organization — added
  * 2026-10-08, replacing the "Unimed (Pilot)" org (deleted via
  * wipe-organization.ts) as the account Lewis signs in to day-to-day while
- * comprehensive demo data gets built out. Modeled directly on
+ * comprehensive demo data gets built out. Named "Universe Demo" rather than
+ * anything Unimed-branded, since this org exists purely to demonstrate the
+ * platform itself (to stakeholders/investors/sector specialists) before any
+ * real partner is onboarded — keeping it unbranded avoids implying this
+ * demo data represents Unimed specifically. Modeled directly on
  * provision-unimed-pilot.ts — same bootstrap pattern, same
  * createOrganizationWithDefaultRoles() path every real org goes through.
  *
- * Run this AFTER wipe-organization.ts has actually deleted the Pilot org
- * (so lewis.m@unimedps.com's unique-email constraint is free again).
+ * Run this AFTER wipe-organization.ts has actually deleted any prior org
+ * using either account email (so the unique-email constraint is free for
+ * lewis@eduparcs.onmicrosoft.com).
  *
  * Run on a machine that can reach the real Azure SQL database, with
  * DATABASE_URL set to the app connection string:
  *
- *   npx tsx scripts/provision-unimed-demo.ts
+ *   npx tsx scripts/provision-universe-demo.ts
  *
  * Idempotent: safe to re-run (upserts the org by slug, upserts the user by
  * email, upserts the role assignment).
@@ -21,15 +26,15 @@ import { prisma, withTenantContext } from "../src/index";
 import { createOrganizationWithDefaultRoles } from "../src/organizations";
 import { UserStatus } from "../src/enums";
 
-const DEMO_USER_EMAIL = "lewis.m@unimedps.com";
+const DEMO_USER_EMAIL = "lewis@eduparcs.onmicrosoft.com";
 const DEMO_USER_FORENAME = "Lewis";
 const DEMO_USER_SURNAME = "McKinnon";
 const ADMIN_ROLE_NAME = "Organization Admin";
 
 async function main() {
   const org = await createOrganizationWithDefaultRoles({
-    name: "Unimed (Demo)",
-    slug: "unimed-demo",
+    name: "Universe Demo",
+    slug: "universe-demo",
     type: "PROCUREMENT_SERVICE_AGENT",
   });
 

@@ -13,8 +13,8 @@
  *
  * This deletes the User row(s) belonging to this org too (not just their
  * data) — "remove the account altogether" was the explicit instruction. A
- * brand new User row gets created fresh under "Unimed (Demo)" by
- * provision-unimed-demo.ts afterwards — simpler than trying to carry one
+ * brand new User row gets created fresh under "Universe Demo" by
+ * provision-universe-demo.ts afterwards — simpler than trying to carry one
  * row through a full-org delete, and the User row itself carries no data
  * worth preserving (status/entraObjectId just re-link on next sign-in,
  * same bootstrap path as any new org).
@@ -106,8 +106,13 @@ async function main() {
       // --- mid-level: now safe since every direct child above is gone ---
       { delegateKey: "projectLine", label: "ProjectLine", where: { project: { organizationId: orgId } } },
       { delegateKey: "productLine", label: "ProductLine", where: { organizationId: orgId } },
-      { delegateKey: "partner", label: "Partner", where: { organizationId: orgId } },
+      // Project before Partner: projects.clientId references Partner, so
+      // Partner can't be deleted while a Project still points at it as a
+      // client. (Bug found 2026-10-08 — original order deleted Partner
+      // first and hit P2003 on projects_clientId_fkey; Prisma rolled the
+      // whole transaction back automatically, so no partial delete stuck.)
       { delegateKey: "project", label: "Project", where: { organizationId: orgId } },
+      { delegateKey: "partner", label: "Partner", where: { organizationId: orgId } },
 
       // --- roles / permissions / users ---
       { delegateKey: "userRole", label: "UserRole (this org's users or roles)", where: { OR: [{ user: { organizationId: orgId } }, { role: { organizationId: orgId } }] } },
@@ -118,6 +123,27 @@ async function main() {
       // --- the org itself, last ---
       { delegateKey: "organization", label: "Organization", where: { id: orgId } },
     ];
+
+    // ProductMaster is global/shared catalogue data, not org-scoped — it is
+    // never deleted here. But addedByOrganizationId is a provenance tag
+    // that can point at this org (set when the org contributed/edited a
+    // catalogue entry), and it has an onDelete: NoAction FK, so it blocks
+    // deleting the Organization row unless cleared first. Null it out
+    // (the field is nullable and explicitly "not used for access control"
+    // per its doc comment in schema.prisma) rather than deleting the
+    // ProductMaster rows. (Bug found 2026-10-08 — surfaced only after the
+    // Project/Partner ordering fix let the script run this far.)
+    const productMasterDelegate = client["productMaster"];
+    if (!productMasterDelegate) throw new Error('Unknown Prisma delegate "productMaster"');
+    if (EXECUTE) {
+      const cleared = await (productMasterDelegate as unknown as DeleteDelegate & {
+        updateMany(args: { where: any; data: any }): Promise<{ count: number }>;
+      }).updateMany({ where: { addedByOrganizationId: orgId }, data: { addedByOrganizationId: null } });
+      if (cleared.count > 0) console.log(`  cleared  ${cleared.count.toString().padStart(4)}  ProductMaster.addedByOrganizationId (provenance tag only, rows kept)`);
+    } else {
+      const n = await productMasterDelegate.count({ where: { addedByOrganizationId: orgId } });
+      if (n > 0) console.log(`  would clear ${n.toString().padStart(4)}  ProductMaster.addedByOrganizationId (provenance tag only, rows kept)`);
+    }
 
     let total = 0;
     for (const step of steps) {

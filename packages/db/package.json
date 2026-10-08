@@ -24,7 +24,7 @@
     "seed:country-centroids": "tsx scripts/seed-country-centroids.ts",
     "backfill:logistics-metrics": "tsx scripts/backfill-logistics-metrics.ts",
     "wipe:organization": "tsx scripts/wipe-organization.ts",
-    "provision:unimed-demo": "tsx scripts/provision-unimed-demo.ts"
+    "provision:universe-demo": "tsx scripts/provision-universe-demo.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
