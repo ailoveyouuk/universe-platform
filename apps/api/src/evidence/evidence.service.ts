@@ -160,6 +160,7 @@ export class EvidenceService {
   // --- Evidence records (StakeholderEvidenceRecord) ---
 
   async createRecord(user: RequestUser, dto: CreateEvidenceRecordDto): Promise<StakeholderEvidenceRecordSummary> {
+    const selfVerify = dto.verifyImmediately === true && this.canSelfServiceVerify(user);
     return withTenantContext(user.organizationId, async (tx) => {
       const row = await tx.stakeholderEvidenceRecord.create({
         data: {
@@ -173,11 +174,47 @@ export class EvidenceService {
           result: dto.result ?? null,
           documentId: dto.documentId ?? null,
           notes: dto.notes ?? null,
+          ...(selfVerify ? { status: "VERIFIED", verifiedById: user.id, verifiedAt: new Date() } : {}),
         },
       });
+      if (selfVerify) {
+        // Same audit trail a normal verifyRecord() call gets — this is
+        // still a real verification event, just performed by the same
+        // person in the same action as logging it, not a shortcut that
+        // skips the e-signature/audit posture of Gap 2.
+        await recordFieldChanges(tx, {
+          organizationId: user.organizationId,
+          tableName: "stakeholder_evidence_records",
+          recordId: row.id,
+          changedById: user.id,
+          changes: [{ field: "status", oldValue: "PENDING", newValue: "VERIFIED" }],
+          certificationStatement: CERTIFICATION_STATEMENTS.EVIDENCE_VERIFICATION_V1,
+        });
+      }
       const standard = await tx.evidenceStandardDefinition.findFirst({ where: { id: row.standardId } });
       return toRecordSummary(row, standard?.name);
     });
+  }
+
+  /** Lewis, 2026-10-08: "enable me to add and verify information myself
+   * (but only for me)" — deliberately an identity allowlist, not a
+   * permission or role. assertHasPermission's whole design (see its doc
+   * comment in authorization.ts) is role-based "soft" segregation of
+   * duties that was explicitly scoped to apply to every org admin
+   * equally; this is a narrower, personal exception on top of it, so it
+   * has to be checked a different way or it would silently extend to
+   * every future Organization Admin too. Still requires evidence.verify
+   * (defense in depth — an allowlisted email without the permission
+   * gets nothing extra) and still goes through the normal
+   * recordFieldChanges/EVIDENCE_VERIFICATION_V1 audit trail above, so
+   * there's a full record of who self-verified what and when. */
+  private static readonly SELF_SERVICE_VERIFY_EMAILS = ["lewis.m@unimedps.com"];
+
+  private canSelfServiceVerify(user: RequestUser): boolean {
+    return (
+      EvidenceService.SELF_SERVICE_VERIFY_EMAILS.includes(user.email.toLowerCase()) &&
+      (user.platformStaffRole !== "NONE" || user.permissions.includes("evidence.verify"))
+    );
   }
 
   async listRecordsForPartner(user: RequestUser, partnerId: string): Promise<StakeholderEvidenceRecordSummary[]> {

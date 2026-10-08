@@ -697,6 +697,15 @@ export interface StandaloneDocumentSummary {
   uploadedAt: string;
 }
 
+/** POST /documents/link — added 2026-10-08. Records a pasted URL (e.g. a
+ * cloud storage share link) as a standalone document with no blob upload
+ * involved — see LinkStandaloneDocumentDto's doc comment in apps/api. */
+export interface LinkStandaloneDocumentInput {
+  url: string;
+  title: string;
+  type: string;
+}
+
 
 /** PATCH /projects/:id — header fields only; line data goes through the
  * dedicated line endpoints above. */
@@ -1421,6 +1430,11 @@ export interface CreateEvidenceRecordInput {
   result?: string;
   documentId?: string;
   notes?: string;
+  /** Added 2026-10-08 — only takes effect for the identity-allowlisted
+   * self-service-verify user (see SELF_SERVICE_VERIFY_EMAILS in
+   * EvidenceService); ignored for everyone else. The frontend only ever
+   * shows the control that sets this to the one account it's for. */
+  verifyImmediately?: boolean;
 }
 
 export interface UpdateEvidenceRecordInput {

@@ -2,6 +2,7 @@ import type {
   AuthenticatedUser,
   ConfirmDocumentUploadInput,
   StandaloneDocumentSummary,
+  LinkStandaloneDocumentInput,
   CountryOption,
   CreateOrganizationInput,
   CreatePartnerInput,
@@ -242,6 +243,10 @@ export class UniverseApiClient {
 
   confirmStandaloneDocumentUpload(input: ConfirmDocumentUploadInput): Promise<StandaloneDocumentSummary> {
     return this.request(`/documents`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  linkStandaloneDocument(input: LinkStandaloneDocumentInput): Promise<StandaloneDocumentSummary> {
+    return this.request(`/documents/link`, { method: "POST", body: JSON.stringify(input) });
   }
 
   getStandaloneDocumentDownloadUrl(documentId: string): Promise<{ downloadUrl: string }> {

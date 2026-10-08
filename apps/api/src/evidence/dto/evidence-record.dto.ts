@@ -12,6 +12,14 @@ export class CreateEvidenceRecordDto {
   @IsOptional() @IsIn(RESULTS) result?: (typeof RESULTS)[number];
   @IsOptional() @IsString() documentId?: string;
   @IsOptional() @IsString() notes?: string;
+  /** Added 2026-10-08 (Lewis: "enable me to add and verify information
+   * myself, but only for me"). A request flag only — EvidenceService
+   * decides whether it actually takes effect, via a hardcoded, identity-
+   * scoped allowlist (see SELF_SERVICE_VERIFY_EMAILS in evidence.service.ts),
+   * never just a permission/role, so it can never silently extend to
+   * another admin. Anyone else sending this flag is simply ignored, same
+   * as if they hadn't sent it — no error, no information disclosure. */
+  @IsOptional() @IsBoolean() verifyImmediately?: boolean;
 }
 
 export class UpdateEvidenceRecordDto {

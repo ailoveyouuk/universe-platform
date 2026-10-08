@@ -25,6 +25,17 @@ const ROLE_LABELS: Record<string, string> = {
   WAREHOUSING: "Warehousing",
 };
 
+/** Lewis, 2026-10-08: "enable me to add and verify information myself
+ * (but only for me)" — purely cosmetic here (the server is the real
+ * gate, via EvidenceService.canSelfServiceVerify); this just keeps the
+ * one-step "log & verify" control from being shown to anyone it
+ * wouldn't do anything for. Kept as its own small helper, rather than
+ * inlining the email string at each call site, so there's exactly one
+ * place to look when this list ever needs to change. */
+function isSelfServiceVerifyUser(email: string | null | undefined): boolean {
+  return (email ?? "").toLowerCase() === "lewis.m@unimedps.com";
+}
+
 const inputStyle: CSSProperties = {
   display: "block",
   width: "100%",
@@ -241,6 +252,7 @@ export default function PartnerDetailPage() {
                 onToggleOpen={() => setOpenStandardId(openStandardId === standard.id ? null : standard.id)}
                 onChanged={loadEvidence}
                 canVerify={me?.permissions.includes("evidence.verify") ?? false}
+                canSelfVerify={isSelfServiceVerifyUser(me?.email)}
               />
             ))}
           </div>
@@ -404,6 +416,7 @@ function EvidenceStandardRow({
   onToggleOpen,
   onChanged,
   canVerify,
+  canSelfVerify,
 }: {
   standard: EvidenceStandardSummary;
   record: StakeholderEvidenceRecordSummary | null;
@@ -415,6 +428,10 @@ function EvidenceStandardRow({
    * cosmetic, same reasoning as canApprove above; evidence.verify is
    * enforced server-side regardless. */
   canVerify: boolean;
+  /** Added 2026-10-08 — see isSelfServiceVerifyUser's doc comment. Also
+   * purely cosmetic; EvidenceService.canSelfServiceVerify is the real
+   * gate. */
+  canSelfVerify: boolean;
 }) {
   const [verifying, setVerifying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -493,6 +510,7 @@ function EvidenceStandardRow({
         <LogEvidenceForm
           standardId={standard.id}
           partnerId={partnerId}
+          canSelfVerify={canSelfVerify}
           onSaved={() => {
             onChanged();
             onToggleOpen();
@@ -545,13 +563,27 @@ function DocumentLink({ documentId }: { documentId: string }) {
   );
 }
 
-function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: string; partnerId: string; onSaved: () => void }) {
+function LogEvidenceForm({
+  standardId,
+  partnerId,
+  canSelfVerify,
+  onSaved,
+}: {
+  standardId: string;
+  partnerId: string;
+  /** Added 2026-10-08 — see isSelfServiceVerifyUser's doc comment at the
+   * top of this file. */
+  canSelfVerify: boolean;
+  onSaved: () => void;
+}) {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [issuingBody, setIssuingBody] = useState("");
   const [issuedDate, setIssuedDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [verifyImmediately, setVerifyImmediately] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -563,34 +595,52 @@ function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: strin
    * DocumentsStandaloneController / documents.service.ts's "Standalone
    * documents" section in apps/api. Attaching a file is optional — a
    * record can still be logged as metadata-only, same as before this was
-   * added. */
-  async function uploadFileAndGetDocumentId(): Promise<string | undefined> {
-    if (!file) return undefined;
-    setUploadStage("Requesting upload URL…");
-    const { uploadUrl, blobName } = await apiClient.requestStandaloneDocumentUploadUrl({
-      fileName: file.name,
-      contentType: file.type || "application/octet-stream",
-    });
-    setUploadStage("Uploading file…");
-    await apiClient.uploadDocumentFile(uploadUrl, file);
-    setUploadStage("Confirming upload…");
-    const doc = await apiClient.confirmStandaloneDocumentUpload({
-      blobName,
-      fileName: file.name,
-      type: "EVIDENCE",
-      title: file.name,
-      fileSizeBytes: file.size,
-      mimeType: file.type || undefined,
-    });
-    setUploadStage(null);
-    return doc.id;
+   * added.
+   *
+   * A pasted URL (e.g. a cloud storage share link) takes the file's
+   * place when no file was chosen — added same day per Lewis ("in
+   * addition to uploading files, can we also have a field to paste in a
+   * url"). The two are mutually exclusive in this form (a file, if
+   * chosen, wins) since a record only ever carries one documentId. */
+  async function resolveDocumentId(): Promise<string | undefined> {
+    if (file) {
+      setUploadStage("Requesting upload URL…");
+      const { uploadUrl, blobName } = await apiClient.requestStandaloneDocumentUploadUrl({
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+      });
+      setUploadStage("Uploading file…");
+      await apiClient.uploadDocumentFile(uploadUrl, file);
+      setUploadStage("Confirming upload…");
+      const doc = await apiClient.confirmStandaloneDocumentUpload({
+        blobName,
+        fileName: file.name,
+        type: "EVIDENCE",
+        title: file.name,
+        fileSizeBytes: file.size,
+        mimeType: file.type || undefined,
+      });
+      setUploadStage(null);
+      return doc.id;
+    }
+    if (documentUrl.trim()) {
+      setUploadStage("Saving link…");
+      const doc = await apiClient.linkStandaloneDocument({
+        url: documentUrl.trim(),
+        title: documentUrl.trim(),
+        type: "EVIDENCE",
+      });
+      setUploadStage(null);
+      return doc.id;
+    }
+    return undefined;
   }
 
   async function handleSubmit() {
     setSubmitting(true);
     setFormError(null);
     try {
-      const documentId = await uploadFileAndGetDocumentId();
+      const documentId = await resolveDocumentId();
       await apiClient.createEvidenceRecord({
         partnerId,
         standardId,
@@ -600,6 +650,7 @@ function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: strin
         expiryDate: expiryDate || undefined,
         documentId,
         notes: notes || undefined,
+        ...(canSelfVerify && verifyImmediately ? { verifyImmediately: true } : {}),
       });
       onSaved();
     } catch (err) {
@@ -635,13 +686,32 @@ function LogEvidenceForm({ standardId, partnerId, onSaved }: { standardId: strin
         <input
           type="file"
           style={{ ...inputStyle, padding: "6px 8px" }}
-          onChange={(e) => setFile(e.target.files && e.target.files.length > 0 ? e.target.files[0] : null)}
+          onChange={(e) => {
+            setFile(e.target.files && e.target.files.length > 0 ? e.target.files[0] : null);
+            if (e.target.files && e.target.files.length > 0) setDocumentUrl("");
+          }}
+        />
+      </label>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Or paste a document URL (e.g. a cloud storage link)
+        <input
+          style={inputStyle}
+          placeholder="https://…"
+          value={documentUrl}
+          disabled={Boolean(file)}
+          onChange={(e) => setDocumentUrl(e.target.value)}
         />
       </label>
       <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
         Notes
         <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
+      {canSelfVerify && (
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--u-ink)" }}>
+          <input type="checkbox" checked={verifyImmediately} onChange={(e) => setVerifyImmediately(e.target.checked)} />
+          Verify immediately (admin — logs and verifies this evidence in one step, for your account only)
+        </label>
+      )}
       {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>

@@ -9,6 +9,7 @@ import { BlobStorageService } from "./blob-storage.service";
 import type { RequestUploadDto } from "./dto/request-upload.dto";
 import type { ConfirmUploadDto } from "./dto/confirm-upload.dto";
 import type { ConfirmStandaloneUploadDto } from "./dto/confirm-standalone-upload.dto";
+import type { LinkStandaloneDocumentDto } from "./dto/link-standalone.dto";
 
 /**
  * Phase 2b (Documents) — Blob Storage, decided 2026-10-01 by Lewis (see
@@ -154,6 +155,36 @@ export class DocumentsService {
           fileName: dto.fileName,
           fileSizeBytes: dto.fileSizeBytes,
           mimeType: dto.mimeType,
+          uploadedById: user.id,
+        },
+        include: { uploadedBy: true },
+      }),
+    );
+    return {
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      fileName: row.fileName,
+      fileSizeBytes: row.fileSizeBytes,
+      mimeType: row.mimeType,
+      uploadedByName: row.uploadedBy ? `${row.uploadedBy.forename} ${row.uploadedBy.surname}` : null,
+      uploadedAt: row.uploadedAt.toISOString(),
+    };
+  }
+
+  /** Added 2026-10-08 — a document record pointing straight at a pasted
+   * URL (e.g. a cloud storage share link), no blob upload at all. Shares
+   * the exact same read path as an uploaded one: getStandaloneDownloadUrl
+   * already falls back to `doc.url` whenever blobName is null. */
+  async linkStandalone(user: RequestUser, dto: LinkStandaloneDocumentDto): Promise<StandaloneDocumentSummary> {
+    const row = await withTenantContext(user.organizationId, (tx) =>
+      tx.projectDocument.create({
+        data: {
+          organizationId: user.organizationId,
+          projectId: null,
+          type: dto.type,
+          title: dto.title,
+          url: dto.url,
           uploadedById: user.id,
         },
         include: { uploadedBy: true },

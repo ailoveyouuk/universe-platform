@@ -4,6 +4,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { RequestUploadDto } from "./dto/request-upload.dto";
 import { ConfirmStandaloneUploadDto } from "./dto/confirm-standalone-upload.dto";
+import { LinkStandaloneDocumentDto } from "./dto/link-standalone.dto";
 import { DocumentsService } from "./documents.service";
 
 /**
@@ -33,6 +34,11 @@ export class DocumentsStandaloneController {
   @Post()
   confirmUpload(@CurrentUser() user: RequestUser, @Body() dto: ConfirmStandaloneUploadDto) {
     return this.documentsService.confirmStandaloneUpload(user, dto);
+  }
+
+  @Post("link")
+  linkDocument(@CurrentUser() user: RequestUser, @Body() dto: LinkStandaloneDocumentDto) {
+    return this.documentsService.linkStandalone(user, dto);
   }
 
   @Get(":documentId/download-url")
