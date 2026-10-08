@@ -64,6 +64,11 @@ export default function ProjectsPage() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
+  // Archived projects (Project.isArchived — soft-delete/retirement, never
+  // a hard delete) are excluded from the default list view, same
+  // reasoning as every "don't show me the noise by default" filter
+  // already on this page — off by default, a toggle brings them back.
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -98,13 +103,14 @@ export default function ProjectsPage() {
         return false;
       }
       if (typeFilter && p.projectType !== typeFilter) return false;
+      if (!showArchived && p.isArchived) return false;
       if (q) {
         const haystack = `${p.referenceNumber} ${p.title} ${p.clientName ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [projects, search, statusFilter, typeFilter]);
+  }, [projects, search, statusFilter, typeFilter, showArchived]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -227,6 +233,10 @@ export default function ProjectsPage() {
           allLabel="All types"
           ariaLabel="Filter by project type"
         />
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--u-ink-secondary)", padding: "9px 4px" }}>
+          <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(0); }} />
+          Show archived
+        </label>
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
@@ -255,8 +265,22 @@ export default function ProjectsPage() {
                   </td>
                   <td style={{ padding: 8, color: "var(--u-ink)" }}>{p.title}</td>
                   <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.clientName ?? "—"}</td>
-                  <td style={{ padding: 8 }}>
+                  <td style={{ padding: 8, display: "flex", gap: 6, alignItems: "center" }}>
                     <StatusBadge status={p.status} />
+                    {p.isArchived && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: "var(--u-ink-secondary)",
+                          border: "1px solid var(--u-border)",
+                          borderRadius: "var(--u-radius-pill)",
+                          padding: "2px 8px",
+                        }}
+                      >
+                        Archived
+                      </span>
+                    )}
                   </td>
                   <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.dueDate ? new Date(p.dueDate).toLocaleDateString() : "—"}</td>
                   <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.daysRemainingForSubmission ?? "—"}</td>

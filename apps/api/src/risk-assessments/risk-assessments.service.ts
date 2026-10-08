@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import type { CreateRiskAssessmentInput, RiskAssessmentSummary, UpdateRiskAssessmentInput } from "@universe/types";
+import type {
+  CreateRiskAssessmentInput,
+  RiskAssessmentListItem,
+  RiskAssessmentSummary,
+  UpdateRiskAssessmentInput,
+} from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateRiskAssessmentDto } from "./dto/create-risk-assessment.dto";
 import type { UpdateRiskAssessmentDto } from "./dto/update-risk-assessment.dto";
+import type { CloseRiskAssessmentDto } from "./dto/close-risk-assessment.dto";
 
 type RiskAssessmentWithOwner = {
   id: string;
@@ -93,6 +99,66 @@ export class RiskAssessmentsService {
     return (rows as unknown as RiskAssessmentWithOwner[]).map(toSummary);
   }
 
+  /**
+   * GET /risk-assessments/all — the cross-cutting register view (Gap 4
+   * follow-up): every risk across every subject in the organisation, not
+   * scoped to one Partner/Project/batch the way listForSubject() is. The
+   * subject reference is polymorphic (subjectType/subjectId, no FK — see
+   * RiskAssessment's doc comment in schema.prisma) so the subject's
+   * display name can't come from a Prisma `include`; it's resolved here
+   * with one extra batched lookup per subject type instead of a
+   * round-trip per row.
+   */
+  async listAll(user: RequestUser): Promise<RiskAssessmentListItem[]> {
+    const { rows, partners, projects, batches } = await withTenantContext(user.organizationId, async (tx) => {
+      const rows = await tx.riskAssessment.findMany({
+        where: tenantScope(user.organizationId),
+        include: { owner: { select: { forename: true, surname: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const partnerIds = [...new Set(rows.filter((r) => r.subjectType === "PARTNER").map((r) => r.subjectId))];
+      const projectIds = [...new Set(rows.filter((r) => r.subjectType === "PROJECT").map((r) => r.subjectId))];
+      const batchIds = [...new Set(rows.filter((r) => r.subjectType === "PRODUCT_BATCH").map((r) => r.subjectId))];
+
+      const [partners, projects, batches] = await Promise.all([
+        partnerIds.length
+          ? tx.partner.findMany({ where: { id: { in: partnerIds }, ...tenantScope(user.organizationId) }, select: { id: true, name: true } })
+          : Promise.resolve([] as { id: string; name: string }[]),
+        projectIds.length
+          ? tx.project.findMany({
+              where: { id: { in: projectIds }, ...tenantScope(user.organizationId) },
+              select: { id: true, title: true, referenceNumber: true },
+            })
+          : Promise.resolve([] as { id: string; title: string; referenceNumber: string }[]),
+        batchIds.length
+          ? tx.productBatch.findMany({ where: { id: { in: batchIds }, ...tenantScope(user.organizationId) }, select: { id: true, batchNumber: true } })
+          : Promise.resolve([] as { id: string; batchNumber: string }[]),
+      ]);
+
+      return { rows, partners, projects, batches };
+    });
+
+    const partnerNames = new Map(partners.map((p) => [p.id, p.name] as const));
+    const projectNames = new Map(projects.map((p) => [p.id, `${p.referenceNumber} \u2014 ${p.title}`] as const));
+    const batchNames = new Map(batches.map((b) => [b.id, b.batchNumber] as const));
+
+    function subjectName(r: RiskAssessmentWithOwner): string {
+      switch (r.subjectType) {
+        case "PARTNER":
+          return partnerNames.get(r.subjectId) ?? "Unknown stakeholder";
+        case "PROJECT":
+          return projectNames.get(r.subjectId) ?? "Unknown project";
+        case "PRODUCT_BATCH":
+          return batchNames.get(r.subjectId) ?? "Unknown batch";
+        default:
+          return r.subjectId;
+      }
+    }
+
+    return (rows as unknown as RiskAssessmentWithOwner[]).map((r) => ({ ...toSummary(r), subjectName: subjectName(r) }));
+  }
+
   async update(user: RequestUser, id: string, dto: UpdateRiskAssessmentDto): Promise<RiskAssessmentSummary> {
     const r = await withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.riskAssessment.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
@@ -122,6 +188,47 @@ export class RiskAssessmentsService {
         recordId: id,
         changedById: user.id,
         changes,
+        source: "API",
+      });
+
+      return updated;
+    });
+    if (!r) throw new NotFoundException(`Risk assessment ${id} not found`);
+    return toSummary(r as unknown as RiskAssessmentWithOwner);
+  }
+
+  /**
+   * Dedicated "Close" action — sets status to CLOSED and always requires
+   * a reason (see CloseRiskAssessmentDto), unlike the generic update()
+   * above which can move status to CLOSED silently via a bare PATCH. The
+   * reason is carried onto the FieldChangeLog row for the status change
+   * (RecordFieldChangesOptions.reason), not stored on RiskAssessment
+   * itself — this register stays deliberately thin (see this service's
+   * own doc comment).
+   */
+  async close(user: RequestUser, id: string, dto: CloseRiskAssessmentDto): Promise<RiskAssessmentSummary> {
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.riskAssessment.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
+      if (!existing) return null;
+      if (existing.status === "CLOSED") {
+        throw new BadRequestException("This risk is already closed.");
+      }
+
+      const changes = diffForAudit(existing, { status: "CLOSED" }, ["status"] as const);
+
+      const updated = await tx.riskAssessment.update({
+        where: { id },
+        data: { status: "CLOSED" },
+        include: { owner: { select: { forename: true, surname: true } } },
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "risk_assessments",
+        recordId: id,
+        changedById: user.id,
+        changes,
+        reason: dto.reason,
         source: "API",
       });
 

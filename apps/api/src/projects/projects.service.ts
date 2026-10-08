@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
-import type { ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
+import type { ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
@@ -25,6 +25,9 @@ function toSummary(p: {
   dueDate: Date | null;
   completionStage: string | null;
   client: { name: string } | null;
+  isArchived: boolean;
+  archivedAt: Date | null;
+  archivedById: string | null;
 }): ProjectSummary {
   return {
     id: p.id,
@@ -37,6 +40,9 @@ function toSummary(p: {
     dueDate: p.dueDate?.toISOString() ?? null,
     daysRemainingForSubmission: daysRemaining(p.dueDate),
     completionStage: p.completionStage,
+    isArchived: p.isArchived,
+    archivedAt: p.archivedAt?.toISOString() ?? null,
+    archivedById: p.archivedById,
   };
 }
 
@@ -77,6 +83,14 @@ const PROJECT_DETAIL_INCLUDE = {
   // what a user most likely wants to see at the top. Back-relation field on
   // Project is `documents` (see schema.prisma).
   documents: { include: { uploadedBy: true }, orderBy: { uploadedAt: "desc" as const } },
+  // Project Leads/Contacts (added 2026-10-08) — previously settable only
+  // via the full create/update payload (never actually wired up), now
+  // independently addable/removable via POST/DELETE /projects/:id/leads
+  // and /projects/:id/contacts. Plain join tables, no natural ordering of
+  // their own — ordered by the joined record's name for a stable,
+  // readable list.
+  leads: { include: { user: true }, orderBy: { user: { forename: "asc" as const } } },
+  contacts: { include: { contact: { include: { partner: true } } }, orderBy: { contact: { name: "asc" as const } } },
 } as const;
 
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
@@ -85,6 +99,8 @@ type EnquiryWithSupplier = LineWithPartners["supplierEnquiries"][number];
 type LineLogisticsMetric = NonNullable<LineWithPartners["logisticsMetric"]>;
 type StatusHistoryWithUser = ProjectWithLines["statusHistory"][number];
 type DocumentWithUploader = ProjectWithLines["documents"][number];
+type LeadWithUser = ProjectWithLines["leads"][number];
+type ContactLinkWithContact = ProjectWithLines["contacts"][number];
 
 function decimalToString(d: unknown): string | null {
   return d === null || d === undefined ? null : String(d);
@@ -254,6 +270,21 @@ function toDocumentSummary(d: DocumentWithUploader): ProjectDocumentSummary {
   };
 }
 
+function toLeadSummary(l: LeadWithUser): ProjectLeadSummary {
+  return {
+    userId: l.userId,
+    userName: `${l.user.forename} ${l.user.surname}`,
+  };
+}
+
+function toContactSummary(c: ContactLinkWithContact): ProjectContactSummary {
+  return {
+    contactId: c.contactId,
+    contactName: c.contact.name,
+    partnerName: c.contact.partner?.name ?? null,
+  };
+}
+
 function toDetail(p: ProjectWithLines): ProjectDetail {
   return {
     ...toSummary(p),
@@ -288,6 +319,8 @@ function toDetail(p: ProjectWithLines): ProjectDetail {
     lines: p.lines.map(toLineSummary),
     statusHistory: p.statusHistory.map(toStatusHistoryEntry),
     documents: p.documents.map(toDocumentSummary),
+    leads: p.leads.map(toLeadSummary),
+    contacts: p.contacts.map(toContactSummary),
   };
 }
 
@@ -656,6 +689,68 @@ export class ProjectsService {
       return updated;
     });
     if (!p) throw new NotFoundException(`Project ${id} not found`);
+    return this.findOne(user, id);
+  }
+
+  /**
+   * Soft-delete/retirement — see Project.isArchived's doc comment in
+   * schema.prisma. This platform never hard-deletes a compliance-relevant
+   * record (GDP/21 CFR Part 11 audit-trail posture — see
+   * claude/compliance-standards-gap-analysis.md); archiving a project just
+   * retires it from the default list view while keeping every line, status
+   * history entry, document and FieldChangeLog row intact and still
+   * reachable at GET /projects/:id. Idempotent — archiving an already-
+   * archived project is a no-op write (still logged, see Gap 1 below, but
+   * never throws).
+   */
+  async archive(user: RequestUser, id: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.project.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
+      if (!existing) throw new NotFoundException(`Project ${id} not found`);
+
+      const archivedAt = existing.isArchived ? existing.archivedAt : new Date();
+      const archivedById = existing.isArchived ? existing.archivedById : user.id;
+
+      const after = { isArchived: true, archivedAt, archivedById };
+      const changes = diffForAudit(existing, after, ["isArchived", "archivedAt", "archivedById"] as const);
+
+      await tx.project.update({ where: { id }, data: after });
+
+      // Gap 1 — generic field-level audit trail, same recordFieldChanges
+      // pattern as update() above.
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "projects",
+        recordId: id,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+    });
+    return this.findOne(user, id);
+  }
+
+  /** Reverses archive() above — restores the project to the default list
+   * view. Idempotent, same reasoning as archive(). */
+  async unarchive(user: RequestUser, id: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.project.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
+      if (!existing) throw new NotFoundException(`Project ${id} not found`);
+
+      const after = { isArchived: false, archivedAt: null, archivedById: null };
+      const changes = diffForAudit(existing, after, ["isArchived", "archivedAt", "archivedById"] as const);
+
+      await tx.project.update({ where: { id }, data: after });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "projects",
+        recordId: id,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+    });
     return this.findOne(user, id);
   }
 
@@ -1037,6 +1132,129 @@ export class ProjectsService {
       });
 
       await this.recomputeLineLogisticsMetric(tx, user.organizationId, projectId, lineId, project, updated);
+    });
+    return this.findOne(user, projectId);
+  }
+
+  /** GET /projects/:id/status-history — the same ProjectStatusHistoryEntry[]
+   * already embedded in ProjectDetail.statusHistory (toDetail/
+   * PROJECT_DETAIL_INCLUDE above), as its own lightweight endpoint: a
+   * caller that only wants the stage timeline (e.g. a refresh after a
+   * status change, or a future standalone history view) shouldn't have
+   * to re-fetch the full project with every line/document/enquiry just
+   * to get it. Queried directly rather than via findOne() so it stays
+   * cheap. Ordered oldest-first, same convention as PROJECT_DETAIL_INCLUDE. */
+  async getStatusHistory(user: RequestUser, projectId: string): Promise<ProjectStatusHistoryEntry[]> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+      const history = await tx.projectStatusHistory.findMany({
+        where: { projectId, ...tenantScope(user.organizationId) },
+        include: { changedBy: true },
+        orderBy: { enteredAt: "asc" },
+      });
+      return history.map(toStatusHistoryEntry);
+    });
+  }
+
+  // --- Project Leads/Contacts (added 2026-10-08) — plain join-table
+  // add/remove, independent of the full project PATCH (see ProjectLead/
+  // ProjectContact's doc comments in schema.prisma). Neither join table
+  // itself carries history/audit fields — there's nothing on the row to
+  // soft-delete or version — so a straightforward create/delete is the
+  // right shape here, unlike e.g. a certification or risk record. Still
+  // logged to FieldChangeLog via recordFieldChanges for consistency with
+  // the rest of the audit trail: tableName "project_leads"/
+  // "project_contacts", fieldName "userId"/"contactId", oldValue/newValue
+  // reflecting the id added or removed (null on the other side). ---
+
+  async addLead(user: RequestUser, projectId: string, userId: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+      const targetUser = await tx.user.findFirst({ where: { id: userId, organizationId: user.organizationId } });
+      if (!targetUser) throw new NotFoundException(`User ${userId} not found in your organisation`);
+
+      await tx.projectLead.upsert({
+        where: { projectId_userId: { projectId, userId } },
+        create: { projectId, userId },
+        update: {},
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_leads",
+        recordId: projectId,
+        changedById: user.id,
+        changes: [{ field: "userId", oldValue: null, newValue: userId }],
+        source: "API",
+      });
+    });
+    return this.findOne(user, projectId);
+  }
+
+  async removeLead(user: RequestUser, projectId: string, userId: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+      await tx.projectLead.deleteMany({ where: { projectId, userId } });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_leads",
+        recordId: projectId,
+        changedById: user.id,
+        changes: [{ field: "userId", oldValue: userId, newValue: null }],
+        source: "API",
+      });
+    });
+    return this.findOne(user, projectId);
+  }
+
+  async addContact(user: RequestUser, projectId: string, contactId: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+      const contact = await tx.contact.findFirst({ where: { id: contactId, ...tenantScope(user.organizationId) } });
+      if (!contact) throw new NotFoundException(`Contact ${contactId} not found in your organisation`);
+
+      await tx.projectContact.upsert({
+        where: { projectId_contactId: { projectId, contactId } },
+        create: { projectId, contactId },
+        update: {},
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_contacts",
+        recordId: projectId,
+        changedById: user.id,
+        changes: [{ field: "contactId", oldValue: null, newValue: contactId }],
+        source: "API",
+      });
+    });
+    return this.findOne(user, projectId);
+  }
+
+  async removeContact(user: RequestUser, projectId: string, contactId: string): Promise<ProjectDetail> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+
+      await tx.projectContact.deleteMany({ where: { projectId, contactId } });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_contacts",
+        recordId: projectId,
+        changedById: user.id,
+        changes: [{ field: "contactId", oldValue: contactId, newValue: null }],
+        source: "API",
+      });
     });
     return this.findOne(user, projectId);
   }

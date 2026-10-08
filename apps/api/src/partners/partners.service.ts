@@ -11,6 +11,9 @@ import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreatePartnerDto } from "./dto/create-partner.dto";
 import type { UpdatePartnerDto } from "./dto/update-partner.dto";
+import type { AddPartnerCertificationDto, UpdatePartnerCertificationDto } from "./dto/partner-certification.dto";
+import type { AddPartnerCompanyCheckDto, UpdatePartnerCompanyCheckDto } from "./dto/partner-company-check.dto";
+import type { PartnerApprovalHistorySummary, PartnerCertificationSummary, PartnerCompanyCheckSummary } from "@universe/types";
 
 const PARTNER_INCLUDE = {
   roles: true,
@@ -28,7 +31,6 @@ const PARTNER_INCLUDE = {
 type PartnerWithDetails = Awaited<ReturnType<typeof prisma.partner.findFirstOrThrow<{ include: typeof PARTNER_INCLUDE }>>>;
 
 function toSummary(p: PartnerWithDetails): PartnerSummary {
-  const now = Date.now();
   return {
     id: p.id,
     name: p.name,
@@ -125,30 +127,8 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
       address: s.address,
       isPrimary: s.isPrimary,
     })),
-    certifications: p.certifications.map((c) => ({
-      id: c.id,
-      type: c.type,
-      referenceNumber: c.referenceNumber,
-      revision: c.revision,
-      issuingBody: c.issuingBody,
-      issuedDate: c.issuedDate ? c.issuedDate.toISOString() : null,
-      expiryDate: c.expiryDate ? c.expiryDate.toISOString() : null,
-      verifiedAt: c.verifiedAt ? c.verifiedAt.toISOString() : null,
-      status: c.status,
-      notes: c.notes,
-      manufacturerSiteId: c.manufacturerSiteId,
-      relatedCompanyCheckType: c.relatedCompanyCheckType,
-      isExpired: Boolean(c.expiryDate && c.expiryDate.getTime() < now),
-    })),
-    companyChecks: p.companyChecks.map((c) => ({
-      id: c.id,
-      checkType: c.checkType,
-      customLabel: c.customLabel,
-      result: c.result,
-      checkedDate: c.checkedDate ? c.checkedDate.toISOString() : null,
-      referenceOrSource: c.referenceOrSource,
-      comment: c.comment,
-    })),
+    certifications: p.certifications.map(toCertificationSummary),
+    companyChecks: p.companyChecks.map(toCompanyCheckSummary),
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -156,6 +136,44 @@ function toSummary(p: PartnerWithDetails): PartnerSummary {
 // normalize() moved to ../common/normalize-name.ts (normalizeStakeholderName)
 // — shared with StakeholderRegistryService so Partner/registry matching use
 // the exact same normalization.
+
+type PartnerCertificationRow = PartnerWithDetails["certifications"][number];
+type PartnerCompanyCheckRow = PartnerWithDetails["companyChecks"][number];
+
+/** Shared with toSummary() below and with the new certifications
+ * sub-resource endpoints (added 2026-10-08) so a single certification
+ * created/edited through POST|PATCH /partners/:id/certifications/... comes
+ * back in exactly the same shape as one read through GET /partners/:id. */
+function toCertificationSummary(c: PartnerCertificationRow): PartnerCertificationSummary {
+  return {
+    id: c.id,
+    type: c.type,
+    referenceNumber: c.referenceNumber,
+    revision: c.revision,
+    issuingBody: c.issuingBody,
+    issuedDate: c.issuedDate ? c.issuedDate.toISOString() : null,
+    expiryDate: c.expiryDate ? c.expiryDate.toISOString() : null,
+    verifiedAt: c.verifiedAt ? c.verifiedAt.toISOString() : null,
+    status: c.status,
+    notes: c.notes,
+    manufacturerSiteId: c.manufacturerSiteId,
+    relatedCompanyCheckType: c.relatedCompanyCheckType,
+    isExpired: Boolean(c.expiryDate && c.expiryDate.getTime() < Date.now()),
+  };
+}
+
+/** Same reasoning as toCertificationSummary above, for company checks. */
+function toCompanyCheckSummary(c: PartnerCompanyCheckRow): PartnerCompanyCheckSummary {
+  return {
+    id: c.id,
+    checkType: c.checkType,
+    customLabel: c.customLabel,
+    result: c.result,
+    checkedDate: c.checkedDate ? c.checkedDate.toISOString() : null,
+    referenceOrSource: c.referenceOrSource,
+    comment: c.comment,
+  };
+}
 
 /** Turns a CreatePartnerDto's `manufacturerSites` array into a plain Prisma
  * nested-create input — site-scoped certifications are deliberately NOT
@@ -538,5 +556,236 @@ export class PartnersService {
     });
     if (!p) throw new NotFoundException(`Partner ${id} not found`);
     return toSummary(p);
+  }
+
+  // --- Certifications / company checks / approval history sub-resources
+  // (added 2026-10-08, compliance-standards-gap-analysis.md) — see
+  // partner-certification.dto.ts's doc comment for why these exist
+  // alongside the additive-only certifications/companyChecks arrays on
+  // CreatePartnerDto/UpdatePartnerDto.
+
+  /** Unlike update()'s addCertifications (nested into the same
+   * tx.partner.update() call), this creates the PartnerCertification row
+   * directly — there's no sibling write to merge it with here, so a plain
+   * create under its own tenant-context transaction is enough. No
+   * recordFieldChanges call: FieldChangeLog captures a field-level DIFF
+   * against a previous value, and a brand-new record has no "before" —
+   * same reasoning as why addCertifications/addManufacturerSites/
+   * addCompanyChecks were never audited as part of update() either. */
+  async addCertification(
+    user: RequestUser,
+    partnerId: string,
+    dto: AddPartnerCertificationDto,
+  ): Promise<PartnerCertificationSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(user.organizationId) } });
+      if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
+
+      if (dto.manufacturerSiteId) {
+        const site = await tx.manufacturerSite.findFirst({ where: { id: dto.manufacturerSiteId, partnerId } });
+        if (!site) throw new BadRequestException(`Manufacturer site ${dto.manufacturerSiteId} not found on partner ${partnerId}`);
+      }
+
+      const row = await tx.partnerCertification.create({
+        data: {
+          organizationId: user.organizationId,
+          partnerId,
+          manufacturerSiteId: dto.manufacturerSiteId ?? null,
+          relatedCompanyCheckType: dto.relatedCompanyCheckType ?? null,
+          type: dto.type,
+          referenceNumber: dto.referenceNumber,
+          revision: dto.revision,
+          issuingBody: dto.issuingBody,
+          issuedDate: dto.issuedDate ? new Date(dto.issuedDate) : undefined,
+          expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+          verifiedAt: dto.verifiedAt ? new Date(dto.verifiedAt) : undefined,
+          status: dto.status,
+          notes: dto.notes,
+        },
+      });
+      return toCertificationSummary(row);
+    });
+  }
+
+  /** The dedicated edit/retire endpoint PartnerCertificationDto's doc
+   * comment and UpdatePartnerDto.addCertifications' doc comment both flag
+   * as "a future dedicated endpoint, not this one" — retiring is just
+   * `{ status: "ARCHIVED" }`, no hard delete (compliance history must be
+   * retained — see PartnerCertification.status's doc comment in
+   * schema.prisma). Audited via diffForAudit/recordFieldChanges, same
+   * pattern as Partner's own update(). Date fields (issuedDate/expiryDate/
+   * verifiedAt) are deliberately left OUT of the audited field list — same
+   * as every other date-bearing model in this codebase (see update()'s own
+   * auditedFields, which skips lastApprovalReviewDate/nextApprovalReviewDue
+   * too): diffForAudit's normalize() renders a stored Date via
+   * toISOString() but a DTO's date is a plain "YYYY-MM-DD" IsDateString, so
+   * the two never compare equal even when nothing actually changed — that
+   * would log a false "changed" entry on every single edit regardless of
+   * which fields the caller touched. */
+  async updateCertification(
+    user: RequestUser,
+    partnerId: string,
+    certId: string,
+    dto: UpdatePartnerCertificationDto,
+  ): Promise<PartnerCertificationSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.partnerCertification.findFirst({
+        where: { id: certId, partnerId, ...tenantScope(user.organizationId) },
+      });
+      if (!existing) throw new NotFoundException(`Certification ${certId} not found on partner ${partnerId}`);
+
+      if (dto.manufacturerSiteId) {
+        const site = await tx.manufacturerSite.findFirst({ where: { id: dto.manufacturerSiteId, partnerId } });
+        if (!site) throw new BadRequestException(`Manufacturer site ${dto.manufacturerSiteId} not found on partner ${partnerId}`);
+      }
+
+      const auditedFields = [
+        "type",
+        "referenceNumber",
+        "revision",
+        "issuingBody",
+        "status",
+        "notes",
+        "relatedCompanyCheckType",
+        "manufacturerSiteId",
+      ] as const;
+      const changes = diffForAudit(existing, dto, auditedFields);
+
+      const updated = await tx.partnerCertification.update({
+        where: { id: certId },
+        data: {
+          ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.referenceNumber !== undefined ? { referenceNumber: dto.referenceNumber } : {}),
+          ...(dto.revision !== undefined ? { revision: dto.revision } : {}),
+          ...(dto.issuingBody !== undefined ? { issuingBody: dto.issuingBody } : {}),
+          ...(dto.issuedDate !== undefined ? { issuedDate: dto.issuedDate ? new Date(dto.issuedDate) : null } : {}),
+          ...(dto.expiryDate !== undefined ? { expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null } : {}),
+          ...(dto.verifiedAt !== undefined ? { verifiedAt: dto.verifiedAt ? new Date(dto.verifiedAt) : null } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+          ...(dto.relatedCompanyCheckType !== undefined ? { relatedCompanyCheckType: dto.relatedCompanyCheckType } : {}),
+          ...(dto.manufacturerSiteId !== undefined ? { manufacturerSiteId: dto.manufacturerSiteId } : {}),
+        },
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "partner_certifications",
+        recordId: certId,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+
+      return toCertificationSummary(updated);
+    });
+  }
+
+  /** Same reasoning as addCertification — a plain create, no diff to log. */
+  async addCompanyCheck(
+    user: RequestUser,
+    partnerId: string,
+    dto: AddPartnerCompanyCheckDto,
+  ): Promise<PartnerCompanyCheckSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(user.organizationId) } });
+      if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
+
+      const row = await tx.partnerCompanyCheck.create({
+        data: {
+          organizationId: user.organizationId,
+          partnerId,
+          checkType: dto.checkType,
+          customLabel: dto.customLabel,
+          result: dto.result,
+          checkedDate: dto.checkedDate ? new Date(dto.checkedDate) : undefined,
+          referenceOrSource: dto.referenceOrSource,
+          comment: dto.comment,
+        },
+      });
+      return toCompanyCheckSummary(row);
+    });
+  }
+
+  /** Same reasoning as updateCertification — audited via
+   * diffForAudit/recordFieldChanges, checkedDate left out of the audited
+   * field list for the same Date-vs-IsDateString reason. PartnerCompanyCheck
+   * has no status/retire concept (see partner-company-check.dto.ts's doc
+   * comment) — editing the result/reference is the only write this
+   * endpoint needs to support. */
+  async updateCompanyCheck(
+    user: RequestUser,
+    partnerId: string,
+    checkId: string,
+    dto: UpdatePartnerCompanyCheckDto,
+  ): Promise<PartnerCompanyCheckSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.partnerCompanyCheck.findFirst({
+        where: { id: checkId, partnerId, ...tenantScope(user.organizationId) },
+      });
+      if (!existing) throw new NotFoundException(`Company check ${checkId} not found on partner ${partnerId}`);
+
+      const auditedFields = ["checkType", "customLabel", "result", "referenceOrSource", "comment"] as const;
+      const changes = diffForAudit(existing, dto, auditedFields);
+
+      const updated = await tx.partnerCompanyCheck.update({
+        where: { id: checkId },
+        data: {
+          ...(dto.checkType !== undefined ? { checkType: dto.checkType } : {}),
+          ...(dto.customLabel !== undefined ? { customLabel: dto.customLabel } : {}),
+          ...(dto.result !== undefined ? { result: dto.result } : {}),
+          ...(dto.checkedDate !== undefined ? { checkedDate: dto.checkedDate ? new Date(dto.checkedDate) : null } : {}),
+          ...(dto.referenceOrSource !== undefined ? { referenceOrSource: dto.referenceOrSource } : {}),
+          ...(dto.comment !== undefined ? { comment: dto.comment } : {}),
+        },
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "partner_company_checks",
+        recordId: checkId,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+
+      return toCompanyCheckSummary(updated);
+    });
+  }
+
+  /** PartnerApprovalHistory is append-only by nature (see its doc comment
+   * in schema.prisma) — read-only, no create/update method here. Already
+   * reachable merged into GET /audit-log?tableName=partners&recordId=...
+   * (see AuditLogService's doc comment on why that merge exists), but this
+   * gives a caller that only wants approval history its own plain list,
+   * without the FieldChangeLog reshaping. Resolves actionById to a display
+   * name the same way AuditLogService does. */
+  async listApprovalHistory(user: RequestUser, partnerId: string): Promise<PartnerApprovalHistorySummary[]> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(user.organizationId) } });
+      if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
+
+      const rows = await tx.partnerApprovalHistory.findMany({
+        where: { partnerId, ...tenantScope(user.organizationId) },
+        orderBy: { actionDate: "desc" },
+      });
+
+      const userIds = [...new Set(rows.map((r) => r.actionById).filter((id): id is string => id !== null))];
+      const users = userIds.length
+        ? await tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, forename: true, surname: true } })
+        : [];
+      const nameById = new Map(users.map((u) => [u.id, `${u.forename} ${u.surname}`]));
+
+      return rows.map((r) => ({
+        id: r.id,
+        partnerId: r.partnerId,
+        action: r.action,
+        reason: r.reason,
+        certificationStatement: r.certificationStatement,
+        actionDate: r.actionDate.toISOString(),
+        actionById: r.actionById,
+        actionByName: r.actionById ? nameById.get(r.actionById) ?? null : null,
+      }));
+    });
   }
 }

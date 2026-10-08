@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CreateProjectDto } from "./dto/create-project.dto";
 import { UpdateProjectDto } from "./dto/update-project.dto";
 import { ProjectLineDto } from "./dto/project-line.dto";
+import { AddProjectLeadDto } from "./dto/add-project-lead.dto";
+import { AddProjectContactDto } from "./dto/add-project-contact.dto";
 import { ProjectsService } from "./projects.service";
 
 @Controller("projects")
@@ -48,6 +50,22 @@ export class ProjectsController {
     return this.projectsService.update(user, id, dto);
   }
 
+  // Soft-delete/retirement — see ProjectsService.archive's doc comment.
+  // Distinct, dedicated routes rather than overloading PATCH ":id" with an
+  // isArchived field on UpdateProjectDto, same reasoning as every other
+  // deliberate-action endpoint in this build (e.g. risk-assessments'
+  // :id/close) — archiving is a specific decision with its own audit
+  // trail entry, not an ordinary header edit.
+  @Patch(":id/archive")
+  archive(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.projectsService.archive(user, id);
+  }
+
+  @Patch(":id/unarchive")
+  unarchive(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.projectsService.unarchive(user, id);
+  }
+
   @Post(":id/lines")
   addLine(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: ProjectLineDto) {
     return this.projectsService.addLine(user, id, dto);
@@ -61,5 +79,38 @@ export class ProjectsController {
     @Body() dto: ProjectLineDto,
   ) {
     return this.projectsService.updateLine(user, id, lineId, dto);
+  }
+
+  // Full ProjectStatusHistoryEntry[] timeline for the stage tracker's
+  // history view — see ProjectsService.getStatusHistory's doc comment.
+  // A distinct two-segment path from ":id" alone, same no-shadowing note
+  // as ":id/financial-summary" above.
+  @Get(":id/status-history")
+  getStatusHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.projectsService.getStatusHistory(user, id);
+  }
+
+  // --- Project Leads/Contacts (added 2026-10-08) — independent
+  // add/remove, not a full project PATCH. See ProjectsService's doc
+  // comment above addLead/addContact. ---
+
+  @Post(":id/leads")
+  addLead(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AddProjectLeadDto) {
+    return this.projectsService.addLead(user, id, dto.userId);
+  }
+
+  @Delete(":id/leads/:userId")
+  removeLead(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("userId") userId: string) {
+    return this.projectsService.removeLead(user, id, userId);
+  }
+
+  @Post(":id/contacts")
+  addContact(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AddProjectContactDto) {
+    return this.projectsService.addContact(user, id, dto.contactId);
+  }
+
+  @Delete(":id/contacts/:contactId")
+  removeContact(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("contactId") contactId: string) {
+    return this.projectsService.removeContact(user, id, contactId);
   }
 }

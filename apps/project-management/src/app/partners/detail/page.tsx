@@ -4,6 +4,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
 import type {
   EvidenceStandardSummary,
+  PartnerCertificationSummary,
+  PartnerCompanyCheckSummary,
   PartnerSummary,
   StakeholderEvidenceRecordSummary,
   StakeholderRegistryDetail,
@@ -11,7 +13,7 @@ import type {
 } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { Pill, TextLink, BuildingIcon, Button, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
+import { Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
@@ -24,6 +26,85 @@ const ROLE_LABELS: Record<string, string> = {
   FREIGHT_FORWARDER: "Freight Forwarder",
   WAREHOUSING: "Warehousing",
 };
+
+// Same option lists as partners/new/page.tsx's New Stakeholder form (see
+// CertificationType/PartnerCompanyCheckType in packages/db/src/enums.ts)
+// — kept in sync by hand, same as that page, since `type`/`checkType` are
+// free-text validated at the app layer rather than a real SQL enum.
+const CERTIFICATION_TYPES = [
+  "ISO_13485",
+  "ISO_9001",
+  "ISO_14001",
+  "ISO_17025",
+  "OTHER_ISO",
+  "FDA_REGISTRATION",
+  "GMP",
+  "GDP",
+  "MIA",
+  "WDA",
+  "EUDAMED_REGISTRATION",
+  "CE_MDR_CERTIFICATE",
+  "DECLARATION_OF_CONFORMITY",
+  "DEVICE_REGISTRATION",
+  "INSTRUCTIONS_FOR_USE",
+  "TECHNICAL_INFORMATION_SHEET",
+  "COMPANY_REGISTRATION",
+  "VAT_CERTIFICATE",
+  "FINANCIAL_CREDIT_STATUS",
+  "BUSINESS_INSURANCE",
+  "IATA_DGR_CERTIFICATION",
+  "AEO_ACCREDITATION",
+  "INSURANCE_CERTIFICATE",
+  "TECHNICAL_AGREEMENT",
+  "SERVICE_LEVEL_AGREEMENT",
+  "CODE_OF_CONDUCT_ACKNOWLEDGEMENT",
+  "REFERENCES",
+  "BONA_FIDE_REVIEW",
+  "OTHER",
+] as const;
+const CERTIFICATION_TYPE_LABELS: Record<string, string> = {
+  ISO_13485: "ISO 13485",
+  ISO_9001: "ISO 9001",
+  ISO_14001: "ISO 14001",
+  ISO_17025: "ISO 17025",
+  OTHER_ISO: "Other ISO accreditation",
+  FDA_REGISTRATION: "FDA Registration",
+  GMP: "GMP Certificate",
+  GDP: "GDP Certificate",
+  MIA: "Manufacturer's/Importer's Authorisation (MIA)",
+  WDA: "Wholesale Dealer's Authorisation (WDA)",
+  EUDAMED_REGISTRATION: "EUDAMED Registration",
+  CE_MDR_CERTIFICATE: "CE / MDR Certificate",
+  DECLARATION_OF_CONFORMITY: "Declaration of Conformity",
+  DEVICE_REGISTRATION: "In-country Device Registration",
+  INSTRUCTIONS_FOR_USE: "Instructions for Use (IFU)",
+  TECHNICAL_INFORMATION_SHEET: "Technical Information Sheet",
+  COMPANY_REGISTRATION: "Company Registration Certificate",
+  VAT_CERTIFICATE: "VAT Certificate",
+  FINANCIAL_CREDIT_STATUS: "Financial Credit Check",
+  BUSINESS_INSURANCE: "Business Insurance Certificate",
+  IATA_DGR_CERTIFICATION: "IATA Dangerous Goods Regulations Certification",
+  AEO_ACCREDITATION: "Authorised Economic Operator (AEO) Accreditation",
+  INSURANCE_CERTIFICATE: "Insurance Certificate",
+  TECHNICAL_AGREEMENT: "Technical Agreement",
+  SERVICE_LEVEL_AGREEMENT: "Service Level Agreement",
+  CODE_OF_CONDUCT_ACKNOWLEDGEMENT: "Code of Conduct Acknowledgement",
+  REFERENCES: "References",
+  BONA_FIDE_REVIEW: "Bona Fide Review",
+  OTHER: "Other",
+};
+
+const COMPANY_CHECK_TYPES = [
+  { value: "COMPANIES_HOUSE_REGISTRATION", label: "UK Companies House Registration" },
+  { value: "OTHER_NATIONAL_COMPANY_REGISTRATION", label: "Other National Company Registration" },
+  { value: "VAT_CERTIFICATE", label: "VAT Certificate" },
+  { value: "WEBSITE", label: "Website" },
+  { value: "FINANCIAL_CREDIT_STATUS", label: "Financial Credit Status" },
+  { value: "LOCATION", label: "Location" },
+  { value: "BUSINESS_INSURANCE", label: "Business Insurance" },
+  { value: "OTHER", label: "Other…" },
+] as const;
+const COMPANY_CHECK_RESULTS = ["YES", "NO", "NOT_APPLICABLE"] as const;
 
 /** Lewis, 2026-10-08: "enable me to add and verify information myself
  * (but only for me)" — purely cosmetic here (the server is the real
@@ -78,6 +159,20 @@ export default function PartnerDetailPage() {
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
   const [openStandardId, setOpenStandardId] = useState<string | null>(null);
+  // Remove/reinstate — Partner.approvalStatus's REMOVED state (see
+  // PartnersService.update), surfaced here with a confirmation step since
+  // removing a stakeholder is a destructive-feeling action, same reasoning
+  // as Project archive. The actual removal (approvalStatus write +
+  // PartnerApprovalHistory row) was already fully wired server-side before
+  // this — this is purely the frontend half.
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [showAddCertForm, setShowAddCertForm] = useState(false);
+  const [editingCertId, setEditingCertId] = useState<string | null>(null);
+  const [showAddCheckForm, setShowAddCheckForm] = useState(false);
+  const [editingCheckId, setEditingCheckId] = useState<string | null>(null);
   const countries = useCountries();
 
   function loadPartner() {
@@ -131,6 +226,40 @@ export default function PartnerDetailPage() {
       setApproveError(err instanceof Error ? err.message : "Failed to approve this stakeholder");
     } finally {
       setApproving(false);
+    }
+  }
+
+  async function handleRemove() {
+    if (!id) return;
+    if (!removeReason.trim()) {
+      setRemoveError("A reason is required to remove this stakeholder.");
+      return;
+    }
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await apiClient.updatePartner(id, { approvalStatus: "REMOVED", approvalReason: removeReason.trim() });
+      setConfirmingRemove(false);
+      setRemoveReason("");
+      loadPartner();
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Failed to remove this stakeholder");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  async function handleReinstate() {
+    if (!id) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await apiClient.updatePartner(id, { approvalStatus: "PENDING", approvalReason: "Reinstated" });
+      loadPartner();
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : "Failed to reinstate this stakeholder");
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -189,6 +318,15 @@ export default function PartnerDetailPage() {
               {approving ? "Approving…" : "Approve stakeholder"}
             </Button>
           )}
+          {partner.approvalStatus === "REMOVED" ? (
+            <Button variant="secondary" onClick={handleReinstate} disabled={removing}>
+              {removing ? "Reinstating…" : "Reinstate"}
+            </Button>
+          ) : (
+            <Button variant="danger" onClick={() => setConfirmingRemove(!confirmingRemove)} disabled={removing}>
+              {confirmingRemove ? "Cancel" : "Remove stakeholder"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -215,6 +353,53 @@ export default function PartnerDetailPage() {
         >
           <AlertIcon size={16} />
           {approveError}
+        </div>
+      )}
+
+      {/* Remove — a destructive-feeling action, same confirm-with-reason
+          pattern as the Risk Register's "Close" action (components/
+          RiskRegister.tsx) and Project archive (projects/detail/
+          ProjectDetailView.tsx): never fires on a bare click. The partner
+          is never hard-deleted — this is Partner.approvalStatus moving to
+          REMOVED, same soft-retirement posture as everything else in this
+          build. */}
+      {confirmingRemove && (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 16,
+            borderRadius: "var(--u-radius-md)",
+            border: "1px solid var(--u-status-critical)",
+            backgroundColor: "rgba(220,38,38,0.05)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>
+            Remove {partner.name} as a stakeholder?
+          </div>
+          <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+            This sets their status to REMOVED and records it in the approval history — the record itself is kept,
+            never deleted, and can be reinstated later.
+          </p>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+            Reason (required)
+            <input style={inputStyle} value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} autoFocus />
+          </label>
+          {removeError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{removeError}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Button variant="danger" onClick={handleRemove} disabled={removing}>
+              {removing ? "Removing…" : "Confirm removal"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => { setConfirmingRemove(false); setRemoveReason(""); setRemoveError(null); }}
+              disabled={removing}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 
@@ -308,22 +493,47 @@ export default function PartnerDetailPage() {
         </DetailSection>
       )}
 
-      {partner.companyChecks.length > 0 && (
-        <DetailSection title="Company checks">
-          {partner.companyChecks.map((check) => {
-            const relatedDocs = partner.certifications.filter((c) => c.relatedCompanyCheckType === check.checkType);
-            const label = check.checkType === "OTHER" ? check.customLabel || "Other check" : check.checkType.replace(/_/g, " ");
-            return (
-              <InfoCard key={check.id} label={label}>
-                {check.result.replace(/_/g, " ")}
-                {check.checkedDate ? ` — checked ${new Date(check.checkedDate).toLocaleDateString()}` : ""}
-                {check.referenceOrSource ? ` — ${check.referenceOrSource}` : ""}
-                {relatedDocs.length > 0 ? ` — ${relatedDocs.length} document(s) attached` : ""}
-              </InfoCard>
-            );
-          })}
-        </DetailSection>
-      )}
+      <section style={{ marginTop: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Company checks</h2>
+          <Button variant="secondary" onClick={() => setShowAddCheckForm((v) => !v)}>
+            {showAddCheckForm ? "Cancel" : "Add check"}
+          </Button>
+        </div>
+
+        {showAddCheckForm && (
+          <AddCompanyCheckForm
+            partnerId={partner.id}
+            onSaved={() => {
+              setShowAddCheckForm(false);
+              loadPartner();
+            }}
+          />
+        )}
+
+        {partner.companyChecks.length === 0 ? (
+          <div style={{ padding: "12px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+            No company checks logged yet.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {partner.companyChecks.map((check) => (
+              <CompanyCheckRow
+                key={check.id}
+                check={check}
+                partnerId={partner.id}
+                relatedDocCount={partner.certifications.filter((c) => c.relatedCompanyCheckType === check.checkType).length}
+                editing={editingCheckId === check.id}
+                onToggleEdit={() => setEditingCheckId(editingCheckId === check.id ? null : check.id)}
+                onSaved={() => {
+                  setEditingCheckId(null);
+                  loadPartner();
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {partner.financialDetail && (
         <DetailSection title="Financial information">
@@ -338,18 +548,48 @@ export default function PartnerDetailPage() {
         </DetailSection>
       )}
 
-      {partner.certifications.length > 0 && (
-        <DetailSection title="Documents & certifications">
-          {partner.certifications.map((cert) => (
-            <InfoCard key={cert.id} label={cert.type.replace(/_/g, " ")}>
-              {[cert.referenceNumber, cert.issuingBody, cert.expiryDate ? `expires ${new Date(cert.expiryDate).toLocaleDateString()}` : null]
-                .filter(Boolean)
-                .join(" — ") || "—"}
-              {cert.isExpired && <span style={{ color: "var(--u-status-critical)", marginLeft: 8 }}>Expired</span>}
-            </InfoCard>
-          ))}
-        </DetailSection>
-      )}
+      <section style={{ marginTop: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Documents &amp; certifications</h2>
+          <Button variant="secondary" onClick={() => setShowAddCertForm((v) => !v)}>
+            {showAddCertForm ? "Cancel" : "Add document"}
+          </Button>
+        </div>
+
+        {showAddCertForm && (
+          <AddCertificationForm
+            partnerId={partner.id}
+            manufacturerSites={partner.manufacturerSites}
+            onSaved={() => {
+              setShowAddCertForm(false);
+              loadPartner();
+            }}
+          />
+        )}
+
+        {partner.certifications.length === 0 ? (
+          <div style={{ padding: "12px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+            No documents or certifications logged yet.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {partner.certifications.map((cert) => (
+              <CertificationRow
+                key={cert.id}
+                cert={cert}
+                partnerId={partner.id}
+                manufacturerSites={partner.manufacturerSites}
+                editing={editingCertId === cert.id}
+                onToggleEdit={() => setEditingCertId(editingCertId === cert.id ? null : cert.id)}
+                onSaved={() => {
+                  setEditingCertId(null);
+                  loadPartner();
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {partner.supplierDetail && (
         <DetailSection title="Supplier details">
@@ -718,6 +958,471 @@ function LogEvidenceForm({
           {submitting ? uploadStage ?? "Saving…" : "Save evidence"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Inline "Add document" form for the Documents & certifications section
+ * — same pattern as batches/detail's AddTemperatureLogForm (a single
+ * record added to a child list without leaving the page). Added
+ * 2026-10-08 to close the gap flagged in
+ * compliance-standards-gap-analysis.md: before this, a single
+ * certification could only be added by going through the big Partner
+ * update DTO's addCertifications array (effectively unreachable from the
+ * UI), or at creation time on the New Stakeholder form. */
+function AddCertificationForm({
+  partnerId,
+  manufacturerSites,
+  onSaved,
+}: {
+  partnerId: string;
+  manufacturerSites: PartnerSummary["manufacturerSites"];
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [issuingBody, setIssuingBody] = useState("");
+  const [issuedDate, setIssuedDate] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const [manufacturerSiteId, setManufacturerSiteId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!type) {
+      setFormError("Choose a document type.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.addPartnerCertification(partnerId, {
+        type,
+        referenceNumber: referenceNumber || undefined,
+        issuingBody: issuingBody || undefined,
+        issuedDate: issuedDate || undefined,
+        expiryDate: expiryDate || undefined,
+        notes: notes || undefined,
+        manufacturerSiteId: manufacturerSiteId || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to add this document");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        padding: 16,
+        borderRadius: "var(--u-radius-md)",
+        border: "1px solid var(--u-border)",
+        backgroundColor: "var(--u-surface-raised)",
+        marginBottom: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Document type
+          <Select
+            value={type}
+            onChange={setType}
+            ariaLabel="Document type"
+            options={CERTIFICATION_TYPES.map((t) => ({ value: t, label: CERTIFICATION_TYPE_LABELS[t] }))}
+          />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Reference number
+          <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issuing body
+          <input style={inputStyle} value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issued date
+          <input type="date" style={inputStyle} value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Expiry date
+          <input type="date" style={inputStyle} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+        </label>
+        {manufacturerSites.length > 0 && (
+          <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+            Manufacturing site
+            <Select
+              value={manufacturerSiteId}
+              onChange={setManufacturerSiteId}
+              allLabel="Company-wide (not site-specific)"
+              ariaLabel="Manufacturing site"
+              options={manufacturerSites.map((s) => ({ value: s.id, label: s.siteName || "Site" }))}
+            />
+          </label>
+        )}
+      </div>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Notes
+        <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </label>
+      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      <div>
+        <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving…" : "Save document"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** One certification row, with an inline "Edit" toggle (same shape as
+ * AddCertificationForm) and a "Retire" action for a CURRENT document —
+ * never a hard delete, since compliance history must be retained (see
+ * PartnerCertification.status's doc comment in schema.prisma). Retiring
+ * just PATCHes { status: "ARCHIVED" }. */
+function CertificationRow({
+  cert,
+  partnerId,
+  manufacturerSites,
+  editing,
+  onToggleEdit,
+  onSaved,
+}: {
+  cert: PartnerCertificationSummary;
+  partnerId: string;
+  manufacturerSites: PartnerSummary["manufacturerSites"];
+  editing: boolean;
+  onToggleEdit: () => void;
+  onSaved: () => void;
+}) {
+  const [type, setType] = useState(cert.type);
+  const [referenceNumber, setReferenceNumber] = useState(cert.referenceNumber ?? "");
+  const [issuingBody, setIssuingBody] = useState(cert.issuingBody ?? "");
+  const [issuedDate, setIssuedDate] = useState(cert.issuedDate ? cert.issuedDate.slice(0, 10) : "");
+  const [expiryDate, setExpiryDate] = useState(cert.expiryDate ? cert.expiryDate.slice(0, 10) : "");
+  const [notes, setNotes] = useState(cert.notes ?? "");
+  const [manufacturerSiteId, setManufacturerSiteId] = useState(cert.manufacturerSiteId ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [retiring, setRetiring] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.updatePartnerCertification(partnerId, cert.id, {
+        type,
+        referenceNumber: referenceNumber || undefined,
+        issuingBody: issuingBody || undefined,
+        issuedDate: issuedDate || undefined,
+        expiryDate: expiryDate || undefined,
+        notes: notes || undefined,
+        manufacturerSiteId: manufacturerSiteId || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to save this document");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRetire() {
+    setRetiring(true);
+    setFormError(null);
+    try {
+      await apiClient.updatePartnerCertification(partnerId, cert.id, { status: "ARCHIVED" });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to retire this document");
+    } finally {
+      setRetiring(false);
+    }
+  }
+
+  return (
+    <div style={{ borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-surface-raised)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)" }}>
+            {CERTIFICATION_TYPE_LABELS[cert.type] ?? cert.type.replace(/_/g, " ")}
+            {cert.status === "ARCHIVED" && <Pill tone="neutral">Retired</Pill>}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>
+            {[cert.referenceNumber, cert.issuingBody, cert.expiryDate ? `expires ${new Date(cert.expiryDate).toLocaleDateString()}` : null]
+              .filter(Boolean)
+              .join(" — ") || "—"}
+            {cert.isExpired && <span style={{ color: "var(--u-status-critical)", marginLeft: 8 }}>Expired</span>}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <Button variant="secondary" onClick={onToggleEdit}>
+            {editing ? "Cancel" : "Edit"}
+          </Button>
+          {cert.status !== "ARCHIVED" && (
+            <Button variant="secondary" onClick={handleRetire} disabled={retiring}>
+              {retiring ? "Retiring…" : "Retire"}
+            </Button>
+          )}
+        </div>
+      </div>
+      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {editing && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Document type
+              <Select
+                value={type}
+                onChange={setType}
+                ariaLabel="Document type"
+                options={CERTIFICATION_TYPES.map((t) => ({ value: t, label: CERTIFICATION_TYPE_LABELS[t] }))}
+              />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Reference number
+              <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Issuing body
+              <input style={inputStyle} value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Issued date
+              <input type="date" style={inputStyle} value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Expiry date
+              <input type="date" style={inputStyle} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+            </label>
+            {manufacturerSites.length > 0 && (
+              <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+                Manufacturing site
+                <Select
+                  value={manufacturerSiteId}
+                  onChange={setManufacturerSiteId}
+                  allLabel="Company-wide (not site-specific)"
+                  ariaLabel="Manufacturing site"
+                  options={manufacturerSites.map((s) => ({ value: s.id, label: s.siteName || "Site" }))}
+                />
+              </label>
+            )}
+          </div>
+          <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+            Notes
+            <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </label>
+          <div>
+            <Button variant="primary" onClick={handleSave} disabled={submitting}>
+              {submitting ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Inline "Add check" form for the Company checks section — same pattern
+ * as AddCertificationForm above. */
+function AddCompanyCheckForm({ partnerId, onSaved }: { partnerId: string; onSaved: () => void }) {
+  const [checkType, setCheckType] = useState("");
+  const [customLabel, setCustomLabel] = useState("");
+  const [result, setResult] = useState("");
+  const [checkedDate, setCheckedDate] = useState("");
+  const [referenceOrSource, setReferenceOrSource] = useState("");
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!checkType || !result) {
+      setFormError("Choose a check type and result.");
+      return;
+    }
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.addPartnerCompanyCheck(partnerId, {
+        checkType,
+        customLabel: checkType === "OTHER" ? customLabel || undefined : undefined,
+        result,
+        checkedDate: checkedDate || undefined,
+        referenceOrSource: referenceOrSource || undefined,
+        comment: comment || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to add this check");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        padding: 16,
+        borderRadius: "var(--u-radius-md)",
+        border: "1px solid var(--u-border)",
+        backgroundColor: "var(--u-surface-raised)",
+        marginBottom: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Check type
+          <Select value={checkType} onChange={setCheckType} ariaLabel="Check type" options={[...COMPANY_CHECK_TYPES]} />
+        </label>
+        {checkType === "OTHER" && (
+          <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+            Custom label
+            <input style={inputStyle} value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
+          </label>
+        )}
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Result
+          <Select
+            value={result}
+            onChange={setResult}
+            ariaLabel="Result"
+            options={COMPANY_CHECK_RESULTS.map((r) => ({ value: r, label: r.replace(/_/g, " ") }))}
+          />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Checked date
+          <input type="date" style={inputStyle} value={checkedDate} onChange={(e) => setCheckedDate(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Reference / source
+          <input style={inputStyle} value={referenceOrSource} onChange={(e) => setReferenceOrSource(e.target.value)} />
+        </label>
+      </div>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Comment
+        <input style={inputStyle} value={comment} onChange={(e) => setComment(e.target.value)} />
+      </label>
+      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      <div>
+        <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving…" : "Save check"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** One company-check row, with an inline "Edit" toggle. No retire/delete
+ * action — PartnerCompanyCheck is a verification result, not a document
+ * with its own lifecycle (see partner-company-check.dto.ts's doc
+ * comment). */
+function CompanyCheckRow({
+  check,
+  partnerId,
+  relatedDocCount,
+  editing,
+  onToggleEdit,
+  onSaved,
+}: {
+  check: PartnerCompanyCheckSummary;
+  partnerId: string;
+  relatedDocCount: number;
+  editing: boolean;
+  onToggleEdit: () => void;
+  onSaved: () => void;
+}) {
+  const [customLabel, setCustomLabel] = useState(check.customLabel ?? "");
+  const [result, setResult] = useState(check.result);
+  const [checkedDate, setCheckedDate] = useState(check.checkedDate ? check.checkedDate.slice(0, 10) : "");
+  const [referenceOrSource, setReferenceOrSource] = useState(check.referenceOrSource ?? "");
+  const [comment, setComment] = useState(check.comment ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.updatePartnerCompanyCheck(partnerId, check.id, {
+        customLabel: check.checkType === "OTHER" ? customLabel || undefined : undefined,
+        result,
+        checkedDate: checkedDate || undefined,
+        referenceOrSource: referenceOrSource || undefined,
+        comment: comment || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to save this check");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const label = check.checkType === "OTHER" ? check.customLabel || "Other check" : check.checkType.replace(/_/g, " ");
+
+  return (
+    <div style={{ borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-surface-raised)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)" }}>{label}</div>
+          <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>
+            {check.result.replace(/_/g, " ")}
+            {check.checkedDate ? ` — checked ${new Date(check.checkedDate).toLocaleDateString()}` : ""}
+            {check.referenceOrSource ? ` — ${check.referenceOrSource}` : ""}
+            {relatedDocCount > 0 ? ` — ${relatedDocCount} document(s) attached` : ""}
+          </div>
+        </div>
+        <Button variant="secondary" onClick={onToggleEdit}>
+          {editing ? "Cancel" : "Edit"}
+        </Button>
+      </div>
+      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {editing && (
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            {check.checkType === "OTHER" && (
+              <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+                Custom label
+                <input style={inputStyle} value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
+              </label>
+            )}
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Result
+              <Select
+                value={result}
+                onChange={setResult}
+                ariaLabel="Result"
+                options={COMPANY_CHECK_RESULTS.map((r) => ({ value: r, label: r.replace(/_/g, " ") }))}
+              />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Checked date
+              <input type="date" style={inputStyle} value={checkedDate} onChange={(e) => setCheckedDate(e.target.value)} />
+            </label>
+            <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+              Reference / source
+              <input style={inputStyle} value={referenceOrSource} onChange={(e) => setReferenceOrSource(e.target.value)} />
+            </label>
+          </div>
+          <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+            Comment
+            <input style={inputStyle} value={comment} onChange={(e) => setComment(e.target.value)} />
+          </label>
+          <div>
+            <Button variant="primary" onClick={handleSave} disabled={submitting}>
+              {submitting ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

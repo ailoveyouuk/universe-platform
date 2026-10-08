@@ -59,6 +59,16 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
   const [risks, setRisks] = useState<RiskAssessmentSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // Closing a risk is its own deliberate action (see RiskAssessmentsService.
+  // close) — always requires a stated reason, unlike every other status
+  // transition here, which is a bare dropdown change. `closingId` tracks
+  // which row's confirm-with-reason panel (below) is open; selecting
+  // CLOSED in the dropdown opens it rather than firing the change
+  // immediately — the dropdown's own value stays whatever the risk's
+  // real status still is until the close is actually confirmed.
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const [closeReason, setCloseReason] = useState("");
+  const [closing, setClosing] = useState(false);
 
   function load() {
     apiClient
@@ -73,11 +83,35 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
   }, [subjectType, subjectId]);
 
   async function handleStatusChange(id: string, status: string) {
+    if (status === "CLOSED") {
+      setClosingId(id);
+      setCloseReason("");
+      return;
+    }
     try {
       await apiClient.updateRiskAssessment(id, { status });
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update this risk");
+    }
+  }
+
+  async function confirmClose(id: string) {
+    if (!closeReason.trim()) {
+      setError("A reason is required to close a risk.");
+      return;
+    }
+    setClosing(true);
+    setError(null);
+    try {
+      await apiClient.closeRiskAssessment(id, { reason: closeReason.trim() });
+      setClosingId(null);
+      setCloseReason("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to close this risk");
+    } finally {
+      setClosing(false);
     }
   }
 
@@ -150,6 +184,36 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
                 </div>
               </div>
             </div>
+            {closingId === r.id && (
+              <div
+                style={{
+                  marginTop: 12,
+                  paddingTop: 12,
+                  borderTop: "1px solid var(--u-border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+                  Reason for closing (required)
+                  <textarea
+                    style={textareaStyle}
+                    value={closeReason}
+                    onChange={(e) => setCloseReason(e.target.value)}
+                    autoFocus
+                  />
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Button variant="danger" onClick={() => confirmClose(r.id)} disabled={closing}>
+                    {closing ? "Closing…" : "Confirm close"}
+                  </Button>
+                  <Button variant="secondary" onClick={() => { setClosingId(null); setCloseReason(""); }} disabled={closing}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

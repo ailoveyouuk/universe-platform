@@ -19,6 +19,14 @@ export interface ProjectSummary {
   /** Sub-state within COMPLETED only — see Project.completionStage's doc
    * comment in schema.prisma. Added 2026-09-30. */
   completionStage: string | null;
+  /** Soft-delete/retirement flag — see Project.isArchived's doc comment in
+   * schema.prisma. A project is never hard-deleted (GDP/21 CFR Part 11
+   * audit-trail posture — see claude/compliance-standards-gap-analysis.md);
+   * archiving just retires it from the default list view. Added 2026-10-08
+   * alongside PATCH /projects/:id/archive. */
+  isArchived: boolean;
+  archivedAt: string | null;
+  archivedById: string | null;
 }
 
 /**
@@ -614,6 +622,48 @@ export interface ProjectStatusHistoryEntry {
   changedByName: string | null;
 }
 
+/** One Project Lead (a User assigned to a project) — see ProjectLead's doc
+ * comment in schema.prisma. Added/removed independently via
+ * POST/DELETE /projects/:id/leads, not via the full project PATCH. */
+export interface ProjectLeadSummary {
+  userId: string;
+  userName: string;
+}
+
+/** One Project Contact (an external Contact, belonging to a Partner,
+ * attached to a project) — see ProjectContact's doc comment in
+ * schema.prisma. Added/removed independently via
+ * POST/DELETE /projects/:id/contacts. */
+export interface ProjectContactSummary {
+  contactId: string;
+  contactName: string;
+  partnerName: string | null;
+}
+
+/** One row of a Partner's Contact book — GET /contacts, used to populate
+ * the project Team & Contacts picker. partnerName is denormalized here so
+ * the picker can show "Jane Doe — Acme Logistics" without a second
+ * lookup. */
+export interface ContactSummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
+  partnerId: string;
+  partnerName: string;
+}
+
+/** Body of POST /projects/:id/leads. */
+export interface AddProjectLeadInput {
+  userId: string;
+}
+
+/** Body of POST /projects/:id/contacts. */
+export interface AddProjectContactInput {
+  contactId: string;
+}
+
 /** Full project detail (header + lines) — what GET /projects/:id returns.
  * ProjectSummary stays as the list-row shape (GET /projects). */
 export interface ProjectDetail extends ProjectSummary {
@@ -670,6 +720,11 @@ export interface ProjectDetail extends ProjectSummary {
   statusHistory: ProjectStatusHistoryEntry[];
   /** Ordered newest-first. Added 2026-10-01 (Phase 2b, Blob Storage). */
   documents: ProjectDocumentSummary[];
+  /** Added 2026-10-08 — see ProjectLeadSummary above. Unordered (a join
+   * table, no natural ordering of its own). */
+  leads: ProjectLeadSummary[];
+  /** Added 2026-10-08 — see ProjectContactSummary above. */
+  contacts: ProjectContactSummary[];
 }
 
 /** One uploaded document against a Project (Phase 2b, Blob Storage —
@@ -1007,6 +1062,12 @@ export interface UpdatePartnerInput {
   countryCode?: string | null;
   website?: string | null;
   approvalStatus?: string;
+  /** Optional free-text reason for an approvalStatus change, carried onto
+   * the resulting PartnerApprovalHistory row — see UpdatePartnerDto's
+   * doc comment in apps/api. Only meaningful alongside approvalStatus.
+   * Added 2026-10-08 — the DTO already had this field; it was missing
+   * here. */
+  approvalReason?: string;
   riskTier?: string;
   companyRegistrationNumber?: string;
   vatNumber?: string;
@@ -1024,6 +1085,88 @@ export interface UpdatePartnerInput {
   addManufacturerSites?: CreatePartnerManufacturerSiteInput[];
   addCertifications?: CreatePartnerCertificationInput[];
   addCompanyChecks?: CreatePartnerCompanyCheckInput[];
+}
+
+// ---------------------------------------------------------------------------
+// Certifications / company checks / approval history sub-resources (added
+// 2026-10-08, compliance-standards-gap-analysis.md) — POST/PATCH endpoints
+// for a SINGLE PartnerCertification or PartnerCompanyCheck, filling the gap
+// CreatePartnerInput.certifications/companyChecks and
+// UpdatePartnerInput.addCertifications/addCompanyChecks left open (add-only,
+// whole-object-at-a-time). See apps/api/src/partners/dto/
+// partner-certification.dto.ts and partner-company-check.dto.ts.
+
+/** Matches AddPartnerCertificationDto. Unlike
+ * CreatePartnerCertificationInput.manufacturerSiteIndex (an array index,
+ * used only on the create-partner path where the site doesn't have a real
+ * id yet), this takes the site's real id — the partner it's being added to
+ * already exists. */
+export interface AddPartnerCertificationInput {
+  type: string;
+  referenceNumber?: string;
+  revision?: string;
+  issuingBody?: string;
+  issuedDate?: string;
+  expiryDate?: string;
+  verifiedAt?: string;
+  status?: string;
+  notes?: string;
+  manufacturerSiteId?: string;
+  relatedCompanyCheckType?: string;
+}
+
+/** Matches UpdatePartnerCertificationDto. All fields optional — a PATCH
+ * edits only what's provided. Retiring a certification (no hard delete —
+ * compliance history must be retained) is this same shape with just
+ * `{ status: "ARCHIVED" }`. */
+export interface UpdatePartnerCertificationInput {
+  type?: string;
+  referenceNumber?: string;
+  revision?: string;
+  issuingBody?: string;
+  issuedDate?: string;
+  expiryDate?: string;
+  verifiedAt?: string;
+  status?: string;
+  notes?: string;
+  manufacturerSiteId?: string;
+  relatedCompanyCheckType?: string;
+}
+
+/** Matches AddPartnerCompanyCheckDto. */
+export interface AddPartnerCompanyCheckInput {
+  checkType: string;
+  customLabel?: string;
+  result: string;
+  checkedDate?: string;
+  referenceOrSource?: string;
+  comment?: string;
+}
+
+/** Matches UpdatePartnerCompanyCheckDto. */
+export interface UpdatePartnerCompanyCheckInput {
+  checkType?: string;
+  customLabel?: string;
+  result?: string;
+  checkedDate?: string;
+  referenceOrSource?: string;
+  comment?: string;
+}
+
+/** One PartnerApprovalHistory row, as returned by GET
+ * /partners/:id/approval-history — see PartnerApprovalHistory's doc
+ * comment in schema.prisma. Append-only: there is no corresponding create/
+ * update input type, matching AuditLogService/AuditLogEntry's own
+ * read-only posture. */
+export interface PartnerApprovalHistorySummary {
+  id: string;
+  partnerId: string;
+  action: string; // e.g. "APPROVED" | "REMOVED" | "REINSTATED"
+  reason: string | null;
+  certificationStatement: string | null;
+  actionDate: string;
+  actionById: string | null;
+  actionByName: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1341,6 +1484,28 @@ export interface UpdateRiskAssessmentInput {
   ownerId?: string | null;
   status?: string;
   reviewDate?: string | null;
+}
+
+/** PATCH /risk-assessments/:id/close body — a dedicated "Close" action,
+ * distinct from the generic update() above, because closing a risk is a
+ * deliberate decision that always needs a stated reason (the risk was
+ * resolved, accepted as a residual, found not to apply, etc.) — the
+ * generic status field alone (via UpdateRiskAssessmentInput) doesn't
+ * capture WHY. `reason` is carried onto the FieldChangeLog row for this
+ * change (see RecordFieldChangesOptions.reason), not stored on the
+ * RiskAssessment itself. Added 2026-10-08. */
+export interface CloseRiskAssessmentInput {
+  reason: string;
+}
+
+/** Gap 4 follow-up — a cross-cutting, org-wide view of the risk register
+ * (GET /risk-assessments/all), as opposed to RiskAssessmentSummary's
+ * per-subject list. Adds the subject's own display name (Partner.name,
+ * or Project's "REF — Title", or ProductBatch.batchNumber, resolved
+ * server-side) so a single table can read "Risk: Cold chain failure —
+ * Partner: Rhein Pharma" without a second round-trip per row. */
+export interface RiskAssessmentListItem extends RiskAssessmentSummary {
+  subjectName: string;
 }
 
 /** Gap 1 (compliance-standards-gap-analysis.md) — one row of the generic

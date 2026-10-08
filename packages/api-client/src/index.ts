@@ -6,6 +6,13 @@ import type {
   CountryOption,
   CreateOrganizationInput,
   CreatePartnerInput,
+  AddPartnerCertificationInput,
+  UpdatePartnerCertificationInput,
+  AddPartnerCompanyCheckInput,
+  UpdatePartnerCompanyCheckInput,
+  PartnerCertificationSummary,
+  PartnerCompanyCheckSummary,
+  PartnerApprovalHistorySummary,
   CreateProductMasterInput,
   ImportProductMasterResult,
   ImportProductMasterRow,
@@ -22,9 +29,13 @@ import type {
   ProductCatalogMatch,
   ProductMasterOption,
   ProductSourceApprovalSummary,
+  AddProjectContactInput,
+  AddProjectLeadInput,
+  ContactSummary,
   ProjectDetail,
   ProjectFinancialSummary,
   ProjectLineInput,
+  ProjectStatusHistoryEntry,
   ProjectSummary,
   QualityDashboardSummary,
   QaQueueSummary,
@@ -63,8 +74,10 @@ import type {
   ReviewTemperatureLogInput,
   FieldChangeLogEntry,
   RiskAssessmentSummary,
+  RiskAssessmentListItem,
   CreateRiskAssessmentInput,
   UpdateRiskAssessmentInput,
+  CloseRiskAssessmentInput,
   EvidenceDueForReviewSummary,
   ControlledDocumentSummary,
   CreateControlledDocumentInput,
@@ -149,6 +162,16 @@ export class UniverseApiClient {
 
   updateProject(id: string, input: UpdateProjectInput): Promise<ProjectDetail> {
     return this.request(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  /** Soft-delete/retirement — see Project.isArchived's doc comment in
+   * schema.prisma. Never a hard delete — see ProjectsService.archive. */
+  archiveProject(id: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${id}/archive`, { method: "PATCH" });
+  }
+
+  unarchiveProject(id: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${id}/unarchive`, { method: "PATCH" });
   }
 
   addProjectLine(projectId: string, input: ProjectLineInput): Promise<ProjectDetail> {
@@ -261,6 +284,38 @@ export class UniverseApiClient {
     return this.request(`/documents/${documentId}`, { method: "DELETE" });
   }
 
+  // --- Project status history / Leads / Contacts (added 2026-10-08) ---
+  // Leads/Contacts calls return the full ProjectDetail, same convention as
+  // addProjectLine/documents above — the caller just swaps project state
+  // in on every mutation rather than re-fetching separately.
+
+  getProjectStatusHistory(projectId: string): Promise<ProjectStatusHistoryEntry[]> {
+    return this.request(`/projects/${projectId}/status-history`);
+  }
+
+  addProjectLead(projectId: string, input: AddProjectLeadInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/leads`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  removeProjectLead(projectId: string, userId: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/leads/${userId}`, { method: "DELETE" });
+  }
+
+  addProjectContact(projectId: string, input: AddProjectContactInput): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/contacts`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  removeProjectContact(projectId: string, contactId: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/contacts/${contactId}`, { method: "DELETE" });
+  }
+
+  // --- Contacts (added 2026-10-08) — read-only finder backing the Team &
+  // Contacts picker above. See ContactsService's doc comment in apps/api. ---
+
+  listContacts(): Promise<ContactSummary[]> {
+    return this.request(`/contacts`);
+  }
+
   // --- Partners (added 2026-09-27) ---
 
   listPartners(roleType?: string): Promise<PartnerSummary[]> {
@@ -278,6 +333,40 @@ export class UniverseApiClient {
 
   updatePartner(id: string, input: UpdatePartnerInput): Promise<PartnerSummary> {
     return this.request(`/partners/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  // --- Partner certifications / company checks / approval history
+  // (added 2026-10-08) — single-record add/edit, filling the gap
+  // updatePartner's addCertifications/addCompanyChecks left open (whole-
+  // Partner-object, add-only). See AddPartnerCertificationInput's doc
+  // comment in @universe/types.
+
+  addPartnerCertification(partnerId: string, input: AddPartnerCertificationInput): Promise<PartnerCertificationSummary> {
+    return this.request(`/partners/${partnerId}/certifications`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updatePartnerCertification(
+    partnerId: string,
+    certId: string,
+    input: UpdatePartnerCertificationInput,
+  ): Promise<PartnerCertificationSummary> {
+    return this.request(`/partners/${partnerId}/certifications/${certId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  addPartnerCompanyCheck(partnerId: string, input: AddPartnerCompanyCheckInput): Promise<PartnerCompanyCheckSummary> {
+    return this.request(`/partners/${partnerId}/company-checks`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updatePartnerCompanyCheck(
+    partnerId: string,
+    checkId: string,
+    input: UpdatePartnerCompanyCheckInput,
+  ): Promise<PartnerCompanyCheckSummary> {
+    return this.request(`/partners/${partnerId}/company-checks/${checkId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  listPartnerApprovalHistory(partnerId: string): Promise<PartnerApprovalHistorySummary[]> {
+    return this.request(`/partners/${partnerId}/approval-history`);
   }
 
   // --- Stakeholder registry (added 2026-10-02) — duplicate-prevention +
@@ -588,12 +677,26 @@ export class UniverseApiClient {
     return this.request(`/risk-assessments?${qs.toString()}`);
   }
 
+  /** Gap 4 follow-up — every risk across the organisation (the standalone
+   * Risk Register page), with each row's subject display name already
+   * resolved server-side. */
+  listAllRiskAssessments(): Promise<RiskAssessmentListItem[]> {
+    return this.request("/risk-assessments/all");
+  }
+
   createRiskAssessment(input: CreateRiskAssessmentInput): Promise<RiskAssessmentSummary> {
     return this.request("/risk-assessments", { method: "POST", body: JSON.stringify(input) });
   }
 
   updateRiskAssessment(id: string, input: UpdateRiskAssessmentInput): Promise<RiskAssessmentSummary> {
     return this.request(`/risk-assessments/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  /** Gap 4 — a dedicated "Close" action requiring a reason, distinct from
+   * the generic update() above — see CloseRiskAssessmentInput's doc
+   * comment in @universe/types. */
+  closeRiskAssessment(id: string, input: CloseRiskAssessmentInput): Promise<RiskAssessmentSummary> {
+    return this.request(`/risk-assessments/${id}/close`, { method: "PATCH", body: JSON.stringify(input) });
   }
 
   /** Gap 3 — evidence records coming due (or overdue) for re-verification,

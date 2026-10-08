@@ -89,6 +89,41 @@
 }
 
 /*
+ * Per-app module accent colours — added 2026-10-08, decided with Lewis via
+ * AskUserQuestion as part of the cross-app design-consistency pass
+ * (claude/app-completeness-audit.md). Each of the six Universe app
+ * modules (matching the six module icons in the canonical design system)
+ * gets ONE subtle accent used sparingly — sidebar active-item accent, a
+ * thin top-bar/sidebar edge stripe, the AppSwitcher tile for that app —
+ * never as a full-bleed background, same "colour as precise accent"
+ * discipline as brand-violet itself. Deliberately a SEPARATE token family
+ * from the six category-* org-type tag colours (sapphire/copper/emerald/
+ * gold/wine/teal, still only in the design-system artifact, not yet wired
+ * into this file) — those identify what KIND of organisation a partner
+ * is; these identify WHICH APP a screen belongs to. Project Management
+ * keeps using --u-brand-violet directly (it's the flagship/default app,
+ * already wired in everywhere) rather than a seventh near-duplicate
+ * token, so there are 6 module tokens total covering all 6 apps.
+ */
+:root {
+  --u-module-project-management: var(--u-brand-violet);
+  --u-module-crm: #5B7A94;
+  --u-module-product-database: #3C8C54;
+  --u-module-supplier-portal: #D6578E;
+  --u-module-tender-issuance: #B8651D;
+  --u-module-admin: #4B4458;
+}
+
+:root[data-theme="dark"] {
+  --u-module-project-management: var(--u-brand-violet);
+  --u-module-crm: #9DB4C7;
+  --u-module-product-database: #7FC99A;
+  --u-module-supplier-portal: #EDA0C0;
+  --u-module-tender-issuance: #DC9A6F;
+  --u-module-admin: #9C92AD;
+}
+
+/*
  * App-shell plumbing — added 2026-10-01 for the Project Management app's
  * comprehensive UI build-out (sidebar nav, breadcrumbs, dashboard, subtle
  * per-org colour). Kept here rather than per-app so Sidebar.tsx's

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput } from "@universe/types";
+import type { ContactSummary, PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -11,6 +11,8 @@ import { useCountries } from "../../../lib/useCountries";
 import { LineForm } from "./LineForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
+import { StatusHistoryTimeline } from "./StatusHistoryTimeline";
+import { ProjectTeam } from "./ProjectTeam";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { RiskRegister } from "../../../components/RiskRegister";
 
@@ -75,6 +77,10 @@ export function ProjectDetailView() {
   const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
   const [suppliers, setSuppliers] = useState<PartnerSummary[]>([]);
   const [freightForwarders, setFreightForwarders] = useState<PartnerSummary[]>([]);
+  // Team & Contacts (added 2026-10-08) — org-wide pickable lists, fetched
+  // once alongside the partner lists above; see ProjectTeam's doc comment.
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [contacts, setContacts] = useState<ContactSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [editingHeader, setEditingHeader] = useState(false);
@@ -85,6 +91,16 @@ export function ProjectDetailView() {
 
   const [addingLine, setAddingLine] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+
+  // Archive/unarchive (Project.isArchived) — soft-delete/retirement, never
+  // a hard delete (GDP/21 CFR Part 11 audit-trail posture — see
+  // claude/compliance-standards-gap-analysis.md). Archiving is a
+  // destructive-feeling action, so it goes through a confirm step rather
+  // than firing on a bare click — same pattern as Partner "Remove"
+  // (partners/detail/page.tsx) and the Risk Register's "Close" action.
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   // Financial Summary (added 2026-10-03) — this project's own lines
   // subtotal, the "subtotal of all lines added together" Lewis asked
@@ -112,6 +128,8 @@ export function ProjectDetailView() {
     apiClient.listPartners("MANUFACTURER").then(setManufacturers).catch(() => {});
     apiClient.listPartners("SUPPLIER").then(setSuppliers).catch(() => {});
     apiClient.listPartners("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
+    apiClient.listUsers().then(setUsers).catch(() => {});
+    apiClient.listContacts().then(setContacts).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -212,6 +230,35 @@ export function ProjectDetailView() {
     }
   }
 
+  async function handleArchive() {
+    if (!id) return;
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const updated = await apiClient.archiveProject(id);
+      setProject(updated);
+      setConfirmingArchive(false);
+    } catch (err) {
+      setArchiveError(err instanceof Error ? err.message : "Failed to archive this project");
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  async function handleUnarchive() {
+    if (!id) return;
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const updated = await apiClient.unarchiveProject(id);
+      setProject(updated);
+    } catch (err) {
+      setArchiveError(err instanceof Error ? err.message : "Failed to unarchive this project");
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   const showSubmissionDate = useMemo(() => (project ? isSubmissionDateRelevant(project) : false), [project]);
   const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
   const showLines = useMemo(() => (project ? isLinesSectionRelevant(project) : false), [project]);
@@ -229,11 +276,71 @@ export function ProjectDetailView() {
           <h1 style={{ marginBottom: 4, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{project.title}</h1>
           <p style={{ color: "var(--u-ink-secondary)", margin: 0 }}>{project.referenceNumber}</p>
         </div>
-        <StatusBadge status={project.status} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {project.isArchived && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--u-ink-secondary)",
+                border: "1px solid var(--u-border)",
+                borderRadius: "var(--u-radius-pill)",
+                padding: "3px 10px",
+              }}
+            >
+              Archived
+            </span>
+          )}
+          <StatusBadge status={project.status} />
+          {project.isArchived ? (
+            <Button variant="secondary" onClick={handleUnarchive} disabled={archiving}>
+              {archiving ? "Unarchiving…" : "Unarchive"}
+            </Button>
+          ) : (
+            <Button variant="danger" onClick={() => setConfirmingArchive(!confirmingArchive)} disabled={archiving}>
+              {confirmingArchive ? "Cancel" : "Archive"}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {archiveError && (
+        <p style={{ color: "var(--u-status-critical)", marginTop: 12, fontSize: 13 }}>{archiveError}</p>
+      )}
+
+      {confirmingArchive && !project.isArchived && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 16,
+            borderRadius: "var(--u-radius-md)",
+            border: "1px solid var(--u-status-critical)",
+            backgroundColor: "rgba(220,38,38,0.05)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>Archive this project?</div>
+          <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+            It will drop out of the default Projects list (a "Show archived" toggle there brings it back) — nothing
+            about the project itself, its lines, documents or history is deleted, and it can be unarchived at any
+            time.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Button variant="danger" onClick={handleArchive} disabled={archiving}>
+              {archiving ? "Archiving…" : "Confirm archive"}
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmingArchive(false)} disabled={archiving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 20 }}>
         <StageTracker status={project.status} statusHistory={project.statusHistory} reasonForCancellation={project.reasonForCancellation} />
+        <StatusHistoryTimeline history={project.statusHistory} />
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink-secondary)" }}>
             Change status
@@ -764,6 +871,8 @@ export function ProjectDetailView() {
           Use &ldquo;Show all fields&rdquo; above to enter them early.
         </p>
       )}
+
+      <ProjectTeam project={project} users={users} contacts={contacts} onUpdated={setProject} />
 
       <ProjectDocuments project={project} onUpdated={setProject} />
 
