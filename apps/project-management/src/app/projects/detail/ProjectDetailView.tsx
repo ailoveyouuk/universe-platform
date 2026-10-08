@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
 import type { PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
@@ -796,13 +796,6 @@ const fieldInputStyle = {
  * methodology. This is the org-private view (this organisation's own
  * line) — the anonymized cross-tenant dashboard lives at /logistics/global.
  */
-const SCORE_BAND_COLORS: Record<string, string> = {
-  RED: "#c0392b",
-  AMBER: "#d68910",
-  YELLOW: "#b7950b",
-  GREEN: "#1e8449",
-};
-
 function LogisticsMetricBadge({ metric }: { metric: NonNullable<ProjectLineSummary["logisticsMetric"]> }) {
   const color = SCORE_BAND_COLORS[metric.scoreBand] ?? "#666";
   const distance = Math.round(Number(metric.distanceKm)).toLocaleString();
@@ -836,6 +829,7 @@ function LogisticsMetricBadge({ metric }: { metric: NonNullable<ProjectLineSumma
         label="GLEC Framework"
         detail="Distance/CO2 estimate: GLEC Framework (aligned with ISO 14083), by transport mode. Distance is a great-circle approximation between country centroids, not an actual shipping route. See supply-chain-co2-efficiency.md for the full methodology."
       />
+      <ScoreLegend label="Score key" />
     </p>
   );
 }

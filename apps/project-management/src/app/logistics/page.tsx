@@ -4,19 +4,12 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { LogisticsFilters, OrgLogisticsLineSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
-import { GaugeIcon, TextLink, StandardsReference } from "@universe/ui";
+import { GaugeIcon, TextLink, StandardsReference, StatTile, ScoreLegend, SCORE_BAND_COLORS, ProjectsIcon, TrendingUpIcon, AlertIcon } from "@universe/ui";
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 const COMMODITY_GROUPS = ["", "CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
-
-const SCORE_BAND_COLORS: Record<string, string> = {
-  RED: "#c0392b",
-  AMBER: "#d68910",
-  YELLOW: "#b7950b",
-  GREEN: "#1e8449",
-};
 
 /**
  * Org-private "Logistics & CO2" view — added 2026-10-08. Every row here is
@@ -68,21 +61,22 @@ export default function LogisticsPage() {
             </Link>{" "}
             for aggregate benchmarking against other organisations.
           </p>
-          <div style={{ marginTop: 8 }}>
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <StandardsReference
               label="GLEC Framework (ISO 14083-aligned)"
               detail="Distance and CO2 figures below use GLEC-Framework-aligned emission factors by transport mode. Distance is a great-circle approximation between country centroids, not an actual shipping route. See supply-chain-co2-efficiency.md for the full methodology."
             />
+            <ScoreLegend />
           </div>
         </div>
       </div>
 
       {totals && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-          <Stat label="Lines" value={String(totals.count)} />
-          <Stat label="Total distance" value={`${Math.round(totals.totalDistance).toLocaleString()} km`} />
-          <Stat label="Total CO2e" value={`${Math.round(totals.totalCo2).toLocaleString()} kg`} />
-          <Stat label="Avg. efficiency score" value={`${totals.avgScore.toFixed(1)} / 10`} />
+          <StatTile label="Lines" value={totals.count} icon={<ProjectsIcon size={18} />} tone="neutral" />
+          <StatTile label="Total distance" value={`${Math.round(totals.totalDistance).toLocaleString()} km`} icon={<TrendingUpIcon size={18} />} tone="neutral" />
+          <StatTile label="Total CO2e" value={`${Math.round(totals.totalCo2).toLocaleString()} kg`} icon={<AlertIcon size={18} />} tone="warning" />
+          <StatTile label="Avg. efficiency score" value={`${totals.avgScore.toFixed(1)} / 10`} icon={<GaugeIcon size={18} />} tone="brand" />
         </div>
       )}
 
@@ -194,11 +188,3 @@ const filterInputStyle: CSSProperties = {
   fontSize: 13,
 };
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: "14px 16px" }}>
-      <p style={{ margin: 0, fontSize: 12, color: "var(--u-ink-secondary)", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</p>
-      <p style={{ margin: "4px 0 0", fontSize: 22, fontWeight: 700, color: "var(--u-ink)" }}>{value}</p>
-    </div>
-  );
-}

@@ -17,6 +17,7 @@ import {
   BuildingIcon,
   PartnersIcon,
   CheckCircleIcon,
+  StatTile,
   type PageSize,
 } from "@universe/ui";
 
@@ -178,12 +179,12 @@ export default function PartnersPage() {
 
       {/* Section dashboard — key counts at a glance, each a working filter shortcut. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 24 }}>
-        <SectionStat label="Clients" value={counts.byRole.CLIENT ?? 0} icon={<BuildingIcon size={18} />} onClick={() => { setRoleFilter("CLIENT"); setApprovalFilter(""); }} active={roleFilter === "CLIENT"} />
-        <SectionStat label="Manufacturers" value={counts.byRole.MANUFACTURER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("MANUFACTURER"); setApprovalFilter(""); }} active={roleFilter === "MANUFACTURER"} />
-        <SectionStat label="Suppliers" value={counts.byRole.SUPPLIER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("SUPPLIER"); setApprovalFilter(""); }} active={roleFilter === "SUPPLIER"} />
-        <SectionStat label="Freight Forwarders" value={counts.byRole.FREIGHT_FORWARDER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("FREIGHT_FORWARDER"); setApprovalFilter(""); }} active={roleFilter === "FREIGHT_FORWARDER"} />
-        <SectionStat label="Warehousing" value={counts.byRole.WAREHOUSING ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("WAREHOUSING"); setApprovalFilter(""); }} active={roleFilter === "WAREHOUSING"} />
-        <SectionStat label="QA Approved" value={counts.approvedMfgSup} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => { setRoleFilter(""); setApprovalFilter("APPROVED"); }} active={approvalFilter === "APPROVED"} />
+        <StatTile label="Clients" value={counts.byRole.CLIENT ?? 0} icon={<BuildingIcon size={18} />} onClick={() => { setRoleFilter("CLIENT"); setApprovalFilter(""); }} active={roleFilter === "CLIENT"} />
+        <StatTile label="Manufacturers" value={counts.byRole.MANUFACTURER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("MANUFACTURER"); setApprovalFilter(""); }} active={roleFilter === "MANUFACTURER"} />
+        <StatTile label="Suppliers" value={counts.byRole.SUPPLIER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("SUPPLIER"); setApprovalFilter(""); }} active={roleFilter === "SUPPLIER"} />
+        <StatTile label="Freight Forwarders" value={counts.byRole.FREIGHT_FORWARDER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("FREIGHT_FORWARDER"); setApprovalFilter(""); }} active={roleFilter === "FREIGHT_FORWARDER"} />
+        <StatTile label="Warehousing" value={counts.byRole.WAREHOUSING ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("WAREHOUSING"); setApprovalFilter(""); }} active={roleFilter === "WAREHOUSING"} />
+        <StatTile label="QA Approved" value={counts.approvedMfgSup} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => { setRoleFilter(""); setApprovalFilter("APPROVED"); }} active={approvalFilter === "APPROVED"} />
       </div>
 
       {/* Recently added — five per category. */}
@@ -329,47 +330,6 @@ export default function PartnersPage() {
         </>
       )}
     </main>
-  );
-}
-
-function SectionStat({
-  label,
-  value,
-  icon,
-  onClick,
-  active,
-  tone = "brand",
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-  onClick: () => void;
-  active: boolean;
-  tone?: "brand" | "good";
-}) {
-  const color = tone === "good" ? "var(--u-status-good)" : "var(--u-org-accent, var(--u-brand-violet))";
-  return (
-    <button
-      onClick={onClick}
-      className="u-card-hover"
-      style={{
-        textAlign: "left",
-        padding: "14px 16px",
-        borderRadius: "var(--u-radius-lg)",
-        border: active ? `1px solid ${color}` : "1px solid var(--u-border)",
-        backgroundColor: active ? "var(--u-accent-magenta-tint)" : "var(--u-surface-raised)",
-        cursor: "pointer",
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
-        <span style={{ color, display: "flex" }}>{icon}</span>
-      </div>
-      <span style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{value}</span>
-    </button>
   );
 }
 

@@ -25,6 +25,7 @@ import {
   ProductPicker,
   type ProductPickerOption,
   StandardsReference,
+  StatTile,
 } from "@universe/ui";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED"] as const;
@@ -152,10 +153,10 @@ export default function QualityPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 32 }}>
-        <QaTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" />
-        <QaTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" />
-        <QaTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" />
-        <QaTile label="Total sourcing approvals" value={dashboard?.totalProducts} icon={<ShieldIcon size={20} />} tone="brand" />
+        <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" />
+        <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" />
+        <StatTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" />
+        <StatTile label="Total sourcing approvals" value={dashboard?.totalProducts} icon={<ShieldIcon size={20} />} tone="brand" />
       </div>
 
       {showNewForm && (
@@ -418,47 +419,6 @@ export default function QualityPage() {
           </div>
         )}
       </section>
-    </div>
-  );
-}
-
-function QaTile({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: number | undefined;
-  icon: React.ReactNode;
-  tone: "brand" | "warning" | "good" | "neutral";
-}) {
-  const toneColors: Record<string, string> = {
-    brand: "var(--u-org-accent, var(--u-brand-violet))",
-    warning: "var(--u-status-warning)",
-    good: "var(--u-status-good)",
-    neutral: "var(--u-ink-secondary)",
-  };
-  return (
-    <div
-      className="u-card-hover"
-      style={{
-        padding: "18px 20px",
-        borderRadius: "var(--u-radius-lg)",
-        border: "1px solid var(--u-border)",
-        backgroundColor: "var(--u-surface-raised)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
-        <span style={{ color: toneColors[tone], display: "flex" }}>{icon}</span>
-      </div>
-      <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
-        {value === undefined ? "—" : value}
-      </span>
     </div>
   );
 }

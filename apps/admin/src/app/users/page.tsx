@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RoleSummary, UserSummary } from "@universe/types";
+import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { AdminStatTile } from "../../components/AdminStatTile";
 
 const STATUS_COLORS: Record<string, string> = {
   INVITED: "#B45309",
@@ -23,6 +25,19 @@ export default function UsersPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"));
   }, []);
 
+  // Section mini-dashboard — same treatment as organizations/page.tsx; see
+  // AdminStatTile's doc comment for why this app hardcodes the livery
+  // rather than importing @universe/ui's CSS tokens.
+  const counts = useMemo(() => {
+    const list = users ?? [];
+    return {
+      total: list.length,
+      active: list.filter((u) => u.status === "ACTIVE").length,
+      invited: list.filter((u) => u.status === "INVITED").length,
+      deactivated: list.filter((u) => u.status === "DEACTIVATED").length,
+    };
+  }, [users]);
+
   async function handleDeactivate(id: string) {
     if (!confirm("Deactivate this user? They'll lose access immediately.")) return;
     try {
@@ -38,6 +53,13 @@ export default function UsersPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Users</h1>
         <Link href="/users/invite">+ Invite a User</Link>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, margin: "20px 0" }}>
+        <AdminStatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" />
+        <AdminStatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
+        <AdminStatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" />
+        <AdminStatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" />
       </div>
 
       {error && <p style={{ color: "#B91C1C" }}>{error}</p>}

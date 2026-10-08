@@ -19,3 +19,5 @@ export * from "./CountrySelect";
 export * from "./CurrencySelect";
 export * from "./ProductPicker";
 export * from "./AppSwitcher";
+export * from "./StatTile";
+export * from "./ScoreLegend";

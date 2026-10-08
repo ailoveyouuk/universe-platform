@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingBucket } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { GaugeIcon, StandardsReference } from "@universe/ui";
+import { GaugeIcon, StandardsReference, ScoreLegend } from "@universe/ui";
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -74,11 +74,12 @@ export default function GlobalLogisticsPage() {
           </Link>{" "}
           for line-level detail.
         </p>
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <StandardsReference
             label="GLEC Framework (ISO 14083-aligned)"
             detail="Distance and CO2 figures below use GLEC-Framework-aligned emission factors by transport mode. Distance is a great-circle approximation between country centroids, not an actual shipping route. See supply-chain-co2-efficiency.md for the full methodology."
           />
+          <ScoreLegend />
         </div>
       </div>
 

@@ -16,6 +16,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   AlertIcon,
+  StatTile,
 } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
@@ -166,12 +167,24 @@ export default function HomePage() {
           marginBottom: 32,
         }}
       >
-        <StatTile href="/projects?status=ACTIVE" label="Active (not submitted)" value={stats?.active} icon={<ClockIcon size={20} />} tone="warning" />
-        <StatTile href="/projects?status=SUBMITTED" label="Submitted" value={stats?.submitted} icon={<ProjectsIcon size={20} />} tone="neutral" />
-        <StatTile href="/projects?status=AWARDED" label="Awarded (in progress)" value={stats?.awarded} icon={<CheckCircleIcon size={20} />} tone="brand" />
-        <StatTile href="/projects?status=OVERDUE" label="Overdue" value={stats?.overdue} icon={<AlertIcon size={20} />} tone="critical" />
-        <StatTile href="/partners?role=CLIENT" label="Clients" value={stakeholderStats?.clients} icon={<BuildingIcon size={20} />} tone="neutral" />
-        <StatTile href="/partners?approval=APPROVED" label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
+        <Link href="/projects?status=ACTIVE" style={{ textDecoration: "none" }}>
+          <StatTile label="Active (not submitted)" value={stats?.active} icon={<ClockIcon size={20} />} tone="warning" />
+        </Link>
+        <Link href="/projects?status=SUBMITTED" style={{ textDecoration: "none" }}>
+          <StatTile label="Submitted" value={stats?.submitted} icon={<ProjectsIcon size={20} />} tone="neutral" />
+        </Link>
+        <Link href="/projects?status=AWARDED" style={{ textDecoration: "none" }}>
+          <StatTile label="Awarded (in progress)" value={stats?.awarded} icon={<CheckCircleIcon size={20} />} tone="brand" />
+        </Link>
+        <Link href="/projects?status=OVERDUE" style={{ textDecoration: "none" }}>
+          <StatTile label="Overdue" value={stats?.overdue} icon={<AlertIcon size={20} />} tone="critical" />
+        </Link>
+        <Link href="/partners?role=CLIENT" style={{ textDecoration: "none" }}>
+          <StatTile label="Clients" value={stakeholderStats?.clients} icon={<BuildingIcon size={20} />} tone="neutral" />
+        </Link>
+        <Link href="/partners?approval=APPROVED" style={{ textDecoration: "none" }}>
+          <StatTile label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
+        </Link>
       </div>
 
       {financialSummary && financialSummary.linesWithPricing > 0 && (
@@ -372,49 +385,3 @@ function FinancialStat({
   );
 }
 
-function StatTile({
-  href,
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  href: string;
-  label: string;
-  value: number | undefined;
-  icon: React.ReactNode;
-  tone: "brand" | "warning" | "good" | "neutral" | "critical";
-}) {
-  const toneColors: Record<string, string> = {
-    brand: "var(--u-org-accent, var(--u-brand-violet))",
-    warning: "var(--u-status-warning)",
-    good: "var(--u-status-good)",
-    neutral: "var(--u-ink-secondary)",
-    critical: "var(--u-status-critical)",
-  };
-  return (
-    <Link href={href} style={{ textDecoration: "none" }}>
-      <div
-        className="u-card-hover"
-        style={{
-          padding: "18px 20px",
-          borderRadius: "var(--u-radius-lg)",
-          border: "1px solid var(--u-border)",
-          backgroundColor: "var(--u-surface-raised)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          cursor: "pointer",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
-          <span style={{ color: toneColors[tone], display: "flex" }}>{icon}</span>
-        </div>
-        <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
-          {value === undefined ? "—" : value}
-        </span>
-      </div>
-    </Link>
-  );
-}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { OrganizationSummary } from "@universe/types";
+import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
+import { AdminStatTile } from "../../components/AdminStatTile";
 
 const STATUS_COLORS: Record<string, string> = {
   PILOT: "#B45309",
@@ -39,11 +41,33 @@ export default function OrganizationsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load organisations"));
   }, []);
 
+  // Section mini-dashboard — same icon/tone treatment as Project
+  // Management's StatTile (packages/ui/src/StatTile.tsx), hand-matched in
+  // plain hex here rather than importing the design-system token sheet,
+  // since this app doesn't otherwise opt into it and that's a bigger
+  // change than a stat strip warrants (see @universe/ui's tokens.css).
+  const counts = useMemo(() => {
+    const list = organizations ?? [];
+    return {
+      total: list.length,
+      active: list.filter((o) => o.status === "ACTIVE").length,
+      pilot: list.filter((o) => o.status === "PILOT").length,
+      suspended: list.filter((o) => o.status === "SUSPENDED").length,
+    };
+  }, [organizations]);
+
   return (
     <main style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Organisations</h1>
         {isPlatformStaff && <Link href="/organizations/new">+ Create Organisation</Link>}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, margin: "20px 0" }}>
+        <AdminStatTile label="Total organisations" value={organizations ? counts.total : undefined} icon={<BuildingIcon size={18} />} tone="brand" />
+        <AdminStatTile label="Active" value={organizations ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
+        <AdminStatTile label="Pilot" value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
+        <AdminStatTile label="Suspended" value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
       </div>
 
       {!isPlatformStaff && (
@@ -102,3 +126,4 @@ export default function OrganizationsPage() {
     </main>
   );
 }
+
