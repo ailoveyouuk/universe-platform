@@ -122,8 +122,9 @@ export function resolveWeightKg(
   if (weightKg != null && weightKg > 0) {
     return { weightKgUsed: weightKg, weightEstimated: false };
   }
-  const fallback =
-    (productCategory && WEIGHT_ESTIMATE_DEFAULTS_KG[productCategory]) ?? DEFAULT_WEIGHT_FALLBACK_KG;
+  const fallback = productCategory
+    ? (WEIGHT_ESTIMATE_DEFAULTS_KG[productCategory] ?? DEFAULT_WEIGHT_FALLBACK_KG)
+    : DEFAULT_WEIGHT_FALLBACK_KG;
   return { weightKgUsed: fallback, weightEstimated: true };
 }
 
