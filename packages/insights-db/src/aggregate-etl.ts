@@ -70,10 +70,13 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
               attributes: true,
               productMasterId: true,
               countryOfManufactureCode: true,
-              incoterm: true,
-              freightMode: true,
               quantity: true,
-              project: { select: { deliveryCountryCode: true } },
+              // incoterm/freightMode moved from ProjectLine to Project on
+              // 2026-10-03 (20261003090000_freight_to_project_level) — this
+              // pipeline had never been typechecked until the insights-db
+              // package got a "build" script (2026-10-08), so the stale
+              // field names on ProjectLine went undetected until now.
+              project: { select: { deliveryCountryCode: true, incoterm: true, freightMode: true } },
             },
           },
         },
@@ -100,8 +103,8 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
           effectiveMonth: truncateToMonth(row.effectiveDate),
           manufactureRegion,
           destinationRegion,
-          incoterm: row.projectLine?.incoterm ?? null,
-          freightMode: row.projectLine?.freightMode ?? null,
+          incoterm: row.projectLine?.project?.incoterm ?? null,
+          freightMode: row.projectLine?.project?.freightMode ?? null,
           quantity: row.projectLine?.quantity ?? null,
           unitOfSupply: row.productLine?.unitOfSupply ?? null,
           sourceHash,

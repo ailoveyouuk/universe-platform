@@ -681,7 +681,14 @@ export interface ProjectDetail extends ProjectSummary {
  * comment in apps/api for the full design. */
 export interface ProjectDocumentSummary {
   id: string;
-  projectId: string;
+  /** Nullable since 20261008100000_standalone_documents (2026-10-08) — a
+   * document can now be uploaded against something other than a Project
+   * (e.g. StakeholderEvidenceRecord.documentId via the standalone
+   * /documents endpoints). Always non-null for documents reached through
+   * ProjectDetail.documents specifically, since those are only ever
+   * project-scoped, but the field itself is nullable at the type level to
+   * match the actual (correctly nullable) database column. */
+  projectId: string | null;
   /** CHECKLIST | ISSUES | CLOSEOUT_REPORT | OTHER — see the allowed-values
    * reference comment at the top of schema.prisma. */
   type: string;

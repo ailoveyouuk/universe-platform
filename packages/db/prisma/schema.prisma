@@ -1244,15 +1244,11 @@ model ProjectLine {
   /// supplierPaymentCurrency — stored for transparency/audit, not just
   /// folded silently into clientPaymentAmount.
   productMarginAmount           Decimal?  @db.Decimal(18, 2)
-  /// Input: the markup % applied to freightTotalCost (freight price +
-  /// insurance + any additional cost) on the way to the client invoice —
-  /// deliberately separate from productMarginPercent, since freight is
-  /// commonly marked up at a different rate (or not at all) from the
-  /// product itself.
-  freightMarginPercent          Decimal?  @db.Decimal(5, 2)
-  /// Computed: freightTotalCost x freightMarginPercent / 100, in
-  /// freightCurrency.
-  freightMarginAmount           Decimal?  @db.Decimal(18, 2)
+  // freightMarginPercent/freightMarginAmount moved to Project — see
+  // 20261003090000_freight_to_project_level (2026-10-08: removed these two
+  // ghost fields from ProjectLine, which had been left behind in schema.prisma
+  // after that migration dropped the actual columns, causing a P2022 on any
+  // plain findMany() against this model).
 
   // --- Currency conversion (added 2026-10-02, generalized 2026-10-03) ---
   // Universe is a global, tenant-agnostic platform — NOT built around any

@@ -11,3 +11,10 @@ build
 # Next.js static export output + auto-generated type declarations
 out/
 next-env.d.ts
+
+# Prisma custom-output generated client (packages/insights-db only — packages/db
+# uses the default node_modules/.prisma location, already covered by node_modules above)
+packages/insights-db/generated
+
+# TypeScript incremental build cache
+*.tsbuildinfo
