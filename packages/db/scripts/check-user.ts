@@ -11,6 +11,7 @@ async function main() {
       partners, roles, certs, products, projects, lines, statusHist, logMetrics, priceHist,
       evidenceStandards, evidenceRecords, batches, tempLogs, risks, controlledDocs,
       contacts, companyChecks, approvalHistory, registryTotal, registryUnlinked,
+      auditLogTotal, auditLogBackfill,
     ] = await Promise.all([
       tx.partner.count({ where: { organizationId: org.id } }),
       tx.partnerRole.count({ where: { partner: { organizationId: org.id } } }),
@@ -32,11 +33,14 @@ async function main() {
       tx.partnerApprovalHistory.count({ where: { organizationId: org.id } }),
       tx.stakeholderRegistryEntry.count(),
       tx.stakeholderRegistryEntry.count({ where: { linkedOrganizationId: null, partners: { none: {} } } }),
+      tx.fieldChangeLog.count({ where: { organizationId: org.id } }),
+      tx.fieldChangeLog.count({ where: { organizationId: org.id, reason: { contains: "[phase5-audit-backfill]" } } }),
     ]);
     console.log({
       partners, roles, certs, productsGlobal: products, projects, lines, statusHist, logMetrics, priceHist,
       evidenceStandards, evidenceRecords, batches, tempLogs, risks, controlledDocs,
       contacts, companyChecks, approvalHistory, registryTotalGlobal: registryTotal, registryUnlinkedGlobal: registryUnlinked,
+      auditLogTotal, auditLogBackfill,
     });
 
     const byStatus = await tx.project.groupBy({ by: ["status"], where: { organizationId: org.id }, _count: true });
