@@ -22,7 +22,9 @@
     "import:supplier-register-test-batch": "tsx scripts/import-supplier-register-test-batch.ts",
     "fix:stale-test-batch-evidence": "tsx scripts/correct-stale-test-batch-evidence.ts",
     "seed:country-centroids": "tsx scripts/seed-country-centroids.ts",
-    "backfill:logistics-metrics": "tsx scripts/backfill-logistics-metrics.ts"
+    "backfill:logistics-metrics": "tsx scripts/backfill-logistics-metrics.ts",
+    "wipe:organization": "tsx scripts/wipe-organization.ts",
+    "provision:unimed-demo": "tsx scripts/provision-unimed-demo.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0"
