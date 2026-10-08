@@ -2323,6 +2323,14 @@ model ControlledDocument {
   /// supersedesId, keeping "is this the current version" a simple null
   /// check (isCurrent = supersededById === null) rather than a separate
   /// status field that could drift out of sync with the chain itself.
+  /// Physical DB implementation note (2026-10-08, 20261008130000): this
+  /// is a FILTERED unique index (WHERE supersedesId IS NOT NULL) at the
+  /// database level, not a plain UNIQUE constraint — SQL Server treats
+  /// multiple NULLs as duplicates under a plain unique constraint, which
+  /// blocked any organisation from having more than one controlled
+  /// document with no predecessor. The @unique attribute below is kept
+  /// as-is since it still correctly describes the 1:1 relationship
+  /// Prisma needs for supersedes/supersededBy typing.
   supersedesId    String?              @unique
   supersedes      ControlledDocument?  @relation("ControlledDocumentSupersedes", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   supersededBy    ControlledDocument?  @relation("ControlledDocumentSupersedes")
