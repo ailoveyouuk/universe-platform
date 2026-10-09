@@ -7,6 +7,8 @@ import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
+  ProductCatalogCompletenessStats,
+  ProductCatalogDashboardStats,
   ProductPriceHistoryPoint,
   ProductAmendmentSummary,
   UpdateProductMasterResult,
@@ -162,14 +164,35 @@ export class ProductCatalogService {
      * explicitly asks for them, e.g. the "Show archived" toggle on the
      * browse screen. */
     includeArchived?: boolean;
+    /** Added 2026-10-09 — Stage 0 point 3 (data completeness pass). Lets
+     * the catalogue screen's completeness tiles double as filters: click
+     * "Missing GTIN" and the list narrows to exactly the rows that need
+     * one. One field at a time (not a combined "missing anything" mode)
+     * since each field is its own work queue for whoever's filling it in. */
+    missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
   }): Promise<ProductCatalogListResult> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
+    // Explicit per-field mapping rather than a computed `{ [params.missingField]: null }`
+    // spread — keeps this trivially type-checkable against Prisma's
+    // ProductMasterWhereInput rather than relying on TS inferring a
+    // discriminated-union shape from a dynamic key.
+    const missingFieldWhere: Record<string, null> =
+      params.missingField === "gtin"
+        ? { gtin: null }
+        : params.missingField === "hsCode"
+          ? { hsCode: null }
+          : params.missingField === "unspscCode"
+            ? { unspscCode: null }
+            : params.missingField === "standardUnit"
+              ? { standardUnit: null }
+              : {};
     const where = {
       ...(params.includeArchived ? {} : { isArchived: false }),
       ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
       ...(params.category ? { category: { startsWith: params.category } } : {}),
       ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
+      ...missingFieldWhere,
     };
     const [rows, total] = await Promise.all([
       prisma.productMaster.findMany({
@@ -183,6 +206,54 @@ export class ProductCatalogService {
     ]);
     const pending = await this.pendingAmendmentIds(rows);
     return { items: rows.map((r) => this.toMatch(r, pending.has(r.id))), total, page, pageSize };
+  }
+
+  /** GET /product-catalog/completeness-stats — product-database-and-map-
+   * roadmap.md Stage 0 point 3 (data completeness pass), added 2026-10-09.
+   * Scoped to non-archived entries, same default as list()'s own default
+   * view. Four independent counts, not one "% complete" score — see
+   * ProductCatalogCompletenessStats's doc comment in @universe/types for
+   * why (GTIN and friends are legitimately absent on some entries, not
+   * universally required). */
+  async getCompletenessStats(): Promise<ProductCatalogCompletenessStats> {
+    const where = { isArchived: false };
+    const [total, missingGtin, missingHsCode, missingUnspscCode, missingStandardUnit] = await Promise.all([
+      prisma.productMaster.count({ where }),
+      prisma.productMaster.count({ where: { ...where, gtin: null } }),
+      prisma.productMaster.count({ where: { ...where, hsCode: null } }),
+      prisma.productMaster.count({ where: { ...where, unspscCode: null } }),
+      prisma.productMaster.count({ where: { ...where, standardUnit: null } }),
+    ]);
+    return { total, missingGtin, missingHsCode, missingUnspscCode, missingStandardUnit };
+  }
+
+  /** GET /product-catalog/dashboard-stats — the catalogue's standardised
+   * section mini-dashboard, product-database-and-map-roadmap.md Stage 1,
+   * added 2026-10-09: the same StatTile/StatTileGrid pattern already used
+   * everywhere else (see ProductCatalogDashboardStats's doc comment in
+   * @universe/types), applied here for the first time. Scoped to
+   * non-archived entries, same as completeness-stats above.
+   * `groupBy` gives the per-category counts in one query rather than one
+   * `count()` per known category (CATEGORIES is a frontend display list,
+   * not an enum this table enforces — a category added by a future
+   * importer shouldn't need a code change here to show up). */
+  async getDashboardStats(): Promise<ProductCatalogDashboardStats> {
+    const where = { isArchived: false };
+    const [total, addedLast30Days, grouped] = await Promise.all([
+      prisma.productMaster.count({ where }),
+      prisma.productMaster.count({
+        where: { ...where, createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+      }),
+      prisma.productMaster.groupBy({
+        by: ["category"],
+        where,
+        _count: { _all: true },
+      }),
+    ]);
+    const byCategory = grouped
+      .map((g) => ({ category: g.category, count: g._count._all }))
+      .sort((a, b) => b.count - a.count);
+    return { total, addedLast30Days, byCategory };
   }
 
   /** PATCH /product-catalog/:id — edits an existing entry. Added

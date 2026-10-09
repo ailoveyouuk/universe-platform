@@ -28,6 +28,8 @@ import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
+  ProductCatalogCompletenessStats,
+  ProductCatalogDashboardStats,
   ProductMasterOption,
   ProductPriceHistoryPoint,
   RejectProductAmendmentInput,
@@ -434,6 +436,8 @@ export class UniverseApiClient {
     page?: number;
     pageSize?: number;
     includeArchived?: boolean;
+    /** Added 2026-10-09 — Stage 0 point 3 (data completeness pass). */
+    missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
   }): Promise<ProductCatalogListResult> {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
@@ -442,8 +446,22 @@ export class UniverseApiClient {
     if (params?.page) qs.set("page", String(params.page));
     if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
     if (params?.includeArchived) qs.set("includeArchived", "true");
+    if (params?.missingField) qs.set("missingField", params.missingField);
     const query = qs.toString() ? `?${qs.toString()}` : "";
     return this.request(`/product-catalog${query}`);
+  }
+
+  /** GET /product-catalog/completeness-stats — Stage 0 point 3 (data
+   * completeness pass). Added 2026-10-09. */
+  getProductCatalogCompletenessStats(): Promise<ProductCatalogCompletenessStats> {
+    return this.request(`/product-catalog/completeness-stats`);
+  }
+
+  /** GET /product-catalog/dashboard-stats — Stage 1 (standardised
+   * dashboard pattern), applied to the catalogue screen. Added
+   * 2026-10-09. */
+  getProductCatalogDashboardStats(): Promise<ProductCatalogDashboardStats> {
+    return this.request(`/product-catalog/dashboard-stats`);
   }
 
   /** Added 2026-10-09 — return type changed from a bare ProductCatalogMatch

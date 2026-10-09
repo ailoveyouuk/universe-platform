@@ -41,6 +41,7 @@ export class ProductCatalogController {
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
     @Query("includeArchived") includeArchived?: string,
+    @Query("missingField") missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit",
   ) {
     return this.productCatalogService.list({
       q,
@@ -49,7 +50,24 @@ export class ProductCatalogController {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
       includeArchived: includeArchived === "true",
+      missingField,
     });
+  }
+
+  /** GET /product-catalog/completeness-stats — Stage 0 point 3 (data
+   * completeness pass). Declared before ":id" for the same routing
+   * reason as "search"/"import"/"amendments" above. Added 2026-10-09. */
+  @Get("completeness-stats")
+  getCompletenessStats() {
+    return this.productCatalogService.getCompletenessStats();
+  }
+
+  /** GET /product-catalog/dashboard-stats — Stage 1 (standardised
+   * dashboard pattern), applied to the catalogue screen for the first
+   * time. Same routing reason as above. Added 2026-10-09. */
+  @Get("dashboard-stats")
+  getDashboardStats() {
+    return this.productCatalogService.getDashboardStats();
   }
 
   @Get("search")

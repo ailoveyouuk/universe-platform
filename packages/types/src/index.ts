@@ -1291,6 +1291,39 @@ export interface ProductCatalogListResult {
   pageSize: number;
 }
 
+/** GET /product-catalog/completeness-stats — headline counts for the
+ * catalogue's data-completeness pass (product-database-and-map-roadmap.md
+ * Stage 0 point 3, 2026-10-09). Scoped to non-archived entries only, same
+ * default scope as list()'s own default view, since an archived entry's
+ * missing fields aren't anyone's action item. Deliberately just four
+ * plain counts rather than one blanket "% complete" figure: GTIN and the
+ * rest are genuinely optional on some legitimate entries (not every
+ * commodity has one), so there is no single correct completeness
+ * threshold — these are a work queue ("how many rows need a GTIN"), not
+ * a score. */
+export interface ProductCatalogCompletenessStats {
+  total: number;
+  missingGtin: number;
+  missingHsCode: number;
+  missingUnspscCode: number;
+  missingStandardUnit: number;
+}
+
+/** GET /product-catalog/dashboard-stats — the catalogue's standardised
+ * section mini-dashboard (product-database-and-map-roadmap.md Stage 1,
+ * 2026-10-09), the same StatTile/StatTileGrid pattern already used on
+ * Project Management's home page, Stakeholders, Quality, Logistics & CO2,
+ * and Admin's Organisations/Users screens — Product Database was the one
+ * section with none. Scoped to non-archived entries, same as
+ * completeness-stats above. `byCategory` is every category with at least
+ * one entry, sorted by count descending by the service, for the
+ * "products per category" breakdown panel. */
+export interface ProductCatalogDashboardStats {
+  total: number;
+  addedLast30Days: number;
+  byCategory: { category: string; count: number }[];
+}
+
 /** PATCH /product-catalog/:id body — every field optional, provenance
  * fields excluded. See UpdateProductMasterDto's doc comment in apps/api.
  * Added 2026-10-03. */

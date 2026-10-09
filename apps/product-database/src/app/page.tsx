@@ -6,6 +6,8 @@ import type {
   ProductCatalogMatch,
   ProductCatalogDetail,
   ProductCatalogAttribute,
+  ProductCatalogCompletenessStats,
+  ProductCatalogDashboardStats,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
   UpdateProductMasterInput,
@@ -13,7 +15,20 @@ import type {
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { useCountries } from "../lib/useCountries";
-import { Button, Pagination, Pill, SearchInput, Select, TextLink, type PageSize } from "@universe/ui";
+import {
+  AlertIcon,
+  Button,
+  GridIcon,
+  Pagination,
+  Pill,
+  SearchInput,
+  Select,
+  StatTile,
+  StatTileGrid,
+  TextLink,
+  TrendingUpIcon,
+  type PageSize,
+} from "@universe/ui";
 
 /**
  * Product Database Management — Catalogue screen. Added 2026-10-03, the
@@ -50,7 +65,33 @@ export default function ProductCatalogPage() {
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
 
+  // Data completeness filter — added 2026-10-09, Stage 0 point 3. One of
+  // the four tracked fields, or "" for none; wired into listProductCatalog
+  // the same way category/sourceStandard already are. Clicking the same
+  // completeness tile again clears it (see the tile's onClick below).
+  const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">("");
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Section mini-dashboard — added 2026-10-09, Stage 1: the standardised
+  // StatTile/StatTileGrid pattern (packages/ui/src/StatTile.tsx, already
+  // used on Project Management's home page, Stakeholders, Quality,
+  // Logistics & CO2, and Admin's Organisations/Users) applied to the
+  // catalogue screen for the first time — see
+  // claude/product-database-and-map-roadmap.md Stage 1. Fetched once (not
+  // re-fetched on every filter change) since these are catalogue-wide
+  // totals, not scoped to the current search/filter; `load()`'s own
+  // refresh on save does re-trigger it via onSaved below so a newly added
+  // product updates the headline count without a manual page reload.
+  const [dashboardStats, setDashboardStats] = useState<ProductCatalogDashboardStats | null>(null);
+  // Completeness tiles — Stage 0 point 3. Same "fetch once, refresh on
+  // save" reasoning as dashboardStats above.
+  const [completeness, setCompleteness] = useState<ProductCatalogCompletenessStats | null>(null);
+
+  const loadStats = useCallback(() => {
+    apiClient.getProductCatalogDashboardStats().then(setDashboardStats).catch(() => setDashboardStats(null));
+    apiClient.getProductCatalogCompletenessStats().then(setCompleteness).catch(() => setCompleteness(null));
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -60,6 +101,7 @@ export default function ProductCatalogPage() {
         category: category || undefined,
         sourceStandard: sourceStandard || undefined,
         includeArchived,
+        missingField: missingField || undefined,
         page: page + 1,
         pageSize: pageSize === "all" ? 200 : pageSize,
       })
@@ -70,13 +112,22 @@ export default function ProductCatalogPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load the product catalogue"))
       .finally(() => setLoading(false));
-  }, [search, category, sourceStandard, includeArchived, page, pageSize]);
+  }, [search, category, sourceStandard, includeArchived, missingField, page, pageSize]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
   const pageCount = Math.max(1, Math.ceil(total / (pageSize === "all" ? 200 : pageSize)));
+
+  const toggleMissingField = (field: "gtin" | "hsCode" | "unspscCode" | "standardUnit") => {
+    setMissingField((current) => (current === field ? "" : field));
+    setPage(0);
+  };
 
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
@@ -92,6 +143,78 @@ export default function ProductCatalogPage() {
           </p>
         </div>
       </div>
+
+      {/* Section mini-dashboard — Stage 1 (standardised dashboard
+          pattern), product-database-and-map-roadmap.md. First use of the
+          shared StatTile/StatTileGrid pattern in Product Database. */}
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Overview</h2>
+      <StatTileGrid>
+        <StatTile label="Total products" value={dashboardStats ? dashboardStats.total : undefined} icon={<GridIcon size={18} />} tone="brand" />
+        <StatTile
+          label="Added in last 30 days"
+          value={dashboardStats ? dashboardStats.addedLast30Days : undefined}
+          icon={<TrendingUpIcon size={18} />}
+          tone="good"
+        />
+      </StatTileGrid>
+      {dashboardStats && dashboardStats.byCategory.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          {dashboardStats.byCategory.map((c) => (
+            <button
+              key={c.category}
+              type="button"
+              onClick={() => { setCategory((current) => (current === c.category ? "" : c.category)); setPage(0); }}
+              style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
+              title={`Filter the catalogue to ${c.category}`}
+            >
+              <Pill tone={category === c.category ? "brand" : "neutral"}>
+                {c.category} · {c.count}
+              </Pill>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Data completeness — Stage 0 point 3, product-database-and-map-
+          roadmap.md. Each tile is also a filter: click "Missing GTIN" and
+          the table below narrows to exactly those rows. Not a single "%
+          complete" score — see ProductCatalogCompletenessStats's doc
+          comment in @universe/types for why. */}
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Data completeness</h2>
+      <StatTileGrid>
+        <StatTile
+          label="Missing GTIN"
+          value={completeness ? completeness.missingGtin : undefined}
+          icon={<AlertIcon size={18} />}
+          tone="warning"
+          onClick={() => toggleMissingField("gtin")}
+          active={missingField === "gtin"}
+        />
+        <StatTile
+          label="Missing HS Code"
+          value={completeness ? completeness.missingHsCode : undefined}
+          icon={<AlertIcon size={18} />}
+          tone="warning"
+          onClick={() => toggleMissingField("hsCode")}
+          active={missingField === "hsCode"}
+        />
+        <StatTile
+          label="Missing UNSPSC"
+          value={completeness ? completeness.missingUnspscCode : undefined}
+          icon={<AlertIcon size={18} />}
+          tone="warning"
+          onClick={() => toggleMissingField("unspscCode")}
+          active={missingField === "unspscCode"}
+        />
+        <StatTile
+          label="Missing standard unit"
+          value={completeness ? completeness.missingStandardUnit : undefined}
+          icon={<AlertIcon size={18} />}
+          tone="warning"
+          onClick={() => toggleMissingField("standardUnit")}
+          active={missingField === "standardUnit"}
+        />
+      </StatTileGrid>
 
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by product name…" />
@@ -142,8 +265,8 @@ export default function ProductCatalogPage() {
                   product={p}
                   expanded={expandedId === p.id}
                   onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                  onSaved={() => { setExpandedId(null); load(); }}
-                  onRefresh={load}
+                  onSaved={() => { setExpandedId(null); load(); loadStats(); }}
+                  onRefresh={() => { load(); loadStats(); }}
                 />
               ))}
               {items.length === 0 && !loading && (
