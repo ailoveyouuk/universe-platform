@@ -42,28 +42,34 @@ function appUrl(envVar: string, fallback?: string): string | undefined {
   return fallback;
 }
 
+// Accent colours below reference the --u-module-* tokens (tokens.css,
+// decided 2026-10-09 with Lewis — see claude/app-completeness-audit.md),
+// NOT the six category-tag jewel tones these literal hex values used to
+// duplicate (sapphire/copper/emerald/gold/wine/teal, meant for org-type
+// tags, a different concern — see universe-brand-identity.md). One
+// source of truth per app's identity colour, defined once in tokens.css.
 export const UNIVERSE_APPS: UniverseAppEntry[] = [
-  { key: "project-management", label: "Project Management", accent: "var(--u-brand-violet)", status: "current", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
-  { key: "crm", label: "CRM", accent: "#336497", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
+  { key: "project-management", label: "Project Management", accent: "var(--u-module-project-management)", status: "current", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
+  { key: "crm", label: "CRM", accent: "var(--u-module-crm)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
   {
     key: "product-database",
     label: "Product Database",
-    accent: "#2A704C",
+    accent: "var(--u-module-product-database)",
     status: "available",
     href: appUrl("NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE", "https://delightful-stone-0f4d11d0f.1.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE",
   },
-  { key: "tender-issuance", label: "Tender Issuance", accent: "#B85D23", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE" },
+  { key: "tender-issuance", label: "Tender Issuance", accent: "var(--u-module-tender-issuance)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE" },
   {
     key: "admin",
     label: "Admin",
-    accent: "#317B87",
+    accent: "var(--u-module-admin)",
     status: "available",
     href: appUrl("NEXT_PUBLIC_APP_URL_ADMIN", "https://orange-tree-06a3f710f.6.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_ADMIN",
   },
   { key: "insights", label: "Insights", accent: "#775C24", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS" },
-  { key: "supplier-portal", label: "Supplier Portal", accent: "#C32260", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_SUPPLIER_PORTAL" },
+  { key: "supplier-portal", label: "Supplier Portal", accent: "var(--u-module-supplier-portal)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_SUPPLIER_PORTAL" },
 ];
 
 /**
