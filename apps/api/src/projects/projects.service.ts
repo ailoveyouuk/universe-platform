@@ -18,7 +18,7 @@ import type { ProjectLineDto } from "./dto/project-line.dto";
  * Mirrors the existing QA/procurement segregation-of-duties pattern
  * (assertHasPermission, authorization.ts) rather than inventing a new
  * mechanism: a Finance-role user can edit pricing/margins without full
- * project-edit rights, and a Procurement-role user without
+ * project-edit rights, and a Project Manager without
  * projects.financials.edit can still run a project day-to-day but can't
  * touch a price. Checked per-field (only against the fields actually
  * present on the incoming DTO — `!== undefined`, same convention

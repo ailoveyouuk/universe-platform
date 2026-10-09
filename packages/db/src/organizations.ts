@@ -67,14 +67,7 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     ],
   },
   {
-    // Renamed from "Project Manager" 2026-10-09 (Lewis's admin-role
-    // review — see claude/app-completeness-audit.md) — same permission
-    // set, a name that actually matches what this role is for: creating
-    // and running projects/tenders day-to-day. Existing organizations
-    // get this rename applied by backfill-procurement-finance-roles.ts
-    // rather than ending up with two differently-named roles with
-    // identical permissions.
-    name: "Procurement",
+    name: "Project Manager",
     appScope: "project-management",
     permissionKeys: [
       "projects.view",
@@ -100,17 +93,19 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     permissionKeys: QA_PERMISSION_KEYS,
   },
   {
-    // New 2026-10-09, same request as the Procurement rename above —
-    // financial visibility/editing (margins, pricing, payment status)
-    // without full project-edit rights. Deliberately includes
-    // projects.view (not just the financials.* keys) so a Finance user
-    // can navigate to a project to see where a figure belongs, but gets
-    // neither projects.create/edit/delete nor any QA permission — a
-    // narrow, additive bundle, same pattern as the QA/Responsible
-    // Person roles above.
+    // New 2026-10-09 (Lewis's admin-role review — see
+    // claude/app-completeness-audit.md), revised same day: Finance is
+    // VIEW/REPORT only — Project Manager is deliberately the role that
+    // enters pricing (every organisation using Universe runs projects,
+    // not just a procurement-specific org, so Project Manager keeps its
+    // existing name and its existing projects.financials.edit). Finance
+    // gets projects.view (to navigate to a project a figure belongs to)
+    // and projects.financials.view, but NOT financials.edit — reporting/
+    // oversight visibility across all financial aspects, with no write
+    // access to anything in the system.
     name: "Finance",
     appScope: "project-management",
-    permissionKeys: ["projects.view", "projects.financials.view", "projects.financials.edit"],
+    permissionKeys: ["projects.view", "projects.financials.view"],
   },
 ];
 
