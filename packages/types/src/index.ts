@@ -1315,9 +1315,13 @@ export interface ProductCatalogCompletenessStats {
  * Project Management's home page, Stakeholders, Quality, Logistics & CO2,
  * and Admin's Organisations/Users screens — Product Database was the one
  * section with none. Scoped to non-archived entries, same as
- * completeness-stats above. `byCategory` is every category with at least
- * one entry, sorted by count descending by the service, for the
- * "products per category" breakdown panel. */
+ * completeness-stats above. `byCategory` is every TOP-LEVEL category
+ * group with at least one entry (e.g. "Pharmaceuticals", never the full
+ * hierarchical "Pharmaceuticals.Antibiotics" path ProductMaster.category
+ * actually stores — see schema.prisma — collapsed server-side; fixed
+ * 2026-10-09 after an initial version showed one chip per Group.Subgroup
+ * pair instead), sorted by count descending, for the "products per
+ * category" breakdown panel. */
 export interface ProductCatalogDashboardStats {
   total: number;
   addedLast30Days: number;

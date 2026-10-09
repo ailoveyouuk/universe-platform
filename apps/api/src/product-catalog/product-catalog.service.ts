@@ -233,10 +233,19 @@ export class ProductCatalogService {
    * everywhere else (see ProductCatalogDashboardStats's doc comment in
    * @universe/types), applied here for the first time. Scoped to
    * non-archived entries, same as completeness-stats above.
-   * `groupBy` gives the per-category counts in one query rather than one
-   * `count()` per known category (CATEGORIES is a frontend display list,
-   * not an enum this table enforces — a category added by a future
-   * importer shouldn't need a code change here to show up). */
+   *
+   * `category` is a hierarchical "Group.Subgroup" path (see
+   * ProductMaster.category's doc comment in schema.prisma, e.g.
+   * "Personal Protective Equipment.Masks") — `byCategory` is deliberately
+   * collapsed to just the top-level group ("Personal Protective
+   * Equipment"), matching the frontend's existing CATEGORIES filter list
+   * and list()'s own `category: { startsWith }` match, not the full
+   * dotted path. Fixed 2026-10-09 after Lewis flagged the breakdown
+   * showing one chip per Group.Subgroup pair instead of one per
+   * top-level group. `groupBy` still runs on the full `category` column
+   * (one query, bounded by the number of distinct categories — small),
+   * then the top-level collapse + count-summing happens in JS, since
+   * Prisma's groupBy can't split a column's value mid-query. */
   async getDashboardStats(): Promise<ProductCatalogDashboardStats> {
     const where = { isArchived: false };
     const [total, addedLast30Days, grouped] = await Promise.all([
@@ -250,8 +259,13 @@ export class ProductCatalogService {
         _count: { _all: true },
       }),
     ]);
-    const byCategory = grouped
-      .map((g) => ({ category: g.category, count: g._count._all }))
+    const topLevelCounts = new Map<string, number>();
+    for (const g of grouped) {
+      const topLevel = g.category.split(".")[0];
+      topLevelCounts.set(topLevel, (topLevelCounts.get(topLevel) ?? 0) + g._count._all);
+    }
+    const byCategory = Array.from(topLevelCounts.entries())
+      .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count);
     return { total, addedLast30Days, byCategory };
   }
