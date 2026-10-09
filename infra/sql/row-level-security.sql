@@ -214,7 +214,28 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     -- unlike product_master itself, which stays out of this policy.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER UPDATE,
+
+    -- project_line_logistics_metrics — REAL BUG, found 2026-10-09 while
+    -- testing the Stage 3 benchmark seed data: this table was added
+    -- 2026-10-08 (supply-chain-co2-efficiency.md) and was NEVER added to
+    -- this policy, meaning it has been completely unprotected since it was
+    -- created — any signed-in user from ANY organization could read EVERY
+    -- organization's own logistics lines (manufacturer/supplier names,
+    -- project reference/title, CO2/distance/efficiency figures) via the
+    -- org-private "Logistics & CO2" page (LogisticsInsightsService.
+    -- getOrgLines, which relies entirely on this policy for its tenant
+    -- scoping — the app-layer withTenantContext() call sets the session
+    -- context correctly, but with no predicate on this table, SQL Server
+    -- had nothing to filter on). Confirmed by the Phase 7 benchmark
+    -- aggregation pipeline writing exactly 5x too many rows (5 orgs, each
+    -- query returning all 33 platform-wide rows instead of its own) — not
+    -- a coincidence, a direct symptom of this gap. organizationId is
+    -- denormalized directly onto this table (see schema.prisma), same
+    -- pattern as every other tenant-scoped table here.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics AFTER UPDATE
 WITH (STATE = ON);
 GO
 
