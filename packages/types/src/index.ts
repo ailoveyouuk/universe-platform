@@ -27,6 +27,12 @@ export interface ProjectSummary {
   isArchived: boolean;
   archivedAt: string | null;
   archivedById: string | null;
+  /** ISO 3166-1 alpha-2 — added 2026-10-09 for Stage 3b's "Delivery
+   * countries" dashboard tile and the Projects list's country filter
+   * (product-database-and-map-roadmap.md). The underlying Project row was
+   * already being fetched in full by ProjectsService.findAll(); this was
+   * just never mapped through toSummary() until now. */
+  deliveryCountryCode: string | null;
 }
 
 /**
