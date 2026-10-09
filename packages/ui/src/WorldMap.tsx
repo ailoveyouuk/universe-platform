@@ -9,18 +9,23 @@ import { useMemo } from "react";
  * & CO2's manufacture/delivery routes, Stage 3c Product Database's
  * per-category pulses, and whatever Stage 3 variant comes after those).
  *
- * Deliberately NOT a real coastline/landmass map. Rendering actual
- * country borders would mean importing a geographic dataset (a new
- * runtime dependency, a licensing question, meaningful bundle size for
- * every app that pulls in `@universe/ui`) for a platform whose brand
- * system is otherwise flat colour/typography, never illustrative art —
- * see universe-brand-identity.md. Instead this draws a faint graticule
- * (a latitude/longitude grid) as an abstract stand-in for "the world",
- * which is also a more honest visual given the data behind every pulse is
- * itself only a coarse, one-point-per-country centroid approximation
- * (see Country.latitude/longitude's doc comment in schema.prisma) — a
- * precise coastline would imply a precision the underlying data doesn't
- * have.
+ * Draws a faint graticule (a latitude/longitude grid) plus a rough,
+ * hand-approximated continent silhouette underneath it — NOT a real
+ * coastline/landmass dataset. Importing one would mean a new runtime
+ * dependency, a licensing question, and real bundle size for every app
+ * that pulls in `@universe/ui`, for a platform whose brand system is
+ * otherwise flat colour/typography, never illustrative art — see
+ * universe-brand-identity.md. The outlines below (`CONTINENTS`) are a
+ * small set of hand-placed points per landmass (10-27 vertices each),
+ * good enough to tell at a glance "that's Africa" / "that's Eurasia" —
+ * not a precise coastline, and the underlying pulse data is itself only
+ * a coarse, one-point-per-country centroid anyway (see
+ * Country.latitude/longitude's doc comment in schema.prisma), so a
+ * precise coastline would overstate a precision the data doesn't have.
+ * Added 2026-10-09 after Lewis asked for at least a rough outline rather
+ * than the bare grid — tried fetching a real simplified world-atlas
+ * dataset first (same as Stage 2's original attempt), still blocked by
+ * this environment's egress policy, so these are drawn by hand instead.
  *
  * Projection is a plain equirectangular mapping (longitude -180..180 ->
  * x 0..1000, latitude 90..-90 -> y 0..500) — not cartographically
@@ -153,6 +158,35 @@ function Graticule() {
 }
 
 /**
+ * Rough, hand-approximated continent silhouettes — see the module doc
+ * comment above for why these are hand-placed points rather than a real
+ * geographic dataset. Coordinates are already projected (equirectangular,
+ * same VIEW_WIDTH/VIEW_HEIGHT as the rest of this component) and rounded
+ * to 1 decimal place; generated once from approximate longitude/latitude
+ * control points per landmass and baked in as static path data, not
+ * computed at render time. Deliberately excludes Antarctica (the
+ * platform's data never plots a point there) and keeps Greenland folded
+ * into the North America outline rather than drawn separately.
+ */
+const CONTINENT_PATHS = [
+  "M33.3 66.7 L41.7 86.1 L138.9 97.2 L152.8 116.7 L155.6 138.9 L175.0 161.1 L208.3 194.4 L244.4 205.6 L230.6 177.8 L275.0 180.6 L291.7 152.8 L316.7 125.0 L352.8 119.4 L319.4 83.3 L277.8 55.6 L236.1 55.6 L138.9 55.6 L83.3 55.6 L33.3 66.7 Z", // North America
+  "M286.1 227.8 L333.3 222.2 L361.1 250.0 L402.8 272.2 L388.9 313.9 L366.7 319.4 L341.7 347.2 L327.8 361.1 L311.1 394.4 L297.2 375.0 L302.8 300.0 L280.6 263.9 L286.1 227.8 Z", // South America
+  "M452.8 191.7 L455.6 213.9 L472.2 236.1 L508.3 233.3 L525.0 238.9 L536.1 266.7 L533.3 297.2 L550.0 344.4 L572.2 341.7 L588.9 322.2 L611.1 291.7 L641.7 216.7 L619.4 216.7 L602.8 166.7 L569.4 161.1 L527.8 147.2 L483.3 152.8 L452.8 191.7 Z", // Africa
+  "M475.0 130.6 L475.0 147.2 L500.0 144.4 L527.8 150.0 L555.6 138.9 L575.0 136.1 L583.3 122.2 L575.0 83.3 L513.9 77.8 L555.6 55.6 L611.1 55.6 L666.7 55.6 L777.8 41.7 L888.9 47.2 L972.2 63.9 L1000.0 69.4 L944.4 97.2 L888.9 125.0 L838.9 163.9 L800.0 188.9 L777.8 222.2 L722.2 227.8 L694.4 194.4 L666.7 180.6 L638.9 166.7 L597.2 152.8 L475.0 130.6 Z", // Eurasia
+  "M813.9 311.1 L838.9 300.0 L861.1 283.3 L894.4 280.6 L925.0 327.8 L916.7 352.8 L888.9 355.6 L863.9 338.9 L813.9 311.1 Z", // Australia
+];
+
+function Continents() {
+  return (
+    <g fill="var(--u-border)" fillOpacity={0.5} stroke="none">
+      {CONTINENT_PATHS.map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </g>
+  );
+}
+
+/**
  * Renders `points` (pulsing, colour + size coded, with the raw `value`
  * printed right next to each one) and optional `arcs` (dashed flight-path
  * lines) on the abstract graticule map described above, with a `legend`
@@ -220,6 +254,7 @@ export function WorldMap({
         aria-label="World map"
       >
         <Graticule />
+        <Continents />
 
         {arcs.map((arc) => {
           const from = project(arc.from.latitude, arc.from.longitude);
