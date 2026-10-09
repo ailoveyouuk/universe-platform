@@ -15,6 +15,7 @@ import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
+import { ApprovalHistory } from "../../../components/ApprovalHistory";
 import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -638,6 +639,7 @@ export default function PartnerDetailPage() {
       )}
 
       <RiskRegister subjectType="PARTNER" subjectId={partner.id} />
+      <ApprovalHistory partnerId={partner.id} />
       <AuditHistory tableName="partners" recordId={partner.id} />
     </main>
   );
