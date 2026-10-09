@@ -153,24 +153,50 @@ function Graticule() {
 }
 
 /**
- * Renders `points` (pulsing, colour + size coded) and optional `arcs`
- * (dashed flight-path lines) on the abstract graticule map described
- * above, with a `legend` row underneath. See the module doc comment for
- * the full design reasoning.
+ * Renders `points` (pulsing, colour + size coded, with the raw `value`
+ * printed right next to each one) and optional `arcs` (dashed flight-path
+ * lines) on the abstract graticule map described above, with a `legend`
+ * row underneath. See the module doc comment for the full design
+ * reasoning.
+ *
+ * Per-point value labels sit ON the map (added 2026-10-09, Lewis's design
+ * feedback before Stage 3a) rather than only being available via the
+ * native SVG tooltip on hover: a small halo'd number beside each point,
+ * flipped to the point's left near the map's right edge so it doesn't run
+ * off-canvas. `legend` is deliberately NOT where per-point numbers live —
+ * it stays a short, minimal colour key (what each colour/series means),
+ * sitting below the map rather than competing with it for width, which is
+ * also why it was kept out of the map's own viewBox entirely. Two labels
+ * landing on top of each other when two points are very close together on
+ * the map is a known, accepted limitation — not worth a label-collision
+ * layout pass for this platform's actual point density.
  */
 export function WorldMap({
   points,
   arcs = [],
   legend,
-  height = 360,
+  maxHeight = 420,
+  showValueLabels = true,
   emptyMessage = "No locations to show yet.",
 }: {
   points: WorldMapPoint[];
   arcs?: WorldMapArc[];
   legend?: WorldMapLegendEntry[];
-  /** SVG render height in px — the map always fills its container's
-   * width at a fixed VIEW_WIDTH:VIEW_HEIGHT (2:1) aspect ratio. */
-  height?: number;
+  /** Caps the SVG's rendered height in px on wide viewports — the map
+   * always keeps the fixed VIEW_WIDTH:VIEW_HEIGHT (2:1) aspect ratio via
+   * CSS `aspect-ratio` and fills its container's width, so on a narrow
+   * (mobile/tablet) container it shrinks in height right along with the
+   * width rather than staying a tall fixed box with mostly empty
+   * graticule. Renamed from a plain `height` 2026-10-09 (no call site
+   * existed yet to migrate — Stage 3 is what adds the first ones) once
+   * it became clear a literal fixed height fought responsive width
+   * rather than complementing it. */
+  maxHeight?: number;
+  /** Prints each point's raw `value` beside it on the map itself (see the
+   * module doc comment) — set false if a caller's points are packed
+   * tightly enough that the labels would mostly overlap, and the native
+   * hover tooltip (always present regardless of this flag) is enough. */
+  showValueLabels?: boolean;
   /** Shown centred on the map when `points` is empty, e.g. before the
    * first country-of-manufacture is recorded. */
   emptyMessage?: string;
@@ -183,7 +209,8 @@ export function WorldMap({
         viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
         style={{
           width: "100%",
-          height,
+          aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}`,
+          maxHeight,
           display: "block",
           borderRadius: "var(--u-radius-lg)",
           border: "1px solid var(--u-border)",
@@ -209,6 +236,11 @@ export function WorldMap({
           const { x, y } = project(point.latitude, point.longitude);
           if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
           const r = scaleRadius(point.value);
+          // Flip the value label to the point's left once it's past 85%
+          // of the map's width, so it doesn't run off the right edge of
+          // the viewBox for a point near the antimeridian.
+          const labelOnRight = x < VIEW_WIDTH * 0.85;
+          const labelX = labelOnRight ? x + r + 5 : x - r - 5;
           return (
             <g key={point.id}>
               <circle
@@ -228,6 +260,23 @@ export function WorldMap({
               <circle cx={x} cy={y} r={r} fill={point.color} opacity={0.9}>
                 <title>{`${point.label} — ${point.value}`}</title>
               </circle>
+              {showValueLabels && (
+                <text
+                  x={labelX}
+                  y={y}
+                  dy={4}
+                  textAnchor={labelOnRight ? "start" : "end"}
+                  fontSize={12}
+                  fontWeight={700}
+                  fill="var(--u-ink)"
+                  stroke="var(--u-surface-alt)"
+                  strokeWidth={4}
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
+                >
+                  {point.value}
+                </text>
+              )}
             </g>
           );
         })}
