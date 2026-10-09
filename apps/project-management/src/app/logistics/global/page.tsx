@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingBucket } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import {
   GaugeIcon,
   StandardsReference,
   ScoreLegend,
+  SCORE_BAND_COLORS,
+  bandForScore,
   CountrySelect,
   WorldMap,
   type WorldMapPoint,
@@ -53,9 +56,20 @@ const ENTITY_LABELS: Record<string, string> = {
  */
 export default function GlobalLogisticsPage() {
   const countries = useCountries();
+  const searchParams = useSearchParams();
   const [routes, setRoutes] = useState<LogisticsRouteSummary[] | null>(null);
   const [ratings, setRatings] = useState<StakeholderRatingBucket[] | null>(null);
-  const [filters, setFilters] = useState<LogisticsFilters>({});
+  // Deep-linkable from the embedded map on the org-private Logistics page
+  // (clicking a manufacture/delivery pulse there navigates here with
+  // ?manufactureCountryCode=XX / ?destinationCountryCode=XX), same
+  // ?param convention as the Projects list's ?status=/?country= deep
+  // links -- see this page's own WorldMap onPointClick below for the
+  // same behaviour wired locally (clicking a pulse here updates the
+  // filter in place rather than navigating).
+  const [filters, setFilters] = useState<LogisticsFilters>(() => ({
+    manufactureCountryCode: searchParams.get("manufactureCountryCode") ?? undefined,
+    destinationCountryCode: searchParams.get("destinationCountryCode") ?? undefined,
+  }));
   const [sortBy, setSortBy] = useState<"common" | "efficient">("common");
 
   useEffect(() => {
@@ -101,7 +115,10 @@ export default function GlobalLogisticsPage() {
 
     const manufactureTotals = new Map<string, number>();
     const destinationTotals = new Map<string, number>();
-    const pairTotals = new Map<string, { manufacture: string; destination: string; count: number }>();
+    const pairTotals = new Map<
+      string,
+      { manufacture: string; destination: string; count: number; distanceWeightedSum: number; efficiencyWeightedSum: number }
+    >();
 
     for (const r of routes) {
       if (r.manufactureCountryCode) {
@@ -113,8 +130,19 @@ export default function GlobalLogisticsPage() {
       if (r.manufactureCountryCode && r.destinationCountryCode) {
         const key = `${r.manufactureCountryCode}>${r.destinationCountryCode}`;
         const existing = pairTotals.get(key);
-        if (existing) existing.count += r.shipmentCount;
-        else pairTotals.set(key, { manufacture: r.manufactureCountryCode, destination: r.destinationCountryCode, count: r.shipmentCount });
+        if (existing) {
+          existing.count += r.shipmentCount;
+          existing.distanceWeightedSum += r.avgDistanceKm * r.shipmentCount;
+          existing.efficiencyWeightedSum += r.avgEfficiencyScore * r.shipmentCount;
+        } else {
+          pairTotals.set(key, {
+            manufacture: r.manufactureCountryCode,
+            destination: r.destinationCountryCode,
+            count: r.shipmentCount,
+            distanceWeightedSum: r.avgDistanceKm * r.shipmentCount,
+            efficiencyWeightedSum: r.avgEfficiencyScore * r.shipmentCount,
+          });
+        }
       }
     }
 
@@ -136,12 +164,19 @@ export default function GlobalLogisticsPage() {
       const from = countryIndex.get(pair.manufacture);
       const to = countryIndex.get(pair.destination);
       if (!from || !to || from.latitude === null || from.longitude === null || to.latitude === null || to.longitude === null) continue;
+      const avgDistance = pair.distanceWeightedSum / pair.count;
+      const avgEfficiency = pair.efficiencyWeightedSum / pair.count;
+      const band = bandForScore(avgEfficiency);
       arcs.push({
         id: `${pair.manufacture}>${pair.destination}`,
         from: { latitude: from.latitude, longitude: from.longitude },
         to: { latitude: to.latitude, longitude: to.longitude },
         color: "var(--u-ink-secondary)",
         label: `${from.name} → ${to.name} — ${pair.count} shipments`,
+        tooltipLines: [
+          { text: `~${Math.round(avgDistance).toLocaleString()} km` },
+          { text: `Efficiency/CO2e: ${avgEfficiency.toFixed(1)}/10 (${band})`, color: SCORE_BAND_COLORS[band] },
+        ],
       });
     }
 
@@ -223,6 +258,16 @@ export default function GlobalLogisticsPage() {
           arcs={mapData.arcs}
           legend={mapLegend}
           emptyMessage="No anonymised routes meet the minimum cohort size yet."
+          onPointClick={(point) => {
+            // Point ids are built as `mfg:<code>` / `dest:<code>` above --
+            // clicking a pulse filters the route list below to that
+            // country, reusing the exact filters the CountrySelect
+            // dropdowns already drive (see the "World map interactivity"
+            // doc comment on mapData).
+            const [kind, code] = point.id.split(":");
+            if (kind === "mfg") update("manufactureCountryCode", code);
+            else if (kind === "dest") update("destinationCountryCode", code);
+          }}
         />
 
         <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 20, marginBottom: 16 }}>

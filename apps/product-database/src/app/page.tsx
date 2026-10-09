@@ -153,9 +153,13 @@ export default function ProductCatalogPage() {
         id: `${row.category}:${row.manufactureCountryCode}`,
         latitude,
         longitude,
-        label: `${row.category} — ${c.name}`,
+        label: c.name,
         color: CATEGORY_COLORS[row.category] ?? "var(--u-ink-secondary)",
         value: row.approvalCount,
+        tooltipLines: [
+          { text: row.category, color: CATEGORY_COLORS[row.category] ?? "var(--u-ink-secondary)" },
+          { text: `${row.approvalCount.toLocaleString()} approved for sourcing` },
+        ],
       });
     }
     return points;
@@ -301,10 +305,24 @@ export default function ProductCatalogPage() {
       <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 12px" }}>
         Anonymized, aggregated across every consented organisation on the platform — no organisation's own sourcing relationships are ever individually identifiable here.
       </p>
+      {/* Interactive since 2026-10-09 (map-interactivity round): hovering/
+          tapping a pulse shows the country (title) plus category and
+          approval count (WorldMap's HTML tooltip overlay — see that
+          component's own doc comment for why it's HTML, not SVG text).
+          Clicking a pulse filters the catalogue below to that pulse's
+          category, reusing the same Select/category state the "All
+          categories" dropdown already drives — clicking a pulse for the
+          category already selected clears the filter, matching the
+          toggle behaviour already used by the completeness tiles above. */}
       <WorldMap
         points={sourcingMapData}
         legend={sourcingLegend}
         emptyMessage="No anonymised sourcing data meets the minimum cohort size yet."
+        onPointClick={(point) => {
+          const pointCategory = point.id.split(":")[0];
+          setCategory((current) => (current === pointCategory ? "" : pointCategory));
+          setPage(0);
+        }}
       />
 
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>

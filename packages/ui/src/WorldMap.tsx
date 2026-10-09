@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 
 /**
  * The reusable world-map component — product-database-and-map-roadmap.md
@@ -15,8 +15,8 @@ import { useMemo } from "react";
  * dependency, a licensing question, and real bundle size for every app
  * that pulls in `@universe/ui`, for a platform whose brand system is
  * otherwise flat colour/typography, never illustrative art — see
- * universe-brand-identity.md. The outlines below (`CONTINENTS`) are a
- * small set of hand-placed points per landmass (10-27 vertices each),
+ * universe-brand-identity.md. The outlines below (`CONTINENT_PATHS`) are
+ * a small set of hand-placed points per landmass (10-27 vertices each),
  * good enough to tell at a glance "that's Africa" / "that's Eurasia" —
  * not a precise coastline, and the underlying pulse data is itself only
  * a coarse, one-point-per-country centroid anyway (see
@@ -53,14 +53,38 @@ import { useMemo } from "react";
  * (`u-map-pulse-ring`), the same convention as the existing
  * `u-fade-in`/`u-card-hover` utilities there, rather than a one-off
  * <style> tag inside this file.
+ *
+ * Interactivity, added 2026-10-09 per Lewis's follow-up design request —
+ * points are clickable (via the new `onPointClick` prop, entirely
+ * optional — a caller that passes nothing gets the old, non-interactive
+ * behaviour) so a caller can filter whatever list sits below the map to
+ * just that pulse's country/series; hovering (or tapping, on touch) a
+ * point or arc shows a small HTML callout — the country/series name for
+ * a point, and whatever `tooltipLines` the caller supplies for an arc
+ * (e.g. distance and a colour-coded efficiency rating — WorldMap doesn't
+ * know what those mean, the caller formats and colours each line itself,
+ * same presentation-only ethos as everything else here). The callout is
+ * a real HTML overlay (not SVG `<text>`), specifically so its font size
+ * is in actual CSS pixels and stays legible at any screen width — the
+ * rest of this component's art scales down with the SVG's viewBox on a
+ * narrow mobile/tablet container, which text would too if it were drawn
+ * inside the SVG itself.
  */
+export interface WorldMapTooltipLine {
+  text: string;
+  /** Any valid CSS colour — e.g. a score-band colour for a logistics
+   * efficiency rating. Defaults to the tooltip's own ink colour. */
+  color?: string;
+}
+
 export interface WorldMapPoint {
   /** Stable key — e.g. a country code, or `${category}:${countryCode}`
    * when more than one series can land on the same country. */
   id: string;
   latitude: number;
   longitude: number;
-  /** Shown in the native SVG tooltip on hover, alongside `value`. */
+  /** The callout's title line on hover/tap — typically the country or
+   * place name. Also used as the native SVG `<title>` fallback. */
   label: string;
   /** Any valid CSS colour — a design token (`var(--u-...)`) or a literal
    * hex value the caller has already picked for its own legend. */
@@ -71,6 +95,11 @@ export interface WorldMapPoint {
    * the minimum radius rather than being dropped, so a real zero-count
    * series doesn't just vanish from the map. */
   value: number;
+  /** Extra callout lines below `label`/`value` — e.g. a caller that wants
+   * to show more than just the raw count on hover. Optional; most
+   * callers don't need this, since `label` + `value` already cover the
+   * default "country + count" callout. */
+  tooltipLines?: WorldMapTooltipLine[];
 }
 
 export interface WorldMapArc {
@@ -78,8 +107,13 @@ export interface WorldMapArc {
   from: { latitude: number; longitude: number };
   to: { latitude: number; longitude: number };
   color: string;
-  /** Shown in the native SVG tooltip on hover — e.g. "London → Lagos". */
+  /** Callout title on hover — e.g. "London → Lagos". Also used as the
+   * native SVG `<title>` fallback. */
   label?: string;
+  /** Extra callout lines below `label` — e.g. a distance and a
+   * colour-coded efficiency/CO2e rating for a logistics route. Each line
+   * can carry its own colour; WorldMap just renders what it's given. */
+  tooltipLines?: WorldMapTooltipLine[];
 }
 
 export interface WorldMapLegendEntry {
@@ -91,6 +125,16 @@ const VIEW_WIDTH = 1000;
 const VIEW_HEIGHT = 500;
 const MIN_RADIUS = 5;
 const MAX_RADIUS = 16;
+/** Minimum invisible hit-radius (in viewBox units) for a point's click/
+ * hover target, independent of its drawn radius — a point's visual
+ * radius can be as small as MIN_RADIUS, which on a narrow mobile
+ * container (the SVG, and everything inside it, scales down with the
+ * viewBox) would otherwise be a near-unusable touch target. */
+const MIN_HIT_RADIUS = 20;
+/** Invisible stroke width (viewBox units) used to widen an arc's hover
+ * hit area beyond its thin 1.5px visual stroke — same reasoning as
+ * MIN_HIT_RADIUS above. */
+const ARC_HIT_STROKE_WIDTH = 16;
 
 function project(latitude: number, longitude: number): { x: number; y: number } {
   return {
@@ -186,21 +230,68 @@ function Continents() {
   );
 }
 
+interface TooltipState {
+  x: number;
+  y: number;
+  title: string;
+  lines: WorldMapTooltipLine[];
+}
+
+/**
+ * The callout itself — a plain HTML overlay (absolutely positioned over
+ * the SVG, inside the same relatively-positioned wrapper), not SVG
+ * `<text>`. See the module doc comment's "Interactivity" section for why:
+ * this is what keeps it legible at a real, fixed font size regardless of
+ * how far the map's own viewBox has scaled down on a narrow container.
+ * Anchored above-and-centred on the hovered/tapped point via a CSS
+ * transform rather than measured JS layout, same lightweight approach as
+ * ScoreLegend.tsx's popover.
+ */
+function MapTooltip({ tooltip }: { tooltip: TooltipState }) {
+  return (
+    <div
+      role="tooltip"
+      style={{
+        position: "absolute",
+        left: tooltip.x,
+        top: tooltip.y,
+        transform: "translate(-50%, calc(-100% - 10px))",
+        zIndex: 20,
+        maxWidth: 220,
+        padding: "8px 10px",
+        borderRadius: "var(--u-radius-md)",
+        border: "1px solid var(--u-border)",
+        backgroundColor: "var(--u-surface-raised)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--u-ink)", lineHeight: 1.3 }}>{tooltip.title}</div>
+      {tooltip.lines.map((line, i) => (
+        <div key={i} style={{ fontSize: 11.5, color: line.color ?? "var(--u-ink-secondary)", marginTop: 3, lineHeight: 1.3 }}>
+          {line.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Renders `points` (pulsing, colour + size coded, with the raw `value`
  * printed right next to each one) and optional `arcs` (dashed flight-path
  * lines) on the abstract graticule map described above, with a `legend`
  * row underneath. See the module doc comment for the full design
- * reasoning.
+ * reasoning, including the "Interactivity" section for hover/tap
+ * callouts and `onPointClick`.
  *
  * Per-point value labels sit ON the map (added 2026-10-09, Lewis's design
  * feedback before Stage 3a) rather than only being available via the
- * native SVG tooltip on hover: a small halo'd number beside each point,
- * flipped to the point's left near the map's right edge so it doesn't run
- * off-canvas. `legend` is deliberately NOT where per-point numbers live —
- * it stays a short, minimal colour key (what each colour/series means),
- * sitting below the map rather than competing with it for width, which is
- * also why it was kept out of the map's own viewBox entirely. Two labels
+ * hover callout: a small halo'd number beside each point, flipped to the
+ * point's left near the map's right edge so it doesn't run off-canvas.
+ * `legend` is deliberately NOT where per-point numbers live — it stays a
+ * short, minimal colour key (what each colour/series means), sitting
+ * below the map rather than competing with it for width, which is also
+ * why it was kept out of the map's own viewBox entirely. Two labels
  * landing on top of each other when two points are very close together on
  * the map is a known, accepted limitation — not worth a label-collision
  * layout pass for this platform's actual point density.
@@ -212,6 +303,7 @@ export function WorldMap({
   maxHeight = 420,
   showValueLabels = true,
   emptyMessage = "No locations to show yet.",
+  onPointClick,
 }: {
   points: WorldMapPoint[];
   arcs?: WorldMapArc[];
@@ -228,17 +320,70 @@ export function WorldMap({
   maxHeight?: number;
   /** Prints each point's raw `value` beside it on the map itself (see the
    * module doc comment) — set false if a caller's points are packed
-   * tightly enough that the labels would mostly overlap, and the native
-   * hover tooltip (always present regardless of this flag) is enough. */
+   * tightly enough that the labels would mostly overlap, and the hover/
+   * tap callout (always present regardless of this flag) is enough. */
   showValueLabels?: boolean;
   /** Shown centred on the map when `points` is empty, e.g. before the
    * first country-of-manufacture is recorded. */
   emptyMessage?: string;
+  /** Called when a point is clicked/tapped — e.g. to filter whatever
+   * list sits below the map down to that point's country/series. Purely
+   * optional: a caller that omits this gets a map with hover/tap
+   * callouts but no click behaviour, same as before this was added
+   * (points still render exactly the same either way). WorldMap itself
+   * has no idea what "filtering" means here — the caller owns that. */
+  onPointClick?: (point: WorldMapPoint) => void;
 }) {
   const scaleRadius = useMemo(() => buildRadiusScale(points), [points]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  // Half of MapTooltip's own maxWidth (220) below — kept as a named
+  // constant here (not imported from MapTooltip, which doesn't export
+  // anything) purely so the clamping logic and the width it's clamping
+  // against are easy to eyeball as matching. On a narrow mobile
+  // container the tooltip is centred (translate(-50%, ...)) on the
+  // tapped point by default, which pushes it half off-screen for any
+  // point within this margin of the container's left/right edge —
+  // clamping x keeps the full callout on-screen (at the cost of no
+  // longer being pixel-centred on very edge points, an acceptable
+  // trade since there's no pointer/arrow tying it to the point visually
+  // anyway).
+  const TOOLTIP_HALF_WIDTH = 110;
+
+  function positionFromEvent(e: { clientX: number; clientY: number }): { x: number; y: number } {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    const rawX = e.clientX - rect.left;
+    const minX = Math.min(TOOLTIP_HALF_WIDTH, rect.width / 2);
+    const maxX = Math.max(rect.width - TOOLTIP_HALF_WIDTH, rect.width / 2);
+    const x = Math.min(Math.max(rawX, minX), maxX);
+    return { x, y: e.clientY - rect.top };
+  }
+
+  function showPointTooltip(e: MouseEvent, point: WorldMapPoint) {
+    const { x, y } = positionFromEvent(e);
+    setTooltip({
+      x,
+      y,
+      title: point.label,
+      lines: point.tooltipLines ?? [{ text: String(point.value) }],
+    });
+  }
+
+  function showArcTooltip(e: MouseEvent, arc: WorldMapArc) {
+    if (!arc.label && !arc.tooltipLines?.length) return;
+    const { x, y } = positionFromEvent(e);
+    setTooltip({
+      x,
+      y,
+      title: arc.label ?? "",
+      lines: arc.tooltipLines ?? [],
+    });
+  }
 
   return (
-    <div>
+    <div ref={containerRef} style={{ position: "relative" }}>
       <svg
         viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
         style={{
@@ -252,6 +397,13 @@ export function WorldMap({
         }}
         role="img"
         aria-label="World map"
+        onClick={(e) => {
+          // Only clears the callout when the click landed on empty map
+          // background (not bubbled up from a point/arc, which call
+          // stopPropagation in their own handlers below) — lets a tap
+          // elsewhere on the map dismiss a pinned mobile callout.
+          if (e.target === e.currentTarget) setTooltip(null);
+        }}
       >
         <Graticule />
         <Continents />
@@ -260,10 +412,29 @@ export function WorldMap({
           const from = project(arc.from.latitude, arc.from.longitude);
           const to = project(arc.to.latitude, arc.to.longitude);
           if (!isFinitePoint(from) || !isFinitePoint(to)) return null;
+          const d = arcPath(from, to);
+          const hasTooltip = Boolean(arc.label || arc.tooltipLines?.length);
           return (
-            <path key={arc.id} d={arcPath(from, to)} fill="none" stroke={arc.color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7}>
-              {arc.label && <title>{arc.label}</title>}
-            </path>
+            <g key={arc.id}>
+              <path d={d} fill="none" stroke={arc.color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} pointerEvents="none">
+                {arc.label && <title>{arc.label}</title>}
+              </path>
+              {hasTooltip && (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={ARC_HIT_STROKE_WIDTH}
+                  onMouseEnter={(e) => showArcTooltip(e, arc)}
+                  onMouseMove={(e) => showArcTooltip(e, arc)}
+                  onMouseLeave={() => setTooltip(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showArcTooltip(e, arc);
+                  }}
+                />
+              )}
+            </g>
           );
         })}
 
@@ -271,11 +442,13 @@ export function WorldMap({
           const { x, y } = project(point.latitude, point.longitude);
           if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
           const r = scaleRadius(point.value);
+          const hitRadius = Math.max(r * 1.6, MIN_HIT_RADIUS);
           // Flip the value label to the point's left once it's past 85%
           // of the map's width, so it doesn't run off the right edge of
           // the viewBox for a point near the antimeridian.
           const labelOnRight = x < VIEW_WIDTH * 0.85;
           const labelX = labelOnRight ? x + r + 5 : x - r - 5;
+          const interactive = Boolean(onPointClick);
           return (
             <g key={point.id}>
               <circle
@@ -292,9 +465,28 @@ export function WorldMap({
                   animationDelay: `${(i % 8) * 0.3}s`,
                 }}
               />
-              <circle cx={x} cy={y} r={r} fill={point.color} opacity={0.9}>
+              <circle cx={x} cy={y} r={r} fill={point.color} opacity={0.9} pointerEvents="none">
                 <title>{`${point.label} — ${point.value}`}</title>
               </circle>
+              {/* Invisible, generously-sized hit target — see
+                  MIN_HIT_RADIUS's doc comment above for why this is
+                  bigger than the visible pulse. Carries all the actual
+                  interaction handlers. */}
+              <circle
+                cx={x}
+                cy={y}
+                r={hitRadius}
+                fill="transparent"
+                style={{ cursor: interactive ? "pointer" : "default" }}
+                onMouseEnter={(e) => showPointTooltip(e, point)}
+                onMouseMove={(e) => showPointTooltip(e, point)}
+                onMouseLeave={() => setTooltip(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showPointTooltip(e, point);
+                  onPointClick?.(point);
+                }}
+              />
               {showValueLabels && (
                 <text
                   x={labelX}
@@ -308,6 +500,7 @@ export function WorldMap({
                   strokeWidth={4}
                   strokeLinejoin="round"
                   paintOrder="stroke"
+                  pointerEvents="none"
                 >
                   {point.value}
                 </text>
@@ -322,6 +515,8 @@ export function WorldMap({
           </text>
         )}
       </svg>
+
+      {tooltip && <MapTooltip tooltip={tooltip} />}
 
       {legend && legend.length > 0 && (
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 10 }}>

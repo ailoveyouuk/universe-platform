@@ -28,6 +28,26 @@ const SCORE_BANDS: { band: keyof typeof SCORE_BAND_COLORS; range: string }[] = [
 ];
 
 /**
+ * The one other place that needed to turn a raw 1–10 efficiency score
+ * into a band — WorldMap callouts on the Global Logistics & CO2 page
+ * (added 2026-10-09, per Lewis's request for a colour-coded CO2e rating
+ * in the map's route-arc hover callout) needed the band for an
+ * aggregated route's avgEfficiencyScore, which (unlike
+ * ProjectLineLogisticsMetric) carries no scoreBand field of its own.
+ * Mirrors packages/db/src/logistics-metrics.ts's scoreLine() thresholds
+ * exactly (<=3 RED, <=5 AMBER, <=7 YELLOW, else GREEN) — kept here next
+ * to SCORE_BAND_COLORS as this module's own single source of truth for
+ * the frontend side of those same thresholds, rather than hand-copying
+ * them a fourth time.
+ */
+export function bandForScore(score: number): keyof typeof SCORE_BAND_COLORS {
+  if (score <= 3) return "RED";
+  if (score <= 5) return "AMBER";
+  if (score <= 7) return "YELLOW";
+  return "GREEN";
+}
+
+/**
  * A small, discrete key explaining the logistics efficiency/CO2-impact
  * score and its colour bands — added 2026-10-08 per Lewis's request for a
  * legend wherever that score/colour appears, since neither the number

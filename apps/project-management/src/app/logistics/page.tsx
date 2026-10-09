@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { LogisticsFilters, LogisticsRouteSummary, OrgLogisticsLineSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import {
@@ -10,6 +11,7 @@ import {
   StatTile,
   ScoreLegend,
   SCORE_BAND_COLORS,
+  bandForScore,
   ProjectsIcon,
   TrendingUpIcon,
   AlertIcon,
@@ -97,7 +99,10 @@ export default function LogisticsPage() {
 
     const manufactureTotals = new Map<string, number>();
     const destinationTotals = new Map<string, number>();
-    const pairTotals = new Map<string, { manufacture: string; destination: string; count: number }>();
+    const pairTotals = new Map<
+      string,
+      { manufacture: string; destination: string; count: number; distanceWeightedSum: number; efficiencyWeightedSum: number }
+    >();
 
     for (const r of globalRoutes) {
       if (r.manufactureCountryCode) {
@@ -109,8 +114,19 @@ export default function LogisticsPage() {
       if (r.manufactureCountryCode && r.destinationCountryCode) {
         const key = `${r.manufactureCountryCode}>${r.destinationCountryCode}`;
         const existing = pairTotals.get(key);
-        if (existing) existing.count += r.shipmentCount;
-        else pairTotals.set(key, { manufacture: r.manufactureCountryCode, destination: r.destinationCountryCode, count: r.shipmentCount });
+        if (existing) {
+          existing.count += r.shipmentCount;
+          existing.distanceWeightedSum += r.avgDistanceKm * r.shipmentCount;
+          existing.efficiencyWeightedSum += r.avgEfficiencyScore * r.shipmentCount;
+        } else {
+          pairTotals.set(key, {
+            manufacture: r.manufactureCountryCode,
+            destination: r.destinationCountryCode,
+            count: r.shipmentCount,
+            distanceWeightedSum: r.avgDistanceKm * r.shipmentCount,
+            efficiencyWeightedSum: r.avgEfficiencyScore * r.shipmentCount,
+          });
+        }
       }
     }
 
@@ -132,12 +148,19 @@ export default function LogisticsPage() {
       const from = countryIndex.get(pair.manufacture);
       const to = countryIndex.get(pair.destination);
       if (!from || !to || from.latitude === null || from.longitude === null || to.latitude === null || to.longitude === null) continue;
+      const avgDistance = pair.distanceWeightedSum / pair.count;
+      const avgEfficiency = pair.efficiencyWeightedSum / pair.count;
+      const band = bandForScore(avgEfficiency);
       arcs.push({
         id: `${pair.manufacture}>${pair.destination}`,
         from: { latitude: from.latitude, longitude: from.longitude },
         to: { latitude: to.latitude, longitude: to.longitude },
         color: "var(--u-ink-secondary)",
         label: `${from.name} → ${to.name} — ${pair.count} shipments`,
+        tooltipLines: [
+          { text: `~${Math.round(avgDistance).toLocaleString()} km` },
+          { text: `Efficiency/CO2e: ${avgEfficiency.toFixed(1)}/10 (${band})`, color: SCORE_BAND_COLORS[band] },
+        ],
       });
     }
 
@@ -151,6 +174,19 @@ export default function LogisticsPage() {
 
   function update<K extends keyof LogisticsFilters>(key: K, value: LogisticsFilters[K]) {
     setFilters((f) => ({ ...f, [key]: value || undefined }));
+  }
+
+  const router = useRouter();
+  /** This page has no local list of global route data to filter in
+   * place -- the filterable route list lives on /logistics/global. So
+   * unlike that page's own WorldMap (which updates its filters in
+   * place), clicking a pulse here navigates there with the country
+   * pre-applied, same ?param deep-link convention as the Projects list's
+   * ?status=/?country=. */
+  function handleGlobalMapPointClick(point: WorldMapPoint) {
+    const [kind, code] = point.id.split(":");
+    const param = kind === "mfg" ? "manufactureCountryCode" : "destinationCountryCode";
+    router.push(`/logistics/global?${param}=${encodeURIComponent(code)}`);
   }
 
   return (
@@ -192,6 +228,7 @@ export default function LogisticsPage() {
           arcs={globalMapData.arcs}
           legend={globalMapLegend}
           emptyMessage="No anonymised routes meet the minimum cohort size yet."
+          onPointClick={handleGlobalMapPointClick}
         />
         <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>
           Aggregated across every consented organisation on the platform — no organisation, project,
