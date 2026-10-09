@@ -677,6 +677,13 @@ function EvidenceStandardRow({
 }) {
   const [verifying, setVerifying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Wiring-gap audit fix #4 (claude/backend-frontend-wiring-audit.md) —
+  // PATCH /evidence-records/:id (the generic edit path) existed
+  // server-side with no caller — this page only ever called the more
+  // specific verifyEvidenceRecord. Lets a QA/RP user correct a logged
+  // record's own metadata (e.g. a typo'd reference number) independent
+  // of its verify/reject status.
+  const [editingDetails, setEditingDetails] = useState(false);
 
   const isExpired = Boolean(record?.expiryDate && standard.requiresExpiry && new Date(record.expiryDate) < new Date());
   const effectiveStatus = record ? (isExpired && record.status === "VERIFIED" ? "EXPIRED" : record.status) : "MISSING";
@@ -718,6 +725,11 @@ function EvidenceStandardRow({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           {record?.documentId && <DocumentLink documentId={record.documentId} onDeleted={onChanged} />}
+          {record && (
+            <Button variant="secondary" onClick={() => setEditingDetails(!editingDetails)}>
+              {editingDetails ? "Cancel" : "Edit"}
+            </Button>
+          )}
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: toneColor }}>
             {icon}
             {effectiveStatus.charAt(0) + effectiveStatus.slice(1).toLowerCase()}
@@ -757,6 +769,16 @@ function EvidenceStandardRow({
             onChanged();
             onToggleOpen();
           }}
+        />
+      )}
+      {editingDetails && record && (
+        <EditEvidenceRecordForm
+          record={record}
+          onSaved={() => {
+            onChanged();
+            setEditingDetails(false);
+          }}
+          onCancel={() => setEditingDetails(false)}
         />
       )}
     </div>
@@ -872,6 +894,97 @@ function DocumentLink({ documentId, onDeleted }: { documentId: string; onDeleted
         Delete
       </button>
     </span>
+  );
+}
+
+/** Wiring-gap audit fix #4 companion -- the edit form itself. Scoped to
+ * the record's own correctable metadata (reference number, issuing body,
+ * issued/expiry dates, result, notes); re-attaching/removing the
+ * supporting document is handled by DocumentLink's own delete action
+ * plus logging a fresh record, not duplicated here. Deliberately does
+ * NOT touch verification status -- that stays verifyEvidenceRecord's
+ * job exclusively, so an edit can never be used to sneak a record from
+ * PENDING to VERIFIED. */
+function EditEvidenceRecordForm({
+  record,
+  onSaved,
+  onCancel,
+}: {
+  record: StakeholderEvidenceRecordSummary;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [referenceNumber, setReferenceNumber] = useState(record.referenceNumber ?? "");
+  const [issuingBody, setIssuingBody] = useState(record.issuingBody ?? "");
+  const [issuedDate, setIssuedDate] = useState(record.issuedDate ? record.issuedDate.slice(0, 10) : "");
+  const [expiryDate, setExpiryDate] = useState(record.expiryDate ? record.expiryDate.slice(0, 10) : "");
+  const [result, setResult] = useState(record.result ?? "");
+  const [notes, setNotes] = useState(record.notes ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      await apiClient.updateEvidenceRecord(record.id, {
+        referenceNumber: referenceNumber || undefined,
+        issuingBody: issuingBody || undefined,
+        issuedDate: issuedDate || undefined,
+        expiryDate: expiryDate || undefined,
+        result: result || undefined,
+        notes: notes || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to save this record");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Reference number
+          <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issuing body
+          <input style={inputStyle} value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Issued date
+          <input type="date" style={inputStyle} value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Expiry date
+          <input type="date" style={inputStyle} value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Result
+          <input style={inputStyle} value={result} onChange={(e) => setResult(e.target.value)} />
+        </label>
+      </div>
+      <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
+        Notes
+        <textarea
+          style={{ ...inputStyle, minHeight: 60, resize: "vertical" }}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </label>
+      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button variant="primary" onClick={handleSave} disabled={submitting}>
+          {submitting ? "Saving…" : "Save"}
+        </Button>
+        <Button variant="secondary" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
