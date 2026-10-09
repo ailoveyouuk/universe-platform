@@ -7,10 +7,12 @@ import type {
   ProductCatalogDetail,
   ProductCatalogAttribute,
   ProductPriceHistoryPoint,
+  ProductSourceApprovalSummary,
   UpdateProductMasterInput,
 } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
+import { useCountries } from "../lib/useCountries";
 import { Button, Pagination, Pill, SearchInput, Select, TextLink, type PageSize } from "@universe/ui";
 
 /**
@@ -232,6 +234,7 @@ function ProductEditPanel({
   onCancel: () => void;
 }) {
   const me = useCurrentUser();
+  const countries = useCountries();
   const [detail, setDetail] = useState<ProductCatalogDetail | null>(null);
   const [form, setForm] = useState<UpdateProductMasterInput>({});
   const [saving, setSaving] = useState(false);
@@ -240,6 +243,18 @@ function ProductEditPanel({
 
   const [priceHistory, setPriceHistory] = useState<ProductPriceHistoryPoint[] | null>(null);
   const [priceHistoryError, setPriceHistoryError] = useState<string | null>(null);
+
+  // This organisation's own sourcing decisions for this product — added
+  // 2026-10-09, Stage 0 point 2 (country display consistency audit): the
+  // roadmap flagged Product Database as showing zero country data anywhere,
+  // despite manufacturer/supplier country being available via this org's own
+  // ProductSourceApproval records (product_source_approvals is RLS-scoped
+  // per-org, so this is never cross-tenant data — see that table's doc
+  // comment in row-level-security.sql). listProductSourceApprovals() has no
+  // productMasterId filter server-side (it's a small, per-org list), so this
+  // filters client-side rather than widening that endpoint's contract for
+  // one caller.
+  const [sourcing, setSourcing] = useState<ProductSourceApprovalSummary[] | null>(null);
 
   const isPlatformStaff = (me?.platformStaffRole ?? "NONE") !== "NONE";
   const isOwnOrg = Boolean(me && detail && detail.addedByOrganizationId === me.organizationId);
@@ -280,6 +295,16 @@ function ProductEditPanel({
         setPriceHistoryError(null);
       })
       .catch((err) => setPriceHistoryError(err instanceof Error ? err.message : "Failed to load price history"));
+  }, [productId]);
+
+  // Your organisation's sourcing — see the `sourcing` state's doc comment
+  // above. Silently empty on failure (e.g. no products.view-adjacent
+  // permission) rather than surfacing another error banner on this panel.
+  useEffect(() => {
+    apiClient
+      .listProductSourceApprovals()
+      .then((rows) => setSourcing(rows.filter((r) => r.productMasterId === productId)))
+      .catch(() => setSourcing([]));
   }, [productId]);
 
   async function save() {
@@ -508,6 +533,49 @@ function ProductEditPanel({
                     <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{p.recordedByName ?? "—"}</td>
                   </tr>
                 ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {sourcing && sourcing.length > 0 && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+            Your organisation's sourcing
+          </span>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Manufacturer</th>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Supplier</th>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sourcing.map((s) => (
+                <tr key={s.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
+                  <td style={{ padding: "6px 8px", fontSize: 13 }}>
+                    {s.manufacturerName}
+                    {s.manufacturerCountryCode && (
+                      <span style={{ color: "var(--u-ink-secondary)" }}>
+                        {" — "}
+                        {countries.find((c) => c.code === s.manufacturerCountryCode)?.name ?? s.manufacturerCountryCode}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+                    {s.supplierName ? (
+                      <>
+                        {s.supplierName}
+                        {s.supplierCountryCode && ` — ${countries.find((c) => c.code === s.supplierCountryCode)?.name ?? s.supplierCountryCode}`}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{s.status}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

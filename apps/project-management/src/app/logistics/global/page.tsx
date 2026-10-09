@@ -4,7 +4,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingBucket } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { GaugeIcon, StandardsReference, ScoreLegend } from "@universe/ui";
+import { GaugeIcon, StandardsReference, ScoreLegend, CountrySelect } from "@universe/ui";
+import { useCountries } from "../../../lib/useCountries";
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -32,6 +33,7 @@ const ENTITY_LABELS: Record<string, string> = {
  * supply-chain-co2-efficiency.md for the full writeup of that tradeoff.
  */
 export default function GlobalLogisticsPage() {
+  const countries = useCountries();
   const [routes, setRoutes] = useState<LogisticsRouteSummary[] | null>(null);
   const [ratings, setRatings] = useState<StakeholderRatingBucket[] | null>(null);
   const [filters, setFilters] = useState<LogisticsFilters>({});
@@ -146,17 +148,19 @@ export default function GlobalLogisticsPage() {
               </option>
             ))}
           </select>
-          <input
-            placeholder="Manufacture country (ISO code)"
+          <CountrySelect
             value={filters.manufactureCountryCode ?? ""}
-            onChange={(e) => update("manufactureCountryCode", e.target.value.toUpperCase())}
-            style={filterInputStyle}
+            onChange={(code) => update("manufactureCountryCode", code)}
+            options={countries}
+            ariaLabel="Manufacture country"
+            placeholder="Manufacture country…"
           />
-          <input
-            placeholder="Destination country (ISO code)"
+          <CountrySelect
             value={filters.destinationCountryCode ?? ""}
-            onChange={(e) => update("destinationCountryCode", e.target.value.toUpperCase())}
-            style={filterInputStyle}
+            onChange={(code) => update("destinationCountryCode", code)}
+            options={countries}
+            ariaLabel="Destination country"
+            placeholder="Destination country…"
           />
         </div>
 
@@ -172,7 +176,9 @@ export default function GlobalLogisticsPage() {
               <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 14, display: "flex", justifyContent: "space-between", gap: 16 }}>
                 <div>
                   <p style={{ margin: 0, fontWeight: 600, color: "var(--u-ink)" }}>
-                    {r.manufactureCountryCode ?? "—"} → {r.destinationCountryCode ?? "—"}
+                    {r.manufactureCountryCode ? countries.find((c) => c.code === r.manufactureCountryCode)?.name ?? r.manufactureCountryCode : "—"}
+                    {" → "}
+                    {r.destinationCountryCode ? countries.find((c) => c.code === r.destinationCountryCode)?.name ?? r.destinationCountryCode : "—"}
                   </p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>
                     {r.transportMode ?? "—"} · {r.incoterm ?? "—"} · {r.commodityGroup ?? "—"}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { ContactSummary, PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
+import type { ContactSummary, CountryOption, PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -397,7 +397,7 @@ export function ProjectDetailView() {
             </div>
             <div>
               <dt style={{ fontWeight: 600 }}>Delivery Country</dt>
-              <dd>{project.deliveryCountryCode ?? "—"}</dd>
+              <dd>{project.deliveryCountryCode ? countries.find((c) => c.code === project.deliveryCountryCode)?.name ?? project.deliveryCountryCode : "—"}</dd>
             </div>
             <div>
               <dt style={{ fontWeight: 600 }}>Start Date</dt>
@@ -835,7 +835,7 @@ export function ProjectDetailView() {
                   </>
                 )}
               </p>
-              {line.logisticsMetric && <LogisticsMetricBadge metric={line.logisticsMetric} />}
+              {line.logisticsMetric && <LogisticsMetricBadge metric={line.logisticsMetric} countries={countries} />}
             </div>
             {editingLineId !== line.id && (
               <Button variant="ghost" size="sm" onClick={() => setEditingLineId(line.id)}>
@@ -905,7 +905,16 @@ const fieldInputStyle = {
  * methodology. This is the org-private view (this organisation's own
  * line) — the anonymized cross-tenant dashboard lives at /logistics/global.
  */
-function LogisticsMetricBadge({ metric }: { metric: NonNullable<ProjectLineSummary["logisticsMetric"]> }) {
+function LogisticsMetricBadge({
+  metric,
+  countries,
+}: {
+  metric: NonNullable<ProjectLineSummary["logisticsMetric"]>;
+  // Standalone component — needs countries passed in rather than reading the
+  // page-level variable. Added 2026-10-09, Stage 0 point 2 (country display
+  // consistency audit): this previously rendered raw ISO codes.
+  countries: CountryOption[];
+}) {
   const color = SCORE_BAND_COLORS[metric.scoreBand] ?? "#666";
   const distance = Math.round(Number(metric.distanceKm)).toLocaleString();
   const co2 = Math.round(Number(metric.co2TotalKg)).toLocaleString();
@@ -929,7 +938,10 @@ function LogisticsMetricBadge({ metric }: { metric: NonNullable<ProjectLineSumma
         {metric.efficiencyScore}
       </span>
       <span style={{ color: "var(--u-ink-secondary)" }}>
-        {metric.manufactureCountryCode ?? "—"} → {metric.destinationCountryCode ?? "—"} · {distance} km ·{" "}
+        {metric.manufactureCountryCode ? countries.find((c) => c.code === metric.manufactureCountryCode)?.name ?? metric.manufactureCountryCode : "—"}
+        {" → "}
+        {metric.destinationCountryCode ? countries.find((c) => c.code === metric.destinationCountryCode)?.name ?? metric.destinationCountryCode : "—"}
+        {" · "}{distance} km ·{" "}
         {metric.transportMode ?? "—"} · ~{co2} kg CO2e
         {metric.weightEstimated && " (weight estimated)"}
         {metric.durationDays !== null && ` · ${metric.durationDays}d`}

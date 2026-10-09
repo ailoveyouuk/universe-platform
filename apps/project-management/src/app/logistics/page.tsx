@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { LogisticsFilters, OrgLogisticsLineSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { GaugeIcon, TextLink, StandardsReference, StatTile, ScoreLegend, SCORE_BAND_COLORS, ProjectsIcon, TrendingUpIcon, AlertIcon } from "@universe/ui";
+import { useCountries } from "../../lib/useCountries";
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -19,6 +20,7 @@ const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
  * cross-tenant view is the separate /logistics/global page.
  */
 export default function LogisticsPage() {
+  const countries = useCountries();
   const [rows, setRows] = useState<OrgLogisticsLineSummary[] | null>(null);
   const [filters, setFilters] = useState<LogisticsFilters>({});
   const [search, setSearch] = useState("");
@@ -141,7 +143,10 @@ export default function LogisticsPage() {
                       {row.projectReferenceNumber} — {row.clientProductDescription ?? row.projectTitle}
                     </p>
                     <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>
-                      {m.manufactureCountryCode ?? "—"} → {m.destinationCountryCode ?? "—"} · {Math.round(Number(m.distanceKm)).toLocaleString()} km ·{" "}
+                      {m.manufactureCountryCode ? countries.find((c) => c.code === m.manufactureCountryCode)?.name ?? m.manufactureCountryCode : "—"}
+                      {" → "}
+                      {m.destinationCountryCode ? countries.find((c) => c.code === m.destinationCountryCode)?.name ?? m.destinationCountryCode : "—"}
+                      {" · "}{Math.round(Number(m.distanceKm)).toLocaleString()} km ·{" "}
                       {m.transportMode ?? "—"} · {m.incoterm ?? "—"} · {m.commodityGroup ?? "—"}
                       {m.durationDays !== null && ` · ${m.durationDays}d`}
                     </p>

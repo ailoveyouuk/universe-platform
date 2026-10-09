@@ -225,6 +225,12 @@ export async function createOrganizationWithDefaultRoles(params: {
    * script's own bootstrap path, which has no authenticated caller — every
    * real API-driven creation (OrganizationsService.create) always has one. */
   acceptedById?: string;
+  /** ISO alpha-2 code (Country.code) — added 2026-10-09 for Stage 0 point 2
+   * (country display consistency audit): organisations had no country field
+   * wired through anywhere despite Organization.countryOfRegistrationCode
+   * existing in the schema since the Country reference table was built.
+   * Optional — the pilot has existing orgs provisioned without it. */
+  countryOfRegistrationCode?: string;
 }) {
   const type = params.type ?? "PROCUREMENT_SERVICE_AGENT";
   // PROCUREMENT_SERVICE_AGENT and TENDERING_PURCHASING_BODY both run
@@ -242,7 +248,7 @@ export async function createOrganizationWithDefaultRoles(params: {
   const org = await prisma.organization.upsert({
     where: { slug: params.slug },
     update: {},
-    create: { name: params.name, slug: params.slug, type },
+    create: { name: params.name, slug: params.slug, type, countryOfRegistrationCode: params.countryOfRegistrationCode },
   });
 
   // Both the consent row and the role loop below run inside the SAME

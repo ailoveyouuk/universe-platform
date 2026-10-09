@@ -4,6 +4,11 @@ export class CreateOrganizationDto {
   @IsString()
   name!: string;
 
+  /** ISO alpha-2 code (Country.code) — optional, added 2026-10-09. */
+  @IsOptional()
+  @IsString()
+  countryOfRegistrationCode?: string;
+
   @Matches(/^[a-z0-9-]+$/, { message: "slug must be lowercase letters, numbers, and hyphens only" })
   slug!: string;
 

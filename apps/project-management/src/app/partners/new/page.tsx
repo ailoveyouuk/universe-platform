@@ -1497,6 +1497,11 @@ function RegistryLightbox({
   onClose: () => void;
   onAdd: (match: StakeholderRegistryMatch) => void;
 }) {
+  // Standalone component (not nested in the page's main function), so this
+  // needs its own useCountries() call rather than reading the page-level
+  // `countries` variable — added 2026-10-09, Stage 0 point 2 (country
+  // display consistency audit): this previously rendered raw ISO codes.
+  const countries = useCountries();
   return (
     <div
       role="dialog"
@@ -1542,7 +1547,7 @@ function RegistryLightbox({
               {detail.countryCode && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                   <dt style={{ fontWeight: 600, width: 120 }}>Country</dt>
-                  <dd style={{ margin: 0 }}>{detail.countryCode}</dd>
+                  <dd style={{ margin: 0 }}>{countries.find((c) => c.code === detail.countryCode)?.name ?? detail.countryCode}</dd>
                 </div>
               )}
               {detail.website && (
@@ -1560,7 +1565,11 @@ function RegistryLightbox({
               {detail.countryPresence.length > 0 && (
                 <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                   <dt style={{ fontWeight: 600, width: 120 }}>Operates in</dt>
-                  <dd style={{ margin: 0 }}>{detail.countryPresence.join(", ")}</dd>
+                  <dd style={{ margin: 0 }}>
+                    {detail.countryPresence
+                      .map((code) => countries.find((c) => c.code === code)?.name ?? code)
+                      .join(", ")}
+                  </dd>
                 </div>
               )}
             </dl>

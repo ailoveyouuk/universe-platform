@@ -119,6 +119,12 @@ export interface OrganizationSummary {
   /** Added 2026-09-26 — see Organization.primaryColor's doc comment. */
   primaryColor: string | null;
   secondaryColor: string | null;
+  /** ISO alpha-2 code (Country.code), or null when not set — added
+   * 2026-10-09 for Stage 0 point 2 (country display consistency audit).
+   * Resolve against useCountries()/CountryOption for the full name, same
+   * pattern as every other country field in the app; never render the raw
+   * code. */
+  countryOfRegistrationCode: string | null;
 }
 
 /**
@@ -138,6 +144,9 @@ export interface CreateOrganizationInput {
    * PROCUREMENT_SERVICE_AGENT — see Organization.type's doc comment in
    * schema.prisma. */
   type?: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
+  /** ISO alpha-2 code (Country.code) — optional, added 2026-10-09 alongside
+   * the rest of Stage 0 point 2. */
+  countryOfRegistrationCode?: string;
   /** Must be true — see CreateOrganizationDto's doc comment (apps/api). */
   confirmedAgreementOnFile: boolean;
 }
@@ -1371,8 +1380,14 @@ export interface ProductSourceApprovalSummary {
   productCategory: string;
   manufacturerId: string;
   manufacturerName: string;
+  /** ISO alpha-2 code (Country.code), or null when the manufacturer hasn't
+   * set one — added 2026-10-09, Stage 0 point 2 (country display
+   * consistency audit). Resolve via useCountries()/CountryOption for the
+   * full name; never render the raw code. */
+  manufacturerCountryCode: string | null;
   supplierId: string | null;
   supplierName: string | null;
+  supplierCountryCode: string | null;
   status: string; // PENDING | APPROVED | REJECTED
   approvedAt: string | null;
   nextReviewDue: string | null;

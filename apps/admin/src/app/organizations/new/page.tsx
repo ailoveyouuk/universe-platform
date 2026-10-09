@@ -3,8 +3,10 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CreateOrganizationInput } from "@universe/types";
+import { CountrySelect } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
+import { useCountries } from "../../../lib/useCountries";
 
 /** Mirrors CreateOrganizationDto's slug rule (apps/api/src/organizations/dto/create-organization.dto.ts)
  * so a bad slug is caught client-side before the round trip, not just server-side. */
@@ -30,6 +32,7 @@ function slugify(name: string): string {
 export default function NewOrganizationPage() {
   const router = useRouter();
   const me = useCurrentUser();
+  const countries = useCountries();
   const [form, setForm] = useState<CreateOrganizationInput>({
     name: "",
     slug: "",
@@ -220,6 +223,18 @@ export default function NewOrganizationPage() {
             Lowercase letters, numbers, and hyphens only. Auto-filled from the name — edit it
             directly if you need something different.
           </span>
+        </label>
+
+        <label>
+          Country of Registration
+          <div style={{ marginTop: 4 }}>
+            <CountrySelect
+              value={form.countryOfRegistrationCode ?? ""}
+              onChange={(code) => setForm((prev) => ({ ...prev, countryOfRegistrationCode: code || undefined }))}
+              options={countries}
+              ariaLabel="Country of registration"
+            />
+          </div>
         </label>
 
         <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--u-ink)" }}>

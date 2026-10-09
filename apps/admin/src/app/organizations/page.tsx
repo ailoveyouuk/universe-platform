@@ -6,6 +6,7 @@ import type { OrganizationSummary } from "@universe/types";
 import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
+import { useCountries } from "../../lib/useCountries";
 
 const STATUS_COLORS: Record<string, string> = {
   PILOT: "var(--u-status-warning)",
@@ -28,6 +29,7 @@ const STATUS_COLORS: Record<string, string> = {
  */
 export default function OrganizationsPage() {
   const me = useCurrentUser();
+  const countries = useCountries();
   const [organizations, setOrganizations] = useState<OrganizationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +86,7 @@ export default function OrganizationsPage() {
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Slug</th>
               <th style={{ padding: 8 }}>Type</th>
+              <th style={{ padding: 8 }}>Country</th>
               <th style={{ padding: 8 }}>Status</th>
             </tr>
           </thead>
@@ -93,6 +96,11 @@ export default function OrganizationsPage() {
                 <td style={{ padding: 8 }}>{o.name}</td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.slug}</td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.type === "SUPPLIER" ? "Supplier/Manufacturer" : "Buyer"}</td>
+                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
+                  {o.countryOfRegistrationCode
+                    ? countries.find((c) => c.code === o.countryOfRegistrationCode)?.name ?? o.countryOfRegistrationCode
+                    : "—"}
+                </td>
                 <td style={{ padding: 8 }}>
                   <span
                     style={{
@@ -111,7 +119,7 @@ export default function OrganizationsPage() {
             ))}
             {organizations.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
+                <td colSpan={5} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   No organisations yet.
                 </td>
               </tr>

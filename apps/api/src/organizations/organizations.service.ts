@@ -33,6 +33,7 @@ export class OrganizationsService {
       logoUrl: org.logoUrl,
       primaryColor: org.primaryColor,
       secondaryColor: org.secondaryColor,
+      countryOfRegistrationCode: org.countryOfRegistrationCode,
     };
   }
 
@@ -56,6 +57,7 @@ export class OrganizationsService {
       logoUrl: o.logoUrl,
       primaryColor: o.primaryColor,
       secondaryColor: o.secondaryColor,
+      countryOfRegistrationCode: o.countryOfRegistrationCode,
     }));
   }
 
