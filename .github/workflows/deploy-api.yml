@@ -31,6 +31,17 @@ name: Deploy API
 #
 # Not runnable yet — no Azure subscription, no registry, nothing to push
 # to. Written and ready for the moment there is.
+#
+# Path filter gap found and fixed 2026-10-09: packages/insights-db wasn't
+# in the paths list below even though apps/api depends on it (logistics-
+# insights and product-sourcing-insights both import from it) — a
+# commit that only touched packages/insights-db (e.g. the getAggregated-
+# LogisticsRoutes 500 fix) triggered CI but never rebuilt/redeployed the
+# API container, so the fix silently never reached production. Confirmed
+# live via GitHub Actions: commit a935319 (insights-db only) shows only a
+# CI run, no Deploy API run, while every commit that also touched
+# apps/api in the same push did get a Deploy API run. Added
+# packages/insights-db/** to the paths list so this can't happen again.
 on:
   workflow_dispatch:
   push:
@@ -38,6 +49,7 @@ on:
     paths:
       - 'apps/api/**'
       - 'packages/db/**'
+      - 'packages/insights-db/**'
       - 'packages/types/**'
       - 'packages/auth/**'
       - '.github/workflows/deploy-api.yml'
