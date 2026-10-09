@@ -120,7 +120,7 @@ export default function ImportPage() {
           ariaLabel="Source standard"
         />
         {selected?.blocked && (
-          <p style={{ color: "var(--u-status-warning, #B45309)", fontSize: 12.5, margin: "4px 0 0" }}>⚠ {selected.blocked}</p>
+          <p style={{ color: "var(--u-status-warning)", fontSize: 12.5, margin: "4px 0 0" }}>⚠ {selected.blocked}</p>
         )}
       </div>
 

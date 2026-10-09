@@ -86,7 +86,7 @@ export default function NewOrganizationPage() {
     return (
       <main style={{ padding: 32, maxWidth: 560 }}>
         <h1>Create Organisation</h1>
-        <p style={{ color: "#B91C1C" }}>
+        <p style={{ color: "var(--u-status-critical)" }}>
           Onboarding a new organisation is platform-staff only during the pilot — your account
           doesn&apos;t have that role. This would also be rejected server-side if submitted.
         </p>
@@ -97,13 +97,13 @@ export default function NewOrganizationPage() {
   return (
     <main style={{ padding: 32, maxWidth: 560 }}>
       <h1>Create Organisation</h1>
-      <p style={{ color: "#6B7280", fontSize: 13 }}>
+      <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>
         Provisions a new tenant. There is no default/&quot;house&quot; organisation on Universe —
         every tenant, including the very first pilot, is created this same way.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
-        <fieldset style={{ border: "1px solid #D1D5DB", borderRadius: 6, padding: 12 }}>
+        <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: 6, padding: 12 }}>
           <legend style={{ fontSize: 13, fontWeight: 600, padding: "0 4px" }}>Organisation Type</legend>
           {/* Expanded 2026-09-26 from the original Buyer/Supplier pair — see
               claude/stakeholder-taxonomy-research.md in the Claude project.
@@ -216,13 +216,13 @@ export default function NewOrganizationPage() {
             onChange={(e) => updateSlug(e.target.value)}
             placeholder="e.g. acme-health-logistics"
           />
-          <span style={{ fontSize: 12, color: form.slug && !slugValid ? "#B91C1C" : "#9CA3AF" }}>
+          <span style={{ fontSize: 12, color: form.slug && !slugValid ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
             Lowercase letters, numbers, and hyphens only. Auto-filled from the name — edit it
             directly if you need something different.
           </span>
         </label>
 
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#374151" }}>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--u-ink)" }}>
           <input
             type="checkbox"
             checked={form.confirmedAgreementOnFile}
@@ -250,7 +250,7 @@ export default function NewOrganizationPage() {
           </span>
         </label>
 
-        {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
 
         <button
           type="submit"
@@ -269,6 +269,6 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 8,
   marginTop: 4,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 6,
 };

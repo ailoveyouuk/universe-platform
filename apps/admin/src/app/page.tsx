@@ -4,7 +4,7 @@ export default function AdminHomePage() {
   return (
     <main style={{ padding: 32 }}>
       <h1>Universe Admin</h1>
-      <p style={{ color: "#6B7280", maxWidth: 560 }}>
+      <p style={{ color: "var(--u-ink-secondary)", maxWidth: 560 }}>
         Onboard organisations and invite users. Inviting someone here does not create their
         Microsoft account — it puts them on the allowed list with an organisation and role
         already assigned, so the first time they sign in via Microsoft SSO on any Universe app,

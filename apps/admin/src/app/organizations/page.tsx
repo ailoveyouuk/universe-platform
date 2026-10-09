@@ -3,15 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { OrganizationSummary } from "@universe/types";
-import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon } from "@universe/ui";
+import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
-import { AdminStatTile } from "../../components/AdminStatTile";
 
 const STATUS_COLORS: Record<string, string> = {
-  PILOT: "#B45309",
-  ACTIVE: "#059669",
-  SUSPENDED: "#6B7280",
+  PILOT: "var(--u-status-warning)",
+  ACTIVE: "var(--u-status-good)",
+  SUSPENDED: "var(--u-ink-secondary)",
 };
 
 /**
@@ -41,11 +40,8 @@ export default function OrganizationsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load organisations"));
   }, []);
 
-  // Section mini-dashboard — same icon/tone treatment as Project
-  // Management's StatTile (packages/ui/src/StatTile.tsx), hand-matched in
-  // plain hex here rather than importing the design-system token sheet,
-  // since this app doesn't otherwise opt into it and that's a bigger
-  // change than a stat strip warrants (see @universe/ui's tokens.css).
+  // Section mini-dashboard — shared StatTile/StatTileGrid from
+  // @universe/ui, same component Project Management uses.
   const counts = useMemo(() => {
     const list = organizations ?? [];
     return {
@@ -63,28 +59,28 @@ export default function OrganizationsPage() {
         {isPlatformStaff && <Link href="/organizations/new">+ Create Organisation</Link>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, margin: "20px 0" }}>
-        <AdminStatTile label="Total organisations" value={organizations ? counts.total : undefined} icon={<BuildingIcon size={18} />} tone="brand" />
-        <AdminStatTile label="Active" value={organizations ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
-        <AdminStatTile label="Pilot" value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
-        <AdminStatTile label="Suspended" value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
-      </div>
+      <StatTileGrid style={{ margin: "20px 0" }}>
+        <StatTile label="Total organisations" value={organizations ? counts.total : undefined} icon={<BuildingIcon size={18} />} tone="brand" />
+        <StatTile label="Active" value={organizations ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
+        <StatTile label="Pilot" value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
+        <StatTile label="Suspended" value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
+      </StatTileGrid>
 
       {!isPlatformStaff && (
-        <p style={{ color: "#6B7280", fontSize: 13, maxWidth: 560 }}>
+        <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, maxWidth: 560 }}>
           Onboarding a new organisation is platform-staff only during the pilot — there's no
           self-service path. You can still see and manage users within your own organisation from
           the Users page.
         </p>
       )}
 
-      {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
       {!organizations && !error && <p>Loading…</p>}
 
       {organizations && (
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
           <thead>
-            <tr style={{ textAlign: "left", borderBottom: "2px solid #E5E7EB" }}>
+            <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Slug</th>
               <th style={{ padding: 8 }}>Type</th>
@@ -93,15 +89,15 @@ export default function OrganizationsPage() {
           </thead>
           <tbody>
             {organizations.map((o) => (
-              <tr key={o.id} style={{ borderBottom: "1px solid #F3F4F6" }}>
+              <tr key={o.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
                 <td style={{ padding: 8 }}>{o.name}</td>
-                <td style={{ padding: 8, color: "#6B7280" }}>{o.slug}</td>
-                <td style={{ padding: 8, color: "#6B7280" }}>{o.type === "SUPPLIER" ? "Supplier/Manufacturer" : "Buyer"}</td>
+                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.slug}</td>
+                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.type === "SUPPLIER" ? "Supplier/Manufacturer" : "Buyer"}</td>
                 <td style={{ padding: 8 }}>
                   <span
                     style={{
                       color: "#fff",
-                      background: STATUS_COLORS[o.status] ?? "#6B7280",
+                      background: STATUS_COLORS[o.status] ?? "var(--u-ink-secondary)",
                       borderRadius: 999,
                       padding: "2px 10px",
                       fontSize: 12,
@@ -115,7 +111,7 @@ export default function OrganizationsPage() {
             ))}
             {organizations.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ padding: 8, color: "#6B7280" }}>
+                <td colSpan={4} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   No organisations yet.
                 </td>
               </tr>

@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RoleSummary, UserSummary } from "@universe/types";
-import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon } from "@universe/ui";
+import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
-import { AdminStatTile } from "../../components/AdminStatTile";
 
 const STATUS_COLORS: Record<string, string> = {
-  INVITED: "#B45309",
-  ACTIVE: "#059669",
-  DEACTIVATED: "#6B7280",
+  INVITED: "var(--u-status-warning)",
+  ACTIVE: "var(--u-status-good)",
+  DEACTIVATED: "var(--u-ink-secondary)",
 };
 
 export default function UsersPage() {
@@ -25,9 +24,8 @@ export default function UsersPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"));
   }, []);
 
-  // Section mini-dashboard — same treatment as organizations/page.tsx; see
-  // AdminStatTile's doc comment for why this app hardcodes the livery
-  // rather than importing @universe/ui's CSS tokens.
+  // Section mini-dashboard — shared StatTile/StatTileGrid from
+  // @universe/ui, same treatment as organizations/page.tsx.
   const counts = useMemo(() => {
     const list = users ?? [];
     return {
@@ -55,20 +53,20 @@ export default function UsersPage() {
         <Link href="/users/invite">+ Invite a User</Link>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, margin: "20px 0" }}>
-        <AdminStatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" />
-        <AdminStatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
-        <AdminStatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" />
-        <AdminStatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" />
-      </div>
+      <StatTileGrid style={{ margin: "20px 0" }}>
+        <StatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" />
+        <StatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
+        <StatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" />
+        <StatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" />
+      </StatTileGrid>
 
-      {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
       {!users && !error && <p>Loading…</p>}
 
       {users && (
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
           <thead>
-            <tr style={{ textAlign: "left", borderBottom: "2px solid #E5E7EB" }}>
+            <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Email</th>
               <th style={{ padding: 8 }}>Organisation</th>
@@ -82,7 +80,7 @@ export default function UsersPage() {
           <tbody>
             {users.map((u) => (
               <>
-                <tr key={u.id} style={{ borderBottom: "1px solid #F3F4F6" }}>
+                <tr key={u.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
                   <td style={{ padding: 8 }}>
                     {u.forename} {u.surname}
                   </td>
@@ -93,7 +91,7 @@ export default function UsersPage() {
                     <span
                       style={{
                         color: "#fff",
-                        background: STATUS_COLORS[u.status] ?? "#6B7280",
+                        background: STATUS_COLORS[u.status] ?? "var(--u-ink-secondary)",
                         borderRadius: 999,
                         padding: "2px 10px",
                         fontSize: 12,
@@ -115,14 +113,14 @@ export default function UsersPage() {
                       {editingUserId === u.id ? "Close" : "Edit roles"}
                     </button>
                     {u.status !== "DEACTIVATED" && (
-                      <button onClick={() => handleDeactivate(u.id)} style={{ color: "#B91C1C" }}>
+                      <button onClick={() => handleDeactivate(u.id)} style={{ color: "var(--u-status-critical)" }}>
                         Deactivate
                       </button>
                     )}
                   </td>
                 </tr>
                 {editingUserId === u.id && (
-                  <tr key={`${u.id}-edit`} style={{ borderBottom: "1px solid #F3F4F6" }}>
+                  <tr key={`${u.id}-edit`} style={{ borderBottom: "1px solid var(--u-border)" }}>
                     <td colSpan={8} style={{ padding: "4px 8px 16px" }}>
                       <RoleEditor
                         user={u}
@@ -193,10 +191,10 @@ function RoleEditor({
   return (
     <div
       style={{
-        border: "1px solid #E5E7EB",
+        border: "1px solid var(--u-border)",
         borderRadius: 8,
         padding: 16,
-        background: "#FAFAFA",
+        background: "var(--u-surface-alt)",
         maxWidth: 480,
       }}
     >
@@ -204,7 +202,7 @@ function RoleEditor({
         Roles for {user.forename} {user.surname}
       </div>
       {!roles && !error && <p style={{ fontSize: 13 }}>Loading roles…</p>}
-      {error && <p style={{ color: "#B91C1C", fontSize: 13 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{error}</p>}
       {roles && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
           {roles.map((r) => (

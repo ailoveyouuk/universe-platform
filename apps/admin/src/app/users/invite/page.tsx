@@ -76,7 +76,7 @@ export default function InviteUserPage() {
   return (
     <main style={{ padding: 32, maxWidth: 560 }}>
       <h1>Invite a User</h1>
-      <p style={{ color: "#6B7280", fontSize: 13 }}>
+      <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>
         This adds them to the allowed list with an organisation and role. They gain access the
         first time they sign in via Microsoft on any Universe app with this exact email address —
         nothing happens on their side until then.
@@ -135,15 +135,15 @@ export default function InviteUserPage() {
           ) : (
             <input
               disabled
-              style={{ ...inputStyle, background: "#F3F4F6" }}
+              style={{ ...inputStyle, background: "var(--u-surface-alt)" }}
               value={organizations.find((o) => o.id === form.organizationId)?.name ?? "Your organisation"}
             />
           )}
         </label>
 
-        <fieldset style={{ border: "1px solid #E5E7EB", borderRadius: 8, padding: 16 }}>
+        <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 16 }}>
           <legend style={{ fontWeight: 600 }}>Role(s)</legend>
-          {roles.length === 0 && <p style={{ color: "#6B7280", fontSize: 13 }}>Select an organisation first.</p>}
+          {roles.length === 0 && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>Select an organisation first.</p>}
           {roles.map((r) => (
             <label key={r.id} style={{ display: "block", marginBottom: 4 }}>
               <input
@@ -151,12 +151,12 @@ export default function InviteUserPage() {
                 checked={form.roleIds?.includes(r.id) ?? false}
                 onChange={() => toggleRole(r.id)}
               />{" "}
-              {r.name} <span style={{ color: "#9CA3AF", fontSize: 12 }}>({r.appScope})</span>
+              {r.name} <span style={{ color: "var(--u-ink-secondary)", fontSize: 12 }}>({r.appScope})</span>
             </label>
           ))}
         </fieldset>
 
-        {error && <p style={{ color: "#B91C1C" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
 
         <button
           type="submit"
@@ -175,6 +175,6 @@ const inputStyle: CSSProperties = {
   width: "100%",
   padding: 8,
   marginTop: 4,
-  border: "1px solid #D1D5DB",
+  border: "1px solid var(--u-border)",
   borderRadius: 6,
 };
