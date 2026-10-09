@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ControlledDocumentSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { Button, Pill, Select, DocumentIcon, PlusIcon, ChevronLeftIcon } from "@universe/ui";
+import { useCurrentUser } from "../../../lib/AuthContext";
 
 const CATEGORIES = ["QUALITY_MANUAL", "SOP", "POLICY", "WORK_INSTRUCTION", "OTHER"] as const;
 const CATEGORY_LABELS: Record<string, string> = {
@@ -43,6 +44,8 @@ export default function ControlledDocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [supersedeTarget, setSupersedeTarget] = useState<ControlledDocumentSummary | null>(null);
+  const [editTarget, setEditTarget] = useState<ControlledDocumentSummary | null>(null);
+  const currentUser = useCurrentUser();
 
   function reload() {
     apiClient
@@ -113,6 +116,18 @@ export default function ControlledDocumentsPage() {
         />
       )}
 
+      {editTarget && (
+        <EditDocumentForm
+          doc={editTarget}
+          currentUserId={currentUser?.id ?? null}
+          onSaved={() => {
+            setEditTarget(null);
+            reload();
+          }}
+          onCancel={() => setEditTarget(null)}
+        />
+      )}
+
       {error && <div style={{ color: "var(--u-status-critical)", fontSize: 13, marginTop: 12 }}>{error}</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
@@ -142,6 +157,16 @@ export default function ControlledDocumentsPage() {
                   <Button
                     variant="secondary"
                     onClick={() => {
+                      setShowForm(false);
+                      setEditTarget(current);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditTarget(null);
                       setSupersedeTarget(current);
                       setShowForm(true);
                     }}
@@ -241,6 +266,113 @@ function DocumentForm({
       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)", display: "block", marginTop: 10, maxWidth: 240 }}>
         Effective date
         <input type="date" style={inputStyle} value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+      </label>
+      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+        <Button variant="primary" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wiring-gap audit fix #2 (claude/backend-frontend-wiring-audit.md) —
+ * PATCH /controlled-documents/:id existed server-side (and in
+ * api-client, UpdateControlledDocumentInput) with no edit UI anywhere;
+ * the register could only ever be created into, never corrected or
+ * approved. Scoped to the fields the backend actually accepts (see
+ * UpdateControlledDocumentInput) minus `documentId` — attaching/changing
+ * the linked file is a separate file-upload-flow concern (see
+ * ControlledDocument.documentId's doc comment in schema.prisma, it
+ * points at ProjectDocument) and out of scope for closing this one
+ * wiring gap.
+ *
+ * Approval is folded into this same form rather than a separate button,
+ * since ControlledDocumentsService.update() already derives approvedAt
+ * from whether approvedById is set/cleared server-side (see its own
+ * update() method) — the frontend only ever needs to send the current
+ * user's id to approve, or null to withdraw approval, never a date.
+ */
+function EditDocumentForm({
+  doc,
+  currentUserId,
+  onSaved,
+  onCancel,
+}: {
+  doc: ControlledDocumentSummary;
+  currentUserId: string | null;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState(doc.title);
+  const [effectiveDate, setEffectiveDate] = useState(doc.effectiveDate ? doc.effectiveDate.slice(0, 10) : "");
+  const [approved, setApproved] = useState(Boolean(doc.approvedById));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
+    if (approved && !doc.approvedById && !currentUserId) {
+      setError("Could not determine the signed-in user to approve as — try reloading the page.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await apiClient.updateControlledDocument(doc.id, {
+        title: title.trim(),
+        effectiveDate: effectiveDate || null,
+        // An already-approved doc left checked keeps its original approver
+        // (doc.approvedById) rather than being silently reassigned to
+        // whoever happens to click Save; a newly-checked doc is approved
+        // as the signed-in user; unchecking always clears it to null.
+        approvedById: approved ? doc.approvedById ?? currentUserId : null,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save this document");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        padding: 16,
+        borderRadius: "var(--u-radius-md)",
+        border: "1px solid var(--u-border)",
+        backgroundColor: "var(--u-surface-raised)",
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginBottom: 10 }}>
+        Editing &ldquo;{doc.title}&rdquo; v{doc.version}.
+      </div>
+      <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 12 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+          Title
+          <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+          Effective date
+          <input type="date" style={inputStyle} value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+        </label>
+      </div>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, fontSize: 13, color: "var(--u-ink)" }}>
+        <input type="checkbox" checked={approved} onChange={(e) => setApproved(e.target.checked)} />
+        Approved
+        {doc.approvedByName && doc.approvedById ? (
+          <span style={{ color: "var(--u-ink-secondary)" }}>(currently approved by {doc.approvedByName})</span>
+        ) : null}
       </label>
       {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
