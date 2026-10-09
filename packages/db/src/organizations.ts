@@ -67,7 +67,14 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     ],
   },
   {
-    name: "Project Manager",
+    // Renamed from "Project Manager" 2026-10-09 (Lewis's admin-role
+    // review — see claude/app-completeness-audit.md) — same permission
+    // set, a name that actually matches what this role is for: creating
+    // and running projects/tenders day-to-day. Existing organizations
+    // get this rename applied by backfill-procurement-finance-roles.ts
+    // rather than ending up with two differently-named roles with
+    // identical permissions.
+    name: "Procurement",
     appScope: "project-management",
     permissionKeys: [
       "projects.view",
@@ -91,6 +98,19 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     name: "Responsible Person",
     appScope: "project-management",
     permissionKeys: QA_PERMISSION_KEYS,
+  },
+  {
+    // New 2026-10-09, same request as the Procurement rename above —
+    // financial visibility/editing (margins, pricing, payment status)
+    // without full project-edit rights. Deliberately includes
+    // projects.view (not just the financials.* keys) so a Finance user
+    // can navigate to a project to see where a figure belongs, but gets
+    // neither projects.create/edit/delete nor any QA permission — a
+    // narrow, additive bundle, same pattern as the QA/Responsible
+    // Person roles above.
+    name: "Finance",
+    appScope: "project-management",
+    permissionKeys: ["projects.view", "projects.financials.view", "projects.financials.edit"],
   },
 ];
 

@@ -5,9 +5,66 @@ import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { assertHasPermission } from "../common/authorization";
 import type { CreateProjectDto } from "./dto/create-project.dto";
 import type { UpdateProjectDto } from "./dto/update-project.dto";
 import type { ProjectLineDto } from "./dto/project-line.dto";
+
+/**
+ * Real server-side enforcement for the projects.* / financials.* permissions
+ * that DEFAULT_ROLE_TEMPLATE has assigned to roles since the role model
+ * was introduced, but which nothing actually checked until 2026-10-09
+ * (Lewis's admin-role review — see claude/app-completeness-audit.md).
+ * Mirrors the existing QA/procurement segregation-of-duties pattern
+ * (assertHasPermission, authorization.ts) rather than inventing a new
+ * mechanism: a Finance-role user can edit pricing/margins without full
+ * project-edit rights, and a Procurement-role user without
+ * projects.financials.edit can still run a project day-to-day but can't
+ * touch a price. Checked per-field (only against the fields actually
+ * present on the incoming DTO — `!== undefined`, same convention
+ * diffForAudit/the service's own `data` object already use for a
+ * PATCH-style payload) so a request touching only non-financial fields
+ * never needs the financial permission, and vice versa.
+ */
+const PROJECT_FINANCIAL_FIELDS = [
+  "freightCost",
+  "freightCurrency",
+  "insuredValue",
+  "insuredCurrency",
+  "freightInsuranceCost",
+  "freightAdditionalCost",
+  "freightMarginPercent",
+] as const;
+
+const PROJECT_LINE_FINANCIAL_FIELDS = [
+  "supplierUnitPrice",
+  "supplierPaymentAmountTotal",
+  "supplierPaymentCurrency",
+  "supplierPaymentDate",
+  "supplierAmountPaid",
+  "supplierPaymentStatus",
+  "unitSalesPrice",
+  "clientPaymentAmount",
+  "clientPaymentCurrency",
+  "clientPaymentDate",
+  "internalInvoiceNumber",
+  "internalInvoiceDate",
+  "grossMargin",
+  "margin",
+  "productMarginPercent",
+] as const;
+
+function assertFieldLevelPermission(
+  user: RequestUser,
+  dto: Record<string, unknown>,
+  financialFields: readonly string[],
+): void {
+  const keys = Object.keys(dto).filter((k) => dto[k] !== undefined);
+  const touchesFinancial = keys.some((k) => financialFields.includes(k));
+  const touchesOther = keys.some((k) => !financialFields.includes(k));
+  if (touchesOther) assertHasPermission(user, "projects.edit");
+  if (touchesFinancial) assertHasPermission(user, "projects.financials.edit");
+}
 
 function daysRemaining(dueDate: Date | null): number | null {
   if (!dueDate) return null;
@@ -510,6 +567,7 @@ export class ProjectsService {
   }
 
   async create(user: RequestUser, dto: CreateProjectDto): Promise<ProjectSummary> {
+    assertHasPermission(user, "projects.create");
     const p = await withTenantContext(user.organizationId, async (tx) => {
       // If a clientId is supplied, verify it belongs to the caller's own
       // organization before attaching it — otherwise a crafted request could
@@ -573,6 +631,7 @@ export class ProjectsService {
   /** Header-only update — see UpdateProjectDto. Line data goes through
    * addLine/updateLine below. */
   async update(user: RequestUser, id: string, dto: UpdateProjectDto): Promise<ProjectDetail> {
+    assertFieldLevelPermission(user, dto as unknown as Record<string, unknown>, PROJECT_FINANCIAL_FIELDS);
     const p = await withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.project.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) return null;
@@ -704,6 +763,7 @@ export class ProjectsService {
    * never throws).
    */
   async archive(user: RequestUser, id: string): Promise<ProjectDetail> {
+    assertHasPermission(user, "projects.delete");
     await withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.project.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Project ${id} not found`);
@@ -733,6 +793,7 @@ export class ProjectsService {
   /** Reverses archive() above — restores the project to the default list
    * view. Idempotent, same reasoning as archive(). */
   async unarchive(user: RequestUser, id: string): Promise<ProjectDetail> {
+    assertHasPermission(user, "projects.delete");
     await withTenantContext(user.organizationId, async (tx) => {
       const existing = await tx.project.findFirst({ where: { id, ...tenantScope(user.organizationId) } });
       if (!existing) throw new NotFoundException(`Project ${id} not found`);
@@ -1054,6 +1115,7 @@ export class ProjectsService {
   }
 
   async addLine(user: RequestUser, projectId: string, dto: ProjectLineDto): Promise<ProjectDetail> {
+    assertFieldLevelPermission(user, dto as unknown as Record<string, unknown>, PROJECT_LINE_FINANCIAL_FIELDS);
     await withTenantContext(user.organizationId, async (tx) => {
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
       if (!project) throw new NotFoundException(`Project ${projectId} not found`);
@@ -1083,6 +1145,7 @@ export class ProjectsService {
   }
 
   async updateLine(user: RequestUser, projectId: string, lineId: string, dto: ProjectLineDto): Promise<ProjectDetail> {
+    assertFieldLevelPermission(user, dto as unknown as Record<string, unknown>, PROJECT_LINE_FINANCIAL_FIELDS);
     await withTenantContext(user.organizationId, async (tx) => {
       const line = await tx.projectLine.findFirst({
         where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
