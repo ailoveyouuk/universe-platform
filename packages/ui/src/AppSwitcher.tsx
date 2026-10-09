@@ -25,7 +25,14 @@ export interface UniverseAppEntry {
   key: string;
   label: string;
   accent: string;
-  status: "current" | "available" | "comingSoon";
+  /** Whether this app exists/is reachable at all -- NOT whether it's the
+   * one currently being viewed. "current" used to be a third status value
+   * baked in here (always on project-management), which meant every app's
+   * switcher wrongly showed Project Management as "CURRENT" even when you
+   * were standing in Product Database or Admin -- fixed 2026-10-09 by
+   * computing "current" from the `currentApp` prop AppSwitcher now takes,
+   * instead of baking a single app's identity into shared, static data. */
+  status: "available" | "comingSoon";
   href?: string;
   envVar: string;
 }
@@ -49,7 +56,14 @@ function appUrl(envVar: string, fallback?: string): string | undefined {
 // tags, a different concern — see universe-brand-identity.md). One
 // source of truth per app's identity colour, defined once in tokens.css.
 export const UNIVERSE_APPS: UniverseAppEntry[] = [
-  { key: "project-management", label: "Project Management", accent: "var(--u-module-project-management)", status: "current", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
+  // Live and deployed (unlike CRM/Tender Issuance below), but its real
+  // URL isn't wired to NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT yet -- CI
+  // currently only sets PROJECT_MANAGEMENT_URL for the MSAL auth redirect
+  // (see deploy-static-web-apps.yml), a different variable for a
+  // different purpose. Until that's added, this renders as locked when
+  // viewed from another app -- honest about what's actually wired, not a
+  // guessed-at fallback URL.
+  { key: "project-management", label: "Project Management", accent: "var(--u-module-project-management)", status: "available", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
   { key: "crm", label: "CRM", accent: "var(--u-module-crm)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
   {
     key: "product-database",
@@ -100,7 +114,19 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
  * since there's no room for a floating panel — same list markup either
  * way, just not hidden behind a click.
  */
-export function AppSwitcher({ collapsed, inlineOnMobile = true }: { collapsed: boolean; inlineOnMobile?: boolean }) {
+export function AppSwitcher({
+  collapsed,
+  inlineOnMobile = true,
+  currentApp,
+}: {
+  collapsed: boolean;
+  inlineOnMobile?: boolean;
+  /** UNIVERSE_APPS[].key of the app rendering this switcher -- e.g.
+   * "product-database". Drives which row shows the "CURRENT" badge and is
+   * rendered as a non-link, instead of that always being
+   * project-management regardless of which app you're actually in. */
+  currentApp: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -122,7 +148,7 @@ export function AppSwitcher({ collapsed, inlineOnMobile = true }: { collapsed: b
   const panel = (
     <div style={{ padding: 6, display: "flex", flexDirection: "column", gap: 1 }}>
       {UNIVERSE_APPS.map((app) => (
-        <AppRow key={app.key} app={app} />
+        <AppRow key={app.key} app={app} isCurrent={app.key === currentApp} />
       ))}
     </div>
   );
@@ -156,7 +182,7 @@ export function AppSwitcher({ collapsed, inlineOnMobile = true }: { collapsed: b
         {!collapsed && (
           <span style={{ display: "flex", gap: 3 }}>
             {UNIVERSE_APPS.slice(0, 4).map((a) => (
-              <span key={a.key} style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: a.accent, opacity: a.status === "current" ? 1 : 0.55 }} />
+              <span key={a.key} style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: a.accent, opacity: a.key === currentApp ? 1 : 0.55 }} />
             ))}
           </span>
         )}
@@ -205,8 +231,10 @@ export function AppSwitcher({ collapsed, inlineOnMobile = true }: { collapsed: b
   );
 }
 
-function AppRow({ app }: { app: UniverseAppEntry }) {
-  const disabled = app.status !== "available";
+function AppRow({ app, isCurrent }: { app: UniverseAppEntry; isCurrent: boolean }) {
+  // The app you're standing in is never a link and never "locked" --
+  // those only apply when sizing up where you could navigate TO.
+  const locked = !isCurrent && app.status !== "available";
   const content = (
     <div
       style={{
@@ -216,30 +244,30 @@ function AppRow({ app }: { app: UniverseAppEntry }) {
         gap: 8,
         padding: "8px 10px",
         borderRadius: "var(--u-radius-sm)",
-        cursor: disabled ? "default" : "pointer",
-        opacity: app.status === "comingSoon" ? 0.6 : 1,
+        cursor: isCurrent || locked ? "default" : "pointer",
+        opacity: locked ? 0.6 : 1,
       }}
     >
       <span style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: app.accent, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: app.status === "current" ? 700 : 500, color: "var(--u-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <span style={{ fontSize: 13, fontWeight: isCurrent ? 700 : 500, color: "var(--u-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {app.label}
         </span>
       </span>
-      {app.status === "current" && (
+      {isCurrent && (
         <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--u-brand-violet)", letterSpacing: 0.3 }}>CURRENT</span>
       )}
-      {app.status === "comingSoon" && <LockIcon size={13} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
-      {app.status === "available" && <ChevronRightIcon size={14} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
+      {!isCurrent && locked && <LockIcon size={13} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
+      {!isCurrent && !locked && <ChevronRightIcon size={14} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
     </div>
   );
 
-  if (app.status === "available" && app.href) {
+  if (!isCurrent && app.status === "available" && app.href) {
     return (
       <a href={app.href} style={{ textDecoration: "none", display: "block" }}>
         {content}
       </a>
     );
   }
-  return <div title={app.status === "comingSoon" ? "Coming soon" : undefined}>{content}</div>;
+  return <div title={!isCurrent && locked ? "Coming soon" : undefined}>{content}</div>;
 }

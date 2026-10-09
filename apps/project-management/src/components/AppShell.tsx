@@ -181,6 +181,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             items={navItems}
             collapsed={collapsed}
             onToggleCollapsed={() => setCollapsed((c) => !c)}
+            currentApp="project-management"
             mobileOpen={mobileOpen}
             onCloseMobile={() => setMobileOpen(false)}
             LinkComponent={Link}

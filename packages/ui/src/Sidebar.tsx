@@ -38,6 +38,7 @@ export function Sidebar({
   orgName,
   orgLogoUrl,
   footer,
+  currentApp,
 }: {
   items: NavItem[];
   collapsed: boolean;
@@ -48,6 +49,12 @@ export function Sidebar({
   orgName: string;
   orgLogoUrl: string | null;
   footer?: ReactNode;
+  /** UNIVERSE_APPS[].key of the app this Sidebar belongs to (e.g.
+   * "product-database") -- passed straight through to AppSwitcher so it
+   * can show the right app as "CURRENT". Required: every app wiring up
+   * this shared Sidebar must say which one it is, same as it already
+   * supplies its own `items`/`orgName`. */
+  currentApp: string;
 }) {
   const Link = LinkComponent;
   const theme = useOrgTheme();
@@ -165,7 +172,7 @@ export function Sidebar({
         </button>
 
         <div style={{ padding: collapsed ? "0 10px" : "0 12px", marginBottom: 10 }}>
-          <AppSwitcher collapsed={collapsed} />
+          <AppSwitcher collapsed={collapsed} currentApp={currentApp} />
         </div>
 
         <div
