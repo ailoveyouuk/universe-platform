@@ -1,11 +1,30 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingBucket } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { GaugeIcon, StandardsReference, ScoreLegend, CountrySelect } from "@universe/ui";
+import {
+  GaugeIcon,
+  StandardsReference,
+  ScoreLegend,
+  CountrySelect,
+  WorldMap,
+  type WorldMapPoint,
+  type WorldMapArc,
+  type WorldMapLegendEntry,
+} from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
+
+/** How many of the top manufacture->destination country pairs (by total
+ * shipment count across every route combination matching the current
+ * filters) get drawn as arcs on the map below — product-database-and-
+ * map-roadmap.md Stage 3a's "top-10 transit routes" ask. Computed
+ * client-side from the same `routes` response the list below already
+ * renders (grouped route combinations, not raw shipments -- small enough
+ * that a dedicated truncated backend query isn't needed), rather than
+ * adding a LIMIT to getAggregatedLogisticsRoutes' raw SQL. */
+const TOP_ROUTE_COUNT = 10;
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
@@ -61,6 +80,79 @@ export default function GlobalLogisticsPage() {
     setFilters((f) => ({ ...f, [key]: value || undefined }));
   }
 
+  // World map data — product-database-and-map-roadmap.md Stage 3a, added
+  // 2026-10-09. Derived entirely from `routes` (the same filtered
+  // response the route list below already renders), not a second fetch:
+  // manufacture-country pulses (violet) and delivery-country pulses
+  // (magenta) are each country's shipmentCount summed across every route
+  // combination landing there, and the arcs are the TOP_ROUTE_COUNT
+  // manufacture->destination country PAIRS by that same summed count
+  // (coarser than `routes`' own manufacture/destination/mode/incoterm/
+  // commodity grouping, which is too fine-grained for "top routes"). A
+  // country with no seeded centroid (Country.latitude/longitude still
+  // null — see schema.prisma) is silently skipped rather than crashing;
+  // not every country is seeded yet.
+  const countryIndex = useMemo(() => new Map(countries.map((c) => [c.code, c])), [countries]);
+
+  const mapData = useMemo(() => {
+    const points: WorldMapPoint[] = [];
+    const arcs: WorldMapArc[] = [];
+    if (!routes || routes.length === 0) return { points, arcs };
+
+    const manufactureTotals = new Map<string, number>();
+    const destinationTotals = new Map<string, number>();
+    const pairTotals = new Map<string, { manufacture: string; destination: string; count: number }>();
+
+    for (const r of routes) {
+      if (r.manufactureCountryCode) {
+        manufactureTotals.set(r.manufactureCountryCode, (manufactureTotals.get(r.manufactureCountryCode) ?? 0) + r.shipmentCount);
+      }
+      if (r.destinationCountryCode) {
+        destinationTotals.set(r.destinationCountryCode, (destinationTotals.get(r.destinationCountryCode) ?? 0) + r.shipmentCount);
+      }
+      if (r.manufactureCountryCode && r.destinationCountryCode) {
+        const key = `${r.manufactureCountryCode}>${r.destinationCountryCode}`;
+        const existing = pairTotals.get(key);
+        if (existing) existing.count += r.shipmentCount;
+        else pairTotals.set(key, { manufacture: r.manufactureCountryCode, destination: r.destinationCountryCode, count: r.shipmentCount });
+      }
+    }
+
+    for (const [code, count] of manufactureTotals) {
+      const c = countryIndex.get(code);
+      if (!c || c.latitude === null || c.longitude === null) continue;
+      points.push({ id: `mfg:${code}`, latitude: c.latitude, longitude: c.longitude, label: `${c.name} — manufacture`, color: "var(--u-brand-violet)", value: count });
+    }
+    for (const [code, count] of destinationTotals) {
+      const c = countryIndex.get(code);
+      if (!c || c.latitude === null || c.longitude === null) continue;
+      points.push({ id: `dest:${code}`, latitude: c.latitude, longitude: c.longitude, label: `${c.name} — delivery`, color: "var(--u-accent-magenta)", value: count });
+    }
+
+    const topPairs = Array.from(pairTotals.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, TOP_ROUTE_COUNT);
+    for (const pair of topPairs) {
+      const from = countryIndex.get(pair.manufacture);
+      const to = countryIndex.get(pair.destination);
+      if (!from || !to || from.latitude === null || from.longitude === null || to.latitude === null || to.longitude === null) continue;
+      arcs.push({
+        id: `${pair.manufacture}>${pair.destination}`,
+        from: { latitude: from.latitude, longitude: from.longitude },
+        to: { latitude: to.latitude, longitude: to.longitude },
+        color: "var(--u-ink-secondary)",
+        label: `${from.name} → ${to.name} — ${pair.count} shipments`,
+      });
+    }
+
+    return { points, arcs };
+  }, [routes, countryIndex]);
+
+  const mapLegend: WorldMapLegendEntry[] = [
+    { color: "var(--u-brand-violet)", label: "Country of manufacture" },
+    { color: "var(--u-accent-magenta)", label: "Delivery country" },
+  ];
+
   return (
     <div style={{ padding: "28px 32px 48px", maxWidth: 1280, margin: "0 auto" }}>
       <div style={{ marginBottom: 20 }}>
@@ -94,7 +186,7 @@ export default function GlobalLogisticsPage() {
           </p>
         )}
         {ratings && ratings.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {Object.keys(ENTITY_LABELS).map((entityType) => {
               const buckets = ratings.filter((r) => r.entityType === entityType);
               return (
@@ -126,7 +218,14 @@ export default function GlobalLogisticsPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 16 }}>
+        <WorldMap
+          points={mapData.points}
+          arcs={mapData.arcs}
+          legend={mapLegend}
+          emptyMessage="No anonymised routes meet the minimum cohort size yet."
+        />
+
+        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 20, marginBottom: 16 }}>
           <select className="u-native-select" style={filterInputStyle} value={filters.transportMode ?? ""} onChange={(e) => update("transportMode", e.target.value)}>
             {TRANSPORT_MODES.map((m) => (
               <option key={m} value={m}>
@@ -173,8 +272,8 @@ export default function GlobalLogisticsPage() {
         {sortedRoutes && sortedRoutes.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sortedRoutes.map((r, i) => (
-              <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 14, display: "flex", justifyContent: "space-between", gap: 16 }}>
-                <div>
+              <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 14, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+                <div style={{ minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 600, color: "var(--u-ink)" }}>
                     {r.manufactureCountryCode ? countries.find((c) => c.code === r.manufactureCountryCode)?.name ?? r.manufactureCountryCode : "—"}
                     {" → "}
