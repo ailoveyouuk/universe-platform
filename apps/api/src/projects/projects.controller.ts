@@ -81,15 +81,6 @@ export class ProjectsController {
     return this.projectsService.updateLine(user, id, lineId, dto);
   }
 
-  // Full ProjectStatusHistoryEntry[] timeline for the stage tracker's
-  // history view — see ProjectsService.getStatusHistory's doc comment.
-  // A distinct two-segment path from ":id" alone, same no-shadowing note
-  // as ":id/financial-summary" above.
-  @Get(":id/status-history")
-  getStatusHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.projectsService.getStatusHistory(user, id);
-  }
-
   // --- Project Leads/Contacts (added 2026-10-08) — independent
   // add/remove, not a full project PATCH. See ProjectsService's doc
   // comment above addLead/addContact. ---

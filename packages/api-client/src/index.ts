@@ -39,7 +39,6 @@ import type {
   ProjectDetail,
   ProjectFinancialSummary,
   ProjectLineInput,
-  ProjectStatusHistoryEntry,
   ProjectSummary,
   QualityDashboardSummary,
   QaQueueSummary,
@@ -294,10 +293,6 @@ export class UniverseApiClient {
   // Leads/Contacts calls return the full ProjectDetail, same convention as
   // addProjectLine/documents above — the caller just swaps project state
   // in on every mutation rather than re-fetching separately.
-
-  getProjectStatusHistory(projectId: string): Promise<ProjectStatusHistoryEntry[]> {
-    return this.request(`/projects/${projectId}/status-history`);
-  }
 
   addProjectLead(projectId: string, input: AddProjectLeadInput): Promise<ProjectDetail> {
     return this.request(`/projects/${projectId}/leads`, { method: "POST", body: JSON.stringify(input) });

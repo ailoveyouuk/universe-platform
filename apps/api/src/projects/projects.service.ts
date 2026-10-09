@@ -1206,28 +1206,6 @@ export class ProjectsService {
     return this.findOne(user, projectId);
   }
 
-  /** GET /projects/:id/status-history — the same ProjectStatusHistoryEntry[]
-   * already embedded in ProjectDetail.statusHistory (toDetail/
-   * PROJECT_DETAIL_INCLUDE above), as its own lightweight endpoint: a
-   * caller that only wants the stage timeline (e.g. a refresh after a
-   * status change, or a future standalone history view) shouldn't have
-   * to re-fetch the full project with every line/document/enquiry just
-   * to get it. Queried directly rather than via findOne() so it stays
-   * cheap. Ordered oldest-first, same convention as PROJECT_DETAIL_INCLUDE. */
-  async getStatusHistory(user: RequestUser, projectId: string): Promise<ProjectStatusHistoryEntry[]> {
-    return withTenantContext(user.organizationId, async (tx) => {
-      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
-      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
-
-      const history = await tx.projectStatusHistory.findMany({
-        where: { projectId, ...tenantScope(user.organizationId) },
-        include: { changedBy: true },
-        orderBy: { enteredAt: "asc" },
-      });
-      return history.map(toStatusHistoryEntry);
-    });
-  }
-
   // --- Project Leads/Contacts (added 2026-10-08) — plain join-table
   // add/remove, independent of the full project PATCH (see ProjectLead/
   // ProjectContact's doc comments in schema.prisma). Neither join table
