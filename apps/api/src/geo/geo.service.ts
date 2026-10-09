@@ -17,7 +17,12 @@ import type { CountryOption } from "@universe/types";
 export class GeoService {
   async listCountries(): Promise<CountryOption[]> {
     const rows = await prisma.country.findMany({
-      select: { code: true, name: true },
+      // latitude/longitude added 2026-10-09 (Stage 2, the WorldMap
+      // component) -- selected alongside code/name so every existing
+      // useCountries() call site can plot a point without a second
+      // request. Still null for any country whose centroid hasn't been
+      // seeded (see Country.latitude's doc comment in schema.prisma).
+      select: { code: true, name: true, latitude: true, longitude: true },
       orderBy: { name: "asc" },
     });
     return rows;

@@ -216,6 +216,32 @@ input[type="checkbox"], input[type="radio"] {
 }
 
 /*
+ * WorldMap.tsx's point pulse — added 2026-10-09, Stage 2
+ * (product-database-and-map-roadmap.md). A slow (2.6s), looping
+ * scale+fade ring around each plotted point, same shared-utility-class
+ * convention as u-fade-in/u-card-hover above rather than a one-off
+ * <style> tag inside the component. `transform-box: fill-box` (set
+ * inline per-circle in WorldMap.tsx, since it has to reference that
+ * circle's own geometry) is what makes `scale()` grow from the circle's
+ * own center rather than the SVG viewport's — without it every point
+ * would appear to pulse outward from the top-left corner of the map.
+ */
+@keyframes u-map-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.u-map-pulse-ring {
+  animation: u-map-pulse 2.6s ease-out infinite;
+  transform-origin: center;
+}
+
+/*
  * Responsive form-grid utility — added 2026-10-02 for the mobile/tablet
  * sweep. Several forms lay fields out in fixed multi-column CSS grids
  * (e.g. "1fr 1fr 1fr") via inline styles, which don't collapse on narrow

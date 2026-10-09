@@ -1400,10 +1400,19 @@ export interface RejectProductAmendmentInput {
 
 /** A country from the shared, non-tenant-scoped Country reference table
  * (see schema.prisma) — powers the CountrySelect picker everywhere a
- * country field used to be a free-text ISO alpha-2 input. */
+ * country field used to be a free-text ISO alpha-2 input. `latitude`/
+ * `longitude` added 2026-10-09 (product-database-and-map-roadmap.md
+ * Stage 2) so WorldMap callers can go straight from a CountryOption
+ * (already fetched via useCountries() everywhere) to a plottable point
+ * without a second request — null until a country's centroid has been
+ * seeded (see Country.latitude's doc comment in schema.prisma; not every
+ * country is seeded yet). CountrySelect itself still only reads
+ * code/name — these are extra, unused fields from its point of view. */
 export interface CountryOption {
   code: string;
   name: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface ProductSourceApprovalSummary {

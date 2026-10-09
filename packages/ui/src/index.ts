@@ -21,3 +21,4 @@ export * from "./ProductPicker";
 export * from "./AppSwitcher";
 export * from "./StatTile";
 export * from "./ScoreLegend";
+export * from "./WorldMap";
