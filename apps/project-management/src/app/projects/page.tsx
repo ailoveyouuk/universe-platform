@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProjectSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { useCountries } from "../../lib/useCountries";
 import {
   StatusBadge,
   Button,
@@ -60,6 +61,14 @@ export default function ProjectsPage() {
   // Deep-linkable from the dashboard's stat tiles, e.g. /projects?status=SUBMITTED.
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  // Stage 3b (product-database-and-map-roadmap.md) — deep-linkable from
+  // the dashboard's "Delivery countries" stat tile, same ?param convention
+  // as statusFilter above, though that tile links here with no specific
+  // country (there's no single "the" country for a headline count to
+  // target) — this just makes the control itself linkable for anyone who
+  // builds a more specific link later, e.g. from the global logistics map.
+  const [countryFilter, setCountryFilter] = useState<string>(() => searchParams.get("country") ?? "");
+  const countries = useCountries();
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -103,6 +112,7 @@ export default function ProjectsPage() {
         return false;
       }
       if (typeFilter && p.projectType !== typeFilter) return false;
+      if (countryFilter && p.deliveryCountryCode !== countryFilter) return false;
       if (!showArchived && p.isArchived) return false;
       if (q) {
         const haystack = `${p.referenceNumber} ${p.title} ${p.clientName ?? ""}`.toLowerCase();
@@ -110,7 +120,7 @@ export default function ProjectsPage() {
       }
       return true;
     });
-  }, [projects, search, statusFilter, typeFilter, showArchived]);
+  }, [projects, search, statusFilter, typeFilter, countryFilter, showArchived]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -147,6 +157,14 @@ export default function ProjectsPage() {
     }
     setPage(0);
   }
+
+  const countryOptions = useMemo(() => {
+    const list = projects ?? [];
+    const codes = new Set(list.map((p) => p.deliveryCountryCode).filter((c): c is string => Boolean(c)));
+    return Array.from(codes)
+      .map((code) => ({ value: code, label: countries.find((c) => c.code === code)?.name ?? code }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [projects, countries]);
 
   const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
   const visible = pageSize === "all" ? sorted : sorted.slice(page * pageSize, page * pageSize + pageSize);
@@ -232,6 +250,13 @@ export default function ProjectsPage() {
           options={PROJECT_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))}
           allLabel="All types"
           ariaLabel="Filter by project type"
+        />
+        <Select
+          value={countryFilter}
+          onChange={(v) => { setCountryFilter(v); setPage(0); }}
+          options={countryOptions}
+          allLabel="All delivery countries"
+          ariaLabel="Filter by delivery country"
         />
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--u-ink-secondary)", padding: "9px 4px" }}>
           <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(0); }} />

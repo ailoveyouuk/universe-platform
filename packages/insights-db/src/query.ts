@@ -185,3 +185,47 @@ export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilter
 
   return rows;
 }
+
+export interface ProductSourcingSummary {
+  category: string;
+  manufactureCountryCode: string | null;
+  sourceCount: number;
+  approvalCount: number;
+}
+
+/**
+ * The only read path the Product Database catalogue map (Stage 3c) should
+ * use — same MINIMUM_COHORT_SIZE enforcement as every other read in this
+ * file. Groups by (category, manufactureCountryCode) only — coarser than
+ * the logistics/pricing aggregates' multi-dimension grouping, since the
+ * map just needs "how many approved sourcing relationships put this
+ * category in this country", not a further breakdown by mode/incoterm.
+ * approvalCount is COUNT(*) (every contributing approval, including
+ * repeats from the same org for different products) — distinct from
+ * sourceCount (COUNT(DISTINCT sourceHash), the number of organizations
+ * behind that count), same shipmentCount/sourceCount split
+ * getAggregatedLogisticsRoutes already uses.
+ */
+export async function getAggregatedProductSourcing(): Promise<ProductSourcingSummary[]> {
+  const rows = await insightsPrisma.$queryRaw<
+    {
+      category: string;
+      manufactureCountryCode: string | null;
+      sourceCount: number;
+      approvalCount: number;
+    }[]
+  >`
+    SELECT
+      category,
+      manufactureCountryCode,
+      COUNT(DISTINCT sourceHash) AS sourceCount,
+      COUNT(*) AS approvalCount
+    FROM aggregated_product_sourcing
+    GROUP BY category, manufactureCountryCode
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY approvalCount DESC
+  `;
+
+  return rows;
+}
+

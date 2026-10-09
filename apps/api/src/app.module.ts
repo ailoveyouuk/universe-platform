@@ -17,6 +17,7 @@ import { EvidenceModule } from "./evidence/evidence.module";
 import { ControlledDocumentsModule } from "./controlled-documents/controlled-documents.module";
 import { ProductBatchesModule } from "./batches/product-batches.module";
 import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights.module";
+import { ProductSourcingInsightsModule } from "./product-sourcing-insights/product-sourcing-insights.module";
 import { ContactsModule } from "./contacts/contacts.module";
 
 @Module({
@@ -38,6 +39,7 @@ import { ContactsModule } from "./contacts/contacts.module";
     ControlledDocumentsModule,
     ProductBatchesModule,
     LogisticsInsightsModule,
+    ProductSourcingInsightsModule,
     ContactsModule,
   ],
   controllers: [MeController],

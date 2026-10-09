@@ -160,3 +160,44 @@ model AggregatedLogisticsMetric {
   @@index([effectiveMonth])
   @@map("aggregated_logistics_metrics")
 }
+
+// ---------------------------------------------------------------------------
+// Product sourcing by category and country of manufacture — anonymized
+// cross-tenant aggregate (added 2026-10-09, Stage 3c of
+// product-database-and-map-roadmap.md). Answers "where is this category
+// actually made, across the whole platform" without exposing any single
+// organisation's own supplier/manufacturer relationships — ProductSourceApproval
+// itself is tenant-private (a company's own sourcing decisions), so this is
+// the only cross-tenant read path for that question, same separation
+// principle as AggregatedLogisticsMetric/AggregatedProductPrice above.
+//
+// Field-by-field anonymization:
+//   - category: ProductMaster.category, collapsed to its TOP-LEVEL group
+//     (e.g. "Pharmaceuticals", not "Pharmaceuticals.Antibiotics") by the ETL
+//     job before it's written here — matches the granularity decision
+//     already made for the Product Database dashboard's own category
+//     breakdown (see Stage 1 in the roadmap doc) and the product catalogue
+//     map's own design note.
+//   - manufactureCountryCode: COUNTRY level, not WHO-region — same
+//     deliberate choice as AggregatedLogisticsMetric (a region-level
+//     breakdown can't answer "which country" at all), offset by
+//     MINIMUM_COHORT_SIZE still gating every read.
+//   - sourceHash: same HMAC-SHA256(organizationId, INSIGHTS_HASH_SECRET)
+//     scheme as every other table here.
+//
+// One row is written per APPROVED ProductSourceApproval the ETL job reads
+// (not per PENDING/REJECTED — an unapproved sourcing relationship isn't a
+// confirmed "this category is made here" fact yet). NOT stored here, ever:
+// organizationId, productMasterId, manufacturerId/supplierId, any Partner
+// name, any free-text field.
+// ---------------------------------------------------------------------------
+model AggregatedProductSourcing {
+  id                     String   @id @default(uuid())
+  category               String
+  manufactureCountryCode String?
+  sourceHash             String
+  createdAt              DateTime @default(now())
+
+  @@index([category, manufactureCountryCode])
+  @@map("aggregated_product_sourcing")
+}

@@ -306,3 +306,80 @@ export async function getStakeholderRatingDistribution(): Promise<StakeholderRat
     ...toBuckets("PROCURING_ORGANIZATION", organizationScores),
   ];
 }
+
+/**
+ * Product sourcing by category and country of manufacture (added
+ * 2026-10-09) — writes one AggregatedProductSourcing row per consented
+ * org's APPROVED, non-archived ProductSourceApproval row created/approved
+ * since `since`, same append-only/sourceHash convention as the two
+ * pipelines above. A SEPARATE pipeline for the same reason
+ * runLogisticsAggregationPipeline is separate from runAggregationPipeline:
+ * a different tenant table, a different insights table, independent
+ * cadence.
+ *
+ * Filters on `updatedAt`, not `createdAt` — unlike ProductPriceHistory/
+ * ProjectLineLogisticsMetric rows (which are effectively immutable once
+ * written), a ProductSourceApproval is commonly created PENDING and only
+ * flips to APPROVED later; filtering on createdAt would miss an approval
+ * that happened well after the row was first created. This does mean an
+ * approval that's edited for an unrelated reason (e.g. a note added) after
+ * already being picked up by an earlier run gets re-aggregated — an
+ * accepted, deliberate tradeoff (a harmless duplicate count row, same
+ * "append-only, never reconciled against what's already there" design as
+ * the rest of this package) rather than trying to track exactly what
+ * changed.
+ *
+ * Only APPROVED rows are read — a PENDING or REJECTED sourcing
+ * relationship isn't a confirmed "this category is made here" fact yet,
+ * and REJECTED specifically should never suggest a manufacturer makes
+ * something it was found NOT to be a valid source for.
+ *
+ * Run manually for now via `npm run aggregate:product-sourcing
+ * --workspace=@universe/insights-db`.
+ */
+export async function runProductSourcingAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({
+      where: { revokedAt: null },
+      select: { organizationId: true },
+    });
+    return rows.map((r) => r.organizationId);
+  });
+
+  let written = 0;
+
+  for (const organizationId of consentedOrgIds) {
+    const sourceHash = hashOrganizationId(organizationId);
+
+    const approvalRows = await withTenantContext(organizationId, async (tx) =>
+      tx.productSourceApproval.findMany({
+        where: { status: "APPROVED", isArchived: false, updatedAt: { gte: since } },
+        select: {
+          productMaster: { select: { category: true } },
+          manufacturer: { select: { countryCode: true } },
+        },
+      }),
+    );
+
+    for (const row of approvalRows) {
+      if (!row.productMaster) continue; // defensive — productMasterId is required, but mirrors the other pipelines' guard
+
+      // Collapse to the top-level category group — see
+      // AggregatedProductSourcing's doc comment in prisma/schema.prisma
+      // for why, same split used by ProductCatalogService.getDashboardStats().
+      const topLevelCategory = row.productMaster.category.split(".")[0];
+
+      await insightsPrisma.aggregatedProductSourcing.create({
+        data: {
+          category: topLevelCategory,
+          manufactureCountryCode: row.manufacturer?.countryCode ?? null,
+          sourceHash,
+        },
+      });
+      written += 1;
+    }
+  }
+
+  return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
+}
+

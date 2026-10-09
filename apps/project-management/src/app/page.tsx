@@ -16,6 +16,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   AlertIcon,
+  GlobeIcon,
   StatTile,
 } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -98,6 +99,20 @@ export default function HomePage() {
     const awarded = list.filter((p) => p.status === "AWARDED");
     const overdue = list.filter(isOverdue);
     return { active: active.length, submitted: submitted.length, awarded: awarded.length, overdue: overdue.length };
+  }, [projects]);
+
+  // Stage 3b (product-database-and-map-roadmap.md) — "Total countries"
+  // stat tile, counting distinct delivery countries across this org's own
+  // projects (ProjectSummary.deliveryCountryCode, not archived). The tile
+  // itself links through to /projects, where the actual country filter
+  // control lives (added alongside this) — a single headline number has
+  // nowhere useful to "select" to on its own, so filtering happens on the
+  // list screen, same split as every other dashboard tile here (a count
+  // here, the real filter UI on the destination page).
+  const countryStats = useMemo(() => {
+    const list = projects ?? [];
+    const codes = new Set(list.map((p) => p.deliveryCountryCode).filter((c): c is string => Boolean(c)));
+    return { count: codes.size };
   }, [projects]);
 
   const activeProjects = useMemo(
@@ -184,6 +199,9 @@ export default function HomePage() {
         </Link>
         <Link href="/partners?approval=APPROVED" style={{ textDecoration: "none" }}>
           <StatTile label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
+        </Link>
+        <Link href="/projects" style={{ textDecoration: "none" }}>
+          <StatTile label="Delivery countries" value={countryStats?.count} icon={<GlobeIcon size={20} />} tone="neutral" />
         </Link>
       </div>
 

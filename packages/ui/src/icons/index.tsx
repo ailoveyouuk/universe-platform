@@ -297,3 +297,13 @@ export function InfoIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function GlobeIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <ellipse cx="12" cy="12" rx="3.6" ry="8.5" />
+      <path d="M3.8 9h16.4M3.8 15h16.4" />
+    </svg>
+  );
+}

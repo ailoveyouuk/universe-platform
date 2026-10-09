@@ -11,7 +11,8 @@
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "aggregate": "tsx src/aggregate-etl.ts",
-    "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts"
+    "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts",
+    "aggregate:product-sourcing": "tsx scripts/run-product-sourcing-aggregation.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

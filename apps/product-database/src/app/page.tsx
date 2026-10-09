@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type {
   ProductCatalogMatch,
@@ -10,6 +10,7 @@ import type {
   ProductCatalogDashboardStats,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
+  ProductSourcingSummary,
   UpdateProductMasterInput,
 } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
@@ -27,7 +28,10 @@ import {
   StatTileGrid,
   TextLink,
   TrendingUpIcon,
+  WorldMap,
   type PageSize,
+  type WorldMapPoint,
+  type WorldMapLegendEntry,
 } from "@universe/ui";
 
 /**
@@ -50,6 +54,20 @@ import {
  * mostly quick corrections to an imported or picker-created row).
  */
 const CATEGORIES = ["Personal Protective Equipment", "Consumables", "Laboratory", "Medical Devices", "Pharmaceuticals", "Equipment"] as const;
+
+// Stage 3c (product-database-and-map-roadmap.md) — one fixed colour per
+// top-level category for the sourcing map below, drawn from existing
+// theme-aware tokens (tokens.css) rather than inventing a new palette for
+// one screen. Not semantic (unlike the status-* tokens elsewhere) — purely
+// a qualitative "which category is this pulse" key.
+const CATEGORY_COLORS: Record<string, string> = {
+  "Personal Protective Equipment": "var(--u-brand-violet)",
+  "Consumables": "var(--u-module-crm)",
+  "Laboratory": "var(--u-status-good)",
+  "Medical Devices": "var(--u-module-tender-issuance)",
+  "Pharmaceuticals": "var(--u-accent-magenta)",
+  "Equipment": "var(--u-module-admin)",
+};
 const SOURCE_STANDARDS = ["INTERNAL", "HS_CODE", "WHO_EML", "UNSPSC", "GS1_GTIN"] as const;
 
 export default function ProductCatalogPage() {
@@ -87,11 +105,66 @@ export default function ProductCatalogPage() {
   // Completeness tiles — Stage 0 point 3. Same "fetch once, refresh on
   // save" reasoning as dashboardStats above.
   const [completeness, setCompleteness] = useState<ProductCatalogCompletenessStats | null>(null);
+  // Sourcing-by-country map — Stage 3c. This is the anonymized,
+  // cross-tenant view (GET /product-sourcing-insights/global), not
+  // derived from this org's own catalogue fetch above — it never changes
+  // with search/category/completeness filters, so it's fetched once on
+  // mount, not inside loadStats()/load() (which both re-run on org-local
+  // filter and save events this data has no relationship to).
+  const [sourcing, setSourcing] = useState<ProductSourcingSummary[] | null>(null);
+  const countries = useCountries();
 
   const loadStats = useCallback(() => {
     apiClient.getProductCatalogDashboardStats().then(setDashboardStats).catch(() => setDashboardStats(null));
     apiClient.getProductCatalogCompletenessStats().then(setCompleteness).catch(() => setCompleteness(null));
   }, []);
+
+  // Fetched once, not inside loadStats() — see the sourcing state's own
+  // comment above for why this is independent of load()/loadStats()'s
+  // refresh triggers.
+  useEffect(() => {
+    apiClient.getGlobalProductSourcing().then(setSourcing).catch(() => setSourcing(null));
+  }, []);
+
+  // Stage 3c map data — one WorldMap point per (category, country)
+  // combination the anonymized endpoint returned. Multiple categories
+  // sourced from the same country land on the same lat/long, which would
+  // otherwise stack pulses exactly on top of each other — WorldMap has no
+  // built-in clustering (it's presentation-only, see its own doc comment),
+  // so each category gets a small fixed angular offset around that
+  // country's real centroid, arranged like points on a clock face (one of
+  // up to 6 positions, matching CATEGORIES' length) purely to keep
+  // same-country pulses visually separable. This is a deliberate, cosmetic
+  // approximation — it does not change which country a pulse represents,
+  // only where around that country's centroid it's drawn.
+  const sourcingMapData = useMemo(() => {
+    const points: WorldMapPoint[] = [];
+    if (!sourcing || sourcing.length === 0) return points;
+    const OFFSET_DEGREES = 2.4;
+    for (const row of sourcing) {
+      if (!row.manufactureCountryCode) continue;
+      const c = countries.find((x) => x.code === row.manufactureCountryCode);
+      if (!c || c.latitude === null || c.longitude === null) continue;
+      const categoryIndex = Math.max(0, CATEGORIES.indexOf(row.category as (typeof CATEGORIES)[number]));
+      const angle = (categoryIndex / CATEGORIES.length) * 2 * Math.PI;
+      const latitude = c.latitude + OFFSET_DEGREES * Math.sin(angle);
+      const longitude = c.longitude + OFFSET_DEGREES * Math.cos(angle);
+      points.push({
+        id: `${row.category}:${row.manufactureCountryCode}`,
+        latitude,
+        longitude,
+        label: `${row.category} — ${c.name}`,
+        color: CATEGORY_COLORS[row.category] ?? "var(--u-ink-secondary)",
+        value: row.approvalCount,
+      });
+    }
+    return points;
+  }, [sourcing, countries]);
+
+  const sourcingLegend: WorldMapLegendEntry[] = CATEGORIES.map((cat) => ({
+    color: CATEGORY_COLORS[cat] ?? "var(--u-ink-secondary)",
+    label: cat,
+  }));
 
   const load = useCallback(() => {
     setLoading(true);
@@ -215,6 +288,24 @@ export default function ProductCatalogPage() {
           active={missingField === "standardUnit"}
         />
       </StatTileGrid>
+
+      {/* Sourcing by country of manufacture — Stage 3c,
+          product-database-and-map-roadmap.md. Anonymized, cross-tenant:
+          pulses are products-per-category approved for sourcing from that
+          country across every consented organisation on the platform, not
+          just this one — matches Logistics & CO2's global map (Stage 3a)
+          in spirit, reusing the same WorldMap component. Category is
+          always the top-level group (e.g. "Pharmaceuticals"), confirmed
+          with Lewis alongside the Stage 1 dashboard fix. */}
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Sourcing by country of manufacture</h2>
+      <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 12px" }}>
+        Anonymized, aggregated across every consented organisation on the platform — no organisation's own sourcing relationships are ever individually identifiable here.
+      </p>
+      <WorldMap
+        points={sourcingMapData}
+        legend={sourcingLegend}
+        emptyMessage="No anonymised sourcing data meets the minimum cohort size yet."
+      />
 
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by product name…" />

@@ -2030,6 +2030,24 @@ export interface LogisticsRouteSummary {
   avgEfficiencyScore: number;
 }
 
+/** One row of the anonymized, cross-tenant "products by category and
+ * country of manufacture" breakdown — Stage 3c of
+ * product-database-and-map-roadmap.md, same cohort-floor convention as
+ * LogisticsRouteSummary above (see getAggregatedProductSourcing in
+ * @universe/insights-db). category is always the TOP-LEVEL group (e.g.
+ * "Pharmaceuticals"), never the full "Group.Subgroup" path — matches the
+ * Product Database dashboard's own byCategory breakdown and the Stage 2
+ * design decision recorded in the roadmap doc. sourceCount is the number
+ * of distinct contributing organizations (never which ones); a
+ * category/country combination with fewer than MINIMUM_COHORT_SIZE
+ * contributors is never returned at all. */
+export interface ProductSourcingSummary {
+  category: string;
+  manufactureCountryCode: string | null;
+  sourceCount: number;
+  approvalCount: number;
+}
+
 /** One bucket of the global stakeholder-rating distribution — Lewis's "25
  * projects 6/10, 50 8/10, 10 manufacturers are 4/10..." request. Counts
  * only, never a named entity; a bucket below MINIMUM_COHORT_SIZE entities
