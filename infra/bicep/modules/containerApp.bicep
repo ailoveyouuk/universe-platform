@@ -77,9 +77,13 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         // first shipped weeks ago; nothing exercised this code path live
         // until today. Same Key-Vault-reference pattern as database-url
         // above — requires a secret literally named insights-database-url
-        // to exist in Key Vault (same connection-string shape documented
-        // in packages/insights-db/prisma/schema.prisma's datasource
-        // comment) before this takes effect.
+        // to exist in Key Vault before this takes effect. The connection
+        // string in that secret should use the dedicated, read-only
+        // universe_insights_app login (infra/sql/create-insights-app-
+        // login.sql, added the same day as this fix) — NOT the server
+        // admin login, which was only ever a same-day stopgap to unblock
+        // the live site immediately, same as universe_api_app already
+        // replaced the admin login for the main database-url secret above.
         {
           name: 'insights-database-url'
           keyVaultUrl: '${keyVaultUri}secrets/insights-database-url'
