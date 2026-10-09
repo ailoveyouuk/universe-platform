@@ -85,6 +85,12 @@ function toSummary(p: {
   isArchived: boolean;
   archivedAt: Date | null;
   archivedById: string | null;
+  // Added 2026-10-09 alongside ProjectSummary.deliveryCountryCode (see
+  // packages/types/src/index.ts) — fixes the "Delivery countries" dashboard
+  // tile and Projects list country filter, which were reading a field that
+  // existed on the Prisma row (findAll()/create() already fetch the full
+  // Project) but was never mapped through toSummary().
+  deliveryCountryCode: string | null;
 }): ProjectSummary {
   return {
     id: p.id,
@@ -100,6 +106,7 @@ function toSummary(p: {
     isArchived: p.isArchived,
     archivedAt: p.archivedAt?.toISOString() ?? null,
     archivedById: p.archivedById,
+    deliveryCountryCode: p.deliveryCountryCode,
   };
 }
 
