@@ -65,6 +65,26 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: '${keyVaultUri}secrets/database-url'
           identity: userAssignedIdentityId
         }
+        // Added 2026-10-09 — found missing entirely while live-debugging
+        // why every @universe/insights-db query 500'd in production
+        // (both the Logistics & CO2 global benchmark map and the Product
+        // Database sourcing map — different query styles, identical
+        // failure, which is what pointed at the connection itself rather
+        // than any one query). insightsPrisma (packages/insights-db/src/
+        // index.ts) reads INSIGHTS_DATABASE_URL via Prisma's env() — that
+        // env var was simply never added to this container's env list, so
+        // every request into insights-db has been failing since Stage 3a
+        // first shipped weeks ago; nothing exercised this code path live
+        // until today. Same Key-Vault-reference pattern as database-url
+        // above — requires a secret literally named insights-database-url
+        // to exist in Key Vault (same connection-string shape documented
+        // in packages/insights-db/prisma/schema.prisma's datasource
+        // comment) before this takes effect.
+        {
+          name: 'insights-database-url'
+          keyVaultUrl: '${keyVaultUri}secrets/insights-database-url'
+          identity: userAssignedIdentityId
+        }
         // universe-ciam-client-secret deliberately NOT wired here (removed
         // 2026-09-25). Confirmed via full-codebase grep that nothing reads
         // UNIVERSE_CIAM_CLIENT_SECRET — the SPA (universe-platform-web) is a
@@ -91,6 +111,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           }
           env: [
             { name: 'DATABASE_URL', secretRef: 'database-url' }
+            { name: 'INSIGHTS_DATABASE_URL', secretRef: 'insights-database-url' }
             { name: 'API_PORT', value: '4000' }
             { name: 'AZURE_CLIENT_ID', value: userAssignedIdentityClientId }
             { name: 'AZURE_STORAGE_ACCOUNT_NAME', value: storageAccountName }
