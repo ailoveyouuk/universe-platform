@@ -1,93 +1,266 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { OrgHeader } from "@universe/ui";
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Sidebar,
+  Logo,
+  OrgThemeProvider,
+  Button,
+  Breadcrumbs,
+  DashboardIcon,
+  BuildingIcon,
+  UserIcon,
+  LogoutIcon,
+  BellIcon,
+  SearchIcon,
+} from "@universe/ui";
+import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
 
-const defaultButtonStyle = {
-  padding: "6px 16px",
-  fontSize: 14,
-  fontWeight: 600,
-  color: "#fff",
-  backgroundColor: "#111827",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-} as const;
+/** Route → nav + breadcrumb metadata, in one place — same convention as
+ * apps/product-database/src/components/AppShell.tsx's ROUTES table. */
+const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean }[] = [
+  { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
+  { href: "/organizations", label: "Organizations", icon: () => <BuildingIcon size={19} />, inNav: true },
+  { href: "/users", label: "Users", icon: () => <UserIcon size={19} />, inNav: true },
+];
+
+function crumbsFor(pathname: string) {
+  if (pathname === "/") return [{ label: "Dashboard" }];
+  const segments = pathname.split("/").filter(Boolean);
+  const crumbs = [{ label: "Dashboard", href: "/" }];
+  let acc = "";
+  for (const seg of segments) {
+    acc += `/${seg}`;
+    const match = ROUTES.find((r) => r.href === acc);
+    const label = match?.label ?? (seg === "new" ? "New" : seg === "invite" ? "Invite" : seg[0].toUpperCase() + seg.slice(1));
+    crumbs.push({ label, href: acc });
+  }
+  return crumbs;
+}
 
 /**
- * Wraps every Admin page — added 2026-09-26, mirroring
- * apps/project-management/src/components/AppShell.tsx exactly (same
- * useAuth()/AuthContext pattern), since the Admin app previously had no
- * sign-in flow at all. Gates every page behind sign-in so a page never
- * calls the API before an account exists, and shares the single /me
- * response with every page via AuthContext instead of each page fetching
- * it again itself.
+ * App shell v2 — 2026-10-09, bringing Admin onto the same Sidebar/
+ * Breadcrumbs/OrgThemeProvider/tokens.css shell as Project Management and
+ * Product Database, which it had never actually adopted (its own
+ * AdminStatTile.tsx doc comment explicitly flagged this gap — see
+ * claude/app-completeness-audit.md's admin findings). Replaces the old
+ * plain top-bar-only shell (added 2026-09-26, before this pattern
+ * existed) with the same rail/breadcrumbs/theme-wash treatment as the
+ * other two apps — copied structurally from apps/product-database's
+ * AppShell.tsx, only the ROUTES table, sign-in copy, and icons differ.
+ * Admin's module accent (--u-module-admin, Graphite Plum) comes through
+ * automatically via the shared Sidebar/AppSwitcher components once
+ * tokens.css is loaded (see layout.tsx's fix, same commit).
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { status, me, error, signIn, signOut } = useAuth();
+  const pathname = usePathname() ?? "/";
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <header
+  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav).map((r) => ({
+    label: r.label,
+    href: r.href,
+    icon: r.icon(pathname === r.href),
+    active: r.href === "/" ? pathname === "/" : pathname.startsWith(r.href),
+  }));
+
+  if (status !== "signedIn" || !me) {
+    return (
+      <div
         style={{
+          minHeight: "100vh",
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "12px 32px",
-          borderBottom: "1px solid #E5E7EB",
+          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+          backgroundColor: "var(--u-surface)",
+          backgroundImage:
+            "radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--u-accent-magenta) 10%, transparent), transparent 42%), " +
+            "radial-gradient(circle at 88% 92%, color-mix(in srgb, var(--u-brand-violet) 12%, transparent), transparent 46%)",
         }}
       >
-        {status === "signedIn" && me ? (
-          <OrgHeader
-            organizationName={me.organizationName}
-            organizationLogoUrl={me.organizationLogoUrl}
-            organizationPrimaryColor={me.organizationPrimaryColor}
-          />
-        ) : (
-          <OrgHeader organizationName="Universe Admin" organizationLogoUrl={null} />
-        )}
+        <svg
+          aria-hidden
+          viewBox="0 0 100 100"
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            width: "min(140vmin, 1100px)",
+            height: "min(140vmin, 1100px)",
+            transform: "translate(-50%, -50%)",
+            opacity: 0.5,
+            pointerEvents: "none",
+          }}
+        >
+          <circle cx="50" cy="50" r="38" fill="none" stroke="var(--u-accent-magenta)" strokeWidth="0.3" opacity="0.35" />
+          <circle cx="50" cy="50" r="30" fill="none" stroke="var(--u-brand-violet)" strokeWidth="0.25" opacity="0.25" />
+          <circle cx="84.44" cy="33.94" r="1.4" fill="var(--u-accent-magenta)" opacity="0.5" />
+        </svg>
 
-        {status === "signedIn" && (
-          <button
-            onClick={signOut}
+        <header
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "20px 32px",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+            <Logo />
+          </Link>
+        </header>
+
+        <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", zIndex: 1 }}>
+          <div
             style={{
-              ...defaultButtonStyle,
-              // Per-org accent (added 2026-09-26) — falls back to
-              // Universe's own default when the org has no
-              // secondaryColor set. See OrgHeader.tsx for the matching
-              // primaryColor accent bar.
-              backgroundColor: me?.organizationSecondaryColor ?? defaultButtonStyle.backgroundColor,
+              width: "100%",
+              maxWidth: 420,
+              padding: "40px 36px",
+              borderRadius: "var(--u-radius-lg)",
+              border: "1px solid var(--u-border)",
+              backgroundColor: "var(--u-surface-raised)",
+              boxShadow: "var(--u-shadow-card)",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            Sign out
-          </button>
-        )}
-        {status === "signedOut" && (
-          <button onClick={signIn} style={defaultButtonStyle}>
-            Sign in
-          </button>
-        )}
-      </header>
-
-      <main style={{ flex: 1 }}>
-        {status === "initializing" && <p style={{ padding: 32 }}>Loading…</p>}
-
-        {status === "unauthorized" && (
-          <div style={{ padding: 32 }}>
-            <p style={{ color: "#B91C1C" }}>{error}</p>
+            <Logo variant="mark" size={44} />
+            <h1
+              style={{
+                fontFamily: "var(--u-font-display)",
+                fontSize: 21,
+                color: "var(--u-ink)",
+                margin: "14px 0 0",
+              }}
+            >
+              {status === "unauthorized" ? "Access restricted" : "Welcome to Universe"}
+            </h1>
+            <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, margin: "6px 0 10px", lineHeight: 1.5 }}>
+              {status === "initializing" && "Loading your workspace…"}
+              {status === "unauthorized" && (error || "Your account isn't recognised on this platform yet.")}
+              {status === "signedOut" && "Sign in with your organisation's Microsoft account to continue to Admin."}
+            </p>
+            {status === "signedOut" && (
+              <Button variant="primary" onClick={signIn} style={{ marginTop: 8 }}>
+                Sign in
+              </Button>
+            )}
           </div>
-        )}
+        </main>
+      </div>
+    );
+  }
 
-        {status === "signedOut" && (
-          <div style={{ padding: 32 }}>
-            <p>Please sign in to continue.</p>
+  return (
+    <OrgThemeProvider primary={me.organizationPrimaryColor} secondary={me.organizationSecondaryColor}>
+      <AuthContext.Provider value={me}>
+        <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--u-surface-alt)" }}>
+          <Sidebar
+            items={navItems}
+            collapsed={collapsed}
+            onToggleCollapsed={() => setCollapsed((c) => !c)}
+            mobileOpen={mobileOpen}
+            onCloseMobile={() => setMobileOpen(false)}
+            LinkComponent={Link}
+            orgName={me.organizationName}
+            orgLogoUrl={me.organizationLogoUrl}
+          />
+
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <header
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 28px",
+                borderBottom: "1px solid var(--u-border)",
+                backgroundColor: "var(--u-surface)",
+                position: "sticky",
+                top: 0,
+                zIndex: 20,
+                gap: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
+                <button
+                  className="u-mobile-menu-btn"
+                  onClick={() => setMobileOpen(true)}
+                  aria-label="Open navigation"
+                  style={{ border: "none", background: "none", cursor: "pointer", color: "var(--u-ink)", padding: 4 }}
+                >
+                  <DashboardIcon size={20} />
+                </button>
+                <Breadcrumbs items={crumbsFor(pathname)} LinkComponent={Link} />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
+                  <SearchIcon size={18} />
+                </span>
+                <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Notifications">
+                  <BellIcon size={18} />
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    paddingLeft: 14,
+                    borderLeft: "1px solid var(--u-border)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      backgroundColor: "var(--u-org-accent, var(--u-brand-violet))",
+                      color: "var(--u-brand-violet-on)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <UserIcon size={15} />
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>{me.forename}</span>
+                  <button
+                    onClick={signOut}
+                    aria-label="Sign out"
+                    title="Sign out"
+                    style={{
+                      border: "none",
+                      background: "none",
+                      cursor: "pointer",
+                      color: "var(--u-ink-secondary)",
+                      display: "flex",
+                      padding: 4,
+                    }}
+                  >
+                    <LogoutIcon size={17} />
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <main key={pathname} className="u-page-enter" style={{ flex: 1 }}>
+              {children}
+            </main>
           </div>
-        )}
-
-        {status === "signedIn" && me && <AuthContext.Provider value={me}>{children}</AuthContext.Provider>}
-      </main>
-    </div>
+        </div>
+      </AuthContext.Provider>
+    </OrgThemeProvider>
   );
 }
