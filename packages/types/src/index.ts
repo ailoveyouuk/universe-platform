@@ -1207,10 +1207,25 @@ export interface ProductCatalogMatch {
   gtin: string | null;
   standardUnit: string | null;
   addedByOrganizationName: string | null;
+  /** Added 2026-10-09 alongside hasPendingAmendment — lets the frontend
+   * determine "did MY organisation add this" (the gate update() enforces
+   * server-side regardless) without a name-string comparison, e.g. to
+   * decide whether the catalogue edit panel should even attempt a direct
+   * save vs. a proposed amendment. Null for the originally-seeded
+   * reference data, same as the underlying ProductMaster column. */
+  addedByOrganizationId: string | null;
   /** Added 2026-10-03 — archived entries are excluded from search() and
    * list() by default (see ProductCatalogService), surfaced here only
    * when the caller explicitly asks to include them. */
   isArchived: boolean;
+  /** Added 2026-10-09 — catalogue edit-rights + ratification workflow
+   * (ProductAmendment, see schema.prisma). True when this entry has at
+   * least one PENDING ProductAmendment awaiting QA/RP ratification.
+   * Lewis's explicit instruction: this is a WARNING, never a block — a
+   * product with a pending amendment can still be selected onto a new
+   * ProjectLine. See ProductPickerOption in @universe/ui for the picker's
+   * own copy of this flag. */
+  hasPendingAmendment: boolean;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see
@@ -1304,6 +1319,41 @@ export interface ImportProductMasterResult {
   updated: number;
   skipped: number;
   errors: { row: number; message: string }[];
+}
+
+/** PATCH /product-catalog/:id response — distinguishes a direct apply
+ * (platform staff) from a proposal that now needs QA/RP ratification
+ * (everyone else editing their own organisation's contribution). Added
+ * 2026-10-09 — see ProductCatalogService.update()'s doc comment for the
+ * full gating rules this reflects. */
+export type UpdateProductMasterResult =
+  | { status: "APPLIED"; product: ProductCatalogMatch }
+  | { status: "PENDING_AMENDMENT"; amendmentId: string };
+
+/** One ProductAmendment row — a proposed change to a ProductMaster entry,
+ * awaiting QA/RP ratification. Added 2026-10-09. proposedChanges mirrors
+ * UpdateProductMasterInput's shape (only the fields actually proposed are
+ * present). */
+export interface ProductAmendmentSummary {
+  id: string;
+  productMasterId: string;
+  productMasterName: string;
+  organizationId: string;
+  organizationName: string;
+  proposedChanges: UpdateProductMasterInput;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  submittedById: string;
+  submittedByName: string;
+  submittedAt: string;
+  reviewedById: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+}
+
+/** POST /product-catalog/amendments/:id/reject body. Added 2026-10-09. */
+export interface RejectProductAmendmentInput {
+  notes?: string;
 }
 
 /** A country from the shared, non-tenant-scoped Country reference table
@@ -1822,7 +1872,7 @@ export interface UpdateControlledDocumentInput {
 // StakeholderEvidenceRecord awaiting verification, and a
 // ProductSourceApproval awaiting sourcing sign-off.
 
-export type QaQueueItemKind = "PARTNER_APPROVAL" | "EVIDENCE_VERIFICATION" | "PRODUCT_APPROVAL";
+export type QaQueueItemKind = "PARTNER_APPROVAL" | "EVIDENCE_VERIFICATION" | "PRODUCT_APPROVAL" | "PRODUCT_AMENDMENT";
 
 export interface QaQueueItem {
   kind: QaQueueItemKind;

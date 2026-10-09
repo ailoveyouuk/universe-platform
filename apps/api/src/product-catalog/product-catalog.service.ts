@@ -1,17 +1,39 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { assertHasPermission } from "../common/authorization";
 import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductPriceHistoryPoint,
+  ProductAmendmentSummary,
+  UpdateProductMasterResult,
   ImportProductMasterResult,
+  UpdateProductMasterInput,
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductMasterDto } from "./dto/create-product-master.dto";
 import type { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import type { ImportProductMasterRowDto } from "./dto/import-product-master.dto";
+import type { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
+
+/** The DTO's own optional-field list — used both as the Prisma `data`
+ * source for a direct apply and as diffForAudit's field list on
+ * ratification. Keeping this one array as the source of truth means a new
+ * editable field only needs adding here plus the DTO itself. */
+const UPDATABLE_FIELDS = [
+  "name",
+  "category",
+  "hsCode",
+  "unspscCode",
+  "gtin",
+  "standardUnit",
+  "canonicalManufacturerPartNumber",
+  "expectedQualityDocumentation",
+  "isArchived",
+] as const;
 
 /**
  * The shared, central product catalogue (ProductMaster) — search-or-create,
@@ -19,10 +41,11 @@ import type { ImportProductMasterRowDto } from "./dto/import-product-master.dto"
  * doc comment for the general shape): typeahead search first, an explicit
  * "add it" action second, never a silent auto-merge. `product_master`
  * carries no organizationId column and is deliberately excluded from
- * row-level-security.sql, so every method here is bare `prisma`, no
- * withTenantContext — same reasoning product-source-approvals.service.ts
- * already documented for this table. That service's own searchProducts now
- * delegates to search() below rather than duplicating the query.
+ * row-level-security.sql, so every read/search method here is bare
+ * `prisma`, no withTenantContext — same reasoning product-source-approvals
+ * .service.ts already documented for this table. That service's own
+ * searchProducts now delegates to search() below rather than duplicating
+ * the query.
  *
  * Built 2026-10-02 as the first concrete implementation of the pattern
  * Lewis asked to "remember... for when we build out the crm and
@@ -36,11 +59,12 @@ import type { ImportProductMasterRowDto } from "./dto/import-product-master.dto"
  *
  * Attribution (addedByOrganizationId/addedByOrganizationType) is frozen at
  * creation time purely as a provenance tag — see ProductMaster's doc
- * comment in schema.prisma. It is never used to gate visibility:
+ * comment in schema.prisma. It is never used to gate *visibility*:
  * ProductMaster search/read stays open to every organisation, same as
- * today. This is a deliberate contrast with StakeholderRegistryEntry, where
- * identity IS gated behind consent — products and stakeholders follow
- * different visibility rules by design (roadmap doc Section B vs B3).
+ * today. It IS now used to gate *writes* — see update()'s doc comment,
+ * added 2026-10-09 for the catalogue edit-rights + ratification workflow
+ * (product-database-and-map-roadmap.md Stage 0 point 1, Lewis's explicit
+ * design).
  */
 @Injectable()
 export class ProductCatalogService {
@@ -59,7 +83,8 @@ export class ProductCatalogService {
       orderBy: { name: "asc" },
       take: 25,
     });
-    return rows.map((r) => this.toMatch(r));
+    const pending = await this.pendingAmendmentIds(rows);
+    return rows.map((r) => this.toMatch(r, pending.has(r.id)));
   }
 
   /** Full detail for a single catalogue entry, including the category's
@@ -80,8 +105,9 @@ export class ProductCatalogService {
       where: { category: row.category },
       orderBy: { sortOrder: "asc" },
     });
+    const pending = await this.pendingAmendmentIds([row]);
     return {
-      ...this.toMatch(row),
+      ...this.toMatch(row, pending.has(row.id)),
       canonicalManufacturerPartNumber: row.canonicalManufacturerPartNumber,
       expectedQualityDocumentation: row.expectedQualityDocumentation,
       attributeDefinitions: attributeDefinitions.map((a) => ({
@@ -155,20 +181,221 @@ export class ProductCatalogService {
       }),
       prisma.productMaster.count({ where }),
     ]);
-    return { items: rows.map((r) => this.toMatch(r)), total, page, pageSize };
+    const pending = await this.pendingAmendmentIds(rows);
+    return { items: rows.map((r) => this.toMatch(r, pending.has(r.id))), total, page, pageSize };
   }
 
-  /** PATCH /product-catalog/:id — edits an existing entry. See
-   * UpdateProductMasterDto's doc comment: provenance fields
-   * (sourceStandard, addedByOrganizationId/Type) are deliberately not
-   * editable here. Added 2026-10-03. */
-  async update(id: string, dto: UpdateProductMasterDto): Promise<ProductCatalogMatch> {
-    const updated = await prisma.productMaster.update({
-      where: { id },
-      data: { ...dto },
-      include: { addedByOrganization: { select: { name: true } } },
+  /** PATCH /product-catalog/:id — edits an existing entry. Added
+   * 2026-10-03; rewritten 2026-10-09 for the catalogue edit-rights +
+   * ratification workflow (product-database-and-map-roadmap.md Stage 0
+   * point 1 — Lewis's explicit design, quoted in full):
+   *
+   *   "no editing rights for anyone for any product that wasn't created
+   *   by their parent organisation. for products that were created from
+   *   within their parent organisation account, amendments can be made by
+   *   project managers and quality assurance/RPs (plus admins), however
+   *   all changes must be ratified by quality assurance/RP designated
+   *   users before those products can be used on a project line" — and
+   *   the immediate follow-up correcting my own assumption: "can add the
+   *   product with a warning" (non-blocking, see hasPendingAmendment).
+   *
+   * Gating, in order:
+   *   1. Platform staff — applies directly, no amendment row, exactly the
+   *      old behaviour. Universe's own operating team isn't expected to
+   *      hold every tenant's own role to support a customer (same
+   *      reasoning as assertHasPermission's platform-staff bypass).
+   *   2. Not platform staff, and the row wasn't added by the caller's own
+   *      organisation — Forbidden outright, no amendment created either:
+   *      this org has NO editing rights over this product, full stop.
+   *   3. Same org, but the caller holds neither `projects.edit` nor
+   *      `products.approve` (no single existing permission key covers
+   *      both Project Manager and QA/RP/Admin — see
+   *      packages/db/src/organizations.ts's DEFAULT_ROLE_TEMPLATE) —
+   *      Forbidden.
+   *   4. Same org, permission held — NOT applied directly. A PENDING
+   *      ProductAmendment row is created instead; the live ProductMaster
+   *      row is untouched until a QA/RP user ratifies it (see
+   *      ratifyAmendment below). Provenance fields
+   *      (sourceStandard/addedByOrganizationId/Type) were never editable
+   *      here to begin with — UpdateProductMasterDto still excludes them.
+   */
+  async update(user: RequestUser, id: string, dto: UpdateProductMasterDto): Promise<UpdateProductMasterResult> {
+    const existing = await prisma.productMaster.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException("Product not found.");
+
+    if (user.platformStaffRole !== "NONE") {
+      const updated = await prisma.productMaster.update({
+        where: { id },
+        data: { ...dto },
+        include: { addedByOrganization: { select: { name: true } } },
+      });
+      const pending = await this.pendingAmendmentIds([updated]);
+      return { status: "APPLIED", product: this.toMatch(updated, pending.has(updated.id)) };
+    }
+
+    if (existing.addedByOrganizationId !== user.organizationId) {
+      throw new ForbiddenException(
+        "Only the organisation that originally added this product may propose changes to it.",
+      );
+    }
+    if (!user.permissions.includes("projects.edit") && !user.permissions.includes("products.approve")) {
+      throw new ForbiddenException(
+        "Missing permission: amendments require projects.edit or products.approve.",
+      );
+    }
+
+    const amendment = await withTenantContext(user.organizationId, (tx) =>
+      tx.productAmendment.create({
+        data: {
+          organizationId: user.organizationId,
+          productMasterId: id,
+          proposedChanges: JSON.stringify(dto),
+          status: "PENDING",
+          submittedById: user.id,
+        },
+      }),
+    );
+    return { status: "PENDING_AMENDMENT", amendmentId: amendment.id };
+  }
+
+  /** GET /product-catalog/:id/amendments — every ProductAmendment ever
+   * submitted against this product, tenant-scoped to the caller's own
+   * organisation (the only org that could ever have submitted one, by
+   * construction — see update()'s same-org gate above). Added 2026-10-09,
+   * mainly so a product's own detail screen can show its amendment
+   * history alongside the live-queue view in QaQueueService. */
+  async listAmendments(user: RequestUser, productMasterId: string): Promise<ProductAmendmentSummary[]> {
+    const rows = await withTenantContext(user.organizationId, (tx) =>
+      tx.productAmendment.findMany({
+        where: { ...tenantScope(user.organizationId), productMasterId },
+        include: {
+          productMaster: { select: { name: true } },
+          organization: { select: { name: true } },
+          submittedBy: { select: { forename: true, surname: true } },
+          reviewedBy: { select: { forename: true, surname: true } },
+        },
+        orderBy: { submittedAt: "desc" },
+      }),
+    );
+    return rows.map((r) => this.toAmendmentSummary(r));
+  }
+
+  /** GET /product-catalog/amendments/:id — a single amendment, tenant-
+   * scoped to the caller's own organisation (same RLS reasoning as
+   * ratifyAmendment/rejectAmendment below — this is a bare lookup by id,
+   * not scoped to a known productMasterId the way listAmendments is, so
+   * it has to run inside withTenantContext too). Added 2026-10-09 for the
+   * QA Queue's "Review amendment" deep link. */
+  async getAmendment(user: RequestUser, amendmentId: string): Promise<ProductAmendmentSummary> {
+    const row = await withTenantContext(user.organizationId, (tx) =>
+      tx.productAmendment.findFirst({
+        where: { ...tenantScope(user.organizationId), id: amendmentId },
+        include: {
+          productMaster: { select: { name: true } },
+          organization: { select: { name: true } },
+          submittedBy: { select: { forename: true, surname: true } },
+          reviewedBy: { select: { forename: true, surname: true } },
+        },
+      }),
+    );
+    if (!row) throw new NotFoundException("Amendment not found.");
+    return this.toAmendmentSummary(row);
+  }
+
+  /** POST /product-catalog/amendments/:id/ratify — applies the proposed
+   * changes to the live ProductMaster row and marks the amendment
+   * APPROVED. Gated on `products.approve` (QA/RP/Admin — see
+   * DEFAULT_ROLE_TEMPLATE), same permission key the rest of the QA/
+   * procurement segregation-of-duties work uses (ProductSourceApproval,
+   * StakeholderEvidenceRecord). Everything here — the initial lookup
+   * included — runs inside ONE withTenantContext(user.organizationId,
+   * ...) transaction, never a bare `prisma.productAmendment` call:
+   * product_amendments IS RLS-protected (unlike product_master itself),
+   * so a bare lookup with no session context set would silently return
+   * nothing at all (RLS's default-deny), not an unfiltered row. This also
+   * means a QA/RP user can only ever ratify an amendment belonging to
+   * THEIR OWN organisation — exactly right, since an amendment's
+   * organizationId is always the same org that both added the product
+   * and proposed the change (see update()'s same-org gate); a mismatched
+   * org gets a 404, not a permission error, so existence isn't leaked
+   * cross-tenant either. */
+  async ratifyAmendment(user: RequestUser, amendmentId: string): Promise<ProductAmendmentSummary> {
+    assertHasPermission(user, "products.approve");
+
+    const updated = await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.productAmendment.findFirst({
+        where: { ...tenantScope(user.organizationId), id: amendmentId },
+      });
+      if (!existing) throw new NotFoundException("Amendment not found.");
+      if (existing.status !== "PENDING") throw new ForbiddenException("This amendment has already been reviewed.");
+
+      const proposed = JSON.parse(existing.proposedChanges) as UpdateProductMasterInput;
+      const before = await tx.productMaster.findUnique({ where: { id: existing.productMasterId } });
+      if (!before) throw new NotFoundException("Product not found.");
+
+      const changes = diffForAudit(before, proposed, UPDATABLE_FIELDS);
+      await tx.productMaster.update({
+        where: { id: existing.productMasterId },
+        data: { ...proposed },
+      });
+      await recordFieldChanges(tx, {
+        organizationId: existing.organizationId,
+        tableName: "product_master",
+        recordId: existing.productMasterId,
+        changedById: user.id,
+        changes,
+        reason: "Product amendment ratified",
+      });
+      return tx.productAmendment.update({
+        where: { id: amendmentId },
+        data: { status: "APPROVED", reviewedById: user.id, reviewedAt: new Date() },
+        include: {
+          productMaster: { select: { name: true } },
+          organization: { select: { name: true } },
+          submittedBy: { select: { forename: true, surname: true } },
+          reviewedBy: { select: { forename: true, surname: true } },
+        },
+      });
     });
-    return this.toMatch(updated);
+
+    return this.toAmendmentSummary(updated);
+  }
+
+  /** POST /product-catalog/amendments/:id/reject — marks the amendment
+   * REJECTED with the reviewer's notes; the live ProductMaster row is
+   * never touched. Same `products.approve` gate and same
+   * single-transaction/RLS reasoning as ratifyAmendment above. */
+  async rejectAmendment(
+    user: RequestUser,
+    amendmentId: string,
+    dto: RejectProductAmendmentDto,
+  ): Promise<ProductAmendmentSummary> {
+    assertHasPermission(user, "products.approve");
+
+    const updated = await withTenantContext(user.organizationId, async (tx) => {
+      const existing = await tx.productAmendment.findFirst({
+        where: { ...tenantScope(user.organizationId), id: amendmentId },
+      });
+      if (!existing) throw new NotFoundException("Amendment not found.");
+      if (existing.status !== "PENDING") throw new ForbiddenException("This amendment has already been reviewed.");
+
+      return tx.productAmendment.update({
+        where: { id: amendmentId },
+        data: {
+          status: "REJECTED",
+          reviewedById: user.id,
+          reviewedAt: new Date(),
+          reviewNotes: dto.notes ?? null,
+        },
+        include: {
+          productMaster: { select: { name: true } },
+          organization: { select: { name: true } },
+          submittedBy: { select: { forename: true, surname: true } },
+          reviewedBy: { select: { forename: true, surname: true } },
+        },
+      });
+    });
+    return this.toAmendmentSummary(updated);
   }
 
   /** POST /product-catalog/import — bulk upsert for reference-data
@@ -284,20 +511,98 @@ export class ProductCatalogService {
       },
       include: { addedByOrganization: { select: { name: true } } },
     });
-    return this.toMatch(created);
+    return this.toMatch(created, false);
   }
 
-  private toMatch(row: {
+  /** Groups the given rows by addedByOrganizationId and, per org, checks
+   * for a PENDING ProductAmendment among those ids — returning the set of
+   * productMasterIds that have one. product_amendments IS RLS-protected
+   * (see row-level-security.sql), but a row's organizationId is always
+   * the SAME organisation as the product's own addedByOrganizationId (see
+   * update()'s same-org gate — an amendment can only ever be submitted by
+   * the org that added the product), so scoping each lookup to that
+   * product's own owning org — rather than the viewing caller's org —
+   * correctly surfaces the warning to ANY viewer (e.g. a different
+   * organisation's user browsing the shared catalogue, per Lewis's
+   * "can add the product with a warning" instruction) without ever
+   * returning another organisation's row contents, only this one boolean
+   * per id. Rows with no addedByOrganizationId (the originally-seeded
+   * reference data) can never have an amendment and are skipped. One
+   * withTenantContext transaction per distinct owning org represented in
+   * the page of results — acceptable at this platform's current scale;
+   * worth revisiting if a single search/list page routinely spans dozens
+   * of contributing organisations. */
+  private async pendingAmendmentIds(rows: { id: string; addedByOrganizationId: string | null }[]): Promise<Set<string>> {
+    const byOrg = new Map<string, string[]>();
+    for (const r of rows) {
+      if (!r.addedByOrganizationId) continue;
+      const ids = byOrg.get(r.addedByOrganizationId) ?? [];
+      ids.push(r.id);
+      byOrg.set(r.addedByOrganizationId, ids);
+    }
+    const pending = new Set<string>();
+    await Promise.all(
+      [...byOrg.entries()].map(([orgId, ids]) =>
+        withTenantContext(orgId, (tx) =>
+          tx.productAmendment.findMany({
+            where: { organizationId: orgId, productMasterId: { in: ids }, status: "PENDING" },
+            select: { productMasterId: true },
+          }),
+        ).then((found) => found.forEach((f) => pending.add(f.productMasterId))),
+      ),
+    );
+    return pending;
+  }
+
+  private toAmendmentSummary(row: {
     id: string;
-    name: string;
-    category: string;
-    hsCode: string | null;
-    unspscCode: string | null;
-    gtin: string | null;
-    standardUnit: string | null;
-    isArchived: boolean;
-    addedByOrganization: { name: string } | null;
-  }): ProductCatalogMatch {
+    productMasterId: string;
+    productMaster: { name: string };
+    organizationId: string;
+    organization: { name: string };
+    proposedChanges: string;
+    status: string;
+    submittedById: string;
+    submittedBy: { forename: string; surname: string };
+    submittedAt: Date;
+    reviewedById: string | null;
+    reviewedBy: { forename: string; surname: string } | null;
+    reviewedAt: Date | null;
+    reviewNotes: string | null;
+  }): ProductAmendmentSummary {
+    return {
+      id: row.id,
+      productMasterId: row.productMasterId,
+      productMasterName: row.productMaster.name,
+      organizationId: row.organizationId,
+      organizationName: row.organization.name,
+      proposedChanges: JSON.parse(row.proposedChanges) as UpdateProductMasterInput,
+      status: row.status as "PENDING" | "APPROVED" | "REJECTED",
+      submittedById: row.submittedById,
+      submittedByName: `${row.submittedBy.forename} ${row.submittedBy.surname}`,
+      submittedAt: row.submittedAt.toISOString(),
+      reviewedById: row.reviewedById,
+      reviewedByName: row.reviewedBy ? `${row.reviewedBy.forename} ${row.reviewedBy.surname}` : null,
+      reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+      reviewNotes: row.reviewNotes,
+    };
+  }
+
+  private toMatch(
+    row: {
+      id: string;
+      name: string;
+      category: string;
+      hsCode: string | null;
+      unspscCode: string | null;
+      gtin: string | null;
+      standardUnit: string | null;
+      isArchived: boolean;
+      addedByOrganizationId: string | null;
+      addedByOrganization: { name: string } | null;
+    },
+    hasPendingAmendment: boolean,
+  ): ProductCatalogMatch {
     return {
       id: row.id,
       name: row.name,
@@ -307,7 +612,9 @@ export class ProductCatalogService {
       gtin: row.gtin,
       standardUnit: row.standardUnit,
       addedByOrganizationName: row.addedByOrganization?.name ?? null,
+      addedByOrganizationId: row.addedByOrganizationId,
       isArchived: row.isArchived,
+      hasPendingAmendment,
     };
   }
 }

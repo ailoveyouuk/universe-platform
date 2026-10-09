@@ -35,7 +35,7 @@ export class QaQueueService {
     assertHasPermission(user, "qa.queue.view");
 
     return withTenantContext(user.organizationId, async (tx) => {
-      const [pendingPartners, pendingEvidence, pendingProducts] = await Promise.all([
+      const [pendingPartners, pendingEvidence, pendingProducts, pendingAmendments] = await Promise.all([
         tx.partner.findMany({
           where: { ...tenantScope(user.organizationId), approvalStatus: "PENDING", isArchived: false },
           include: {
@@ -55,6 +55,20 @@ export class QaQueueService {
           where: { ...tenantScope(user.organizationId), status: "PENDING", isArchived: false },
           include: { productMaster: true, manufacturer: true, supplier: true },
           orderBy: { createdAt: "asc" },
+        }),
+        // ProductAmendment — added 2026-10-09, catalogue edit-rights +
+        // ratification workflow (product-database-and-map-roadmap.md
+        // Stage 0 point 1). Same tenantScope/withTenantContext pattern as
+        // the three sources above: an amendment's organizationId is
+        // always the org that both added AND is proposing the change to
+        // this product (see ProductCatalogService.update()'s same-org
+        // gate), so this naturally only ever surfaces this caller's own
+        // organisation's pending amendments — exactly who's allowed to
+        // ratify them.
+        tx.productAmendment.findMany({
+          where: { ...tenantScope(user.organizationId), status: "PENDING" },
+          include: { productMaster: true },
+          orderBy: { submittedAt: "asc" },
         }),
       ]);
 
@@ -112,6 +126,19 @@ export class QaQueueService {
           queuedAt: a.createdAt.toISOString(),
           ageDays: ageDaysSince(a.createdAt),
           links: partnerLinks,
+        });
+      }
+
+      for (const am of pendingAmendments) {
+        items.push({
+          kind: "PRODUCT_AMENDMENT",
+          id: am.id,
+          title: am.productMaster.name,
+          detail: "Catalogue amendment awaiting ratification",
+          categories: ["PRODUCT"],
+          queuedAt: am.submittedAt.toISOString(),
+          ageDays: ageDaysSince(am.submittedAt),
+          links: [{ label: "Review amendment", path: `/quality/product-amendments?id=${am.id}` }],
         });
       }
 

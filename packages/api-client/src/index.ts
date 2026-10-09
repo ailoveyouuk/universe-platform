@@ -24,11 +24,13 @@ import type {
   OrganizationSummary,
   PartnerPerformanceMetric,
   PartnerSummary,
+  ProductAmendmentSummary,
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductMasterOption,
   ProductPriceHistoryPoint,
+  RejectProductAmendmentInput,
   ProductSourceApprovalSummary,
   AddProjectContactInput,
   AddProjectLeadInput,
@@ -52,6 +54,7 @@ import type {
   SupplierSearchResult,
   UpdatePartnerInput,
   UpdateProductMasterInput,
+  UpdateProductMasterResult,
   UpdateProductSourceApprovalInput,
   UpdateProjectInput,
   UpdateSupplierEnquiryInput,
@@ -443,8 +446,43 @@ export class UniverseApiClient {
     return this.request(`/product-catalog${query}`);
   }
 
-  updateProductCatalogEntry(id: string, input: UpdateProductMasterInput): Promise<ProductCatalogMatch> {
+  /** Added 2026-10-09 — return type changed from a bare ProductCatalogMatch
+   * to UpdateProductMasterResult: platform staff still get the applied
+   * row back directly, but everyone else proposing a same-org amendment
+   * gets back the new PENDING amendment's id instead (the live product is
+   * untouched until a QA/RP user ratifies it) — see
+   * ProductCatalogService.update()'s doc comment for the full design. */
+  updateProductCatalogEntry(id: string, input: UpdateProductMasterInput): Promise<UpdateProductMasterResult> {
     return this.request(`/product-catalog/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  /** GET /product-catalog/:id/amendments — this product's amendment
+   * history, tenant-scoped to the caller's own organisation. Added
+   * 2026-10-09. */
+  getProductAmendments(productMasterId: string): Promise<ProductAmendmentSummary[]> {
+    return this.request(`/product-catalog/${productMasterId}/amendments`);
+  }
+
+  /** GET /product-catalog/amendments/:id — a single amendment by id, for
+   * the QA Queue's "Review amendment" deep link. Added 2026-10-09. */
+  getProductAmendment(amendmentId: string): Promise<ProductAmendmentSummary> {
+    return this.request(`/product-catalog/amendments/${amendmentId}`);
+  }
+
+  /** POST /product-catalog/amendments/:id/ratify — applies the proposed
+   * changes and marks the amendment APPROVED. Gated server-side on
+   * products.approve. Added 2026-10-09. */
+  ratifyProductAmendment(amendmentId: string): Promise<ProductAmendmentSummary> {
+    return this.request(`/product-catalog/amendments/${amendmentId}/ratify`, { method: "POST" });
+  }
+
+  /** POST /product-catalog/amendments/:id/reject — marks the amendment
+   * REJECTED; the live product is never touched. Added 2026-10-09. */
+  rejectProductAmendment(amendmentId: string, input?: RejectProductAmendmentInput): Promise<ProductAmendmentSummary> {
+    return this.request(`/product-catalog/amendments/${amendmentId}/reject`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
+    });
   }
 
   importProductCatalogRows(

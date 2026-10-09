@@ -174,6 +174,8 @@ const KIND_LABELS: Record<QaQueueItem["kind"], string> = {
   PARTNER_APPROVAL: "Stakeholder approval",
   EVIDENCE_VERIFICATION: "Evidence verification",
   PRODUCT_APPROVAL: "Product sourcing",
+  // Added 2026-10-09 — catalogue edit-rights + ratification workflow.
+  PRODUCT_AMENDMENT: "Catalogue amendment",
 };
 
 function QueueRow({ item, showCategories }: { item: QaQueueItem; showCategories?: boolean }) {

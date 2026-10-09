@@ -88,7 +88,7 @@ GO
 --      project_status_history, product_source_approvals (added 2026-10-01),
 --      partner_certifications, partner_company_checks,
 --      partner_approval_history, field_change_log, risk_assessments
---      (added 2026-10-07)
+--      (added 2026-10-07), product_amendments (added 2026-10-09)
 --    NOT included, and deliberately so: product_master (shared reference
 --    catalog, not tenant-scoped — see schema.prisma "PRODUCT CLASSIFICATION"
 --    comment) and regions/countries (global reference data).
@@ -206,7 +206,15 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
 
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.batch_temperature_logs AFTER UPDATE,
+
+    -- product_amendments — catalogue edit-rights + ratification workflow,
+    -- added 2026-10-09 (product-database-and-map-roadmap.md Stage 0 point
+    -- 1). Tenant-scoped (which org proposed the amendment is sensitive),
+    -- unlike product_master itself, which stays out of this policy.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER UPDATE
 WITH (STATE = ON);
 GO
 

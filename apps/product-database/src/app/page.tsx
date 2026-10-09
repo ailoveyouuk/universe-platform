@@ -10,6 +10,7 @@ import type {
   UpdateProductMasterInput,
 } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
+import { useCurrentUser } from "../lib/AuthContext";
 import { Button, Pagination, Pill, SearchInput, Select, TextLink, type PageSize } from "@universe/ui";
 
 /**
@@ -140,6 +141,7 @@ export default function ProductCatalogPage() {
                   expanded={expandedId === p.id}
                   onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
                   onSaved={() => { setExpandedId(null); load(); }}
+                  onRefresh={load}
                 />
               ))}
               {items.length === 0 && !loading && (
@@ -171,11 +173,13 @@ function ProductRow({
   expanded,
   onToggle,
   onSaved,
+  onRefresh,
 }: {
   product: ProductCatalogMatch;
   expanded: boolean;
   onToggle: () => void;
   onSaved: () => void;
+  onRefresh: () => void;
 }) {
   return (
     <>
@@ -191,6 +195,11 @@ function ProductRow({
               <Pill tone="neutral">Archived</Pill>
             </span>
           )}
+          {product.hasPendingAmendment && (
+            <span style={{ marginLeft: 8 }} title="A proposed change to this product is awaiting QA/RP ratification — it can still be used on a project line.">
+              <Pill tone="warning">Pending amendment</Pill>
+            </span>
+          )}
         </td>
         <td style={{ padding: 8 }}>
           <Pill tone="neutral">{product.category}</Pill>
@@ -203,7 +212,7 @@ function ProductRow({
       {expanded && (
         <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
           <td colSpan={6} style={{ padding: "4px 8px 16px" }}>
-            <ProductEditPanel productId={product.id} onSaved={onSaved} onCancel={onToggle} />
+            <ProductEditPanel productId={product.id} onSaved={onSaved} onRefresh={onRefresh} onCancel={onToggle} />
           </td>
         </tr>
       )}
@@ -211,14 +220,34 @@ function ProductRow({
   );
 }
 
-function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string; onSaved: () => void; onCancel: () => void }) {
+function ProductEditPanel({
+  productId,
+  onSaved,
+  onRefresh,
+  onCancel,
+}: {
+  productId: string;
+  onSaved: () => void;
+  onRefresh: () => void;
+  onCancel: () => void;
+}) {
+  const me = useCurrentUser();
   const [detail, setDetail] = useState<ProductCatalogDetail | null>(null);
   const [form, setForm] = useState<UpdateProductMasterInput>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submittedNotice, setSubmittedNotice] = useState<string | null>(null);
 
   const [priceHistory, setPriceHistory] = useState<ProductPriceHistoryPoint[] | null>(null);
   const [priceHistoryError, setPriceHistoryError] = useState<string | null>(null);
+
+  const isPlatformStaff = (me?.platformStaffRole ?? "NONE") !== "NONE";
+  const isOwnOrg = Boolean(me && detail && detail.addedByOrganizationId === me.organizationId);
+  const hasAmendPermission = Boolean(
+    me && (me.permissions.includes("projects.edit") || me.permissions.includes("products.approve")),
+  );
+  const canProposeAmendment = isOwnOrg && hasAmendPermission;
+  const canEdit = isPlatformStaff || canProposeAmendment;
 
   useEffect(() => {
     apiClient
@@ -256,9 +285,17 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
   async function save() {
     setSaving(true);
     setError(null);
+    setSubmittedNotice(null);
     try {
-      await apiClient.updateProductCatalogEntry(productId, form);
-      onSaved();
+      const result = await apiClient.updateProductCatalogEntry(productId, form);
+      if (result.status === "PENDING_AMENDMENT") {
+        setSubmittedNotice(
+          "Change submitted for QA/RP ratification — the live catalogue entry is unchanged until it's reviewed.",
+        );
+        onRefresh();
+      } else {
+        onSaved();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -270,13 +307,24 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
   // entry stays in the database (ProductMaster.isArchived) and drops out
   // of the catalogue's default browse/search/picker results rather than
   // being destroyed, since other apps' historical records (project lines,
-  // product source approvals, etc.) still reference it by id.
+  // product source approvals, etc.) still reference it by id. Added
+  // 2026-10-09: same update() gate as every other field now — a same-org
+  // non-admin archives via a ratified amendment like any other change,
+  // not applied immediately.
   async function setArchived(archived: boolean) {
     setSaving(true);
     setError(null);
+    setSubmittedNotice(null);
     try {
-      await apiClient.updateProductCatalogEntry(productId, { isArchived: archived });
-      onSaved();
+      const result = await apiClient.updateProductCatalogEntry(productId, { isArchived: archived });
+      if (result.status === "PENDING_AMENDMENT") {
+        setSubmittedNotice(
+          "Change submitted for QA/RP ratification — the live catalogue entry is unchanged until it's reviewed.",
+        );
+        onRefresh();
+      } else {
+        onSaved();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${archived ? "archive" : "restore"} entry`);
     } finally {
@@ -296,6 +344,13 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
     width: "100%",
   };
 
+  const readOnlyFieldStyle: React.CSSProperties = {
+    ...fieldStyle,
+    backgroundColor: "var(--u-surface-alt)",
+    color: "var(--u-ink-secondary)",
+    cursor: "not-allowed",
+  };
+
   return (
     <div
       style={{
@@ -308,34 +363,89 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
         gap: 12,
       }}
     >
+      {!canEdit && (
+        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
+          Read-only — only {detail.addedByOrganizationName ?? "the organisation that added this product"} (or a
+          platform admin) can edit this entry.
+        </p>
+      )}
+      {canProposeAmendment && !isPlatformStaff && (
+        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
+          Changes you make here will be submitted for QA/RP ratification before taking effect on the shared
+          catalogue.
+        </p>
+      )}
+      {detail.hasPendingAmendment && (
+        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-status-warning)", fontWeight: 600 }}>
+          This product has a change awaiting QA/RP ratification. It can still be added to a project line in the
+          meantime — the values below are the current, unamended ones.
+        </p>
+      )}
+      {submittedNotice && (
+        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-status-good)", fontWeight: 600 }}>
+          {submittedNotice}
+        </p>
+      )}
       <Field label="Name">
-        <input style={fieldStyle} value={form.name ?? ""} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.name ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        />
       </Field>
       <Field label="Category">
-        <input style={fieldStyle} value={form.category ?? ""} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.category ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+        />
       </Field>
       <Field label="HS Code">
-        <input style={fieldStyle} value={form.hsCode ?? ""} onChange={(e) => setForm((f) => ({ ...f, hsCode: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.hsCode ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, hsCode: e.target.value }))}
+        />
       </Field>
       <Field label="UNSPSC Code">
-        <input style={fieldStyle} value={form.unspscCode ?? ""} onChange={(e) => setForm((f) => ({ ...f, unspscCode: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.unspscCode ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, unspscCode: e.target.value }))}
+        />
       </Field>
       <Field label="GTIN">
-        <input style={fieldStyle} value={form.gtin ?? ""} onChange={(e) => setForm((f) => ({ ...f, gtin: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.gtin ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, gtin: e.target.value }))}
+        />
       </Field>
       <Field label="Standard Unit">
-        <input style={fieldStyle} value={form.standardUnit ?? ""} onChange={(e) => setForm((f) => ({ ...f, standardUnit: e.target.value }))} />
+        <input
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
+          value={form.standardUnit ?? ""}
+          onChange={(e) => setForm((f) => ({ ...f, standardUnit: e.target.value }))}
+        />
       </Field>
       <Field label="Canonical Manufacturer Part Number">
         <input
-          style={fieldStyle}
+          style={canEdit ? fieldStyle : readOnlyFieldStyle}
+          disabled={!canEdit}
           value={form.canonicalManufacturerPartNumber ?? ""}
           onChange={(e) => setForm((f) => ({ ...f, canonicalManufacturerPartNumber: e.target.value }))}
         />
       </Field>
       <Field label="Expected Quality Documentation" span>
         <textarea
-          style={{ ...fieldStyle, minHeight: 60 }}
+          style={canEdit ? { ...fieldStyle, minHeight: 60 } : { ...readOnlyFieldStyle, minHeight: 60 }}
+          disabled={!canEdit}
           value={form.expectedQualityDocumentation ?? ""}
           onChange={(e) => setForm((f) => ({ ...f, expectedQualityDocumentation: e.target.value }))}
         />
@@ -408,20 +518,23 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
       )}
 
       <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
-        {detail.isArchived ? (
-          <Button variant="secondary" size="sm" onClick={() => setArchived(false)} disabled={saving}>
-            Restore
-          </Button>
-        ) : (
-          <Button variant="secondary" size="sm" onClick={() => setArchived(true)} disabled={saving}>
-            Archive
-          </Button>
-        )}
-        <div style={{ display: "flex", gap: 8 }}>
+        {canEdit &&
+          (detail.isArchived ? (
+            <Button variant="secondary" size="sm" onClick={() => setArchived(false)} disabled={saving}>
+              Restore
+            </Button>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => setArchived(true)} disabled={saving}>
+              Archive
+            </Button>
+          ))}
+        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
           <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
+          {canEdit && (
+            <Button variant="primary" size="sm" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isPlatformStaff ? "Save" : "Propose amendment"}
+            </Button>
+          )}
         </div>
       </div>
     </div>

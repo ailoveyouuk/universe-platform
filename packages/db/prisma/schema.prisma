@@ -283,6 +283,9 @@ model Organization {
   partnerCertifications        PartnerCertification[]
   partnerCompanyChecks         PartnerCompanyCheck[]
   partnerApprovalHistoryEntries PartnerApprovalHistory[]
+  /// Added 2026-10-09 — catalogue edit-rights + ratification workflow:
+  /// amendments proposed by users belonging to this org.
+  productAmendments            ProductAmendment[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -350,6 +353,9 @@ model User {
   ownedRiskAssessments RiskAssessment[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
   approvedControlledDocuments ControlledDocument[]
+  /// Added 2026-10-09 — catalogue edit-rights + ratification workflow.
+  submittedProductAmendments ProductAmendment[] @relation("ProductAmendmentSubmittedBy")
+  reviewedProductAmendments  ProductAmendment[] @relation("ProductAmendmentReviewedBy")
 
   @@index([organizationId])
   @@map("users")
@@ -1613,6 +1619,9 @@ model ProductMaster {
   productSourceApprovals ProductSourceApproval[]
   /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6.
   productBatches         ProductBatch[]
+  /// Added 2026-10-09 — catalogue edit-rights + ratification workflow (see
+  /// ProductAmendment below).
+  amendments             ProductAmendment[]
 
   @@index([category])
   @@index([hsCode])
@@ -1703,6 +1712,60 @@ model ProductPriceHistory {
   @@index([organizationId])
   @@index([productMasterId])
   @@map("product_price_history")
+}
+
+/// Catalogue edit-rights + ratification workflow, added 2026-10-09
+/// (product-database-and-map-roadmap.md, Stage 0 point 1 — Lewis's
+/// explicit design). ProductMaster itself stays the single shared,
+/// globally-readable catalogue (see its own doc comment) — this table is
+/// the gate in front of writing to it:
+///   - Platform staff may still edit any ProductMaster row directly (no
+///     amendment row created) — see ProductCatalogService.update().
+///   - Any other user may only ever propose changes to a ProductMaster row
+///     that THEIR organization originally added
+///     (ProductMaster.addedByOrganizationId === user.organizationId); a
+///     cross-org edit attempt is rejected outright, no amendment created.
+///   - Within that same-org case, only Project Manager / QA / RP / Org
+///     Admin roles (checked as `projects.edit` OR `products.approve`) may
+///     submit a proposal at all.
+///   - The proposal lands here as PENDING; the live ProductMaster row is
+///     NOT changed yet. A QA/RP-permissioned user (`products.approve`)
+///     must ratify it (status -> APPROVED, proposedChanges applied to
+///     ProductMaster via recordFieldChanges/diffForAudit) or reject it
+///     (status -> REJECTED, reviewNotes explaining why, no live change).
+///   - While PENDING, the product can still be selected onto a new
+///     ProjectLine — Lewis confirmed this is a WARNING, not a block (see
+///     ProductCatalogMatch/ProductPickerOption.hasPendingAmendment).
+/// Tenant-scoped (which org is proposing IS commercially/organizationally
+/// sensitive, unlike ProductMaster itself) — RLS-protected, see
+/// infra/sql/row-level-security.sql.
+model ProductAmendment {
+  id              String    @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId String
+  productMaster   ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// JSON object of the proposed field -> new value changes (same fields
+  /// UpdateProductMasterDto accepts), stored verbatim and only applied to
+  /// the live ProductMaster row on ratification.
+  proposedChanges String    @db.NVarChar(Max)
+  /// PENDING | APPROVED | REJECTED — see allowed values reference above
+  /// convention used throughout this schema; enforced in application code.
+  status          String    @default("PENDING")
+  submittedById   String
+  submittedBy     User      @relation("ProductAmendmentSubmittedBy", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  submittedAt     DateTime  @default(now())
+  reviewedById    String?
+  reviewedBy      User?     @relation("ProductAmendmentReviewedBy", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedAt      DateTime?
+  reviewNotes     String?   @db.NVarChar(Max)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([productMasterId])
+  @@index([status])
+  @@map("product_amendments")
 }
 
 // ---------------------------------------------------------------------------

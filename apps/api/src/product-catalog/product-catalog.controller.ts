@@ -5,6 +5,7 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CreateProductMasterDto } from "./dto/create-product-master.dto";
 import { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import { ImportProductMasterDto } from "./dto/import-product-master.dto";
+import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductCatalogService } from "./product-catalog.service";
 
 /**
@@ -17,8 +18,13 @@ import { ProductCatalogService } from "./product-catalog.service";
  * trusted from the request body).
  *
  * Route order matters here: the static routes (list at the bare path,
- * "search", "import") are declared before the ":id" param route so Nest
- * matches them first rather than treating "search"/"import" as an id.
+ * "search", "import", "amendments/...") are declared before the ":id"
+ * param route so Nest matches them first rather than treating
+ * "search"/"import"/"amendments" as an id.
+ *
+ * Added 2026-10-09 — the "amendments/:amendmentId/ratify|reject" routes
+ * for the catalogue edit-rights + ratification workflow (see
+ * ProductCatalogService.update()'s doc comment for the full design).
  */
 @Controller("product-catalog")
 @UseGuards(EntraAuthGuard)
@@ -58,6 +64,37 @@ export class ProductCatalogController {
     return this.productCatalogService.importBatch(user, dto.sourceStandard, dto.rows);
   }
 
+  /** GET /product-catalog/amendments/:amendmentId — a single amendment,
+   * tenant-scoped to the caller's own organisation. Declared before ":id"
+   * for the same reason as "search"/"import" above. Added 2026-10-09 for
+   * the QA Queue's "Review amendment" deep link. */
+  @Get("amendments/:amendmentId")
+  getAmendment(@CurrentUser() user: RequestUser, @Param("amendmentId") amendmentId: string) {
+    return this.productCatalogService.getAmendment(user, amendmentId);
+  }
+
+  /** POST /product-catalog/amendments/:amendmentId/ratify — applies a
+   * PENDING ProductAmendment's proposed changes to the live product and
+   * marks it APPROVED. Gated on products.approve inside the service
+   * (assertHasPermission). Declared before ":id" so Nest doesn't treat
+   * "amendments" as a product id. */
+  @Post("amendments/:amendmentId/ratify")
+  ratifyAmendment(@CurrentUser() user: RequestUser, @Param("amendmentId") amendmentId: string) {
+    return this.productCatalogService.ratifyAmendment(user, amendmentId);
+  }
+
+  /** POST /product-catalog/amendments/:amendmentId/reject — marks a
+   * PENDING ProductAmendment REJECTED; the live product is never
+   * touched. Same products.approve gate as ratifyAmendment. */
+  @Post("amendments/:amendmentId/reject")
+  rejectAmendment(
+    @CurrentUser() user: RequestUser,
+    @Param("amendmentId") amendmentId: string,
+    @Body() dto: RejectProductAmendmentDto,
+  ) {
+    return this.productCatalogService.rejectAmendment(user, amendmentId, dto);
+  }
+
   @Get(":id")
   getOne(@Param("id") id: string) {
     return this.productCatalogService.getOne(id);
@@ -75,9 +112,19 @@ export class ProductCatalogController {
     return this.productCatalogService.getPriceHistory(user, id);
   }
 
+  /** GET /product-catalog/:id/amendments — this product's amendment
+   * history, tenant-scoped to the caller's own organisation. Declared
+   * after ":id" but before the bare ":id" match is irrelevant here since
+   * this is itself a sub-path of ":id" — Nest matches the more specific
+   * route. Added 2026-10-09. */
+  @Get(":id/amendments")
+  listAmendments(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.productCatalogService.listAmendments(user, id);
+  }
+
   @Patch(":id")
-  update(@Param("id") id: string, @Body() dto: UpdateProductMasterDto) {
-    return this.productCatalogService.update(id, dto);
+  update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateProductMasterDto) {
+    return this.productCatalogService.update(user, id, dto);
   }
 
   @Post()

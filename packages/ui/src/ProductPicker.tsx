@@ -11,6 +11,13 @@ export interface ProductPickerOption {
    * never used for gating; ProductMaster search stays open to everyone.
    * See ProductCatalogMatch's doc comment in @universe/types. */
   addedByOrganizationName?: string | null;
+  /** Added 2026-10-09 — catalogue edit-rights + ratification workflow.
+   * True when this product has a PENDING ProductAmendment awaiting QA/RP
+   * ratification. Shown as a non-blocking warning only — Lewis's explicit
+   * instruction: a product can still be selected onto a project line
+   * with a pending amendment, it just needs a warning shown. See
+   * ProductCatalogMatch.hasPendingAmendment in @universe/types. */
+  hasPendingAmendment?: boolean | null;
 }
 
 /**
@@ -44,6 +51,7 @@ export function ProductPicker({
   options,
   selectedId,
   selectedLabel,
+  selectedHasPendingAmendment,
   onSelect,
   onClear,
   onCreateNew,
@@ -63,6 +71,12 @@ export function ProductPicker({
    * (the live search results) won't necessarily still contain it once a
    * line has been saved and is later reopened for editing. */
   selectedLabel?: string | null;
+  /** Added 2026-10-09 — mirrors the selected option's own
+   * hasPendingAmendment flag so the warning badge still shows once a
+   * product is selected and the dropdown (which carries this per-option)
+   * is hidden. The caller is expected to track this alongside
+   * selectedId/selectedLabel — see LineForm.tsx. */
+  selectedHasPendingAmendment?: boolean | null;
   onSelect: (option: ProductPickerOption) => void;
   onClear: () => void;
   /** Omit to hide the "add new product" affordance entirely (e.g. a
@@ -121,6 +135,26 @@ export function ProductPicker({
             color: "var(--u-ink)",
           }}
         />
+        {selectedId && selectedHasPendingAmendment && (
+          <span
+            title="This product has a pending amendment awaiting QA/RP ratification — it can still be used on this line."
+            style={{
+              position: "absolute",
+              right: 32,
+              top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--u-status-warning)",
+              border: "1px solid var(--u-status-warning)",
+              borderRadius: 4,
+              padding: "1px 5px",
+              backgroundColor: "var(--u-surface-raised)",
+            }}
+          >
+            Pending amendment
+          </span>
+        )}
         {selectedId && (
           <button
             type="button"
@@ -194,7 +228,24 @@ export function ProductPicker({
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(20,18,31,0.05)")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
               >
-                <span>{o.name}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {o.name}
+                  {o.hasPendingAmendment && (
+                    <span
+                      title="This product has a pending amendment awaiting QA/RP ratification — it can still be selected."
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "var(--u-status-warning)",
+                        border: "1px solid var(--u-status-warning)",
+                        borderRadius: 4,
+                        padding: "1px 5px",
+                      }}
+                    >
+                      Pending amendment
+                    </span>
+                  )}
+                </span>
                 <span style={{ fontSize: 11, color: "var(--u-ink-secondary)" }}>
                   {o.category}
                   {o.addedByOrganizationName ? ` · added by ${o.addedByOrganizationName}` : ""}

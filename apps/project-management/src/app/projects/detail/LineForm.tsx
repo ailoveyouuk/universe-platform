@@ -220,6 +220,13 @@ export function LineForm({
   const [productOptions, setProductOptions] = useState<ProductCatalogMatch[]>([]);
   const [productLabel, setProductLabel] = useState<string | null>(existing?.productMasterName ?? null);
   const [creatingProduct, setCreatingProduct] = useState(false);
+  /** Added 2026-10-09 — catalogue edit-rights + ratification workflow.
+   * Only known for a product picked THIS session (the search result
+   * carries the flag); an existing line reopened for editing shows no
+   * warning until the product is re-selected — acceptable for a
+   * non-blocking, informational badge, not worth a dedicated fetch on
+   * every line load. See ProductPicker's own doc comment. */
+  const [productHasPendingAmendment, setProductHasPendingAmendment] = useState(false);
 
   useEffect(() => {
     if (!productQuery.trim()) {
@@ -239,6 +246,7 @@ export function LineForm({
   function handleSelectProduct(option: ProductPickerOption) {
     update("productMasterId", option.id);
     setProductLabel(option.name);
+    setProductHasPendingAmendment(Boolean(option.hasPendingAmendment));
     setProductQuery("");
     setProductOptions([]);
   }
@@ -246,6 +254,7 @@ export function LineForm({
   function handleClearProduct() {
     update("productMasterId", null);
     setProductLabel(null);
+    setProductHasPendingAmendment(false);
   }
 
   async function handleCreateProduct(name: string) {
@@ -343,12 +352,18 @@ export function LineForm({
             options={productOptions}
             selectedId={form.productMasterId}
             selectedLabel={productLabel}
+            selectedHasPendingAmendment={productHasPendingAmendment}
             onSelect={handleSelectProduct}
             onClear={handleClearProduct}
             onCreateNew={handleCreateProduct}
             creating={creatingProduct}
             ariaLabel="Search the product catalogue"
           />
+          {productHasPendingAmendment && (
+            <p style={{ fontSize: 12, color: "var(--u-status-warning)", margin: "6px 0 0" }}>
+              This product has a pending amendment awaiting QA/RP ratification — it can still be used on this line.
+            </p>
+          )}
         </Field>
         <Field label="Product Category">
           <select className="u-native-select"
