@@ -1,4 +1,4 @@
-import { insightsPrisma } from "./index";
+import { insightsPrisma, Prisma } from "./index";
 
 /**
  * Statistical-disclosure-control floor (2026-09-24 decision — see
@@ -109,45 +109,43 @@ export interface LogisticsRouteSummary {
  * queries.
  */
 export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilters = {}): Promise<LogisticsRouteSummary[]> {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  // Fixed 2026-10-09 — this previously used $queryRawUnsafe with
+  // hand-rolled "@P1"-style positional placeholders, which 500'd in
+  // production (confirmed live: both this page's embedded map and the
+  // standalone /logistics/global page silently showed "no routes meet
+  // cohort size" because the frontend's .catch() swallowed the real
+  // error). getAggregatedPricing just above uses Prisma's safe tagged-
+  // template $queryRaw instead and works correctly — switched this
+  // function to the same pattern (Prisma.sql/Prisma.join/Prisma.empty for
+  // the variable-length WHERE clause) rather than hand-building SQL text
+  // and a separate positional-params array.
+  const conditions: Prisma.Sql[] = [];
 
   if (filters.manufactureCountryCode) {
-    conditions.push(`manufactureCountryCode = @P${params.length + 1}`);
-    params.push(filters.manufactureCountryCode);
+    conditions.push(Prisma.sql`manufactureCountryCode = ${filters.manufactureCountryCode}`);
   }
   if (filters.destinationCountryCode) {
-    conditions.push(`destinationCountryCode = @P${params.length + 1}`);
-    params.push(filters.destinationCountryCode);
+    conditions.push(Prisma.sql`destinationCountryCode = ${filters.destinationCountryCode}`);
   }
   if (filters.transportMode) {
-    conditions.push(`transportMode = @P${params.length + 1}`);
-    params.push(filters.transportMode);
+    conditions.push(Prisma.sql`transportMode = ${filters.transportMode}`);
   }
   if (filters.incoterm) {
-    conditions.push(`incoterm = @P${params.length + 1}`);
-    params.push(filters.incoterm);
+    conditions.push(Prisma.sql`incoterm = ${filters.incoterm}`);
   }
   if (filters.commodityGroup) {
-    conditions.push(`commodityGroup = @P${params.length + 1}`);
-    params.push(filters.commodityGroup);
+    conditions.push(Prisma.sql`commodityGroup = ${filters.commodityGroup}`);
   }
   if (filters.minDurationDays !== undefined) {
-    conditions.push(`durationDays >= @P${params.length + 1}`);
-    params.push(filters.minDurationDays);
+    conditions.push(Prisma.sql`durationDays >= ${filters.minDurationDays}`);
   }
   if (filters.maxDurationDays !== undefined) {
-    conditions.push(`durationDays <= @P${params.length + 1}`);
-    params.push(filters.maxDurationDays);
+    conditions.push(Prisma.sql`durationDays <= ${filters.maxDurationDays}`);
   }
 
-  // $queryRawUnsafe is used here (not $queryRaw's tagged-template form)
-  // because the WHERE clause is built from a variable number of optional
-  // filters — every value is still passed as a bound parameter, never
-  // string-interpolated, so this isn't susceptible to SQL injection.
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const whereClause = conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty;
 
-  const rows = await insightsPrisma.$queryRawUnsafe<
+  const rows = await insightsPrisma.$queryRaw<
     {
       manufactureCountryCode: string | null;
       destinationCountryCode: string | null;
@@ -161,8 +159,7 @@ export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilter
       avgDurationDays: number | null;
       avgEfficiencyScore: number;
     }[]
-  >(
-    `
+  >`
     SELECT
       manufactureCountryCode,
       destinationCountryCode,
@@ -179,9 +176,7 @@ export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilter
     ${whereClause}
     GROUP BY manufactureCountryCode, destinationCountryCode, transportMode, incoterm, commodityGroup
     HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
-    `,
-    ...params,
-  );
+  `;
 
   return rows;
 }
