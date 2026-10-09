@@ -212,10 +212,34 @@ export class DocumentsService {
     return { downloadUrl };
   }
 
+  /** Wiring-gap audit fix #3 (claude/backend-frontend-wiring-audit.md) --
+   * this endpoint existed with no frontend caller. Before actually
+   * deleting the row: every documentId FK pointing at a ProjectDocument
+   * (PartnerCertification.documentId, StakeholderEvidenceRecord.documentId,
+   * ControlledDocument.documentId -- all three `onDelete: NoAction` in
+   * schema.prisma, i.e. SQL Server would reject the delete outright with a
+   * raw FK-constraint error rather than anything this service's caller
+   * could sensibly handle) is cleared first, scoped to this organisation.
+   * Detaching the file from whatever referenced it and then deleting it is
+   * the correct behaviour here -- the certification/evidence-record/
+   * controlled-document row itself is never deleted, only its link to this
+   * one file, same soft-unlink posture as everything else in this build. */
   async deleteStandalone(user: RequestUser, documentId: string): Promise<void> {
     const doc = await withTenantContext(user.organizationId, async (tx) => {
       const document = await tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, ...tenantScope(user.organizationId) } });
       if (!document) throw new NotFoundException(`Document ${documentId} not found`);
+      await tx.partnerCertification.updateMany({
+        where: { documentId, ...tenantScope(user.organizationId) },
+        data: { documentId: null },
+      });
+      await tx.stakeholderEvidenceRecord.updateMany({
+        where: { documentId, ...tenantScope(user.organizationId) },
+        data: { documentId: null },
+      });
+      await tx.controlledDocument.updateMany({
+        where: { documentId, ...tenantScope(user.organizationId) },
+        data: { documentId: null },
+      });
       await tx.projectDocument.delete({ where: { id: documentId } });
       return document;
     });

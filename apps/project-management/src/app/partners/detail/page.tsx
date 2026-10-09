@@ -717,7 +717,7 @@ function EvidenceStandardRow({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          {record?.documentId && <DocumentLink documentId={record.documentId} />}
+          {record?.documentId && <DocumentLink documentId={record.documentId} onDeleted={onChanged} />}
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: toneColor }}>
             {icon}
             {effectiveStatus.charAt(0) + effectiveStatus.slice(1).toLowerCase()}
@@ -769,8 +769,11 @@ function EvidenceStandardRow({
  * posture as BlobStorageService.getDownloadUrl) and opens it in a new
  * tab. Loading/error state is intentionally minimal — this is a single
  * link, not a form. */
-function DocumentLink({ documentId }: { documentId: string }) {
+function DocumentLink({ documentId, onDeleted }: { documentId: string; onDeleted: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleClick() {
     setLoading(true);
@@ -785,23 +788,90 @@ function DocumentLink({ documentId }: { documentId: string }) {
     }
   }
 
+  // Wiring-gap audit fix #3 (claude/backend-frontend-wiring-audit.md) —
+  // DELETE /documents/:docId existed server-side with no delete button
+  // anywhere in the evidence-document flow (upload/link/download all
+  // existed, deletion didn't). Two-step confirm, same "never fires on a
+  // bare click" convention as the partner-removal flow elsewhere on this
+  // page — deleting the underlying file is permanent (it also removes
+  // the blob itself, see DocumentsService.deleteStandalone).
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await apiClient.deleteStandaloneDocument(documentId);
+      onDeleted();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete this document");
+      setDeleting(false);
+    }
+  }
+
+  if (confirmingDelete) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+        {deleteError ? (
+          <span style={{ color: "var(--u-status-critical)" }}>{deleteError}</span>
+        ) : (
+          <span style={{ color: "var(--u-ink-secondary)" }}>Delete this document?</span>
+        )}
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          style={{ color: "var(--u-status-critical)", background: "none", border: "none", padding: 0, cursor: deleting ? "default" : "pointer", textDecoration: "underline" }}
+        >
+          {deleting ? "Deleting…" : "Confirm"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setConfirmingDelete(false);
+            setDeleteError(null);
+          }}
+          disabled={deleting}
+          style={{ color: "var(--u-ink-secondary)", background: "none", border: "none", padding: 0, cursor: deleting ? "default" : "pointer", textDecoration: "underline" }}
+        >
+          Cancel
+        </button>
+      </span>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      style={{
-        fontSize: 12,
-        color: "var(--u-brand-violet)",
-        background: "none",
-        border: "none",
-        padding: 0,
-        cursor: loading ? "default" : "pointer",
-        textDecoration: "underline",
-      }}
-    >
-      {loading ? "Opening…" : "View document"}
-    </button>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        style={{
+          fontSize: 12,
+          color: "var(--u-brand-violet)",
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: loading ? "default" : "pointer",
+          textDecoration: "underline",
+        }}
+      >
+        {loading ? "Opening…" : "View document"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirmingDelete(true)}
+        style={{
+          fontSize: 12,
+          color: "var(--u-ink-secondary)",
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          textDecoration: "underline",
+        }}
+      >
+        Delete
+      </button>
+    </span>
   );
 }
 
