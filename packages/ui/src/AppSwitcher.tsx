@@ -41,8 +41,10 @@ export interface UniverseAppEntry {
 // reading them here (inside a shared packages/ui component) works exactly
 // the same as reading them in the app itself, as long as each app sets
 // them in its own CI build step/`.env` — see deploy-static-web-apps.yml.
-// Admin's fallback is its real, already-deployed hostname (confirmed live
-// 2026-09-26 — see azure-infra-notes.md); the rest have no fallback
+// Project Management and Admin's fallbacks are their real,
+// already-deployed hostnames (confirmed live 2026-09-26 — see
+// azure-infra-notes.md); Product Database's is its real deployed
+// hostname too (see product-catalog-build.md); the rest have no fallback
 // because they don't exist anywhere yet, deployed or not.
 function appUrl(envVar: string, fallback?: string): string | undefined {
   if (typeof process !== "undefined" && process.env && process.env[envVar]) return process.env[envVar];
@@ -56,14 +58,30 @@ function appUrl(envVar: string, fallback?: string): string | undefined {
 // tags, a different concern — see universe-brand-identity.md). One
 // source of truth per app's identity colour, defined once in tokens.css.
 export const UNIVERSE_APPS: UniverseAppEntry[] = [
-  // Live and deployed (unlike CRM/Tender Issuance below), but its real
-  // URL isn't wired to NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT yet -- CI
-  // currently only sets PROJECT_MANAGEMENT_URL for the MSAL auth redirect
-  // (see deploy-static-web-apps.yml), a different variable for a
-  // different purpose. Until that's added, this renders as locked when
-  // viewed from another app -- honest about what's actually wired, not a
-  // guessed-at fallback URL.
-  { key: "project-management", label: "Project Management", accent: "var(--u-module-project-management)", status: "available", envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT" },
+  // Live and deployed (unlike CRM/Tender Issuance below). CI's
+  // PROJECT_MANAGEMENT_URL repo variable (deploy-static-web-apps.yml) is
+  // still only wired to NEXT_PUBLIC_REDIRECT_URI for the MSAL auth
+  // redirect, not to NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT -- so `href`
+  // below falls back to the real, confirmed-live hostname from
+  // claude/azure-infra-notes.md rather than relying on an env var that
+  // isn't actually set yet, same as product-database/admin below.
+  {
+    key: "project-management",
+    label: "Project Management",
+    accent: "var(--u-module-project-management)",
+    status: "available",
+    // Real, confirmed-live hostname (see claude/azure-infra-notes.md,
+    // "universe-pilot-project-management" Static Web App) — fixed
+    // 2026-10-09. Previously had no `href` at all despite status
+    // "available": AppRow's old locked/linkable check only looked at
+    // `status`, so this row rendered as a normal, clickable-looking link
+    // (full opacity, chevron, no "Coming soon") but had nothing to
+    // navigate to and silently did nothing on click when viewed from
+    // another app. Same `appUrl()` env-var-with-fallback pattern already
+    // used for product-database/admin below.
+    href: appUrl("NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT", "https://black-island-047de4e0f.5.azurestaticapps.net"),
+    envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT",
+  },
   { key: "crm", label: "CRM", accent: "var(--u-module-crm)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
   {
     key: "product-database",
@@ -234,7 +252,15 @@ export function AppSwitcher({
 function AppRow({ app, isCurrent }: { app: UniverseAppEntry; isCurrent: boolean }) {
   // The app you're standing in is never a link and never "locked" --
   // those only apply when sizing up where you could navigate TO.
-  const locked = !isCurrent && app.status !== "available";
+  //
+  // `linkable` is the single source of truth for "this row actually
+  // navigates somewhere" -- status "available" alone is NOT enough, since
+  // that used to be true of project-management while its `href` was
+  // still unset, which rendered this row looking fully available (no
+  // lock icon, no "Coming soon") but inert on click -- fixed 2026-10-09.
+  // `locked` is just "not linkable", so the two can never disagree again.
+  const linkable = !isCurrent && app.status === "available" && Boolean(app.href);
+  const locked = !isCurrent && !linkable;
   const content = (
     <div
       style={{
@@ -262,12 +288,12 @@ function AppRow({ app, isCurrent }: { app: UniverseAppEntry; isCurrent: boolean 
     </div>
   );
 
-  if (!isCurrent && app.status === "available" && app.href) {
+  if (linkable) {
     return (
       <a href={app.href} style={{ textDecoration: "none", display: "block" }}>
         {content}
       </a>
     );
   }
-  return <div title={!isCurrent && locked ? "Coming soon" : undefined}>{content}</div>;
+  return <div title={locked ? "Coming soon" : undefined}>{content}</div>;
 }
