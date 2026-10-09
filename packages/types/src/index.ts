@@ -1224,6 +1224,20 @@ export interface ProductCatalogAttribute {
   required: boolean;
 }
 
+/** One row of GET /product-catalog/:id/price-history — ProductPriceHistory
+ * rows recorded for this ProductMaster, tenant-scoped to the caller's own
+ * organisation. unitPrice follows this file's Decimal-to-string wire
+ * convention (see ProjectLine.unitSalesPrice above). Added 2026-10-09:
+ * ProductPriceHistory existed in the schema with zero API/frontend
+ * exposure until now. */
+export interface ProductPriceHistoryPoint {
+  id: string;
+  unitPrice: string;
+  currency: string;
+  effectiveDate: string;
+  recordedByName: string | null;
+}
+
 export interface ProductCatalogDetail extends ProductCatalogMatch {
   canonicalManufacturerPartNumber: string | null;
   expectedQualityDocumentation: string | null;

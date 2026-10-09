@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { ProductCatalogMatch, ProductCatalogDetail, UpdateProductMasterInput } from "@universe/types";
+import type {
+  ProductCatalogMatch,
+  ProductCatalogDetail,
+  ProductCatalogAttribute,
+  ProductPriceHistoryPoint,
+  UpdateProductMasterInput,
+} from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { Button, Pagination, Pill, SearchInput, Select, TextLink, type PageSize } from "@universe/ui";
 
@@ -25,7 +31,7 @@ import { Button, Pagination, Pill, SearchInput, Select, TextLink, type PageSize 
  * full page navigation would be more friction than it's worth for what is
  * mostly quick corrections to an imported or picker-created row).
  */
-const CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "LABORATORY"] as const;
+const CATEGORIES = ["Personal Protective Equipment", "Consumables", "Laboratory", "Medical Devices", "Pharmaceuticals", "Equipment"] as const;
 const SOURCE_STANDARDS = ["INTERNAL", "HS_CODE", "WHO_EML", "UNSPSC", "GS1_GTIN"] as const;
 
 export default function ProductCatalogPage() {
@@ -89,7 +95,7 @@ export default function ProductCatalogPage() {
         <Select
           value={category}
           onChange={(v) => { setCategory(v); setPage(0); }}
-          options={CATEGORIES.map((c) => ({ value: c, label: c.charAt(0) + c.slice(1).toLowerCase() }))}
+          options={CATEGORIES.map((c) => ({ value: c, label: c }))}
           allLabel="All categories"
           ariaLabel="Filter by category"
         />
@@ -211,6 +217,9 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [priceHistory, setPriceHistory] = useState<ProductPriceHistoryPoint[] | null>(null);
+  const [priceHistoryError, setPriceHistoryError] = useState<string | null>(null);
+
   useEffect(() => {
     apiClient
       .getProductCatalogEntry(productId)
@@ -228,6 +237,20 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
         });
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load entry"));
+  }, [productId]);
+
+  // Price history — read-only, sourced from ProductPriceHistory rows recorded
+  // against this ProductMaster. Fetched alongside the catalogue entry rather
+  // than bundled into it, since most products will have zero rows and the
+  // list can grow unbounded over the product's lifetime.
+  useEffect(() => {
+    apiClient
+      .getProductPriceHistory(productId)
+      .then((rows) => {
+        setPriceHistory(rows);
+        setPriceHistoryError(null);
+      })
+      .catch((err) => setPriceHistoryError(err instanceof Error ? err.message : "Failed to load price history"));
   }, [productId]);
 
   async function save() {
@@ -317,6 +340,68 @@ function ProductEditPanel({ productId, onSaved, onCancel }: { productId: string;
           onChange={(e) => setForm((f) => ({ ...f, expectedQualityDocumentation: e.target.value }))}
         />
       </Field>
+
+      {detail.attributeDefinitions.length > 0 && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Category attributes</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+            {detail.attributeDefinitions.map((attr: ProductCatalogAttribute) => (
+              <div
+                key={attr.attributeKey}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  fontSize: 13,
+                  padding: "4px 0",
+                  borderBottom: "1px solid var(--u-border)",
+                }}
+              >
+                <span style={{ color: "var(--u-ink)" }}>
+                  {attr.label}{" "}
+                  <span style={{ color: "var(--u-ink-secondary)" }}>
+                    ({attr.dataType}
+                    {attr.enumOptions && attr.enumOptions.length > 0 ? `: ${attr.enumOptions.join(" / ")}` : ""})
+                  </span>
+                </span>
+                {attr.required && <span style={{ fontSize: 11, color: "var(--u-status-critical)" }}>Required</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {priceHistoryError && (
+        <p style={{ gridColumn: "1 / -1", color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>{priceHistoryError}</p>
+      )}
+
+      {priceHistory && priceHistory.length > 0 && (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Price history</span>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Date</th>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Unit Price</th>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Currency</th>
+                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Recorded By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...priceHistory]
+                .reverse()
+                .map((p: ProductPriceHistoryPoint) => (
+                  <tr key={p.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
+                    <td style={{ padding: "6px 8px", fontSize: 13 }}>{new Date(p.effectiveDate).toLocaleDateString()}</td>
+                    <td style={{ padding: "6px 8px", fontSize: 13 }}>{p.unitPrice}</td>
+                    <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{p.currency}</td>
+                    <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{p.recordedByName ?? "—"}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {error && (
         <p style={{ gridColumn: "1 / -1", color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>{error}</p>

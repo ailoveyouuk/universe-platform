@@ -28,6 +28,7 @@ import type {
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductMasterOption,
+  ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
   AddProjectContactInput,
   AddProjectLeadInput,
@@ -408,6 +409,12 @@ export class UniverseApiClient {
 
   getProductCatalogEntry(id: string): Promise<ProductCatalogDetail> {
     return this.request(`/product-catalog/${id}`);
+  }
+
+  /** GET /product-catalog/:id/price-history — ProductPriceHistory rows for
+   * this catalogue entry. Added 2026-10-09. */
+  getProductPriceHistory(productMasterId: string): Promise<ProductPriceHistoryPoint[]> {
+    return this.request(`/product-catalog/${productMasterId}/price-history`);
   }
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {

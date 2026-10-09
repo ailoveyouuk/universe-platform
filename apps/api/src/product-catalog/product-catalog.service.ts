@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { prisma } from "@universe/db";
+import { prisma, withTenantContext } from "@universe/db";
+import { tenantScope } from "../common/tenant-scoped";
 import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
+  ProductPriceHistoryPoint,
   ImportProductMasterResult,
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -51,7 +53,7 @@ export class ProductCatalogService {
       where: {
         isArchived: false,
         ...(q && q.trim() ? { name: { contains: q.trim() } } : {}),
-        ...(category ? { category } : {}),
+        ...(category ? { category: { startsWith: category } } : {}),
       },
       include: { addedByOrganization: { select: { name: true } } },
       orderBy: { name: "asc" },
@@ -92,6 +94,32 @@ export class ProductCatalogService {
     };
   }
 
+  /** GET /product-catalog/:id/price-history — ProductPriceHistory rows
+   * recorded against this ProductMaster, tenant-scoped to the caller's own
+   * organisation. Unlike ProductMaster itself (globally readable, no
+   * organizationId column), product_price_history IS RLS-protected (see
+   * row-level-security.sql), so this goes through withTenantContext same
+   * as ProductSourceApprovalsService — see that service's doc comment for
+   * the general pattern. Added 2026-10-09: ProductPriceHistory existed in
+   * schema.prisma with zero API/frontend exposure until now; this is pure
+   * read-only plumbing, no write path yet. */
+  async getPriceHistory(user: RequestUser, productMasterId: string): Promise<ProductPriceHistoryPoint[]> {
+    const rows = await withTenantContext(user.organizationId, (tx) =>
+      tx.productPriceHistory.findMany({
+        where: { ...tenantScope(user.organizationId), productMasterId },
+        include: { recordedBy: { select: { forename: true, surname: true } } },
+        orderBy: { effectiveDate: "asc" },
+      }),
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      unitPrice: String(r.unitPrice),
+      currency: r.currency,
+      effectiveDate: r.effectiveDate.toISOString(),
+      recordedByName: r.recordedBy ? `${r.recordedBy.forename} ${r.recordedBy.surname}` : null,
+    }));
+  }
+
   /** Paginated browse/search for the Product Database Management app's
    * catalogue screen — GET /product-catalog?q=&category=&sourceStandard=&page=&pageSize=.
    * Distinct from search() above: that's a 25-row typeahead for the inline
@@ -114,7 +142,7 @@ export class ProductCatalogService {
     const where = {
       ...(params.includeArchived ? {} : { isArchived: false }),
       ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
-      ...(params.category ? { category: params.category } : {}),
+      ...(params.category ? { category: { startsWith: params.category } } : {}),
       ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
     };
     const [rows, total] = await Promise.all([

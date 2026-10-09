@@ -63,6 +63,18 @@ export class ProductCatalogController {
     return this.productCatalogService.getOne(id);
   }
 
+  /** GET /product-catalog/:id/price-history — ProductPriceHistory rows for
+   * this ProductMaster, tenant-scoped to the caller's own organisation.
+   * Read access, same EntraAuthGuard as every other route here; no new
+   * permission needed. Added 2026-10-09. Declared after the bare ":id"
+   * route is fine here since Nest still matches "/:id/price-history" as a
+   * separate, more specific path — not ambiguous with ":id" the way
+   * "search"/"import" were. */
+  @Get(":id/price-history")
+  getPriceHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.productCatalogService.getPriceHistory(user, id);
+  }
+
   @Patch(":id")
   update(@Param("id") id: string, @Body() dto: UpdateProductMasterDto) {
     return this.productCatalogService.update(id, dto);
