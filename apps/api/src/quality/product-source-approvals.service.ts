@@ -1,11 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
-import type { ProductMasterOption, ProductSourceApprovalSummary, QualityDashboardSummary } from "@universe/types";
+import type { ProductSourceApprovalSummary, QualityDashboardSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductSourceApprovalDto } from "./dto/create-product-source-approval.dto";
 import type { UpdateProductSourceApprovalDto } from "./dto/update-product-source-approval.dto";
-import { ProductCatalogService } from "../product-catalog/product-catalog.service";
 import { assertHasPermission } from "../common/authorization";
 
 const APPROVAL_INCLUDE = {
@@ -72,7 +71,7 @@ export class ProductSourceApprovalsService {
   // comment (apps/api/src/product-catalog/product-catalog.service.ts).
   // Refactored 2026-10-02 when that shared service was built; this is
   // the first concrete reuse of it, not just a documented intention.
-  constructor(private readonly productCatalogService: ProductCatalogService) {}
+  constructor() {}
 
   // Same tenant-isolation pattern as PartnersService — see its doc comment.
   // product_source_approvals is RLS-protected (infra/sql/row-level-security.sql),
@@ -153,16 +152,6 @@ export class ProductSourceApprovalsService {
    * `user` isn't used for scoping here; it's accepted for consistency with
    * every other service method and in case this needs to become
    * org-aware later (e.g. ranking by the org's own usage). */
-  async searchProducts(_user: RequestUser, search?: string): Promise<ProductMasterOption[]> {
-    // Thin adapter over the shared catalog search (see
-    // ProductCatalogService.search) — this endpoint's existing response
-    // shape (ProductMasterOption) predates ProductCatalogMatch's richer
-    // provenance fields, so only the three fields this picker ever used are
-    // projected back out, to avoid a wider change to this screen.
-    const matches = await this.productCatalogService.search(search);
-    return matches.map((m) => ({ id: m.id, name: m.name, category: m.category }));
-  }
-
   async getDashboard(user: RequestUser): Promise<QualityDashboardSummary> {
     const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.productSourceApproval.findMany({

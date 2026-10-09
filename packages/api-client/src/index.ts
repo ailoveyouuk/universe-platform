@@ -30,7 +30,6 @@ import type {
   ProductCatalogMatch,
   ProductCatalogCompletenessStats,
   ProductCatalogDashboardStats,
-  ProductMasterOption,
   ProductPriceHistoryPoint,
   RejectProductAmendmentInput,
   ProductSourceApprovalSummary,
@@ -522,11 +521,6 @@ export class UniverseApiClient {
 
   getQaQueue(): Promise<QaQueueSummary> {
     return this.request("/quality/qa-queue");
-  }
-
-  searchQualityProducts(search?: string): Promise<ProductMasterOption[]> {
-    const query = search ? `?search=${encodeURIComponent(search)}` : "";
-    return this.request(`/quality/products${query}`);
   }
 
   // --- Reference data (added 2026-10-01) ---

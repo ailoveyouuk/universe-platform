@@ -1193,20 +1193,9 @@ export interface PartnerApprovalHistorySummary {
 // derived purely from order history.
 // ---------------------------------------------------------------------------
 
-/** Minimal shared-catalog lookup for the QA "new approval" product
- * picker — ProductMaster is global/non-tenant-scoped (see schema.prisma),
- * so this is deliberately not a full ProductMaster type, just enough to
- * populate a search-and-select field. */
-export interface ProductMasterOption {
-  id: string;
-  name: string;
-  category: string;
-}
-
 /** Search-or-create result for the shared product catalog's own
- * search/create flow (ProductCatalogService) — distinct from
- * ProductMasterOption above, which stays minimal for the QA "new approval"
- * picker. Carries the provenance tag (see ProductMaster.addedByOrganizationId's
+ * search/create flow (ProductCatalogService). Carries the provenance tag
+ * (see ProductMaster.addedByOrganizationId's
  * doc comment in schema.prisma) purely for display ("added by Acme
  * Manufacturing") — never used for access control; ProductMaster stays
  * globally readable/writable. Added 2026-10-02 alongside the Project

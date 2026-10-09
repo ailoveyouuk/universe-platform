@@ -27,11 +27,6 @@ export class QualityController {
     return this.approvalsService.findAll(user, status);
   }
 
-  @Get("products")
-  searchProducts(@CurrentUser() user: RequestUser, @Query("search") search?: string) {
-    return this.approvalsService.searchProducts(user, search);
-  }
-
   @Post("product-approvals")
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateProductSourceApprovalDto) {
     return this.approvalsService.create(user, dto);
