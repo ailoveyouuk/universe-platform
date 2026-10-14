@@ -181,6 +181,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <header
+              className="u-app-header"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -206,7 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Breadcrumbs items={crumbsFor(pathname)} LinkComponent={Link} />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
                 <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
                   <SearchIcon size={18} />
                 </span>

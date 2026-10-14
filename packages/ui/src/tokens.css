@@ -258,6 +258,40 @@ input[type="checkbox"], input[type="radio"] {
   }
 }
 
+/*
+ * Breadcrumb horizontal scroll — added 2026-10-14 for the mobile pass,
+ * paired with Breadcrumbs.tsx's own `overflowX: auto`/`whiteSpace:
+ * nowrap`. Hides the scrollbar itself (Firefox + WebKit/Blink) so a long
+ * crumb trail reads as "this line continues" rather than as an obviously
+ * scrollable widget with a visible track running under short page
+ * titles too.
+ */
+.u-breadcrumbs-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.u-breadcrumbs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * App shell header — added 2026-10-14 for the mobile pass. The header's
+ * own inline padding/gap (AppShell.tsx, duplicated per app same as every
+ * other app-local concern) is sized for desktop/tablet; below 640px it
+ * crowds the breadcrumb and icon cluster together enough to contribute
+ * to the clipping Lewis flagged. The icon/avatar cluster itself gets
+ * `flexShrink: 0` inline (never the side that gives way — see
+ * Breadcrumbs.tsx's own comment for why the breadcrumb is the side that
+ * scrolls instead of wrapping), so this media query only needs to trim
+ * the header's own breathing room, not fix a layout bug.
+ */
+@media (max-width: 640px) {
+  .u-app-header {
+    padding: 10px 14px !important;
+    gap: 10px !important;
+  }
+}
+
 /* Sidebar: an overlay drawer below 900px, a static rail above it. */
 .u-sidebar {
   transform: translateX(0);

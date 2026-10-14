@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 /**
  * The reusable world-map component — product-database-and-map-roadmap.md
@@ -338,6 +338,37 @@ export function WorldMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
+  // Tracks the container's real rendered width so the per-point value
+  // labels below (drawn as SVG `<text>`, unlike the HTML tooltip overlay
+  // above) can compensate for the viewBox scaling down on a narrow
+  // mobile/tablet container — added 2026-10-14 after Lewis reported the
+  // point-count numbers on the map were unreadably small on a phone.
+  // `viewBoxScale` is renderedWidthPx / VIEW_WIDTH: 1 at exactly 1000px
+  // wide, well under 1 on a phone. A `<text fontSize={12}>` at
+  // viewBoxScale 0.35 (roughly an iPhone-width container minus page
+  // padding) renders at barely 4 real px — illegible — so `labelFontSize`
+  // below divides a fixed real-pixel target by this scale to counteract
+  // it, the same "stay legible regardless of viewBox scale" reasoning as
+  // the MapTooltip overlay, just solved in viewBox units here instead of
+  // switching this one piece to HTML, since the label has to stay
+  // pixel-anchored to its point on every render (not just on hover) and
+  // doesn't need rich multi-line content.
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setContainerWidth(width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const viewBoxScale = containerWidth ? containerWidth / VIEW_WIDTH : 1;
+  const MIN_LABEL_PX = 11;
+  const labelFontSize = Math.min(18, Math.max(9, MIN_LABEL_PX / viewBoxScale));
+  const labelStrokeWidth = Math.max(3, labelFontSize / 3);
+
   // Half of MapTooltip's own maxWidth (220) below — kept as a named
   // constant here (not imported from MapTooltip, which doesn't export
   // anything) purely so the clamping logic and the width it's clamping
@@ -493,11 +524,11 @@ export function WorldMap({
                   y={y}
                   dy={4}
                   textAnchor={labelOnRight ? "start" : "end"}
-                  fontSize={12}
+                  fontSize={labelFontSize}
                   fontWeight={700}
                   fill="var(--u-ink)"
                   stroke="var(--u-surface-alt)"
-                  strokeWidth={4}
+                  strokeWidth={labelStrokeWidth}
                   strokeLinejoin="round"
                   paintOrder="stroke"
                   pointerEvents="none"

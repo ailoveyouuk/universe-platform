@@ -1,8 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import { InfoIcon } from "./icons";
-
 /**
  * Colour bands for the 1–10 logistics efficiency/CO2-impact score — the
  * single source of truth for the UI side of what
@@ -53,84 +50,53 @@ export function bandForScore(score: number): keyof typeof SCORE_BAND_COLORS {
  * legend wherever that score/colour appears, since neither the number
  * scale nor what each colour means was explained anywhere in the UI.
  *
- * Follows the same understated idiom as StandardsReference.tsx (small
- * icon + caption-scale ink-secondary label, never brand-violet/accent-
- * magenta) so it reads as the same kind of "reference material, not a
- * call to action" — but opens a small popover instead of relying on a
- * native `title`, since this needs to show four colour swatches, not just
- * a sentence of text. Closes on blur so it never lingers over the page.
+ * Rebuilt 2026-10-14 (mobile pass) from a click-to-open popover into a
+ * permanently-visible, single-line strip of colour dot + range + band,
+ * wrapping onto a second line on its own rather than floating a panel
+ * over the page. The popover version anchored itself with `right: 0`
+ * relative to its trigger button, which on a narrow phone could still
+ * overflow or land on top of the stat tiles/map directly below it (the
+ * "click callout covering content" issue Lewis flagged from a live
+ * screenshot) — there's no viewport-aware repositioning worth building
+ * for four colour swatches when simply never covering anything is
+ * strictly simpler and reads as calmer on every screen size. Still the
+ * same understated idiom as StandardsReference.tsx (caption-scale
+ * ink-secondary text, never brand-violet/accent-magenta) so it reads as
+ * reference material, not a call to action.
  */
 export function ScoreLegend({ label = "Score & colour key" }: { label?: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <span style={{ position: "relative", display: "inline-flex" }}>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-label={`${label} — what the efficiency/CO2-impact score and its colours mean`}
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          fontSize: 11,
-          color: "var(--u-ink-secondary)",
-          opacity: 0.85,
-          background: "none",
-          border: "none",
-          padding: 0,
-          font: "inherit",
-          cursor: "help",
-        }}
-      >
-        <InfoIcon size={11} style={{ flexShrink: 0 }} />
-        {label}
-      </button>
-      {open && (
-        <div
-          role="tooltip"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            right: 0,
-            zIndex: 20,
-            width: 230,
-            padding: "12px 14px",
-            borderRadius: "var(--u-radius-md)",
-            border: "1px solid var(--u-border)",
-            backgroundColor: "var(--u-surface-raised)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.16)",
-          }}
-        >
-          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--u-ink)" }}>
-            Efficiency / CO2-impact score
-          </p>
-          <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--u-ink-secondary)", lineHeight: 1.4 }}>
-            1–10, driven mainly by the CO2 intensity of the transport mode used — sea freight
-            scores highest, air freight lowest — with a small adjustment for unusually short or
-            long routes.
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {SCORE_BANDS.map(({ band, range }) => (
-              <div key={band} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    backgroundColor: SCORE_BAND_COLORS[band],
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ fontSize: 11.5, color: "var(--u-ink)" }}>
-                  {range} <span style={{ color: "var(--u-ink-secondary)" }}>· {band}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </span>
+    <div
+      role="note"
+      aria-label={`${label} — what the efficiency/CO2-impact score and its colours mean`}
+      title="1\u201310, driven mainly by the CO2 intensity of the transport mode used \u2014 sea freight scores highest, air freight lowest \u2014 with a small adjustment for unusually short or long routes."
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "4px 12px",
+        fontSize: 11,
+        color: "var(--u-ink-secondary)",
+      }}
+    >
+      <span style={{ opacity: 0.85 }}>{label}:</span>
+      {SCORE_BANDS.map(({ band, range }) => (
+        <span key={band} style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+          <span
+            aria-hidden
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: SCORE_BAND_COLORS[band],
+              flexShrink: 0,
+            }}
+          />
+          <span>
+            {range} <span style={{ opacity: 0.85 }}>· {band}</span>
+          </span>
+        </span>
+      ))}
+    </div>
   );
 }
