@@ -97,7 +97,7 @@ export class OrganizationsService {
    * their own. */
   async findRoles(caller: RequestUser, organizationId: string): Promise<RoleSummary[]> {
     assertCanManageOrg(caller, organizationId, "org.users.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const roles = await runInContext((tx: any) =>
       tx.role.findMany({
         where: { organizationId },
@@ -116,7 +116,7 @@ export class OrganizationsService {
    * run inside a context that sets organizationId or isPlatformStaff. */
   async getDataSharingConsent(caller: RequestUser, organizationId: string): Promise<DataSharingConsentSummary | null> {
     assertCanManageOrg(caller, organizationId, "org.users.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) =>
       tx.dataSharingConsent.findUnique({
         where: { organizationId },
@@ -144,7 +144,7 @@ export class OrganizationsService {
    * added in the same change as this method). */
   async listCountryPresence(caller: RequestUser, organizationId: string): Promise<OrganizationCountryPresenceSummary[]> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const rows = await runInContext((tx: any) =>
       tx.organizationCountryPresence.findMany({ where: { organizationId } }),
     );
@@ -160,7 +160,7 @@ export class OrganizationsService {
     dto: SetOrganizationCountryPresenceDto,
   ): Promise<OrganizationCountryPresenceSummary[]> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     return runInContext(async (tx: any) => {
       await tx.organizationCountryPresence.deleteMany({ where: { organizationId } });
       if (dto.countryCodes.length > 0) {
@@ -194,7 +194,7 @@ export class OrganizationsService {
 
   async getProcurementAgentProfile(caller: RequestUser, organizationId: string): Promise<ProcurementAgentProfileSummary | null> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) => tx.procurementAgentProfile.findUnique({ where: { organizationId } }));
     if (!row) return null;
     return {
@@ -217,7 +217,7 @@ export class OrganizationsService {
     dto: UpsertProcurementAgentProfileDto,
   ): Promise<ProcurementAgentProfileSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const data = {
       fundersProgramsOperatedUnder: toJsonArray(dto.fundersProgramsOperatedUnder),
       productCategoriesProcured: toJsonArray(dto.productCategoriesProcured),
@@ -241,7 +241,7 @@ export class OrganizationsService {
 
   async getTenderingBodyProfile(caller: RequestUser, organizationId: string): Promise<TenderingBodyProfileSummary | null> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) =>
       tx.tenderingBodyProfile.findUnique({
         where: { organizationId },
@@ -268,7 +268,7 @@ export class OrganizationsService {
     dto: UpsertTenderingBodyProfileDto,
   ): Promise<TenderingBodyProfileSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const data = {
       bodyType: dto.bodyType,
       fundingSources: toJsonArray(dto.fundingSources),
@@ -290,7 +290,7 @@ export class OrganizationsService {
 
   async getFunderProfile(caller: RequestUser, organizationId: string): Promise<FunderProfileSummary | null> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) => tx.funderProfile.findUnique({ where: { organizationId } }));
     if (!row) return null;
     return {
@@ -302,7 +302,7 @@ export class OrganizationsService {
 
   async upsertFunderProfile(caller: RequestUser, organizationId: string, dto: UpsertFunderProfileDto): Promise<FunderProfileSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const data = { fundingFocusAreas: toJsonArray(dto.fundingFocusAreas), notes: dto.notes };
     await runInContext((tx: any) =>
       tx.funderProfile.upsert({ where: { organizationId }, update: data, create: { organizationId, ...data } }),
@@ -312,7 +312,7 @@ export class OrganizationsService {
 
   async getDataInsightsUserProfile(caller: RequestUser, organizationId: string): Promise<DataInsightsUserProfileSummary | null> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) => tx.dataInsightsUserProfile.findUnique({ where: { organizationId } }));
     if (!row) return null;
     return {
@@ -333,7 +333,7 @@ export class OrganizationsService {
     dto: UpsertDataInsightsUserProfileDto,
   ): Promise<DataInsightsUserProfileSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const data = {
       institutionType: dto.institutionType,
       affiliatedInstitution: dto.affiliatedInstitution,
@@ -355,7 +355,7 @@ export class OrganizationsService {
    * adding a fourth site shouldn't require re-submitting the other three. */
   async listManufacturerSites(caller: RequestUser, organizationId: string): Promise<OrganizationManufacturerSiteSummary[]> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const rows = await runInContext((tx: any) =>
       tx.organizationManufacturerSite.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
     );
@@ -368,7 +368,7 @@ export class OrganizationsService {
     dto: AddManufacturerSiteDto,
   ): Promise<OrganizationManufacturerSiteSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const row = await runInContext((tx: any) =>
       tx.organizationManufacturerSite.create({
         data: {
@@ -385,7 +385,7 @@ export class OrganizationsService {
 
   async removeManufacturerSite(caller: RequestUser, organizationId: string, siteId: string): Promise<void> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
-    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     // deleteMany (not delete) scoped by organizationId too, not just id —
     // belt-and-suspenders against ever deleting another org's row even if
     // RLS or assertCanManageOrg were somehow bypassed; same defensive

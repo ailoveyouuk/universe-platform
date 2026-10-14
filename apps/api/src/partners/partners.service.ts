@@ -337,7 +337,16 @@ export class PartnersService {
           ...(dto.freightForwarderDetail ? { freightForwarderDetail: { create: dto.freightForwarderDetail } } : {}),
           ...(dto.clientDetail ? { clientDetail: { create: dto.clientDetail } } : {}),
           ...(dto.warehousingDetail ? { warehousingDetail: { create: dto.warehousingDetail } } : {}),
-          ...(dto.financialDetail ? { financialDetail: { create: dto.financialDetail } } : {}),
+          // organizationId added 2026-10-14 (real bug, found by CI's typecheck
+          // after PartnerFinancialDetail gained a required organizationId
+          // column/relation — see that migration's own note and
+          // row-level-security.sql's new predicate on this table). This
+          // nested create pre-dated that column; without organizationId here,
+          // tsc correctly refused to compile it against the regenerated
+          // Prisma client.
+          ...(dto.financialDetail
+            ? { financialDetail: { create: { ...dto.financialDetail, organizationId: user.organizationId } } }
+            : {}),
           ...(dto.manufacturerSites?.length
             ? { manufacturerSites: { create: buildManufacturerSitesCreate(dto.manufacturerSites) } }
             : {}),
@@ -486,8 +495,18 @@ export class PartnersService {
           ...(dto.warehousingDetail
             ? { warehousingDetail: { upsert: { create: dto.warehousingDetail, update: dto.warehousingDetail } } }
             : {}),
+          // Same organizationId fix as createPartner above — upsert.create
+          // hits the same required-field check; upsert.update deliberately
+          // does NOT set organizationId (it never changes on an edit).
           ...(dto.financialDetail
-            ? { financialDetail: { upsert: { create: dto.financialDetail, update: dto.financialDetail } } }
+            ? {
+                financialDetail: {
+                  upsert: {
+                    create: { ...dto.financialDetail, organizationId: user.organizationId },
+                    update: dto.financialDetail,
+                  },
+                },
+              }
             : {}),
           ...(dto.addManufacturerSites?.length
             ? { 
