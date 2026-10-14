@@ -24,4 +24,11 @@ export class OrganizationsController {
   findRoles(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.organizationsService.findRoles(user, id);
   }
+
+  /** Added 2026-10-14 — see DataSharingConsentSummary's doc comment in
+   * @universe/types for why this is read-only. */
+  @Get(":id/data-sharing-consent")
+  getDataSharingConsent(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getDataSharingConsent(user, id);
+  }
 }

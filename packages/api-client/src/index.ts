@@ -47,6 +47,7 @@ import type {
   RequestDocumentUploadInput,
   RequestDocumentUploadResult,
   RoleSummary,
+  DataSharingConsentSummary,
   SupplierLead,
   SupplierProduct,
   SupplierProfile,
@@ -579,6 +580,14 @@ export class UniverseApiClient {
 
   listOrganizationRoles(organizationId: string): Promise<RoleSummary[]> {
     return this.request(`/organizations/${organizationId}/roles`);
+  }
+
+  /** Returns null when no consent row exists yet (shouldn't happen for a
+   * properly-provisioned org, but the type is nullable to match the
+   * service — see DataSharingConsentSummary's doc comment). Added
+   * 2026-10-14. */
+  getOrganizationDataSharingConsent(organizationId: string): Promise<DataSharingConsentSummary | null> {
+    return this.request(`/organizations/${organizationId}/data-sharing-consent`);
   }
 
   listUsers(organizationId?: string): Promise<UserSummary[]> {

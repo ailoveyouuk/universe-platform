@@ -163,6 +163,23 @@ export interface RoleSummary {
   appScope: string;
 }
 
+/** DataSharingConsent (added 2026-10-14, was schema-only until now — see
+ * backend-frontend-wiring-audit.md). Read-only: consent is auto-created,
+ * unconditional, contractual (see DataSharingConsent's own schema.prisma
+ * doc comment) — there is deliberately no write endpoint here, this is
+ * "what's on file for us", not a toggle. scope is the parsed JSON array
+ * (see organizations.ts's DEFAULT_DATA_SHARING_SCOPE), never the raw
+ * JSON string. */
+export interface DataSharingConsentSummary {
+  organizationId: string;
+  scope: string[];
+  termsVersion: string;
+  acceptedById: string | null;
+  acceptedByName: string | null;
+  acceptedAt: string;
+  revokedAt: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Supplier/manufacturer marketplace (added 2026-09-24 — see architecture
 // doc, "Supplier/manufacturer marketplace"). Types the future Supplier

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { createOrganizationWithDefaultRoles, prisma } from "@universe/db";
-import type { OrganizationSummary, RoleSummary } from "@universe/types";
+import { createOrganizationWithDefaultRoles, prisma, withTenantContext, withPlatformStaffContext } from "@universe/db";
+import type { OrganizationSummary, RoleSummary, DataSharingConsentSummary } from "@universe/types";
 import { assertPlatformStaff, assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateOrganizationDto } from "./dto/create-organization.dto";
@@ -62,13 +62,58 @@ export class OrganizationsService {
   }
 
   /** Roles available to assign within one organization — used by the Admin
-   * app's role picker on the invite form. */
+   * app's role picker on the invite form.
+   *
+   * Fixed 2026-10-14: this previously queried `prisma.role.findMany`
+   * directly, with no withTenantContext/withPlatformStaffContext call
+   * around it at all. `roles` IS row-level-security-protected (see
+   * row-level-security.sql) and RLS here defaults to DENY with no
+   * session context set — so this call would always have returned an
+   * empty array for any real tenant role, regardless of what
+   * assertCanManageOrg allowed. Found incidentally while wiring up
+   * DataSharingConsent below (same file, same missing-context class of
+   * bug). Platform staff get withPlatformStaffContext (they may be
+   * managing an org that isn't their own, which assertCanManageOrg
+   * already permits); everyone else gets withTenantContext scoped to
+   * the target org, which assertCanManageOrg has already confirmed is
+   * their own. */
   async findRoles(caller: RequestUser, organizationId: string): Promise<RoleSummary[]> {
     assertCanManageOrg(caller, organizationId, "org.users.manage");
-    const roles = await prisma.role.findMany({
-      where: { organizationId },
-      orderBy: { name: "asc" },
-    });
-    return roles.map((r) => ({ id: r.id, name: r.name, appScope: r.appScope }));
+    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const roles = await runInContext((tx: any) =>
+      tx.role.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+      }),
+    );
+    return roles.map((r: any) => ({ id: r.id, name: r.name, appScope: r.appScope }));
+  }
+
+  /** DataSharingConsent is one-to-one with Organization, auto-created and
+   * unconditional at provisioning (see that model's own schema.prisma doc
+   * comment and CURRENT_DATA_SHARING_TERMS_VERSION/DEFAULT_DATA_SHARING_
+   * SCOPE in organizations.ts) — this is a read-only "what's on file for
+   * this org" endpoint, not a toggle. Same RLS-context requirement/fix as
+   * findRoles above: data_sharing_consents is RLS-protected, so this must
+   * run inside a context that sets organizationId or isPlatformStaff. */
+  async getDataSharingConsent(caller: RequestUser, organizationId: string): Promise<DataSharingConsentSummary | null> {
+    assertCanManageOrg(caller, organizationId, "org.users.manage");
+    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const row = await runInContext((tx: any) =>
+      tx.dataSharingConsent.findUnique({
+        where: { organizationId },
+        include: { acceptedBy: { select: { forename: true, surname: true } } },
+      }),
+    );
+    if (!row) return null;
+    return {
+      organizationId: row.organizationId,
+      scope: JSON.parse(row.scope || "[]"),
+      termsVersion: row.termsVersion,
+      acceptedById: row.acceptedById,
+      acceptedByName: row.acceptedBy ? `${row.acceptedBy.forename} ${row.acceptedBy.surname}` : null,
+      acceptedAt: row.acceptedAt.toISOString(),
+      revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
+    };
   }
 }
