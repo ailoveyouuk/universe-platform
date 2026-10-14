@@ -1468,6 +1468,18 @@ export interface RegionSummary {
   countryCount: number;
 }
 
+/** One row of OrganizationCountryPresence — "which countries does this org
+ * operate in", the general onboarding fact for any Organization.type,
+ * distinct from SupplierCountryPresence (the SUPPLIER-type marketplace's
+ * narrower "countries of distribution" concept). Added 2026-10-14 (see
+ * backend-frontend-wiring-audit.md's dead-schema findings). Deliberately
+ * just the code, same as setMySupplierCountryPresence's return shape on
+ * the supplier side — resolve the display name via useCountries()/
+ * CountryOption, don't duplicate it here. */
+export interface OrganizationCountryPresenceSummary {
+  countryCode: string;
+}
+
 export interface ProductSourceApprovalSummary {
   id: string;
   productMasterId: string;

@@ -25,6 +25,12 @@ const PERMISSIONS = [
   { key: "projects.financials.edit", description: "Edit financial fields" },
   { key: "org.users.manage", description: "Invite/deactivate users within your own organization" },
   { key: "org.roles.manage", description: "Manage roles/permissions within your own organization" },
+  // Added 2026-10-14 alongside OrganizationCountryPresence being wired up
+  // (see backend-frontend-wiring-audit.md) — the general "which countries
+  // does this org operate in" setting, distinct from supplier.profile.manage
+  // (SupplierCountryPresence is a separate, publish-facing concept — see
+  // OrganizationCountryPresence's own schema.prisma doc comment).
+  { key: "org.profile.manage", description: "Manage your own organization's profile fields (e.g. countries of operation)" },
   // Supplier/manufacturer marketplace (added 2026-09-24) — see
   // DEFAULT_SUPPLIER_ROLE_TEMPLATE in organizations.ts.
   { key: "supplier.profile.manage", description: "Manage your organization's public supplier profile" },

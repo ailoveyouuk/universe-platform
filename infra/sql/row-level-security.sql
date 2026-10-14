@@ -248,7 +248,18 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     -- pattern as every other tenant-scoped table here.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.project_line_logistics_metrics AFTER UPDATE,
+
+    -- organization_country_presence — REAL RLS GAP, closed 2026-10-14
+    -- while wiring up the dead-schema models (backend-frontend-wiring-
+    -- audit.md). This table already carried organizationId directly (no
+    -- migration needed, unlike partner_financial_details above) but was
+    -- never added to this policy, so OrganizationsService.setCountryPresence
+    -- /listCountryPresence have relied entirely on the app-layer
+    -- withTenantContext() scoping with no database-level backstop until now.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence AFTER UPDATE
 WITH (STATE = ON);
 GO
 

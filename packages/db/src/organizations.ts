@@ -65,6 +65,8 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "partners.financials.edit",
       "org.users.manage",
       "org.roles.manage",
+      // Added 2026-10-14 alongside OrganizationCountryPresence being wired up.
+      "org.profile.manage",
       // An Organization Admin is never locked out of QA-gated actions by
       // this role split — see backfill-qa-roles.ts for existing
       // organizations created before this permission set existed.
@@ -141,7 +143,7 @@ export const DEFAULT_SUPPLIER_ROLE_TEMPLATE: { name: string; appScope: string; p
   {
     name: "Supplier Admin",
     appScope: "*",
-    permissionKeys: ["supplier.profile.manage", "supplier.products.manage", "supplier.leads.view", "org.users.manage", "org.roles.manage"],
+    permissionKeys: ["supplier.profile.manage", "supplier.products.manage", "supplier.leads.view", "org.users.manage", "org.roles.manage", "org.profile.manage"],
   },
 ];
 
@@ -165,7 +167,7 @@ export const DEFAULT_MANUFACTURER_ROLE_TEMPLATE: { name: string; appScope: strin
   {
     name: "Manufacturer Admin",
     appScope: "*",
-    permissionKeys: ["manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view", "org.users.manage", "org.roles.manage"],
+    permissionKeys: ["manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view", "org.users.manage", "org.roles.manage", "org.profile.manage"],
   },
 ];
 
@@ -189,7 +191,7 @@ export const DEFAULT_FUNDER_DONOR_ROLE_TEMPLATE: { name: string; appScope: strin
   {
     name: "Funder Viewer",
     appScope: "*",
-    permissionKeys: ["funder.grants.view", "org.users.manage", "org.roles.manage"],
+    permissionKeys: ["funder.grants.view", "org.users.manage", "org.roles.manage", "org.profile.manage"],
   },
 ];
 

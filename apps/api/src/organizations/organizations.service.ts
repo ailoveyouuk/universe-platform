@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { createOrganizationWithDefaultRoles, prisma, withTenantContext, withPlatformStaffContext } from "@universe/db";
-import type { OrganizationSummary, RoleSummary, DataSharingConsentSummary } from "@universe/types";
+import type { OrganizationSummary, RoleSummary, DataSharingConsentSummary, OrganizationCountryPresenceSummary } from "@universe/types";
 import { assertPlatformStaff, assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateOrganizationDto } from "./dto/create-organization.dto";
+import type { SetOrganizationCountryPresenceDto } from "./dto/set-country-presence.dto";
 
 @Injectable()
 export class OrganizationsService {
@@ -115,5 +116,43 @@ export class OrganizationsService {
       acceptedAt: row.acceptedAt.toISOString(),
       revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
     };
+  }
+
+  /** "Which countries does this org operate in" — the general onboarding
+   * fact for any Organization.type (see OrganizationCountryPresence's
+   * schema.prisma doc comment for why this is a separate table from
+   * SupplierCountryPresence). Added 2026-10-14, same RLS-context
+   * requirement as findRoles/getDataSharingConsent above:
+   * organization_country_presence is RLS-protected (row-level-security.sql,
+   * added in the same change as this method). */
+  async listCountryPresence(caller: RequestUser, organizationId: string): Promise<OrganizationCountryPresenceSummary[]> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    const rows = await runInContext((tx: any) =>
+      tx.organizationCountryPresence.findMany({ where: { organizationId } }),
+    );
+    return rows.map((r: any) => ({ countryCode: r.countryCode }));
+  }
+
+  /** Replace-the-whole-list semantics — same pattern as
+   * SupplierDirectoryService.setCountryPresence (deleteMany then
+   * createMany), the exact precedent this was built from. */
+  async setCountryPresence(
+    caller: RequestUser,
+    organizationId: string,
+    dto: SetOrganizationCountryPresenceDto,
+  ): Promise<OrganizationCountryPresenceSummary[]> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const runInContext = caller.platformStaffRole !== "NONE" ? withPlatformStaffContext : (fn: any) => withTenantContext(organizationId, fn);
+    return runInContext(async (tx: any) => {
+      await tx.organizationCountryPresence.deleteMany({ where: { organizationId } });
+      if (dto.countryCodes.length > 0) {
+        await tx.organizationCountryPresence.createMany({
+          data: dto.countryCodes.map((countryCode: string) => ({ organizationId, countryCode })),
+        });
+      }
+      const rows = await tx.organizationCountryPresence.findMany({ where: { organizationId } });
+      return rows.map((r: any) => ({ countryCode: r.countryCode }));
+    });
   }
 }

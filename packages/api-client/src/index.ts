@@ -48,6 +48,7 @@ import type {
   RequestDocumentUploadResult,
   RoleSummary,
   DataSharingConsentSummary,
+  OrganizationCountryPresenceSummary,
   SupplierLead,
   SupplierProduct,
   SupplierProfile,
@@ -588,6 +589,22 @@ export class UniverseApiClient {
    * 2026-10-14. */
   getOrganizationDataSharingConsent(organizationId: string): Promise<DataSharingConsentSummary | null> {
     return this.request(`/organizations/${organizationId}/data-sharing-consent`);
+  }
+
+  /** Added 2026-10-14 — see OrganizationCountryPresenceSummary's doc
+   * comment for how this differs from the supplier-side
+   * setMySupplierCountryPresence/countryCode list below. */
+  listOrganizationCountryPresence(organizationId: string): Promise<OrganizationCountryPresenceSummary[]> {
+    return this.request(`/organizations/${organizationId}/country-presence`);
+  }
+
+  /** Replace-the-whole-list semantics, same as setMySupplierCountryPresence
+   * — pass the complete new set of country codes, not a delta. */
+  setOrganizationCountryPresence(organizationId: string, countryCodes: string[]): Promise<OrganizationCountryPresenceSummary[]> {
+    return this.request(`/organizations/${organizationId}/country-presence`, {
+      method: "PUT",
+      body: JSON.stringify({ countryCodes }),
+    });
   }
 
   listUsers(organizationId?: string): Promise<UserSummary[]> {
