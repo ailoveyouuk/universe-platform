@@ -14,9 +14,11 @@ import type {
   UpdateProductMasterInput,
 } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
+import { useRouter } from "next/navigation";
 import { useCurrentUser } from "../lib/AuthContext";
 import { useCountries } from "../lib/useCountries";
 import {
+  AddMenu,
   AlertIcon,
   Button,
   GridIcon,
@@ -71,6 +73,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const SOURCE_STANDARDS = ["INTERNAL", "HS_CODE", "WHO_EML", "UNSPSC", "GS1_GTIN"] as const;
 
 export default function ProductCatalogPage() {
+  const router = useRouter();
   const [items, setItems] = useState<ProductCatalogMatch[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -213,12 +216,24 @@ export default function ProductCatalogPage() {
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Product Catalogue</h1>
           <p style={{ color: "var(--u-ink-secondary)", marginTop: 6, fontSize: 14 }}>
             The shared ProductMaster catalogue — every product any organisation on Universe has added, picked, or imported. Browse,
-            search, and correct entries here; new entries are usually added inline from a project line, Quality approval, or the{" "}
+            search, and correct entries here; new entries are usually added inline from a project line, Quality approval, the{" "}
             <Link href="/import" style={{ textDecoration: "none" }}>
               <TextLink as="span">reference-data importer</TextLink>
-            </Link>.
+            </Link>, or one at a time via "Add Product" below.
           </p>
         </div>
+        {/* Added 2026-10-14 — replicated from Project Management's landing
+            page AddMenu (same component, same /products/new destination
+            under this app's own route — see that page's own doc comment).
+            Lewis flagged this app had no way to add a single product at a
+            time, only bulk CSV via /import. */}
+        <AddMenu
+          label="Add Product"
+          options={[
+            { label: "Non-Pharmaceutical", onSelect: () => router.push("/products/new?context=NON_PHARMACEUTICAL") },
+            { label: "Pharmaceutical", onSelect: () => router.push("/products/new?context=PHARMACEUTICAL") },
+          ]}
+        />
       </div>
 
       {/* Section mini-dashboard — Stage 1 (standardised dashboard

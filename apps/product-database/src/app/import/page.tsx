@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import type { ImportProductMasterResult, ProductSourceStandardForImport } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { Button, Select } from "@universe/ui";
@@ -28,6 +28,19 @@ import { Button, Select } from "@universe/ui";
  * data, e.g. its first cell is literally "name"). Only name and category
  * are required per row; the other four are typically only sourced from one
  * particular standard; leave them blank where not applicable.
+ *
+ * Delimiter auto-detection added 2026-10-14 (Lewis: pasting straight from
+ * Excel/Google Sheets — the realistic way anyone actually copies rows in —
+ * produced nothing, because the parser only ever split on commas and a
+ * sheet copy/paste is tab-separated, not comma-separated; every cell
+ * landed in a single undefined "name" with no way to tell it apart from a
+ * genuinely malformed paste). parseCsv now picks whichever of comma/tab
+ * appears more often across the pasted text and splits every row on that,
+ * so both a hand-written CSV and a direct spreadsheet paste work from the
+ * same textarea. Same change adds a file-attach option below the textarea
+ * (plain FileReader read of a .csv/.txt/.tsv file into the same textarea
+ * state) — there was previously no way to bring in rows except typing or
+ * pasting into the box by hand.
  */
 const STANDARD_OPTIONS: { value: ProductSourceStandardForImport; label: string; blocked?: string }[] = [
   { value: "HS_CODE", label: "HS Code (WCO / WTO Medical Goods List)" },
@@ -36,11 +49,23 @@ const STANDARD_OPTIONS: { value: ProductSourceStandardForImport; label: string; 
   { value: "GS1_GTIN", label: "GS1 GTIN (a procurement agent's own export)" },
 ];
 
+// Picks comma or tab, whichever actually splits the pasted text into more
+// than one cell more often — a direct spreadsheet copy/paste is
+// tab-separated; a hand-written or exported CSV is comma-separated. Falls
+// back to comma (the original, documented format) when neither delimiter
+// appears at all, e.g. a single-column paste.
+function detectDelimiter(lines: string[]): "," | "\t" {
+  const tabLines = lines.filter((l) => l.includes("\t")).length;
+  const commaLines = lines.filter((l) => l.includes(",")).length;
+  return tabLines > commaLines ? "\t" : ",";
+}
+
 function parseCsv(text: string): { name: string; category: string; hsCode?: string; unspscCode?: string; gtin?: string; standardUnit?: string }[] {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const delimiter = detectDelimiter(lines);
   const rows: ReturnType<typeof parseCsv> = [];
   for (const line of lines) {
-    const cells = line.split(",").map((c) => c.trim());
+    const cells = line.split(delimiter).map((c) => c.trim());
     if (cells[0]?.toLowerCase() === "name" && cells[1]?.toLowerCase() === "category") continue; // header row
     const [name, category, hsCode, unspscCode, gtin, standardUnit] = cells;
     if (!name || !category) continue;
@@ -62,6 +87,29 @@ export default function ImportPage() {
   const [result, setResult] = useState<ImportProductMasterResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  // Added 2026-10-14 alongside the delimiter fix above — reads a plain
+  // text file (.csv/.tsv/.txt — whatever a spreadsheet export or a
+  // document attachment actually is here, there's no binary .xlsx
+  // parsing in this screen) straight into the same textarea state, so the
+  // existing parseCsv/detectDelimiter logic handles it exactly like a
+  // paste. FileReader only, no upload to the server — the file never
+  // leaves the browser until Import is clicked, same as a paste never did.
+  function handleFileAttach(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCsvText(typeof reader.result === "string" ? reader.result : "");
+      setError(null);
+      setResult(null);
+    };
+    reader.onerror = () => setError(`Couldn't read "${file.name}" — try pasting its contents instead.`);
+    reader.readAsText(file);
+    e.target.value = ""; // allow re-attaching the same file name after a fix
+  }
 
   const selected = STANDARD_OPTIONS.find((s) => s.value === standard);
   const parsedRows = parseCsv(csvText);
@@ -125,9 +173,19 @@ export default function ImportPage() {
       </div>
 
       <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
-          CSV rows — name,category,hsCode,unspscCode,gtin,standardUnit (only name and category required per row)
-        </span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
+            CSV rows — name,category,hsCode,unspscCode,gtin,standardUnit (only name and category required per row).
+            Paste directly from a spreadsheet or type a comma-separated file's contents below.
+          </span>
+          <label style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input type="file" accept=".csv,.tsv,.txt" onChange={handleFileAttach} style={{ display: "none" }} />
+            <Button type="button" variant="secondary" size="sm" onClick={(e) => (e.currentTarget.previousSibling as HTMLInputElement)?.click()}>
+              Attach file…
+            </Button>
+            {fileName && <span>{fileName}</span>}
+          </label>
+        </div>
         <textarea
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
