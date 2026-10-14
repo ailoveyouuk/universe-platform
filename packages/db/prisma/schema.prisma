@@ -283,6 +283,9 @@ model Organization {
   partnerCertifications        PartnerCertification[]
   partnerCompanyChecks         PartnerCompanyCheck[]
   partnerApprovalHistoryEntries PartnerApprovalHistory[]
+  /// Added 2026-10-14 — same organizationId backfill as the three above,
+  /// just four weeks later (see PartnerFinancialDetail's own doc comment).
+  partnerFinancialDetails       PartnerFinancialDetail[]
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow:
   /// amendments proposed by users belonging to this org.
   productAmendments            ProductAmendment[]
@@ -654,8 +657,18 @@ model ClientDetail {
 /// manufacturer/supplier/etc, same reasoning as the Company Checks and
 /// Documents/Certifications packet applying to all roles).
 model PartnerFinancialDetail {
-  partnerId         String  @id
-  partner           Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId    String @id
+  partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Added 2026-10-14 (backend-frontend-wiring-audit.md dead-schema
+  /// finding, closed out the same way 2026-10-07's compliance scaffolding
+  /// closed the identical gap on PartnerCertification/PartnerCompanyCheck/
+  /// PartnerApprovalHistory) — this table carried no organizationId at
+  /// all and was never added to row-level-security.sql's table list, so a
+  /// raw query against it had no database-layer RLS backstop, only the
+  /// partnerId -> Partner join. Backfilled from partnerId's own
+  /// Partner.organizationId; see the migration for the backfill query.
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   bankName          String?
   accountHolderName String?
   accountNumber     String?

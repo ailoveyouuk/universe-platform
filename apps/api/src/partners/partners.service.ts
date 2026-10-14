@@ -888,7 +888,11 @@ export class PartnersService {
       const row = await tx.partnerFinancialDetail.upsert({
         where: { partnerId },
         update: data,
-        create: { partnerId, ...data },
+        // organizationId is set on create only — it's denormalized from
+        // the parent Partner (see schema.prisma's doc comment on this
+        // column) and never changes after that, same as every other
+        // partner_* table's organizationId.
+        create: { partnerId, organizationId: user.organizationId, ...data },
       });
 
       await recordFieldChanges(tx, {

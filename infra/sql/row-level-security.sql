@@ -174,21 +174,18 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_approval_history AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_approval_history AFTER UPDATE,
 
-    -- partner_financial_details is DELIBERATELY not listed here (added
-    -- 2026-10-14 — see backend-frontend-wiring-audit.md's dead-schema
-    -- findings and PartnerFinancialDetail's own schema.prisma doc
-    -- comment). Unlike every other partner_* table above, it has no
-    -- organizationId column — partnerId is its own @id, one row per
-    -- partner, no separate PK to attach a second column to — so this
-    -- predicate function (which filters ON a literal organizationId
-    -- column) cannot be applied without a schema migration adding one.
-    -- Tenant isolation for this table is enforced at the application
-    -- layer only: every read/write in partners.service.ts's
-    -- getFinancialDetail/upsertFinancialDetail first confirms the
-    -- parent Partner belongs to the caller's org via tx.partner.findFirst
-    -- + tenantScope(), the same pattern already used for ManufacturerSite
-    -- sub-lookups elsewhere in that file. Revisit if this table ever
-    -- gets its own organizationId column.
+    -- partner_financial_details — added 2026-10-14 (see
+    -- backend-frontend-wiring-audit.md's dead-schema findings and
+    -- PartnerFinancialDetail's own schema.prisma doc comment). Was
+    -- flagged here as a gap needing a schema migration before RLS could
+    -- apply (it had no organizationId column — partnerId is its own @id,
+    -- one row per partner); 20261014010000_partner_financial_detail_
+    -- organization_id closes that, same pattern as
+    -- 20261007100000_compliance_scaffolding did for partner_certifications/
+    -- partner_company_checks/partner_approval_history.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_financial_details,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_financial_details AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.partner_financial_details AFTER UPDATE,
 
     -- field_change_log / risk_assessments — new compliance scaffolding
     -- tables, added 2026-10-07 (compliance-standards-gap-analysis.md Gaps
