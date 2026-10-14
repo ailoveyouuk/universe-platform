@@ -50,9 +50,9 @@
 // (`ProductLine`, `ProjectLine`) IS tenant-scoped as normal and links to
 // `ProductMaster` once a product is identified/matched. This is what makes
 // the "type Cryovial, get prompted for size" experience possible, and what
-// lets the catalog grow richer as more tenants use the platform — Unimed's
-// own already-assigned GS1 GTINs are the first real seed data (owned
-// outright, no licensing question), HS codes and the WTO Medical Goods List
+// lets the catalog grow richer as more tenants use the platform — a
+// procurement agent's own already-assigned GS1 GTINs are owned-data seed
+// candidates (no licensing question), HS codes and the WTO Medical Goods List
 // are open and importable now, UNSPSC is free (post-2025 UNDP stewardship)
 // pending a signed embedding-terms addendum, and the WHO Essential Medicines
 // List (CC BY 3.0 IGO) is safe to use — WHO's Prequalification lists are
@@ -122,7 +122,7 @@ datasource db {
 //                             claude/stakeholder-taxonomy-research.md and
 //                             architecture-decisions.md for the taxonomy this
 //                             maps to. PROCUREMENT_SERVICE_AGENT is the
-//                             renamed former BUYER (Unimed's own category —
+//                             renamed former BUYER (the category for
 //                             an org that runs projects/tenders on behalf of
 //                             a client). TENDERING_PURCHASING_BODY is a
 //                             government/FBO/implementing-partner org that
@@ -222,8 +222,8 @@ model Organization {
   /// them — that's fine, they're enrichment, not required for the platform
   /// to function.
   /// Legal/registered name, if different from the trading/display name
-  /// already held in `name` (e.g. "Unimed Procurement Services Limited" vs.
-  /// the display name "Unimed"). Null means `name` doubles as both.
+  /// already held in `name` (e.g. a full registered company name vs. a
+  /// shorter trading/display name). Null means `name` doubles as both.
   legalName                  String?
   /// See allowed values reference above.
   legalEntityType            String?
@@ -546,8 +546,8 @@ model SupplierDetail {
   /// "Scope of services (e.g. warehousing, consultancy)" free-text field
   /// from the same form.
   scopeOfServicesDescription String? @db.NVarChar(Max)
-  /// Unimed's Code of Conduct is sent to every approved supplier for
-  /// "Read & Understood" acknowledgement; a copy is retained.
+  /// A procurement agent's Code of Conduct is sent to every approved
+  /// supplier for "Read & Understood" acknowledgement; a copy is retained.
   /// The retained copy itself is a PartnerCertification
   /// (type: CODE_OF_CONDUCT_ACKNOWLEDGEMENT) — these two fields are just
   /// the quick-glance status.
@@ -695,7 +695,7 @@ model WarehousingDetail {
   gdpAuditDate     DateTime?
   nextGdpAuditDue  DateTime?
   /// Monthly stock reconciliation between the warehouse's stock report
-  /// and Unimed's project trackers — who at the warehouse that
+  /// and the organisation's own project trackers — who at the warehouse that
   /// reconciliation is run with.
   monthlyReconciliationContact String?
 
@@ -706,7 +706,7 @@ model WarehousingDetail {
 /// replacing repeated per-certificate column blocks
 /// (ISO13485/Expiry/ISO9001/Expiry/...). Expanded 2026-10-02 after
 /// reviewing a real manufacturer folder as a
-/// worked example — that folder shows Unimed tracking far more per document
+/// worked example — that folder shows real manufacturers tracking far more per document
 /// than just type/issued/expiry: a reference/certificate number, the
 /// issuing or notified body, a revision (Declarations of Conformity get
 /// re-issued on spec change, not just on expiry), and VERIFICATION as its
@@ -791,7 +791,7 @@ model PartnerCertification {
 /// Location, Business Insurance — each a dated YES/N-A check with an
 /// optional reference/source and comment, distinct in shape from
 /// PartnerCertification (which tracks documents with their own
-/// issue/expiry) — these are verification CHECKS Unimed performs, not
+/// issue/expiry) — these are verification CHECKS the organisation performs, not
 /// documents the stakeholder supplies.
 model PartnerCompanyCheck {
   id          String   @id @default(uuid())
@@ -1188,7 +1188,7 @@ model ProjectLine {
   quantityReceived              Int?
   /// Computed server-side 2026-10-03 (previously a manual dropdown) — see
   /// ProjectsService.computeOnTimeInFull. actualDeliveryDate <=
-  /// projectedDeliveryDate (Unimed's own promise to the CLIENT was met).
+  /// projectedDeliveryDate (the organisation's own promise to the CLIENT was met).
   /// Null until both dates are set.
   internalOnTime                Boolean?
   /// Computed server-side 2026-10-03 (previously a manual dropdown) —
@@ -1272,8 +1272,8 @@ model ProjectLine {
   // --- Currency conversion (added 2026-10-02, generalized 2026-10-03) ---
   // Universe is a global, tenant-agnostic platform — NOT built around any
   // one organisation's home currency (corrected explicitly by Lewis
-  // 2026-10-03: an earlier pass of this feature hardcoded Unimed's own
-  // GBP reporting basis, which doesn't belong in a platform meant to be
+  // 2026-10-03: an earlier pass of this feature hardcoded a single pilot
+  // organisation's GBP reporting basis, which doesn't belong in a platform meant to be
   // currency-agnostic for every tenant). Every native-currency price gets
   // converted into ExchangeRatesService.DEFAULT_BASE_CURRENCY ("USD" — a
   // neutral computation/aggregation currency, not any one org's reporting
@@ -1544,7 +1544,7 @@ model ProductLine {
   organizationId           String
   organization             Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customerPoProductName    String
-  /// GTIN captured as entered — Unimed's own GS1-assigned codes are expected
+  /// GTIN captured as entered — a procurement agent's own GS1-assigned codes are expected
   /// to densely populate this from day one (owned data, no licensing
   /// question). Format-validated at the app layer, not pre-populated from
   /// any public catalog (no open bulk GTIN database exists — see
@@ -1582,7 +1582,7 @@ model ProductLine {
 /// The shared, deduplicated commodity catalog — NOT tenant-scoped (see note
 /// at top of file). Seeded from open reference data (HS codes, the WTO
 /// Medical Goods List, UNSPSC once the embedding-terms addendum is signed,
-/// the WHO Essential Medicines List) plus Unimed's own owned GTIN data, and
+/// the WHO Essential Medicines List) plus a procurement agent's own owned GTIN data, and
 /// grown organically as tenants' real products get matched/added over time.
 model ProductMaster {
   id                          String    @id @default(uuid())
@@ -1616,7 +1616,7 @@ model ProductMaster {
   addedByOrganization          Organization? @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Denormalized copy of Organization.type at the moment of contribution
   /// (deliberately frozen, not a live lookup) — e.g. "PROCUREMENT_SERVICE_AGENT"
-  /// for Unimed adding a product while building a project, vs.
+  /// for a procurement agent adding a product while building a project, vs.
   /// "MANUFACTURER" for a company adding its own. Frozen so the historical
   /// record of who-added-what-in-what-capacity doesn't silently change if
   /// an organisation's type is ever edited later.
@@ -1992,7 +1992,7 @@ model SupplierLead {
 // See claude/org-onboarding-data-model.md for the field lists these
 // implement and claude/admin-onboarding-intake-spec.md for the phased plan
 // this is Phase 1 of (data model only — no intake form UI yet; today these
-// get populated the same way Unimed's own onboarding pilot did, by a
+// get populated the same way an organisation's onboarding was piloted, by a
 // platform-staff member handing structured data to a provisioning script).
 // One optional detail relation per Organization.type value — see
 // Organization's own doc comment above these relations for how the two
@@ -2022,9 +2022,10 @@ model OrganizationCountryPresence {
 }
 
 /// PROCUREMENT_SERVICE_AGENT detail — see org-onboarding-data-model.md's
-/// "Procurement Service Agent" section. Piloted against real Unimed data in
-/// unimed-onboarding-pilot.md; the field list here is that pilot's proven
-/// content, not a first guess.
+/// "Procurement Service Agent" section. Piloted against a real-world
+/// procurement agent's onboarding documents (see
+/// unimed-onboarding-pilot.md for the original research trail); the
+/// field list here is that pilot's proven content, not a first guess.
 model ProcurementAgentProfile {
   id                           String    @id @default(uuid())
   organizationId               String    @unique
@@ -2036,8 +2037,8 @@ model ProcurementAgentProfile {
   /// See allowed values reference above.
   logisticsCapability          String?
   yearsOperatingInRole         Int?
-  /// Surfaced as a genuine gap during the Unimed pilot (not in the original
-  /// field list) — see unimed-onboarding-pilot.md. Free text rather than a
+  /// Surfaced as a genuine gap during the onboarding pilot (not in the
+  /// original field list) — see unimed-onboarding-pilot.md. Free text rather than a
   /// fully structured policy record; revisit if this needs to be queried on
   /// (e.g. "which agents have cover expiring soon").
   insuranceCoverSummary        String?   @db.NVarChar(Max)
@@ -2327,11 +2328,11 @@ model FieldChangeLog {
 /// Management / ISO 14971 / ISO 31000's shared shape: identify, assess,
 /// mitigate, assign an owner, review periodically). Deliberately NOT the
 /// full Deviation/CAPA/Recall process-management suite the first draft of
-/// sop-driven-quality-roadmap.md proposed and then dropped as "Unimed's
-/// own SOP-driven process, not core platform" — this is lighter-weight
+/// sop-driven-quality-roadmap.md proposed and then dropped as "a single
+/// organisation's own SOP-driven process, not core platform" — this is lighter-weight
 /// core scaffolding any organisation can use for its own risk register,
 /// the same way EvidenceStandardDefinition generalised certification
-/// tracking rather than hardcoding Unimed's own list.
+/// tracking rather than hardcoding any one organisation's own list.
 model RiskAssessment {
   id             String       @id @default(uuid())
   organizationId String
@@ -2387,8 +2388,8 @@ model ControlledDocument {
   /// e.g. "QUALITY_MANUAL", "SOP", "POLICY", "WORK_INSTRUCTION".
   category       String
   /// Free-text version label (e.g. "1.0", "2.3", "v4") rather than a
-  /// strict semver — Unimed's own SOPs are versioned inconsistently
-  /// today, and this register is meant to record what an organisation
+  /// strict semver — real-world SOPs are often versioned inconsistently,
+  /// and this register is meant to record what an organisation
   /// actually calls its own version, not impose a new scheme on it.
   version        String
   effectiveDate  DateTime?
@@ -2460,8 +2461,8 @@ model ControlledDocument {
 /// Gap 3 — the configurable catalog of standards/evidence an organisation
 /// can require from its stakeholders. Replaces the hardcoded allowed-value
 /// lists on PartnerCertification.type/PartnerCompanyCheck.checkType with a
-/// real, per-organisation, admin-editable table — Unimed's current MHRA/
-/// GDP/ISO/WHO-MQAS requirements become the first seeded rows, not a
+/// real, per-organisation, admin-editable table — demo MHRA/GDP/ISO/
+/// WHO-MQAS requirements become the first seeded rows, not a
 /// blueprint baked into code for every tenant. See
 /// sop-driven-quality-roadmap.md "Proposed core scaffolding", item 1.
 model EvidenceStandardDefinition {
@@ -2511,7 +2512,7 @@ model EvidenceStandardDefinition {
 /// catalog row instead of a hardcoded type string. Existing
 /// PartnerCertification/PartnerCompanyCheck rows are NOT migrated into
 /// this table by this change — both tables stay exactly as they are for
-/// Unimed's existing data (see sop-driven-quality-roadmap.md's suggested
+/// existing data (see sop-driven-quality-roadmap.md's suggested
 /// build order, item 5, for the planned follow-up migration); this is the
 /// new write path going forward, usable immediately for any standard an
 /// org adds to its own catalog.

@@ -1,17 +1,17 @@
 /**
- * Second test batch: 10 suppliers picked from Unimed's real Non-
+ * Second test batch: 10 suppliers picked from a real-world Non-
  * Pharmaceutical Supplier Register (FORM_008.3), independent of the
  * Product Database batch (import-product-db-test-batch.ts). Chosen
  * deliberately for variety rather than at random — see each entry's
  * `source` tab below:
  *   - 4 from "Others Register" (365 Medical, HK Wentworth, A&D
- *     Instruments, Abdos Life Sciences) — Unimed's own register already
+ *     Instruments, Abdos Life Sciences) — the register already
  *     carries an approval date and a status for these.
  *   - 4 from "Yifeng Register" (AdLite Medical, Aimmax Medical Products,
  *     AMCAREMED Technology, Anhui Anyu) — manufacturers/suppliers sourced
  *     through Yifeng Yingtai, no approval-date column in that tab.
  *   - 2 from "PENDING APPROVAL" (AccuBio Tech, Alpha Labs) — genuinely
- *     not yet approved by Unimed at all, deliberately included to
+ *     not yet approved at all, deliberately included to
  *     exercise StakeholderEvidenceRecord's PENDING status, not just
  *     VERIFIED/EXPIRED.
  * Expiry dates are recomputed against today's date at run time, not
@@ -23,14 +23,14 @@
  * their own independently-correct status.
  *
  * Standalone from any ProductLine/PO — this batch tests importing
- * Unimed's vetting register directly, not a transaction.
+ * the vetting register directly, not a transaction.
  *
  * KNOWN MODELLING QUESTION (not fixed here, flagged for Lewis): the
  * seeded "ISO 13485" EvidenceStandardDefinition currently has
  * appliesToStakeholderTypes = "MANUFACTURER" only. Every one of these 10
- * real suppliers is registered under a SUPPLIER-style role in Unimed's
+ * real suppliers is registered under a SUPPLIER-style role in the organisation's
  * own process, yet most of them hold ISO 13485. The evidence rows below
- * are still created (it's real evidence Unimed holds on file) but they
+ * are still created (it's real-world evidence the organisation holds on file) but they
  * won't count toward the SUPPLIER-role approval gate as the standard is
  * currently scoped — worth deciding whether ISO 13485 should apply to
  * SUPPLIER too, given how common this is in the real register.
@@ -67,7 +67,7 @@ type SupplierSeed = {
    * PENDING APPROVAL suppliers, where the certificate was submitted but
    * never verified by QA yet. */
   evidenceStatusMode: "VERIFIED_OR_EXPIRED" | "PENDING";
-  /** When known, the date Unimed's own process checked this supplier
+  /** When known, the date the organisation's own process checked this supplier
    * (the register's "Approval date" column) — null where that tab
    * doesn't carry one, rather than guessing. */
   verifiedAt: string | null;
@@ -234,7 +234,7 @@ async function main() {
           s.evidenceStatusMode === "PENDING" ? "PENDING" : expiry < now ? "EXPIRED" : "VERIFIED";
         const notes =
           s.evidenceStatusMode === "PENDING"
-            ? `TEST BATCH IMPORT. Source: Supplier Register "${s.sourceTab}" tab — certificate submitted by the supplier but not yet reviewed/verified by Unimed's QA team (this supplier is still awaiting its first approval decision).`
+            ? `TEST BATCH IMPORT. Source: Supplier Register "${s.sourceTab}" tab — certificate submitted by the supplier but not yet reviewed/verified by the QA team (this supplier is still awaiting its first approval decision).`
             : `TEST BATCH IMPORT. Source: Supplier Register "${s.sourceTab}" tab.` +
               (s.verifiedAt ? "" : " No specific verification date was recorded for this entry in that tab, only the certificate's own expiry.");
 
@@ -287,7 +287,7 @@ async function main() {
     }
   });
 
-  console.log("\nDone. All 10 should land PENDING in the QA Queue (none satisfy Unimed's full mandatory");
+  console.log("\nDone. All 10 should land PENDING in the QA Queue (none satisfy the full mandatory");
   console.log("evidence catalog from ISO certs alone). Check: the 2 PENDING APPROVAL suppliers' evidence");
   console.log("rows show status PENDING (not VERIFIED/EXPIRED) — they were submitted but never reviewed.");
   console.log("A&D Instruments should show ONE verified standard (ISO 13485) and one EXPIRED (ISO 9001)");

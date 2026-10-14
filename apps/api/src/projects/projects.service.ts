@@ -1086,8 +1086,8 @@ export class ProjectsService {
    * aren't both present yet (never defaults to false — an unknown date
    * pair means the flag genuinely isn't knowable yet, not that it failed).
    *
-   * - internalOnTime: actualDeliveryDate <= projectedDeliveryDate (Unimed's
-   *   own promise to the CLIENT was met).
+   * - internalOnTime: actualDeliveryDate <= projectedDeliveryDate (the
+   *   organisation's own promise to the CLIENT was met).
    * - supplierOnTime: goodsCollectedDate <= supplierGad (the SUPPLIER's own
    *   committed date was met). Judgment call, flagged in schema.prisma and
    *   architecture-decisions.md: GAD/supplierGad's exact definitions are

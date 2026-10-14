@@ -9,7 +9,7 @@ import { prisma } from "@universe/db";
  * IMPORTANT -- generalized 2026-10-03: Universe is a global, multi-tenant
  * platform, not built around any one organisation's home currency. An
  * earlier pass of this feature hardcoded "GBP" as the reporting currency
- * because the build happened to be working with Unimed at the time --
+ * because the build happened to be working with a single pilot organisation's home currency at the time --
  * corrected directly by Lewis: that doesn't belong in a currency-agnostic
  * platform. DEFAULT_BASE_CURRENCY below is a neutral internal computation
  * currency (every native-currency price is converted into it and locked,

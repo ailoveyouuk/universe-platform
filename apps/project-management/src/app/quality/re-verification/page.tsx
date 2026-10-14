@@ -17,9 +17,9 @@ const WINDOW_OPTIONS = [7, 30, 90] as const;
  * method's updated doc comment) before building this screen against it.
  *
  * A standard only ever shows up here once it has `reVerificationFrequencyMonths`
- * set and at least one VERIFIED record against it — until Lewis seeds
- * Unimed's own catalog with that field populated, this list will be
- * empty, same caveat as the gate itself.
+ * set and at least one VERIFIED record against it — until the demo
+ * catalog is seeded with that field populated, this list will be empty,
+ * same caveat as the gate itself.
  */
 export default function ReVerificationDuePage() {
   const [withinDays, setWithinDays] = useState<number>(30);

@@ -45,7 +45,7 @@ const STAKEHOLDERS: StakeholderSeed[] = [
   { canonicalName: "Globus (Anhui Intco Medical Products)", roles: ["MANUFACTURER"] },
 ];
 
-/** Enriched 2026-10-07 against Unimed's real Non-Pharmaceutical Supplier
+/** Enriched 2026-10-07 against a real-world Non-Pharmaceutical Supplier
  * Register (FORM_008.3) and, for Zarys, the actual signed certificate PDF
  * in SharePoint — richer and more accurate than the Product Database's
  * own free-text certification columns, which only ever carried a bare
@@ -97,11 +97,11 @@ const COMPANY_EVIDENCE: CompanyEvidenceSeed[] = [
     source: 'Supplier Register (Others Register tab, registered as "Globus (Shetland) Ltd")',
   },
   // Globus (Anhui Intco Medical Products) — NOT found as its own entry anywhere in the Supplier
-  // Register, under this or any similar name. Unimed's vetting appears to be on "Globus (Shetland)
+  // Register, under this or any similar name. the register's vetting appears to be on "Globus (Shetland)
   // Ltd" (the actual supplier of record) only — the Chinese factory behind that brand has not been
   // independently vetted as far as this register shows. Kept as the Product Database's original bare,
   // unreferenced claim rather than inventing a register match — flagged for Lewis to confirm whether
-  // that's intentional (Unimed only ever vets its direct supplier, not every sub-tier factory) or a gap.
+  // that's intentional (the register only ever vets its direct supplier, not every sub-tier factory) or a gap.
   {
     stakeholder: "Globus (Anhui Intco Medical Products)", standardName: "ISO 13485 — Medical Devices QMS Certificate",
     referenceNumber: null, expiryDate: null, verifiedAt: "2026-09-11",
@@ -512,7 +512,7 @@ async function main() {
 
   console.log("\nDone. Check each Partner's status in the QA Queue (Quality -> QA Queue) — all 5 should");
   console.log("show PENDING with mandatory evidence standards still missing, which is correct: this");
-  console.log("batch only ever supplied the ISO 9001/13485 claim and nothing else Unimed's catalog");
+  console.log("batch only ever supplied the ISO 9001/13485 claim and nothing else the demo catalog");
   console.log("requires for full approval. The Cotton Roll line's certification is already expired —");
   console.log("confirm it surfaces as an issue on that line/product rather than looking clean.");
 }

@@ -1,11 +1,11 @@
 /**
  * One-off seed script for compliance-standards-gap-analysis.md's "What
- * still needs doing" item 1: seed Unimed's own EvidenceStandardDefinition
+ * still needs doing" item 1: seed demo EvidenceStandardDefinition
  * catalog, so the Approve-stakeholder gate (PartnersService.update()) has
  * something real to check instead of being a no-op.
  *
  * Catalog drawn from the pre-existing hardcoded CertificationType /
- * PartnerCompanyCheckType lists in packages/db/src/enums.ts (Unimed's real
+ * PartnerCompanyCheckType lists in packages/db/src/enums.ts (a real-world
  * supplier-file document types, confirmed against actual BD-folder
  * evidence per that file's own comments) — not invented fresh. Reduced
  * from ~28 raw enum values to 21 non-overlapping standards (the two
@@ -33,7 +33,7 @@
  *   npm run seed:evidence-standards
  *
  * (pass an exact org name if more than one organization name contains
- * "Unimed": npm run seed:evidence-standards -- "Exact Org Name")
+ * "Universe Demo": npm run seed:evidence-standards -- "Exact Org Name")
  */
 import { prisma, withTenantContext } from "../src/index";
 
@@ -60,7 +60,7 @@ const WARE = "WAREHOUSING";
 const STANDARDS: StandardSeed[] = [
   // --- QUALITY ---
   {
-    // Widened 2026-10-07: Unimed's real Non-Pharmaceutical Supplier
+    // Widened 2026-10-07: a real-world Non-Pharmaceutical Supplier
     // Register shows ISO 13485 held routinely by SUPPLIER-role
     // stakeholders too (distributors of medical devices, not just the
     // manufacturers themselves) — originally MANUFACTURER-only, which
@@ -120,7 +120,7 @@ const STANDARDS: StandardSeed[] = [
   },
   {
     name: "Code of Conduct Acknowledgement",
-    description: "Unimed's Code of Conduct, sent to every approved supplier for Read & Understood acknowledgement.",
+    description: "A procurement agent's Code of Conduct, sent to every approved supplier for Read & Understood acknowledgement.",
     category: "QUALITY",
     appliesToStakeholderTypes: [MANU, SUPP, FREIGHT, WARE],
     evidenceType: "DOCUMENT",
@@ -273,7 +273,7 @@ const STANDARDS: StandardSeed[] = [
   },
   {
     name: "Technical Agreement",
-    description: "Technical/quality agreement between Unimed and the manufacturer or supplier.",
+    description: "Technical/quality agreement between the organisation and the manufacturer or supplier.",
     category: "BUSINESS",
     appliesToStakeholderTypes: [MANU, SUPP],
     evidenceType: "DOCUMENT",
@@ -328,7 +328,7 @@ async function main() {
   if (!org) {
     throw new Error(
       `No organization found matching name "${orgNameFilter}". Pass the exact org name as an argument, e.g.:\n` +
-        `  npx ts-node ... seed-evidence-standards.ts "Unimed Procurement Services Ltd"`,
+        `  npx ts-node ... seed-evidence-standards.ts "Universe Demo"`,
     );
   }
   console.log(`Seeding EvidenceStandardDefinition rows for organization "${org.name}" (${org.id})`);

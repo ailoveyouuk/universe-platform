@@ -122,7 +122,7 @@ export default function NewOrganizationPage() {
             />
             <span>
               <strong>Procurement Service Agent</strong> — runs projects/tenders on behalf of a
-              client (e.g. Unimed). The default role template (Organisation Admin, Project
+              client (e.g. a procurement agent running tenders on a funder's behalf). The default role template (Organisation Admin, Project
               Manager, Read Only).
             </span>
           </label>

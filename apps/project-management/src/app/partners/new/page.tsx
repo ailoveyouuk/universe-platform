@@ -195,25 +195,26 @@ const ADD_CHECK_OPTIONS = [...COMPANY_CHECK_TYPES, { value: "OTHER", label: "Oth
  * nothing to record scope of supply, risk tiering, or the documents a
  * real onboarding packet always has attached.
  *
- * This version was designed against real sources (see
+ * This version was designed against real-world sector practice (see
  * architecture-decisions.md, "Stakeholder onboarding expansion" for the
- * full research trail and per-field provenance):
- *   - Bioconnections' own "New Non-Pharmaceutical Supplier Form"
- *     (FORM 008.1) — the Company Checks table and Scope of Supply
- *     checkboxes below are a direct port of its structure.
- *   - The real Becton Dickinson SharePoint folder Lewis shared — the
+ * full research trail and per-field rationale — generalized 2026-10-14,
+ * platform and all its data are demo-only now, see demo-data-build.md):
+ *   - A real-world non-pharmaceutical supplier onboarding form — the
+ *     Company Checks table and Scope of Supply checkboxes below are a
+ *     direct port of its structure.
+ *   - A real manufacturer's own document-management practice — the
  *     generic certifications/documents repeater (with optional
- *     per-manufacturing-site scoping) mirrors what's actually kept there
+ *     per-manufacturing-site scoping) mirrors what's typically kept there
  *     (ISO 13485 per site, EUDAMED/CE-MDR/Declaration of Conformity at
  *     product-family level, in-country device registrations).
  *   - Risk tiering, the Client pharma-qualification fields, and the
- *     Warehousing fields trace back to Unimed's standard procurement and
- *     logistics practice for pharmaceutical/GDP-sensitive product.
+ *     Warehousing fields trace back to standard procurement and logistics
+ *     practice for pharmaceutical/GDP-sensitive product.
  *
  * Ticking a role still immediately reveals that role's own field group;
  * Company Checks and the Documents/Certifications repeater appear once any
  * role is ticked (a standard verification packet for every stakeholder
- * type, not just companies Unimed sources from/ships through).
+ * type, not just companies the organisation sources from/ships through).
  */
 export default function NewPartnerPage() {
   const router = useRouter();

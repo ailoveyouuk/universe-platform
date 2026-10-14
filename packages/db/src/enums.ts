@@ -85,8 +85,8 @@ export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof Organi
 /// Organization.type's doc comment in schema.prisma and
 /// claude/stakeholder-taxonomy-research.md in the Claude project for the
 /// real-world taxonomy this maps to. PROCUREMENT_SERVICE_AGENT is the
-/// renamed former BUYER value (no data migration ambiguity — Unimed, the
-/// only org provisioned so far, is a textbook procurement service agent).
+/// renamed former BUYER value (no data migration ambiguity — the first
+/// org provisioned was a textbook procurement service agent).
 export const OrganizationType = {
   PROCUREMENT_SERVICE_AGENT: "PROCUREMENT_SERVICE_AGENT",
   TENDERING_PURCHASING_BODY: "TENDERING_PURCHASING_BODY",
@@ -172,7 +172,7 @@ export const ProductBatchStatus = {
 } as const;
 export type ProductBatchStatus = (typeof ProductBatchStatus)[keyof typeof ProductBatchStatus];
 
-/// Expanded 2026-10-02 after a research pass on Unimed's real supplier
+/// Expanded 2026-10-02 after a research pass on real-world supplier
 /// files — covers every document type actually observed, not just the
 /// original four.
 export const CertificationType = {
@@ -211,8 +211,8 @@ export const CertificationType = {
   INSURANCE_CERTIFICATE: "INSURANCE_CERTIFICATE",
   TECHNICAL_AGREEMENT: "TECHNICAL_AGREEMENT",
   SERVICE_LEVEL_AGREEMENT: "SERVICE_LEVEL_AGREEMENT",
-  /// Unimed's Code of Conduct, sent to every approved supplier for
-  /// "Read & Understood" acknowledgement, copy retained.
+  /// A procurement agent's Code of Conduct, sent to every approved
+  /// supplier for "Read & Understood" acknowledgement, copy retained.
   CODE_OF_CONDUCT_ACKNOWLEDGEMENT: "CODE_OF_CONDUCT_ACKNOWLEDGEMENT",
   REFERENCES: "REFERENCES",
   /// The annual Bona Fide re-check record for approved pharmaceutical
@@ -273,8 +273,8 @@ export type SupplierEnquiryResponseStatus =
 
 /// Provenance for a ProductMaster entry — which reference source it came
 /// from. See architecture doc, "Sector-insights data strategy" (2026-09-24)
-/// for the licensing status of each: HS_CODE and GS1_GTIN (Unimed's own
-/// data) are clear to use now; UNSPSC needs the UNDP embedding-terms
+/// for the licensing status of each: HS_CODE and GS1_GTIN (a procurement
+/// agent's own data) are clear to use now; UNSPSC needs the UNDP embedding-terms
 /// addendum signed first; WHO_EML is CC BY 3.0 IGO and safe; WHO
 /// Prequalification data is deliberately NOT a source yet, pending a
 /// written permissions request to WHO.

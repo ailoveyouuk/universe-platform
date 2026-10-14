@@ -12,7 +12,7 @@ import { Button, Select } from "@universe/ui";
  * licensed and unblocked to seed ProductMaster from today (see
  * architecture-decisions.md, "Commodity/product classification
  * strategy"); UNSPSC needs a signed UNDP terms addendum first
- * (info.unspsc@undp.org) and GS1 GTIN import means Unimed's own already-
+ * (info.unspsc@undp.org) and GS1 GTIN import means a procurement agent's own already-
  * assigned GTIN export, neither of which exist in this environment and
  * neither of which this sandbox has network access to fetch even if they
  * were publicly hosted (confirmed: who.int and trademap.org both return
@@ -33,7 +33,7 @@ const STANDARD_OPTIONS: { value: ProductSourceStandardForImport; label: string; 
   { value: "HS_CODE", label: "HS Code (WCO / WTO Medical Goods List)" },
   { value: "WHO_EML", label: "WHO Essential Medicines List" },
   { value: "UNSPSC", label: "UNSPSC", blocked: "Needs a signed UNDP terms addendum first — email info.unspsc@undp.org before importing." },
-  { value: "GS1_GTIN", label: "GS1 GTIN (Unimed's own export)" },
+  { value: "GS1_GTIN", label: "GS1 GTIN (a procurement agent's own export)" },
 ];
 
 function parseCsv(text: string): { name: string; category: string; hsCode?: string; unspscCode?: string; gtin?: string; standardUnit?: string }[] {
@@ -106,7 +106,7 @@ export default function ImportPage() {
       >
         <strong style={{ color: "var(--u-ink)" }}>Licensing status, per architecture-decisions.md:</strong> HS codes and the WHO
         Essential Medicines List are confirmed open and safe to import today. UNSPSC needs a signed terms addendum from UNDP
-        first — do not bulk-import UNSPSC codes until that's in place. GS1 GTIN import means Unimed's own already-assigned GTIN
+        first — do not bulk-import UNSPSC codes until that's in place. GS1 GTIN import means a procurement agent's own already-assigned GTIN
         export, not a public dataset. This screen cannot fetch any of these sources itself (no outbound network access from
         this environment) — paste rows from your own sourced CSV export below.
       </div>

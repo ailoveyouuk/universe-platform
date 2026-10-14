@@ -7,11 +7,11 @@ import { Type } from "class-transformer";
  * Database Management app's importer screen.
  *
  * Why this exists rather than just reusing create(): HS codes, the WHO
- * Essential Medicines List, UNSPSC, and Unimed's own GS1 GTIN data are all
+ * Essential Medicines List, UNSPSC, and a procurement agent's own GS1 GTIN data are all
  * licensed/cleared to seed ProductMaster from (see architecture-decisions.md,
  * "Commodity/product classification strategy" — HS and WHO EML are
  * unblocked today; UNSPSC needs a signed UNDP terms addendum first, GTIN
- * needs Unimed's own export), but none of that data lives in this
+ * needs the agent's own export), but none of that data lives in this
  * environment or can be fetched from here (no network access to
  * who.int/trademap/etc. from this sandbox) — so rather than hand-typing a
  * handful of codes and calling it an importer, this is the re-runnable

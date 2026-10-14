@@ -783,7 +783,7 @@ export class UniverseApiClient {
     return this.request(`/evidence-records/due-for-review${qs}`);
   }
 
-  // --- Gap 7 — controlled documents (Unimed's own SOPs/policies). ---
+  // --- Gap 7 — controlled documents (an organisation's own SOPs/policies). ---
 
   listControlledDocuments(category?: string): Promise<ControlledDocumentSummary[]> {
     const qs = category ? `?category=${encodeURIComponent(category)}` : "";
