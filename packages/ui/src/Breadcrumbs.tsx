@@ -15,39 +15,36 @@ export interface Crumb {
  */
 export function Breadcrumbs({ items, LinkComponent }: { items: Crumb[]; LinkComponent: any }) {
   const Link = LinkComponent;
-  // `overflowX: "auto"`/`whiteSpace: "nowrap"` added 2026-10-14 (mobile
-  // pass) — without them, a long crumb (e.g. "Logistics & CO2") would
-  // wrap mid-phrase onto a second line once this nav's flex parent
-  // shrank it below the crumb's natural width (every flex item's default
-  // min-width is its content size, but text itself can still break at a
-  // word boundary inside that shrunk box), which is exactly the clipped/
-  // overlapping breadcrumb Lewis flagged from a live phone screenshot.
-  // Scrolling horizontally instead keeps every crumb on one line and
-  // never overlaps the header's search/bell/avatar icons, which the
-  // AppShell header gives `flexShrink: 0` so they're never the side that
-  // gives way. `scrollbarWidth`/`::-webkit-scrollbar` keep the scrollbar
-  // itself invisible — this is meant to read as "truncated, swipe to see
-  // more" rather than as an obviously scrollable widget.
+  // 2026-10-14 (mobile pass, revised same day): the first fix here made
+  // the breadcrumb trail scroll horizontally on overflow. Lewis asked for
+  // the opposite instead — the header should grow taller to fit a longer
+  // crumb trail on its own line(s), not hide part of it behind a scroll
+  // gesture. So this wraps (`flexWrap: "wrap"`) rather than scrolling;
+  // each crumb is still `whiteSpace: "nowrap"` internally so a single
+  // crumb like "Logistics & CO2" wraps as a whole unit onto the next line
+  // rather than breaking mid-phrase (the original clipping bug). The
+  // AppShell header itself has no fixed height and already centres its
+  // two flex children (`alignItems: "center"`), so once this nav grows
+  // across two lines the header simply grows with it — no separate
+  // "extend the header" code needed on that side.
   return (
     <nav
       aria-label="Breadcrumb"
-      className="u-breadcrumbs-scroll"
       style={{
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
-        gap: 6,
+        gap: "4px 6px",
         fontSize: 13,
         color: "var(--u-ink-secondary)",
         fontFamily: "var(--u-font-sans)",
-        overflowX: "auto",
-        whiteSpace: "nowrap",
         minWidth: 0,
       }}
     >
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
         return (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
             {item.href && !isLast ? (
               <Link href={item.href} style={{ color: "var(--u-ink-secondary)", textDecoration: "none", whiteSpace: "nowrap" }}>
                 {item.label}

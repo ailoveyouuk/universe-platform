@@ -156,9 +156,19 @@
  * component's inline styles individually — a page-specific `color` or
  * `backgroundColor` set inline still wins (inline specificity beats this),
  * so nothing already explicitly styled changes.
+ *
+ * `background` changed from `--u-surface` (white) to `--u-surface-alt`
+ * (the light grey every signed-in AppShell wrapper actually uses) on
+ * 2026-10-14, after Lewis saw a visible white flash/seam on his phone
+ * during iOS Safari's rubber-band overscroll bounce — that bounce reveals
+ * whatever html/body's own background is, past the edge of the app's own
+ * scrollable content, and it didn't match the grey the signed-in shell
+ * paints everywhere else. The pre-auth/unauthorized screen (AppShell's
+ * own div) sets its own explicit `background`, which — per the inline-
+ * wins note above — still overrides this, so that screen is unaffected.
  */
 html, body {
-  background: var(--u-surface);
+  background: var(--u-surface-alt);
   color: var(--u-ink);
 }
 *, *::before, *::after {
@@ -259,31 +269,18 @@ input[type="checkbox"], input[type="radio"] {
 }
 
 /*
- * Breadcrumb horizontal scroll — added 2026-10-14 for the mobile pass,
- * paired with Breadcrumbs.tsx's own `overflowX: auto`/`whiteSpace:
- * nowrap`. Hides the scrollbar itself (Firefox + WebKit/Blink) so a long
- * crumb trail reads as "this line continues" rather than as an obviously
- * scrollable widget with a visible track running under short page
- * titles too.
- */
-.u-breadcrumbs-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.u-breadcrumbs-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-/*
  * App shell header — added 2026-10-14 for the mobile pass. The header's
  * own inline padding/gap (AppShell.tsx, duplicated per app same as every
  * other app-local concern) is sized for desktop/tablet; below 640px it
- * crowds the breadcrumb and icon cluster together enough to contribute
- * to the clipping Lewis flagged. The icon/avatar cluster itself gets
- * `flexShrink: 0` inline (never the side that gives way — see
- * Breadcrumbs.tsx's own comment for why the breadcrumb is the side that
- * scrolls instead of wrapping), so this media query only needs to trim
- * the header's own breathing room, not fix a layout bug.
+ * crowds the breadcrumb and icon cluster together more than it needs to.
+ * The icon/avatar cluster itself gets `flexShrink: 0` inline (never the
+ * side that gives way — Breadcrumbs.tsx is the side that wraps onto a
+ * second line instead, per Lewis's explicit preference over a scrolling
+ * breadcrumb), so this media query only needs to trim the header's own
+ * breathing room, not fix a layout bug. The header has no fixed height
+ * (`alignItems: "center"` on a row of auto-height flex children), so it
+ * already grows to fit a wrapped two-line breadcrumb with no extra rule
+ * needed here.
  */
 @media (max-width: 640px) {
   .u-app-header {

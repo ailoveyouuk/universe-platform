@@ -157,6 +157,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Sign in
               </Button>
             )}
+            {status === "unauthorized" && (
+              /* Added 2026-10-14 — Lewis got stuck on this screen with no
+                 way off it: the message correctly says "ask your admin to
+                 add you", but there was no route back to a sign-in screen
+                 at all, e.g. to try a different Microsoft account that
+                 IS on the invite list. signOut() (msalInstance's
+                 logoutRedirect) clears the MSAL session for this account,
+                 which on the next "Sign in" click lets Microsoft's own
+                 account chooser offer a different account rather than
+                 silently re-authenticating the same rejected one. */
+              <Button variant="ghost" onClick={signOut} style={{ marginTop: 8 }}>
+                Sign out / try a different account
+              </Button>
+            )}
           </div>
         </main>
       </div>
