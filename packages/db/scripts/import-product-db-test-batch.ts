@@ -281,7 +281,9 @@ const LINES: LineSeed[] = [
 ];
 
 async function main() {
-  const orgNameFilter = process.argv[2] ?? "Unimed";
+  // Default updated 2026-10-14 (was "Unimed", stale since the
+  // Unimed-purge/rename to "Universe Demo" — see demo-data-build.md).
+  const orgNameFilter = process.argv[2] ?? "Universe Demo";
   const org = await prisma.organization.findFirst({ where: { name: { contains: orgNameFilter } } });
   if (!org) {
     throw new Error(`No organization found matching name "${orgNameFilter}". Pass the exact org name as an argument.`);

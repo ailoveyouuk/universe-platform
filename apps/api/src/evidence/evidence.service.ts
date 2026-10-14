@@ -207,8 +207,16 @@ export class EvidenceService {
    * (defense in depth — an allowlisted email without the permission
    * gets nothing extra) and still goes through the normal
    * recordFieldChanges/EVIDENCE_VERIFICATION_V1 audit trail above, so
-   * there's a full record of who self-verified what and when. */
-  private static readonly SELF_SERVICE_VERIFY_EMAILS = ["lewis.m@unimedps.com"];
+   * there's a full record of who self-verified what and when.
+   *
+   * Updated 2026-10-14 — Lewis's working identity moved from
+   * lewis.m@unimedps.com (the old Unimed pilot tenant) to
+   * lewis@eduparcs.onmicrosoft.com (the "Universe Demo" org, see
+   * demo-data-build.md) as part of the Unimed purge/rename. The old
+   * address was left behind here silently — this allowlist would have
+   * stopped matching him with no error, just a vanished button. Found
+   * during a full "Unimed" reference audit, not by a bug report. */
+  private static readonly SELF_SERVICE_VERIFY_EMAILS = ["lewis@eduparcs.onmicrosoft.com"];
 
   private canSelfServiceVerify(user: RequestUser): boolean {
     return (

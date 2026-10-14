@@ -113,9 +113,14 @@ const COMPANY_CHECK_RESULTS = ["YES", "NO", "NOT_APPLICABLE"] as const;
  * one-step "log & verify" control from being shown to anyone it
  * wouldn't do anything for. Kept as its own small helper, rather than
  * inlining the email string at each call site, so there's exactly one
- * place to look when this list ever needs to change. */
+ * place to look when this list ever needs to change.
+ *
+ * Updated 2026-10-14 — kept in sync with evidence.service.ts's
+ * SELF_SERVICE_VERIFY_EMAILS after Lewis's working identity moved from
+ * the old Unimed pilot address to lewis@eduparcs.onmicrosoft.com (the
+ * "Universe Demo" org). Found during a full "Unimed" reference audit. */
 function isSelfServiceVerifyUser(email: string | null | undefined): boolean {
-  return (email ?? "").toLowerCase() === "lewis.m@unimedps.com";
+  return (email ?? "").toLowerCase() === "lewis@eduparcs.onmicrosoft.com";
 }
 
 const inputStyle: CSSProperties = {
