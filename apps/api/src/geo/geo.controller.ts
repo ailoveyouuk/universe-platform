@@ -11,4 +11,9 @@ export class GeoController {
   listCountries() {
     return this.geoService.listCountries();
   }
+
+  @Get("regions")
+  listRegions() {
+    return this.geoService.listRegions();
+  }
 }

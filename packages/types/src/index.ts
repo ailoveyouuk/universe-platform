@@ -1412,6 +1412,23 @@ export interface CountryOption {
   name: string;
   latitude: number | null;
   longitude: number | null;
+  /** WHO-region code this country rolls up into (e.g. "AFRO", "AMRO"),
+   * or null if ungrouped — added 2026-10-14 when Region (previously dead
+   * schema, see backend-frontend-wiring-audit.md) was wired up. Resolve
+   * against RegionSummary/listRegions() for the full name. */
+  regionCode: string | null;
+}
+
+/** A WHO-region grouping (AFRO/AMRO/EMRO/EURO/SEARO/WPRO) that countries
+ * roll up into — GET /countries/regions (same controller as
+ * listCountries(), which is why it isn't "/geo/regions" despite the
+ * service class being GeoService). Added 2026-10-14; see Region's own
+ * schema.prisma doc comment for why this rollup exists (it was built but
+ * never queried anywhere until now). */
+export interface RegionSummary {
+  code: string;
+  name: string;
+  countryCount: number;
 }
 
 export interface ProductSourceApprovalSummary {

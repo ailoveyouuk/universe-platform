@@ -4,6 +4,7 @@ import type {
   StandaloneDocumentSummary,
   LinkStandaloneDocumentInput,
   CountryOption,
+  RegionSummary,
   CreateOrganizationInput,
   CreatePartnerInput,
   AddPartnerCertificationInput,
@@ -522,6 +523,14 @@ export class UniverseApiClient {
 
   listCountries(): Promise<CountryOption[]> {
     return this.request("/countries");
+  }
+
+  /** GET /countries/regions — see geo.service.ts's listRegions() doc comment
+   * for why this isn't "/geo/regions" despite the Region model/service
+   * naming. Added 2026-10-14 when Region (previously dead schema) was
+   * wired up. */
+  listRegions(): Promise<RegionSummary[]> {
+    return this.request("/countries/regions");
   }
 
   listProductSourceApprovals(status?: string): Promise<ProductSourceApprovalSummary[]> {
