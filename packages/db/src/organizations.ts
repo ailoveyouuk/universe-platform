@@ -211,7 +211,16 @@ export const DEFAULT_DATA_INSIGHTS_ROLE_TEMPLATE: { name: string; appScope: stri
   {
     name: "Insights Viewer",
     appScope: "insights",
-    permissionKeys: ["insights.aggregate.view"],
+    // org.profile.manage added 2026-10-14 alongside DataInsightsUserProfile
+    // being wired up (backend-frontend-wiring-audit.md) — this template was
+    // deliberately minimal (no org.users.manage/org.roles.manage either,
+    // see this model's own doc comment above) on the assumption there was
+    // nothing here for an admin to manage yet. That assumption no longer
+    // holds: DataInsightsUserProfile IS this org type's own profile, so
+    // its one role needs a way to maintain it. Still deliberately NOT
+    // given org.users.manage/org.roles.manage — this is narrowly "manage
+    // your own org's profile fields", not general admin rights.
+    permissionKeys: ["insights.aggregate.view", "org.profile.manage"],
   },
 ];
 

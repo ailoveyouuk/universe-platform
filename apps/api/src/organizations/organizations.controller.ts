@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
 import { SetOrganizationCountryPresenceDto } from "./dto/set-country-presence.dto";
+import {
+  UpsertProcurementAgentProfileDto,
+  UpsertTenderingBodyProfileDto,
+  UpsertFunderProfileDto,
+  UpsertDataInsightsUserProfileDto,
+  AddManufacturerSiteDto,
+} from "./dto/org-type-profiles.dto";
 import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
@@ -47,5 +54,76 @@ export class OrganizationsController {
     @Body() dto: SetOrganizationCountryPresenceDto,
   ) {
     return this.organizationsService.setCountryPresence(user, id, dto);
+  }
+
+  /** Added 2026-10-14 — the five org-type detail profiles, see
+   * OrganizationsService's own doc comment on this block for the shape
+   * decisions (1:1 get/upsert for four of them, 1:many list/add/remove
+   * for manufacturer sites). */
+  @Get(":id/procurement-agent-profile")
+  getProcurementAgentProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getProcurementAgentProfile(user, id);
+  }
+
+  @Put(":id/procurement-agent-profile")
+  upsertProcurementAgentProfile(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Body() dto: UpsertProcurementAgentProfileDto,
+  ) {
+    return this.organizationsService.upsertProcurementAgentProfile(user, id, dto);
+  }
+
+  @Get(":id/tendering-body-profile")
+  getTenderingBodyProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getTenderingBodyProfile(user, id);
+  }
+
+  @Put(":id/tendering-body-profile")
+  upsertTenderingBodyProfile(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Body() dto: UpsertTenderingBodyProfileDto,
+  ) {
+    return this.organizationsService.upsertTenderingBodyProfile(user, id, dto);
+  }
+
+  @Get(":id/funder-profile")
+  getFunderProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getFunderProfile(user, id);
+  }
+
+  @Put(":id/funder-profile")
+  upsertFunderProfile(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpsertFunderProfileDto) {
+    return this.organizationsService.upsertFunderProfile(user, id, dto);
+  }
+
+  @Get(":id/data-insights-profile")
+  getDataInsightsUserProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getDataInsightsUserProfile(user, id);
+  }
+
+  @Put(":id/data-insights-profile")
+  upsertDataInsightsUserProfile(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Body() dto: UpsertDataInsightsUserProfileDto,
+  ) {
+    return this.organizationsService.upsertDataInsightsUserProfile(user, id, dto);
+  }
+
+  @Get(":id/manufacturer-sites")
+  listManufacturerSites(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.listManufacturerSites(user, id);
+  }
+
+  @Post(":id/manufacturer-sites")
+  addManufacturerSite(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AddManufacturerSiteDto) {
+    return this.organizationsService.addManufacturerSite(user, id, dto);
+  }
+
+  @Delete(":id/manufacturer-sites/:siteId")
+  removeManufacturerSite(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("siteId") siteId: string) {
+    return this.organizationsService.removeManufacturerSite(user, id, siteId);
   }
 }

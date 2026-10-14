@@ -20,15 +20,15 @@ import { prisma, withTenantContext } from "../src/index";
 
 const PERMISSION = { key: "org.profile.manage", description: "Manage your own organization's profile fields (e.g. countries of operation)" };
 
-// Whichever of these admin-type roles actually exists for the target org
-// gets the permission — mirrors organizations.ts's DEFAULT_ROLE_TEMPLATE /
+// Whichever of these roles actually exists for the target org gets the
+// permission — mirrors organizations.ts's DEFAULT_ROLE_TEMPLATE /
 // DEFAULT_SUPPLIER_ROLE_TEMPLATE / DEFAULT_MANUFACTURER_ROLE_TEMPLATE /
-// DEFAULT_FUNDER_DONOR_ROLE_TEMPLATE exactly. DEFAULT_DATA_INSIGHTS_ROLE_
-// TEMPLATE's "Insights Viewer" is deliberately NOT here — that template
-// doesn't even grant org.users.manage/org.roles.manage, so it doesn't get
-// org.profile.manage either (see organizations.ts's doc comment on that
-// template for why it stays minimal).
-const ROLE_NAMES = ["Organization Admin", "Supplier Admin", "Manufacturer Admin", "Funder Viewer"];
+// DEFAULT_FUNDER_DONOR_ROLE_TEMPLATE / DEFAULT_DATA_INSIGHTS_ROLE_TEMPLATE
+// exactly. "Insights Viewer" was added here 2026-10-14 alongside
+// DataInsightsUserProfile being wired up — see organizations.ts's doc
+// comment on that template for why it now gets org.profile.manage despite
+// staying minimal otherwise (no org.users.manage/org.roles.manage).
+const ROLE_NAMES = ["Organization Admin", "Supplier Admin", "Manufacturer Admin", "Funder Viewer", "Insights Viewer"];
 
 async function main() {
   const orgNameFilter = process.argv[2] ?? "Universe Demo";

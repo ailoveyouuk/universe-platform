@@ -259,7 +259,38 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     -- withTenantContext() scoping with no database-level backstop until now.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_country_presence AFTER UPDATE,
+
+    -- procurement_agent_profiles / tendering_body_profiles /
+    -- manufacturer_sites / funder_profiles / data_insights_user_profiles —
+    -- the last five of the original 7-table RLS gap (see
+    -- backend-frontend-wiring-audit.md and partner_financial_details'
+    -- own note above for the first two), closed 2026-10-14 alongside
+    -- OrganizationsService's new getProcurementAgentProfile/
+    -- upsertProcurementAgentProfile etc. All five already carried
+    -- organizationId directly — no migration needed, same as
+    -- organization_country_presence — they had simply never been added
+    -- to this policy, so were only ever protected at the app layer until
+    -- now.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.procurement_agent_profiles,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.procurement_agent_profiles AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.procurement_agent_profiles AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tendering_body_profiles,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tendering_body_profiles AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tendering_body_profiles AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_sites,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_sites AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_sites AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_insights_user_profiles,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_insights_user_profiles AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_insights_user_profiles AFTER UPDATE
 WITH (STATE = ON);
 GO
 

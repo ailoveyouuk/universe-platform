@@ -1480,6 +1480,75 @@ export interface OrganizationCountryPresenceSummary {
   countryCode: string;
 }
 
+/**
+ * The five org-type detail tables wired up 2026-10-14 (see
+ * backend-frontend-wiring-audit.md's dead-schema findings) — one per
+ * Organization.type. List-shaped fields are exposed as real string[] here
+ * (parsed from the JSON-stringified NVarChar(Max) column by
+ * OrganizationsService — see that service's doc comment on each getter).
+ * Enum fields (logisticsCapability, bodyType, institutionType) match the
+ * allowed-values list schema.prisma keeps at its own top-of-file reference
+ * comment.
+ */
+export interface ProcurementAgentProfileSummary {
+  organizationId: string;
+  fundersProgramsOperatedUnder: string[];
+  productCategoriesProcured: string[];
+  clientTypesServed: string[];
+  accreditations: string[];
+  logisticsCapability: "OWN" | "SUBCONTRACTED" | "MIXED" | null;
+  yearsOperatingInRole: number | null;
+  insuranceCoverSummary: string | null;
+  insuranceExpiryDate: string | null;
+  trackRecordSummary: string | null;
+}
+
+export interface TenderingBodyProfileSummary {
+  organizationId: string;
+  bodyType: "GOVERNMENT" | "FAITH_BASED_NETWORK" | "NGO_IMPLEMENTING_PARTNER" | "MULTILATERAL" | null;
+  fundingSources: string[];
+  hasDirectProcurementAuthority: boolean | null;
+  usesExternalProcurementAgent: boolean;
+  procurementAgentOrganizationId: string | null;
+  /** Resolved for display — see TenderingBodyProfile's doc comment on why
+   * this relationship is a recorded fact, not an access grant. */
+  procurementAgentOrganizationName: string | null;
+  diseaseProgramAreas: string[];
+  scaleServedSummary: string | null;
+}
+
+/** One manufacturing site — a manufacturer can have several, each
+ * independently certified (OrganizationManufacturerSite is one-to-many,
+ * unlike the other four tables here). Country name isn't resolved here,
+ * same convention as OrganizationCountryPresenceSummary — resolve via
+ * useCountries()/CountryOption. */
+export interface OrganizationManufacturerSiteSummary {
+  id: string;
+  organizationId: string;
+  locationCountryCode: string | null;
+  locationDetail: string | null;
+  gmpCertified: boolean;
+  gmpCertificationDetail: string | null;
+  createdAt: string;
+}
+
+export interface FunderProfileSummary {
+  organizationId: string;
+  fundingFocusAreas: string[];
+  notes: string | null;
+}
+
+export interface DataInsightsUserProfileSummary {
+  organizationId: string;
+  institutionType: "ACADEMIC" | "NGO_NONPROFIT_RESEARCH" | "MULTILATERAL_MARKET_INTELLIGENCE" | "COMMERCIAL_MARKET_INTELLIGENCE" | "INDIVIDUAL_RESEARCHER" | null;
+  affiliatedInstitution: string | null;
+  purposeIntendedUse: string | null;
+  publicationIntent: string | null;
+  fundingSourceOfResearch: string | null;
+  dataUseAgreementVersion: string | null;
+  dataUseAgreementAcceptedAt: string | null;
+}
+
 export interface ProductSourceApprovalSummary {
   id: string;
   productMasterId: string;

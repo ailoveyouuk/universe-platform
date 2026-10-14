@@ -49,6 +49,11 @@ import type {
   RoleSummary,
   DataSharingConsentSummary,
   OrganizationCountryPresenceSummary,
+  ProcurementAgentProfileSummary,
+  TenderingBodyProfileSummary,
+  OrganizationManufacturerSiteSummary,
+  FunderProfileSummary,
+  DataInsightsUserProfileSummary,
   SupplierLead,
   SupplierProduct,
   SupplierProfile,
@@ -605,6 +610,71 @@ export class UniverseApiClient {
       method: "PUT",
       body: JSON.stringify({ countryCodes }),
     });
+  }
+
+  /** Added 2026-10-14 — the five org-type detail profiles, see
+   * OrganizationsService's own doc comment for the shape decisions. */
+  getProcurementAgentProfile(organizationId: string): Promise<ProcurementAgentProfileSummary | null> {
+    return this.request(`/organizations/${organizationId}/procurement-agent-profile`);
+  }
+
+  upsertProcurementAgentProfile(organizationId: string, input: Partial<ProcurementAgentProfileSummary>): Promise<ProcurementAgentProfileSummary> {
+    return this.request(`/organizations/${organizationId}/procurement-agent-profile`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  getTenderingBodyProfile(organizationId: string): Promise<TenderingBodyProfileSummary | null> {
+    return this.request(`/organizations/${organizationId}/tendering-body-profile`);
+  }
+
+  upsertTenderingBodyProfile(organizationId: string, input: Partial<TenderingBodyProfileSummary>): Promise<TenderingBodyProfileSummary> {
+    return this.request(`/organizations/${organizationId}/tendering-body-profile`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  getFunderProfile(organizationId: string): Promise<FunderProfileSummary | null> {
+    return this.request(`/organizations/${organizationId}/funder-profile`);
+  }
+
+  upsertFunderProfile(organizationId: string, input: Partial<FunderProfileSummary>): Promise<FunderProfileSummary> {
+    return this.request(`/organizations/${organizationId}/funder-profile`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  getDataInsightsUserProfile(organizationId: string): Promise<DataInsightsUserProfileSummary | null> {
+    return this.request(`/organizations/${organizationId}/data-insights-profile`);
+  }
+
+  upsertDataInsightsUserProfile(organizationId: string, input: Partial<DataInsightsUserProfileSummary>): Promise<DataInsightsUserProfileSummary> {
+    return this.request(`/organizations/${organizationId}/data-insights-profile`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** One-to-many — see OrganizationManufacturerSiteSummary's doc comment. */
+  listManufacturerSites(organizationId: string): Promise<OrganizationManufacturerSiteSummary[]> {
+    return this.request(`/organizations/${organizationId}/manufacturer-sites`);
+  }
+
+  addManufacturerSite(
+    organizationId: string,
+    input: { locationCountryCode?: string; locationDetail?: string; gmpCertified?: boolean; gmpCertificationDetail?: string },
+  ): Promise<OrganizationManufacturerSiteSummary> {
+    return this.request(`/organizations/${organizationId}/manufacturer-sites`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  removeManufacturerSite(organizationId: string, siteId: string): Promise<void> {
+    return this.request(`/organizations/${organizationId}/manufacturer-sites/${siteId}`, { method: "DELETE" });
   }
 
   listUsers(organizationId?: string): Promise<UserSummary[]> {
