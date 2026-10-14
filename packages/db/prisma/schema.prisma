@@ -2024,7 +2024,7 @@ model OrganizationCountryPresence {
 /// PROCUREMENT_SERVICE_AGENT detail — see org-onboarding-data-model.md's
 /// "Procurement Service Agent" section. Piloted against a real-world
 /// procurement agent's onboarding documents (see
-/// unimed-onboarding-pilot.md for the original research trail); the
+/// onboarding-pilot-design-notes.md for the original research trail); the
 /// field list here is that pilot's proven content, not a first guess.
 model ProcurementAgentProfile {
   id                           String    @id @default(uuid())
@@ -2038,7 +2038,7 @@ model ProcurementAgentProfile {
   logisticsCapability          String?
   yearsOperatingInRole         Int?
   /// Surfaced as a genuine gap during the onboarding pilot (not in the
-  /// original field list) — see unimed-onboarding-pilot.md. Free text rather than a
+  /// original field list) — see onboarding-pilot-design-notes.md. Free text rather than a
   /// fully structured policy record; revisit if this needs to be queried on
   /// (e.g. "which agents have cover expiring soon").
   insuranceCoverSummary        String?   @db.NVarChar(Max)
