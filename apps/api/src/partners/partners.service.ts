@@ -6,6 +6,8 @@ import { tenantScope } from "../common/tenant-scoped";
 import { normalizeStakeholderName } from "../common/normalize-name";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
+import type { UpsertPartnerFinancialDetailDto } from "./dto/partner-financial-detail.dto";
+import type { PartnerFinancialDetailSummary } from "@universe/types";
 import { CERTIFICATION_STATEMENTS } from "../common/certification-statements";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -172,6 +174,30 @@ function toCompanyCheckSummary(c: PartnerCompanyCheckRow): PartnerCompanyCheckSu
     checkedDate: c.checkedDate ? c.checkedDate.toISOString() : null,
     referenceOrSource: c.referenceOrSource,
     comment: c.comment,
+  };
+}
+
+function toFinancialDetailSummary(row: {
+  partnerId: string;
+  bankName: string | null;
+  accountHolderName: string | null;
+  accountNumber: string | null;
+  sortCode: string | null;
+  iban: string | null;
+  swiftBic: string | null;
+  branchAddress: string | null;
+  currencyCode: string | null;
+}): PartnerFinancialDetailSummary {
+  return {
+    partnerId: row.partnerId,
+    bankName: row.bankName,
+    accountHolderName: row.accountHolderName,
+    accountNumber: row.accountNumber,
+    sortCode: row.sortCode,
+    iban: row.iban,
+    swiftBic: row.swiftBic,
+    branchAddress: row.branchAddress,
+    currencyCode: row.currencyCode,
   };
 }
 
@@ -786,6 +812,95 @@ export class PartnersService {
         actionById: r.actionById,
         actionByName: r.actionById ? nameById.get(r.actionById) ?? null : null,
       }));
+    });
+  }
+
+  /** PartnerFinancialDetail is one-to-one with Partner (partnerId is its
+   * own @id, no separate id column — see schema.prisma), so "get" always
+   * returns either the single row or null, never a list or a 404 — a
+   * partner simply hasn't had its bank details entered yet, which isn't
+   * an error. Gated behind partners.financials.view (not just org
+   * membership) since bank account/IBAN/SWIFT details are more
+   * sensitive than the rest of a Partner record — see
+   * partner-financial-detail.dto.ts's doc comment. */
+  async getFinancialDetail(user: RequestUser, partnerId: string): Promise<PartnerFinancialDetailSummary | null> {
+    assertHasPermission(user, "partners.financials.view");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(user.organizationId) } });
+      if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
+
+      const row = await tx.partnerFinancialDetail.findUnique({ where: { partnerId } });
+      return row ? toFinancialDetailSummary(row) : null;
+    });
+  }
+
+  /** Single upsert, not separate add/update endpoints — see
+   * partner-financial-detail.dto.ts's doc comment on why one DTO covers
+   * both. Gated behind partners.financials.edit. Audited via
+   * diffForAudit/recordFieldChanges against whatever row (or
+   * all-null defaults, for a first-time entry) existed before, same
+   * pattern as updateCertification/updateCompanyCheck above —
+   * PartnerFinancialDetail has no RLS predicate of its own (it has no
+   * organizationId column to filter by — see
+   * row-level-security.sql's doc comment on this table), so the
+   * tx.partner.findFirst ownership check below, not the database, is
+   * what stops a caller from reaching another org's partner's bank
+   * details. */
+  async upsertFinancialDetail(
+    user: RequestUser,
+    partnerId: string,
+    dto: UpsertPartnerFinancialDetailDto,
+  ): Promise<PartnerFinancialDetailSummary> {
+    assertHasPermission(user, "partners.financials.edit");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(user.organizationId) } });
+      if (!partner) throw new NotFoundException(`Partner ${partnerId} not found`);
+
+      const existing = await tx.partnerFinancialDetail.findUnique({ where: { partnerId } });
+
+      const auditedFields = [
+        "bankName",
+        "accountHolderName",
+        "accountNumber",
+        "sortCode",
+        "iban",
+        "swiftBic",
+        "branchAddress",
+        "currencyCode",
+      ] as const;
+      const changes = diffForAudit(
+        existing ?? { bankName: null, accountHolderName: null, accountNumber: null, sortCode: null, iban: null, swiftBic: null, branchAddress: null, currencyCode: null },
+        dto,
+        auditedFields,
+      );
+
+      const data = {
+        bankName: dto.bankName ?? null,
+        accountHolderName: dto.accountHolderName ?? null,
+        accountNumber: dto.accountNumber ?? null,
+        sortCode: dto.sortCode ?? null,
+        iban: dto.iban ?? null,
+        swiftBic: dto.swiftBic ?? null,
+        branchAddress: dto.branchAddress ?? null,
+        currencyCode: dto.currencyCode ?? null,
+      };
+
+      const row = await tx.partnerFinancialDetail.upsert({
+        where: { partnerId },
+        update: data,
+        create: { partnerId, ...data },
+      });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "partner_financial_details",
+        recordId: partnerId,
+        changedById: user.id,
+        changes,
+        source: "API",
+      });
+
+      return toFinancialDetailSummary(row);
     });
   }
 }

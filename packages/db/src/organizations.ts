@@ -58,6 +58,11 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "projects.delete",
       "projects.financials.view",
       "projects.financials.edit",
+      // Added 2026-10-14 alongside PartnerFinancialDetail being wired up
+      // (see partners.financial-detail.dto.ts) — same reasoning as this
+      // role already holding projects.financials.edit.
+      "partners.financials.view",
+      "partners.financials.edit",
       "org.users.manage",
       "org.roles.manage",
       // An Organization Admin is never locked out of QA-gated actions by
@@ -75,6 +80,11 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "projects.edit",
       "projects.financials.view",
       "projects.financials.edit",
+      // View only (2026-10-14) — a PM needs to see which partners are set
+      // up for payment, but editing bank details is deliberately Finance's
+      // and Organization Admin's call, not a PM's — same split as the
+      // Finance role below not getting projects.financials.edit.
+      "partners.financials.view",
     ],
   },
   {
@@ -105,7 +115,17 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     // access to anything in the system.
     name: "Finance",
     appScope: "project-management",
-    permissionKeys: ["projects.view", "projects.financials.view"],
+    permissionKeys: [
+      "projects.view",
+      "projects.financials.view",
+      // Added 2026-10-14: unlike projects.financials.edit (deliberately
+      // withheld — see this role's own doc comment above), Finance DOES
+      // get partners.financials.edit. Entering/updating a partner's bank
+      // details for payment is exactly Finance's job, not a Project
+      // Manager's — the opposite split from the project-figures case.
+      "partners.financials.view",
+      "partners.financials.edit",
+    ],
   },
 ];
 

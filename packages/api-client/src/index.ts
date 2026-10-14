@@ -14,6 +14,7 @@ import type {
   PartnerCertificationSummary,
   PartnerCompanyCheckSummary,
   PartnerApprovalHistorySummary,
+  PartnerFinancialDetailSummary,
   CreateProductMasterInput,
   ImportProductMasterResult,
   ImportProductMasterRow,
@@ -369,6 +370,20 @@ export class UniverseApiClient {
 
   listPartnerApprovalHistory(partnerId: string): Promise<PartnerApprovalHistorySummary[]> {
     return this.request(`/partners/${partnerId}/approval-history`);
+  }
+
+  /** PartnerFinancialDetail is one-to-one with Partner — see
+   * partner-financial-detail.dto.ts's doc comment — so this returns null
+   * (not a 404) when no row has been entered yet. Added 2026-10-14. */
+  getPartnerFinancialDetail(partnerId: string): Promise<PartnerFinancialDetailSummary | null> {
+    return this.request(`/partners/${partnerId}/financial-detail`);
+  }
+
+  upsertPartnerFinancialDetail(
+    partnerId: string,
+    input: Partial<Omit<PartnerFinancialDetailSummary, "partnerId">>,
+  ): Promise<PartnerFinancialDetailSummary> {
+    return this.request(`/partners/${partnerId}/financial-detail`, { method: "PUT", body: JSON.stringify(input) });
   }
 
   // --- Stakeholder registry (added 2026-10-02) — duplicate-prevention +

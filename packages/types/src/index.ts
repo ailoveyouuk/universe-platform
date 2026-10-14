@@ -979,6 +979,26 @@ export interface PartnerCompanyCheckSummary {
   comment: string | null;
 }
 
+/** PartnerFinancialDetail (added 2026-10-14, was schema-only until now —
+ * see backend-frontend-wiring-audit.md) — one-to-one with Partner, keyed
+ * by partnerId, gated behind partners.financials.view/edit rather than
+ * the open partner create/update flow (see
+ * partner-financial-detail.dto.ts's doc comment). All fields nullable:
+ * GET returns null (not a 404) when no row has been entered yet, so the
+ * frontend can render an empty form rather than treating "not set up
+ * yet" as an error. */
+export interface PartnerFinancialDetailSummary {
+  partnerId: string;
+  bankName: string | null;
+  accountHolderName: string | null;
+  accountNumber: string | null;
+  sortCode: string | null;
+  iban: string | null;
+  swiftBic: string | null;
+  branchAddress: string | null;
+  currencyCode: string | null;
+}
+
 export interface PartnerSummary {
   id: string;
   name: string;

@@ -54,6 +54,17 @@ const PERMISSIONS = [
   { key: "evidence.verify", description: "Verify or reject evidence logged against a stakeholder" },
   { key: "products.approve", description: "Approve or reject a product source (manufacturer/supplier) qualification" },
   { key: "qa.queue.view", description: "View the QA queue — stakeholders, evidence, and product sources awaiting QA review" },
+
+  // Added 2026-10-14 — PartnerFinancialDetail (bank details for paying a
+  // partner) was schema-only until now (see
+  // backend-frontend-wiring-audit.md's dead-schema findings). Split into
+  // its own view/edit pair, same convention as projects.financials.*,
+  // rather than folding it into the existing unguarded partner create/
+  // update endpoints — bank account numbers/IBAN/SWIFT are more sensitive
+  // than the rest of a Partner record, so they get their own gate even
+  // though the base Partner entity has none.
+  { key: "partners.financials.view", description: "View a partner's bank/payment details" },
+  { key: "partners.financials.edit", description: "Add or edit a partner's bank/payment details" },
 ];
 
 async function main() {

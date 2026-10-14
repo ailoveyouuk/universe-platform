@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -6,6 +6,7 @@ import { CreatePartnerDto } from "./dto/create-partner.dto";
 import { UpdatePartnerDto } from "./dto/update-partner.dto";
 import { AddPartnerCertificationDto, UpdatePartnerCertificationDto } from "./dto/partner-certification.dto";
 import { AddPartnerCompanyCheckDto, UpdatePartnerCompanyCheckDto } from "./dto/partner-company-check.dto";
+import { UpsertPartnerFinancialDetailDto } from "./dto/partner-financial-detail.dto";
 import { PartnersService } from "./partners.service";
 
 @Controller("partners")
@@ -94,5 +95,27 @@ export class PartnersController {
   @Get(":id/approval-history")
   listApprovalHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.partnersService.listApprovalHistory(user, id);
+  }
+
+  /** Added 2026-10-14 — see partner-financial-detail.dto.ts's doc comment
+   * for why this is a single GET + single PUT upsert rather than the
+   * add/update pair the certification/company-check sub-resources above
+   * use (PartnerFinancialDetail is one-to-one with Partner, not a list).
+   * Permission gating (partners.financials.view/edit) happens inside the
+   * service, not here — same convention as every other permission check
+   * in this controller (none of the @Get/@Post/@Patch handlers above gate
+   * in the controller layer either). */
+  @Get(":id/financial-detail")
+  getFinancialDetail(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.partnersService.getFinancialDetail(user, id);
+  }
+
+  @Put(":id/financial-detail")
+  upsertFinancialDetail(
+    @CurrentUser() user: RequestUser,
+    @Param("id") id: string,
+    @Body() dto: UpsertPartnerFinancialDetailDto,
+  ) {
+    return this.partnersService.upsertFinancialDetail(user, id, dto);
   }
 }
