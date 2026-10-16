@@ -34,6 +34,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/organizations", label: "Organizations", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/users", label: "Users", icon: () => <UserIcon size={19} />, inNav: true },
   { href: "/roles", label: "Roles", icon: () => <ShieldIcon size={19} />, inNav: true },
+  { href: "/stakeholders", label: "Stakeholder access", icon: () => <UserIcon size={19} />, inNav: true },
   { href: "/activity", label: "Activity", icon: () => <ClockIcon size={19} />, inNav: true },
 ];
 
@@ -72,7 +73,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav).map((r) => ({
+  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (r.href !== "/stakeholders" || me?.platformStaffRole !== "NONE")).map((r) => ({
     label: r.label,
     href: r.href,
     icon: r.icon(pathname === r.href),

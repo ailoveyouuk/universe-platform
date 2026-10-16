@@ -123,6 +123,19 @@ export interface UserSummary {
   archiveReason: string | null;
 }
 
+/** Stakeholder demo access (2026-10-17): the demo organisation and the people who hold the Stakeholder Demo role. */
+export interface StakeholderAccessOverview {
+  organizationId: string;
+  organizationName: string;
+  users: UserSummary[];
+}
+
+export interface GrantStakeholderAccessInput {
+  email: string;
+  forename: string;
+  surname: string;
+}
+
 /** Full user record for the Admin app's user detail page (added 2026-10-16). */
 export interface UserDetail extends UserSummary {
   jobTitle: string | null;

@@ -6,6 +6,13 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Stakeholder access management in Admin (stage 3)
+
+- API (platform-staff only): `GET /stakeholder-access` (demo organisation + everyone holding the Stakeholder Demo role) and `POST /stakeholder-access` {email, forename, surname} — ensures the role exists in the demo org, then invites the email with it (same invite-then-link sign-in as every user; they register with the email via the External ID sign-up flow).
+- Admin app: new **Stakeholder access** page (platform staff only, in the nav): add by email, list with status/last sign-in, **Turn off access** (archives the account via the normal archive, optional reason, logged) and **Reinstate**.
+- Not built (decision needed): **Reset sandbox** — restoring Universe Demo to a known baseline after stakeholders have edited it. Needs a defined baseline (seed script or snapshot) first. Until then, demo-org data created by stakeholders stays.
+- Not yet checked live as a real stakeholder (needs a real inbox to sign up with). No migration, no RLS change.
+
 ## 2026-10-17 — Stakeholder demo: demo-organisation flag, role and shared-data write guard (stage 2)
 
 - `Organization.isDemo` (migration `20261017120000_organization_is_demo`; the existing "Universe Demo" org is set to true by the migration).

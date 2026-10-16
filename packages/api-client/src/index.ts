@@ -1,4 +1,6 @@
 import type {
+  StakeholderAccessOverview,
+  GrantStakeholderAccessInput,
   AuthenticatedUser,
   ConfirmDocumentUploadInput,
   StandaloneDocumentSummary,
@@ -831,6 +833,14 @@ export class UniverseApiClient {
 
   reactivateUser(id: string): Promise<UserSummary> {
     return this.request(`/users/${id}/reactivate`, { method: "POST" });
+  }
+
+  getStakeholderAccess(): Promise<StakeholderAccessOverview> {
+    return this.request("/stakeholder-access");
+  }
+
+  grantStakeholderAccess(input: GrantStakeholderAccessInput): Promise<UserSummary> {
+    return this.request("/stakeholder-access", { method: "POST", body: JSON.stringify(input) });
   }
 
   /** Archives the account (never deletes it); optional reason is logged. */
