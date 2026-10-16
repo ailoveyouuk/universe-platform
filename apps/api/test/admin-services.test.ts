@@ -66,6 +66,7 @@ describe("Admin services", () => {
       surname: u.surname,
       organizationName: u.organization.name,
       organizationLogoUrl: null,
+      organizationLogoIconUrl: null,
       organizationPrimaryColor: null,
       organizationSecondaryColor: null,
       organizationWelcomeMessage: null,

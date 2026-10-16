@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectLogoImage, logoPath, ownLogoFile } from "../src/branding/logo-validation";
+import { detectLogoImage, logoBlobName, logoPath, ownLogoFile } from "../src/branding/logo-validation";
 
 const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
 const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32)]);
@@ -40,5 +40,11 @@ describe("logo paths", () => {
     expect(ownLogoFile("https://example.org/logo.png", org)).toBeNull();
     expect(ownLogoFile(`/branding/${org}/logo/../../secret.png`, org)).toBeNull();
     expect(ownLogoFile(null, org)).toBeNull();
+    // icons are a separate namespace from logos
+    const i = logoPath(org, 1760000000001, "svg", "icon");
+    expect(ownLogoFile(i, org, "icon")).toBe("1760000000001.svg");
+    expect(ownLogoFile(i, org, "logo")).toBeNull();
+    expect(logoBlobName("1760000000001.svg", "icon")).toBe("branding/icon-1760000000001.svg");
+    expect(logoBlobName("1760000000001.svg")).toBe("branding/1760000000001.svg");
   });
 });

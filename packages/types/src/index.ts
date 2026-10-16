@@ -81,6 +81,8 @@ export interface AuthenticatedUser {
    * @universe/ui's OrgHeader, which renders these two fields. */
   organizationName: string;
   organizationLogoUrl: string | null;
+  /** Optional square icon variant of the logo. */
+  organizationLogoIconUrl: string | null;
   /** Added 2026-09-26 for per-org brand accents — see Organization.primaryColor's
    * doc comment in schema.prisma and @universe/ui's OrgHeader. */
   organizationPrimaryColor: string | null;
@@ -214,6 +216,8 @@ export type OrganizationOnboardingSource =
  * 2026-10-16). Superset of OrganizationSummary — the list endpoint stays
  * lean, this is fetched one org at a time. */
 export interface OrganizationDetail extends OrganizationSummary {
+  /** Optional square icon (phones/tablets, collapsed menu, tab icon). */
+  logoIconUrl: string | null;
   legalName: string | null;
   legalEntityType: OrganizationLegalEntityType | null;
   registrationNumber: string | null;

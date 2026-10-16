@@ -52,11 +52,16 @@ export function LogoField({
   organizationId,
   logoUrl,
   onChanged,
+  variant = "logo",
 }: {
   organizationId: string;
   logoUrl: string | null;
   onChanged: (logoUrl: string | null) => void;
+  variant?: "logo" | "icon";
 }) {
+  const isIcon = variant === "icon";
+  const noun = isIcon ? "icon" : "logo";
+  const maxKb = isIcon ? 256 : 512;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [broken, setBroken] = useState(false);
@@ -66,14 +71,14 @@ export function LogoField({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.size > 512 * 1024) {
-      setError("That file is over 512 KB — please use a smaller image.");
+    if (file.size > maxKb * 1024) {
+      setError(`That file is over ${maxKb} KB — please use a smaller image.`);
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const r = await apiClient.uploadOrganizationLogo(organizationId, file);
+      const r = await apiClient.uploadOrganizationLogo(organizationId, file, variant);
       setBroken(false);
       onChanged(r.logoUrl);
     } catch (err) {
@@ -87,21 +92,24 @@ export function LogoField({
     setBusy(true);
     setError(null);
     try {
-      await apiClient.removeOrganizationLogo(organizationId);
+      await apiClient.removeOrganizationLogo(organizationId, variant);
       onChanged(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not remove the logo");
+      setError(err instanceof Error ? err.message : `Could not remove the ${noun}`);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Field label="Logo" hint="Shown top-left of every app in place of the Universe logo. PNG, JPEG, WebP or SVG, up to 512 KB. A wide logo around 150 × 34 px on a transparent background works best.">
+    <Field
+      label={isIcon ? "Square icon (optional)" : "Logo"}
+      hint={isIcon ? "Used where space is tight — the phone and tablet header and the collapsed menu. A simple square mark, ideally 128 × 128 px. PNG, JPEG, WebP or SVG, up to 256 KB. If you skip it, the main logo is scaled down instead." : "Shown top-left of every app in place of the Universe logo. PNG, JPEG, WebP or SVG, up to 512 KB. A wide logo around 150 × 34 px on a transparent background works best."}
+    >
       <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
         <div
           style={{
-            width: 180,
+            width: isIcon ? 56 : 180,
             height: 56,
             display: "flex",
             alignItems: "center",
@@ -113,9 +121,9 @@ export function LogoField({
           }}
         >
           {url && !broken ? (
-            <img src={url} alt="Current logo" onError={() => setBroken(true)} style={{ height: 40, width: "auto", maxWidth: 160, objectFit: "contain" }} />
+            <img src={url} alt={`Current ${noun}`} onError={() => setBroken(true)} style={{ height: isIcon ? 40 : 40, width: "auto", maxWidth: isIcon ? 48 : 160, objectFit: "contain" }} />
           ) : (
-            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{url ? "Can't load logo" : "No logo — Universe logo shown"}</span>
+            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{url ? `Can't load ${noun}` : isIcon ? "None" : "No logo — Universe logo shown"}</span>
           )}
         </div>
         <label style={{ display: "inline-block" }}>
@@ -132,7 +140,7 @@ export function LogoField({
               opacity: busy ? 0.6 : 1,
             }}
           >
-            {busy ? "Working…" : logoUrl ? "Replace logo" : "Upload logo"}
+            {busy ? "Working…" : logoUrl ? `Replace ${noun}` : `Upload ${noun}`}
           </span>
         </label>
         {logoUrl && (

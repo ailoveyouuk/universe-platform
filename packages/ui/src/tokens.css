@@ -403,6 +403,15 @@ input[type="checkbox"], input[type="radio"] {
     display: none !important;
   }
 }
+/* Organisation mark in the header, phones/tablets only (the sidebar drawer hides the usual one). */
+.u-mobile-brand {
+  display: none;
+}
+@media (max-width: 900px) {
+  .u-mobile-brand {
+    display: flex;
+  }
+}
 @media (min-width: 901px) {
   .u-sidebar-scrim {
     display: none;

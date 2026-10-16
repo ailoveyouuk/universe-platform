@@ -37,6 +37,7 @@ export function Sidebar({
   LinkComponent,
   orgName,
   orgLogoUrl,
+  orgIconUrl,
   footer,
   currentApp,
   support,
@@ -49,6 +50,8 @@ export function Sidebar({
   LinkComponent: any;
   orgName: string;
   orgLogoUrl: string | null;
+  /** Optional square variant, preferred when the sidebar is collapsed. */
+  orgIconUrl?: string | null;
   footer?: ReactNode;
   /** Who to contact for help (name, role, email) — shown as a small "Need help?" link. */
   support?: { name: string; role: string; email: string }[];
@@ -64,6 +67,8 @@ export function Sidebar({
   const [logoFailed, setLogoFailed] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   useEffect(() => setLogoFailed(false), [orgLogoUrl]);
+  const [iconFailed, setIconFailed] = useState(false);
+  useEffect(() => setIconFailed(false), [orgIconUrl]);
   // The organisation's own logo takes the top-left slot (expanded rail only);
   // the Universe mark stays when collapsed, when no logo is set, or if the
   // image fails to load. "Powered by Universe" moves to the footer.
@@ -109,7 +114,9 @@ export function Sidebar({
           }}
         >
           <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-            {showOrgLogo && !collapsed ? (
+            {collapsed && orgIconUrl && !iconFailed ? (
+              <img src={orgIconUrl} alt={orgName} onError={() => setIconFailed(true)} style={{ height: 30, width: 30, objectFit: "contain", display: "block" }} />
+            ) : showOrgLogo && !collapsed ? (
               <img
                 src={orgLogoUrl!}
                 alt={orgName}

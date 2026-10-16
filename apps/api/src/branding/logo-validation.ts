@@ -23,22 +23,27 @@ export function detectLogoImage(buf: Buffer): DetectedImage | null {
   return null;
 }
 
-/** The path stored in Organization.logoUrl for an uploaded logo. The version
- * (timestamp) lives in the path, so each upload is a new immutable URL. */
-export function logoPath(organizationId: string, version: number, ext: string): string {
-  return `/branding/${organizationId}/logo/${version}.${ext}`;
+export type LogoKind = "logo" | "icon";
+export const LOGO_KINDS: readonly LogoKind[] = ["logo", "icon"];
+export const MAX_ICON_BYTES = 256 * 1024;
+
+/** The path stored in Organization.logoUrl / logoIconUrl for an uploaded
+ * image. The version (timestamp) lives in the path, so each upload is a new
+ * immutable URL. */
+export function logoPath(organizationId: string, version: number, ext: string, kind: LogoKind = "logo"): string {
+  return `/branding/${organizationId}/${kind}/${version}.${ext}`;
 }
 
 export const LOGO_FILE_PATTERN = /^[0-9]{10,16}\.(png|jpg|webp|svg)$/;
 
-/** Blob name for a stored logo file name. */
-export function logoBlobName(file: string): string {
-  return `branding/${file}`;
+/** Blob name for a stored file. Logos keep their original names; icons are prefixed. */
+export function logoBlobName(file: string, kind: LogoKind = "logo"): string {
+  return kind === "icon" ? `branding/icon-${file}` : `branding/${file}`;
 }
 
-/** If a logoUrl is one of our own uploaded paths, the file name part. */
-export function ownLogoFile(logoUrl: string | null | undefined, organizationId: string): string | null {
-  if (!logoUrl) return null;
-  const m = new RegExp(`^/branding/${organizationId}/logo/([^/]+)$`).exec(logoUrl);
+/** If a stored url is one of our own uploaded paths, the file name part. */
+export function ownLogoFile(url: string | null | undefined, organizationId: string, kind: LogoKind = "logo"): string | null {
+  if (!url) return null;
+  const m = new RegExp(`^/branding/${organizationId}/${kind}/([^/]+)$`).exec(url);
   return m && LOGO_FILE_PATTERN.test(m[1]) ? m[1] : null;
 }

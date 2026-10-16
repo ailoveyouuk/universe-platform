@@ -24,3 +24,4 @@ export * from "./ScoreLegend";
 export * from "./WorldMap";
 export * from "./OrgSwitcher";
 export * from "./BrandMark";
+export { MobileBrand } from "./MobileBrand";

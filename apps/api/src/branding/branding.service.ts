@@ -4,7 +4,9 @@ import { BlobStorageService } from "../documents/blob-storage.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertCanManageOrg } from "../common/authorization";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
-import { MAX_LOGO_BYTES, LOGO_FILE_PATTERN, detectLogoImage, logoBlobName, logoPath, ownLogoFile } from "./logo-validation";
+import { MAX_ICON_BYTES, MAX_LOGO_BYTES, LOGO_FILE_PATTERN, detectLogoImage, logoBlobName, logoPath, ownLogoFile, type LogoKind } from "./logo-validation";
+
+const FIELD: Record<LogoKind, "logoUrl" | "logoIconUrl"> = { logo: "logoUrl", icon: "logoIconUrl" };
 
 /**
  * Organisation logos. Stored in the organisation's own private blob container
@@ -22,64 +24,68 @@ export class BrandingService {
     return caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn);
   }
 
-  async upload(caller: RequestUser, organizationId: string, file: { buffer: Buffer; size: number } | undefined): Promise<{ logoUrl: string }> {
+  async upload(caller: RequestUser, organizationId: string, file: { buffer: Buffer; size: number } | undefined, kind: LogoKind = "logo"): Promise<{ logoUrl: string }> {
+    const field = FIELD[kind];
+    const maxBytes = kind === "icon" ? MAX_ICON_BYTES : MAX_LOGO_BYTES;
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
     if (!file?.buffer?.length) throw new BadRequestException("Choose an image file to upload.");
-    if (file.size > MAX_LOGO_BYTES) throw new BadRequestException("The logo must be 512 KB or smaller.");
-    const kind = detectLogoImage(file.buffer);
-    if (!kind) throw new BadRequestException("Logos must be PNG, JPEG, WebP or a plain SVG (no scripts).");
+    if (file.size > maxBytes) throw new BadRequestException(`The ${kind === "icon" ? "icon" : "logo"} must be ${maxBytes / 1024} KB or smaller.`);
+    const image = detectLogoImage(file.buffer);
+    if (!image) throw new BadRequestException("Logos must be PNG, JPEG, WebP or a plain SVG (no scripts).");
 
     const version = Date.now();
-    const fileName = `${version}.${kind.ext}`;
-    const logoUrl = logoPath(organizationId, version, kind.ext);
+    const fileName = `${version}.${image.ext}`;
+    const detected = kind;
+    const logoUrl = logoPath(organizationId, version, image.ext, detected);
 
     const previous = await this.run(caller, organizationId, async (tx) => {
-      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { logoUrl: true } });
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { [field]: true } });
       if (!org) throw new NotFoundException("Organisation not found");
-      return org.logoUrl as string | null;
+      return (org as any)[field] as string | null;
     });
 
-    await this.blobs.putBlob(organizationId, logoBlobName(fileName), file.buffer, kind.contentType);
+    await this.blobs.putBlob(organizationId, logoBlobName(fileName, kind), file.buffer, image.contentType);
 
     await this.run(caller, organizationId, async (tx) => {
-      await tx.organization.update({ where: { id: organizationId }, data: { logoUrl } });
+      await tx.organization.update({ where: { id: organizationId }, data: { [field]: logoUrl } });
       await recordFieldChanges(tx, {
         organizationId,
         tableName: "organizations",
         recordId: organizationId,
         changedById: caller.id,
-        changes: diffForAudit({ logoUrl: previous }, { logoUrl }, ["logoUrl"]),
+        changes: diffForAudit({ [field]: previous }, { [field]: logoUrl }, [field]),
         source: "API",
       });
     });
 
-    const oldFile = ownLogoFile(previous, organizationId);
-    if (oldFile) await this.blobs.deleteBlob(organizationId, logoBlobName(oldFile)).catch(() => undefined);
+    const oldFile = ownLogoFile(previous, organizationId, kind);
+    if (oldFile) await this.blobs.deleteBlob(organizationId, logoBlobName(oldFile, kind)).catch(() => undefined);
     return { logoUrl };
   }
 
-  async remove(caller: RequestUser, organizationId: string): Promise<void> {
+  async remove(caller: RequestUser, organizationId: string, kind: LogoKind = "logo"): Promise<void> {
+    const field = FIELD[kind];
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
     const previous = await this.run(caller, organizationId, async (tx) => {
-      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { logoUrl: true } });
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { [field]: true } });
       if (!org) throw new NotFoundException("Organisation not found");
-      await tx.organization.update({ where: { id: organizationId }, data: { logoUrl: null } });
+      await tx.organization.update({ where: { id: organizationId }, data: { [field]: null } });
       await recordFieldChanges(tx, {
         organizationId,
         tableName: "organizations",
         recordId: organizationId,
         changedById: caller.id,
-        changes: diffForAudit({ logoUrl: org.logoUrl }, { logoUrl: null }, ["logoUrl"]),
+        changes: diffForAudit({ [field]: (org as any)[field] }, { [field]: null }, [field]),
         source: "API",
       });
-      return org.logoUrl as string | null;
+      return (org as any)[field] as string | null;
     });
-    const oldFile = ownLogoFile(previous, organizationId);
-    if (oldFile) await this.blobs.deleteBlob(organizationId, logoBlobName(oldFile)).catch(() => undefined);
+    const oldFile = ownLogoFile(previous, organizationId, kind);
+    if (oldFile) await this.blobs.deleteBlob(organizationId, logoBlobName(oldFile, kind)).catch(() => undefined);
   }
 
-  async read(organizationId: string, file: string) {
+  async read(organizationId: string, kind: LogoKind, file: string) {
     if (!LOGO_FILE_PATTERN.test(file)) return null;
-    return this.blobs.readBlob(organizationId, logoBlobName(file));
+    return this.blobs.readBlob(organizationId, logoBlobName(file, kind));
   }
 }

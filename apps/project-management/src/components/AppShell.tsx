@@ -12,6 +12,7 @@ import {
   BrandMark,
   readableTextOn,
   Breadcrumbs,
+  MobileBrand,
   DashboardIcon,
   ProjectsIcon,
   PartnersIcon,
@@ -69,7 +70,7 @@ function crumbsFor(pathname: string) {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { status, me, error, signIn, signOut } = useAuth();
-  const { logoUrl: brandLogoUrl, support, remembered } = useBranding(me);
+  const { logoUrl: brandLogoUrl, iconUrl: brandIconUrl, support, remembered } = useBranding(me);
   const pathname = usePathname() ?? "/";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -206,6 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             LinkComponent={Link}
             orgName={me.organizationName}
             orgLogoUrl={brandLogoUrl}
+            orgIconUrl={brandIconUrl}
             support={support}
           />
 
@@ -234,6 +236,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <DashboardIcon size={20} />
                 </button>
+                <MobileBrand logoUrl={brandLogoUrl} iconUrl={brandIconUrl} name={me?.organizationName ?? ""} />
                 <Breadcrumbs items={crumbsFor(pathname)} LinkComponent={Link} />
               </div>
 

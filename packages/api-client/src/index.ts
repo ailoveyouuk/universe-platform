@@ -139,11 +139,11 @@ export class UniverseApiClient {
   }
 
   /** Uploads an organisation's logo (PNG/JPEG/WebP/SVG, max 512 KB). */
-  async uploadOrganizationLogo(organizationId: string, file: File): Promise<{ logoUrl: string }> {
+  async uploadOrganizationLogo(organizationId: string, file: File, variant: "logo" | "icon" = "logo"): Promise<{ logoUrl: string }> {
     const token = await this.getAccessToken();
     const body = new FormData();
     body.append("file", file);
-    const res = await fetch(`${this.baseUrl}/organizations/${organizationId}/logo`, {
+    const res = await fetch(`${this.baseUrl}/organizations/${organizationId}/logo?variant=${variant}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body,
@@ -161,8 +161,8 @@ export class UniverseApiClient {
     return res.json();
   }
 
-  async removeOrganizationLogo(organizationId: string): Promise<void> {
-    await this.request<void>(`/organizations/${organizationId}/logo`, { method: "DELETE" });
+  async removeOrganizationLogo(organizationId: string, variant: "logo" | "icon" = "logo"): Promise<void> {
+    await this.request<void>(`/organizations/${organizationId}/logo?variant=${variant}`, { method: "DELETE" });
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {

@@ -266,6 +266,13 @@ export function OrganizationDetailView() {
           }}
         />
         <div style={{ height: 12 }} />
+        <LogoField
+          variant="icon"
+          organizationId={org.id}
+          logoUrl={org.logoIconUrl}
+          onChanged={(logoIconUrl) => setOrg({ ...org, logoIconUrl })}
+        />
+        <div style={{ height: 12 }} />
         <FormGrid>
           <ColourField label="Primary colour" hint="Buttons, active navigation and key accents. Text on top of it is chosen automatically." value={form.primaryColor} placeholder="#4A2E8C" onChange={(v) => set({ primaryColor: v })} />
           <ColourField label="Secondary colour" hint="Secondary accents." value={form.secondaryColor} placeholder="#B23A82" onChange={(v) => set({ secondaryColor: v })} />

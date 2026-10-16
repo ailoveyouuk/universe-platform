@@ -202,6 +202,10 @@ model Organization {
   /// set directly for now). Expected to be a public HTTPS URL (e.g. blob
   /// storage) once a real upload path exists; nothing validates that yet.
   logoUrl   String?
+  /// Optional square mark (uploaded in Admin) for small spaces: phone/tablet
+  /// header, collapsed sidebar, sign-in screen and browser-tab icon. Falls back
+  /// to logoUrl scaled down, then to the Universe mark.
+  logoIconUrl String?
   /// Added 2026-09-26 for per-organization brand personalization (see
   /// claude/org-onboarding-data-model.md's "brand implementation" section
   /// and OrgHeader) — deliberately minimal: just enough to make an org's

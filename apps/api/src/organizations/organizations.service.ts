@@ -154,6 +154,7 @@ export class OrganizationsService {
       status: o.status as OrganizationDetail["status"],
       type: o.type as OrganizationDetail["type"],
       logoUrl: o.logoUrl,
+      logoIconUrl: o.logoIconUrl ?? null,
       primaryColor: o.primaryColor,
       secondaryColor: o.secondaryColor,
       countryOfRegistrationCode: o.countryOfRegistrationCode,

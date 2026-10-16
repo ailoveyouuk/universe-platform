@@ -17,6 +17,7 @@ export function useBranding(me: AuthenticatedUser | null) {
   }, []);
 
   const logoUrl = me ? apiClient.assetUrl(me.organizationLogoUrl) : null;
+  const iconUrl = me ? apiClient.assetUrl(me.organizationLogoIconUrl) : null;
 
   useEffect(() => {
     if (!me) return;
@@ -33,5 +34,5 @@ export function useBranding(me: AuthenticatedUser | null) {
     apiClient.getSupportContacts().then(setSupport).catch(() => setSupport([]));
   }, [me?.organizationId, me?.organizationName, logoUrl, me?.organizationPrimaryColor, me?.organizationSecondaryColor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { logoUrl, support, remembered };
+  return { logoUrl, iconUrl, support, remembered };
 }
