@@ -44,7 +44,7 @@ describe("Notifications & actions", () => {
       organizationSecondaryColor: null,
       organizationWelcomeMessage: null,
       platformStaffRole: "NONE",
-      permissions: [],
+      permissions: ["projects.edit"],
     };
   }
 
