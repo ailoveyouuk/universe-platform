@@ -334,6 +334,12 @@ input[type="checkbox"], input[type="radio"] {
     max-width: none !important;
   }
 }
+@media (max-width: 560px) {
+  /* The select already says which organisation it is; drop the label to give it room. */
+  .u-org-switcher > span {
+    display: none;
+  }
+}
 
 /*
  * Dashboard quick actions (2026-10-16): New Project / Add Stakeholder / Add
@@ -349,9 +355,12 @@ input[type="checkbox"], input[type="radio"] {
 }
 .u-quick-actions > * {
   min-width: 0;
+  display: block;
+  height: 100%;
 }
 .u-quick-action {
   width: 100% !important;
+  height: 100%;
   min-height: 46px;
   justify-content: center !important;
   white-space: nowrap;
