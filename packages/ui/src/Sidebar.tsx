@@ -152,6 +152,7 @@ export function Sidebar({
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
+              onClick={onCloseMobile}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -214,7 +215,7 @@ export function Sidebar({
           {!showOrgLogo && !collapsed && (
             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--u-ink)" }}>{orgName}</span>
           )}
-          {!collapsed && support && support.length > 0 && (
+          {!collapsed && (
             <div style={{ width: "100%" }}>
               <button
                 type="button"
@@ -226,7 +227,10 @@ export function Sidebar({
               </button>
               {supportOpen && (
                 <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {support.map((c) => (
+                  {(!support || support.length === 0) && (
+                    <li style={{ fontSize: 12, lineHeight: 1.35, color: "var(--u-ink-secondary)" }}>Please contact your organisation&apos;s administrator.</li>
+                  )}
+                  {(support ?? []).map((c) => (
                     <li key={c.email} style={{ fontSize: 12, lineHeight: 1.35, color: "var(--u-ink-secondary)" }}>
                       <span style={{ color: "var(--u-ink)", fontWeight: 600 }}>{c.name}</span>
                       <br />
