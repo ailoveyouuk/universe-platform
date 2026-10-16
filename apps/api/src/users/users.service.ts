@@ -206,10 +206,7 @@ export class UsersService {
         tableName: "users",
         recordId: id,
         changedById: caller.id,
-        changes: [
-          { field: "status", oldValue: target.status, newValue: "DEACTIVATED" },
-          { field: "archived", oldValue: null, newValue: reason?.trim() || "archived" },
-        ],
+        changes: [{ field: "status", oldValue: target.status, newValue: "DEACTIVATED" }],
         source: "API",
       });
       return toSummary(result);
