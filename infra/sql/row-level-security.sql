@@ -229,6 +229,13 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER UPDATE,
 
+    -- notifications — in-app notifications / per-user actions, added
+    -- 2026-10-16. Tenant-scoped; the API additionally only ever reads rows
+    -- WHERE recipientUserId = the signed-in user.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.notifications,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.notifications AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.notifications AFTER UPDATE,
+
     -- project_line_logistics_metrics — REAL BUG, found 2026-10-09 while
     -- testing the Stage 3 benchmark seed data: this table was added
     -- 2026-10-08 (supply-chain-co2-efficiency.md) and was NEVER added to

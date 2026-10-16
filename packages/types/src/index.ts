@@ -2339,3 +2339,43 @@ export interface SupportContact {
   role: string;
   email: string;
 }
+
+// --- Notifications & actions (added 2026-10-16) ---------------------------
+
+export type NotificationKind = "PROJECT_ASSIGNED" | "PROJECT_STATUS_CHANGED" | "ACTION_ASSIGNED" | "ACTION_COMPLETED";
+export type NotificationCategory = "PROJECT";
+
+/** One notification or action addressed to the signed-in user. */
+export interface NotificationItem {
+  id: string;
+  kind: NotificationKind;
+  category: NotificationCategory;
+  title: string;
+  body: string | null;
+  /** In-app path, e.g. "/projects/detail?id=…". */
+  link: string | null;
+  actorName: string | null;
+  requiresAction: boolean;
+  /** Only set when requiresAction. */
+  actionStatus: "OPEN" | "DONE" | null;
+  dueDate: string | null;
+  read: boolean;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface NotificationSummary {
+  unread: number;
+  openActions: number;
+  overdueActions: number;
+  /** The few most pressing open actions (overdue first, then soonest due). */
+  nextActions: NotificationItem[];
+}
+
+export interface AssignProjectActionInput {
+  assigneeUserId: string;
+  title: string;
+  note?: string;
+  /** ISO date (yyyy-mm-dd). */
+  dueDate?: string;
+}

@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
 import type { ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
+import { createNotifications } from "../notifications/notify";
+import type { AssignProjectActionDto } from "./dto/assign-project-action.dto";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
@@ -729,6 +731,22 @@ export class ProjectsService {
         await tx.projectStatusHistory.create({
           data: { organizationId: user.organizationId, projectId: id, status: dto.status, changedById: user.id },
         });
+        // Tell the project's leads (never the person who made the change).
+        const leads = await tx.projectLead.findMany({ where: { projectId: id } });
+        await createNotifications(
+          tx,
+          leads.map((l) => ({
+            organizationId: user.organizationId,
+            recipientUserId: l.userId,
+            actorUserId: user.id,
+            kind: "PROJECT_STATUS_CHANGED",
+            title: `${existing.referenceNumber} moved to ${String(dto.status).replace(/_/g, " ").toLowerCase()}`,
+            body: `${user.forename} ${user.surname} changed the status of "${existing.title}".`,
+            link: `/projects/detail?id=${id}`,
+            subjectType: "project",
+            subjectId: id,
+          })),
+        );
       }
 
       // Also audit the COMPUTED freight figures (not the raw cost inputs
@@ -1231,6 +1249,20 @@ export class ProjectsService {
         update: {},
       });
 
+      await createNotifications(tx, [
+        {
+          organizationId: user.organizationId,
+          recipientUserId: userId,
+          actorUserId: user.id,
+          kind: "PROJECT_ASSIGNED",
+          title: `You were added to ${project.referenceNumber} · ${project.title}`,
+          body: `${user.forename} ${user.surname} made you a lead on this project.`,
+          link: `/projects/detail?id=${projectId}`,
+          subjectType: "project",
+          subjectId: projectId,
+        },
+      ]);
+
       await recordFieldChanges(tx, {
         organizationId: user.organizationId,
         tableName: "project_leads",
@@ -1241,6 +1273,33 @@ export class ProjectsService {
       });
     });
     return this.findOne(user, projectId);
+  }
+
+  /** Assign a short action (a to-do) on a project to a colleague in the SAME
+   * organisation. It lands in their Actions list and notification bell. */
+  async assignAction(user: RequestUser, projectId: string, dto: AssignProjectActionDto): Promise<{ ok: true }> {
+    await withTenantContext(user.organizationId, async (tx) => {
+      const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
+      if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+      const assignee = await tx.user.findFirst({ where: { id: dto.assigneeUserId, organizationId: user.organizationId, status: { not: "DEACTIVATED" } } });
+      if (!assignee) throw new NotFoundException("That person is not an active member of your organisation");
+      await createNotifications(tx, [
+        {
+          organizationId: user.organizationId,
+          recipientUserId: assignee.id,
+          actorUserId: user.id,
+          kind: "ACTION_ASSIGNED",
+          title: dto.title.trim(),
+          body: [`On ${project.referenceNumber} · ${project.title}`, dto.note?.trim()].filter(Boolean).join(" — "),
+          link: `/projects/detail?id=${projectId}`,
+          subjectType: "project",
+          subjectId: projectId,
+          requiresAction: true,
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        },
+      ]);
+    });
+    return { ok: true };
   }
 
   async removeLead(user: RequestUser, projectId: string, userId: string): Promise<ProjectDetail> {

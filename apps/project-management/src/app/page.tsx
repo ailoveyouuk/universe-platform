@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ProjectSummary, PartnerSummary, ProjectFinancialSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES } from "@universe/types";
 import {
+  ActionsCard,
   Button,
   AddMenu,
   Pill,
@@ -179,6 +180,8 @@ export default function HomePage() {
           />
         </div>
       </div>
+
+      <ActionsCard api={apiClient} LinkComponent={Link} />
 
       <div
         style={{

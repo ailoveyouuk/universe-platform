@@ -110,6 +110,9 @@ import type {
   ProductSourcingSummary,
   StakeholderRatingBucket,
   SupportContact,
+  NotificationItem,
+  NotificationSummary,
+  AssignProjectActionInput,
 } from "@universe/types";
 
 /**
@@ -132,6 +135,29 @@ export class UniverseApiClient {
   assetUrl(path: string | null | undefined): string | null {
     if (!path) return null;
     return path.startsWith("/") ? `${this.baseUrl}${path}` : path;
+  }
+
+  // --- Notifications & actions (2026-10-16) ---
+  getNotificationSummary(): Promise<NotificationSummary> {
+    return this.request("/notifications/summary");
+  }
+  listNotifications(filter: "all" | "unread" | "actions" | "done" = "all"): Promise<NotificationItem[]> {
+    return this.request(`/notifications?filter=${filter}`);
+  }
+  markNotificationRead(id: string): Promise<NotificationItem> {
+    return this.request(`/notifications/${id}/read`, { method: "POST" });
+  }
+  markAllNotificationsRead(): Promise<{ ok: true }> {
+    return this.request("/notifications/read-all", { method: "POST" });
+  }
+  completeNotification(id: string): Promise<NotificationItem> {
+    return this.request(`/notifications/${id}/complete`, { method: "POST" });
+  }
+  reopenNotification(id: string): Promise<NotificationItem> {
+    return this.request(`/notifications/${id}/reopen`, { method: "POST" });
+  }
+  assignProjectAction(projectId: string, input: AssignProjectActionInput): Promise<{ ok: true }> {
+    return this.request(`/projects/${projectId}/actions`, { method: "POST", body: JSON.stringify(input) });
   }
 
   getSupportContacts(): Promise<SupportContact[]> {

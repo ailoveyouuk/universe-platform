@@ -185,27 +185,27 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique // used in URLs / subdomains
-  status    String   @default("PILOT") // see allowed values reference above
+  id                        String   @id @default(uuid())
+  name                      String
+  slug                      String   @unique // used in URLs / subdomains
+  status                    String   @default("PILOT") // see allowed values reference above
   /// One of the six values in the allowed values reference above (expanded
   /// 2026-09-26 — see claude/stakeholder-taxonomy-research.md). Drives which
   /// default role template createOrganizationWithDefaultRoles gives it and
   /// which app(s) it's steered toward — not an access-control boundary by
   /// itself (RLS/role permissions still do the actual enforcing).
-  type      String   @default("PROCUREMENT_SERVICE_AGENT")
+  type                      String   @default("PROCUREMENT_SERVICE_AGENT")
   /// Added 2026-09-26 — drives the personalized "powered by Universe"
   /// header every app shows (see @universe/ui's OrgHeader): the org's own
   /// logo when set, falling back to its name in text when not (most orgs
   /// won't have one at pilot launch — there's no upload flow yet, this is
   /// set directly for now). Expected to be a public HTTPS URL (e.g. blob
   /// storage) once a real upload path exists; nothing validates that yet.
-  logoUrl   String?
+  logoUrl                   String?
   /// Optional square mark (uploaded in Admin) for small spaces: phone/tablet
   /// header, collapsed sidebar, sign-in screen and browser-tab icon. Falls back
   /// to logoUrl scaled down, then to the Universe mark.
-  logoIconUrl String?
+  logoIconUrl               String?
   /// Added 2026-09-26 for per-organization brand personalization (see
   /// claude/org-onboarding-data-model.md's "brand implementation" section
   /// and OrgHeader) — deliberately minimal: just enough to make an org's
@@ -214,13 +214,13 @@ model Organization {
   /// Universe keeps one consistent design language across every app).
   /// Hex string, e.g. "#1B203D". Falls back to Universe's own default
   /// header styling when unset.
-  primaryColor   String?
+  primaryColor              String?
   /// Short greeting shown under the dashboard welcome heading (max 200 chars,
   /// enforced in the DTO). Set by the org admin / platform staff in Admin.
-  welcomeMessage String?
+  welcomeMessage            String?
   /// Same as primaryColor — used for the sign-in/out button and other
   /// small accents. Falls back to Universe's own default when unset.
-  secondaryColor String?
+  secondaryColor            String?
   /// Universal onboarding fields added 2026-09-26 — see
   /// claude/org-onboarding-data-model.md ("Universal fields") and the
   /// admin-onboarding-intake-spec.md Phase 1 this implements. All nullable:
@@ -231,71 +231,72 @@ model Organization {
   /// Legal/registered name, if different from the trading/display name
   /// already held in `name` (e.g. a full registered company name vs. a
   /// shorter trading/display name). Null means `name` doubles as both.
-  legalName                  String?
+  legalName                 String?
   /// See allowed values reference above.
-  legalEntityType            String?
-  countryOfRegistrationCode  String?
-  countryOfRegistration      Country? @relation("OrganizationCountryOfRegistration", fields: [countryOfRegistrationCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
-  registrationNumber         String?
-  website                    String?
+  legalEntityType           String?
+  countryOfRegistrationCode String?
+  countryOfRegistration     Country? @relation("OrganizationCountryOfRegistration", fields: [countryOfRegistrationCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  registrationNumber        String?
+  website                   String?
   /// The org's main point of contact for onboarding/relationship purposes —
   /// deliberately separate from any platform User, since the person who
   /// signs the data-sharing agreement or answers onboarding questions is
   /// often not the same person who logs into Universe day to day.
-  primaryContactName         String?
-  primaryContactTitle        String?
-  primaryContactEmail        String?
-  primaryContactPhone        String?
+  primaryContactName        String?
+  primaryContactTitle       String?
+  primaryContactEmail       String?
+  primaryContactPhone       String?
   /// See allowed values reference above.
-  onboardingSource           String?
-  notes                      String?  @db.NVarChar(Max)
+  onboardingSource          String?
+  notes                     String?  @db.NVarChar(Max)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users            User[]
-  roles            Role[]
-  partners         Partner[]
-  projects         Project[]
-  productLines     ProductLine[]
-  dataSharingConsents DataSharingConsent[]
-  productSourceApprovals ProductSourceApproval[]
-  supplierProfile  SupplierProfile?
-  supplierProducts SupplierProduct[]
-  supplierCountryPresence SupplierCountryPresence[]
-  supplierLeadsAsSupplier SupplierLead[] @relation("SupplierLeadSupplier")
-  supplierLeadsAsBuyer    SupplierLead[] @relation("SupplierLeadBuyer")
+  users                         User[]
+  roles                         Role[]
+  partners                      Partner[]
+  projects                      Project[]
+  productLines                  ProductLine[]
+  dataSharingConsents           DataSharingConsent[]
+  productSourceApprovals        ProductSourceApproval[]
+  supplierProfile               SupplierProfile?
+  supplierProducts              SupplierProduct[]
+  supplierCountryPresence       SupplierCountryPresence[]
+  supplierLeadsAsSupplier       SupplierLead[]               @relation("SupplierLeadSupplier")
+  supplierLeadsAsBuyer          SupplierLead[]               @relation("SupplierLeadBuyer")
   /// Added 2026-10-02 — see StakeholderRegistryEntry's doc comment
   /// (duplicate-prevention + identity-consent scaffolding).
-  stakeholderRegistryEntries StakeholderRegistryEntry[]
+  stakeholderRegistryEntries    StakeholderRegistryEntry[]
   /// Added 2026-10-02 — ProductMaster entries this org originally
   /// contributed (see ProductMaster.addedByOrganizationId's doc comment).
-  productMastersAdded        ProductMaster[]
+  productMastersAdded           ProductMaster[]
   /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 1/9.
-  fieldChangeLogs             FieldChangeLog[]
+  fieldChangeLogs               FieldChangeLog[]
+  notifications                 Notification[]
   /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 4.
-  riskAssessments             RiskAssessment[]
+  riskAssessments               RiskAssessment[]
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3 (Standards & Evidence
   /// scaffolding): each organisation builds its own catalog of standards.
-  evidenceStandardDefinitions EvidenceStandardDefinition[]
-  stakeholderEvidenceRecords  StakeholderEvidenceRecord[]
+  evidenceStandardDefinitions   EvidenceStandardDefinition[]
+  stakeholderEvidenceRecords    StakeholderEvidenceRecord[]
   /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6 (batch
   /// traceability + cold-chain temperature logging).
-  productBatches              ProductBatch[]
-  batchTemperatureLogs        BatchTemperatureLog[]
+  productBatches                ProductBatch[]
+  batchTemperatureLogs          BatchTemperatureLog[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
-  controlledDocuments         ControlledDocument[]
+  controlledDocuments           ControlledDocument[]
   /// Added 2026-10-07 — organizationId backfill, see each model's doc
   /// comment (compliance-standards-gap-analysis.md Gap 1 cross-check).
-  partnerCertifications        PartnerCertification[]
-  partnerCompanyChecks         PartnerCompanyCheck[]
+  partnerCertifications         PartnerCertification[]
+  partnerCompanyChecks          PartnerCompanyCheck[]
   partnerApprovalHistoryEntries PartnerApprovalHistory[]
   /// Added 2026-10-14 — same organizationId backfill as the three above,
   /// just four weeks later (see PartnerFinancialDetail's own doc comment).
   partnerFinancialDetails       PartnerFinancialDetail[]
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow:
   /// amendments proposed by users belonging to this org.
-  productAmendments            ProductAmendment[]
+  productAmendments             ProductAmendment[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -304,18 +305,18 @@ model Organization {
   // nothing enforces that at the database level (same as Organization.type
   // itself — see its own doc comment), application code is expected to
   // only populate the one relation matching the org's actual type.
-  countryPresence         OrganizationCountryPresence[]
-  procurementAgentProfile ProcurementAgentProfile?
-  tenderingBodyProfile    TenderingBodyProfile?
-  manufacturerProfile     ManufacturerProfile?
-  manufacturerSites       OrganizationManufacturerSite[]
-  funderProfile           FunderProfile?
-  dataInsightsUserProfile DataInsightsUserProfile?
+  countryPresence             OrganizationCountryPresence[]
+  procurementAgentProfile     ProcurementAgentProfile?
+  tenderingBodyProfile        TenderingBodyProfile?
+  manufacturerProfile         ManufacturerProfile?
+  manufacturerSites           OrganizationManufacturerSite[]
+  funderProfile               FunderProfile?
+  dataInsightsUserProfile     DataInsightsUserProfile?
   /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
   /// every TenderingBodyProfile row that names THIS org as the agent it
   /// uses. Lets a procurement-agent org eventually be asked "which
   /// tendering bodies use us" without a new query shape.
-  tenderingBodiesUsingAsAgent TenderingBodyProfile[] @relation("TenderingBodyProcurementAgent")
+  tenderingBodiesUsingAsAgent TenderingBodyProfile[]         @relation("TenderingBodyProcurementAgent")
 
   @@map("organizations")
 }
@@ -351,21 +352,24 @@ model User {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  projectLeads       ProjectLead[]
-  userRoles          UserRole[]
-  uploadedDocuments  ProjectDocument[]
-  recordedPrices     ProductPriceHistory[]
-  acceptedConsents   DataSharingConsent[]
-  createdSupplierProducts SupplierProduct[]
+  projectLeads                 ProjectLead[]
+  userRoles                    UserRole[]
+  uploadedDocuments            ProjectDocument[]
+  recordedPrices               ProductPriceHistory[]
+  acceptedConsents             DataSharingConsent[]
+  createdSupplierProducts      SupplierProduct[]
   /// Added 2026-09-30 — see ProjectStatusHistory model.
   recordedProjectStatusChanges ProjectStatusHistory[]
   /// Added 2026-10-07 — see RiskAssessment.owner.
-  ownedRiskAssessments RiskAssessment[]
+  ownedRiskAssessments         RiskAssessment[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
-  approvedControlledDocuments ControlledDocument[]
+  approvedControlledDocuments  ControlledDocument[]
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow.
-  submittedProductAmendments ProductAmendment[] @relation("ProductAmendmentSubmittedBy")
-  reviewedProductAmendments  ProductAmendment[] @relation("ProductAmendmentReviewedBy")
+  submittedProductAmendments   ProductAmendment[]     @relation("ProductAmendmentSubmittedBy")
+  reviewedProductAmendments    ProductAmendment[]     @relation("ProductAmendmentReviewedBy")
+  /// Added 2026-10-16 — in-app notifications / actions, see Notification.
+  notifications                Notification[]         @relation("NotificationRecipient")
+  triggeredNotifications       Notification[]         @relation("NotificationActor")
 
   @@index([organizationId])
   @@map("users")
@@ -414,8 +418,8 @@ model RolePermission {
 model UserRole {
   userId String
   roleId String
-  user   User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  role   Role @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user   User   @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([userId, roleId])
   @@map("user_roles")
@@ -430,32 +434,32 @@ model UserRole {
 // ---------------------------------------------------------------------------
 
 model Partner {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  name           String
+  id                         String                    @id @default(uuid())
+  organizationId             String
+  organization               Organization              @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name                       String
   /// Lowercased, punctuation/legal-suffix-stripped version of `name`, used
   /// for de-duplication and fuzzy matching against messy free-text company
   /// names entered elsewhere (e.g. historical imports).
-  normalizedName String
-  countryCode    String?      // ISO 3166-1 alpha-2, see Country reference table below
-  website        String?
-  approvalStatus String       @default("PENDING") // see allowed values reference above
+  normalizedName             String
+  countryCode                String? // ISO 3166-1 alpha-2, see Country reference table below
+  website                    String?
+  approvalStatus             String                    @default("PENDING") // see allowed values reference above
   /// Added 2026-10-02 — risk-tiering model (High/Medium/Low, driving what
   /// documentation is required). Applies to any role, not just Supplier/
   /// Manufacturer — a freight forwarder or warehousing partner on a
   /// GDP-impacting lane can be High Risk too.
-  riskTier       String?      // HIGH | MEDIUM | LOW
-  companyRegistrationNumber String?
-  vatNumber      String?
+  riskTier                   String? // HIGH | MEDIUM | LOW
+  companyRegistrationNumber  String?
+  vatNumber                  String?
   /// Added 2026-10-02 — see StakeholderRegistryEntry's doc comment.
   /// Links this tenant-private Partner to the shared, cross-tenant
   /// registry row for the same real-world company, so (a) a duplicate-
   /// prevention prompt can be shown to any other organisation adding the
   /// same stakeholder, and (b) identity-visibility gating in the Universe
   /// Product Database has a real, de-duplicated company to key off.
-  registryEntryId String?
-  registryEntry   StakeholderRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  registryEntryId            String?
+  registryEntry              StakeholderRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Updated 2026-10-02 — identity-level registry matching (generic fields
   /// only: name/country/registration number — never anything from the
   /// adding organisation's own records) is now mandatory for every Partner
@@ -464,38 +468,38 @@ model Partner {
   /// reserved for a future, separate consent that would let a Partner share
   /// relationship-specific data (e.g. pricing) with the particular
   /// organisation that created this record — not wired to anything yet.
-  sharedWithUniverseRegistry Boolean @default(false)
+  sharedWithUniverseRegistry Boolean                   @default(false)
   /// Annual "Bona Fide re-check" generalized to any role with a
   /// re-approval cadence, rather than duplicating this pair of dates on
   /// every *Detail table.
-  lastApprovalReviewDate DateTime?
-  nextApprovalReviewDue  DateTime?
-  isArchived     Boolean      @default(false)
-  archivedAt     DateTime?
-  archivedById   String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  lastApprovalReviewDate     DateTime?
+  nextApprovalReviewDue      DateTime?
+  isArchived                 Boolean                   @default(false)
+  archivedAt                 DateTime?
+  archivedById               String?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
 
-  roles            PartnerRole[]
-  certifications   PartnerCertification[]
-  approvalHistory  PartnerApprovalHistory[]
-  supplierDetail   SupplierDetail?
-  manufacturerDetail ManufacturerDetail?
-  freightForwarderDetail FreightForwarderDetail?
-  clientDetail     ClientDetail?
-  warehousingDetail WarehousingDetail?
+  roles                                PartnerRole[]
+  certifications                       PartnerCertification[]
+  approvalHistory                      PartnerApprovalHistory[]
+  supplierDetail                       SupplierDetail?
+  manufacturerDetail                   ManufacturerDetail?
+  freightForwarderDetail               FreightForwarderDetail?
+  clientDetail                         ClientDetail?
+  warehousingDetail                    WarehousingDetail?
   /// Added 2026-10-03 — standard company checks/documents/certificates
   /// already applied to every stakeholder role (see showVerificationPacket
   /// on the New Stakeholder form); financial information is the other
   /// half of that same "standard for all stakeholders" requirement, not
   /// role-gated either.
-  financialDetail  PartnerFinancialDetail?
-  manufacturerSites ManufacturerSite[]
-  companyChecks    PartnerCompanyCheck[]
-  contacts         Contact[]
-  projectsAsClient Project[]              @relation("ProjectClient")
-  linesAsManufacturer ProjectLine[]       @relation("LineManufacturer")
-  linesAsSupplier  ProjectLine[]          @relation("LineSupplier")
+  financialDetail                      PartnerFinancialDetail?
+  manufacturerSites                    ManufacturerSite[]
+  companyChecks                        PartnerCompanyCheck[]
+  contacts                             Contact[]
+  projectsAsClient                     Project[]                   @relation("ProjectClient")
+  linesAsManufacturer                  ProjectLine[]               @relation("LineManufacturer")
+  linesAsSupplier                      ProjectLine[]               @relation("LineSupplier")
   // linesAsFreightForwarder relation removed 2026-10-03 — ProjectLine no
   // longer has a freightForwarderId field (moved to Project). Historical
   // rows had this FK cleared by the migration before the column dropped.
@@ -504,19 +508,19 @@ model Partner {
   /// level freight-forwarder relation, distinct from the old per-line one
   /// above (kept only because historical ProjectLine rows may still
   /// reference it until this migration runs).
-  projectsAsFreightForwarder Project[]   @relation("ProjectFreightForwarder")
-  supplierEnquiries SupplierEnquiry[]
-  productLinesAsSupplier ProductLine[]    @relation("ProductLineSupplier")
-  productLinesAsManufacturer ProductLine[] @relation("ProductLineManufacturer")
-  productSourceApprovalsAsManufacturer ProductSourceApproval[] @relation("ProductSourceManufacturer")
-  productSourceApprovalsAsSupplier     ProductSourceApproval[] @relation("ProductSourceSupplier")
+  projectsAsFreightForwarder           Project[]                   @relation("ProjectFreightForwarder")
+  supplierEnquiries                    SupplierEnquiry[]
+  productLinesAsSupplier               ProductLine[]               @relation("ProductLineSupplier")
+  productLinesAsManufacturer           ProductLine[]               @relation("ProductLineManufacturer")
+  productSourceApprovalsAsManufacturer ProductSourceApproval[]     @relation("ProductSourceManufacturer")
+  productSourceApprovalsAsSupplier     ProductSourceApproval[]     @relation("ProductSourceSupplier")
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3. Evidence logged
   /// against this partner (any role) across whatever standards the
   /// organisation's own EvidenceStandardDefinition catalog defines.
-  evidenceRecords  StakeholderEvidenceRecord[]
+  evidenceRecords                      StakeholderEvidenceRecord[]
   /// Added 2026-10-07 — Gaps 5/6. This partner acting as a batch's
   /// manufacturer of record.
-  productBatchesAsManufacturer ProductBatch[]
+  productBatchesAsManufacturer         ProductBatch[]
 
   @@index([organizationId])
   @@index([organizationId, normalizedName])
@@ -531,7 +535,7 @@ model PartnerRole {
   id        String   @id @default(uuid())
   partnerId String
   partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  roleType  String   // see allowed values reference above
+  roleType  String // see allowed values reference above
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -540,40 +544,40 @@ model PartnerRole {
 }
 
 model SupplierDetail {
-  partnerId          String  @id
-  partner            Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supplierCode       String?
-  productCategory    String? // see allowed values reference above (ProductCategory list)
-  fdaRegistrationNumber String?
+  partnerId                     String    @id
+  partner                       Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierCode                  String?
+  productCategory               String? // see allowed values reference above (ProductCategory list)
+  fdaRegistrationNumber         String?
   /// "Scope of supply" checkboxes from Bioconnections FORM 008.1 (Devices /
   /// Equipment / Consumables / Services) — stored as a comma-separated list
   /// of ProductCategory-style tags rather than four booleans, so it grows
   /// with the taxonomy instead of needing a new column per category.
-  scopeOfSupply      String?
+  scopeOfSupply                 String?
   /// "Scope of services (e.g. warehousing, consultancy)" free-text field
   /// from the same form.
-  scopeOfServicesDescription String? @db.NVarChar(Max)
+  scopeOfServicesDescription    String?   @db.NVarChar(Max)
   /// A procurement agent's Code of Conduct is sent to every approved
   /// supplier for "Read & Understood" acknowledgement; a copy is retained.
   /// The retained copy itself is a PartnerCertification
   /// (type: CODE_OF_CONDUCT_ACKNOWLEDGEMENT) — these two fields are just
   /// the quick-glance status.
-  codeOfConductAcknowledged     Boolean  @default(false)
+  codeOfConductAcknowledged     Boolean   @default(false)
   codeOfConductAcknowledgedDate DateTime?
 
   @@map("partner_supplier_details")
 }
 
 model ManufacturerDetail {
-  partnerId         String  @id
-  partner           Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partNumberConvention String?
+  partnerId                  String  @id
+  partner                    Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partNumberConvention       String?
   /// Kept for the common single-site case; multi-site manufacturers (the
   /// BD-folder pattern — one ISO 13485 cert per registered site) use the
   /// ManufacturerSite table below instead, which is the source of truth
   /// once more than one site exists.
-  countryOfManufactureCode String?
-  scopeOfSupply      String?
+  countryOfManufactureCode   String?
+  scopeOfSupply              String?
   scopeOfServicesDescription String? @db.NVarChar(Max)
 
   @@map("partner_manufacturer_details")
@@ -603,15 +607,15 @@ model ManufacturerSite {
 }
 
 model FreightForwarderDetail {
-  partnerId        String  @id
-  partner          Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId           String  @id
+  partner             Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Comma-separated FreightMode-style tags (AIR/SEA/LAND) this forwarder is
   /// approved to use.
-  modesOfTransport String?
+  modesOfTransport    String?
   /// Added 2026-10-02. These four fields are the standard checks expected
   /// of a freight forwarder handling pharmaceutical/GDP-sensitive product.
-  iataDgrCertified   Boolean @default(false)
-  aeoAccredited      Boolean @default(false)
+  iataDgrCertified    Boolean @default(false)
+  aeoAccredited       Boolean @default(false)
   /// GDP-competent cold-chain/temperature-controlled transport capability.
   gdpTransportCapable Boolean @default(false)
   referencesProvided  Boolean @default(false)
@@ -620,37 +624,37 @@ model FreightForwarderDetail {
 }
 
 model ClientDetail {
-  partnerId       String  @id
-  partner         Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId                           String  @id
+  partner                             Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Billing and delivery address split into standard address fields, each
   /// with its own country — added 2026-10-03. Every element is stored
   /// separately (not one free-text block) so address data is structured
   /// and usable across every app, not just displayed back as a blob.
-  billingAddressLine1   String?
-  billingAddressLine2   String?
-  billingCity           String?
-  billingRegion         String?
-  billingPostcode       String?
-  billingCountryCode    String?
-  deliveryAddressLine1  String?
-  deliveryAddressLine2  String?
-  deliveryCity          String?
-  deliveryRegion        String?
-  deliveryPostcode      String?
-  deliveryCountryCode   String?
-  paymentTerms    String?
+  billingAddressLine1                 String?
+  billingAddressLine2                 String?
+  billingCity                         String?
+  billingRegion                       String?
+  billingPostcode                     String?
+  billingCountryCode                  String?
+  deliveryAddressLine1                String?
+  deliveryAddressLine2                String?
+  deliveryCity                        String?
+  deliveryRegion                      String?
+  deliveryPostcode                    String?
+  deliveryCountryCode                 String?
+  paymentTerms                        String?
   /// Added 2026-10-03 — predefined standard product-category licences/
   /// permits this client holds (ProductLicensingType values, comma-
   /// joined — same fixed-choice convention as scopeOfSupply), replacing
   /// the old free-text field. productCategoryLicensingOtherNotes covers
   /// anything not on the predefined list, paired with OTHER above.
-  productCategoryLicenses              String? @db.NVarChar(Max)
-  productCategoryLicensingOtherNotes   String? @db.NVarChar(Max)
-  destinationCountryRestrictionsNotes  String? @db.NVarChar(Max)
+  productCategoryLicenses             String? @db.NVarChar(Max)
+  productCategoryLicensingOtherNotes  String? @db.NVarChar(Max)
+  destinationCountryRestrictionsNotes String? @db.NVarChar(Max)
   /// Every pharmaceutical enquiry is checked against the Approved
   /// Customer Log before a quote proceeds.
-  isPharmaApprovedCustomer Boolean @default(false)
-  approvedCustomerLogRef   String?
+  isPharmaApprovedCustomer            Boolean @default(false)
+  approvedCustomerLogRef              String?
 
   @@map("partner_client_details")
 }
@@ -664,8 +668,8 @@ model ClientDetail {
 /// manufacturer/supplier/etc, same reasoning as the Company Checks and
 /// Documents/Certifications packet applying to all roles).
 model PartnerFinancialDetail {
-  partnerId    String @id
-  partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId         String       @id
+  partner           Partner      @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Added 2026-10-14 (backend-frontend-wiring-audit.md dead-schema
   /// finding, closed out the same way 2026-10-07's compliance scaffolding
   /// closed the identical gap on PartnerCertification/PartnerCompanyCheck/
@@ -682,25 +686,25 @@ model PartnerFinancialDetail {
   sortCode          String?
   iban              String?
   swiftBic          String?
-  branchAddress     String? @db.NVarChar(Max)
+  branchAddress     String?      @db.NVarChar(Max)
   currencyCode      String?
 
   @@map("partner_financial_details")
 }
 
 model WarehousingDetail {
-  partnerId    String  @id
-  partner      Partner @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId                    String    @id
+  partner                      Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// The warehouse operates to its own WDA (Wholesale Distribution
   /// Authorisation) and MHRA-audited procedures.
-  wdaNumber    String?
+  wdaNumber                    String?
   /// The relationship is governed by a Technical Agreement defining
   /// GDP/WDA responsibilities for both parties. The agreement
   /// document itself is a PartnerCertification
   /// (type: TECHNICAL_AGREEMENT) — this is just the quick-reference number.
-  technicalAgreementRef String?
-  gdpAuditDate     DateTime?
-  nextGdpAuditDue  DateTime?
+  technicalAgreementRef        String?
+  gdpAuditDate                 DateTime?
+  nextGdpAuditDue              DateTime?
   /// Monthly stock reconciliation between the warehouse's stock report
   /// and the organisation's own project trackers — who at the warehouse that
   /// reconciliation is run with.
@@ -725,7 +729,7 @@ model WarehousingDetail {
 /// accreditation all map onto `type` + `referenceNumber` + `expiryDate`
 /// here rather than needing their own columns.
 model PartnerCertification {
-  id         String    @id @default(uuid())
+  id                      String            @id @default(uuid())
   /// Added 2026-10-07 (compliance-standards-gap-analysis.md Gap 1 cross-
   /// check) — denormalized the same way as every other tenant table.
   /// MISSING until now: this table (and PartnerCompanyCheck/
@@ -735,15 +739,15 @@ model PartnerCertification {
   /// partnerId -> Partner join gave it any tenant scoping, and only when
   /// a caller remembered to make that join. Backfilled from partnerId's
   /// own Partner.organizationId; see the migration for the backfill query.
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partnerId  String
-  partner    Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizationId          String
+  organization            Organization      @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId               String
+  partner                 Partner           @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Scopes this certification to one of the manufacturer's registered
   /// sites (the BD pattern — one ISO 13485 cert per site) rather than the
   /// whole company. Null means company-wide.
-  manufacturerSiteId String?
-  manufacturerSite   ManufacturerSite? @relation(fields: [manufacturerSiteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerSiteId      String?
+  manufacturerSite        ManufacturerSite? @relation(fields: [manufacturerSiteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Optionally scopes this document to one of the partner's Company
   /// Checks (e.g. a VAT Certificate upload attached to the "VAT
   /// Certificate" check) rather than the site above — the two scopes are
@@ -754,18 +758,18 @@ model PartnerCertification {
   /// the "Add Check" picker UI, so documents/certificates can be related
   /// and logged against the specific check they evidence.
   relatedCompanyCheckType String?
-  type       String    // see allowed values reference above
-  referenceNumber String? // certificate/registration/licence number
+  type                    String // see allowed values reference above
+  referenceNumber         String? // certificate/registration/licence number
   /// Declarations of Conformity and similar documents get re-issued on a
   /// spec change, tracked by revision rather than (or alongside) a new
   /// expiry date — e.g. the BD folder's "DoC VTF1007-02 Rev4".
-  revision   String?
+  revision                String?
   /// Who issued or notified the certificate — e.g. "BSI", "TÜV", a
   /// national regulatory authority's name. For device registrations this
   /// is the destination country/regulator (e.g. "TMDA Tanzania").
-  issuingBody String?
-  issuedDate DateTime?
-  expiryDate DateTime?
+  issuingBody             String?
+  issuedDate              DateTime?
+  expiryDate              DateTime?
   /// Pharma certs are verified against the relevant Regulatory Authority
   /// database (e.g. MHRA GMDP/EudraGMDP),
   /// non-pharma certs via the accreditation body's own online portal —
@@ -774,16 +778,16 @@ model PartnerCertification {
   /// is exactly what the BD folder's duplicate "verification ... EB"
   /// entries (the same cert re-verified via Emergo by UL after the
   /// original) demonstrate.
-  verifiedAt   DateTime?
-  verifiedById String?
+  verifiedAt              DateTime?
+  verifiedById            String?
   /// CURRENT | ARCHIVED — superseded/expired documents move to ARCHIVED
   /// rather than being deleted, preserving the audit trail (mirrors the
   /// BD folder's own Archive subfolders).
-  status     String    @default("CURRENT")
-  notes      String?   @db.NVarChar(Max)
-  documentId String?
-  document   ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt  DateTime  @default(now())
+  status                  String            @default("CURRENT")
+  notes                   String?           @db.NVarChar(Max)
+  documentId              String?
+  document                ProjectDocument?  @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt               DateTime          @default(now())
 
   @@index([partnerId])
   @@index([expiryDate])
@@ -801,25 +805,25 @@ model PartnerCertification {
 /// issue/expiry) — these are verification CHECKS the organisation performs, not
 /// documents the stakeholder supplies.
 model PartnerCompanyCheck {
-  id          String   @id @default(uuid())
+  id                String       @id @default(uuid())
   /// Added 2026-10-07 — same RLS-gap fix as PartnerCertification above.
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partnerId   String
-  partner     Partner  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  checkType   String   // see allowed values reference above (PartnerCompanyCheckType)
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId         String
+  partner           Partner      @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  checkType         String // see allowed values reference above (PartnerCompanyCheckType)
   /// Only meaningful when checkType == "OTHER" — the user-entered label
   /// for a check not on the predefined list (e.g. "Export Licence Check").
   /// Added 2026-10-02 alongside the "Add Check" picker UI.
-  customLabel String?
-  result      String   // YES | NO | NOT_APPLICABLE
-  checkedDate DateTime?
+  customLabel       String?
+  result            String // YES | NO | NOT_APPLICABLE
+  checkedDate       DateTime?
   /// e.g. the Companies House reference number, or the credit-check
   /// source/provider name — "State reference:" / "State source:" on the
   /// Bioconnections form.
   referenceOrSource String?
-  comment     String?  @db.NVarChar(Max)
-  createdAt   DateTime @default(now())
+  comment           String?      @db.NVarChar(Max)
+  createdAt         DateTime     @default(now())
 
   @@index([partnerId])
   @@index([organizationId])
@@ -829,14 +833,14 @@ model PartnerCompanyCheck {
 /// Audit trail mirroring QA's existing HISTORY sheets: removal/reinstatement
 /// events, alongside Partner.approvalStatus for the current state.
 model PartnerApprovalHistory {
-  id           String    @id @default(uuid())
+  id                     String       @id @default(uuid())
   /// Added 2026-10-07 — same RLS-gap fix as PartnerCertification above.
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partnerId    String
-  partner      Partner   @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  action       String    // e.g. "APPROVED" | "REMOVED" | "REINSTATED" — free text for now
-  reason       String?   @db.NVarChar(Max)
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId              String
+  partner                Partner      @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  action                 String // e.g. "APPROVED" | "REMOVED" | "REINSTATED" — free text for now
+  reason                 String?      @db.NVarChar(Max)
   /// Added 2026-10-07 (compliance-standards-gap-analysis.md Gap 2) — the
   /// exact certification/"e-signature meaning" statement text shown to the
   /// approver at the moment of this action, captured verbatim (not just a
@@ -844,9 +848,9 @@ model PartnerApprovalHistory {
   /// statement's wording is edited later. Null for actions recorded before
   /// this existed, or for an action type that has no statement defined.
   /// See apps/api/src/common/certification-statements.ts.
-  certificationStatement String? @db.NVarChar(Max)
-  actionDate   DateTime  @default(now())
-  actionById   String?
+  certificationStatement String?      @db.NVarChar(Max)
+  actionDate             DateTime     @default(now())
+  actionById             String?
 
   @@index([partnerId])
   @@index([organizationId])
@@ -875,31 +879,31 @@ model PartnerApprovalHistory {
 /// ProductSourceApprovalsService.getQualificationStatus for the exact
 /// cross-reference logic.
 model ProductSourceApproval {
-  id               String        @id @default(uuid())
-  organizationId   String
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productMasterId  String
-  productMaster    ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  manufacturerId   String
-  manufacturer     Partner       @relation("ProductSourceManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String        @id @default(uuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId String
+  productMaster   ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerId  String
+  manufacturer    Partner       @relation("ProductSourceManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Optional — a product+manufacturer combination can be approved before a
   /// specific supplier is attached, or approved generically with no
   /// supplier at all (direct-from-manufacturer sourcing).
-  supplierId       String?
-  supplier         Partner?      @relation("ProductSourceSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  status           String        @default("PENDING") // PENDING | APPROVED | REJECTED
-  approvedAt       DateTime?
-  approvedById     String?
+  supplierId      String?
+  supplier        Partner?      @relation("ProductSourceSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status          String        @default("PENDING") // PENDING | APPROVED | REJECTED
+  approvedAt      DateTime?
+  approvedById    String?
   /// Optional QA review cadence — when set and in the past, the dashboard
   /// flags this as a stale approval needing re-review, same spirit as
   /// PartnerCertification.expiryDate.
-  nextReviewDue    DateTime?
-  notes            String?       @db.NVarChar(Max)
-  isArchived       Boolean       @default(false)
-  archivedAt       DateTime?
-  archivedById     String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  nextReviewDue   DateTime?
+  notes           String?       @db.NVarChar(Max)
+  isArchived      Boolean       @default(false)
+  archivedAt      DateTime?
+  archivedById    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([organizationId])
   @@index([productMasterId])
@@ -956,7 +960,7 @@ model Project {
   /// receipt and closeout as distinct stages our single COMPLETED status
   /// collapsed into one. Deliberately a sub-state field, not a sixth
   /// pipeline stage — see project-stage-navigation-plan.md.
-  completionStage          String?      // see allowed values reference above
+  completionStage          String? // see allowed values reference above
   projectNotes             String?      @db.NVarChar(Max)
   projectFolderUrl         String?
   isArchived               Boolean      @default(false)
@@ -964,7 +968,6 @@ model Project {
   archivedById             String?
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
-
 
   // --- Freight & Logistics (moved here from ProjectLine 2026-10-03, per
   // Lewis's explicit request: freight is arranged once for the whole
@@ -978,69 +981,69 @@ model Project {
   // Incoterm and freight mode moved here too (previously on ProjectLine's
   // "Procurement" block) since they're also a per-project commercial
   // arrangement, not a per-line one. ---
-  incoterm                 String?   // see allowed values reference above
-  freightMode               String?   // see allowed values reference above
-  freightForwarderId        String?
-  freightForwarder          Partner?  @relation("ProjectFreightForwarder", fields: [freightForwarderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  freightCost                Decimal?  @db.Decimal(18, 2)
-  freightCurrency            String?   @db.Char(3)
+  incoterm                         String? // see allowed values reference above
+  freightMode                      String? // see allowed values reference above
+  freightForwarderId               String?
+  freightForwarder                 Partner?              @relation("ProjectFreightForwarder", fields: [freightForwarderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  freightCost                      Decimal?              @db.Decimal(18, 2)
+  freightCurrency                  String?               @db.Char(3)
   /// Incoterms 2020's CIP term requires the seller to insure at a minimum
   /// of 110% of contract value — distinct from freightCost, which is the
   /// freight contract price itself, not the insured sum.
-  insuredValue               Decimal?  @db.Decimal(18, 2)
-  insuredCurrency            String?   @db.Char(3)
+  insuredValue                     Decimal?              @db.Decimal(18, 2)
+  insuredCurrency                  String?               @db.Char(3)
   /// The PREMIUM paid for freight insurance — distinct from insuredValue
   /// above (the sum insured/coverage amount). Assumed to share
   /// freightCurrency, same judgment call carried over from the per-line
   /// version of this field.
-  freightInsuranceCost       Decimal?  @db.Decimal(18, 2)
+  freightInsuranceCost             Decimal?              @db.Decimal(18, 2)
   /// Any freight-related cost that isn't the core freight price or the
   /// insurance premium — customs duties, demurrage, documentation fees,
   /// etc. A single bucket for now (with a free-text description of what
   /// it covers), same v1 simplification carried over from the per-line
   /// version. Shares freightCurrency.
-  freightAdditionalCost      Decimal?  @db.Decimal(18, 2)
-  freightAdditionalCostDescription String? @db.NVarChar(Max)
+  freightAdditionalCost            Decimal?              @db.Decimal(18, 2)
+  freightAdditionalCostDescription String?               @db.NVarChar(Max)
   /// Computed server-side (freightCost + freightInsuranceCost +
   /// freightAdditionalCost, all in freightCurrency) — see
   /// ProjectsService.applyProjectFreightPricing.
-  freightTotalCost           Decimal?  @db.Decimal(18, 2)
+  freightTotalCost                 Decimal?              @db.Decimal(18, 2)
   /// Input: the markup % applied to freightTotalCost on the way to the
   /// freight charge shown to the client — kept separate from any one
   /// line's productMarginPercent, since freight is commonly marked up at
   /// a different rate (or not at all) from the product itself.
-  freightMarginPercent       Decimal?  @db.Decimal(5, 2)
+  freightMarginPercent             Decimal?              @db.Decimal(5, 2)
   /// Computed: freightTotalCost x freightMarginPercent / 100, in
   /// freightCurrency.
-  freightMarginAmount        Decimal?  @db.Decimal(18, 2)
+  freightMarginAmount              Decimal?              @db.Decimal(18, 2)
   /// Freight's own currency-conversion lock, same convention as the
   /// supplier/sales trios that remain on ProjectLine — see schema's
   /// "Currency conversion" doc comment there for the full mechanism.
   /// Recomputed only when freightCost/freightInsuranceCost/
   /// freightAdditionalCost/freightCurrency actually change.
-  freightPriceLockedAt       DateTime?
-  freightExchangeRateSnapshotId String?
-  freightExchangeRateSnapshot ExchangeRateSnapshot? @relation("ProjectFreightRate", fields: [freightExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  freightPriceLockedAt             DateTime?
+  freightExchangeRateSnapshotId    String?
+  freightExchangeRateSnapshot      ExchangeRateSnapshot? @relation("ProjectFreightRate", fields: [freightExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Freight's base-currency code lock, same convention as ProjectLine's
   /// reportingCurrencyCode — see that field's doc comment for the full
   /// mechanism (Universe is currency-agnostic; this records WHICH base
   /// currency freightTotalCostReportingCcy/freightInvoiceAmountReportingCcy
   /// below were locked in, in case the platform base currency ever
   /// changes historically).
-  reportingCurrencyCode     String?   @db.Char(3)
+  reportingCurrencyCode            String?               @db.Char(3)
   /// Base-currency equivalent of freightTotalCost — PRE-margin.
-  freightTotalCostReportingCcy Decimal? @db.Decimal(18, 2)
+  freightTotalCostReportingCcy     Decimal?              @db.Decimal(18, 2)
   /// Base-currency equivalent of freightTotalCost x (1 + freightMarginPercent/100)
   /// — the WITH-margin figure actually charged to the client, in base
   /// currency. This (not freightTotalCostReportingCcy) is what the
   /// project/org financial rollups add into totalInvoiceValue, alongside
   /// each line's own salesTotalPriceReportingCcy.
-  freightInvoiceAmountReportingCcy Decimal? @db.Decimal(18, 2)
+  freightInvoiceAmountReportingCcy Decimal?              @db.Decimal(18, 2)
 
-  leads     ProjectLead[]
-  contacts  ProjectContact[]
-  lines     ProjectLine[]
-  documents ProjectDocument[]
+  leads         ProjectLead[]
+  contacts      ProjectContact[]
+  lines         ProjectLine[]
+  documents     ProjectDocument[]
   /// Added 2026-09-30 — see ProjectStatusHistory model below.
   statusHistory ProjectStatusHistory[]
 
@@ -1117,24 +1120,24 @@ model ProjectContact {
 // ---------------------------------------------------------------------------
 
 model ProjectLine {
-  id                            String    @id @default(uuid())
-  organizationId                String // denormalized from Project for direct RLS scoping
-  projectId                     String
-  project                       Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id             String  @id @default(uuid())
+  organizationId String // denormalized from Project for direct RLS scoping
+  projectId      String
+  project        Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // --- Item identification ---
-  clientProductDescription      String?   @db.NVarChar(Max)
+  clientProductDescription String?        @db.NVarChar(Max)
   /// Once a product is identified/matched against the shared catalog. Not
   /// required — plenty of lines will never be matched, especially early on.
-  productMasterId               String?
-  productMaster                 ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId          String?
+  productMaster            ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Category-specific refinement attributes (e.g. Cryovial -> size), keyed
   /// by ProductAttributeDefinition.attributeKey, stored as JSON text —
   /// pragmatic middle ground over a full EAV table; validated at the app
   /// layer against the matched product's category definitions.
-  attributes                    String?   @db.NVarChar(Max)
-  quantity                      Int?
-  productCategory                String?  // see allowed values reference above
+  attributes               String?        @db.NVarChar(Max)
+  quantity                 Int?
+  productCategory          String? // see allowed values reference above
 
   /// Net cargo weight for this line, in kilograms — added 2026-10-08 for
   /// the supply-chain CO2/distance measurement feature (see
@@ -1146,7 +1149,7 @@ model ProjectLine {
   /// (see WEIGHT_ESTIMATE_DEFAULTS_KG) and sets weightEstimated true on the
   /// computed metric row, rather than silently treating missing weight as
   /// zero.
-  weightKg                       Decimal?  @db.Decimal(12, 3)
+  weightKg Decimal? @db.Decimal(12, 3)
 
   // --- Procurement ---
   // incoterm/freightMode moved to Project (project-level, 2026-10-03) —
@@ -1155,20 +1158,20 @@ model ProjectLine {
   // previously sat elsewhere — country under Item Identification,
   // manufactured date under Freight & Logistics — per Lewis's explicit
   // reorganisation request).
-  countryOfManufactureCode       String?  // ISO 3166-1 alpha-2
-  goodsManufacturedDate          DateTime?
-  manufacturerId                String?
-  manufacturer                  Partner?  @relation("LineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supplierId                    String?
-  supplier                      Partner?  @relation("LineSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  clientPoNumber                String?
-  clientPoReceiptDate           DateTime?
+  countryOfManufactureCode String? // ISO 3166-1 alpha-2
+  goodsManufacturedDate    DateTime?
+  manufacturerId           String?
+  manufacturer             Partner?  @relation("LineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierId               String?
+  supplier                 Partner?  @relation("LineSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  clientPoNumber           String?
+  clientPoReceiptDate      DateTime?
   /// The platform operator's own PO number raised to the supplier.
-  internalPoNumber              String?
-  internalPoDatePlaced          DateTime?
+  internalPoNumber         String?
+  internalPoDatePlaced     DateTime?
   /// GAD — confirm exact meaning/definition with Lewis (Goods Arrival Date?)
-  gad                           DateTime?
-  supplierGad                   DateTime?
+  gad                      DateTime?
+  supplierGad              DateTime?
 
   // --- Freight & logistics ---
   // Freight cost/vendor/terms fields (freightForwarderId, freightCost,
@@ -1179,25 +1182,25 @@ model ProjectLine {
   // TRACKING: even when one freight contract covers a whole project,
   // different lines/lots can still be collected/delivered on different
   // dates, so these dates remain per-line.
-  warehouseReferenceNumber      String?
-  goodsCollectedDate            DateTime?
-  goodsDeliveredToClientDate    DateTime?
+  warehouseReferenceNumber   String?
+  goodsCollectedDate         DateTime?
+  goodsDeliveredToClientDate DateTime?
   /// Renamed from promisedDeliveryDate 2026-10-03 per Lewis — "projected"
   /// reads less like a contractual promise and more like what it actually
   /// is, an internal planning estimate.
-  projectedDeliveryDate         DateTime?
-  actualDeliveryDate            DateTime?
+  projectedDeliveryDate      DateTime?
+  actualDeliveryDate         DateTime?
   /// The quantity actually received from the supplier — added 2026-10-03
   /// specifically so supplierInFull below can be a real computed value
   /// rather than a manual guess; previously there was no field at all
   /// recording what was actually received, only what was ordered
   /// (quantity, above), so "in full" had nothing to compare against.
-  quantityReceived              Int?
+  quantityReceived           Int?
   /// Computed server-side 2026-10-03 (previously a manual dropdown) — see
   /// ProjectsService.computeOnTimeInFull. actualDeliveryDate <=
   /// projectedDeliveryDate (the organisation's own promise to the CLIENT was met).
   /// Null until both dates are set.
-  internalOnTime                Boolean?
+  internalOnTime             Boolean?
   /// Computed server-side 2026-10-03 (previously a manual dropdown) —
   /// goodsCollectedDate <= supplierGad (the SUPPLIER's own committed
   /// arrival/collection date was met). Judgment call: GAD/supplierGad's
@@ -1205,10 +1208,10 @@ model ProjectLine {
   /// decisions.md "Open questions") — this is a reasonable reading given
   /// available fields, worth Lewis confirming once GAD's meaning is
   /// settled for good.
-  supplierOnTime                Boolean?
+  supplierOnTime             Boolean?
   /// Computed server-side 2026-10-03 (previously a manual dropdown) —
   /// quantityReceived >= quantity. Null until quantityReceived is entered.
-  supplierInFull                Boolean?
+  supplierInFull             Boolean?
 
   // --- Financials ---
   supplierUnitPrice             Decimal?  @db.Decimal(18, 2)
@@ -1229,7 +1232,7 @@ model ProjectLine {
   /// in the API layer so it can't drift out of sync, same convention as
   /// grossMargin/margin below.
   supplierAmountPaid            Decimal?  @db.Decimal(18, 2)
-  supplierPaymentStatus         String?   // see allowed values reference above
+  supplierPaymentStatus         String? // see allowed values reference above
   /// Computed server-side as clientPaymentAmount / quantity (the full
   /// margin-based invoice build below) — not a manual entry any more, same
   /// convention as supplierPaymentAmountTotal. Kept as its own column
@@ -1265,11 +1268,11 @@ model ProjectLine {
   // ProjectsService.applyPricing for the actual computation.
   /// Input: the markup % applied to supplierPaymentAmountTotal (the
   /// manufacturer/supplier product cost) on the way to the client invoice.
-  productMarginPercent          Decimal?  @db.Decimal(5, 2)
+  productMarginPercent Decimal? @db.Decimal(5, 2)
   /// Computed: supplierPaymentAmountTotal x productMarginPercent / 100, in
   /// supplierPaymentCurrency — stored for transparency/audit, not just
   /// folded silently into clientPaymentAmount.
-  productMarginAmount           Decimal?  @db.Decimal(18, 2)
+  productMarginAmount  Decimal? @db.Decimal(18, 2)
   // freightMarginPercent/freightMarginAmount moved to Project — see
   // 20261003090000_freight_to_project_level (2026-10-08: removed these two
   // ghost fields from ProjectLine, which had been left behind in schema.prisma
@@ -1296,19 +1299,19 @@ model ProjectLine {
   /// at the time of conversion and stored (not just assumed) so a later
   /// change to the platform's default base currency can't silently
   /// reinterpret an old, already-locked conversion.
-  reportingCurrencyCode         String?   @db.Char(3)
+  reportingCurrencyCode          String?               @db.Char(3)
   /// The calendar date supplierUnitPrice/quantity/supplierPaymentCurrency
   /// was last saved — i.e. the date whose snapshot supplierExchangeRateSnapshotId
   /// is locked to. Only recomputed when one of those three actually changes.
-  supplierPriceLockedAt         DateTime?
+  supplierPriceLockedAt          DateTime?
   supplierExchangeRateSnapshotId String?
-  supplierExchangeRateSnapshot  ExchangeRateSnapshot? @relation("LineSupplierRate", fields: [supplierExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierExchangeRateSnapshot   ExchangeRateSnapshot? @relation("LineSupplierRate", fields: [supplierExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Base-currency equivalent of supplierPaymentAmountTotal — PRE-margin
   /// (the product margin is a dimensionless %, so it's applied to this
   /// figure arithmetically at report time rather than needing its own
   /// locked base-currency column — see getFinancialSummary).
-  supplierUnitPriceReportingCcy  Decimal?  @db.Decimal(18, 2)
-  supplierTotalPriceReportingCcy Decimal?  @db.Decimal(18, 2)
+  supplierUnitPriceReportingCcy  Decimal?              @db.Decimal(18, 2)
+  supplierTotalPriceReportingCcy Decimal?              @db.Decimal(18, 2)
   // freightPriceLockedAt/freightExchangeRateSnapshotId/
   // freightTotalCostReportingCcy moved to Project 2026-10-03, alongside
   // the rest of the per-line freight fields — see Project's "Freight &
@@ -1320,22 +1323,22 @@ model ProjectLine {
   /// per-line invoice total, which is what dashboard/project financial
   /// rollups actually sum across lines regardless of each line's own
   /// clientPaymentCurrency.
-  salesPriceLockedAt            DateTime?
-  salesExchangeRateSnapshotId   String?
-  salesExchangeRateSnapshot     ExchangeRateSnapshot? @relation("LineSalesRate", fields: [salesExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesPriceLockedAt             DateTime?
+  salesExchangeRateSnapshotId    String?
+  salesExchangeRateSnapshot      ExchangeRateSnapshot? @relation("LineSalesRate", fields: [salesExchangeRateSnapshotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// = salesTotalPriceReportingCcy / quantity — kept for symmetry with
   /// supplierUnitPriceReportingCcy, not independently meaningful.
-  salesUnitPriceReportingCcy    Decimal?  @db.Decimal(18, 2)
+  salesUnitPriceReportingCcy     Decimal?              @db.Decimal(18, 2)
   /// The base-currency equivalent of clientPaymentAmount (the fully-built
   /// invoice total) — THE figure every rollup/dashboard sums.
-  salesTotalPriceReportingCcy   Decimal?  @db.Decimal(18, 2)
+  salesTotalPriceReportingCcy    Decimal?              @db.Decimal(18, 2)
 
   // --- Pharma-only batch block (shown/required only when
   //     Project.projectType == "PHARMACEUTICAL") ---
-  strength                      String?
-  form                          String?
-  packSize                      String?
-  batchNumber                   String?
+  strength                       String?
+  form                           String?
+  packSize                       String?
+  batchNumber                    String?
   /// Added 2026-10-07 (GDP gap-closing build, Gaps 5/6) — links this line
   /// to the first-class ProductBatch entity when one has been matched/
   /// created, so "every place batch X was shipped" is a direct indexed
@@ -1344,35 +1347,35 @@ model ProjectLine {
   /// predate this or haven't been matched yet (see ProductBatch's doc
   /// comment and sop-driven-quality-roadmap.md Section A's migration
   /// note — existing free-text batchNumber data is not auto-migrated).
-  productBatchId                String?
-  productBatch                  ProductBatch? @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  expiryDate                    DateTime?
-  storageConditions             String?
-  dataLoggerReference           String?
-  dataLoggerReportReviewed      Boolean?
-  excursionReview               String?   @db.NVarChar(Max)
-  customerApproved              Boolean?
-  rpApproved                    Boolean?
+  productBatchId                 String?
+  productBatch                   ProductBatch? @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  expiryDate                     DateTime?
+  storageConditions              String?
+  dataLoggerReference            String?
+  dataLoggerReportReviewed       Boolean?
+  excursionReview                String?       @db.NVarChar(Max)
+  customerApproved               Boolean?
+  rpApproved                     Boolean?
   /// Marketing Authorization / Product License number
-  maPl                          String?
+  maPl                           String?
   /// Which regulatory pathway qualified this product — added 2026-09-30
   /// per benchmarking doc rec. #4 (Global Fund PSM guidelines): pharma
   /// products must clear WHO Prequalification, a Stringent Regulatory
   /// Authority approval, or an Expert Review Panel approval (the latter
   /// capped at 12 months — see qualificationPathwayExpiryDate).
-  qualificationPathway           String?   // see allowed values reference above
+  qualificationPathway           String? // see allowed values reference above
   /// Only meaningful when qualificationPathway == "ERP" — Global Fund
   /// caps an Expert Review Panel approval at a 12-month maximum contract
   /// duration.
   qualificationPathwayExpiryDate DateTime?
 
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  supplierEnquiries             SupplierEnquiry[]
-  priceHistory                  ProductPriceHistory[]
+  supplierEnquiries SupplierEnquiry[]
+  priceHistory      ProductPriceHistory[]
   /// Added 2026-10-08 — see ProjectLineLogisticsMetric below.
-  logisticsMetric                ProjectLineLogisticsMetric?
+  logisticsMetric   ProjectLineLogisticsMetric?
 
   @@index([organizationId])
   @@index([projectId])
@@ -1436,31 +1439,31 @@ model ProjectLineLogisticsMetric {
   /// shipping/flight/road routing — NOT a real port-to-port/route-specific
   /// distance (the schema only captures country-level locations). This is
   /// the acknowledged limitation flagged to Lewis.
-  distanceKm         Decimal  @db.Decimal(10, 1)
+  distanceKm            Decimal  @db.Decimal(10, 1)
   /// The emission factor actually applied, in kg CO2e per tonne-km —
   /// stored alongside the result (not just the methodology version) so a
   /// factor revision's exact impact on any one row is always inspectable.
-  co2FactorKgPerTonneKm Decimal @db.Decimal(10, 4)
+  co2FactorKgPerTonneKm Decimal  @db.Decimal(10, 4)
   /// distanceKm * (weightKgUsed / 1000) * co2FactorKgPerTonneKm
-  co2TotalKg         Decimal  @db.Decimal(14, 2)
+  co2TotalKg            Decimal  @db.Decimal(14, 2)
   /// goodsDeliveredToClientDate - goodsCollectedDate, in days — null until
   /// both dates are recorded on the line.
-  durationDays       Int?
+  durationDays          Int?
   /// 1 (worst) – 10 (best) — see LogisticsMetricsService.scoreLine for the
   /// full algorithm (CO2-intensity-of-mode-driven, with a small distance
   /// adjustment). This is Lewis's explicitly delegated judgment call, not
   /// an external standard — documented in full in
   /// supply-chain-co2-efficiency.md.
-  efficiencyScore    Int
+  efficiencyScore       Int
   /// RED (1-3) | AMBER (4-5) | YELLOW (6-7) | GREEN (8-10) — derived purely
   /// from efficiencyScore, stored for convenient filtering/display.
-  scoreBand          String
+  scoreBand             String
   /// Bumped whenever the calculation methodology (emission factors,
   /// circuity multipliers, scoring thresholds) changes, so historical rows
   /// computed under an old methodology are identifiable rather than
   /// silently compared against new ones.
-  methodologyVersion String   @default("2026.10-v1")
-  calculatedAt       DateTime @default(now())
+  methodologyVersion    String   @default("2026.10-v1")
+  calculatedAt          DateTime @default(now())
 
   @@index([organizationId])
   @@index([projectId])
@@ -1473,18 +1476,18 @@ model ProjectLineLogisticsMetric {
 /// (e.g. "1. Advanced Sterilization Products – No response... 2. Bailey
 /// Instruments – declined...") into structured, reportable data.
 model SupplierEnquiry {
-  id             String    @id @default(uuid())
+  id             String      @id @default(uuid())
   organizationId String // denormalized for direct RLS scoping
   projectLineId  String
   projectLine    ProjectLine @relation(fields: [projectLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   supplierId     String
-  supplier       Partner   @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplier       Partner     @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dateContacted  DateTime?
-  responseStatus String    @default("WAITING") // see allowed values reference above
-  quotedPrice    Decimal?  @db.Decimal(18, 2)
-  quotedCurrency String?   @db.Char(3)
-  notes          String?   @db.NVarChar(Max)
-  createdAt      DateTime  @default(now())
+  responseStatus String      @default("WAITING") // see allowed values reference above
+  quotedPrice    Decimal?    @db.Decimal(18, 2)
+  quotedCurrency String?     @db.Char(3)
+  notes          String?     @db.NVarChar(Max)
+  createdAt      DateTime    @default(now())
 
   @@index([organizationId])
   @@index([projectLineId])
@@ -1526,11 +1529,11 @@ model ProjectDocument {
   uploadedBy     User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   uploadedAt     DateTime @default(now())
 
-  partnerCertifications PartnerCertification[]
+  partnerCertifications      PartnerCertification[]
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3.
   stakeholderEvidenceRecords StakeholderEvidenceRecord[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
-  controlledDocuments ControlledDocument[]
+  controlledDocuments        ControlledDocument[]
 
   @@index([organizationId])
   @@map("project_documents")
@@ -1547,38 +1550,38 @@ model ProjectDocument {
 /// with different POs, suppliers, prices). Tenant-scoped, unlike
 /// ProductMaster below.
 model ProductLine {
-  id                       String    @id @default(uuid())
-  organizationId           String
-  organization             Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  customerPoProductName    String
+  id                         String         @id @default(uuid())
+  organizationId             String
+  organization               Organization   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customerPoProductName      String
   /// GTIN captured as entered — a procurement agent's own GS1-assigned codes are expected
   /// to densely populate this from day one (owned data, no licensing
   /// question). Format-validated at the app layer, not pre-populated from
   /// any public catalog (no open bulk GTIN database exists — see
   /// architecture doc, "Sector-insights data strategy").
-  gtin                     String?
-  poNumber                 String?
-  procurementOfficerId     String?
-  poDate                   DateTime?
-  productType              String?
-  supplierId               String?
-  supplier                 Partner?  @relation("ProductLineSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supplierProductDescription String? @db.NVarChar(Max)
-  manufacturerId           String?
-  manufacturer              Partner? @relation("ProductLineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  manufacturerPartNumber   String?
-  unitOfSupply              String?
+  gtin                       String?
+  poNumber                   String?
+  procurementOfficerId       String?
+  poDate                     DateTime?
+  productType                String?
+  supplierId                 String?
+  supplier                   Partner?       @relation("ProductLineSupplier", fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierProductDescription String?        @db.NVarChar(Max)
+  manufacturerId             String?
+  manufacturer               Partner?       @relation("ProductLineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerPartNumber     String?
+  unitOfSupply               String?
   exactMatchFlag             Boolean?
-  matchNotes                 String? @db.NVarChar(Max)
-  storageRequirement          String?
+  matchNotes                 String?        @db.NVarChar(Max)
+  storageRequirement         String?
   productCertificationExpiry DateTime?
   /// Once matched against the shared catalog.
-  productMasterId          String?
-  productMaster             ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+  productMasterId            String?
+  productMaster              ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
 
-  priceHistory              ProductPriceHistory[]
+  priceHistory ProductPriceHistory[]
 
   @@index([organizationId])
   @@index([gtin])
@@ -1592,25 +1595,25 @@ model ProductLine {
 /// the WHO Essential Medicines List) plus a procurement agent's own owned GTIN data, and
 /// grown organically as tenants' real products get matched/added over time.
 model ProductMaster {
-  id                          String    @id @default(uuid())
-  name                        String
+  id                              String        @id @default(uuid())
+  name                            String
   /// Hierarchical category path, e.g. "Laboratory Consumables.Cryovial" —
   /// what ProductAttributeDefinition below is keyed against.
-  category                    String
-  hsCode                      String?
-  unspscCode                  String?
+  category                        String
+  hsCode                          String?
+  unspscCode                      String?
   /// A representative/canonical GTIN where one clearly applies; a given
   /// commodity type may have many manufacturer-specific GTINs in practice —
   /// this is not meant to be exhaustive.
-  gtin                        String?
-  standardUnit                String?
+  gtin                            String?
+  standardUnit                    String?
   canonicalManufacturerPartNumber String?
-  expectedQualityDocumentation String? @db.NVarChar(Max)
+  expectedQualityDocumentation    String?       @db.NVarChar(Max)
   /// Where this entry's classification data originally came from — an
   /// explicit provenance trail given the mixed licensing landscape across
   /// sources. See allowed values reference above.
-  sourceStandard               String?
-  isArchived                   Boolean  @default(false)
+  sourceStandard                  String?
+  isArchived                      Boolean       @default(false)
   /// Attribution — added 2026-10-02 (sop-driven-quality-roadmap.md Section
   /// B1): which organisation originally contributed this entry, and in
   /// what capacity, so the standardised central catalogue still records
@@ -1619,23 +1622,23 @@ model ProductMaster {
   /// codes, WHO EML, etc.) that predates any org contribution. Not used
   /// for access control — ProductMaster stays globally readable/writable
   /// the same as today; this is a provenance tag only.
-  addedByOrganizationId        String?
-  addedByOrganization          Organization? @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addedByOrganizationId           String?
+  addedByOrganization             Organization? @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Denormalized copy of Organization.type at the moment of contribution
   /// (deliberately frozen, not a live lookup) — e.g. "PROCUREMENT_SERVICE_AGENT"
   /// for a procurement agent adding a product while building a project, vs.
   /// "MANUFACTURER" for a company adding its own. Frozen so the historical
   /// record of who-added-what-in-what-capacity doesn't silently change if
   /// an organisation's type is ever edited later.
-  addedByOrganizationType      String?
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  addedByOrganizationType         String?
+  createdAt                       DateTime      @default(now())
+  updatedAt                       DateTime      @updatedAt
 
-  attributeDefinitions ProductAttributeDefinition[]
-  projectLines         ProjectLine[]
-  productLines         ProductLine[]
-  priceHistory         ProductPriceHistory[]
-  supplierProducts     SupplierProduct[]
+  attributeDefinitions   ProductAttributeDefinition[]
+  projectLines           ProjectLine[]
+  productLines           ProductLine[]
+  priceHistory           ProductPriceHistory[]
+  supplierProducts       SupplierProduct[]
   productSourceApprovals ProductSourceApproval[]
   /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6.
   productBatches         ProductBatch[]
@@ -1657,15 +1660,15 @@ model ProductMaster {
 /// ProjectLine/ProductLine, keyed by category so it applies to every product
 /// in that category rather than needing a new database column per type.
 model ProductAttributeDefinition {
-  id            String  @id @default(uuid())
-  category      String
-  attributeKey  String
-  label         String
-  dataType      String  // see allowed values reference above
+  id           String  @id @default(uuid())
+  category     String
+  attributeKey String
+  label        String
+  dataType     String // see allowed values reference above
   /// JSON array of allowed values, only used when dataType == "ENUM".
-  enumOptions   String? @db.NVarChar(Max)
-  required      Boolean @default(false)
-  sortOrder     Int     @default(0)
+  enumOptions  String? @db.NVarChar(Max)
+  required     Boolean @default(false)
+  sortOrder    Int     @default(0)
 
   productMaster ProductMaster[]
 
@@ -1714,20 +1717,20 @@ model ExchangeRateSnapshot {
 /// trend-over-time reporting is a query away. Tenant-scoped (pricing IS
 /// commercially sensitive, unlike the shared ProductMaster catalog itself).
 model ProductPriceHistory {
-  id              String    @id @default(uuid())
+  id              String         @id @default(uuid())
   organizationId  String
   productLineId   String?
-  productLine     ProductLine? @relation(fields: [productLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productLine     ProductLine?   @relation(fields: [productLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   projectLineId   String?
-  projectLine     ProjectLine? @relation(fields: [projectLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projectLine     ProjectLine?   @relation(fields: [projectLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   productMasterId String?
   productMaster   ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  unitPrice       Decimal   @db.Decimal(18, 2)
-  currency        String    @db.Char(3)
-  effectiveDate   DateTime  @default(now())
+  unitPrice       Decimal        @db.Decimal(18, 2)
+  currency        String         @db.Char(3)
+  effectiveDate   DateTime       @default(now())
   recordedById    String?
-  recordedBy      User?     @relation(fields: [recordedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt       DateTime  @default(now())
+  recordedBy      User?          @relation(fields: [recordedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt       DateTime       @default(now())
 
   @@index([organizationId])
   @@index([productMasterId])
@@ -1760,27 +1763,27 @@ model ProductPriceHistory {
 /// sensitive, unlike ProductMaster itself) — RLS-protected, see
 /// infra/sql/row-level-security.sql.
 model ProductAmendment {
-  id              String    @id @default(uuid())
+  id              String        @id @default(uuid())
   organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   productMasterId String
   productMaster   ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// JSON object of the proposed field -> new value changes (same fields
   /// UpdateProductMasterDto accepts), stored verbatim and only applied to
   /// the live ProductMaster row on ratification.
-  proposedChanges String    @db.NVarChar(Max)
+  proposedChanges String        @db.NVarChar(Max)
   /// PENDING | APPROVED | REJECTED — see allowed values reference above
   /// convention used throughout this schema; enforced in application code.
-  status          String    @default("PENDING")
+  status          String        @default("PENDING")
   submittedById   String
-  submittedBy     User      @relation("ProductAmendmentSubmittedBy", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  submittedAt     DateTime  @default(now())
+  submittedBy     User          @relation("ProductAmendmentSubmittedBy", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  submittedAt     DateTime      @default(now())
   reviewedById    String?
-  reviewedBy      User?     @relation("ProductAmendmentReviewedBy", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedBy      User?         @relation("ProductAmendmentReviewedBy", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reviewedAt      DateTime?
-  reviewNotes     String?   @db.NVarChar(Max)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  reviewNotes     String?       @db.NVarChar(Max)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([organizationId])
   @@index([productMasterId])
@@ -1797,7 +1800,7 @@ model ProductAmendment {
 // ---------------------------------------------------------------------------
 
 model Region {
-  code String    @id // e.g. "AFRO", "AMRO", "EMRO", "EURO", "SEARO", "WPRO"
+  code String @id // e.g. "AFRO", "AMRO", "EMRO", "EURO", "SEARO", "WPRO"
   name String
 
   countries Country[]
@@ -1824,7 +1827,7 @@ model Country {
   supplierCountryPresence SupplierCountryPresence[]
 
   // Onboarding data model, 2026-09-26
-  organizationsRegisteredHere Organization[] @relation("OrganizationCountryOfRegistration")
+  organizationsRegisteredHere Organization[]                 @relation("OrganizationCountryOfRegistration")
   organizationCountryPresence OrganizationCountryPresence[]
   manufacturerSites           OrganizationManufacturerSite[]
 
@@ -1849,8 +1852,8 @@ model Country {
 /// this row by platform staff — not a new row (the Insights ETL only ever
 /// needs to know the CURRENT state, not history).
 model DataSharingConsent {
-  id             String    @id @default(uuid())
-  organizationId String    @unique
+  id             String       @id @default(uuid())
+  organizationId String       @unique
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Which data categories this org's agreement covers — JSON array, e.g.
   /// ["pricing","specifications","quality"]. Defaults to
@@ -1858,11 +1861,11 @@ model DataSharingConsent {
   /// org since the current terms are blanket, not pick-and-choose; kept as a
   /// scoped list (not a boolean) so a future narrower terms version has
   /// somewhere to go without a schema change.
-  scope          String    @db.NVarChar(Max)
+  scope          String       @db.NVarChar(Max)
   termsVersion   String
   acceptedById   String?
-  acceptedBy     User?     @relation(fields: [acceptedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  acceptedAt     DateTime  @default(now())
+  acceptedBy     User?        @relation(fields: [acceptedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  acceptedAt     DateTime     @default(now())
   revokedAt      DateTime?
 
   @@map("data_sharing_consents")
@@ -1893,15 +1896,15 @@ model DataSharingConsent {
 /// searchable/visible to other organizations until publishedAt is set
 /// (lets a supplier complete onboarding before appearing live).
 model SupplierProfile {
-  id             String    @id @default(uuid())
-  organizationId String    @unique
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  description    String?   @db.NVarChar(Max)
-  website        String?
-  contactName    String?
-  contactEmail   String?
-  contactPhone   String?
-  publishedAt    DateTime?
+  id                                String       @id @default(uuid())
+  organizationId                    String       @unique
+  organization                      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  description                       String?      @db.NVarChar(Max)
+  website                           String?
+  contactName                       String?
+  contactEmail                      String?
+  contactPhone                      String?
+  publishedAt                       DateTime?
   /// Supplier/Distributor onboarding fields, added 2026-09-26 — see
   /// claude/org-onboarding-data-model.md's "Supplier / Distributor" section.
   /// Stored here rather than a new table since SupplierProfile is already
@@ -1909,13 +1912,13 @@ model SupplierProfile {
   /// orgs share this same table (see ManufacturerProfile's doc comment) but
   /// these four fields are only meaningful for SUPPLIER and are expected to
   /// stay null on a manufacturer's row.
-  principalManufacturersRepresented String? @db.NVarChar(Max) // JSON string array
+  principalManufacturersRepresented String?      @db.NVarChar(Max) // JSON string array
   wholesaleDistributionLicense      String?
   /// See allowed values reference above.
   warehousingCapability             String?
   yearsInOperation                  Int?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt                         DateTime     @default(now())
+  updatedAt                         DateTime     @updatedAt
 
   @@map("supplier_profiles")
 }
@@ -1924,12 +1927,12 @@ model SupplierProfile {
 /// is Country- not just Region-grained (Region is always derivable via
 /// Country.regionCode when a coarser view is useful). Many rows per org.
 model SupplierCountryPresence {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   countryCode    String
-  country        Country  @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
-  createdAt      DateTime @default(now())
+  country        Country      @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime     @default(now())
 
   @@unique([organizationId, countryCode])
   @@map("supplier_country_presence")
@@ -1941,31 +1944,31 @@ model SupplierCountryPresence {
 /// search-and-add flow can resolve it against the same category taxonomy.
 /// Not visible in search until isPublished is true.
 model SupplierProduct {
-  id                String    @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  name              String
-  description       String?   @db.NVarChar(Max)
-  productMasterId   String?
-  productMaster     ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                     String         @id @default(uuid())
+  organizationId         String
+  organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name                   String
+  description            String?        @db.NVarChar(Max)
+  productMasterId        String?
+  productMaster          ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Category-specific spec values, same JSON-keyed-by-ProductAttributeDefinition
   /// pattern as ProjectLine/ProductLine.attributes — validated at the app
   /// layer against the matched category's definitions.
-  specifications    String?   @db.NVarChar(Max)
-  gtin              String?
+  specifications         String?        @db.NVarChar(Max)
+  gtin                   String?
   manufacturerPartNumber String?
-  isPublished       Boolean   @default(false)
-  createdById       String?
-  createdBy         User?     @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  isPublished            Boolean        @default(false)
+  createdById            String?
+  createdBy              User?          @relation(fields: [createdById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
   /// Opposite side of SupplierLead.supplierProduct — required by Prisma even
   /// though nothing here navigates supplier->leads directly today (that read
   /// goes through SupplierDirectoryService, same pattern as the RLS-skipped
   /// access on this table's parent model). Missing this broke `prisma
   /// generate` outright (P1012) as of the commit that added SupplierLead —
   /// caught via CI failing on every push since, not by re-reading the schema.
-  leads             SupplierLead[]
+  leads                  SupplierLead[]
 
   @@index([organizationId])
   @@index([productMasterId])
@@ -1980,14 +1983,14 @@ model SupplierProduct {
 /// able to see WHO is interested, that's the point of exposure), but never
 /// gives the supplier write/read access into the buyer's own tenant data.
 model SupplierLead {
-  id                 String   @id @default(uuid())
+  id                     String          @id @default(uuid())
   supplierOrganizationId String
-  supplierOrganization   Organization @relation("SupplierLeadSupplier", fields: [supplierOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierOrganization   Organization    @relation("SupplierLeadSupplier", fields: [supplierOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   buyerOrganizationId    String
-  buyerOrganization      Organization @relation("SupplierLeadBuyer", fields: [buyerOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supplierProductId  String
-  supplierProduct    SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt          DateTime @default(now())
+  buyerOrganization      Organization    @relation("SupplierLeadBuyer", fields: [buyerOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplierProductId      String
+  supplierProduct        SupplierProduct @relation(fields: [supplierProductId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt              DateTime        @default(now())
 
   @@index([supplierOrganizationId])
   @@index([buyerOrganizationId])
@@ -2017,12 +2020,12 @@ model SupplierLead {
 /// marketplace's "countries of distribution" (a narrower, publish-facing
 /// concept) — this one is the general onboarding fact for any org type.
 model OrganizationCountryPresence {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   countryCode    String
-  country        Country  @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
-  createdAt      DateTime @default(now())
+  country        Country      @relation(fields: [countryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime     @default(now())
 
   @@unique([organizationId, countryCode])
   @@map("organization_country_presence")
@@ -2034,13 +2037,13 @@ model OrganizationCountryPresence {
 /// onboarding-pilot-design-notes.md for the original research trail); the
 /// field list here is that pilot's proven content, not a first guess.
 model ProcurementAgentProfile {
-  id                           String    @id @default(uuid())
-  organizationId               String    @unique
+  id                           String       @id @default(uuid())
+  organizationId               String       @unique
   organization                 Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fundersProgramsOperatedUnder String?   @db.NVarChar(Max) // JSON string array
-  productCategoriesProcured    String?   @db.NVarChar(Max) // JSON string array
-  clientTypesServed            String?   @db.NVarChar(Max) // JSON string array
-  accreditations               String?   @db.NVarChar(Max) // JSON string array
+  fundersProgramsOperatedUnder String?      @db.NVarChar(Max) // JSON string array
+  productCategoriesProcured    String?      @db.NVarChar(Max) // JSON string array
+  clientTypesServed            String?      @db.NVarChar(Max) // JSON string array
+  accreditations               String?      @db.NVarChar(Max) // JSON string array
   /// See allowed values reference above.
   logisticsCapability          String?
   yearsOperatingInRole         Int?
@@ -2048,11 +2051,11 @@ model ProcurementAgentProfile {
   /// original field list) — see onboarding-pilot-design-notes.md. Free text rather than a
   /// fully structured policy record; revisit if this needs to be queried on
   /// (e.g. "which agents have cover expiring soon").
-  insuranceCoverSummary        String?   @db.NVarChar(Max)
+  insuranceCoverSummary        String?      @db.NVarChar(Max)
   insuranceExpiryDate          DateTime?
-  trackRecordSummary           String?   @db.NVarChar(Max)
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  trackRecordSummary           String?      @db.NVarChar(Max)
+  createdAt                    DateTime     @default(now())
+  updatedAt                    DateTime     @updatedAt
 
   @@map("procurement_agent_profiles")
 }
@@ -2060,12 +2063,12 @@ model ProcurementAgentProfile {
 /// TENDERING_PURCHASING_BODY detail — see org-onboarding-data-model.md's
 /// "Tendering & Purchasing Body" section.
 model TenderingBodyProfile {
-  id                             String   @id @default(uuid())
-  organizationId                 String   @unique
-  organization                   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                             String        @id @default(uuid())
+  organizationId                 String        @unique
+  organization                   Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// See allowed values reference above.
   bodyType                       String?
-  fundingSources                 String?  @db.NVarChar(Max) // JSON string array
+  fundingSources                 String?       @db.NVarChar(Max) // JSON string array
   hasDirectProcurementAuthority  Boolean?
   /// Whether this body runs its own tenders directly or hands that work to
   /// a procurement agent. Deliberately just a fact-capture field, NOT an
@@ -2074,13 +2077,13 @@ model TenderingBodyProfile {
   /// get visibility into an agent's project data even when this is true.
   /// This is the seed for that relationship being recorded at all, not the
   /// seed of a permission.
-  usesExternalProcurementAgent   Boolean  @default(false)
+  usesExternalProcurementAgent   Boolean       @default(false)
   procurementAgentOrganizationId String?
   procurementAgentOrganization   Organization? @relation("TenderingBodyProcurementAgent", fields: [procurementAgentOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  diseaseProgramAreas            String?  @db.NVarChar(Max) // JSON string array
-  scaleServedSummary             String?  @db.NVarChar(Max)
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @updatedAt
+  diseaseProgramAreas            String?       @db.NVarChar(Max) // JSON string array
+  scaleServedSummary             String?       @db.NVarChar(Max)
+  createdAt                      DateTime      @default(now())
+  updatedAt                      DateTime      @updatedAt
 
   @@map("tendering_body_profiles")
 }
@@ -2122,30 +2125,30 @@ model TenderingBodyProfile {
 
 /// See the section header comment above for the full design rationale.
 model StakeholderRegistryEntry {
-  id   String @id @default(uuid())
+  id                   String        @id @default(uuid())
   /// Same normalize() convention as Partner.normalizedName (lowercased,
   /// legal-suffix-stripped) — the primary fuzzy-matching key.
-  normalizedName String
+  normalizedName       String
   /// As originally entered by whichever organisation (or the company
   /// itself) first created this entry — kept distinct from normalizedName
   /// so the lightbox/preview can show a real, readable name.
-  legalName      String
-  countryCode    String?
-  website        String?
+  legalName            String
+  countryCode          String?
+  website              String?
   /// Companies House (or equivalent national) reference — the strongest
   /// single matching signal when present, since it's an external
   /// identifier rather than a fuzzy name/country guess.
-  registrationNumber String?
+  registrationNumber   String?
   /// A second strong, external matching signal alongside
   /// registrationNumber — equally unique to one company. Added 2026-10-03
   /// so autopopulate/duplicate-prevention also triggers off VAT number,
   /// not just name and registration number.
-  vatNumber String?
+  vatNumber            String?
   /// JSON string array of PartnerRole.roleType values this entry has ever
   /// been referenced as (e.g. ["MANUFACTURER","SUPPLIER"]) — a real-world
   /// company can be onboarded under more than one stakeholder type across
   /// different organisations, or even within one.
-  stakeholderTypes String @db.NVarChar(Max)
+  stakeholderTypes     String        @db.NVarChar(Max)
   /// Set once/if this real-world company registers its own Universe
   /// organisation and the match is confirmed (reconciled automatically
   /// when that Organization publishes a SupplierProfile/ManufacturerProfile
@@ -2156,8 +2159,8 @@ model StakeholderRegistryEntry {
   /// isIdentityPublic().
   linkedOrganizationId String?
   linkedOrganization   Organization? @relation(fields: [linkedOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   partners Partner[]
 
@@ -2169,26 +2172,26 @@ model StakeholderRegistryEntry {
 }
 
 model ManufacturerProfile {
-  id                             String   @id @default(uuid())
-  organizationId                 String   @unique
-  organization                   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productCategoriesManufactured  String?  @db.NVarChar(Max) // JSON string array
+  id                            String       @id @default(uuid())
+  organizationId                String       @unique
+  organization                  Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productCategoriesManufactured String?      @db.NVarChar(Max) // JSON string array
   /// WHO Prequalification status — see ProductSourceStandard's doc comment
   /// in enums.ts for why WHO PQ *product* data isn't imported yet; this is
   /// a separate, simpler fact about the manufacturer itself, not the data
   /// import question.
-  whoPrequalified                Boolean  @default(false)
-  sraApprovals                   String?  @db.NVarChar(Max) // JSON string array — which Stringent Regulatory Authorities
-  nationalRegistrations          String?  @db.NVarChar(Max) // JSON string array of country codes
-  otherCertifications            String?  @db.NVarChar(Max) // JSON string array
-  productionCapacitySummary      String?  @db.NVarChar(Max)
-  currentExportMarkets           String?  @db.NVarChar(Max) // JSON string array of country codes
+  whoPrequalified               Boolean      @default(false)
+  sraApprovals                  String?      @db.NVarChar(Max) // JSON string array — which Stringent Regulatory Authorities
+  nationalRegistrations         String?      @db.NVarChar(Max) // JSON string array of country codes
+  otherCertifications           String?      @db.NVarChar(Max) // JSON string array
+  productionCapacitySummary     String?      @db.NVarChar(Max)
+  currentExportMarkets          String?      @db.NVarChar(Max) // JSON string array of country codes
   /// The active African local-manufacturing policy push flagged in
   /// stakeholder-taxonomy-research.md section 1e — a simple flag rather
   /// than modeling policy eligibility rules, which are out of scope here.
-  isLocalManufacturer            Boolean  @default(false)
-  createdAt                      DateTime @default(now())
-  updatedAt                      DateTime @updatedAt
+  isLocalManufacturer           Boolean      @default(false)
+  createdAt                     DateTime     @default(now())
+  updatedAt                     DateTime     @updatedAt
 
   @@map("manufacturer_profiles")
 }
@@ -2197,15 +2200,15 @@ model ManufacturerProfile {
 /// independently certified, per org-onboarding-data-model.md. Many-to-one
 /// with Organization (not 1:1 like the profile tables above).
 model OrganizationManufacturerSite {
-  id                     String   @id @default(uuid())
+  id                     String       @id @default(uuid())
   organizationId         String
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   locationCountryCode    String?
-  locationCountry        Country? @relation(fields: [locationCountryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  locationCountry        Country?     @relation(fields: [locationCountryCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
   locationDetail         String?
-  gmpCertified           Boolean  @default(false)
-  gmpCertificationDetail String?  @db.NVarChar(Max)
-  createdAt              DateTime @default(now())
+  gmpCertified           Boolean      @default(false)
+  gmpCertificationDetail String?      @db.NVarChar(Max)
+  createdAt              DateTime     @default(now())
 
   @@index([organizationId])
   @@map("manufacturer_sites")
@@ -2220,13 +2223,13 @@ model OrganizationManufacturerSite {
 /// live without pretending a real field list exists yet. Expect this table
 /// to change shape once that design pass happens.
 model FunderProfile {
-  id                String   @id @default(uuid())
-  organizationId    String   @unique
+  id                String       @id @default(uuid())
+  organizationId    String       @unique
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  fundingFocusAreas String?  @db.NVarChar(Max) // JSON string array
-  notes             String?  @db.NVarChar(Max)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  fundingFocusAreas String?      @db.NVarChar(Max) // JSON string array
+  notes             String?      @db.NVarChar(Max)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@map("funder_profiles")
 }
@@ -2239,19 +2242,19 @@ model FunderProfile {
 /// worth building before any Data/Insights org actually exists on the
 /// platform; revisit if/when one does.
 model DataInsightsUserProfile {
-  id                         String    @id @default(uuid())
-  organizationId             String    @unique
+  id                         String       @id @default(uuid())
+  organizationId             String       @unique
   organization               Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// See allowed values reference above.
   institutionType            String?
   affiliatedInstitution      String?
-  purposeIntendedUse         String?   @db.NVarChar(Max)
-  publicationIntent          String?   @db.NVarChar(Max)
+  purposeIntendedUse         String?      @db.NVarChar(Max)
+  publicationIntent          String?      @db.NVarChar(Max)
   fundingSourceOfResearch    String?
   dataUseAgreementVersion    String?
   dataUseAgreementAcceptedAt DateTime?
-  createdAt                  DateTime  @default(now())
-  updatedAt                  DateTime  @updatedAt
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
 
   @@map("data_insights_user_profiles")
 }
@@ -2290,40 +2293,40 @@ model DataInsightsUserProfile {
 /// platform-staff-only correction mechanism, if one is ever needed, should
 /// be a NEW row referencing the old one, never an edit/delete of history.)
 model FieldChangeLog {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                     String       @id @default(uuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// The Prisma @@map table name being audited, e.g. "projects",
   /// "project_lines", "partners" — free text by design (not an enum),
   /// since this log is meant to cover every tenant table over time
   /// without a schema change each time a new one is wired in.
-  tableName      String
-  recordId       String
-  fieldName      String
+  tableName              String
+  recordId               String
+  fieldName              String
   /// Stringified before/after values (Dates as ISO, numbers/decimals via
   /// their own toString()) — see diffForAudit()'s normalize() helper. Not
   /// typed per-field on purpose: a generic log can't know every table's
   /// column types, and a human-readable string is sufficient for an audit
   /// review, which is this table's entire purpose.
-  oldValue       String?      @db.NVarChar(Max)
-  newValue       String?      @db.NVarChar(Max)
-  changedById    String?
-  changedAt      DateTime     @default(now())
+  oldValue               String?      @db.NVarChar(Max)
+  newValue               String?      @db.NVarChar(Max)
+  changedById            String?
+  changedAt              DateTime     @default(now())
   /// Free-text reason, where the caller supplied one (not every change
   /// has or needs one — a required-reason policy, if wanted, belongs in
   /// the DTO/service layer, not enforced here).
-  reason         String?      @db.NVarChar(Max)
+  reason                 String?      @db.NVarChar(Max)
   /// UI | API | MIGRATION | SYSTEM — which path produced this change.
   /// Defaults to "API" (recordFieldChanges()'s default) since that's the
   /// only path wired in today; MIGRATION/SYSTEM are reserved for a
   /// one-off backfill or scheduled job that changes data without a human
   /// request behind it.
-  source         String       @default("API")
+  source                 String       @default("API")
   /// Gap 2 — when this row represents an approval/verification action
   /// ("e-signature" in Part 11/Annex 11 terms), the exact certification
   /// statement text shown to the signer at that moment, captured verbatim.
   /// Null for an ordinary field edit with no certification semantics.
-  certificationStatement String? @db.NVarChar(Max)
+  certificationStatement String?      @db.NVarChar(Max)
 
   @@index([organizationId])
   @@index([tableName, recordId])
@@ -2387,9 +2390,9 @@ model RiskAssessment {
 /// workflows, same "core scaffolding, not a full process suite"
 /// principle as every other gap closed in this build.
 model ControlledDocument {
-  id             String       @id @default(uuid())
+  id             String              @id @default(uuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   title          String
   /// Free text, same convention as EvidenceStandardDefinition.category —
   /// e.g. "QUALITY_MANUAL", "SOP", "POLICY", "WORK_INSTRUCTION".
@@ -2415,21 +2418,21 @@ model ControlledDocument {
   /// document with no predecessor. The @unique attribute below is kept
   /// as-is since it still correctly describes the 1:1 relationship
   /// Prisma needs for supersedes/supersededBy typing.
-  supersedesId    String?              @unique
-  supersedes      ControlledDocument?  @relation("ControlledDocumentSupersedes", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  supersededBy    ControlledDocument?  @relation("ControlledDocumentSupersedes")
+  supersedesId   String?             @unique
+  supersedes     ControlledDocument? @relation("ControlledDocumentSupersedes", fields: [supersedesId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supersededBy   ControlledDocument? @relation("ControlledDocumentSupersedes")
   approvedById   String?
-  approvedBy     User?        @relation(fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedBy     User?               @relation(fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   approvedAt     DateTime?
   /// Optional link to the actual file (Blob Storage, same as every other
   /// document reference in the schema) — nullable since a register entry
   /// can exist (e.g. recording a historical version) before or without
   /// the file itself being uploaded.
   documentId     String?
-  document       ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  document       ProjectDocument?    @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdById    String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@index([organizationId])
   @@index([organizationId, category])
@@ -2473,38 +2476,38 @@ model ControlledDocument {
 /// blueprint baked into code for every tenant. See
 /// sop-driven-quality-roadmap.md "Proposed core scaffolding", item 1.
 model EvidenceStandardDefinition {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  name           String
-  description    String?      @db.NVarChar(Max)
+  id                            String       @id @default(uuid())
+  organizationId                String
+  organization                  Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name                          String
+  description                   String?      @db.NVarChar(Max)
   /// QUALITY | BUSINESS | FINANCIAL | REGULATORY | INSURANCE | OTHER — see
   /// EvidenceStandardCategory in packages/db/src/enums.ts.
-  category       String
+  category                      String
   /// Comma-joined PartnerRoleType values this standard applies to (e.g.
   /// "MANUFACTURER,SUPPLIER") — same multiselect-as-comma-joined-string
   /// convention as ClientDetail.productCategoryLicenses, since the SQL
   /// Server connector has no native array/set column type.
-  appliesToStakeholderTypes String  @db.NVarChar(Max)
+  appliesToStakeholderTypes     String       @db.NVarChar(Max)
   /// DOCUMENT | CHECK — see EvidenceType in packages/db/src/enums.ts;
   /// drives which fields the frontend's "log evidence" form shows.
-  evidenceType   String
+  evidenceType                  String
   /// Drives gating: Partner.approvalStatus cannot move to APPROVED while
   /// any isMandatory standard applicable to that partner's active roles
   /// has no StakeholderEvidenceRecord with status VERIFIED (and, if
   /// requiresExpiry, a non-expired one) — see EvidenceService.getGateStatus.
-  isMandatory    Boolean      @default(true)
-  requiresExpiry Boolean      @default(false)
+  isMandatory                   Boolean      @default(true)
+  requiresExpiry                Boolean      @default(false)
   /// When set, a VERIFIED record against this standard is flagged as due
   /// for re-verification this many months after its own verifiedAt — the
   /// generic mechanism behind "annual Bona Fide recheck", "annual customer
   /// requalification", and freight-forwarder route requalification alike,
   /// rather than a bespoke field/feature per case.
   reVerificationFrequencyMonths Int?
-  active         Boolean      @default(true)
-  sortOrder      Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  active                        Boolean      @default(true)
+  sortOrder                     Int          @default(0)
+  createdAt                     DateTime     @default(now())
+  updatedAt                     DateTime     @updatedAt
 
   evidenceRecords StakeholderEvidenceRecord[]
 
@@ -2524,29 +2527,29 @@ model EvidenceStandardDefinition {
 /// new write path going forward, usable immediately for any standard an
 /// org adds to its own catalog.
 model StakeholderEvidenceRecord {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  partnerId      String
-  partner        Partner      @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  standardId     String
-  standard       EvidenceStandardDefinition @relation(fields: [standardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String                     @id @default(uuid())
+  organizationId  String
+  organization    Organization               @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  partnerId       String
+  partner         Partner                    @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  standardId      String
+  standard        EvidenceStandardDefinition @relation(fields: [standardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   referenceNumber String?
-  issuingBody    String?
-  issuedDate     DateTime?
-  expiryDate     DateTime?
+  issuingBody     String?
+  issuedDate      DateTime?
+  expiryDate      DateTime?
   /// Only meaningful for evidenceType == CHECK — YES | NO | NOT_APPLICABLE,
   /// same convention as PartnerCompanyCheck.result.
-  result         String?
-  documentId     String?
-  document       ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  result          String?
+  documentId      String?
+  document        ProjectDocument?           @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// PENDING | VERIFIED | EXPIRED | REJECTED — see EvidenceRecordStatus.
-  status         String       @default("PENDING")
-  verifiedById   String?
-  verifiedAt     DateTime?
-  notes          String?      @db.NVarChar(Max)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status          String                     @default("PENDING")
+  verifiedById    String?
+  verifiedAt      DateTime?
+  notes           String?                    @db.NVarChar(Max)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
 
   @@index([organizationId])
   @@index([partnerId])
@@ -2562,35 +2565,35 @@ model StakeholderEvidenceRecord {
 /// See sop-driven-quality-roadmap.md "Full batch-level traceability for
 /// pharma projects".
 model ProductBatch {
-  id                              String        @id @default(uuid())
-  organizationId                  String
-  organization                    Organization  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productMasterId                 String?
-  productMaster                   ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  manufacturerId                  String?
-  manufacturer                    Partner?      @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  batchNumber                     String
-  manufacturedDate                DateTime?
-  expiryDate                      DateTime?
-  storageConditions               String?
+  id                             String         @id @default(uuid())
+  organizationId                 String
+  organization                   Organization   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId                String?
+  productMaster                  ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manufacturerId                 String?
+  manufacturer                   Partner?       @relation(fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  batchNumber                    String
+  manufacturedDate               DateTime?
+  expiryDate                     DateTime?
+  storageConditions              String?
   /// Which regulatory pathway qualified this batch — same allowed values
   /// as ProjectLine.qualificationPathway (WHO PQ / SRA / ERP), moved here
   /// as the canonical per-batch record rather than re-entered per line.
-  qualificationPathway            String?
-  qualificationPathwayExpiryDate  DateTime?
+  qualificationPathway           String?
+  qualificationPathwayExpiryDate DateTime?
   /// Marketing Authorization / Product License number.
-  maPl                            String?
+  maPl                           String?
   /// ACTIVE | QUARANTINED | EXPIRED | WITHDRAWN — see ProductBatchStatus.
   /// Tracked once per batch instead of per line, so quarantining a batch
   /// is a single update that's visible everywhere that batch is referenced.
-  status                          String        @default("ACTIVE")
-  notes                           String?       @db.NVarChar(Max)
-  createdById                     String?
-  createdAt                       DateTime      @default(now())
-  updatedAt                       DateTime      @updatedAt
+  status                         String         @default("ACTIVE")
+  notes                          String?        @db.NVarChar(Max)
+  createdById                    String?
+  createdAt                      DateTime       @default(now())
+  updatedAt                      DateTime       @updatedAt
 
-  projectLines      ProjectLine[]
-  temperatureLogs   BatchTemperatureLog[]
+  projectLines    ProjectLine[]
+  temperatureLogs BatchTemperatureLog[]
 
   @@index([organizationId])
   @@index([organizationId, batchNumber])
@@ -2607,29 +2610,74 @@ model ProductBatch {
 /// its own child table, scoped to the batch (the WHO/EU GDP-relevant unit)
 /// rather than the commercial line.
 model BatchTemperatureLog {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productBatchId String
-  productBatch   ProductBatch @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productBatchId  String
+  productBatch    ProductBatch @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Optional — which specific shipment/delivery this reading belongs to,
   /// when the batch has been linked to one or more ProjectLines.
-  projectLineId  String?
+  projectLineId   String?
   loggerReference String?
   /// Free-text summary of the logger's reading/report for now (e.g. "2-8C
   /// maintained throughout, no excursions" or "+11C for 40min at hr 6") —
   /// a structured min/max/duration time-series is a larger, separate
   /// build (full IoT logger ingestion) this doesn't attempt.
-  readingSummary String?      @db.NVarChar(Max)
-  hasExcursion   Boolean      @default(false)
-  excursionNotes String?      @db.NVarChar(Max)
-  reviewed       Boolean      @default(false)
-  reviewedById   String?
-  reviewedAt     DateTime?
-  recordedAt     DateTime     @default(now())
-  createdAt      DateTime     @default(now())
+  readingSummary  String?      @db.NVarChar(Max)
+  hasExcursion    Boolean      @default(false)
+  excursionNotes  String?      @db.NVarChar(Max)
+  reviewed        Boolean      @default(false)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  recordedAt      DateTime     @default(now())
+  createdAt       DateTime     @default(now())
 
   @@index([organizationId])
   @@index([productBatchId])
   @@map("batch_temperature_logs")
+}
+
+/// An in-app notification OR action item addressed to ONE user (added
+/// 2026-10-16). Account-aware by construction: every row belongs to a
+/// recipient and the recipient's organisation, and the API only ever reads
+/// rows WHERE recipientUserId = the signed-in user. Tenant-scoped (RLS).
+///
+/// Two flavours share the table:
+///  - plain notifications (requiresAction = false): "you were added to
+///    project X", "project Y moved to Awarded". Read/unread only.
+///  - actions (requiresAction = true): something a colleague asked this user
+///    to do. actionStatus OPEN -> DONE (completedAt set), optional dueDate.
+///
+/// kind (free text, app-defined): PROJECT_ASSIGNED, PROJECT_STATUS_CHANGED,
+/// ACTION_ASSIGNED, ACTION_COMPLETED. category groups them for the user's
+/// "Actions" view: PROJECT (more to come: QUALITY, LOGISTICS, RISK).
+/// link is an in-app path ("/projects/detail?id=..."); subjectType/subjectId
+/// identify the record it is about. Rows are never hard-deleted by the app.
+model Notification {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  recipientUserId String
+  recipient       User         @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actorUserId     String?
+  actor           User?        @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind            String
+  category        String       @default("PROJECT")
+  title           String       @db.NVarChar(300)
+  body            String?      @db.NVarChar(1000)
+  link            String?      @db.NVarChar(500)
+  subjectType     String?
+  subjectId       String?
+  requiresAction  Boolean      @default(false)
+  /// OPEN | DONE — only set when requiresAction.
+  actionStatus    String?
+  dueDate         DateTime?
+  readAt          DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+
+  @@index([recipientUserId, readAt])
+  @@index([recipientUserId, requiresAction, actionStatus])
+  @@index([organizationId])
+  @@map("notifications")
 }

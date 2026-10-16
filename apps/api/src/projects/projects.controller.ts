@@ -6,6 +6,7 @@ import { CreateProjectDto } from "./dto/create-project.dto";
 import { UpdateProjectDto } from "./dto/update-project.dto";
 import { ProjectLineDto } from "./dto/project-line.dto";
 import { AddProjectLeadDto } from "./dto/add-project-lead.dto";
+import { AssignProjectActionDto } from "./dto/assign-project-action.dto";
 import { AddProjectContactDto } from "./dto/add-project-contact.dto";
 import { ProjectsService } from "./projects.service";
 
@@ -93,6 +94,11 @@ export class ProjectsController {
   @Delete(":id/leads/:userId")
   removeLead(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("userId") userId: string) {
     return this.projectsService.removeLead(user, id, userId);
+  }
+
+  @Post(":id/actions")
+  assignAction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AssignProjectActionDto) {
+    return this.projectsService.assignAction(user, id, dto);
   }
 
   @Post(":id/contacts")

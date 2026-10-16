@@ -21,6 +21,7 @@ import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights
 import { ProductSourcingInsightsModule } from "./product-sourcing-insights/product-sourcing-insights.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { BrandingModule } from "./branding/branding.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { BrandingModule } from "./branding/branding.module";
     ProductSourcingInsightsModule,
     ContactsModule,
     BrandingModule,
+    NotificationsModule,
   ],
   controllers: [MeController],
 })

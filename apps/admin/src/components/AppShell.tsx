@@ -13,19 +13,20 @@ import {
   readableTextOn,
   Breadcrumbs,
   MobileBrand,
+  NotificationBell,
   DashboardIcon,
   BuildingIcon,
   UserIcon,
   ShieldIcon,
   ClockIcon,
   LogoutIcon,
-  BellIcon,
   SearchIcon,
 } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
 import { useBranding } from "../lib/useBranding";
+import { apiClient } from "../lib/apiClient";
 
 /** Route → nav + breadcrumb metadata, in one place — same convention as
  * apps/product-database/src/components/AppShell.tsx's ROUTES table. */
@@ -237,9 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
                   <SearchIcon size={18} />
                 </span>
-                <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Notifications">
-                  <BellIcon size={18} />
-                </span>
+                <NotificationBell api={apiClient} LinkComponent={Link} />
                 <div
                   style={{
                     display: "flex",

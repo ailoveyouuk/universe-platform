@@ -34,6 +34,10 @@ export function ProjectTeam({
 }) {
   const [addingLeadId, setAddingLeadId] = useState<string>("");
   const [addingContactId, setAddingContactId] = useState<string>("");
+  const [actionAssignee, setActionAssignee] = useState<string>("");
+  const [actionTitle, setActionTitle] = useState("");
+  const [actionDue, setActionDue] = useState("");
+  const [actionNote, setActionNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +54,25 @@ export function ProjectTeam({
       setAddingLeadId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add lead");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function assignAction() {
+    if (!actionAssignee || !actionTitle.trim()) return;
+    setBusy(true);
+    setError(null);
+    setActionNote(null);
+    try {
+      await apiClient.assignProjectAction(project.id, { assigneeUserId: actionAssignee, title: actionTitle.trim(), ...(actionDue ? { dueDate: actionDue } : {}) });
+      const who = users.find((u) => u.id === actionAssignee);
+      setActionNote(`Sent to ${who ? `${who.forename} ${who.surname}` : "them"} — it’s now in their actions.`);
+      setActionTitle("");
+      setActionDue("");
+      setActionAssignee("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to assign action");
     } finally {
       setBusy(false);
     }
@@ -171,6 +194,39 @@ export function ProjectTeam({
             </Button>
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 6px" }}>Assign an action</h3>
+        <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, margin: "0 0 8px" }}>Ask a colleague in your organisation to do something on this project. It appears in their notifications and on their dashboard.</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <Select
+            value={actionAssignee}
+            onChange={setActionAssignee}
+            options={users.map((u) => ({ value: u.id, label: `${u.forename} ${u.surname}` }))}
+            allLabel="Assign to…"
+            ariaLabel="Assign action to"
+          />
+          <input
+            value={actionTitle}
+            onChange={(e) => setActionTitle(e.target.value)}
+            maxLength={200}
+            placeholder="What needs doing?"
+            aria-label="Action"
+            style={{ flex: "1 1 220px", minWidth: 0, padding: "8px 10px", fontSize: 13, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", background: "var(--u-surface)", color: "var(--u-ink)" }}
+          />
+          <input
+            type="date"
+            value={actionDue}
+            onChange={(e) => setActionDue(e.target.value)}
+            aria-label="Due date"
+            style={{ padding: "7px 10px", fontSize: 13, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", background: "var(--u-surface)", color: "var(--u-ink)" }}
+          />
+          <Button variant="primary" size="sm" accent="var(--u-org-accent, var(--u-brand-violet))" disabled={!actionAssignee || !actionTitle.trim() || busy} onClick={assignAction}>
+            Assign
+          </Button>
+        </div>
+        {actionNote && <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, marginTop: 6 }}>{actionNote}</p>}
       </div>
     </div>
   );
