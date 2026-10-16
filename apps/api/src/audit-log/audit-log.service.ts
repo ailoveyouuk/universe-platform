@@ -128,10 +128,15 @@ export class AuditLogService {
     const orgId = isPlatform ? q.organizationId : user.organizationId;
     if (!isPlatform) assertCanManageOrg(user, user.organizationId, "org.users.manage");
     const limit = Math.min(Math.max(q.limit ?? 50, 1), 100);
-    let before: Date | undefined;
+    // Cursor is "<ISO changedAt>|<id>" so rows sharing an identical timestamp
+    // (bulk backfills, one request writing several fields) are neither skipped
+    // nor repeated across pages.
+    let cursor: { at: Date; id: string } | undefined;
     if (q.before) {
-      before = new Date(q.before);
-      if (Number.isNaN(before.getTime())) throw new BadRequestException("before must be an ISO date");
+      const [iso, id = ""] = q.before.split("|");
+      const at = new Date(iso);
+      if (Number.isNaN(at.getTime())) throw new BadRequestException("before must be a cursor returned by this endpoint");
+      cursor = { at, id };
     }
     const run = <T,>(fn: (tx: any) => Promise<T>): Promise<T> =>
       isPlatform ? withPlatformStaffContext(fn) : withTenantContext(user.organizationId, fn);
@@ -140,10 +145,12 @@ export class AuditLogService {
     if (orgId) where.organizationId = orgId;
     if (q.tableName) where.tableName = q.tableName;
     if (q.changedById) where.changedById = q.changedById;
-    if (before) where.changedAt = { lt: before };
+    if (cursor) {
+      where.OR = [{ changedAt: { lt: cursor.at } }, { changedAt: cursor.at, id: { lt: cursor.id } }];
+    }
 
     const rows: FieldChangeLogRow[] & { organizationId: string }[] = await run((tx) =>
-      tx.fieldChangeLog.findMany({ where, orderBy: { changedAt: "desc" }, take: limit + 1 }),
+      tx.fieldChangeLog.findMany({ where, orderBy: [{ changedAt: "desc" }, { id: "desc" }], take: limit + 1 }),
     );
     const hasMore = rows.length > limit;
     const page = hasMore ? rows.slice(0, limit) : rows;
@@ -178,6 +185,6 @@ export class AuditLogService {
       organizationName: orgName.get(r.organizationId) ?? null,
       recordLabel: labelFor(r.tableName, r.recordId),
     }));
-    return { entries, nextBefore: hasMore ? page[page.length - 1].changedAt.toISOString() : null };
+    return { entries, nextBefore: hasMore ? `${page[page.length - 1].changedAt.toISOString()}|${page[page.length - 1].id}` : null };
   }
 }

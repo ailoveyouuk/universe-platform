@@ -37,6 +37,11 @@ export class UsersController {
     return this.usersService.reactivate(user, id);
   }
 
+  @Post(":id/reset-sign-in")
+  resetSignIn(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.usersService.resetSignIn(user, id);
+  }
+
   @Delete(":id")
   deactivate(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.usersService.deactivate(user, id);

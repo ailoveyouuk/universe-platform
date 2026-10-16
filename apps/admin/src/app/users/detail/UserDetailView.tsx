@@ -200,6 +200,21 @@ export function UserDetailView() {
           <dt style={{ color: "var(--u-ink-secondary)" }}>Identity linked</dt>
           <dd style={{ margin: 0 }}>{user.linkedToIdentity ? "Yes" : "No — links on first sign-in"}</dd>
         </dl>
+        {user.status !== "DEACTIVATED" && !isSelf && (user.linkedToIdentity || user.status === "ACTIVE") && (
+          <div style={{ marginBottom: 12 }}>
+            <Button
+              variant="secondary"
+              disabled={busy !== null}
+              title="Unlinks their Microsoft identity; they re-link by signing in again with the invited email"
+              onClick={() => {
+                if (!confirm("Reset this user's sign-in? They'll be signed out and must sign in again to re-link their account.")) return;
+                void act("status", async () => { await apiClient.resetUserSignIn(id); await reload(); }, "Sign-in reset. They can sign in again with their invited email.");
+              }}
+            >
+              Reset sign-in
+            </Button>
+          </div>
+        )}
         {user.status === "DEACTIVATED" ? (
           <Button
             variant="primary"

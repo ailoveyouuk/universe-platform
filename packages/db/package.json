@@ -17,6 +17,7 @@
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
     "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts",
     "backfill:finance-role": "tsx scripts/backfill-finance-role.ts",
+    "grant:platform-staff": "tsx scripts/grant-platform-staff.ts",
     "backfill:partner-financials-permissions": "tsx scripts/backfill-partner-financials-permissions.ts",
     "backfill:org-profile-permission": "tsx scripts/backfill-org-profile-permission.ts",
     "import:product-db-test-batch": "tsx scripts/import-product-db-test-batch.ts",

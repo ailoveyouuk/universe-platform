@@ -271,4 +271,38 @@ export class UsersService {
       return toSummary(result);
     });
   }
+
+  /** "Reset account": unlinks the user's Entra identity so the next sign-in
+   * with the invited email re-links cleanly (e.g. they moved to a new
+   * Microsoft account or a sign-in got stuck). Universe has no passwords of
+   * its own, so this is the reset that exists. The user's existing sessions
+   * stop working on their next request, because the guard resolves users by
+   * identity. Roles and history are untouched. Deactivated users must be
+   * reactivated first. Audited. */
+  async resetSignIn(caller: RequestUser, id: string): Promise<UserSummary> {
+    if (caller.id === id) throw new BadRequestException("You cannot reset your own sign-in.");
+    return runAs(caller, async (tx) => {
+      const target = await this.loadTarget(caller, tx, id);
+      if (target.status === "DEACTIVATED") throw new BadRequestException("Reactivate this user before resetting their sign-in.");
+      if (!target.entraObjectId && target.status === "INVITED") return toSummary(target);
+      const result = await tx.user.update({
+        where: { id },
+        data: { entraObjectId: null, firstSignInAt: null, status: "INVITED" },
+        include,
+      });
+      await recordFieldChanges(tx, {
+        organizationId: target.organizationId,
+        tableName: "users",
+        recordId: id,
+        changedById: caller.id,
+        changes: [
+          { field: "status", oldValue: target.status, newValue: "INVITED" },
+          { field: "identityLinked", oldValue: target.entraObjectId ? "true" : "false", newValue: "false" },
+        ],
+        reason: "Sign-in reset",
+        source: "API",
+      });
+      return toSummary(result);
+    });
+  }
 }

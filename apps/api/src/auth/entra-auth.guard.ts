@@ -52,7 +52,7 @@ function toRequestUser(user: {
 }
 
 const userInclude = {
-  organization: { select: { name: true, logoUrl: true, primaryColor: true, secondaryColor: true } },
+  organization: { select: { name: true, status: true, logoUrl: true, primaryColor: true, secondaryColor: true } },
   userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } },
 } as const;
 
@@ -169,6 +169,13 @@ export class EntraAuthGuard implements CanActivate {
 
     if (user.status === UserStatus.DEACTIVATED) {
       throw new ForbiddenException("This account has been deactivated.");
+    }
+
+    // A SUSPENDED organisation (set by platform staff in the Admin app) locks
+    // out every one of its users on their next request. Platform staff are
+    // exempt so Universe's own team can always get in to investigate/restore.
+    if (user.organization.status === "SUSPENDED" && user.platformStaffRole === PlatformStaffRole.NONE) {
+      throw new ForbiddenException("Your organisation's access to Universe has been suspended. Contact Universe support.");
     }
 
     req.user = toRequestUser(user);

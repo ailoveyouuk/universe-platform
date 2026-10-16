@@ -740,6 +740,10 @@ export class UniverseApiClient {
     });
   }
 
+  resetUserSignIn(id: string): Promise<UserSummary> {
+    return this.request(`/users/${id}/reset-sign-in`, { method: "POST" });
+  }
+
   reactivateUser(id: string): Promise<UserSummary> {
     return this.request(`/users/${id}/reactivate`, { method: "POST" });
   }
