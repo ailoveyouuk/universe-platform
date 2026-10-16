@@ -65,3 +65,8 @@ auto-pause. Not measurable in this setup: logistics global routes (needs the ins
 2. Users, contacts, projects (Admin and PM lists) — server paging/search/sort.
 3. Quality performance and QA queue — bound and/or aggregate in the database.
 4. Re-run the harness, then add indexes the plans justify; revisit global search; then load the live demo at full scale.
+
+## Re-run after partners paging (2026-10-17, full profile, same dataset size)
+Partners no longer fails: legacy `GET /partners` returns the capped 500 rows in 96 ms warm / 605 ms cold (the UI now uses `/partners/page`, `/partners/overview`, `/partners/options`).
+Slowest remaining (warm / cold ms): quality performance 579 / 1003 (2,245 rows, unbounded); users platform-wide 354 / 1049 (3,000 rows); QA queue 342 / 1874; contacts 304 / 1906 (6,090 rows); projects 131 / 609 (1,598 rows). Everything else is under 150 ms warm.
+Next in order: users, contacts, projects paging; then quality performance and QA queue (bound/aggregate in the database). Indexes after that, informed by plans.

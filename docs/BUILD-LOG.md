@@ -13,6 +13,7 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 - Types/client: `PagedResult`, `PartnerListItem`, `PartnerOverview`, `PartnerOption`; `listPartnersPage`, `getPartnerOverview`, `listPartnerOptions`.
 - Project Management: Stakeholders page, dashboard tiles, and the partner pickers (project detail, line form, supplier enquiries, batches, quality) now use the new endpoints; search is debounced.
 - Verified: API and PM typecheck clean; new `apps/api/test/partners-paging.test.ts` (runs in CI against the RLS database). Re-run the scale workflow to confirm the timeout is gone.
+- Scale re-run (full profile): partners no longer fails (500 capped rows, 96 ms warm). Slowest remaining: quality performance 579 ms, users (platform-wide) 354 ms, QA queue 342 ms, contacts 304 ms, projects 131 ms warm — see `docs/SCALE-AUDIT.md`.
 - Next: users/contacts/projects paging, then quality performance and QA queue.
 
 ---
