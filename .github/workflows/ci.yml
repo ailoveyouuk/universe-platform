@@ -129,6 +129,14 @@ jobs:
             -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
             < infra/sql/supplier-directory-rls.sql
 
+      - name: Apply filtered unique indexes (test DB only)
+        # prisma db push can't express SQL Server filtered unique indexes;
+        # production gets them from migrations. See the SQL file's header.
+        run: |
+          docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
+            < infra/sql/test-filtered-unique-indexes.sql
+
       - name: Run @universe/db tests (RLS / tenant isolation)
         run: npm run test --workspace=@universe/db
 

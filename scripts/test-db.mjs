@@ -69,6 +69,13 @@ try {
       `-d universe_test -b < infra/sql/supplier-directory-rls.sql`,
   );
 
+  // db push can't create SQL Server filtered unique indexes (production gets
+  // them from migrations) — see the SQL file's header.
+  run(
+    `${COMPOSE.join(" ")} exec -T test-sql /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" ` +
+      `-d universe_test -b < infra/sql/test-filtered-unique-indexes.sql`,
+  );
+
   run("npm run test --workspace=@universe/db", { env: testEnv });
   run("npm run test --workspace=@universe/api", { env: testEnv });
 
