@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { prisma } from "@universe/db";
-import type { UserSummary } from "@universe/types";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { withPlatformStaffContext, withTenantContext } from "@universe/db";
+import type { UserDetail, UserSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { InviteUserDto } from "./dto/invite-user.dto";
-import { recordFieldChanges } from "../common/audit-log";
+import type { UpdateUserDto } from "./dto/update-user.dto";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 
 function toSummary(u: {
   id: string;
@@ -33,13 +34,48 @@ function toSummary(u: {
   };
 }
 
+function toDetail(u: any): UserDetail {
+  return {
+    ...toSummary(u),
+    jobTitle: u.jobTitle ?? null,
+    platformStaffRole: u.platformStaffRole as UserDetail["platformStaffRole"],
+    linkedToIdentity: !!u.entraObjectId,
+    invitedByName: u.invitedBy ? `${u.invitedBy.forename} ${u.invitedBy.surname}` : null,
+    createdAt: u.createdAt.toISOString(),
+    updatedAt: u.updatedAt.toISOString(),
+  };
+}
+
 const include = {
   organization: true,
   userRoles: { include: { role: true } },
+  invitedBy: { select: { forename: true, surname: true } },
 } as const;
+
+/**
+ * RLS note (2026-10-16): users, roles, user_roles' parent rows and
+ * field_change_log are all row-level-security protected, so every query here
+ * runs inside withTenantContext / withPlatformStaffContext. Before this, the
+ * service used the bare `prisma` client, which RLS default-denies.
+ * - Platform staff: withPlatformStaffContext (cross-tenant by design).
+ * - Everyone else: withTenantContext(own org) — so looking up a user id that
+ *   belongs to another tenant simply finds nothing (404), never a 403 that
+ *   would confirm the id exists.
+ */
+type Tx = any;
+function runAs<T>(caller: RequestUser, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(caller.organizationId, fn);
+}
 
 @Injectable()
 export class UsersService {
+  private async loadTarget(caller: RequestUser, tx: Tx, id: string) {
+    const target = await tx.user.findUnique({ where: { id }, include });
+    if (!target) throw new NotFoundException(`User ${id} not found`);
+    assertCanManageOrg(caller, target.organizationId, "org.users.manage");
+    return target;
+  }
+
   /**
    * The Admin app's core action: pre-create a User row for someone who has
    * never touched Universe, with their organization and role(s) already
@@ -49,33 +85,43 @@ export class UsersService {
   async invite(caller: RequestUser, dto: InviteUserDto): Promise<UserSummary> {
     assertCanManageOrg(caller, dto.organizationId, "org.users.manage");
 
-    const existing = await prisma.user.findUnique({ where: { email: dto.email } });
+    // Email is unique across ALL tenants, so the existence check has to be
+    // cross-tenant (platform-context, existence only — nothing is returned).
+    const existing = await withPlatformStaffContext((tx: Tx) => tx.user.findUnique({ where: { email: dto.email }, select: { id: true } }));
     if (existing) {
       throw new ConflictException(`${dto.email} has already been added to Universe.`);
     }
 
-    const roles = await prisma.role.findMany({ where: { id: { in: dto.roleIds } } });
-    if (roles.length !== dto.roleIds.length) {
-      throw new BadRequestException("One or more roles were not found.");
-    }
-    const foreignRole = roles.find((r) => r.organizationId && r.organizationId !== dto.organizationId);
-    if (foreignRole) {
-      throw new BadRequestException(`Role "${foreignRole.name}" does not belong to the target organisation.`);
-    }
-
-    const created = await prisma.user.create({
-      data: {
-        email: dto.email,
-        forename: dto.forename,
-        surname: dto.surname,
+    return runAs(caller, async (tx) => {
+      const roles = await tx.role.findMany({ where: { id: { in: dto.roleIds } } });
+      if (roles.length !== dto.roleIds.length) {
+        throw new BadRequestException("One or more roles were not found.");
+      }
+      const foreignRole = roles.find((r: any) => r.organizationId && r.organizationId !== dto.organizationId);
+      if (foreignRole) {
+        throw new BadRequestException(`Role "${foreignRole.name}" does not belong to the target organisation.`);
+      }
+      const created = await tx.user.create({
+        data: {
+          email: dto.email,
+          forename: dto.forename,
+          surname: dto.surname,
+          organizationId: dto.organizationId,
+          invitedById: caller.id,
+          userRoles: { create: dto.roleIds.map((roleId) => ({ roleId })) },
+        },
+        include,
+      });
+      await recordFieldChanges(tx, {
         organizationId: dto.organizationId,
-        invitedById: caller.id,
-        userRoles: { create: dto.roleIds.map((roleId) => ({ roleId })) },
-      },
-      include,
+        tableName: "users",
+        recordId: created.id,
+        changedById: caller.id,
+        changes: [{ field: "status", oldValue: null, newValue: "INVITED" }],
+        source: "API",
+      });
+      return toSummary(created);
     });
-
-    return toSummary(created);
   }
 
   /**
@@ -86,42 +132,71 @@ export class UsersService {
    */
   async findAll(caller: RequestUser, organizationId?: string): Promise<UserSummary[]> {
     const scopedOrgId = caller.platformStaffRole !== "NONE" ? organizationId : caller.organizationId;
+    const canManage = caller.platformStaffRole !== "NONE" || caller.permissions.includes("org.users.manage");
 
-    if (caller.platformStaffRole === "NONE" && !caller.permissions.includes("org.users.manage")) {
-      // Non-admins can still see themselves, nothing else.
-      const self = await prisma.user.findUnique({ where: { id: caller.id }, include });
-      return self ? [toSummary(self)] : [];
-    }
-
-    const users = await prisma.user.findMany({
-      where: scopedOrgId ? { organizationId: scopedOrgId } : undefined,
-      include,
-      orderBy: { invitedAt: "desc" },
+    return runAs(caller, async (tx) => {
+      if (!canManage) {
+        // Non-admins can still see themselves, nothing else.
+        const self = await tx.user.findUnique({ where: { id: caller.id }, include });
+        return self ? [toSummary(self)] : [];
+      }
+      const users = await tx.user.findMany({
+        where: scopedOrgId ? { organizationId: scopedOrgId } : undefined,
+        include,
+        orderBy: { invitedAt: "desc" },
+      });
+      return users.map(toSummary);
     });
-    return users.map(toSummary);
+  }
+
+  async findOne(caller: RequestUser, id: string): Promise<UserDetail> {
+    return runAs(caller, async (tx) => toDetail(await this.loadTarget(caller, tx, id)));
+  }
+
+  /** Edit name / job title (org.users.manage on the user's org) and, for
+   * platform staff, the user's platformStaffRole. Every change is audited. */
+  async update(caller: RequestUser, id: string, dto: UpdateUserDto): Promise<UserDetail> {
+    return runAs(caller, async (tx) => {
+      const target = await this.loadTarget(caller, tx, id);
+
+      if (dto.platformStaffRole !== undefined && dto.platformStaffRole !== target.platformStaffRole) {
+        if (caller.platformStaffRole === "NONE") throw new ForbiddenException("Only platform staff can change a platform staff role.");
+        if (caller.id === id) throw new ForbiddenException("You cannot change your own platform staff role.");
+        const touchesSuperAdmin = dto.platformStaffRole === "SUPER_ADMIN" || target.platformStaffRole === "SUPER_ADMIN";
+        if (touchesSuperAdmin && caller.platformStaffRole !== "SUPER_ADMIN") {
+          throw new ForbiddenException("Only a SUPER_ADMIN can grant or revoke SUPER_ADMIN.");
+        }
+      }
+      if (dto.forename === null || dto.surname === null) throw new BadRequestException("Names cannot be cleared.");
+
+      const fields = ["forename", "surname", "jobTitle", "platformStaffRole"] as const;
+      const changes = diffForAudit(target, dto, fields);
+      if (changes.length === 0) return toDetail(target);
+      const data: Record<string, unknown> = {};
+      for (const c of changes) data[c.field] = (dto as any)[c.field];
+
+      const updated = await tx.user.update({ where: { id }, data, include });
+      await recordFieldChanges(tx, {
+        organizationId: target.organizationId,
+        tableName: "users",
+        recordId: id,
+        changedById: caller.id,
+        changes,
+        source: "API",
+      });
+      return toDetail(updated);
+    });
   }
 
   /** Gap 9 (compliance-standards-gap-analysis.md) — ISO 27001-style access
-   * review trail: deactivating a user is an access-control change, so it's
-   * logged through the same generic FieldChangeLog every other audited
-   * write uses, not left as a bare status flip with only `updatedAt` to
-   * show for it. Wrapped in its own prisma.$transaction (this service
-   * doesn't run through withTenantContext at all today — a pre-existing
-   * gap, see azure-infra-notes.md — so this is the narrowest fix that
-   * still keeps the status update and its log entry atomic with each
-   * other). */
+   * review trail: deactivating a user is an access-control change, logged
+   * through the generic FieldChangeLog. A caller cannot deactivate themselves. */
   async deactivate(caller: RequestUser, id: string): Promise<UserSummary> {
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (!target) throw new NotFoundException(`User ${id} not found`);
-
-    assertCanManageOrg(caller, target.organizationId, "org.users.manage");
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const result = await tx.user.update({
-        where: { id },
-        data: { status: "DEACTIVATED" },
-        include,
-      });
+    if (caller.id === id) throw new BadRequestException("You cannot deactivate your own account.");
+    return runAs(caller, async (tx) => {
+      const target = await this.loadTarget(caller, tx, id);
+      if (target.status === "DEACTIVATED") return toSummary(target);
+      const result = await tx.user.update({ where: { id }, data: { status: "DEACTIVATED" }, include });
       await recordFieldChanges(tx, {
         organizationId: target.organizationId,
         tableName: "users",
@@ -130,41 +205,55 @@ export class UsersService {
         changes: [{ field: "status", oldValue: target.status, newValue: "DEACTIVATED" }],
         source: "API",
       });
-      return result;
+      return toSummary(result);
     });
-    return toSummary(updated);
+  }
+
+  /** Restores a deactivated user: back to ACTIVE if they had already signed
+   * in and been linked to their identity, otherwise back to INVITED so the
+   * normal first-sign-in link still happens. Audited. */
+  async reactivate(caller: RequestUser, id: string): Promise<UserSummary> {
+    return runAs(caller, async (tx) => {
+      const target = await this.loadTarget(caller, tx, id);
+      if (target.status !== "DEACTIVATED") throw new BadRequestException("Only a deactivated user can be reactivated.");
+      const next = target.entraObjectId ? "ACTIVE" : "INVITED";
+      const result = await tx.user.update({ where: { id }, data: { status: next }, include });
+      await recordFieldChanges(tx, {
+        organizationId: target.organizationId,
+        tableName: "users",
+        recordId: id,
+        changedById: caller.id,
+        changes: [{ field: "status", oldValue: "DEACTIVATED", newValue: next }],
+        source: "API",
+      });
+      return toSummary(result);
+    });
   }
 
   /**
-   * Replaces a user's whole role set — added 2026-10-08 so an org admin can
-   * grant an existing user the new "Quality Assurance"/"Responsible Person"
-   * roles (or any other role) without having to deactivate and re-invite
-   * them, which invite() can't do for an email that's already in the
-   * system. Same permission as invite/deactivate: org.users.manage, own
-   * organisation only (platform staff exempted via assertCanManageOrg).
+   * Replaces a user's whole role set — so an org admin can grant an existing
+   * user a role without deactivating and re-inviting them. Same permission as
+   * invite/deactivate: org.users.manage, own organisation only.
    */
   async updateRoles(caller: RequestUser, id: string, roleIds: string[]): Promise<UserSummary> {
-    const target = await prisma.user.findUnique({ where: { id } });
-    if (!target) throw new NotFoundException(`User ${id} not found`);
+    return runAs(caller, async (tx) => {
+      const target = await this.loadTarget(caller, tx, id);
 
-    assertCanManageOrg(caller, target.organizationId, "org.users.manage");
+      const roles = await tx.role.findMany({ where: { id: { in: roleIds } } });
+      if (roles.length !== roleIds.length) {
+        throw new BadRequestException("One or more roles were not found.");
+      }
+      const foreignRole = roles.find((r: any) => r.organizationId && r.organizationId !== target.organizationId);
+      if (foreignRole) {
+        throw new BadRequestException(`Role "${foreignRole.name}" does not belong to this user's organisation.`);
+      }
 
-    const roles = await prisma.role.findMany({ where: { id: { in: roleIds } } });
-    if (roles.length !== roleIds.length) {
-      throw new BadRequestException("One or more roles were not found.");
-    }
-    const foreignRole = roles.find((r) => r.organizationId && r.organizationId !== target.organizationId);
-    if (foreignRole) {
-      throw new BadRequestException(`Role "${foreignRole.name}" does not belong to this user's organisation.`);
-    }
-
-    const updated = await prisma.$transaction(async (tx) => {
       const before = await tx.userRole.findMany({ where: { userId: id }, include: { role: true } });
       await tx.userRole.deleteMany({ where: { userId: id } });
       if (roleIds.length) {
         await tx.userRole.createMany({ data: roleIds.map((roleId) => ({ userId: id, roleId })) });
       }
-      const result = await tx.user.update({ where: { id }, data: {}, include });
+      const result = await tx.user.findUnique({ where: { id }, include });
       await recordFieldChanges(tx, {
         organizationId: target.organizationId,
         tableName: "users",
@@ -173,14 +262,13 @@ export class UsersService {
         changes: [
           {
             field: "roles",
-            oldValue: before.map((ur) => ur.role.name).join(", ") || null,
-            newValue: roles.map((r) => r.name).join(", ") || null,
+            oldValue: before.map((ur: any) => ur.role.name).join(", ") || null,
+            newValue: roles.map((r: any) => r.name).join(", ") || null,
           },
         ],
         source: "API",
       });
-      return result;
+      return toSummary(result);
     });
-    return toSummary(updated);
   }
 }

@@ -25,6 +25,8 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationDetail,
+  UserDetail,
+  UpdateUserInput,
   UpdateOrganizationInput,
   PartnerPerformanceMetric,
   PartnerSummary,
@@ -700,6 +702,21 @@ export class UniverseApiClient {
       method: "POST",
       body: JSON.stringify(input),
     });
+  }
+
+  getUser(id: string): Promise<UserDetail> {
+    return this.request(`/users/${id}`);
+  }
+
+  updateUser(id: string, input: UpdateUserInput): Promise<UserDetail> {
+    return this.request(`/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+  }
+
+  reactivateUser(id: string): Promise<UserSummary> {
+    return this.request(`/users/${id}/reactivate`, { method: "POST" });
   }
 
   deactivateUser(id: string): Promise<UserSummary> {

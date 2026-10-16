@@ -8,6 +8,7 @@ import { Button, CountrySelect, Select } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
+import { AuditHistory } from "../../../components/AuditHistory";
 import {
   Field,
   FormGrid,
@@ -300,6 +301,7 @@ export function OrganizationDetailView() {
       <CategoryProfileSection org={org} />
       {org.type === "MANUFACTURER" && <ManufacturerSitesSection organizationId={org.id} />}
       <ConsentSection organizationId={org.id} />
+      <AuditHistory tableName="organizations" recordId={org.id} />
     </main>
   );
 }

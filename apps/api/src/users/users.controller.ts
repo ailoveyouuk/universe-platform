@@ -3,6 +3,7 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { InviteUserDto } from "./dto/invite-user.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateUserRolesDto } from "./dto/update-user-roles.dto";
 import { UsersService } from "./users.service";
 
@@ -19,6 +20,21 @@ export class UsersController {
   @Post()
   invite(@CurrentUser() user: RequestUser, @Body() dto: InviteUserDto) {
     return this.usersService.invite(user, dto);
+  }
+
+  @Get(":id")
+  findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.usersService.findOne(user, id);
+  }
+
+  @Patch(":id")
+  update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.update(user, id, dto);
+  }
+
+  @Post(":id/reactivate")
+  reactivate(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.usersService.reactivate(user, id);
   }
 
   @Delete(":id")

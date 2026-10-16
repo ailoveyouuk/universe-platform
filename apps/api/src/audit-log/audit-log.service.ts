@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { withTenantContext } from "@universe/db";
+import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { FieldChangeLogEntry } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -57,18 +57,26 @@ function toEntry(r: FieldChangeLogRow, changedByName: string | null): FieldChang
 @Injectable()
 export class AuditLogService {
   async forRecord(user: RequestUser, tableName: string, recordId: string): Promise<FieldChangeLogEntry[]> {
-    const rows = await withTenantContext(user.organizationId, (tx) =>
+    // Platform staff (Admin app) may read the history of any tenant's record,
+    // so they run cross-tenant with no organisation filter; everyone else is
+    // confined to their own organisation exactly as before.
+    const isPlatform = user.platformStaffRole !== "NONE";
+    const run = <T,>(fn: (tx: any) => Promise<T>): Promise<T> =>
+      isPlatform ? withPlatformStaffContext(fn) : withTenantContext(user.organizationId, fn);
+    const scope = isPlatform ? {} : tenantScope(user.organizationId);
+
+    const rows: FieldChangeLogRow[] = await run((tx) =>
       tx.fieldChangeLog.findMany({
-        where: { tableName, recordId, ...tenantScope(user.organizationId) },
+        where: { tableName, recordId, ...scope },
         orderBy: { changedAt: "desc" },
       }),
     );
 
-    const approvalRows =
+    const approvalRows: any[] =
       tableName === "partners"
-        ? await withTenantContext(user.organizationId, (tx) =>
+        ? await run((tx) =>
             tx.partnerApprovalHistory.findMany({
-              where: { partnerId: recordId, ...tenantScope(user.organizationId) },
+              where: { partnerId: recordId, ...scope },
               orderBy: { actionDate: "desc" },
             }),
           )
@@ -81,8 +89,8 @@ export class AuditLogService {
         ),
       ),
     ];
-    const users = userIds.length
-      ? await withTenantContext(user.organizationId, (tx) =>
+    const users: { id: string; forename: string; surname: string }[] = userIds.length
+      ? await run((tx) =>
           tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, forename: true, surname: true } }),
         )
       : [];

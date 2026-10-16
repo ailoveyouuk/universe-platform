@@ -111,6 +111,26 @@ export interface UserSummary {
   firstSignInAt: string | null;
 }
 
+/** Full user record for the Admin app's user detail page (added 2026-10-16). */
+export interface UserDetail extends UserSummary {
+  jobTitle: string | null;
+  platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
+  /** True once the user has signed in and been linked to their Entra identity. */
+  linkedToIdentity: boolean;
+  invitedByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** PATCH /users/:id. platformStaffRole: platform staff only; granting or
+ * revoking SUPER_ADMIN needs a SUPER_ADMIN caller; nobody can change their own. */
+export interface UpdateUserInput {
+  forename?: string;
+  surname?: string;
+  jobTitle?: string | null;
+  platformStaffRole?: "NONE" | "SUPPORT" | "SUPER_ADMIN";
+}
+
 export interface OrganizationSummary {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { InviteUserInput, OrganizationSummary, RoleSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -16,11 +16,20 @@ import { useCurrentUser } from "../../../lib/AuthContext";
  * that would be rejected anyway.
  */
 export default function InviteUserPage() {
+  return (
+    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+      <InviteUserForm />
+    </Suspense>
+  );
+}
+
+function InviteUserForm() {
   const router = useRouter();
+  const presetOrg = useSearchParams()?.get("organizationId") ?? undefined;
   const me = useCurrentUser();
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
-  const [form, setForm] = useState<Partial<InviteUserInput>>({ roleIds: [] });
+  const [form, setForm] = useState<Partial<InviteUserInput>>({ roleIds: [], organizationId: presetOrg });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

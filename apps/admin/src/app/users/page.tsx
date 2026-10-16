@@ -1,70 +1,102 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { RoleSummary, UserSummary } from "@universe/types";
-import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
+import { useSearchParams } from "next/navigation";
+import type { OrganizationSummary, UserSummary } from "@universe/types";
+import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
-
-const STATUS_COLORS: Record<string, string> = {
-  INVITED: "var(--u-status-warning)",
-  ACTIVE: "var(--u-status-good)",
-  DEACTIVATED: "var(--u-ink-secondary)",
-};
+import { useCurrentUser } from "../../lib/AuthContext";
+import { StatusChip } from "../../components/form";
 
 export default function UsersPage() {
+  // useSearchParams needs a Suspense boundary in a static export.
+  return (
+    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+      <UsersList />
+    </Suspense>
+  );
+}
+
+function UsersList() {
+  const me = useCurrentUser();
+  const isPlatform = !!me && me.platformStaffRole !== "NONE";
+  const initialOrg = useSearchParams()?.get("organizationId") ?? "";
+
   const [users, setUsers] = useState<UserSummary[] | null>(null);
+  const [orgs, setOrgs] = useState<OrganizationSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [orgFilter, setOrgFilter] = useState(initialOrg);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     apiClient
       .listUsers()
       .then(setUsers)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"));
+    apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
   }, []);
 
-  // Section mini-dashboard — shared StatTile/StatTileGrid from
-  // @universe/ui, same treatment as organizations/page.tsx.
-  const counts = useMemo(() => {
-    const list = users ?? [];
-    return {
-      total: list.length,
-      active: list.filter((u) => u.status === "ACTIVE").length,
-      invited: list.filter((u) => u.status === "INVITED").length,
-      deactivated: list.filter((u) => u.status === "DEACTIVATED").length,
-    };
-  }, [users]);
+  const scoped = useMemo(() => (users ?? []).filter((u) => !orgFilter || u.organizationId === orgFilter), [users, orgFilter]);
 
-  async function handleDeactivate(id: string) {
-    if (!confirm("Deactivate this user? They'll lose access immediately.")) return;
-    try {
-      const updated = await apiClient.deactivateUser(id);
-      setUsers((prev) => prev?.map((u) => (u.id === updated.id ? updated : u)) ?? null);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to deactivate user");
-    }
-  }
+  const counts = useMemo(
+    () => ({
+      total: scoped.length,
+      active: scoped.filter((u) => u.status === "ACTIVE").length,
+      invited: scoped.filter((u) => u.status === "INVITED").length,
+      deactivated: scoped.filter((u) => u.status === "DEACTIVATED").length,
+    }),
+    [scoped],
+  );
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return scoped.filter(
+      (u) =>
+        (!statusFilter || u.status === statusFilter) &&
+        (!q || `${u.forename} ${u.surname} ${u.email} ${u.organizationName} ${u.roleNames.join(" ")}`.toLowerCase().includes(q)),
+    );
+  }, [scoped, statusFilter, search]);
+
+  const toggleStatus = (s: string) => setStatusFilter((cur) => (cur === s ? "" : s));
 
   return (
     <main style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Users</h1>
-        <Link href="/users/invite">+ Invite a User</Link>
+        <Link href={orgFilter ? `/users/invite?organizationId=${orgFilter}` : "/users/invite"}>+ Invite a User</Link>
       </div>
 
       <StatTileGrid style={{ margin: "20px 0" }}>
-        <StatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" />
-        <StatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
-        <StatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" />
-        <StatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" />
+        <StatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => setStatusFilter("")} active={statusFilter === ""} />
+        <StatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggleStatus("ACTIVE")} active={statusFilter === "ACTIVE"} />
+        <StatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" onClick={() => toggleStatus("INVITED")} active={statusFilter === "INVITED"} />
+        <StatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" onClick={() => toggleStatus("DEACTIVATED")} active={statusFilter === "DEACTIVATED"} />
       </StatTileGrid>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ minWidth: 240, flex: "1 1 240px", maxWidth: 360 }}>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search name, email, role…" />
+        </div>
+        {isPlatform && (
+          <div style={{ minWidth: 220 }}>
+            <Select
+              value={orgFilter}
+              onChange={setOrgFilter}
+              allLabel="All organisations"
+              options={orgs.map((o) => ({ value: o.id, label: o.name }))}
+              ariaLabel="Filter by organisation"
+            />
+          </div>
+        )}
+      </div>
 
       {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
       {!users && !error && <p>Loading…</p>}
 
       {users && (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
               <th style={{ padding: 8 }}>Name</th>
@@ -73,154 +105,39 @@ export default function UsersPage() {
               <th style={{ padding: 8 }}>Role(s)</th>
               <th style={{ padding: 8 }}>Status</th>
               <th style={{ padding: 8 }}>Invited</th>
-              <th style={{ padding: 8 }}>First Sign-In</th>
-              <th style={{ padding: 8 }} />
+              <th style={{ padding: 8 }}>First sign-in</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <>
-                <tr key={u.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                  <td style={{ padding: 8 }}>
+            {visible.map((u) => (
+              <tr key={u.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
+                <td style={{ padding: 8 }}>
+                  <Link href={`/users/detail?id=${u.id}`} style={{ fontWeight: 600 }}>
                     {u.forename} {u.surname}
-                  </td>
-                  <td style={{ padding: 8 }}>{u.email}</td>
-                  <td style={{ padding: 8 }}>{u.organizationName}</td>
-                  <td style={{ padding: 8 }}>{u.roleNames.join(", ") || "—"}</td>
-                  <td style={{ padding: 8 }}>
-                    <span
-                      style={{
-                        color: "#fff",
-                        background: STATUS_COLORS[u.status] ?? "var(--u-ink-secondary)",
-                        borderRadius: 999,
-                        padding: "2px 10px",
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {u.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: 8 }}>{new Date(u.invitedAt).toLocaleDateString()}</td>
-                  <td style={{ padding: 8 }}>
-                    {u.firstSignInAt ? new Date(u.firstSignInAt).toLocaleDateString() : "Never signed in"}
-                  </td>
-                  <td style={{ padding: 8, whiteSpace: "nowrap" }}>
-                    <button
-                      onClick={() => setEditingUserId(editingUserId === u.id ? null : u.id)}
-                      style={{ marginRight: 10 }}
-                    >
-                      {editingUserId === u.id ? "Close" : "Edit roles"}
-                    </button>
-                    {u.status !== "DEACTIVATED" && (
-                      <button onClick={() => handleDeactivate(u.id)} style={{ color: "var(--u-status-critical)" }}>
-                        Deactivate
-                      </button>
-                    )}
-                  </td>
-                </tr>
-                {editingUserId === u.id && (
-                  <tr key={`${u.id}-edit`} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                    <td colSpan={8} style={{ padding: "4px 8px 16px" }}>
-                      <RoleEditor
-                        user={u}
-                        onSaved={(updated) => {
-                          setUsers((prev) => prev?.map((row) => (row.id === updated.id ? updated : row)) ?? null);
-                          setEditingUserId(null);
-                        }}
-                        onCancel={() => setEditingUserId(null)}
-                      />
-                    </td>
-                  </tr>
-                )}
-              </>
+                  </Link>
+                </td>
+                <td style={{ padding: 8 }}>{u.email}</td>
+                <td style={{ padding: 8 }}>
+                  <Link href={`/organizations/detail?id=${u.organizationId}`}>{u.organizationName}</Link>
+                </td>
+                <td style={{ padding: 8 }}>{u.roleNames.join(", ") || "—"}</td>
+                <td style={{ padding: 8 }}>
+                  <StatusChip status={u.status} />
+                </td>
+                <td style={{ padding: 8 }}>{new Date(u.invitedAt).toLocaleDateString()}</td>
+                <td style={{ padding: 8 }}>{u.firstSignInAt ? new Date(u.firstSignInAt).toLocaleDateString() : "Never signed in"}</td>
+              </tr>
             ))}
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={7} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
+                  No users match.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       )}
     </main>
-  );
-}
-
-/**
- * Edit-roles panel — added 2026-10-08 so an org admin can grant an
- * EXISTING user a role (e.g. the new "Quality Assurance"/"Responsible
- * Person" roles from the QA/procurement segregation-of-duties work)
- * without deactivating and re-inviting them, which the invite flow can't
- * do for an email already in the system. Reuses the same
- * listOrganizationRoles endpoint the invite form uses.
- */
-function RoleEditor({
-  user,
-  onSaved,
-  onCancel,
-}: {
-  user: UserSummary;
-  onSaved: (updated: UserSummary) => void;
-  onCancel: () => void;
-}) {
-  const [roles, setRoles] = useState<RoleSummary[] | null>(null);
-  const [selected, setSelected] = useState<string[]>(user.roleIds);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    apiClient
-      .listOrganizationRoles(user.organizationId)
-      .then(setRoles)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load roles"));
-  }, [user.organizationId]);
-
-  function toggle(roleId: string) {
-    setSelected((prev) => (prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]));
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    try {
-      const updated = await apiClient.updateUserRoles(user.id, selected);
-      onSaved(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update roles");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div
-      style={{
-        border: "1px solid var(--u-border)",
-        borderRadius: 8,
-        padding: 16,
-        background: "var(--u-surface-alt)",
-        maxWidth: 480,
-      }}
-    >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-        Roles for {user.forename} {user.surname}
-      </div>
-      {!roles && !error && <p style={{ fontSize: 13 }}>Loading roles…</p>}
-      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{error}</p>}
-      {roles && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-          {roles.map((r) => (
-            <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-              <input type="checkbox" checked={selected.includes(r.id)} onChange={() => toggle(r.id)} />
-              {r.name}
-            </label>
-          ))}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={handleSave} disabled={saving || !roles}>
-          {saving ? "Saving…" : "Save roles"}
-        </button>
-        <button onClick={onCancel} disabled={saving}>
-          Cancel
-        </button>
-      </div>
-    </div>
   );
 }
