@@ -113,7 +113,7 @@ export function LogoField({
           }}
         >
           {url && !broken ? (
-            <img src={url} alt="Current logo" onError={() => setBroken(true)} style={{ maxWidth: 160, maxHeight: 40, objectFit: "contain" }} />
+            <img src={url} alt="Current logo" onError={() => setBroken(true)} style={{ height: 40, width: "auto", maxWidth: 160, objectFit: "contain" }} />
           ) : (
             <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{url ? "Can't load logo" : "No logo — Universe logo shown"}</span>
           )}

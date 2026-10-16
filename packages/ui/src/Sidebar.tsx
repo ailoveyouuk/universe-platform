@@ -114,7 +114,7 @@ export function Sidebar({
                 src={orgLogoUrl!}
                 alt={orgName}
                 onError={() => setLogoFailed(true)}
-                style={{ maxHeight: 34, maxWidth: 150, width: "auto", height: "auto", objectFit: "contain", display: "block" }}
+                style={{ height: 34, width: "auto", maxWidth: 150, objectFit: "contain", objectPosition: "left center", display: "block" }}
               />
             ) : (
               <Logo variant={collapsed ? "mark" : "lockup"} size={26} />

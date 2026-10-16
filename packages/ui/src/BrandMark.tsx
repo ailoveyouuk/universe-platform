@@ -14,7 +14,7 @@ export function BrandMark({ logoUrl, name, size = 44 }: { logoUrl?: string | nul
         src={logoUrl}
         alt={name ?? "Organisation logo"}
         onError={() => setFailed(true)}
-        style={{ maxHeight: size + 8, maxWidth: 200, width: "auto", height: "auto", objectFit: "contain", display: "block" }}
+        style={{ height: size + 8, width: "auto", maxWidth: 200, objectFit: "contain", display: "block" }}
       />
     );
   }
