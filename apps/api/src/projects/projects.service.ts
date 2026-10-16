@@ -121,6 +121,7 @@ const PROJECT_DETAIL_INCLUDE = {
   // Project — see Project's "Freight & Logistics" block.
   freightForwarder: true,
   lines: {
+    where: { archivedAt: null },
     include: {
       manufacturer: true,
       supplier: true,
@@ -151,15 +152,15 @@ const PROJECT_DETAIL_INCLUDE = {
   // same convention as supplierEnquiries above, a just-uploaded document is
   // what a user most likely wants to see at the top. Back-relation field on
   // Project is `documents` (see schema.prisma).
-  documents: { include: { uploadedBy: true }, orderBy: { uploadedAt: "desc" as const } },
+  documents: { where: { archivedAt: null }, include: { uploadedBy: true }, orderBy: { uploadedAt: "desc" as const } },
   // Project Leads/Contacts (added 2026-10-08) — previously settable only
   // via the full create/update payload (never actually wired up), now
   // independently addable/removable via POST/DELETE /projects/:id/leads
   // and /projects/:id/contacts. Plain join tables, no natural ordering of
   // their own — ordered by the joined record's name for a stable,
   // readable list.
-  leads: { include: { user: true }, orderBy: { user: { forename: "asc" as const } } },
-  contacts: { include: { contact: { include: { partner: true } } }, orderBy: { contact: { name: "asc" as const } } },
+  leads: { where: { removedAt: null }, include: { user: true }, orderBy: { user: { forename: "asc" as const } } },
+  contacts: { where: { removedAt: null }, include: { contact: { include: { partner: true } } }, orderBy: { contact: { name: "asc" as const } } },
 } as const;
 
 type ProjectWithLines = Awaited<ReturnType<typeof prisma.project.findFirstOrThrow<{ include: typeof PROJECT_DETAIL_INCLUDE }>>>;
@@ -508,7 +509,7 @@ export class ProjectsService {
     const [lines, projects] = await withTenantContext(user.organizationId, (tx) =>
       Promise.all([
         tx.projectLine.findMany({
-          where: tenantScope(user.organizationId),
+          where: { archivedAt: null, ...tenantScope(user.organizationId) },
           select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
         }),
         tx.project.findMany({
@@ -535,7 +536,7 @@ export class ProjectsService {
 
     const lines = await withTenantContext(user.organizationId, (tx) =>
       tx.projectLine.findMany({
-        where: { projectId, ...tenantScope(user.organizationId) },
+        where: { projectId, archivedAt: null, ...tenantScope(user.organizationId) },
         select: { supplierTotalPriceReportingCcy: true, salesTotalPriceReportingCcy: true },
       }),
     );
@@ -1222,7 +1223,7 @@ export class ProjectsService {
     assertFieldLevelPermission(user, dto as unknown as Record<string, unknown>, PROJECT_LINE_FINANCIAL_FIELDS);
     await withTenantContext(user.organizationId, async (tx) => {
       const line = await tx.projectLine.findFirst({
-        where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
+        where: { id: lineId, projectId, archivedAt: null, ...tenantScope(user.organizationId) },
       });
       if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
@@ -1274,34 +1275,30 @@ export class ProjectsService {
   }
 
   /**
-   * Deletes one line from a project (added 2026-10-17). Needs `projects.edit`.
-   * Dependent rows are handled explicitly because every FK is NoAction:
-   * the line's logistics metric and supplier enquiries are line-owned and
-   * removed with it; price-history and temperature-log rows are records
-   * worth keeping, so they are detached (projectLineId -> null), not deleted.
-   * The removal is written to the field-change audit log with the line's
-   * description, so it stays traceable after the row is gone.
+   * Archives one line of a project (added 2026-10-17; this replaced a hard
+   * delete the same day — Universe never deletes records, see the
+   * archive-not-delete rule in docs/BUILD-LOG.md). Needs `projects.edit`.
+   * The line and everything attached to it (logistics metric, supplier
+   * enquiries, price history, temperature logs) stay in place; the line is
+   * simply hidden from project detail and left out of financial rollups.
+   * The archive is written to the field-change audit log.
    */
-  async deleteLine(user: RequestUser, projectId: string, lineId: string): Promise<ProjectDetail> {
+  async archiveLine(user: RequestUser, projectId: string, lineId: string): Promise<ProjectDetail> {
     assertHasPermission(user, "projects.edit");
     await withTenantContext(user.organizationId, async (tx) => {
       const line = await tx.projectLine.findFirst({
-        where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
+        where: { id: lineId, projectId, archivedAt: null, ...tenantScope(user.organizationId) },
       });
       if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
 
-      await tx.projectLineLogisticsMetric.deleteMany({ where: { projectLineId: lineId } });
-      await tx.supplierEnquiry.deleteMany({ where: { projectLineId: lineId } });
-      await tx.productPriceHistory.updateMany({ where: { projectLineId: lineId }, data: { projectLineId: null } });
-      await tx.batchTemperatureLog.updateMany({ where: { projectLineId: lineId }, data: { projectLineId: null } });
-      await tx.projectLine.delete({ where: { id: lineId } });
+      await tx.projectLine.update({ where: { id: lineId }, data: { archivedAt: new Date(), archivedById: user.id } });
 
       await recordFieldChanges(tx, {
         organizationId: user.organizationId,
         tableName: "project_lines",
         recordId: lineId,
         changedById: user.id,
-        changes: [{ field: "line", oldValue: line.clientProductDescription ?? lineId, newValue: null }],
+        changes: [{ field: "archived", oldValue: line.clientProductDescription ?? lineId, newValue: "archived" }],
         source: "API",
       });
     });
@@ -1330,7 +1327,7 @@ export class ProjectsService {
       await tx.projectLead.upsert({
         where: { projectId_userId: { projectId, userId } },
         create: { projectId, userId },
-        update: {},
+        update: { removedAt: null, removedById: null },
       });
 
       await createNotifications(tx, [
@@ -1391,7 +1388,7 @@ export class ProjectsService {
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
       if (!project) throw new NotFoundException(`Project ${projectId} not found`);
 
-      await tx.projectLead.deleteMany({ where: { projectId, userId } });
+      await tx.projectLead.updateMany({ where: { projectId, userId, removedAt: null }, data: { removedAt: new Date(), removedById: user.id } });
 
       await recordFieldChanges(tx, {
         organizationId: user.organizationId,
@@ -1416,7 +1413,7 @@ export class ProjectsService {
       await tx.projectContact.upsert({
         where: { projectId_contactId: { projectId, contactId } },
         create: { projectId, contactId },
-        update: {},
+        update: { removedAt: null, removedById: null },
       });
 
       await recordFieldChanges(tx, {
@@ -1436,7 +1433,7 @@ export class ProjectsService {
       const project = await tx.project.findFirst({ where: { id: projectId, ...tenantScope(user.organizationId) } });
       if (!project) throw new NotFoundException(`Project ${projectId} not found`);
 
-      await tx.projectContact.deleteMany({ where: { projectId, contactId } });
+      await tx.projectContact.updateMany({ where: { projectId, contactId, removedAt: null }, data: { removedAt: new Date(), removedById: user.id } });
 
       await recordFieldChanges(tx, {
         organizationId: user.organizationId,

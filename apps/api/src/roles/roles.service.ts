@@ -58,7 +58,7 @@ export class RolesService {
     if (!orgId) throw new BadRequestException("organizationId is required");
     assertCanManageOrg(caller, orgId, PERMISSION);
     const rows: any[] = await runFor(caller, orgId, (tx) =>
-      tx.role.findMany({ where: { organizationId: orgId }, include: roleInclude, orderBy: { name: "asc" } }),
+      tx.role.findMany({ where: { organizationId: orgId, archivedAt: null }, include: roleInclude, orderBy: { name: "asc" } }),
     );
     return rows.map(toDetail);
   }
@@ -187,14 +187,14 @@ export class RolesService {
       if (role._count.userRoles > 0) {
         throw new ConflictException(`${role._count.userRoles} user(s) still have this role. Reassign them first.`);
       }
-      await tx.rolePermission.deleteMany({ where: { roleId: id } });
-      await tx.role.delete({ where: { id } });
+      // Archive, never delete: the role and its permission set are kept for the record.
+      await tx.role.update({ where: { id }, data: { archivedAt: new Date(), archivedById: caller.id } });
       await recordFieldChanges(tx, {
         organizationId: role.organizationId,
         tableName: "roles",
         recordId: id,
         changedById: caller.id,
-        changes: [{ field: "role", oldValue: role.name, newValue: null }],
+        changes: [{ field: "role", oldValue: role.name, newValue: "archived" }],
         source: "API",
       });
       return { deleted: true as const };

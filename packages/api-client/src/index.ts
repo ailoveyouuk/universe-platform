@@ -289,7 +289,7 @@ export class UniverseApiClient {
     });
   }
 
-  deleteProjectLine(projectId: string, lineId: string): Promise<ProjectDetail> {
+  archiveProjectLine(projectId: string, lineId: string): Promise<ProjectDetail> {
     return this.request(`/projects/${projectId}/lines/${lineId}`, { method: "DELETE" });
   }
 
@@ -833,8 +833,9 @@ export class UniverseApiClient {
     return this.request(`/users/${id}/reactivate`, { method: "POST" });
   }
 
-  deactivateUser(id: string): Promise<UserSummary> {
-    return this.request(`/users/${id}`, { method: "DELETE" });
+  /** Archives the account (never deletes it); optional reason is logged. */
+  deactivateUser(id: string, reason?: string): Promise<UserSummary> {
+    return this.request(`/users/${id}${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`, { method: "DELETE" });
   }
 
   updateUserRoles(id: string, roleIds: string[]): Promise<UserSummary> {

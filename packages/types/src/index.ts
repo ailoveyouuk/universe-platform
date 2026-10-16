@@ -118,6 +118,9 @@ export interface UserSummary {
   roleIds: string[];
   invitedAt: string;
   firstSignInAt: string | null;
+  /** Set when the account was archived (status DEACTIVATED). Accounts are never deleted. */
+  archivedAt: string | null;
+  archiveReason: string | null;
 }
 
 /** Full user record for the Admin app's user detail page (added 2026-10-16). */

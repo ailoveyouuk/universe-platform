@@ -32,7 +32,7 @@ export class SupplierEnquiriesService {
    * needed) so callers don't re-query it. */
   private async assertLineOwned(tx: Parameters<Parameters<typeof withTenantContext>[1]>[0], user: RequestUser, projectId: string, lineId: string) {
     const line = await tx.projectLine.findFirst({
-      where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
+      where: { id: lineId, projectId, archivedAt: null, ...tenantScope(user.organizationId) },
     });
     if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
     return line;

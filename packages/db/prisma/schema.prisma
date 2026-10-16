@@ -334,6 +334,10 @@ model Organization {
 /// this row by matching email and flips status to ACTIVE. From that point on
 /// the person is recognized by entraObjectId, never by email lookup again.
 model User {
+  /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
+  archivedAt        DateTime?
+  archivedById      String?
+  archiveReason     String?
   id                String       @id @default(uuid())
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -379,6 +383,9 @@ model User {
 /// nullable only for the small set of platform-level role templates every
 /// org can clone from.
 model Role {
+  /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
+  archivedAt     DateTime?
+  archivedById   String?
   id             String        @id @default(uuid())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1092,20 +1099,26 @@ model ProjectStatusHistory {
 /// layer so it's never stale.
 
 model ProjectLead {
-  projectId String
-  userId    String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user      User    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Soft-removal (2026-10-17): the link is retired, not deleted; re-adding clears these.
+  removedAt   DateTime?
+  removedById String?
+  projectId   String
+  userId      String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user        User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([projectId, userId])
   @@map("project_leads")
 }
 
 model ProjectContact {
-  projectId String
-  contactId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  contact   Contact @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Soft-removal (2026-10-17): the link is retired, not deleted; re-adding clears these.
+  removedAt   DateTime?
+  removedById String?
+  projectId   String
+  contactId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([projectId, contactId])
   @@map("project_contacts")
@@ -1120,10 +1133,13 @@ model ProjectContact {
 // ---------------------------------------------------------------------------
 
 model ProjectLine {
-  id             String  @id @default(uuid())
+  /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
+  archivedAt     DateTime?
+  archivedById   String?
+  id             String    @id @default(uuid())
   organizationId String // denormalized from Project for direct RLS scoping
   projectId      String
-  project        Project @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   // --- Item identification ---
   clientProductDescription String?        @db.NVarChar(Max)
@@ -1500,7 +1516,10 @@ model SupplierEnquiry {
 // ---------------------------------------------------------------------------
 
 model ProjectDocument {
-  id             String   @id @default(uuid())
+  /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
+  archivedAt     DateTime?
+  archivedById   String?
+  id             String    @id @default(uuid())
   organizationId String // denormalized for direct RLS scoping
   /// Nullable since 2026-10-08 (stakeholder-evidence document upload —
   /// see claude/product-db-test-batch-import.md "Round 4"). A row with
@@ -1510,7 +1529,7 @@ model ProjectDocument {
   /// container-per-org, the SAS upload/download flow) is identical; only
   /// the owning-context FK differs. See documents-standalone.controller.ts.
   projectId      String?
-  project        Project? @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   type           String // see allowed values reference above
   title          String
   url            String // blob storage URL (no SAS — see blob-storage.service.ts) or a legacy SharePoint link
@@ -1526,8 +1545,8 @@ model ProjectDocument {
   fileSizeBytes  Int?
   mimeType       String?
   uploadedById   String?
-  uploadedBy     User?    @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  uploadedAt     DateTime @default(now())
+  uploadedBy     User?     @relation(fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploadedAt     DateTime  @default(now())
 
   partnerCertifications      PartnerCertification[]
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3.
@@ -2200,6 +2219,9 @@ model ManufacturerProfile {
 /// independently certified, per org-onboarding-data-model.md. Many-to-one
 /// with Organization (not 1:1 like the profile tables above).
 model OrganizationManufacturerSite {
+  /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
+  archivedAt             DateTime?
+  archivedById           String?
   id                     String       @id @default(uuid())
   organizationId         String
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)

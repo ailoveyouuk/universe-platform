@@ -5,8 +5,8 @@ import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { ProjectsService } from "../src/projects/projects.service";
 
-/** Project line delete (added 2026-10-17), against the real RLS database. */
-describe("Project line delete", () => {
+/** Project line archive (added 2026-10-17; replaced a hard delete the same day), against the real RLS database. */
+describe("Project line archive", () => {
   const suffix = randomUUID().slice(0, 8);
   const projects = new ProjectsService({} as never);
   let orgA: string;
@@ -59,18 +59,19 @@ describe("Project line delete", () => {
   });
 
   it("needs projects.edit", async () => {
-    await expect(projects.deleteLine(asUser(orgA, ["projects.view"]), projectId, lineId)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(projects.archiveLine(asUser(orgA, ["projects.view"]), projectId, lineId)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("another organisation cannot delete the line", async () => {
-    await expect(projects.deleteLine(asUser(orgB, ["projects.edit"]), projectId, lineId)).rejects.toBeInstanceOf(NotFoundException);
+  it("another organisation cannot archive the line", async () => {
+    await expect(projects.archiveLine(asUser(orgB, ["projects.edit"]), projectId, lineId)).rejects.toBeInstanceOf(NotFoundException);
     expect(await withPlatformStaffContext((tx) => tx.projectLine.count({ where: { id: lineId } }))).toBe(1);
   });
 
-  it("deletes only the requested line and audits it", async () => {
-    const detail = await projects.deleteLine(asUser(orgA, ["projects.edit"]), projectId, lineId);
+  it("archives only the requested line, keeps the row, and audits it", async () => {
+    const detail = await projects.archiveLine(asUser(orgA, ["projects.edit"]), projectId, lineId);
     expect(detail.lines.map((l) => l.id)).toEqual([otherLineId]);
-    expect(await withPlatformStaffContext((tx) => tx.projectLine.count({ where: { id: lineId } }))).toBe(0);
+    const row = await withPlatformStaffContext((tx) => tx.projectLine.findUniqueOrThrow({ where: { id: lineId } }));
+    expect(row.archivedAt).not.toBeNull();
     expect(await withPlatformStaffContext((tx) => tx.fieldChangeLog.count({ where: { tableName: "project_lines", recordId: lineId } }))).toBe(1);
   });
 });

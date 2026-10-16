@@ -43,8 +43,8 @@ export class UsersController {
   }
 
   @Delete(":id")
-  deactivate(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.usersService.deactivate(user, id);
+  deactivate(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("reason") reason?: string) {
+    return this.usersService.deactivate(user, id, reason);
   }
 
   @Patch(":id/roles")

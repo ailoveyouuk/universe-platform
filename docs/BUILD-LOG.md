@@ -6,6 +6,19 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Archive, never delete (stage 1 of the stakeholder-demo work)
+
+**Platform rule (Lewis, 2026-10-17): nothing is deleted anywhere — records are archived, and removed accounts are logged.**
+
+- Migration `20261017100000_archive_not_delete` adds `archivedAt/archivedById` to project lines, project documents, roles and organisation manufacturer sites; `removedAt/removedById` to project lead and contact links; `archivedAt/archivedById/archiveReason` to users (existing DEACTIVATED users backfilled). No RLS change.
+- Project line "delete" (shipped hours earlier as a hard delete) is now `archiveLine`; the line, metrics, enquiries, price history and temperature logs all stay. Archived lines are hidden from project detail and excluded from financial rollups, partner-performance and enquiry lookups.
+- Project documents and standalone documents: archived, blob kept, links from certifications/evidence/controlled documents kept; archived files can't be downloaded through normal reads.
+- Roles: archive (still refused while users hold the role); archived roles hidden from lists and can't be assigned. Note: an archived role still holds its name, so the same name can't be reused in that org.
+- Project leads/contacts and manufacturer sites: soft-removed; re-adding a lead/contact restores the link.
+- Users: the existing "deactivate" is now presented as **Archive account** (optional reason, logged with who/when in the audit history) and **Reinstate account**; status chip reads ARCHIVED. Users were never hard-deleted; the status value stays `DEACTIVATED` in the database.
+- Deliberately left as-is (replace-the-set operations whose old/new values are already written to the field-change log, not record deletions): user-role assignments, role-permission sets, organisation country presence, supplier country presence.
+- Tests: `project-line-archive.test.ts` (renamed from the delete test). Not yet checked live.
+
 ## 2026-10-17 — Read-side redaction of project financials
 
 - Users without `projects.financials.view` now get project detail with all prices, costs, margins, payments, invoice numbers/dates, price locks, reporting-currency figures and supplier-enquiry quotes blanked **server-side** (`ProjectsService.findOne` -> `redactFinancials`); `ProjectDetail.financialsRedacted` tells the UI. Quantities, dates, PO numbers and statuses stay visible.
@@ -14,7 +27,7 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 - Which roles are affected: defaults give view to Organization Admin, Project Manager and Finance; Read Only, Quality Assurance and Responsible Person are redacted.
 - Test: `apps/api/test/project-financial-redaction.test.ts`. No migration, no RLS change. Not yet checked live as a redacted user (the demo users can't sign in).
 
-## 2026-10-17 — Project line-item delete
+## 2026-10-17 — Project line-item delete (superseded: now archive, see next-newest entry)
 
 - `DELETE /projects/:id/lines/:lineId` (needs `projects.edit`); Delete button with inline "Yes, delete / Cancel" confirm beside Edit on each line in project detail.
 - Line-owned rows (logistics metric, supplier enquiries) are deleted; price-history and temperature-log rows are kept and detached (`projectLineId` -> null). Removal is written to the field-change audit log. Tenant-scoped; another org gets 404.

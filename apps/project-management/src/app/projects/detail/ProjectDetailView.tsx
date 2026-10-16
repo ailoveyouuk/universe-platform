@@ -859,21 +859,21 @@ export function ProjectDetailView() {
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {confirmDeleteLineId === line.id ? (
                   <>
-                    <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Delete this line?</span>
+                    <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Archive this line?</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={async () => {
                         try {
-                          setProject(await apiClient.deleteProjectLine(project.id, line.id));
+                          setProject(await apiClient.archiveProjectLine(project.id, line.id));
                         } catch (err) {
-                          window.alert(err instanceof Error ? err.message : "Could not delete the line");
+                          window.alert(err instanceof Error ? err.message : "Could not archive the line");
                         } finally {
                           setConfirmDeleteLineId(null);
                         }
                       }}
                     >
-                      Yes, delete
+                      Yes, archive
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteLineId(null)}>
                       Cancel
@@ -885,7 +885,7 @@ export function ProjectDetailView() {
                       Edit
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteLineId(line.id)}>
-                      Delete
+                      Archive
                     </Button>
                   </>
                 )}

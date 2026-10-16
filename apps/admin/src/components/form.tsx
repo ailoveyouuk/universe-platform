@@ -142,7 +142,7 @@ export function StatusChip({ status }: { status: string }) {
         fontWeight: 600,
       }}
     >
-      {status}
+      {status === "DEACTIVATED" ? "ARCHIVED" : status}
     </span>
   );
 }

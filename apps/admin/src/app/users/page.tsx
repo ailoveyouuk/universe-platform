@@ -72,7 +72,7 @@ function UsersList() {
         <StatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => setStatusFilter("")} active={statusFilter === ""} />
         <StatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggleStatus("ACTIVE")} active={statusFilter === "ACTIVE"} />
         <StatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" onClick={() => toggleStatus("INVITED")} active={statusFilter === "INVITED"} />
-        <StatTile label="Deactivated" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" onClick={() => toggleStatus("DEACTIVATED")} active={statusFilter === "DEACTIVATED"} />
+        <StatTile label="Archived" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" onClick={() => toggleStatus("DEACTIVATED")} active={statusFilter === "DEACTIVATED"} />
       </StatTileGrid>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>

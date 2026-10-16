@@ -83,8 +83,8 @@ export class ProjectsController {
   }
 
   @Delete(":id/lines/:lineId")
-  deleteLine(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("lineId") lineId: string) {
-    return this.projectsService.deleteLine(user, id, lineId);
+  archiveLine(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("lineId") lineId: string) {
+    return this.projectsService.archiveLine(user, id, lineId);
   }
 
   // --- Project Leads/Contacts (added 2026-10-08) — independent

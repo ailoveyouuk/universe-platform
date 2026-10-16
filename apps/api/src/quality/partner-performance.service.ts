@@ -56,7 +56,7 @@ export class PartnerPerformanceService {
       });
 
       const lines = await tx.projectLine.findMany({
-        where: tenantScope(user.organizationId),
+        where: { archivedAt: null, ...tenantScope(user.organizationId) },
         select: {
           projectId: true,
           manufacturerId: true,

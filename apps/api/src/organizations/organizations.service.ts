@@ -264,7 +264,7 @@ export class OrganizationsService {
     const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const roles = await runInContext((tx: any) =>
       tx.role.findMany({
-        where: { organizationId },
+        where: { organizationId, archivedAt: null },
         orderBy: { name: "asc" },
       }),
     );
@@ -521,7 +521,7 @@ export class OrganizationsService {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
     const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
     const rows = await runInContext((tx: any) =>
-      tx.organizationManufacturerSite.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
+      tx.organizationManufacturerSite.findMany({ where: { organizationId, archivedAt: null }, orderBy: { createdAt: "asc" } }),
     );
     return rows.map(toManufacturerSiteSummary);
   }
@@ -554,7 +554,7 @@ export class OrganizationsService {
     // belt-and-suspenders against ever deleting another org's row even if
     // RLS or assertCanManageOrg were somehow bypassed; same defensive
     // pattern as every other cross-tenant-sensitive delete in this file.
-    await runInContext((tx: any) => tx.organizationManufacturerSite.deleteMany({ where: { id: siteId, organizationId } }));
+    await runInContext((tx: any) => tx.organizationManufacturerSite.updateMany({ where: { id: siteId, organizationId, archivedAt: null }, data: { archivedAt: new Date(), archivedById: caller.id } }));
   }
 }
 

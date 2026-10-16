@@ -89,7 +89,7 @@ export class DocumentsService {
     const doc = await withTenantContext(user.organizationId, async (tx) => {
       await this.assertProjectOwned(tx, user, projectId);
       const document = await tx.projectDocument.findFirst({
-        where: { id: documentId, projectId, ...tenantScope(user.organizationId) },
+        where: { id: documentId, projectId, archivedAt: null, ...tenantScope(user.organizationId) },
       });
       if (!document) throw new NotFoundException(`Document ${documentId} not found on project ${projectId}`);
       return document;
@@ -107,13 +107,13 @@ export class DocumentsService {
     const doc = await withTenantContext(user.organizationId, async (tx) => {
       await this.assertProjectOwned(tx, user, projectId);
       const document = await tx.projectDocument.findFirst({
-        where: { id: documentId, projectId, ...tenantScope(user.organizationId) },
+        where: { id: documentId, projectId, archivedAt: null, ...tenantScope(user.organizationId) },
       });
       if (!document) throw new NotFoundException(`Document ${documentId} not found on project ${projectId}`);
-      await tx.projectDocument.delete({ where: { id: documentId } });
+      // Archive, never delete: the row and its blob are kept for the record.
+      await tx.projectDocument.update({ where: { id: documentId }, data: { archivedAt: new Date(), archivedById: user.id } });
       return document;
     });
-    if (doc.blobName) await this.blobStorageService.deleteBlob(user.organizationId, doc.blobName);
     return this.projectsService.findOne(user, projectId);
   }
 
@@ -204,7 +204,7 @@ export class DocumentsService {
 
   async getStandaloneDownloadUrl(user: RequestUser, documentId: string): Promise<{ downloadUrl: string }> {
     const doc = await withTenantContext(user.organizationId, (tx) =>
-      tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, ...tenantScope(user.organizationId) } }),
+      tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, archivedAt: null, ...tenantScope(user.organizationId) } }),
     );
     if (!doc) throw new NotFoundException(`Document ${documentId} not found`);
     if (!doc.blobName) return { downloadUrl: doc.url };
@@ -212,37 +212,16 @@ export class DocumentsService {
     return { downloadUrl };
   }
 
-  /** Wiring-gap audit fix #3 (claude/backend-frontend-wiring-audit.md) --
-   * this endpoint existed with no frontend caller. Before actually
-   * deleting the row: every documentId FK pointing at a ProjectDocument
-   * (PartnerCertification.documentId, StakeholderEvidenceRecord.documentId,
-   * ControlledDocument.documentId -- all three `onDelete: NoAction` in
-   * schema.prisma, i.e. SQL Server would reject the delete outright with a
-   * raw FK-constraint error rather than anything this service's caller
-   * could sensibly handle) is cleared first, scoped to this organisation.
-   * Detaching the file from whatever referenced it and then deleting it is
-   * the correct behaviour here -- the certification/evidence-record/
-   * controlled-document row itself is never deleted, only its link to this
-   * one file, same soft-unlink posture as everything else in this build. */
+  /** Archives a standalone document (archive-not-delete, 2026-10-17). The
+   * file's blob and row are kept; records that reference it (certification,
+   * stakeholder evidence, controlled document) keep their link for the
+   * audit trail, but the file can no longer be downloaded or re-attached
+   * through normal reads. */
   async deleteStandalone(user: RequestUser, documentId: string): Promise<void> {
-    const doc = await withTenantContext(user.organizationId, async (tx) => {
-      const document = await tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, ...tenantScope(user.organizationId) } });
+    await withTenantContext(user.organizationId, async (tx) => {
+      const document = await tx.projectDocument.findFirst({ where: { id: documentId, projectId: null, archivedAt: null, ...tenantScope(user.organizationId) } });
       if (!document) throw new NotFoundException(`Document ${documentId} not found`);
-      await tx.partnerCertification.updateMany({
-        where: { documentId, ...tenantScope(user.organizationId) },
-        data: { documentId: null },
-      });
-      await tx.stakeholderEvidenceRecord.updateMany({
-        where: { documentId, ...tenantScope(user.organizationId) },
-        data: { documentId: null },
-      });
-      await tx.controlledDocument.updateMany({
-        where: { documentId, ...tenantScope(user.organizationId) },
-        data: { documentId: null },
-      });
-      await tx.projectDocument.delete({ where: { id: documentId } });
-      return document;
+      await tx.projectDocument.update({ where: { id: documentId }, data: { archivedAt: new Date(), archivedById: user.id } });
     });
-    if (doc.blobName) await this.blobStorageService.deleteBlob(user.organizationId, doc.blobName);
   }
 }

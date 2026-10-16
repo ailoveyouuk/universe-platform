@@ -197,6 +197,12 @@ export function UserDetailView() {
           </dd>
           <dt style={{ color: "var(--u-ink-secondary)" }}>First sign-in</dt>
           <dd style={{ margin: 0 }}>{user.firstSignInAt ? new Date(user.firstSignInAt).toLocaleString() : "Has not signed in yet"}</dd>
+          {user.archivedAt && (
+            <>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Archived</dt>
+              <dd style={{ margin: 0 }}>{new Date(user.archivedAt).toLocaleString()}{user.archiveReason ? ` — ${user.archiveReason}` : ""}</dd>
+            </>
+          )}
           <dt style={{ color: "var(--u-ink-secondary)" }}>Identity linked</dt>
           <dd style={{ margin: 0 }}>{user.linkedToIdentity ? "Yes" : "No — links on first sign-in"}</dd>
         </dl>
@@ -220,22 +226,23 @@ export function UserDetailView() {
             variant="primary"
             disabled={busy !== null}
             onClick={() =>
-              act("status", async () => { await apiClient.reactivateUser(id); await reload(); }, "User reactivated.")
+              act("status", async () => { await apiClient.reactivateUser(id); await reload(); }, "Account reinstated.")
             }
           >
-            {busy === "status" ? "Working…" : "Reactivate user"}
+            {busy === "status" ? "Working…" : "Reinstate account"}
           </Button>
         ) : (
           <Button
             variant="danger"
             disabled={busy !== null || isSelf}
-            title={isSelf ? "You can't deactivate your own account" : undefined}
+            title={isSelf ? "You can't archive your own account" : "Accounts are never deleted — archiving removes access and keeps the record and its history"}
             onClick={() => {
-              if (!confirm("Deactivate this user? They'll lose access immediately.")) return;
-              void act("status", async () => { await apiClient.deactivateUser(id); await reload(); }, "User deactivated.");
+              const reason = window.prompt("Archive this account? They'll lose access immediately; the account and its history are kept. Optional reason for the archive log:", "");
+              if (reason === null) return;
+              void act("status", async () => { await apiClient.deactivateUser(id, reason); await reload(); }, "Account archived.");
             }}
           >
-            {busy === "status" ? "Working…" : "Deactivate user"}
+            {busy === "status" ? "Working…" : "Archive account"}
           </Button>
         )}
       </Section>

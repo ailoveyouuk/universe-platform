@@ -18,6 +18,8 @@ function toSummary(u: {
   userRoles: { role: { id: string; name: string } }[];
   invitedAt: Date;
   firstSignInAt: Date | null;
+  archivedAt: Date | null;
+  archiveReason: string | null;
 }): UserSummary {
   return {
     id: u.id,
@@ -31,6 +33,8 @@ function toSummary(u: {
     roleIds: u.userRoles.map((ur) => ur.role.id),
     invitedAt: u.invitedAt.toISOString(),
     firstSignInAt: u.firstSignInAt?.toISOString() ?? null,
+    archivedAt: u.archivedAt?.toISOString() ?? null,
+    archiveReason: u.archiveReason ?? null,
   };
 }
 
@@ -93,7 +97,7 @@ export class UsersService {
     }
 
     return runAs(caller, async (tx) => {
-      const roles = await tx.role.findMany({ where: { id: { in: dto.roleIds } } });
+      const roles = await tx.role.findMany({ where: { id: { in: dto.roleIds }, archivedAt: null } });
       if (roles.length !== dto.roleIds.length) {
         throw new BadRequestException("One or more roles were not found.");
       }
@@ -191,18 +195,21 @@ export class UsersService {
   /** Gap 9 (compliance-standards-gap-analysis.md) — ISO 27001-style access
    * review trail: deactivating a user is an access-control change, logged
    * through the generic FieldChangeLog. A caller cannot deactivate themselves. */
-  async deactivate(caller: RequestUser, id: string): Promise<UserSummary> {
+  async deactivate(caller: RequestUser, id: string, reason?: string): Promise<UserSummary> {
     if (caller.id === id) throw new BadRequestException("You cannot deactivate your own account.");
     return runAs(caller, async (tx) => {
       const target = await this.loadTarget(caller, tx, id);
       if (target.status === "DEACTIVATED") return toSummary(target);
-      const result = await tx.user.update({ where: { id }, data: { status: "DEACTIVATED" }, include });
+      const result = await tx.user.update({ where: { id }, data: { status: "DEACTIVATED", archivedAt: new Date(), archivedById: caller.id, archiveReason: reason?.trim() || null }, include });
       await recordFieldChanges(tx, {
         organizationId: target.organizationId,
         tableName: "users",
         recordId: id,
         changedById: caller.id,
-        changes: [{ field: "status", oldValue: target.status, newValue: "DEACTIVATED" }],
+        changes: [
+          { field: "status", oldValue: target.status, newValue: "DEACTIVATED" },
+          { field: "archived", oldValue: null, newValue: reason?.trim() || "archived" },
+        ],
         source: "API",
       });
       return toSummary(result);
@@ -217,7 +224,7 @@ export class UsersService {
       const target = await this.loadTarget(caller, tx, id);
       if (target.status !== "DEACTIVATED") throw new BadRequestException("Only a deactivated user can be reactivated.");
       const next = target.entraObjectId ? "ACTIVE" : "INVITED";
-      const result = await tx.user.update({ where: { id }, data: { status: next }, include });
+      const result = await tx.user.update({ where: { id }, data: { status: next, archivedAt: null, archivedById: null, archiveReason: null }, include });
       await recordFieldChanges(tx, {
         organizationId: target.organizationId,
         tableName: "users",
@@ -239,7 +246,7 @@ export class UsersService {
     return runAs(caller, async (tx) => {
       const target = await this.loadTarget(caller, tx, id);
 
-      const roles = await tx.role.findMany({ where: { id: { in: roleIds } } });
+      const roles = await tx.role.findMany({ where: { id: { in: roleIds }, archivedAt: null } });
       if (roles.length !== roleIds.length) {
         throw new BadRequestException("One or more roles were not found.");
       }
