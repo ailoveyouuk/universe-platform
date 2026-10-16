@@ -142,12 +142,14 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
 
   // --- Partners & contacts (concentrated in organisations that run projects) ---
   const buyers = orgs.filter((o) => o.type === "PROCUREMENT_SERVICE_AGENT" || o.type === "TENDERING_PURCHASING_BODY");
+  // One large organisation (a quarter of all partners and projects) so the per-tenant worst case is exercised, not just averages.
+  const whale = buyers[0] ?? orgs[0];
   const partners: any[] = [];
   const partnerRoles: any[] = [];
   const contacts: any[] = [];
   const partnersByOrg = new Map<string, string[]>();
   for (let i = 0; i < p.partners; i++) {
-    const org = buyers.length && r() < 0.9 ? pick(buyers) : pick(orgs);
+    const org = r() < 0.25 ? whale : buyers.length && r() < 0.9 ? pick(buyers) : pick(orgs);
     const id = randomUUID();
     const name = `${pick(ORG_A)} ${pick(ORG_B)} ${i + 1}`;
     partners.push({ id, organizationId: org.id, name, normalizedName: name.toLowerCase().replace(/[^a-z0-9]/g, "") });
@@ -166,7 +168,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
   const projectsByOrg = new Map<string, string[]>();
   const counters = new Map<string, number>();
   for (let i = 0; i < p.projects; i++) {
-    const org = pick(buyers.length ? buyers : orgs);
+    const org = r() < 0.25 ? whale : pick(buyers.length ? buyers : orgs);
     const n = (counters.get(org.id) ?? 0) + 1;
     counters.set(org.id, n);
     const id = randomUUID();
@@ -228,7 +230,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
   await insert("fieldChangeLog", audit, 150);
   lap(`risks: ${risks.length}, batches: ${batches.length}, audit rows: ${audit.length}`);
 
-  return { orgs: orgs.map((o) => o.id), busiestOrgId: [...projectsByOrg.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? orgs[0].id };
+  return { orgs: orgs.map((o) => o.id), whaleOrgId: whale.id, busiestOrgId: [...projectsByOrg.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? orgs[0].id };
 }
 
 if (require.main === module) {

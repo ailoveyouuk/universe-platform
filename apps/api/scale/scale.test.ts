@@ -49,7 +49,7 @@ function user(organizationId: string, staff: boolean): RequestUser {
 describe(`Scale measurement (${PROFILE})`, () => {
   it("generates data and times every list endpoint", async () => {
     const tGen = Date.now();
-    const { busiestOrgId } = await generateScaleData(PROFILE, 1);
+    const { whaleOrgId: busiestOrgId } = await generateScaleData(PROFILE, 1);
     const genSeconds = (Date.now() - tGen) / 1000;
 
     const counts = await withPlatformStaffContext(async (tx) => ({
@@ -66,13 +66,17 @@ describe(`Scale measurement (${PROFILE})`, () => {
 
     const staff = user(busiestOrgId, true);
     const admin = user(busiestOrgId, false);
-    const rows: { name: string; ms: number; size: string }[] = [];
+    const rows: { name: string; ms: number; cold?: number; size: string }[] = [];
     async function time(name: string, fn: () => Promise<unknown>) {
       const t = Date.now();
       try {
         const out: any = await fn();
+        const cold = Date.now() - t;
+        const t2 = Date.now();
+        await fn();
+        const warm = Date.now() - t2;
         const size = Array.isArray(out) ? `${out.length} rows` : out?.items ? `${out.items.length} items` : "ok";
-        rows.push({ name, ms: Date.now() - t, size });
+        rows.push({ name, ms: warm, cold, size });
       } catch (e) {
         rows.push({ name, ms: Date.now() - t, size: `ERROR ${(e as Error).message.slice(0, 80)}` });
       }
@@ -80,7 +84,7 @@ describe(`Scale measurement (${PROFILE})`, () => {
 
     const projects = new ProjectsService({} as never);
     await time("GET /users (platform staff, all orgs)", () => new UsersService().findAll(staff));
-    await time("GET /users (busiest org admin)", () => new UsersService().findAll(admin));
+    await time("GET /users (largest org admin)", () => new UsersService().findAll(admin));
     await time("GET /organizations (platform staff)", () => new (OrganizationsService as any)({} as never, {} as never, {} as never).findAll(staff));
     await time("GET /partners", () => new (PartnersService as any)({} as never, {} as never).findAll(admin));
     await time("GET /projects", () => projects.findAll(admin));
@@ -92,7 +96,7 @@ describe(`Scale measurement (${PROFILE})`, () => {
     await time("GET /quality/performance", () => new PartnerPerformanceService().getPerformance(admin));
     await time("GET /quality/qa-queue", () => new QaQueueService().getQueue(admin));
     await time("GET /logistics-insights/lines", () => new LogisticsInsightsService().getOrgLines(admin, {} as never));
-    await time("GET /logistics-insights/global/routes", () => new LogisticsInsightsService().getGlobalRoutes({} as never));
+    // global routes read the separate insights database, which the throwaway setup does not have — not measurable here.
     await time("GET /product-catalog (page 1)", () => new (ProductCatalogService as any)({} as never).list({ page: 1, pageSize: 50 }));
     await time("GET /product-catalog/search?q=syringe", () => new (ProductCatalogService as any)({} as never).search("syringe"));
     await time("GET /product-catalog/dashboard-stats", () => new (ProductCatalogService as any)({} as never).getDashboardStats());
@@ -102,12 +106,14 @@ describe(`Scale measurement (${PROFILE})`, () => {
     const report = [
       `# Scale report — profile \`${PROFILE}\``,
       "",
-      `Generated in ${genSeconds.toFixed(0)}s. Row counts: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.`,
+      `The "admin" calls run as the largest simulated organisation (a quarter of all partners and projects). Generated in ${genSeconds.toFixed(0)}s. Row counts: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.`,
       "Engine: Azure SQL Edge (container) — absolute times will differ on Azure SQL; use for relative comparison and to find the slow ones.",
       "",
-      "| Endpoint | Time (ms) | Result |",
-      "|---|---:|---|",
-      ...rows.sort((a, b) => b.ms - a.ms).map((r) => `| ${r.name} | ${r.ms} | ${r.size} |`),
+      "Times are service-level (database + mapping), no network, JSON or screen rendering. Warm = second call; cold = first.",
+      "",
+      "| Endpoint | Warm (ms) | Cold (ms) | Result |",
+      "|---|---:|---:|---|",
+      ...rows.sort((a, b) => b.ms - a.ms).map((r) => `| ${r.name} | ${r.ms} | ${r.cold ?? ""} | ${r.size} |`),
     ].join("\n");
     writeFileSync("scale-report.md", report);
     console.log("\n" + report + "\n");
