@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ProjectSummary, PartnerSummary, ProjectFinancialSummary } from "@universe/types";
+import type { ProjectSummary, PartnerOverview, ProjectFinancialSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES } from "@universe/types";
 import {
   ActionsCard,
@@ -53,7 +53,7 @@ export default function HomePage() {
   const me = useCurrentUser();
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
-  const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
+  const [partnerOverview, setPartnerOverview] = useState<PartnerOverview | null>(null);
   // Financial Overview (added 2026-10-02, made currency-agnostic
   // 2026-10-03) — org-wide rollup across every ProjectLine's LOCKED
   // base-currency amounts. See ProjectFinancialSummary's doc comment in
@@ -72,7 +72,7 @@ export default function HomePage() {
 
   useEffect(() => {
     apiClient.listProjects().then(setProjects).catch(() => setProjects([]));
-    apiClient.listPartners().then(setPartners).catch(() => setPartners([]));
+    apiClient.getPartnerOverview().then(setPartnerOverview).catch(() => setPartnerOverview(null));
   }, []);
 
   useEffect(() => {
@@ -123,13 +123,9 @@ export default function HomePage() {
   const awardedProjects = useMemo(() => (projects ?? []).filter((p) => p.status === "AWARDED").slice(0, 5), [projects]);
 
   const stakeholderStats = useMemo(() => {
-    if (!partners) return null;
-    const clients = partners.filter((p) => p.roles.some((r) => r.roleType === "CLIENT"));
-    const qaApproved = partners.filter(
-      (p) => p.approvalStatus === "APPROVED" && p.roles.some((r) => r.roleType === "MANUFACTURER" || r.roleType === "SUPPLIER")
-    );
-    return { clients: clients.length, qaApproved: qaApproved.length };
-  }, [partners]);
+    if (!partnerOverview) return null;
+    return { clients: partnerOverview.counts.byRole.CLIENT ?? 0, qaApproved: partnerOverview.counts.approvedMfgSup };
+  }, [partnerOverview]);
 
   return (
     <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>

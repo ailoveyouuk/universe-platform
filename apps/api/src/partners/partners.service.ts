@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { prisma, withTenantContext } from "@universe/db";
 import { EvidenceService } from "../evidence/evidence.service";
-import type { PartnerSummary } from "@universe/types";
+import type { PagedResult, PartnerListItem, PartnerOption, PartnerOverview, PartnerSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { normalizeStakeholderName } from "../common/normalize-name";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
@@ -32,6 +32,17 @@ const PARTNER_INCLUDE = {
 } as const;
 
 type PartnerWithDetails = Awaited<ReturnType<typeof prisma.partner.findFirstOrThrow<{ include: typeof PARTNER_INCLUDE }>>>;
+
+function toListItem(p: {
+  id: string; name: string; countryCode: string | null; website: string | null; approvalStatus: string; riskTier: string | null;
+  companyRegistrationNumber: string | null; vatNumber: string | null; createdAt: Date; roles: { roleType: string; isActive: boolean }[];
+}): PartnerListItem {
+  return {
+    id: p.id, name: p.name, countryCode: p.countryCode, website: p.website, approvalStatus: p.approvalStatus, riskTier: p.riskTier,
+    companyRegistrationNumber: p.companyRegistrationNumber, vatNumber: p.vatNumber,
+    roles: p.roles.map((r) => ({ roleType: r.roleType, isActive: r.isActive })), createdAt: p.createdAt.toISOString(),
+  };
+}
 
 function toSummary(p: PartnerWithDetails): PartnerSummary {
   return {
@@ -240,6 +251,93 @@ export class PartnersService {
   // fail outright (writes) — this bit us for real during the Phase 1 smoke test,
   // 2026-09-30 (see backend-launch-checklist.md). Matches the pattern already
   // established in supplier-directory.service.ts.
+  /**
+   * Server-side paging for the stakeholder list (2026-10-17). Filters, search
+   * and sort run in the database; only one page of slim rows comes back. The
+   * measured failure that prompted this: an organisation with ~3,000 partners
+   * timed out on the unpaged full-detail list (docs/SCALE-AUDIT.md).
+   */
+  async findPage(
+    user: RequestUser,
+    q: { page?: number; pageSize?: number; q?: string; roleType?: string; approval?: string; country?: string; risk?: string; sort?: string; dir?: string },
+  ): Promise<PagedResult<PartnerListItem>> {
+    const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(q.page ?? 1), 1);
+    const term = q.q?.trim();
+    const where = {
+      ...tenantScope(user.organizationId),
+      isArchived: false,
+      ...(q.roleType ? { roles: { some: { roleType: q.roleType } } } : {}),
+      ...(q.approval ? { approvalStatus: q.approval } : {}),
+      ...(q.country ? { countryCode: q.country } : {}),
+      ...(q.risk ? { riskTier: q.risk } : {}),
+      ...(term
+        ? {
+            OR: [
+              { name: { contains: term } },
+              { countryCode: { contains: term } },
+              { website: { contains: term } },
+              { companyRegistrationNumber: { contains: term } },
+              { vatNumber: { contains: term } },
+            ],
+          }
+        : {}),
+    };
+    const dir = q.dir === "asc" ? "asc" : "desc";
+    const sortField: Record<string, string> = { name: "name", roles: "name", country: "countryCode", approval: "approvalStatus", risk: "riskTier", created: "createdAt" };
+    const field = sortField[q.sort ?? "created"] ?? "createdAt";
+    const [total, rows] = await withTenantContext(user.organizationId, async (tx) => [
+      await tx.partner.count({ where }),
+      await tx.partner.findMany({
+        where,
+        include: { roles: true },
+        orderBy: [{ [field]: dir }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ] as const);
+    return { items: rows.map(toListItem), total, page, pageSize };
+  }
+
+  /** Counts and "recently added" for the stakeholder dashboard — computed in the database, no full list. */
+  async overview(user: RequestUser): Promise<PartnerOverview> {
+    const base = { ...tenantScope(user.organizationId), isArchived: false };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const grouped = await tx.partnerRole.groupBy({ by: ["roleType"], where: { partner: base }, _count: { _all: true } });
+      const byRole: Record<string, number> = {};
+      for (const g of grouped) byRole[g.roleType] = g._count._all;
+      const approved = await tx.partner.count({ where: { ...base, approvalStatus: "APPROVED" } });
+      const approvedMfgSup = await tx.partner.count({
+        where: { ...base, approvalStatus: "APPROVED", roles: { some: { roleType: { in: ["MANUFACTURER", "SUPPLIER"] } } } },
+      });
+      const recent: Record<string, PartnerListItem[]> = {};
+      for (const cat of ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"]) {
+        const rows = await tx.partner.findMany({
+          where: { ...base, roles: { some: { roleType: cat } } },
+          include: { roles: true },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+        });
+        recent[cat] = rows.map(toListItem);
+      }
+      return { counts: { byRole, approved, approvedMfgSup }, recent };
+    });
+  }
+
+  /** Slim id/name list for dropdown pickers (one role type). Capped; typeahead pickers are the next step. */
+  async options(user: RequestUser, roleType?: string): Promise<PartnerOption[]> {
+    const rows = await withTenantContext(user.organizationId, (tx) =>
+      tx.partner.findMany({
+        where: { ...tenantScope(user.organizationId), isArchived: false, ...(roleType ? { roles: { some: { roleType, isActive: true } } } : {}) },
+        select: { id: true, name: true, countryCode: true },
+        orderBy: { name: "asc" },
+        take: 5000,
+      }),
+    );
+    return rows;
+  }
+
+  /** @deprecated Unpaged full-detail list — fails at scale. Capped at 500 rows; use findPage/overview/options. */
   async findAll(user: RequestUser, roleType?: string): Promise<PartnerSummary[]> {
     const partners = await withTenantContext(user.organizationId, (tx) =>
       tx.partner.findMany({
@@ -250,6 +348,7 @@ export class PartnersService {
         },
         include: PARTNER_INCLUDE,
         orderBy: { name: "asc" },
+        take: 500,
       }),
     );
     return partners.map(toSummary);

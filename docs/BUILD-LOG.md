@@ -6,6 +6,17 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Partners list: server-side paging (first scale fix)
+
+- Measured failure: `GET /partners` for a ~3,000-partner organisation exceeded the 5s transaction timeout. Fixed by moving paging, search, filters and sort into the API.
+- API: `GET /partners/page` (page, pageSize ≤100, q, roleType, approval, country, risk, sort, dir → `PagedResult<PartnerListItem>`), `GET /partners/overview` (role/approval counts and five recent per category, computed in the database), `GET /partners/options` (slim picker list). Legacy `GET /partners` now capped at 500 and marked deprecated.
+- Types/client: `PagedResult`, `PartnerListItem`, `PartnerOverview`, `PartnerOption`; `listPartnersPage`, `getPartnerOverview`, `listPartnerOptions`.
+- Project Management: Stakeholders page, dashboard tiles, and the partner pickers (project detail, line form, supplier enquiries, batches, quality) now use the new endpoints; search is debounced.
+- Verified: API and PM typecheck clean; new `apps/api/test/partners-paging.test.ts` (runs in CI against the RLS database). Re-run the scale workflow to confirm the timeout is gone.
+- Next: users/contacts/projects paging, then quality performance and QA queue.
+
+---
+
 ## 2026-10-17 — Scale audit, generator and harness (not yet run)
 
 - `docs/SCALE-AUDIT.md`: classifies every list endpoint as bounded or unbounded at the target scale (hundreds of orgs, thousands of users, tens of thousands of products); unbounded ones are listed in priority order.

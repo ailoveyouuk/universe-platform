@@ -61,7 +61,7 @@ Caveats: container SQL Edge, not Azure SQL; no network/JSON/UI cost (a 3,000-row
 auto-pause. Not measurable in this setup: logistics global routes (needs the insights database).
 
 ## Fix order from the measurements
-1. Partners list (broken at volume) — lighter list shape + server paging/search/sort.
+1. ~~Partners list (broken at volume)~~ — **done 2026-10-17**: `GET /partners/page` (server paging/search/filter/sort, slim rows), `GET /partners/overview` (DB counts + recent), `GET /partners/options` (pickers). Legacy `GET /partners` capped at 500 and deprecated. Re-measure with the harness.
 2. Users, contacts, projects (Admin and PM lists) — server paging/search/sort.
 3. Quality performance and QA queue — bound and/or aggregate in the database.
 4. Re-run the harness, then add indexes the plans justify; revisit global search; then load the live demo at full scale.

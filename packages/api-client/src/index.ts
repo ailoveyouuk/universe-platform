@@ -1,5 +1,9 @@
 import type {
   StakeholderAccessOverview,
+  PagedResult,
+  PartnerListItem,
+  PartnerOverview,
+  PartnerOption,
   GrantStakeholderAccessInput,
   AuthenticatedUser,
   ConfirmDocumentUploadInput,
@@ -424,6 +428,23 @@ export class UniverseApiClient {
 
   // --- Partners (added 2026-09-27) ---
 
+  /** Server-paged, filtered, sorted stakeholder list (slim rows). */
+  listPartnersPage(params: { page?: number; pageSize?: number; q?: string; roleType?: string; approval?: string; country?: string; risk?: string; sort?: string; dir?: string }): Promise<PagedResult<PartnerListItem>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/partners/page?${qs.toString()}`);
+  }
+
+  getPartnerOverview(): Promise<PartnerOverview> {
+    return this.request("/partners/overview");
+  }
+
+  /** Slim id/name list for dropdown pickers. */
+  listPartnerOptions(roleType?: string): Promise<PartnerOption[]> {
+    return this.request(`/partners/options${roleType ? `?roleType=${encodeURIComponent(roleType)}` : ""}`);
+  }
+
+  /** @deprecated Unpaged, heavy and capped at 500 — use listPartnersPage / getPartnerOverview / listPartnerOptions. */
   listPartners(roleType?: string): Promise<PartnerSummary[]> {
     const query = roleType ? `?roleType=${encodeURIComponent(roleType)}` : "";
     return this.request(`/partners${query}`);

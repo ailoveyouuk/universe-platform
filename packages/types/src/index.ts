@@ -1163,6 +1163,41 @@ export interface PartnerFinancialDetailSummary {
   currencyCode: string | null;
 }
 
+/** Server-paged list shape (2026-10-17, scale work — see docs/SCALE-AUDIT.md). */
+export interface PagedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Slim partner row for lists: no per-role detail, certifications or checks (those load on the detail screen). */
+export interface PartnerListItem {
+  id: string;
+  name: string;
+  countryCode: string | null;
+  website: string | null;
+  approvalStatus: string;
+  riskTier: string | null;
+  companyRegistrationNumber: string | null;
+  vatNumber: string | null;
+  roles: PartnerRoleSummary[];
+  createdAt: string;
+}
+
+export interface PartnerOverview {
+  counts: { byRole: Record<string, number>; approved: number; approvedMfgSup: number };
+  /** Up to five most recently added per role type. */
+  recent: Record<string, PartnerListItem[]>;
+}
+
+/** Minimal partner for dropdown pickers. */
+export interface PartnerOption {
+  id: string;
+  name: string;
+  countryCode: string | null;
+}
+
 export interface PartnerSummary {
   id: string;
   name: string;

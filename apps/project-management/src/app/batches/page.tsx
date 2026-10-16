@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import type { PartnerSummary, ProductBatchSummary, ProductCatalogMatch } from "@universe/types";
+import type { PartnerOption, ProductBatchSummary, ProductCatalogMatch } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { Button, Select, SearchInput, Pill, TextLink, GridIcon, PlusIcon, ProductPicker, type ProductPickerOption } from "@universe/ui";
 
@@ -175,7 +175,7 @@ function NewBatchForm({ onCreated, onCancel }: { onCreated: () => void; onCancel
   const [productId, setProductId] = useState("");
   const [productLabel, setProductLabel] = useState<string | null>(null);
   const [creatingProduct, setCreatingProduct] = useState(false);
-  const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
+  const [manufacturers, setManufacturers] = useState<PartnerOption[]>([]);
   const [manufacturerId, setManufacturerId] = useState("");
   const [manufacturedDate, setManufacturedDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
@@ -184,7 +184,7 @@ function NewBatchForm({ onCreated, onCancel }: { onCreated: () => void; onCancel
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.listPartners("MANUFACTURER").then(setManufacturers).catch(() => setManufacturers([]));
+    apiClient.listPartnerOptions("MANUFACTURER").then(setManufacturers).catch(() => setManufacturers([]));
   }, []);
 
   useEffect(() => {

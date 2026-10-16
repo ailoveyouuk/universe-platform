@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { PartnerSummary } from "@universe/types";
+import type { PagedResult, PartnerListItem, PartnerOverview } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import {
@@ -48,7 +48,11 @@ type SortKey = "name" | "roles" | "country" | "approval" | "risk" | "created";
 export default function PartnersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [partners, setPartners] = useState<PartnerSummary[] | null>(null);
+  // Server-side paging (2026-10-17, scale work): filters, search, sort and
+  // paging all run in the API; only one page of slim rows is ever loaded.
+  const [result, setResult] = useState<PagedResult<PartnerListItem> | null>(null);
+  const [overview, setOverview] = useState<PartnerOverview | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const countries = useCountries();
 
@@ -69,54 +73,46 @@ export default function PartnersPage() {
   const [page, setPage] = useState(0);
 
   useEffect(() => {
-    apiClient
-      .listPartners()
-      .then(setPartners)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load stakeholders"));
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    apiClient.getPartnerOverview().then(setOverview).catch(() => setOverview(null));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .listPartnersPage({
+        page: page + 1,
+        pageSize: pageSize === "all" ? 100 : pageSize,
+        q: debouncedSearch,
+        roleType: roleFilter,
+        approval: approvalFilter,
+        country: countryFilter,
+        risk: riskFilter,
+        sort: sortKey,
+        dir: sortDir,
+      })
+      .then((r) => {
+        if (!cancelled) {
+          setResult(r);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load stakeholders");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, pageSize, debouncedSearch, roleFilter, approvalFilter, countryFilter, riskFilter, sortKey, sortDir]);
 
   function goAdd(role: string) {
     router.push(`/partners/new?role=${role}`);
   }
 
-  const filtered = useMemo(() => {
-    if (!partners) return [];
-    const q = search.trim().toLowerCase();
-    return partners.filter((p) => {
-      if (roleFilter && !p.roles.some((r) => r.roleType === roleFilter)) return false;
-      if (approvalFilter && p.approvalStatus !== approvalFilter) return false;
-      if (countryFilter && p.countryCode !== countryFilter) return false;
-      if (riskFilter && p.riskTier !== riskFilter) return false;
-      if (q) {
-        const haystack = `${p.name} ${p.countryCode ?? ""} ${p.website ?? ""} ${p.companyRegistrationNumber ?? ""} ${p.vatNumber ?? ""} ${p.roles.map((r) => r.roleType).join(" ")}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [partners, search, roleFilter, approvalFilter, countryFilter, riskFilter]);
-
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    const dir = sortDir === "asc" ? 1 : -1;
-    list.sort((a, b) => {
-      switch (sortKey) {
-        case "name":
-          return a.name.localeCompare(b.name) * dir;
-        case "roles":
-          return (a.roles[0]?.roleType ?? "").localeCompare(b.roles[0]?.roleType ?? "") * dir;
-        case "country":
-          return (a.countryCode ?? "").localeCompare(b.countryCode ?? "") * dir;
-        case "approval":
-          return a.approvalStatus.localeCompare(b.approvalStatus) * dir;
-        case "risk":
-          return (a.riskTier ?? "").localeCompare(b.riskTier ?? "") * dir;
-        case "created":
-        default:
-          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
-      }
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
 
   function onSort(key: string) {
     if (key === sortKey) {
@@ -128,34 +124,14 @@ export default function PartnersPage() {
     setPage(0);
   }
 
-  const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
-  const visible = pageSize === "all" ? sorted : sorted.slice(page * pageSize, page * pageSize + pageSize);
+  const effectivePageSize = pageSize === "all" ? 100 : pageSize;
+  const total = result?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / effectivePageSize));
+  const visible = result?.items ?? [];
 
-  const counts = useMemo(() => {
-    const byRole: Record<string, number> = {};
-    let approved = 0;
-    let approvedMfgSup = 0;
-    for (const p of partners ?? []) {
-      for (const r of p.roles) byRole[r.roleType] = (byRole[r.roleType] ?? 0) + 1;
-      if (p.approvalStatus === "APPROVED") {
-        approved += 1;
-        if (p.roles.some((r) => r.roleType === "MANUFACTURER" || r.roleType === "SUPPLIER")) approvedMfgSup += 1;
-      }
-    }
-    return { byRole, approved, approvedMfgSup };
-  }, [partners]);
+  const counts = overview?.counts ?? { byRole: {} as Record<string, number>, approved: 0, approvedMfgSup: 0 };
 
-  const recentByCategory = useMemo(() => {
-    const map: Record<string, PartnerSummary[]> = {};
-    for (const cat of RECENT_CATEGORIES) {
-      map[cat] = (partners ?? [])
-        .filter((p) => p.roles.some((r) => r.roleType === cat))
-        .slice()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 5);
-    }
-    return map;
-  }, [partners]);
+  const recentByCategory: Record<string, PartnerListItem[]> = overview?.recent ?? {};
 
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
@@ -257,9 +233,9 @@ export default function PartnersPage() {
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
-      {!partners && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
+      {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
-      {partners && (
+      {result && (
         <>
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
             <thead>
@@ -325,7 +301,7 @@ export default function PartnersPage() {
             page={page}
             pageCount={pageCount}
             onPageChange={setPage}
-            totalCount={sorted.length}
+            totalCount={total}
           />
         </>
       )}

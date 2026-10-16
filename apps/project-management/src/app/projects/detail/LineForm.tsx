@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import type { PartnerSummary, ProductBatchSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import type { PartnerOption, ProductBatchSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
 import { CURRENCY_OPTIONS } from "@universe/types";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
@@ -127,8 +127,8 @@ export function LineForm({
    * per-line concern (moved to project level 2026-10-03), so
    * freightForwarders is no longer a prop here. */
   projectStatus: string;
-  manufacturers: PartnerSummary[];
-  suppliers: PartnerSummary[];
+  manufacturers: PartnerOption[];
+  suppliers: PartnerOption[];
   /** True when the API redacted financials for this user: the Financials section is not shown. */
   hideFinancials?: boolean;
   onSave: (input: ProjectLineInput) => Promise<void>;

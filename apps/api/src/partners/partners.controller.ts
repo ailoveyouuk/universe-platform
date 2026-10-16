@@ -14,6 +14,33 @@ import { PartnersService } from "./partners.service";
 export class PartnersController {
   constructor(private readonly partnersService: PartnersService) {}
 
+  // Static segments first so ":id" never shadows them.
+  @Get("page")
+  findPage(
+    @CurrentUser() user: RequestUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("q") q?: string,
+    @Query("roleType") roleType?: string,
+    @Query("approval") approval?: string,
+    @Query("country") country?: string,
+    @Query("risk") risk?: string,
+    @Query("sort") sort?: string,
+    @Query("dir") dir?: string,
+  ) {
+    return this.partnersService.findPage(user, { page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined, q, roleType, approval, country, risk, sort, dir });
+  }
+
+  @Get("overview")
+  overview(@CurrentUser() user: RequestUser) {
+    return this.partnersService.overview(user);
+  }
+
+  @Get("options")
+  options(@CurrentUser() user: RequestUser, @Query("roleType") roleType?: string) {
+    return this.partnersService.options(user, roleType);
+  }
+
   @Get()
   findAll(@CurrentUser() user: RequestUser, @Query("roleType") roleType?: string) {
     return this.partnersService.findAll(user, roleType);

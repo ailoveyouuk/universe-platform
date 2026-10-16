@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PartnerSummary, ProjectDetail, ProjectLineSummary } from "@universe/types";
+import type { PartnerOption, ProjectDetail, ProjectLineSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import Link from "next/link";
 import { Button, TextLink } from "@universe/ui";
@@ -34,7 +34,7 @@ export function SupplierEnquiries({
 }: {
   projectId: string;
   line: ProjectLineSummary;
-  suppliers: PartnerSummary[];
+  suppliers: PartnerOption[];
   onUpdated: (project: ProjectDetail) => void;
 }) {
   const [adding, setAdding] = useState(false);

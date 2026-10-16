@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { ContactSummary, CountryOption, PartnerSummary, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
+import type { ContactSummary, CountryOption, PartnerOption, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -83,10 +83,10 @@ export function ProjectDetailView() {
   const countries = useCountries();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
-  const [clients, setClients] = useState<PartnerSummary[]>([]);
-  const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
-  const [suppliers, setSuppliers] = useState<PartnerSummary[]>([]);
-  const [freightForwarders, setFreightForwarders] = useState<PartnerSummary[]>([]);
+  const [clients, setClients] = useState<PartnerOption[]>([]);
+  const [manufacturers, setManufacturers] = useState<PartnerOption[]>([]);
+  const [suppliers, setSuppliers] = useState<PartnerOption[]>([]);
+  const [freightForwarders, setFreightForwarders] = useState<PartnerOption[]>([]);
   // Team & Contacts (added 2026-10-08) — org-wide pickable lists, fetched
   // once alongside the partner lists above; see ProjectTeam's doc comment.
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -135,10 +135,10 @@ export function ProjectDetailView() {
   }, [load]);
 
   useEffect(() => {
-    apiClient.listPartners("CLIENT").then(setClients).catch(() => {});
-    apiClient.listPartners("MANUFACTURER").then(setManufacturers).catch(() => {});
-    apiClient.listPartners("SUPPLIER").then(setSuppliers).catch(() => {});
-    apiClient.listPartners("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
+    apiClient.listPartnerOptions("CLIENT").then(setClients).catch(() => {});
+    apiClient.listPartnerOptions("MANUFACTURER").then(setManufacturers).catch(() => {});
+    apiClient.listPartnerOptions("SUPPLIER").then(setSuppliers).catch(() => {});
+    apiClient.listPartnerOptions("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
     apiClient.listUsers().then(setUsers).catch(() => {});
     apiClient.listContacts().then(setContacts).catch(() => {});
   }, []);

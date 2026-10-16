@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type {
   PartnerPerformanceMetric,
-  PartnerSummary,
+  PartnerOption,
   ProductCatalogMatch,
   ProductSourceApprovalSummary,
   QualityDashboardSummary,
@@ -437,8 +437,8 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   const [productId, setProductId] = useState("");
   const [productLabel, setProductLabel] = useState<string | null>(null);
   const [creatingProduct, setCreatingProduct] = useState(false);
-  const [manufacturers, setManufacturers] = useState<PartnerSummary[]>([]);
-  const [suppliers, setSuppliers] = useState<PartnerSummary[]>([]);
+  const [manufacturers, setManufacturers] = useState<PartnerOption[]>([]);
+  const [suppliers, setSuppliers] = useState<PartnerOption[]>([]);
   const [manufacturerId, setManufacturerId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [status, setStatus] = useState("PENDING");
@@ -446,8 +446,8 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.listPartners("MANUFACTURER").then(setManufacturers).catch(() => setManufacturers([]));
-    apiClient.listPartners("SUPPLIER").then(setSuppliers).catch(() => setSuppliers([]));
+    apiClient.listPartnerOptions("MANUFACTURER").then(setManufacturers).catch(() => setManufacturers([]));
+    apiClient.listPartnerOptions("SUPPLIER").then(setSuppliers).catch(() => setSuppliers([]));
   }, []);
 
   useEffect(() => {
