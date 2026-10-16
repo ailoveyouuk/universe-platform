@@ -22,9 +22,20 @@ export class QualityController {
     return this.approvalsService.getDashboard(user);
   }
 
+  @Get("product-approvals/page")
+  findPage(
+    @CurrentUser() user: RequestUser,
+    @Query("status") status?: string,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.approvalsService.findPage(user, { status, q, page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
+  }
+
   @Get("product-approvals")
-  findAll(@CurrentUser() user: RequestUser, @Query("status") status?: string) {
-    return this.approvalsService.findAll(user, status);
+  findAll(@CurrentUser() user: RequestUser, @Query("status") status?: string, @Query("productMasterId") productMasterId?: string) {
+    return this.approvalsService.findAll(user, status, productMasterId);
   }
 
   @Post("product-approvals")

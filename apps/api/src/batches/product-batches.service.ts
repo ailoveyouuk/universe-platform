@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { withTenantContext } from "@universe/db";
-import type { BatchTemperatureLogSummary, ProductBatchDetail, ProductBatchSummary } from "@universe/types";
+import type { BatchTemperatureLogSummary, PagedResult, ProductBatchDetail, ProductBatchSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -104,6 +104,7 @@ export class ProductBatchesService {
    * manufacturer, status; "every place batch X went" comes from the
    * caller then calling getDetail(id) on the matched row. */
   async search(user: RequestUser, query: SearchProductBatchesDto): Promise<ProductBatchSummary[]> {
+    // Capped at 100 (picker-style use); the Batches screen pages via searchPage.
     const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.productBatch.findMany({
         where: {
@@ -115,9 +116,34 @@ export class ProductBatchesService {
         },
         include: { productMaster: true, manufacturer: { select: { id: true, name: true } } },
         orderBy: { createdAt: "desc" },
+        take: 100,
       }),
     );
     return rows.map(toBatchSummary);
+  }
+
+  /** One page of batches (2026-10-17, scale work), same filters as search. */
+  async searchPage(user: RequestUser, query: SearchProductBatchesDto, opts: { page?: number; pageSize?: number }): Promise<PagedResult<ProductBatchSummary>> {
+    const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(opts.page ?? 1), 1);
+    const where = {
+      ...tenantScope(user.organizationId),
+      ...(query.batchNumber ? { batchNumber: { contains: query.batchNumber } } : {}),
+      ...(query.productMasterId ? { productMasterId: query.productMasterId } : {}),
+      ...(query.manufacturerId ? { manufacturerId: query.manufacturerId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const total = await tx.productBatch.count({ where });
+      const rows = await tx.productBatch.findMany({
+        where,
+        include: { productMaster: true, manufacturer: { select: { id: true, name: true } } },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+      return { items: rows.map(toBatchSummary), total, page, pageSize };
+    });
   }
 
   /** "From one batch, see every project/client/quantity/delivery it was

@@ -506,10 +506,8 @@ function ProductEditPanel({
   // despite manufacturer/supplier country being available via this org's own
   // ProductSourceApproval records (product_source_approvals is RLS-scoped
   // per-org, so this is never cross-tenant data — see that table's doc
-  // comment in row-level-security.sql). listProductSourceApprovals() has no
-  // productMasterId filter server-side (it's a small, per-org list), so this
-  // filters client-side rather than widening that endpoint's contract for
-  // one caller.
+  // comment in row-level-security.sql). listProductSourceApprovals takes a
+  // productMasterId filter (server-side since 2026-10-17, scale work).
   const [sourcing, setSourcing] = useState<ProductSourceApprovalSummary[] | null>(null);
 
   const isPlatformStaff = (me?.platformStaffRole ?? "NONE") !== "NONE";
@@ -558,8 +556,8 @@ function ProductEditPanel({
   // permission) rather than surfacing another error banner on this panel.
   useEffect(() => {
     apiClient
-      .listProductSourceApprovals()
-      .then((rows) => setSourcing(rows.filter((r) => r.productMasterId === productId)))
+      .listProductSourceApprovals(undefined, productId)
+      .then((rows) => setSourcing(rows))
       .catch(() => setSourcing([]));
   }, [productId]);
 

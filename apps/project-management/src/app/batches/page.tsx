@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { PartnerOption, ProductBatchSummary, ProductCatalogMatch } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
-import { Button, Select, SearchInput, Pill, TextLink, GridIcon, PlusIcon, ProductPicker, type ProductPickerOption } from "@universe/ui";
+import { Button, Select, SearchInput, Pill, TextLink, GridIcon, PlusIcon, ProductPicker, Pagination, type PageSize, type ProductPickerOption } from "@universe/ui";
 
 const STATUS_OPTIONS = ["", "ACTIVE", "QUARANTINED", "EXPIRED", "WITHDRAWN"] as const;
 
@@ -28,6 +28,10 @@ const inputStyle: CSSProperties = {
  */
 export default function BatchesPage() {
   const [batches, setBatches] = useState<ProductBatchSummary[] | null>(null);
+  // Server-paged (2026-10-17, scale work).
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [page, setPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [batchNumberQuery, setBatchNumberQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_OPTIONS)[number]>("");
@@ -35,9 +39,10 @@ export default function BatchesPage() {
 
   function reload() {
     apiClient
-      .searchProductBatches({ batchNumber: batchNumberQuery || undefined, status: statusFilter || undefined })
+      .searchProductBatchesPage({ batchNumber: batchNumberQuery || undefined, status: statusFilter || undefined, page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize })
       .then((data) => {
-        setBatches(data);
+        setBatches(data.items);
+        setTotal(data.total);
         setError(null);
       })
       .catch((err) => {
@@ -51,6 +56,11 @@ export default function BatchesPage() {
     const handle = setTimeout(reload, 250);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchNumberQuery, statusFilter, page, pageSize]);
+
+  // A new search or filter starts again from the first page.
+  useEffect(() => {
+    setPage(0);
   }, [batchNumberQuery, statusFilter]);
 
   return (
@@ -162,6 +172,14 @@ export default function BatchesPage() {
               </div>
             </Link>
           ))}
+          <Pagination
+            pageSize={pageSize}
+            onPageSizeChange={(sz) => { setPageSize(sz); setPage(0); }}
+            page={page}
+            pageCount={Math.max(1, Math.ceil(total / (pageSize === "all" ? 100 : pageSize)))}
+            onPageChange={setPage}
+            totalCount={total}
+          />
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import type { RiskAssessmentListItem, UserOption } from "@universe/types";
+import type { PagedResult, RiskAssessmentListItem, RiskRegisterCounts, UserOption } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import {
   SearchInput,
@@ -86,7 +86,12 @@ function subjectTypeLabel(subjectType: string): string {
  * risk's title.
  */
 export default function RiskRegisterPage() {
-  const [risks, setRisks] = useState<RiskAssessmentListItem[] | null>(null);
+  // Server-paged (2026-10-17, scale work): search, filters, sort and paging run in the API; the
+  // tiles are database counts.
+  const [result, setResult] = useState<PagedResult<RiskAssessmentListItem> | null>(null);
+  const [counts, setCounts] = useState<RiskRegisterCounts>({ total: 0, open: 0, highOrCritical: 0, overdue: 0 });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,57 +107,51 @@ export default function RiskRegisterPage() {
   const [editing, setEditing] = useState<RiskAssessmentListItem | null>(null);
 
   function reload() {
-    apiClient
-      .listAllRiskAssessments()
-      .then((data) => {
-        setRisks(data);
-        setError(null);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load the risk register"));
+    setReloadKey((k) => k + 1);
   }
 
   useEffect(() => {
-    reload();
     apiClient.listUserOptions().then(setUsers).catch(() => setUsers([]));
   }, []);
 
-  const filtered = useMemo(() => {
-    if (!risks) return [];
-    const q = search.trim().toLowerCase();
-    return risks.filter((r) => {
-      if (statusFilter && r.status !== statusFilter) return false;
-      if (severityFilter && r.severity !== severityFilter) return false;
-      if (subjectTypeFilter && r.subjectType !== subjectTypeFilter) return false;
-      if (q) {
-        const haystack = `${r.title} ${r.description ?? ""} ${r.subjectName} ${r.mitigation ?? ""} ${r.ownerName ?? ""}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [risks, search, statusFilter, severityFilter, subjectTypeFilter]);
+  useEffect(() => {
+    apiClient.getRiskRegisterCounts().then(setCounts).catch(() => {});
+  }, [reloadKey]);
 
-  const SEVERITY_RANK: Record<string, number> = { LOW: 0, MEDIUM: 1, HIGH: 2, CRITICAL: 3 };
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    const dir = sortDir === "asc" ? 1 : -1;
-    list.sort((a, b) => {
-      switch (sortKey) {
-        case "title":
-          return a.title.localeCompare(b.title) * dir;
-        case "subject":
-          return a.subjectName.localeCompare(b.subjectName) * dir;
-        case "severity":
-          return ((SEVERITY_RANK[a.severity] ?? -1) - (SEVERITY_RANK[b.severity] ?? -1)) * dir;
-        case "status":
-          return a.status.localeCompare(b.status) * dir;
-        case "review":
-        default:
-          return ((a.reviewDate ? new Date(a.reviewDate).getTime() : Infinity) - (b.reviewDate ? new Date(b.reviewDate).getTime() : Infinity)) * dir;
-      }
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .listRiskRegisterPage({
+        q: debouncedSearch,
+        status: statusFilter,
+        severity: severityFilter,
+        subjectType: subjectTypeFilter,
+        sort: sortKey,
+        dir: sortDir,
+        page: page + 1,
+        pageSize: pageSize === "all" ? 100 : pageSize,
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setResult(data);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load the risk register");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, statusFilter, severityFilter, subjectTypeFilter, sortKey, sortDir, page, pageSize, reloadKey]);
 
   function onSort(key: string) {
     if (key === sortKey) {
@@ -164,24 +163,10 @@ export default function RiskRegisterPage() {
     setPage(0);
   }
 
-  const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
-  const visible = pageSize === "all" ? sorted : sorted.slice(page * pageSize, page * pageSize + pageSize);
-
-  const counts = useMemo(() => {
-    const all = risks ?? [];
-    const now = Date.now();
-    let open = 0;
-    let highOrCritical = 0;
-    let overdue = 0;
-    for (const r of all) {
-      if (r.status === "OPEN" || r.status === "MITIGATED") {
-        if (r.severity === "HIGH" || r.severity === "CRITICAL") highOrCritical += 1;
-        if (r.reviewDate && new Date(r.reviewDate).getTime() < now) overdue += 1;
-      }
-      if (r.status === "OPEN") open += 1;
-    }
-    return { total: all.length, open, highOrCritical, overdue };
-  }, [risks]);
+  const effectivePageSize = pageSize === "all" ? 100 : pageSize;
+  const total = result?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / effectivePageSize));
+  const visible = result?.items ?? [];
 
   function clearFilters() {
     setStatusFilter("");
@@ -226,7 +211,7 @@ export default function RiskRegisterPage() {
 
       {/* Filters + search */}
       <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by title, subject, mitigation, owner…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search by title, subject, mitigation, owner…" />
         <Select
           value={statusFilter}
           onChange={(v) => { setStatusFilter(v); setPage(0); }}
@@ -251,9 +236,9 @@ export default function RiskRegisterPage() {
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
-      {!risks && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
+      {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
-      {risks && (
+      {result && (
         <>
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
             <thead>
@@ -321,7 +306,7 @@ export default function RiskRegisterPage() {
             page={page}
             pageCount={pageCount}
             onPageChange={setPage}
-            totalCount={sorted.length}
+            totalCount={total}
           />
         </>
       )}

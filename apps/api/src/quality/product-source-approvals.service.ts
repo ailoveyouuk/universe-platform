@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
-import type { ProductSourceApprovalSummary, QualityDashboardSummary } from "@universe/types";
+import type { PagedResult, ProductSourceApprovalSummary, QualityDashboardSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateProductSourceApprovalDto } from "./dto/create-product-source-approval.dto";
@@ -64,6 +64,17 @@ function toSummary(a: ApprovalWithDetails): ProductSourceApprovalSummary {
   };
 }
 
+/** Database form of toSummary's `isQualified` test (minus the status check): manufacturer and any supplier
+ * approved with no expired certification, and the review not overdue. Keep the two in step. */
+function qualifiedWhere() {
+  const now = new Date();
+  const partnerOk = { approvalStatus: "APPROVED", certifications: { none: { expiryDate: { lt: now } } } };
+  return {
+    manufacturer: partnerOk,
+    AND: [{ OR: [{ supplierId: null }, { supplier: partnerOk }] }, { OR: [{ nextReviewDue: null }, { nextReviewDue: { gte: now } }] }],
+  };
+}
+
 @Injectable()
 export class ProductSourceApprovalsService {
   // Delegates product search to the shared catalog service rather than
@@ -76,19 +87,59 @@ export class ProductSourceApprovalsService {
   // Same tenant-isolation pattern as PartnersService — see its doc comment.
   // product_source_approvals is RLS-protected (infra/sql/row-level-security.sql),
   // so every query here must run inside withTenantContext.
-  async findAll(user: RequestUser, status?: string): Promise<ProductSourceApprovalSummary[]> {
+  /** Capped at 500. `productMasterId` narrows it to one product's sourcing (Product Database
+   * entry panel). Screens that list everything use findPage. */
+  async findAll(user: RequestUser, status?: string, productMasterId?: string): Promise<ProductSourceApprovalSummary[]> {
     const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.productSourceApproval.findMany({
         where: {
           ...tenantScope(user.organizationId),
           isArchived: false,
           ...(status ? { status } : {}),
+          ...(productMasterId ? { productMasterId } : {}),
         },
         include: APPROVAL_INCLUDE,
         orderBy: { createdAt: "desc" },
+        take: 500,
       }),
     );
     return rows.map(toSummary);
+  }
+
+  /** One page of sourcing approvals (2026-10-17, scale work). `status` PENDING | APPROVED | REJECTED,
+   * or "WARNING" for approved-but-no-longer-qualified. `q` matches product, manufacturer or supplier name. */
+  async findPage(
+    user: RequestUser,
+    opts: { status?: string; q?: string; page?: number; pageSize?: number },
+  ): Promise<PagedResult<ProductSourceApprovalSummary>> {
+    const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(opts.page ?? 1), 1);
+    const term = opts.q?.trim();
+    const base = { ...tenantScope(user.organizationId), isArchived: false };
+    const where = {
+      ...base,
+      ...(opts.status === "WARNING" ? { status: "APPROVED", NOT: qualifiedWhere() } : opts.status ? { status: opts.status } : {}),
+      ...(term
+        ? {
+            OR: [
+              { productMaster: { name: { contains: term } } },
+              { manufacturer: { name: { contains: term } } },
+              { supplier: { name: { contains: term } } },
+            ],
+          }
+        : {}),
+    };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const total = await tx.productSourceApproval.count({ where });
+      const rows = await tx.productSourceApproval.findMany({
+        where,
+        include: APPROVAL_INCLUDE,
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+      return { items: rows.map(toSummary), total, page, pageSize };
+    });
   }
 
   async create(user: RequestUser, dto: CreateProductSourceApprovalDto): Promise<ProductSourceApprovalSummary> {
@@ -152,31 +203,25 @@ export class ProductSourceApprovalsService {
    * `user` isn't used for scoping here; it's accepted for consistency with
    * every other service method and in case this needs to become
    * org-aware later (e.g. ranking by the org's own usage). */
+  /** Counts are computed in the database; only the ten "needs attention" rows are loaded. */
   async getDashboard(user: RequestUser): Promise<QualityDashboardSummary> {
-    const rows = await withTenantContext(user.organizationId, (tx) =>
-      tx.productSourceApproval.findMany({
-        where: { ...tenantScope(user.organizationId), isArchived: false },
-        include: APPROVAL_INCLUDE,
-        orderBy: { createdAt: "desc" },
-      }),
-    );
-    const summaries = rows.map(toSummary);
-    const qualifiedCount = summaries.filter((s) => s.isQualified).length;
-    // "Warning" = approved as a sourcing decision but currently failing the
-    // live cross-reference — the case Lewis specifically asked to flag.
-    const warningCount = summaries.filter((s) => s.status === "APPROVED" && !s.isQualified).length;
-    const pendingCount = summaries.filter((s) => s.status === "PENDING").length;
-    const rejectedCount = summaries.filter((s) => s.status === "REJECTED").length;
-    const needsAttention = summaries
-      .filter((s) => s.status === "APPROVED" && !s.isQualified)
-      .slice(0, 10);
-    return {
-      totalProducts: summaries.length,
-      qualifiedCount,
-      warningCount,
-      pendingCount,
-      rejectedCount,
-      needsAttention,
-    };
+    const base = { ...tenantScope(user.organizationId), isArchived: false };
+    const qualified = qualifiedWhere();
+    return withTenantContext(user.organizationId, async (tx) => {
+      const [totalProducts, qualifiedCount, warningCount, pendingCount, rejectedCount, attention] = await Promise.all([
+        tx.productSourceApproval.count({ where: base }),
+        tx.productSourceApproval.count({ where: { ...base, status: "APPROVED", ...qualified } }),
+        tx.productSourceApproval.count({ where: { ...base, status: "APPROVED", NOT: qualified } }),
+        tx.productSourceApproval.count({ where: { ...base, status: "PENDING" } }),
+        tx.productSourceApproval.count({ where: { ...base, status: "REJECTED" } }),
+        tx.productSourceApproval.findMany({
+          where: { ...base, status: "APPROVED", NOT: qualified },
+          include: APPROVAL_INCLUDE,
+          orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+          take: 10,
+        }),
+      ]);
+      return { totalProducts, qualifiedCount, warningCount, pendingCount, rejectedCount, needsAttention: attention.map(toSummary) };
+    });
   }
 }

@@ -31,7 +31,7 @@ import {
   StatTile,
 } from "@universe/ui";
 
-const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED"] as const;
+const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING"] as const;
 const PERFORMANCE_ROLE_FILTERS = ["", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER"] as const;
 const ROLE_LABELS: Record<string, string> = {
   MANUFACTURER: "Manufacturer",
@@ -68,6 +68,10 @@ export default function QualityPage() {
   const canApproveProducts = me?.permissions.includes("products.approve") ?? false;
   const [dashboard, setDashboard] = useState<QualityDashboardSummary | null>(null);
   const [approvals, setApprovals] = useState<ProductSourceApprovalSummary[] | null>(null);
+  // Server-paged (2026-10-17, scale work).
+  const [approvalsTotal, setApprovalsTotal] = useState(0);
+  const [approvalsPage, setApprovalsPage] = useState(0);
+  const [approvalsPageSize, setApprovalsPageSize] = useState<PageSize>(25);
   const [performanceResult, setPerformanceResult] = useState<PagedResult<PartnerPerformanceMetric> | null>(null);
   const [perfPageSize, setPerfPageSize] = useState<PageSize>(25);
   const [perfPage, setPerfPage] = useState(0);
@@ -80,9 +84,10 @@ export default function QualityPage() {
   function reload() {
     apiClient.getQualityDashboard().then(setDashboard).catch(() => setDashboard(null));
     apiClient
-      .listProductSourceApprovals(statusFilter || undefined)
+      .listProductSourceApprovalsPage({ status: statusFilter || undefined, page: approvalsPage + 1, pageSize: approvalsPageSize === "all" ? 100 : approvalsPageSize })
       .then((data) => {
-        setApprovals(data);
+        setApprovals(data.items);
+        setApprovalsTotal(data.total);
         setError(null);
       })
       .catch((err) => {
@@ -101,7 +106,7 @@ export default function QualityPage() {
   useEffect(() => {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, approvalsPage, approvalsPageSize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,7 +237,7 @@ export default function QualityPage() {
           <div style={{ width: 200 }}>
             <Select
               value={statusFilter}
-              onChange={(v) => setStatusFilter(v as (typeof STATUS_FILTERS)[number])}
+              onChange={(v) => { setStatusFilter(v as (typeof STATUS_FILTERS)[number]); setApprovalsPage(0); }}
               allLabel="All statuses"
               ariaLabel="Filter by status"
               options={STATUS_FILTERS.filter(Boolean).map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase() }))}
@@ -350,6 +355,14 @@ export default function QualityPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              pageSize={approvalsPageSize}
+              onPageSizeChange={(sz) => { setApprovalsPageSize(sz); setApprovalsPage(0); }}
+              page={approvalsPage}
+              pageCount={Math.max(1, Math.ceil(approvalsTotal / (approvalsPageSize === "all" ? 100 : approvalsPageSize)))}
+              onPageChange={setApprovalsPage}
+              totalCount={approvalsTotal}
+            />
           </div>
         )}
       </section>

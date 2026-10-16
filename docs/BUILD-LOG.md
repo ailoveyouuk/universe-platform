@@ -6,6 +6,17 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — More unbounded lists found and paged (sourcing approvals, logistics, risk register, batches)
+
+Adding product source approvals and logistics records to the scale data (Lewis: they must be in the demo) exposed lists the earlier test could not see because the data had none. Fixed the same way:
+- **Product sourcing approvals** (Quality screen): `GET /quality/product-approvals/page` (status incl. WARNING = approved but no longer qualified, q, page); the Quality dashboard counts are now database counts (`qualifiedWhere` mirrors the qualification rule) with only the ten "needs attention" rows loaded. `GET /quality/product-approvals?productMasterId=` filters on the server (the Product Database entry panel used to download every approval and filter in the browser). Unfiltered legacy list capped at 500.
+- **Logistics & CO2 lines**: `GET /logistics-insights/lines/page` returns a page plus totals (count, CO2, distance, average score) computed in the database; the tiles were previously summed in the browser from every row. Legacy route capped at 500.
+- **Risk register**: `GET /risk-assessments/all/page` (q incl. subject names, status, severity, subject type, sort, dir) and `/all/counts`. Severity sorts by true rank; rows with no review date sort last; "subject" sorting groups by subject type (the subject is polymorphic). Subject names resolved for the page only. Legacy list capped at 500.
+- **Batches**: `GET /batches/page`; the search used by pickers is capped at 100.
+- Verified: typecheck clean in all four apps; new `apps/api/test/more-paging.test.ts`.
+
+---
+
 ## 2026-10-17 — Quality performance and QA queue paging, plus indexes (scale fixes 4–5)
 
 - **Partner performance:** `GET /quality/performance/page` (roleType, q, page, pageSize). One grouped SQL query per role (manufacturer, supplier, freight forwarder via project) computes line counts, on-time / in-full / OTIF percentages, average days late and supplier issue counts in the database; the page is sorted (most lines first) and cut in SQL. The old version loaded every partner and line and filtered the whole line list per partner (quadratic). Behaviour change: only partners with project-line activity get a scorecard (no more rows of zeros). Legacy `GET /quality/performance` now returns the first 500. The Quality page has paging.

@@ -36,6 +36,14 @@ function filtersFromQuery(query: Record<string, unknown>): LogisticsFilters {
 export class LogisticsInsightsController {
   constructor(private readonly logisticsInsightsService: LogisticsInsightsService) {}
 
+  @Get("lines/page")
+  getOrgLinesPage(@CurrentUser() user: RequestUser, @Query() query: Record<string, unknown>) {
+    return this.logisticsInsightsService.getOrgLinesPage(user, filtersFromQuery(query), {
+      page: Number(query.page) || 1,
+      pageSize: Number(query.pageSize) || 25,
+    });
+  }
+
   @Get("lines")
   getOrgLines(@CurrentUser() user: RequestUser, @Query() query: Record<string, unknown>) {
     return this.logisticsInsightsService.getOrgLines(user, filtersFromQuery(query));

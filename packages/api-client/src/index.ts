@@ -1,6 +1,7 @@
 import type {
   StakeholderAccessOverview,
   PagedResult,
+  RiskRegisterCounts,
   ProjectOverview,
   UserCounts,
   UserOption,
@@ -63,6 +64,7 @@ import type {
   QualityDashboardSummary,
   QaQueueSummary,
   QaQueuePage,
+  LogisticsLinesPage,
   RequestDocumentUploadInput,
   RequestDocumentUploadResult,
   RoleSummary,
@@ -700,9 +702,19 @@ export class UniverseApiClient {
     return this.request("/countries/regions");
   }
 
-  listProductSourceApprovals(status?: string): Promise<ProductSourceApprovalSummary[]> {
-    const query = status ? `?status=${encodeURIComponent(status)}` : "";
-    return this.request(`/quality/product-approvals${query}`);
+  /** Server-paged sourcing approvals (status PENDING | APPROVED | REJECTED | WARNING; q matches product/manufacturer/supplier). */
+  listProductSourceApprovalsPage(params: { status?: string; q?: string; page?: number; pageSize?: number }): Promise<PagedResult<ProductSourceApprovalSummary>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/quality/product-approvals/page?${qs.toString()}`);
+  }
+
+  /** First 500 only; optionally one product's sourcing. Lists use listProductSourceApprovalsPage. */
+  listProductSourceApprovals(status?: string, productMasterId?: string): Promise<ProductSourceApprovalSummary[]> {
+    const qs = new URLSearchParams();
+    if (status) qs.set("status", status);
+    if (productMasterId) qs.set("productMasterId", productMasterId);
+    return this.request(`/quality/product-approvals${qs.toString() ? `?${qs.toString()}` : ""}`);
   }
 
   createProductSourceApproval(input: CreateProductSourceApprovalInput): Promise<ProductSourceApprovalSummary> {
@@ -1030,6 +1042,14 @@ export class UniverseApiClient {
   // See ProductBatchSummary/ProductBatchDetail/BatchTemperatureLogSummary
   // doc comments in @universe/types and ProductBatchesService in apps/api. ---
 
+  /** Server-paged batches. */
+  searchProductBatchesPage(params: SearchProductBatchesInput & { page?: number; pageSize?: number }): Promise<PagedResult<ProductBatchSummary>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/batches/page?${qs.toString()}`);
+  }
+
+  /** First 100 only (picker use) — the Batches screen uses searchProductBatchesPage. */
   searchProductBatches(params?: SearchProductBatchesInput): Promise<ProductBatchSummary[]> {
     const qs = new URLSearchParams();
     if (params?.batchNumber) qs.set("batchNumber", params.batchNumber);
@@ -1090,6 +1110,18 @@ export class UniverseApiClient {
   /** Gap 4 follow-up — every risk across the organisation (the standalone
    * Risk Register page), with each row's subject display name already
    * resolved server-side. */
+  /** Server-paged risk register. */
+  listRiskRegisterPage(params: { q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number }): Promise<PagedResult<RiskAssessmentListItem>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/risk-assessments/all/page?${qs.toString()}`);
+  }
+
+  getRiskRegisterCounts(): Promise<RiskRegisterCounts> {
+    return this.request("/risk-assessments/all/counts");
+  }
+
+  /** @deprecated First 500 only — use listRiskRegisterPage. */
   listAllRiskAssessments(): Promise<RiskAssessmentListItem[]> {
     return this.request("/risk-assessments/all");
   }
@@ -1153,6 +1185,13 @@ export class UniverseApiClient {
     return s ? `?${s}` : "";
   }
 
+  /** One page of logistics lines with database-computed totals over the filtered set. */
+  getLogisticsLinesPage(filters: LogisticsFilters | undefined, page: number, pageSize: number): Promise<LogisticsLinesPage> {
+    const base = this.logisticsQueryString(filters);
+    return this.request(`/logistics-insights/lines/page${base}${base ? "&" : "?"}page=${page}&pageSize=${pageSize}`);
+  }
+
+  /** @deprecated First 500 only — use getLogisticsLinesPage. */
   getLogisticsLines(filters?: LogisticsFilters): Promise<OrgLogisticsLineSummary[]> {
     return this.request(`/logistics-insights/lines${this.logisticsQueryString(filters)}`);
   }

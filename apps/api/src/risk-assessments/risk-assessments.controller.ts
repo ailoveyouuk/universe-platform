@@ -26,6 +26,26 @@ export class RiskAssessmentsController {
   // route-matching (literal static segments never conflict with each
   // other regardless of order), but it reads better grouped with its
   // sibling list endpoint.
+  @Get("all/page")
+  listPage(
+    @CurrentUser() user: RequestUser,
+    @Query("q") q?: string,
+    @Query("status") status?: string,
+    @Query("severity") severity?: string,
+    @Query("subjectType") subjectType?: string,
+    @Query("sort") sort?: string,
+    @Query("dir") dir?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.riskAssessmentsService.listPage(user, { q, status, severity, subjectType, sort, dir, page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
+  }
+
+  @Get("all/counts")
+  counts(@CurrentUser() user: RequestUser) {
+    return this.riskAssessmentsService.counts(user);
+  }
+
   @Get("all")
   listAll(@CurrentUser() user: RequestUser) {
     return this.riskAssessmentsService.listAll(user);

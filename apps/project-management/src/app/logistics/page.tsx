@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { LogisticsFilters, LogisticsRouteSummary, OrgLogisticsLineSummary } from "@universe/types";
+import type { LogisticsFilters, LogisticsLinesPage, LogisticsRouteSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import {
   GaugeIcon,
+  Pagination,
+  type PageSize,
   StandardsReference,
   StatTile,
   ScoreLegend,
@@ -50,19 +52,36 @@ const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
  */
 export default function LogisticsPage() {
   const countries = useCountries();
-  const [rows, setRows] = useState<OrgLogisticsLineSummary[] | null>(null);
+  // Server-paged with database-computed totals (2026-10-17, scale work).
+  const [result, setResult] = useState<LogisticsLinesPage | null>(null);
+  const rows = result?.items ?? null;
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [page, setPage] = useState(0);
   const [globalRoutes, setGlobalRoutes] = useState<LogisticsRouteSummary[] | null>(null);
   const [filters, setFilters] = useState<LogisticsFilters>({});
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     const handle = setTimeout(() => {
       apiClient
-        .getLogisticsLines({ ...filters, search: search || undefined })
-        .then(setRows)
-        .catch(() => setRows([]));
+        .getLogisticsLinesPage({ ...filters, search: search || undefined }, page + 1, pageSize === "all" ? 100 : pageSize)
+        .then((r) => {
+          if (!cancelled) setResult(r);
+        })
+        .catch(() => {
+          if (!cancelled) setResult({ items: [], total: 0, page: 1, pageSize: 25, totals: { count: 0, totalCo2Kg: 0, totalDistanceKm: 0, avgScore: 0 } });
+        });
     }, 250);
-    return () => clearTimeout(handle);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [filters, search, page, pageSize]);
+
+  // A new filter or search starts again from the first page.
+  useEffect(() => {
+    setPage(0);
   }, [filters, search]);
 
   // Anonymized cross-tenant benchmark map — fetched once, independent of
@@ -75,13 +94,7 @@ export default function LogisticsPage() {
       .catch(() => setGlobalRoutes([]));
   }, []);
 
-  const totals = useMemo(() => {
-    if (!rows || rows.length === 0) return null;
-    const totalCo2 = rows.reduce((sum, r) => sum + Number(r.metric.co2TotalKg), 0);
-    const totalDistance = rows.reduce((sum, r) => sum + Number(r.metric.distanceKm), 0);
-    const avgScore = rows.reduce((sum, r) => sum + r.metric.efficiencyScore, 0) / rows.length;
-    return { totalCo2, totalDistance, avgScore, count: rows.length };
-  }, [rows]);
+  const totals = result && result.totals.count > 0 ? { totalCo2: result.totals.totalCo2Kg, totalDistance: result.totals.totalDistanceKm, avgScore: result.totals.avgScore, count: result.totals.count } : null;
 
   // Same derivation as the old /logistics/global page's mapData useMemo —
   // see product-database-and-map-roadmap.md Stage 3a. Manufacture-country
@@ -335,6 +348,14 @@ export default function LogisticsPage() {
               </Link>
             );
           })}
+          <Pagination
+            pageSize={pageSize}
+            onPageSizeChange={(sz) => { setPageSize(sz); setPage(0); }}
+            page={page}
+            pageCount={Math.max(1, Math.ceil((result?.total ?? 0) / (pageSize === "all" ? 100 : pageSize)))}
+            onPageChange={setPage}
+            totalCount={result?.total ?? 0}
+          />
         </div>
       )}
     </div>

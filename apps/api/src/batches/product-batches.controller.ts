@@ -19,6 +19,11 @@ export class ProductBatchesController {
     return this.batchesService.create(user, dto);
   }
 
+  @Get("page")
+  searchPage(@CurrentUser() user: RequestUser, @Query() query: SearchProductBatchesDto & { page?: string; pageSize?: string }) {
+    return this.batchesService.searchPage(user, query, { page: Number(query.page) || 1, pageSize: Number(query.pageSize) || 25 });
+  }
+
   @Get()
   search(@CurrentUser() user: RequestUser, @Query() query: SearchProductBatchesDto) {
     return this.batchesService.search(user, query);

@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { createNotifications, completeActionsFor, rescheduleActionsFor } from "../notifications/notify";
 import { withTenantContext } from "@universe/db";
 import type {
+  PagedResult,
+  RiskRegisterCounts,
   CreateRiskAssessmentInput,
   RiskAssessmentListItem,
   RiskAssessmentSummary,
@@ -122,6 +124,137 @@ export class RiskAssessmentsService {
   }
 
   /**
+   * GET /risk-assessments/all/page — the register view, paged and filtered in the database
+   * (2026-10-17, scale work). Subject display names are resolved only for the rows on the page.
+   * `q` matches title, description, mitigation, owner name, or the name of the stakeholder /
+   * project / batch the risk is about. Sorting by severity uses the real rank (LOW < MEDIUM <
+   * HIGH < CRITICAL); sorting by "subject" groups by subject type then newest first, because the
+   * subject is polymorphic and has no single name column to order by. Rows with no review date
+   * sort last.
+   */
+  async listPage(
+    user: RequestUser,
+    opts: { q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number },
+  ): Promise<PagedResult<RiskAssessmentListItem>> {
+    const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(opts.page ?? 1), 1);
+    const skip = (page - 1) * pageSize;
+    const term = opts.q?.trim();
+    const dir = opts.dir === "desc" ? "desc" : "asc";
+    const org = user.organizationId;
+
+    return withTenantContext(org, async (tx) => {
+      let subjectMatch: Record<string, unknown>[] = [];
+      if (term) {
+        const like = { contains: term };
+        const [ps, prs, bs] = await Promise.all([
+          tx.partner.findMany({ where: { ...tenantScope(org), name: like }, select: { id: true }, take: 200 }),
+          tx.project.findMany({ where: { ...tenantScope(org), OR: [{ title: like }, { referenceNumber: like }] }, select: { id: true }, take: 200 }),
+          tx.productBatch.findMany({ where: { ...tenantScope(org), batchNumber: like }, select: { id: true }, take: 200 }),
+        ]);
+        const ids = [...ps, ...prs, ...bs].map((x) => x.id);
+        if (ids.length) subjectMatch = [{ subjectId: { in: ids } }];
+      }
+      const where: Record<string, unknown> = {
+        ...tenantScope(org),
+        ...(opts.status ? { status: opts.status } : {}),
+        ...(opts.severity ? { severity: opts.severity } : {}),
+        ...(opts.subjectType ? { subjectType: opts.subjectType } : {}),
+        ...(term
+          ? {
+              OR: [
+                { title: { contains: term } },
+                { description: { contains: term } },
+                { mitigation: { contains: term } },
+                { owner: { OR: [{ forename: { contains: term } }, { surname: { contains: term } }] } },
+                ...subjectMatch,
+              ],
+            }
+          : {}),
+      };
+      const total = await tx.riskAssessment.count({ where });
+      const include = { owner: { select: { forename: true, surname: true } } };
+      const secondary = [{ createdAt: "desc" as const }, { id: "asc" as const }];
+      const find = (w: Record<string, unknown>, orderBy: unknown, sk: number, take: number) =>
+        tx.riskAssessment.findMany({ where: w, include, orderBy: orderBy as never, skip: sk, take });
+
+      // Fetch a page that spans ordered buckets (e.g. severity ranks, dated then undated).
+      const across = async (buckets: Record<string, unknown>[], orderBy: unknown) => {
+        const out: Awaited<ReturnType<typeof find>> = [];
+        let offset = skip;
+        for (const b of buckets) {
+          if (out.length >= pageSize) break;
+          const w = { AND: [where, b] };
+          const n = await tx.riskAssessment.count({ where: w });
+          if (offset >= n) {
+            offset -= n;
+            continue;
+          }
+          out.push(...(await find(w, orderBy, offset, pageSize - out.length)));
+          offset = 0;
+        }
+        return out;
+      };
+
+      const key = opts.sort ?? "review";
+      let rows: Awaited<ReturnType<typeof find>>;
+      if (key === "severity") {
+        const order = dir === "asc" ? ["LOW", "MEDIUM", "HIGH", "CRITICAL"] : ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
+        rows = await across(order.map((sev) => ({ severity: sev })), secondary);
+      } else if (key === "review") {
+        const dated = { reviewDate: { not: null } };
+        const undated = { reviewDate: null };
+        rows = await across([dated, undated], [{ reviewDate: dir }, ...secondary]);
+      } else if (key === "title") {
+        rows = await find(where, [{ title: dir }, ...secondary], skip, pageSize);
+      } else if (key === "status") {
+        rows = await find(where, [{ status: dir }, ...secondary], skip, pageSize);
+      } else {
+        rows = await find(where, [{ subjectType: dir }, ...secondary], skip, pageSize);
+      }
+
+      const idsOf = (type: string) => [...new Set(rows.filter((r) => r.subjectType === type).map((r) => r.subjectId))];
+      const [partners, projects, batches] = await Promise.all([
+        idsOf("PARTNER").length ? tx.partner.findMany({ where: { id: { in: idsOf("PARTNER") }, ...tenantScope(org) }, select: { id: true, name: true } }) : [],
+        idsOf("PROJECT").length ? tx.project.findMany({ where: { id: { in: idsOf("PROJECT") }, ...tenantScope(org) }, select: { id: true, title: true, referenceNumber: true } }) : [],
+        idsOf("PRODUCT_BATCH").length ? tx.productBatch.findMany({ where: { id: { in: idsOf("PRODUCT_BATCH") }, ...tenantScope(org) }, select: { id: true, batchNumber: true } }) : [],
+      ]);
+      const partnerNames = new Map(partners.map((p) => [p.id, p.name] as const));
+      const projectNames = new Map(projects.map((p) => [p.id, `${p.referenceNumber} \u2014 ${p.title}`] as const));
+      const batchNames = new Map(batches.map((b) => [b.id, b.batchNumber] as const));
+      const subjectName = (r: { subjectType: string; subjectId: string }) =>
+        r.subjectType === "PARTNER"
+          ? partnerNames.get(r.subjectId) ?? "Unknown stakeholder"
+          : r.subjectType === "PROJECT"
+            ? projectNames.get(r.subjectId) ?? "Unknown project"
+            : r.subjectType === "PRODUCT_BATCH"
+              ? batchNames.get(r.subjectId) ?? "Unknown batch"
+              : r.subjectId;
+      return {
+        items: (rows as unknown as RiskAssessmentWithOwner[]).map((r) => ({ ...toSummary(r), subjectName: subjectName(r) })),
+        total,
+        page,
+        pageSize,
+      };
+    });
+  }
+
+  /** Tile counts for the register, computed in the database. "Unresolved" means OPEN or MITIGATED. */
+  async counts(user: RequestUser): Promise<RiskRegisterCounts> {
+    const base = tenantScope(user.organizationId);
+    const unresolved = { status: { in: ["OPEN", "MITIGATED"] } };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const [total, open, highOrCritical, overdue] = await Promise.all([
+        tx.riskAssessment.count({ where: base }),
+        tx.riskAssessment.count({ where: { ...base, status: "OPEN" } }),
+        tx.riskAssessment.count({ where: { ...base, ...unresolved, severity: { in: ["HIGH", "CRITICAL"] } } }),
+        tx.riskAssessment.count({ where: { ...base, ...unresolved, reviewDate: { lt: new Date() } } }),
+      ]);
+      return { total, open, highOrCritical, overdue };
+    });
+  }
+
+  /**
    * GET /risk-assessments/all — the cross-cutting register view (Gap 4
    * follow-up): every risk across every subject in the organisation, not
    * scoped to one Partner/Project/batch the way listForSubject() is. The
@@ -137,6 +270,7 @@ export class RiskAssessmentsService {
         where: tenantScope(user.organizationId),
         include: { owner: { select: { forename: true, surname: true } } },
         orderBy: { createdAt: "desc" },
+        take: 500,
       });
 
       const partnerIds = [...new Set(rows.filter((r) => r.subjectType === "PARTNER").map((r) => r.subjectId))];

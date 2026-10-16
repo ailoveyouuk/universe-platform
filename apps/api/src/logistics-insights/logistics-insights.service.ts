@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import { getAggregatedLogisticsRoutes, getStakeholderRatingDistribution } from "@universe/insights-db";
 import type {
+  LogisticsLinesPage,
   LogisticsFilters,
   LogisticsMetricSummary,
   LogisticsRouteSummary,
@@ -30,10 +31,9 @@ function decimalToString(d: unknown): string {
  */
 @Injectable()
 export class LogisticsInsightsService {
-  async getOrgLines(user: RequestUser, filters: LogisticsFilters): Promise<OrgLogisticsLineSummary[]> {
-    return withTenantContext(user.organizationId, async (tx) => {
-      const rows = await tx.projectLineLogisticsMetric.findMany({
-        where: {
+  private whereFor(filters: LogisticsFilters) {
+    return {
+
           manufactureCountryCode: filters.manufactureCountryCode || undefined,
           destinationCountryCode: filters.destinationCountryCode || undefined,
           transportMode: filters.transportMode || undefined,
@@ -53,20 +53,12 @@ export class LogisticsInsightsService {
                 ],
               }
             : undefined,
-        },
-        include: {
-          projectLine: {
-            include: {
-              project: { select: { referenceNumber: true, title: true } },
-              manufacturer: { select: { name: true } },
-              supplier: { select: { name: true } },
-            },
-          },
-        },
-        orderBy: { calculatedAt: "desc" },
-      });
+        
+    };
+  }
 
-      return rows.map((m): OrgLogisticsLineSummary => {
+  private toLineSummary(m: any): OrgLogisticsLineSummary {
+
         const metric: LogisticsMetricSummary = {
           manufactureCountryCode: m.manufactureCountryCode,
           destinationCountryCode: m.destinationCountryCode,
@@ -94,7 +86,67 @@ export class LogisticsInsightsService {
           supplierName: m.projectLine.supplier?.name ?? null,
           metric,
         };
+  }
+
+  /** @deprecated First 500 only — the screen uses getOrgLinesPage. */
+  async getOrgLines(user: RequestUser, filters: LogisticsFilters): Promise<OrgLogisticsLineSummary[]> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const rows = await tx.projectLineLogisticsMetric.findMany({
+        where: this.whereFor(filters),
+        include: {
+          projectLine: {
+            include: {
+              project: { select: { referenceNumber: true, title: true } },
+              manufacturer: { select: { name: true } },
+              supplier: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { calculatedAt: "desc" },
+        take: 500,
       });
+      return rows.map((m) => this.toLineSummary(m));
+    });
+  }
+
+  /** One page of this organisation's logistics lines plus totals over the whole filtered set,
+   * computed in the database (2026-10-17, scale work) — the screen's tiles used to be summed in the
+   * browser from every row. */
+  async getOrgLinesPage(user: RequestUser, filters: LogisticsFilters, opts: { page?: number; pageSize?: number }): Promise<LogisticsLinesPage> {
+    const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(opts.page ?? 1), 1);
+    const where = this.whereFor(filters);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const [agg, rows] = await Promise.all([
+        tx.projectLineLogisticsMetric.aggregate({ where, _count: { _all: true }, _sum: { co2TotalKg: true, distanceKm: true }, _avg: { efficiencyScore: true } }),
+        tx.projectLineLogisticsMetric.findMany({
+          where,
+        include: {
+          projectLine: {
+            include: {
+              project: { select: { referenceNumber: true, title: true } },
+              manufacturer: { select: { name: true } },
+              supplier: { select: { name: true } },
+            },
+          },
+        },
+          orderBy: [{ calculatedAt: "desc" }, { id: "asc" }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      ]);
+      return {
+        items: rows.map((m) => this.toLineSummary(m)),
+        total: agg._count._all,
+        page,
+        pageSize,
+        totals: {
+          count: agg._count._all,
+          totalCo2Kg: Number(agg._sum.co2TotalKg ?? 0),
+          totalDistanceKm: Number(agg._sum.distanceKm ?? 0),
+          avgScore: agg._avg.efficiencyScore ?? 0,
+        },
+      };
     });
   }
 

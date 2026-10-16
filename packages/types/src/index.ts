@@ -1969,6 +1969,14 @@ export interface RiskAssessmentListItem extends RiskAssessmentSummary {
   subjectName: string;
 }
 
+/** Risk register tile counts, computed in the database. */
+export interface RiskRegisterCounts {
+  total: number;
+  open: number;
+  highOrCritical: number;
+  overdue: number;
+}
+
 /** Gap 1 (compliance-standards-gap-analysis.md) — one row of the generic
  * audit trail, as read back for an "Audit history" view on a record. See
  * FieldChangeLog's doc comment in schema.prisma. */
@@ -2342,6 +2350,11 @@ export interface QaQueueSummary {
 // the org-private line list and the global anonymized dashboard (added
 // 2026-10-08). See LogisticsMetricSummary above for the per-line shape.
 // ---------------------------------------------------------------------------
+
+/** One page of the org-private logistics lines plus totals over the whole filtered set (database-computed). */
+export interface LogisticsLinesPage extends PagedResult<OrgLogisticsLineSummary> {
+  totals: { count: number; totalCo2Kg: number; totalDistanceKm: number; avgScore: number };
+}
 
 /** One row in the org-private "Logistics & CO2" view — a line's computed
  * metric plus just enough project/line context to be useful in a list
