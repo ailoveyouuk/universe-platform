@@ -6,6 +6,33 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Global search; notifications for risk, logistics and quality
+Commits `feat: Global search…` (CI/deploys green after a test-teardown fix). No migration, no new RLS.
+
+**Global search.** `GET /search?q=` (`apps/api/src/search/`) finds projects (reference/title), stakeholders, contacts,
+batches (number / product), risks (title) and shared-catalogue products (name / HS code / GTIN), 5 per group, min 2
+characters. Tenant data runs inside `withTenantContext` (own organisation only); the catalogue has no tenant column and is read
+directly. UI: `GlobalSearch` (`packages/ui/src/GlobalSearch.tsx`) — header icon or Ctrl/Cmd+K, debounced, grouped, arrow
+keys + Enter; wired into Project Management and Product Database. Product results open the Product Database
+(`/?q=<name>` pre-fills its search box). Admin's dead search icon was removed (no equivalent records there).
+
+**Notification sources added** (all written in the event's own transaction via `createNotifications`; categories
+QUALITY / LOGISTICS / RISK now exist, the UI groups by them):
+- Risk: owner set or changed → action "Review risk: …" due on the review date (previous owner's action closed; moving
+  the review date moves the due date); closing → open actions closed and the owner told.
+- Logistics: temperature excursion logged → action for every QA reviewer (holders of `products.approve`); reviewing the log
+  closes them all. Batch moved to QUARANTINED / EXPIRED / WITHDRAWN → QA reviewers notified.
+- Quality: a proposed product amendment → action for QA reviewers; ratify/reject closes them and tells the submitter.
+  A new stakeholder → action for holders of `partners.approve`; any approval decision closes them.
+- Helpers in `notifications/notify.ts`: `usersWithPermission`, `completeActionsFor`, `rescheduleActionsFor`.
+  `createNotifications` now drops any recipient who is not a member of the event's organisation (defence in depth —
+  e.g. a risk `ownerId` pointing at another tenant's user raises nothing).
+- Tests: `apps/api/test/notification-events-and-search.test.ts` (risk, logistics, quality events, org-membership guard, search incl.
+  cross-organisation isolation).
+
+**Still not verified live.** Remaining ideas: notify on QA-queue/evidence items and risk review dates falling due
+(needs a scheduled job), per-user notification preferences, email/push delivery.
+
 ## 2026-10-16 — Notifications & per-user actions
 Commits `0054af8`, `07a61db`. CI, Deploy API (applies migration) and Deploy Static Web Apps green.
 
