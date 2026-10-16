@@ -1,0 +1,73 @@
+name: Scale test
+
+# Manual run (2026-10-17). Generates the simulated scale dataset into a
+# THROWAWAY SQL Server container (never the live database), applies the same
+# Row-Level Security the real database has, then times every list/search/
+# rollup endpoint. Output: scale-report.md (job summary + artifact).
+# See docs/SCALE-AUDIT.md.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Dataset size: small (smoke) or full (hundreds of orgs, thousands of users, tens of thousands of products)"
+        default: full
+        type: choice
+        options: [small, full]
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    services:
+      mssql:
+        image: mcr.microsoft.com/azure-sql-edge:latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "UniverseTest!2026"
+          MSSQL_PID: "Developer"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'UniverseTest!2026' -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: "sqlserver://localhost:1433;database=universe_test;user=sa;password=UniverseTest!2026;encrypt=true;trustServerCertificate=true"
+      SCALE_PROFILE: ${{ inputs.profile }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Create database
+        run: |
+          docker exec ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P 'UniverseTest!2026' \
+            -Q "IF DB_ID('universe_test') IS NULL CREATE DATABASE universe_test"
+      - run: npm run test:db:reset --workspace=@universe/db
+      - name: Seed permission catalog
+        run: npm run seed --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+      - name: Apply Row-Level Security
+        run: |
+          for f in row-level-security supplier-directory-rls test-filtered-unique-indexes; do
+            docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+              -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b < infra/sql/$f.sql
+          done
+      - name: Generate data and measure
+        working-directory: apps/api
+        run: npx vitest run --config vitest.scale.config.ts
+      - name: Publish report
+        if: always()
+        run: |
+          [ -f apps/api/scale-report.md ] && cat apps/api/scale-report.md >> "$GITHUB_STEP_SUMMARY" || echo "No report produced" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scale-report
+          path: apps/api/scale-report.md

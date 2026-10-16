@@ -6,6 +6,13 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Scale audit, generator and harness (not yet run)
+
+- `docs/SCALE-AUDIT.md`: classifies every list endpoint as bounded or unbounded at the target scale (hundreds of orgs, thousands of users, tens of thousands of products); unbounded ones are listed in priority order.
+- `packages/db/scripts/generate-scale-data.ts`: deterministic generator (profiles `small`, `full`). Everything is recognisable and removable: org slugs `sim-*`, user emails `@sim.example`, shared products `sourceStandard = "SIM-SCALE"`. Decision (Lewis, 2026-10-17): the same generator will, after paging/indexing fixes, load the **live demo at full scale**; the test-only run is in a throwaway database.
+- `apps/api/scale/scale.test.ts` + `vitest.scale.config.ts` + `.github/workflows/scale-test.yml` (manual "Scale test" workflow): spins up a throwaway SQL Server container, applies the real RLS, loads the dataset, times ~19 list/search/rollup calls as platform staff and as the busiest org's admin, writes `scale-report.md` (job summary + artifact). Report-only — it never fails on slowness.
+- Next: run it, read the report, add paging/indexes where it points, then load the live demo.
+
 ## 2026-10-17 — Stakeholder access management in Admin (stage 3)
 
 - API (platform-staff only): `GET /stakeholder-access` (demo organisation + everyone holding the Stakeholder Demo role) and `POST /stakeholder-access` {email, forename, surname} — ensures the role exists in the demo org, then invites the email with it (same invite-then-link sign-in as every user; they register with the email via the External ID sign-up flow).
