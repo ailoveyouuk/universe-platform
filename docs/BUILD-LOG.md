@@ -6,6 +6,13 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Project line-item delete
+
+- `DELETE /projects/:id/lines/:lineId` (needs `projects.edit`); Delete button with inline "Yes, delete / Cancel" confirm beside Edit on each line in project detail.
+- Line-owned rows (logistics metric, supplier enquiries) are deleted; price-history and temperature-log rows are kept and detached (`projectLineId` -> null). Removal is written to the field-change audit log. Tenant-scoped; another org gets 404.
+- Test: `apps/api/test/project-line-delete.test.ts`. No migration, no RLS change.
+- Decisions: Lewis said not to worry about re-pointing demo-user invites for now. Entra check (2026-10-17): External ID tenant `universeplatform.onmicrosoft.com` has one user flow `SignUpSignIn`, identity provider "Email with password" only, so invitees register with a password and must verify their email (example.com can't).
+
 ## 2026-10-17 — Demo users for every Universe Demo role (data change, no code)
 Created through the live Admin app (Invite a User), all in **Universe Demo**, status INVITED (never signed in):
 Avery Admin `demo.admin@example.com` (Organization Admin) · Morgan Manager `demo.projectmanager@example.com` (Project Manager) ·

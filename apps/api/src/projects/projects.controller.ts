@@ -82,6 +82,11 @@ export class ProjectsController {
     return this.projectsService.updateLine(user, id, lineId, dto);
   }
 
+  @Delete(":id/lines/:lineId")
+  deleteLine(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("lineId") lineId: string) {
+    return this.projectsService.deleteLine(user, id, lineId);
+  }
+
   // --- Project Leads/Contacts (added 2026-10-08) — independent
   // add/remove, not a full project PATCH. See ProjectsService's doc
   // comment above addLead/addContact. ---

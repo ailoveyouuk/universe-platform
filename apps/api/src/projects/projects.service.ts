@@ -1224,6 +1224,41 @@ export class ProjectsService {
     return this.findOne(user, projectId);
   }
 
+  /**
+   * Deletes one line from a project (added 2026-10-17). Needs `projects.edit`.
+   * Dependent rows are handled explicitly because every FK is NoAction:
+   * the line's logistics metric and supplier enquiries are line-owned and
+   * removed with it; price-history and temperature-log rows are records
+   * worth keeping, so they are detached (projectLineId -> null), not deleted.
+   * The removal is written to the field-change audit log with the line's
+   * description, so it stays traceable after the row is gone.
+   */
+  async deleteLine(user: RequestUser, projectId: string, lineId: string): Promise<ProjectDetail> {
+    assertHasPermission(user, "projects.edit");
+    await withTenantContext(user.organizationId, async (tx) => {
+      const line = await tx.projectLine.findFirst({
+        where: { id: lineId, projectId, ...tenantScope(user.organizationId) },
+      });
+      if (!line) throw new NotFoundException(`Line ${lineId} not found on project ${projectId}`);
+
+      await tx.projectLineLogisticsMetric.deleteMany({ where: { projectLineId: lineId } });
+      await tx.supplierEnquiry.deleteMany({ where: { projectLineId: lineId } });
+      await tx.productPriceHistory.updateMany({ where: { projectLineId: lineId }, data: { projectLineId: null } });
+      await tx.batchTemperatureLog.updateMany({ where: { projectLineId: lineId }, data: { projectLineId: null } });
+      await tx.projectLine.delete({ where: { id: lineId } });
+
+      await recordFieldChanges(tx, {
+        organizationId: user.organizationId,
+        tableName: "project_lines",
+        recordId: lineId,
+        changedById: user.id,
+        changes: [{ field: "line", oldValue: line.clientProductDescription ?? lineId, newValue: null }],
+        source: "API",
+      });
+    });
+    return this.findOne(user, projectId);
+  }
+
   // --- Project Leads/Contacts (added 2026-10-08) — plain join-table
   // add/remove, independent of the full project PATCH (see ProjectLead/
   // ProjectContact's doc comments in schema.prisma). Neither join table

@@ -289,6 +289,10 @@ export class UniverseApiClient {
     });
   }
 
+  deleteProjectLine(projectId: string, lineId: string): Promise<ProjectDetail> {
+    return this.request(`/projects/${projectId}/lines/${lineId}`, { method: "DELETE" });
+  }
+
   // --- Supplier Enquiries (added 2026-09-30, Phase 2) ---
   // Every call returns the full ProjectDetail (same shape GET /projects/:id
   // already returns) — see SupplierEnquiriesService's doc comment. There is

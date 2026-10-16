@@ -91,6 +91,7 @@ export function ProjectDetailView() {
 
   const [addingLine, setAddingLine] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [confirmDeleteLineId, setConfirmDeleteLineId] = useState<string | null>(null);
 
   // Archive/unarchive (Project.isArchived) — soft-delete/retirement, never
   // a hard delete (GDP/21 CFR Part 11 audit-trail posture — see
@@ -838,9 +839,40 @@ export function ProjectDetailView() {
               {line.logisticsMetric && <LogisticsMetricBadge metric={line.logisticsMetric} countries={countries} />}
             </div>
             {editingLineId !== line.id && (
-              <Button variant="ghost" size="sm" onClick={() => setEditingLineId(line.id)}>
-                Edit
-              </Button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {confirmDeleteLineId === line.id ? (
+                  <>
+                    <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Delete this line?</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          setProject(await apiClient.deleteProjectLine(project.id, line.id));
+                        } catch (err) {
+                          window.alert(err instanceof Error ? err.message : "Could not delete the line");
+                        } finally {
+                          setConfirmDeleteLineId(null);
+                        }
+                      }}
+                    >
+                      Yes, delete
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteLineId(null)}>
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingLineId(line.id)}>
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteLineId(line.id)}>
+                      Delete
+                    </Button>
+                  </>
+                )}
+              </div>
             )}
           </div>
 
