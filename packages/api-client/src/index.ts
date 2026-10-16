@@ -25,6 +25,10 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationDetail,
+  PermissionSummary,
+  RoleDetail,
+  CreateRoleInput,
+  UpdateRoleInput,
   UserDetail,
   UpdateUserInput,
   UpdateOrganizationInput,
@@ -702,6 +706,26 @@ export class UniverseApiClient {
       method: "POST",
       body: JSON.stringify(input),
     });
+  }
+
+  listPermissions(): Promise<PermissionSummary[]> {
+    return this.request("/permissions");
+  }
+
+  listRoles(organizationId: string): Promise<RoleDetail[]> {
+    return this.request(`/roles?organizationId=${encodeURIComponent(organizationId)}`);
+  }
+
+  createRole(input: CreateRoleInput): Promise<RoleDetail> {
+    return this.request("/roles", { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateRole(id: string, input: UpdateRoleInput): Promise<RoleDetail> {
+    return this.request(`/roles/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+
+  deleteRole(id: string): Promise<{ deleted: true }> {
+    return this.request(`/roles/${id}`, { method: "DELETE" });
   }
 
   getUser(id: string): Promise<UserDetail> {

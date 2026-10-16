@@ -131,6 +131,38 @@ export interface UpdateUserInput {
   platformStaffRole?: "NONE" | "SUPPORT" | "SUPER_ADMIN";
 }
 
+/** One entry in the global permission catalogue (GET /permissions). */
+export interface PermissionSummary {
+  key: string;
+  description: string;
+}
+
+/** A role with its permission grants (GET /roles?organizationId=). */
+export interface RoleDetail {
+  id: string;
+  organizationId: string | null;
+  name: string;
+  description: string | null;
+  appScope: string;
+  permissionKeys: string[];
+  /** Users currently assigned this role. */
+  userCount: number;
+}
+
+export interface CreateRoleInput {
+  organizationId: string;
+  name: string;
+  description?: string;
+  appScope?: string;
+  permissionKeys: string[];
+}
+
+export interface UpdateRoleInput {
+  name?: string;
+  description?: string | null;
+  permissionKeys?: string[];
+}
+
 export interface OrganizationSummary {
   id: string;
   name: string;

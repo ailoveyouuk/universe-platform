@@ -13,6 +13,7 @@ import {
   DashboardIcon,
   BuildingIcon,
   UserIcon,
+  ShieldIcon,
   LogoutIcon,
   BellIcon,
   SearchIcon,
@@ -27,6 +28,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/organizations", label: "Organizations", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/users", label: "Users", icon: () => <UserIcon size={19} />, inNav: true },
+  { href: "/roles", label: "Roles", icon: () => <ShieldIcon size={19} />, inNav: true },
 ];
 
 function crumbsFor(pathname: string) {
