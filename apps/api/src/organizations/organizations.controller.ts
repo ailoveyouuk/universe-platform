@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CreateOrganizationDto } from "./dto/create-organization.dto";
+import { UpdateOrganizationDto } from "./dto/update-organization.dto";
 import { SetOrganizationCountryPresenceDto } from "./dto/set-country-presence.dto";
 import {
   UpsertProcurementAgentProfileDto,
@@ -26,6 +27,19 @@ export class OrganizationsController {
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateOrganizationDto) {
     return this.organizationsService.create(user, dto);
+  }
+
+  /** Admin app detail page (added 2026-10-16). Declared before the
+   * more specific ":id/..." routes only for readability — Nest matches on
+   * the full path so ordering doesn't matter here. */
+  @Get(":id")
+  findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.findOne(user, id);
+  }
+
+  @Patch(":id")
+  update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateOrganizationDto) {
+    return this.organizationsService.update(user, id, dto);
   }
 
   @Get(":id/roles")

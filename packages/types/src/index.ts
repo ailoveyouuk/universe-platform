@@ -133,6 +133,68 @@ export interface OrganizationSummary {
   countryOfRegistrationCode: string | null;
 }
 
+export type OrganizationLegalEntityType =
+  | "GOVERNMENT_AGENCY"
+  | "PRIVATE_COMPANY"
+  | "REGISTERED_NGO"
+  | "FAITH_BASED_NETWORK"
+  | "MULTILATERAL_UN_BODY"
+  | "COOPERATIVE"
+  | "ACADEMIC_INSTITUTION"
+  | "INDIVIDUAL"
+  | "OTHER";
+
+export type OrganizationOnboardingSource =
+  | "SELF_REFERRED"
+  | "INVITED_BY_PROCUREMENT_AGENT"
+  | "INVITED_BY_FUNDER"
+  | "PLATFORM_STAFF_OUTREACH"
+  | "OTHER";
+
+/** Full organisation record for the Admin app's detail/edit page (added
+ * 2026-10-16). Superset of OrganizationSummary — the list endpoint stays
+ * lean, this is fetched one org at a time. */
+export interface OrganizationDetail extends OrganizationSummary {
+  legalName: string | null;
+  legalEntityType: OrganizationLegalEntityType | null;
+  registrationNumber: string | null;
+  website: string | null;
+  primaryContactName: string | null;
+  primaryContactTitle: string | null;
+  primaryContactEmail: string | null;
+  primaryContactPhone: string | null;
+  onboardingSource: OrganizationOnboardingSource | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  userCount: number;
+  activeUserCount: number;
+}
+
+/** PATCH /organizations/:id. undefined = untouched, null = clear (nullable
+ * fields only). name/slug/status/onboardingSource are platform-staff only —
+ * enforced server-side in OrganizationsService.update; an org admin holding
+ * org.profile.manage may change the rest for their own organisation. */
+export interface UpdateOrganizationInput {
+  name?: string;
+  slug?: string;
+  status?: "PILOT" | "ACTIVE" | "SUSPENDED";
+  legalName?: string | null;
+  legalEntityType?: OrganizationLegalEntityType | null;
+  countryOfRegistrationCode?: string | null;
+  registrationNumber?: string | null;
+  website?: string | null;
+  primaryContactName?: string | null;
+  primaryContactTitle?: string | null;
+  primaryContactEmail?: string | null;
+  primaryContactPhone?: string | null;
+  logoUrl?: string | null;
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  onboardingSource?: OrganizationOnboardingSource | null;
+  notes?: string | null;
+}
+
 /**
  * Onboarding is platform-operator-provisioned only during the pilot (see
  * architecture doc) — creating a new tenant organization is platform-staff

@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { createOrganizationWithDefaultRoles, prisma, withTenantContext, withPlatformStaffContext } from "@universe/db";
 import type {
   OrganizationSummary,
+  OrganizationDetail,
   RoleSummary,
   DataSharingConsentSummary,
   OrganizationCountryPresenceSummary,
@@ -14,6 +15,8 @@ import type {
 import { assertPlatformStaff, assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateOrganizationDto } from "./dto/create-organization.dto";
+import type { UpdateOrganizationDto } from "./dto/update-organization.dto";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { SetOrganizationCountryPresenceDto } from "./dto/set-country-presence.dto";
 import type {
   UpsertProcurementAgentProfileDto,
@@ -77,6 +80,127 @@ export class OrganizationsService {
       secondaryColor: o.secondaryColor,
       countryOfRegistrationCode: o.countryOfRegistrationCode,
     }));
+  }
+
+  /** Fields only platform staff (Universe's own operating team) may change.
+   * An org admin can't rename their own tenant, re-slug its URLs, or flip
+   * its lifecycle status — all identity/contractual-level facts. */
+  private static readonly PLATFORM_ONLY_FIELDS = ["name", "slug", "status", "onboardingSource"] as const;
+
+  /** Fields an org admin holding org.profile.manage may change for their own org. */
+  private static readonly ORG_EDITABLE_FIELDS = [
+    "legalName",
+    "legalEntityType",
+    "countryOfRegistrationCode",
+    "registrationNumber",
+    "website",
+    "primaryContactName",
+    "primaryContactTitle",
+    "primaryContactEmail",
+    "primaryContactPhone",
+    "logoUrl",
+    "primaryColor",
+    "secondaryColor",
+    "notes",
+  ] as const;
+
+  private toDetail(
+    o: any,
+    userCount: number,
+    activeUserCount: number,
+  ): OrganizationDetail {
+    return {
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      status: o.status as OrganizationDetail["status"],
+      type: o.type as OrganizationDetail["type"],
+      logoUrl: o.logoUrl,
+      primaryColor: o.primaryColor,
+      secondaryColor: o.secondaryColor,
+      countryOfRegistrationCode: o.countryOfRegistrationCode,
+      legalName: o.legalName,
+      legalEntityType: o.legalEntityType as OrganizationDetail["legalEntityType"],
+      registrationNumber: o.registrationNumber,
+      website: o.website,
+      primaryContactName: o.primaryContactName,
+      primaryContactTitle: o.primaryContactTitle,
+      primaryContactEmail: o.primaryContactEmail,
+      primaryContactPhone: o.primaryContactPhone,
+      onboardingSource: o.onboardingSource as OrganizationDetail["onboardingSource"],
+      notes: o.notes,
+      createdAt: o.createdAt.toISOString(),
+      updatedAt: o.updatedAt.toISOString(),
+      userCount,
+      activeUserCount,
+    };
+  }
+
+  /** One organisation, full record, plus user counts. Platform staff: any
+   * org. Everyone else: their own, with org.profile.manage. */
+  async findOne(caller: RequestUser, organizationId: string): Promise<OrganizationDetail> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const org = await prisma.organization.findUnique({ where: { id: organizationId } });
+    if (!org) throw new NotFoundException(`Organisation ${organizationId} not found`);
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+    const [userCount, activeUserCount] = await runInContext(async (tx: any) => [
+      await tx.user.count({ where: { organizationId } }),
+      await tx.user.count({ where: { organizationId, status: "ACTIVE" } }),
+    ]);
+    return this.toDetail(org, userCount, activeUserCount);
+  }
+
+  /** Edit an organisation. Every changed field is written to FieldChangeLog
+   * (table "organizations") in the same transaction as the update. */
+  async update(caller: RequestUser, organizationId: string, dto: UpdateOrganizationDto): Promise<OrganizationDetail> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const isPlatform = caller.platformStaffRole !== "NONE";
+
+    const allFields = [...OrganizationsService.PLATFORM_ONLY_FIELDS, ...OrganizationsService.ORG_EDITABLE_FIELDS] as readonly string[];
+    const touched = allFields.filter((f) => (dto as any)[f] !== undefined);
+    if (!isPlatform) {
+      const blocked = touched.filter((f) => (OrganizationsService.PLATFORM_ONLY_FIELDS as readonly string[]).includes(f));
+      if (blocked.length > 0) {
+        throw new ForbiddenException(`Only platform staff can change: ${blocked.join(", ")}`);
+      }
+    }
+    for (const f of ["name", "slug", "status"] as const) {
+      if ((dto as any)[f] === null) throw new BadRequestException(`${f} cannot be cleared`);
+    }
+    if (typeof dto.name === "string" && dto.name.trim() === "") throw new BadRequestException("name cannot be empty");
+
+    const existing = await prisma.organization.findUnique({ where: { id: organizationId } });
+    if (!existing) throw new NotFoundException(`Organisation ${organizationId} not found`);
+
+    if (dto.countryOfRegistrationCode) {
+      const country = await prisma.country.findUnique({ where: { code: dto.countryOfRegistrationCode } });
+      if (!country) throw new BadRequestException(`Unknown country code ${dto.countryOfRegistrationCode}`);
+    }
+    if (dto.slug && dto.slug !== existing.slug) {
+      const clash = await prisma.organization.findUnique({ where: { slug: dto.slug } });
+      if (clash) throw new ConflictException(`Slug "${dto.slug}" is already in use`);
+    }
+
+    const changes = diffForAudit(existing, dto, touched);
+    const data: Record<string, unknown> = {};
+    for (const c of changes) data[c.field] = (dto as any)[c.field];
+
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (isPlatform ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+    const result = await runInContext(async (tx: any) => {
+      const updated = Object.keys(data).length > 0 ? await tx.organization.update({ where: { id: organizationId }, data }) : existing;
+      await recordFieldChanges(tx, {
+        organizationId,
+        tableName: "organizations",
+        recordId: organizationId,
+        changedById: caller.id,
+        changes,
+        source: "API",
+      });
+      const userCount = await tx.user.count({ where: { organizationId } });
+      const activeUserCount = await tx.user.count({ where: { organizationId, status: "ACTIVE" } });
+      return { updated, userCount, activeUserCount };
+    });
+    return this.toDetail(result.updated, result.userCount, result.activeUserCount);
   }
 
   /** Roles available to assign within one organization — used by the Admin

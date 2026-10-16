@@ -37,7 +37,7 @@ function crumbsFor(pathname: string) {
   for (const seg of segments) {
     acc += `/${seg}`;
     const match = ROUTES.find((r) => r.href === acc);
-    const label = match?.label ?? (seg === "new" ? "New" : seg === "invite" ? "Invite" : seg[0].toUpperCase() + seg.slice(1));
+    const label = match?.label ?? (seg === "new" ? "New" : seg === "invite" ? "Invite" : seg === "detail" ? "Details" : seg[0].toUpperCase() + seg.slice(1));
     crumbs.push({ label, href: acc });
   }
   return crumbs;

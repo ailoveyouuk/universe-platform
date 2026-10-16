@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { OrganizationSummary } from "@universe/types";
 import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { ORG_TYPE_LABELS } from "../../components/form";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { useCountries } from "../../lib/useCountries";
 
@@ -93,9 +94,11 @@ export default function OrganizationsPage() {
           <tbody>
             {organizations.map((o) => (
               <tr key={o.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                <td style={{ padding: 8 }}>{o.name}</td>
+                <td style={{ padding: 8 }}>
+                  <Link href={`/organizations/detail?id=${o.id}`} style={{ fontWeight: 600 }}>{o.name}</Link>
+                </td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.slug}</td>
-                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.type === "SUPPLIER" ? "Supplier/Manufacturer" : "Buyer"}</td>
+                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{ORG_TYPE_LABELS[o.type] ?? o.type}</td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   {o.countryOfRegistrationCode
                     ? countries.find((c) => c.code === o.countryOfRegistrationCode)?.name ?? o.countryOfRegistrationCode

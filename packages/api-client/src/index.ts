@@ -24,6 +24,8 @@ import type {
   CreateSupplierProductInput,
   InviteUserInput,
   OrganizationSummary,
+  OrganizationDetail,
+  UpdateOrganizationInput,
   PartnerPerformanceMetric,
   PartnerSummary,
   ProductAmendmentSummary,
@@ -575,6 +577,17 @@ export class UniverseApiClient {
 
   listOrganizations(): Promise<OrganizationSummary[]> {
     return this.request("/organizations");
+  }
+
+  getOrganization(organizationId: string): Promise<OrganizationDetail> {
+    return this.request(`/organizations/${organizationId}`);
+  }
+
+  updateOrganization(organizationId: string, input: UpdateOrganizationInput): Promise<OrganizationDetail> {
+    return this.request(`/organizations/${organizationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
   }
 
   createOrganization(input: CreateOrganizationInput): Promise<OrganizationSummary> {
