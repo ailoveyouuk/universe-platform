@@ -11,9 +11,19 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } 
  *
  * Everything it creates is recognisable and removable: organisation slugs
  * start with "sim-", user emails end in "@sim.example", shared products carry
- * sourceStandard "SIM-SCALE". Same SEED + PROFILE => identical data.
+ * sourceStandard "SIM-SCALE", and rows inside an existing organisation carry a
+ * marker (partner normalizedName starts "simscale", project references start
+ * "SIM-", batch numbers start "SIMB", risk titles start "[SIM]", contacts use
+ * @sim.example). Same SEED + PROFILE => identical data.
  *
- * Usage: PROFILE=small|full SEED=1 tsx scripts/generate-scale-data.ts
+ * Profiles: small / full fill many organisations (for speed testing in a
+ * throwaway database). demo (2026-10-17, agreed with Lewis) is the streamlined
+ * live-demo load: the large portfolio goes into the existing demo organisation
+ * (Organization.isDemo), the other organisations get users only (what Admin
+ * shows), and the shared catalogue gets the full product count; nothing is
+ * generated that no screen could show.
+ *
+ * Usage: PROFILE=small|full|demo SEED=1 tsx scripts/generate-scale-data.ts
  */
 
 export interface Profile {
@@ -26,14 +36,23 @@ export interface Profile {
   risks: number;
   batches: number;
   auditRows: number;
+  /** Product source approvals (QA / sourcing). */
+  approvals: number;
+  /** Share of partners left PENDING approval (feeds the QA queue). */
+  pendingRate: number;
+  /** Demo mode: the portfolio goes into the existing demo organisation instead of the sim organisations. */
+  demo?: { users: number };
 }
 
 export const PROFILES: Record<string, Profile> = {
   // Quick smoke profile for tests of the generator itself.
-  small: { orgs: 12, users: 80, partners: 300, products: 600, projects: 120, linesPerProject: 3, risks: 80, batches: 120, auditRows: 600 },
+  small: { orgs: 12, users: 80, partners: 300, products: 600, projects: 120, linesPerProject: 3, risks: 80, batches: 120, auditRows: 600, approvals: 60, pendingRate: 0.05 },
   // The target from the 2026-10-16 conversation: hundreds of accounts,
   // thousands of users, tens of thousands of products.
-  full: { orgs: 300, users: 3000, partners: 12000, products: 30000, projects: 6000, linesPerProject: 4, risks: 4000, batches: 6000, auditRows: 40000 },
+  full: { orgs: 300, users: 3000, partners: 12000, products: 30000, projects: 6000, linesPerProject: 4, risks: 4000, batches: 6000, auditRows: 40000, approvals: 3000, pendingRate: 0.04 },
+  // The live-demo load: one large portfolio inside the demo organisation, users-only sim organisations,
+  // and the full shared catalogue.
+  demo: { orgs: 299, users: 3000, partners: 3000, products: 30000, projects: 1500, linesPerProject: 4, risks: 1200, batches: 1500, auditRows: 8000, approvals: 800, pendingRate: 0.04, demo: { users: 120 } },
 };
 
 function rng(seed: number) {
@@ -99,7 +118,16 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
     orgs.push({ id: org.id, type, slug });
   }
   lap(`organisations: ${orgs.length}`);
-  const roles = await withPlatformStaffContext((tx) => tx.role.findMany({ where: { organizationId: { in: orgs.map((o) => o.id) } }, select: { id: true, organizationId: true } }));
+
+  // Demo mode: the portfolio lives in the existing demo organisation.
+  let demoOrg: { id: string; slug: string } | null = null;
+  if (p.demo) {
+    const found = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true, slug: true } }));
+    if (found.length !== 1) throw new Error(`Demo profile needs exactly one organisation with isDemo=true, found ${found.length}`);
+    demoOrg = found[0];
+  }
+  const roleOrgIds = [...orgs.map((o) => o.id), ...(demoOrg ? [demoOrg.id] : [])];
+  const roles = await withPlatformStaffContext((tx) => tx.role.findMany({ where: { organizationId: { in: roleOrgIds } }, select: { id: true, organizationId: true } }));
   const rolesByOrg = new Map<string, string[]>();
   for (const role of roles) rolesByOrg.set(role.organizationId!, [...(rolesByOrg.get(role.organizationId!) ?? []), role.id]);
 
@@ -117,6 +145,18 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
     const orgRoles = rolesByOrg.get(org.id) ?? [];
     if (orgRoles.length) userRoles.push({ userId: id, roleId: pick(orgRoles) });
     usersByOrg.set(org.id, [...(usersByOrg.get(org.id) ?? []), id]);
+  }
+  if (demoOrg && p.demo) {
+    // Extra colleagues inside the demo organisation so its Users screen shows scale too.
+    for (let i = 0; i < p.demo.users; i++) {
+      const id = randomUUID();
+      const forename = pick(FORENAMES);
+      const surname = pick(SURNAMES);
+      users.push({ id, organizationId: demoOrg.id, email: `${forename}.${surname}.d${i + 1}@sim.example`.toLowerCase(), forename, surname, status: r() < 0.85 ? "ACTIVE" : "INVITED" });
+      const orgRoles = rolesByOrg.get(demoOrg.id) ?? [];
+      if (orgRoles.length) userRoles.push({ userId: id, roleId: pick(orgRoles) });
+      usersByOrg.set(demoOrg.id, [...(usersByOrg.get(demoOrg.id) ?? []), id]);
+    }
   }
   await insert("user", users);
   await insert("userRole", userRoles);
@@ -141,96 +181,196 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
   lap(`products: ${products.length}`);
 
   // --- Partners & contacts (concentrated in organisations that run projects) ---
-  const buyers = orgs.filter((o) => o.type === "PROCUREMENT_SERVICE_AGENT" || o.type === "TENDERING_PURCHASING_BODY");
+  const buyers = demoOrg ? [{ id: demoOrg.id, type: "PROCUREMENT_SERVICE_AGENT", slug: demoOrg.slug }] : orgs.filter((o) => o.type === "PROCUREMENT_SERVICE_AGENT" || o.type === "TENDERING_PURCHASING_BODY");
   // One large organisation (a quarter of all partners and projects) so the per-tenant worst case is exercised, not just averages.
   const whale = buyers[0] ?? orgs[0];
+  const COUNTRIES = ["KE", "UG", "TZ", "NG", "GH", "ZA", "IN", "CN", "DE", "GB", "FR", "BE", "NL", "TR", "PK", "BD", "VN", "ET", "MZ", "ZM"];
+  const MODES = ["AIR", "SEA", "LAND"];
+  const INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP"];
+  const MODE_FACTOR: Record<string, number> = { AIR: 0.602, SEA: 0.016, LAND: 0.096 };
+  const day = 1000 * 60 * 60 * 24;
   const partners: any[] = [];
   const partnerRoles: any[] = [];
   const contacts: any[] = [];
   const partnersByOrg = new Map<string, string[]>();
+  const byOrgRole = new Map<string, string[]>(); // `${orgId}:${role}` -> partner ids
+  const partnerCountry = new Map<string, string>();
+  const PARTNER_ROLE_W = [15, 30, 40, 15];
   for (let i = 0; i < p.partners; i++) {
-    const org = r() < 0.25 ? whale : buyers.length && r() < 0.9 ? pick(buyers) : pick(orgs);
+    const org = demoOrg ? whale : r() < 0.25 ? whale : buyers.length && r() < 0.9 ? pick(buyers) : pick(orgs);
     const id = randomUUID();
     const name = `${pick(ORG_A)} ${pick(ORG_B)} ${i + 1}`;
-    partners.push({ id, organizationId: org.id, name, normalizedName: name.toLowerCase().replace(/[^a-z0-9]/g, "") });
-    partnerRoles.push({ partnerId: id, roleType: pick(PARTNER_ROLES) });
+    const role = weighted(PARTNER_ROLES, PARTNER_ROLE_W);
+    const country = pick(COUNTRIES);
+    partnerCountry.set(id, country);
+    const approvalStatus = r() < p.pendingRate ? "PENDING" : r() < 0.06 ? "REJECTED" : "APPROVED";
+    partners.push({ id, organizationId: org.id, name, normalizedName: "simscale" + name.toLowerCase().replace(/[^a-z0-9]/g, ""), countryCode: country, approvalStatus, riskTier: weighted(["LOW", "MEDIUM", "HIGH"], [60, 30, 10]) });
+    partnerRoles.push({ partnerId: id, roleType: role });
     for (let c = 0; c < 2; c++) contacts.push({ organizationId: org.id, partnerId: id, name: `${pick(FORENAMES)} ${pick(SURNAMES)}`, email: `contact${i}-${c}@sim.example` });
     partnersByOrg.set(org.id, [...(partnersByOrg.get(org.id) ?? []), id]);
+    const key = `${org.id}:${role}`;
+    byOrgRole.set(key, [...(byOrgRole.get(key) ?? []), id]);
   }
   await insert("partner", partners);
   await insert("partnerRole", partnerRoles);
   await insert("contact", contacts);
   lap(`partners: ${partners.length}, contacts: ${contacts.length}`);
+  const ofRole = (orgId: string, role: string) => byOrgRole.get(`${orgId}:${role}`) ?? [];
+  const pickOr = (list: string[], fallback: string[]) => (list.length ? pick(list) : fallback.length ? pick(fallback) : null);
 
-  // --- Projects & lines ---
+  // --- Projects, lines & logistics metrics ---
   const projects: any[] = [];
   const lines: any[] = [];
+  const metrics: any[] = [];
   const projectsByOrg = new Map<string, string[]>();
   const counters = new Map<string, number>();
+  const slugOf = (o: { slug: string }) => (demoOrg ? "DEMO" : o.slug.slice(4));
   for (let i = 0; i < p.projects; i++) {
-    const org = r() < 0.25 ? whale : pick(buyers.length ? buyers : orgs);
+    const org = demoOrg ? whale : r() < 0.25 ? whale : pick(buyers.length ? buyers : orgs);
     const n = (counters.get(org.id) ?? 0) + 1;
     counters.set(org.id, n);
     const id = randomUUID();
-    const clients = partnersByOrg.get(org.id) ?? [];
+    const clients = ofRole(org.id, "CLIENT");
+    const orgPartners = partnersByOrg.get(org.id) ?? [];
+    const status = weighted(PROJECT_STATUS, PROJECT_STATUS_W);
+    const delivered = status === "COMPLETED" || status === "AWARDED";
+    const destination = pick(COUNTRIES);
+    const mode = pick(MODES);
+    const incoterm = pick(INCOTERMS);
     projects.push({
       id,
       organizationId: org.id,
-      referenceNumber: `SIM-${org.slug.slice(4)}-${String(n).padStart(4, "0")}`,
+      referenceNumber: `SIM-${slugOf(org)}-${String(n).padStart(4, "0")}`,
       title: `${pick(["Supply of", "Procurement of", "Framework for", "Emergency order:"])} ${pick(PRODUCT_NOUNS)}`,
       category: r() < 0.9 ? "PROCUREMENT" : "TECHNICAL_ASSISTANCE",
       projectType: r() < 0.35 ? "PHARMACEUTICAL" : "NON_PHARMACEUTICAL",
-      status: weighted(PROJECT_STATUS, PROJECT_STATUS_W),
-      clientId: clients.length ? pick(clients) : null,
-      dueDate: new Date(Date.now() + (r() - 0.4) * 1000 * 60 * 60 * 24 * 240),
+      status,
+      clientId: pickOr(clients, orgPartners),
+      deliveryCountryCode: destination,
+      freightMode: mode,
+      incoterm,
+      freightForwarderId: pickOr(ofRole(org.id, "FREIGHT_FORWARDER"), []),
+      dueDate: new Date(Date.now() + (r() - 0.4) * day * 240),
     });
     projectsByOrg.set(org.id, [...(projectsByOrg.get(org.id) ?? []), id]);
     const lineCount = 1 + Math.floor(r() * p.linesPerProject * 1.6);
-    const orgPartners = partnersByOrg.get(org.id) ?? [];
     for (let l = 0; l < lineCount; l++) {
+      const lineId = randomUUID();
       const qty = 50 + Math.floor(r() * 5000);
       const unit = Math.round((0.2 + r() * 40) * 100) / 100;
-      lines.push({
+      const manufacturerId = pickOr(ofRole(org.id, "MANUFACTURER"), orgPartners);
+      const supplierId = pickOr(ofRole(org.id, "SUPPLIER"), orgPartners);
+      const originCountry = (manufacturerId && partnerCountry.get(manufacturerId)) || pick(COUNTRIES);
+      const weightKg = Math.round((5 + r() * 2000) * 10) / 10;
+      const line: any = {
+        id: lineId,
         organizationId: org.id,
         projectId: id,
         clientProductDescription: `${pick(PRODUCT_NOUNS)}, ${pick(PRODUCT_SPEC)}`,
         productMasterId: r() < 0.7 ? pick(productIds) : null,
+        productCategory: pick(PRODUCT_CATEGORIES),
         quantity: qty,
-        supplierId: orgPartners.length ? pick(orgPartners) : null,
+        weightKg,
+        countryOfManufactureCode: originCountry,
+        manufacturerId,
+        supplierId,
         supplierUnitPrice: unit,
         supplierPaymentCurrency: "USD",
         supplierTotalPriceReportingCcy: Math.round(unit * qty * 100) / 100,
         salesTotalPriceReportingCcy: Math.round(unit * qty * 1.18 * 100) / 100,
-      });
+      };
+      if (delivered) {
+        const projected = new Date(Date.now() - r() * day * 200);
+        const late = r() < 0.22;
+        const collected = new Date(projected.getTime() - (5 + r() * 25) * day);
+        const actual = new Date(projected.getTime() + (late ? 1 + r() * 20 : -r() * 4) * day);
+        const inFull = r() > 0.12;
+        line.projectedDeliveryDate = projected;
+        line.goodsCollectedDate = collected;
+        line.goodsDeliveredToClientDate = actual;
+        line.actualDeliveryDate = actual;
+        line.internalOnTime = !late;
+        line.supplierOnTime = r() > 0.18;
+        line.quantityReceived = inFull ? qty : Math.floor(qty * (0.7 + r() * 0.25));
+        line.supplierInFull = inFull;
+        line.projectedDeliveryDate = projected;
+      }
+      lines.push(line);
+      if (r() < 0.6) {
+        const base = 800 + r() * 9000;
+        const distanceKm = Math.round(base * (mode === "AIR" ? 1.05 : mode === "SEA" ? 1.3 : 1.2) * 10) / 10;
+        const factor = MODE_FACTOR[mode];
+        const score = Math.max(1, Math.min(10, Math.round(10 - factor * 9 - distanceKm / 6000 + r())));
+        metrics.push({
+          organizationId: org.id,
+          projectId: id,
+          projectLineId: lineId,
+          manufactureCountryCode: originCountry,
+          destinationCountryCode: destination,
+          transportMode: mode,
+          incoterm,
+          commodityGroup: line.productCategory,
+          weightKgUsed: weightKg,
+          weightEstimated: false,
+          distanceKm,
+          co2FactorKgPerTonneKm: factor,
+          co2TotalKg: Math.round(distanceKm * (weightKg / 1000) * factor * 100) / 100,
+          durationDays: delivered ? Math.round(5 + r() * 40) : null,
+          efficiencyScore: score,
+          scoreBand: score <= 3 ? "RED" : score <= 5 ? "AMBER" : score <= 7 ? "YELLOW" : "GREEN",
+        });
+      }
     }
   }
   await insert("project", projects);
-  await insert("projectLine", lines, 80);
-  lap(`projects: ${projects.length}, lines: ${lines.length}`);
+  await insert("projectLine", lines, 60);
+  await insert("projectLineLogisticsMetric", metrics, 100);
+  lap(`projects: ${projects.length}, lines: ${lines.length}, logistics metrics: ${metrics.length}`);
+
+  // --- Product source approvals (QA / sourcing) ---
+  const approvals: any[] = [];
+  for (let i = 0; i < p.approvals; i++) {
+    const org = demoOrg ? whale : pick(buyers.length ? buyers : orgs);
+    const manufacturerId = pickOr(ofRole(org.id, "MANUFACTURER"), []);
+    if (!manufacturerId) continue;
+    const status = weighted(["PENDING", "APPROVED", "REJECTED"], [18, 70, 12]);
+    approvals.push({
+      organizationId: org.id,
+      productMasterId: pick(productIds),
+      manufacturerId,
+      supplierId: r() < 0.7 ? pickOr(ofRole(org.id, "SUPPLIER"), []) : null,
+      status,
+      approvedAt: status === "APPROVED" ? new Date(Date.now() - r() * day * 400) : null,
+      nextReviewDue: status === "APPROVED" && r() < 0.8 ? new Date(Date.now() + (r() - 0.25) * day * 300) : null,
+      createdAt: new Date(Date.now() - r() * day * 500),
+    });
+  }
+  await insert("productSourceApproval", approvals);
+  lap(`product source approvals: ${approvals.length}`);
 
   // --- Risks, batches, audit rows ---
   const allProjectIds = [...projectsByOrg.entries()];
   const risks: any[] = [];
   for (let i = 0; i < p.risks; i++) {
     const [orgId, ids] = pick(allProjectIds);
-    risks.push({ organizationId: orgId, subjectType: "PROJECT", subjectId: pick(ids), title: `Risk ${i + 1}: ${pick(["cold-chain gap", "single-source supplier", "customs delay", "currency exposure", "quality documentation"])}`, severity: pick(SEVERITY), likelihood: pick(LIKELIHOOD), reviewDate: new Date(Date.now() + (r() - 0.3) * 1000 * 60 * 60 * 24 * 120) });
+    risks.push({ organizationId: orgId, subjectType: "PROJECT", subjectId: pick(ids), title: `[SIM] Risk ${i + 1}: ${pick(["cold-chain gap", "single-source supplier", "customs delay", "currency exposure", "quality documentation"])}`, severity: pick(SEVERITY), likelihood: pick(LIKELIHOOD), reviewDate: new Date(Date.now() + (r() - 0.3) * day * 120) });
   }
   await insert("riskAssessment", risks);
   const batches: any[] = [];
   for (let i = 0; i < p.batches; i++) {
-    const org = pick(buyers.length ? buyers : orgs);
-    batches.push({ organizationId: org.id, productMasterId: pick(productIds), batchNumber: `B${100000 + i}`, expiryDate: new Date(Date.now() + (r() - 0.2) * 1000 * 60 * 60 * 24 * 900), status: weighted(["ACTIVE", "QUARANTINED", "EXPIRED"], [88, 6, 6]) });
+    const org = demoOrg ? whale : pick(buyers.length ? buyers : orgs);
+    batches.push({ organizationId: org.id, productMasterId: pick(productIds), manufacturerId: pickOr(ofRole(org.id, "MANUFACTURER"), []), batchNumber: `SIMB${100000 + i}`, manufacturedDate: new Date(Date.now() - r() * day * 500), expiryDate: new Date(Date.now() + (r() - 0.2) * day * 900), status: weighted(["ACTIVE", "QUARANTINED", "EXPIRED"], [88, 6, 6]) });
   }
   await insert("productBatch", batches);
   const audit: any[] = [];
   for (let i = 0; i < p.auditRows; i++) {
     const [orgId, ids] = pick(allProjectIds);
-    audit.push({ organizationId: orgId, tableName: "projects", recordId: pick(ids), fieldName: pick(["status", "title", "dueDate"]), oldValue: "a", newValue: "b", changedAt: new Date(Date.now() - r() * 1000 * 60 * 60 * 24 * 300) });
+    audit.push({ organizationId: orgId, tableName: "projects", recordId: pick(ids), fieldName: pick(["status", "title", "dueDate"]), oldValue: "a", newValue: "b", changedAt: new Date(Date.now() - r() * day * 300) });
   }
   await insert("fieldChangeLog", audit, 150);
   lap(`risks: ${risks.length}, batches: ${batches.length}, audit rows: ${audit.length}`);
 
-  return { orgs: orgs.map((o) => o.id), whaleOrgId: whale.id, busiestOrgId: [...projectsByOrg.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? orgs[0].id };
+  return { orgs: orgs.map((o) => o.id), demoOrganizationId: demoOrg?.id ?? null, whaleOrgId: whale.id, busiestOrgId: [...projectsByOrg.entries()].sort((a, b) => b[1].length - a[1].length)[0]?.[0] ?? orgs[0].id };
 }
 
 if (require.main === module) {

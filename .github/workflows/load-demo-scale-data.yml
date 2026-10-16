@@ -1,0 +1,40 @@
+name: Load demo scale data
+
+# Manual run (2026-10-17). Loads the simulated "demo" scale dataset into the
+# LIVE Universe Demo organisation so the demo showcases scale. Defaults to a
+# DRY RUN that writes nothing and prints current row counts. A real load
+# refuses to run if simulated data already exists (idempotent), and prints
+# row counts before and after. Needs a repository secret named
+# DEMO_LOAD_DATABASE_URL (Prisma SQL Server connection string for the live
+# database) - added by Lewis; never committed. See docs/SCALE-AUDIT.md.
+# Tip: scale `universe-pilot-sql` up before a load and back down afterwards.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (writes nothing). Untick to actually load."
+        default: true
+        type: boolean
+      seed:
+        description: "Random seed (same seed => identical data)"
+        default: "1"
+        type: string
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Load (or dry run)
+        run: npm run load:demo-scale --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SEED: ${{ inputs.seed }}

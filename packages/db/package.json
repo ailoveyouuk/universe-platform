@@ -13,6 +13,7 @@
     "seed": "tsx src/seed.ts",
     "test": "vitest run",
     "test:db:reset": "tsx scripts/reset-test-db.ts",
+    "load:demo-scale": "tsx scripts/load-demo-scale-data.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
     "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts",

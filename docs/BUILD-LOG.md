@@ -6,6 +6,16 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Demo scale data: richer generator, `demo` profile and guarded loader
+
+Lewis: use the simulated scale dataset in the live demo, with product source approvals and logistics records, built so every app works on it.
+- `packages/db/scripts/generate-scale-data.ts`: now generates product source approvals (PENDING/APPROVED/REJECTED, some reviews overdue), logistics metrics (~60% of lines, with mode/distance/CO2/score/band), partner country + risk tier + pending partners (QA queue), line manufacturer/supplier by role, delivery dates and on-time/in-full flags on delivered projects, project delivery country/freight mode/incoterm/forwarder, batch manufacturer + manufactured date.
+- New `demo` profile (streamlined): the big portfolio (3,000 partners, 1,500 projects, ~6,000 lines, 800 approvals, 1,200 risks, 1,500 batches, 8,000 audit rows) goes into the existing Universe Demo org (`isDemo`), plus 120 extra users there; the other 299 sim orgs get users only (what Admin shows); 30,000 shared catalogue products. No portfolio data is generated for other orgs (no screen could show it).
+- Markers for removal: org slug `sim-`, emails `@sim.example`, products `SIM-SCALE`, partner `normalizedName` prefix `simscale`, project ref `SIM-`, batch `SIMB`, risk title `[SIM]`.
+- `packages/db/scripts/load-demo-scale-data.ts` + manual workflow `.github/workflows/load-demo-scale-data.yml` (`npm run load:demo-scale`): dry-run by default, aborts if sim data already exists, prints row counts before/after. **Manual step owed (Lewis):** add repository secret `DEMO_LOAD_DATABASE_URL`, then run the workflow dry-run first.
+- No hard-delete clean-up script yet: conflicts with archive-not-delete, awaiting Lewis's explicit OK.
+- Verification: typecheck; generator exercised by the Scale test workflow (small profile).
+
 ## 2026-10-17 — More unbounded lists found and paged (sourcing approvals, logistics, risk register, batches)
 
 Adding product source approvals and logistics records to the scale data (Lewis: they must be in the demo) exposed lists the earlier test could not see because the data had none. Fixed the same way:
