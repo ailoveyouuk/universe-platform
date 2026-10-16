@@ -6,6 +6,17 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Quality performance and QA queue paging, plus indexes (scale fixes 4–5)
+
+- **Partner performance:** `GET /quality/performance/page` (roleType, q, page, pageSize). One grouped SQL query per role (manufacturer, supplier, freight forwarder via project) computes line counts, on-time / in-full / OTIF percentages, average days late and supplier issue counts in the database; the page is sorted (most lines first) and cut in SQL. The old version loaded every partner and line and filtered the whole line list per partner (quadratic). Behaviour change: only partners with project-line activity get a scorecard (no more rows of zeros). Legacy `GET /quality/performance` now returns the first 500. The Quality page has paging.
+- **QA queue:** `GET /quality/qa-queue/page` (category, page, pageSize): totals, oldest-in-queue and per-category counts computed in the database; items merged oldest-first from the four sources only as deep as the page needs. Screen changed from "Categorised / All" sections to category buttons with counts above one paged list. Legacy `GET /quality/qa-queue` capped at 200 per source.
+- **Fix:** the Projects "Overdue" filter wrongly included projects with no due date when sorted by due date (caught by CI before release of the paging commit's follow-up).
+- **Indexes** (migration `20261017140000_paging_indexes`): partners (org, archived, created) and (org, approval, archived); partner_roles (roleType, partnerId); projects (org, archived, dueDate) and (org, archived, updatedAt); users (org, status, invitedAt); contacts (org, name); evidence records (org, status, created); product source approvals (org, status, archived, created); supplier enquiries (supplier, responseStatus); product amendments (org, status, submitted).
+- Scale harness now times the paged endpoints (and a deep page / search each) instead of the legacy lists.
+- Verified: typecheck clean in all four apps; CI green with new tests (`list-paging`, `quality-paging`). Indexes and live behaviour not yet checked on the live apps.
+
+---
+
 ## 2026-10-17 — Users, contacts and projects: server-side paging (scale fixes 2–3)
 
 Same approach as partners; every screen that used an unpaged list was moved, across all three apps.

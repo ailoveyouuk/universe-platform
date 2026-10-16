@@ -83,18 +83,28 @@ describe(`Scale measurement (${PROFILE})`, () => {
     }
 
     const projects = new ProjectsService({} as never);
-    await time("GET /users (platform staff, all orgs)", () => new UsersService().findAll(staff));
-    await time("GET /users (largest org admin)", () => new UsersService().findAll(admin));
+    await time("GET /users/page (platform staff, all orgs, page 1)", () => new UsersService().findPage(staff, { page: 1, pageSize: 25 }));
+    await time("GET /users/page (platform staff, search \"sim\", page 40)", () => new UsersService().findPage(staff, { page: 40, pageSize: 25, q: "sim" }));
+    await time("GET /users/counts (platform staff)", () => new UsersService().counts(staff));
+    await time("GET /users/page (largest org admin)", () => new UsersService().findPage(admin, { page: 1, pageSize: 25 }));
+    await time("GET /users/options (largest org)", () => new UsersService().options(admin));
     await time("GET /organizations (platform staff)", () => new (OrganizationsService as any)({} as never, {} as never, {} as never).findAll(staff));
-    await time("GET /partners", () => new (PartnersService as any)({} as never, {} as never).findAll(admin));
-    await time("GET /projects", () => projects.findAll(admin));
+    await time("GET /partners/page (largest org, page 1)", () => new (PartnersService as any)({} as never, {} as never).findPage(admin, { page: 1, pageSize: 25 }));
+    await time("GET /partners/page (search + deep page)", () => new (PartnersService as any)({} as never, {} as never).findPage(admin, { page: 20, pageSize: 25, q: "a", sort: "name", dir: "asc" }));
+    await time("GET /partners/overview", () => new (PartnersService as any)({} as never, {} as never).overview(admin));
+    await time("GET /partners/options", () => new (PartnersService as any)({} as never, {} as never).options(admin));
+    await time("GET /projects/page (largest org, by due date)", () => projects.findPage(admin, { page: 1, pageSize: 25, sort: "due", dir: "asc" }));
+    await time("GET /projects/page (overdue, deep page)", () => projects.findPage(admin, { page: 5, pageSize: 25, status: "OVERDUE" }));
+    await time("GET /projects/overview", () => projects.overview(admin));
     await time("GET /projects/financial-summary", () => projects.getFinancialSummary(admin));
-    await time("GET /contacts", () => new ContactsService().findAll(admin));
+    await time("GET /contacts (search)", () => new ContactsService().findAll(admin, "an", 25));
     await time("GET /product-batches (search)", () => new ProductBatchesService().search(admin, {} as never));
     await time("GET /risk-assessments/all", () => new (RiskAssessmentsService as any)().listAll(admin));
     await time("GET /quality/product-approvals", () => new ProductSourceApprovalsService().findAll(admin));
-    await time("GET /quality/performance", () => new PartnerPerformanceService().getPerformance(admin));
-    await time("GET /quality/qa-queue", () => new QaQueueService().getQueue(admin));
+    await time("GET /quality/performance/page", () => new PartnerPerformanceService().getPerformancePage(admin, { page: 1, pageSize: 25 }));
+    await time("GET /quality/performance/page (supplier, page 3)", () => new PartnerPerformanceService().getPerformancePage(admin, { roleType: "SUPPLIER", page: 3, pageSize: 25 }));
+    await time("GET /quality/qa-queue/page", () => new QaQueueService().getQueuePage(admin, { page: 1, pageSize: 25 }));
+    await time("GET /quality/qa-queue/page (deep page)", () => new QaQueueService().getQueuePage(admin, { page: 20, pageSize: 25 }));
     await time("GET /logistics-insights/lines", () => new LogisticsInsightsService().getOrgLines(admin, {} as never));
     // global routes read the separate insights database, which the throwaway setup does not have — not measurable here.
     await time("GET /product-catalog (page 1)", () => new (ProductCatalogService as any)({} as never).list({ page: 1, pageSize: 50 }));

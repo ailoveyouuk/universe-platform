@@ -381,6 +381,7 @@ model User {
   triggeredNotifications       Notification[]         @relation("NotificationActor")
 
   @@index([organizationId])
+  @@index([organizationId, status, invitedAt])
   @@map("users")
 }
 
@@ -537,6 +538,8 @@ model Partner {
   @@index([organizationId])
   @@index([organizationId, normalizedName])
   @@index([registryEntryId])
+  @@index([organizationId, isArchived, createdAt])
+  @@index([organizationId, approvalStatus, isArchived])
   @@map("partners")
 }
 
@@ -552,6 +555,7 @@ model PartnerRole {
   createdAt DateTime @default(now())
 
   @@unique([partnerId, roleType])
+  @@index([roleType, partnerId])
   @@map("partner_roles")
 }
 
@@ -921,6 +925,7 @@ model ProductSourceApproval {
   @@index([productMasterId])
   @@index([manufacturerId])
   @@index([supplierId])
+  @@index([organizationId, status, isArchived, createdAt])
   @@map("product_source_approvals")
 }
 
@@ -937,6 +942,7 @@ model Contact {
   projectContacts ProjectContact[]
 
   @@index([organizationId])
+  @@index([organizationId, name])
   @@map("contacts")
 }
 
@@ -1065,6 +1071,8 @@ model Project {
   @@index([organizationId, status])
   @@index([clientId])
   @@index([freightForwarderId])
+  @@index([organizationId, isArchived, dueDate])
+  @@index([organizationId, isArchived, updatedAt])
   @@map("projects")
 }
 
@@ -1512,6 +1520,7 @@ model SupplierEnquiry {
 
   @@index([organizationId])
   @@index([projectLineId])
+  @@index([supplierId, responseStatus])
   @@map("supplier_enquiries")
 }
 
@@ -1812,6 +1821,7 @@ model ProductAmendment {
   @@index([organizationId])
   @@index([productMasterId])
   @@index([status])
+  @@index([organizationId, status, submittedAt])
   @@map("product_amendments")
 }
 
@@ -2582,6 +2592,7 @@ model StakeholderEvidenceRecord {
   @@index([partnerId])
   @@index([standardId])
   @@index([expiryDate])
+  @@index([organizationId, status, createdAt])
   @@map("stakeholder_evidence_records")
 }
 
