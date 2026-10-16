@@ -2342,8 +2342,19 @@ export interface SupportContact {
 
 // --- Notifications & actions (added 2026-10-16) ---------------------------
 
-export type NotificationKind = "PROJECT_ASSIGNED" | "PROJECT_STATUS_CHANGED" | "ACTION_ASSIGNED" | "ACTION_COMPLETED";
-export type NotificationCategory = "PROJECT";
+export type NotificationKind =
+  | "PROJECT_ASSIGNED"
+  | "PROJECT_STATUS_CHANGED"
+  | "ACTION_ASSIGNED"
+  | "ACTION_COMPLETED"
+  | "RISK_ASSIGNED"
+  | "RISK_CLOSED"
+  | "TEMPERATURE_EXCURSION"
+  | "BATCH_STATUS_CHANGED"
+  | "AMENDMENT_REVIEW"
+  | "AMENDMENT_DECISION"
+  | "STAKEHOLDER_APPROVAL";
+export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK";
 
 /** One notification or action addressed to the signed-in user. */
 export interface NotificationItem {
@@ -2378,4 +2389,24 @@ export interface AssignProjectActionInput {
   note?: string;
   /** ISO date (yyyy-mm-dd). */
   dueDate?: string;
+}
+
+// --- Global search (added 2026-10-17) -------------------------------------
+
+export type SearchResultType = "project" | "stakeholder" | "contact" | "batch" | "risk" | "product";
+
+export interface SearchResult {
+  type: SearchResultType;
+  id: string;
+  title: string;
+  subtitle: string;
+  /** In-app path within `app`. */
+  link: string;
+  /** Which app the path belongs to. */
+  app: "project-management" | "product-database";
+}
+
+export interface SearchResponse {
+  query: string;
+  results: SearchResult[];
 }

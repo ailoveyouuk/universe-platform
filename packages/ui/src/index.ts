@@ -26,3 +26,4 @@ export * from "./OrgSwitcher";
 export * from "./BrandMark";
 export { MobileBrand } from "./MobileBrand";
 export * from "./Notifications";
+export * from "./GlobalSearch";

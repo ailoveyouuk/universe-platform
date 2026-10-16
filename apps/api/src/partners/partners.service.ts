@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { prisma, withTenantContext } from "@universe/db";
 import { EvidenceService } from "../evidence/evidence.service";
 import type { PartnerSummary } from "@universe/types";
@@ -396,6 +397,25 @@ export class PartnersService {
         });
       }
 
+      // Ask the people who can approve stakeholders to review the new one.
+      const approvers = await usersWithPermission(tx, user.organizationId, "partners.approve", user.id);
+      await createNotifications(
+        tx,
+        approvers.map((rid) => ({
+          organizationId: user.organizationId,
+          recipientUserId: rid,
+          actorUserId: user.id,
+          kind: "STAKEHOLDER_APPROVAL",
+          category: "QUALITY",
+          title: `Approve new stakeholder: ${created.name}`,
+          body: `${user.forename} ${user.surname} added this stakeholder; it is waiting for approval.`,
+          link: `/partners/detail?id=${created.id}`,
+          subjectType: "partner",
+          subjectId: created.id,
+          requiresAction: true,
+        })),
+      );
+
       return tx.partner.findFirstOrThrow({ where: { id: created.id }, include: PARTNER_INCLUDE });
     });
     return toSummary(p);
@@ -595,6 +615,8 @@ export class PartnersService {
               dto.approvalStatus === "APPROVED" ? CERTIFICATION_STATEMENTS.PARTNER_APPROVAL_V1 : null,
           },
         });
+        // The approval question has been answered — close everyone's action.
+        if (dto.approvalStatus !== "PENDING") await completeActionsFor(tx, user.organizationId, "partner", id);
       }
 
       return updated;

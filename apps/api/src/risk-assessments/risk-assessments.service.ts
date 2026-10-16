@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createNotifications, completeActionsFor, rescheduleActionsFor } from "../notifications/notify";
 import { withTenantContext } from "@universe/db";
 import type {
   CreateRiskAssessmentInput,
@@ -58,6 +59,23 @@ function toSummary(r: RiskAssessmentWithOwner): RiskAssessmentSummary {
  * can log a risk against, not a replacement for that bigger, still-
  * undesigned feature.
  */
+function riskAssignedNotification(user: RequestUser, r: { id: string; ownerId: string | null; title: string; reviewDate: Date | null }) {
+  return {
+    organizationId: user.organizationId,
+    recipientUserId: r.ownerId as string,
+    actorUserId: user.id,
+    kind: "RISK_ASSIGNED",
+    category: "RISK",
+    title: `Review risk: ${r.title}`,
+    body: `${user.forename} ${user.surname} made you the owner of this risk.`,
+    link: "/risk-register",
+    subjectType: "risk",
+    subjectId: r.id,
+    requiresAction: true,
+    dueDate: r.reviewDate,
+  };
+}
+
 @Injectable()
 export class RiskAssessmentsService {
   async create(user: RequestUser, dto: CreateRiskAssessmentDto): Promise<RiskAssessmentSummary> {
@@ -78,6 +96,10 @@ export class RiskAssessmentsService {
         },
         include: { owner: { select: { forename: true, surname: true } } },
       });
+
+      if (created.ownerId) {
+        await createNotifications(tx, [riskAssignedNotification(user, created)]);
+      }
 
       // The creation itself IS the audit record (createdById/createdAt),
       // consistent with how every other model here treats a create — see
@@ -191,6 +213,20 @@ export class RiskAssessmentsService {
         source: "API",
       });
 
+      // Notifications / actions: a new owner gets a "review this risk" action
+      // (the previous owner's is closed); closing the risk closes them all;
+      // a moved review date moves the due date.
+      const ownerChanged = dto.ownerId !== undefined && dto.ownerId !== existing.ownerId;
+      if (ownerChanged) {
+        await completeActionsFor(tx, user.organizationId, "risk", id);
+        if (updated.ownerId) await createNotifications(tx, [riskAssignedNotification(user, updated)]);
+      }
+      if (dto.status === "CLOSED" && existing.status !== "CLOSED") {
+        await completeActionsFor(tx, user.organizationId, "risk", id);
+      } else if (!ownerChanged && dto.reviewDate !== undefined) {
+        await rescheduleActionsFor(tx, user.organizationId, "risk", id, updated.reviewDate);
+      }
+
       return updated;
     });
     if (!r) throw new NotFoundException(`Risk assessment ${id} not found`);
@@ -231,6 +267,24 @@ export class RiskAssessmentsService {
         reason: dto.reason,
         source: "API",
       });
+
+      await completeActionsFor(tx, user.organizationId, "risk", id);
+      if (updated.ownerId && updated.ownerId !== user.id) {
+        await createNotifications(tx, [
+          {
+            organizationId: user.organizationId,
+            recipientUserId: updated.ownerId,
+            actorUserId: user.id,
+            kind: "RISK_CLOSED",
+            category: "RISK",
+            title: `Risk closed: ${updated.title}`,
+            body: `${user.forename} ${user.surname} closed it — ${dto.reason}`,
+            link: "/risk-register",
+            subjectType: "risk",
+            subjectId: id,
+          },
+        ]);
+      }
 
       return updated;
     });

@@ -18,7 +18,7 @@ import {
   ShieldIcon,
   LogoutIcon,
   UserIcon,
-  SearchIcon,
+  GlobalSearch,
 } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
@@ -238,9 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <div className="u-app-header-right" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
                 <PlatformOrgSwitcher me={me} />
-                <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
-                  <SearchIcon size={18} />
-                </span>
+                <GlobalSearch api={apiClient} LinkComponent={Link} currentApp="product-database" />
                 <NotificationBell api={apiClient} LinkComponent={Link} />
                 <div
                   style={{

@@ -111,6 +111,7 @@ import type {
   StakeholderRatingBucket,
   SupportContact,
   NotificationItem,
+  SearchResponse,
   NotificationSummary,
   AssignProjectActionInput,
 } from "@universe/types";
@@ -135,6 +136,10 @@ export class UniverseApiClient {
   assetUrl(path: string | null | undefined): string | null {
     if (!path) return null;
     return path.startsWith("/") ? `${this.baseUrl}${path}` : path;
+  }
+
+  searchEverything(q: string): Promise<SearchResponse> {
+    return this.request(`/search?q=${encodeURIComponent(q)}`);
   }
 
   // --- Notifications & actions (2026-10-16) ---

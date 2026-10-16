@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
@@ -329,8 +330,8 @@ export class ProductCatalogService {
       );
     }
 
-    const amendment = await withTenantContext(user.organizationId, (tx) =>
-      tx.productAmendment.create({
+    const amendment = await withTenantContext(user.organizationId, async (tx) => {
+      const created = await tx.productAmendment.create({
         data: {
           organizationId: user.organizationId,
           productMasterId: id,
@@ -338,8 +339,27 @@ export class ProductCatalogService {
           status: "PENDING",
           submittedById: user.id,
         },
-      }),
-    );
+      });
+      // Ask the QA reviewers (products.approve) to ratify or reject it.
+      const reviewers = await usersWithPermission(tx, user.organizationId, "products.approve", user.id);
+      await createNotifications(
+        tx,
+        reviewers.map((rid) => ({
+          organizationId: user.organizationId,
+          recipientUserId: rid,
+          actorUserId: user.id,
+          kind: "AMENDMENT_REVIEW",
+          category: "QUALITY",
+          title: `Review proposed change to ${existing.name}`,
+          body: `${user.forename} ${user.surname} proposed an amendment to this product.`,
+          link: "/quality/product-amendments",
+          subjectType: "product_amendment",
+          subjectId: created.id,
+          requiresAction: true,
+        })),
+      );
+      return created;
+    });
     return { status: "PENDING_AMENDMENT", amendmentId: amendment.id };
   }
 
@@ -431,7 +451,7 @@ export class ProductCatalogService {
         changes,
         reason: "Product amendment ratified",
       });
-      return tx.productAmendment.update({
+      const result = await tx.productAmendment.update({
         where: { id: amendmentId },
         data: { status: "APPROVED", reviewedById: user.id, reviewedAt: new Date() },
         include: {
@@ -441,6 +461,24 @@ export class ProductCatalogService {
           reviewedBy: { select: { forename: true, surname: true } },
         },
       });
+      await completeActionsFor(tx, user.organizationId, "product_amendment", amendmentId);
+      if (existing.submittedById !== user.id) {
+        await createNotifications(tx, [
+          {
+            organizationId: user.organizationId,
+            recipientUserId: existing.submittedById,
+            actorUserId: user.id,
+            kind: "AMENDMENT_DECISION",
+            category: "QUALITY",
+            title: `Your proposed change was "approved"`,
+            body: `${user.forename} ${user.surname} ratified your amendment to ${before.name}.`,
+            link: "/quality/product-amendments",
+            subjectType: "product_amendment",
+            subjectId: amendmentId,
+          },
+        ]);
+      }
+      return result;
     });
 
     return this.toAmendmentSummary(updated);
@@ -464,7 +502,7 @@ export class ProductCatalogService {
       if (!existing) throw new NotFoundException("Amendment not found.");
       if (existing.status !== "PENDING") throw new ForbiddenException("This amendment has already been reviewed.");
 
-      return tx.productAmendment.update({
+      const result = await tx.productAmendment.update({
         where: { id: amendmentId },
         data: {
           status: "REJECTED",
@@ -479,6 +517,24 @@ export class ProductCatalogService {
           reviewedBy: { select: { forename: true, surname: true } },
         },
       });
+      await completeActionsFor(tx, user.organizationId, "product_amendment", amendmentId);
+      if (existing.submittedById !== user.id) {
+        await createNotifications(tx, [
+          {
+            organizationId: user.organizationId,
+            recipientUserId: existing.submittedById,
+            actorUserId: user.id,
+            kind: "AMENDMENT_DECISION",
+            category: "QUALITY",
+            title: `Your proposed change was "rejected"`,
+            body: `${user.forename} ${user.surname} rejected it${dto.notes ? ` — ${dto.notes}` : ""}.`,
+            link: "/quality/product-amendments",
+            subjectType: "product_amendment",
+            subjectId: amendmentId,
+          },
+        ]);
+      }
+      return result;
     });
     return this.toAmendmentSummary(updated);
   }

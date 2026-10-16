@@ -20,7 +20,6 @@ import {
   ShieldIcon,
   ClockIcon,
   LogoutIcon,
-  SearchIcon,
 } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
@@ -235,10 +234,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
 
               <div className="u-app-header-right" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-                <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
-                  <SearchIcon size={18} />
-                </span>
-                <NotificationBell api={apiClient} LinkComponent={Link} />
+                                <NotificationBell api={apiClient} LinkComponent={Link} />
                 <div
                   style={{
                     display: "flex",

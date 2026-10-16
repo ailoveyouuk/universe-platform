@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { withTenantContext } from "@universe/db";
 import type { BatchTemperatureLogSummary, ProductBatchDetail, ProductBatchSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
@@ -206,6 +207,26 @@ export class ProductBatchesService {
         changes,
       });
 
+      // A batch moving to a non-usable state matters to QA reviewers.
+      if (dto.status !== undefined && dto.status !== existing.status && ["QUARANTINED", "EXPIRED", "WITHDRAWN"].includes(dto.status)) {
+        const reviewers = await usersWithPermission(tx, user.organizationId, "products.approve", user.id);
+        await createNotifications(
+          tx,
+          reviewers.map((rid) => ({
+            organizationId: user.organizationId,
+            recipientUserId: rid,
+            actorUserId: user.id,
+            kind: "BATCH_STATUS_CHANGED",
+            category: "LOGISTICS",
+            title: `Batch ${existing.batchNumber} is now ${dto.status!.toLowerCase()}`,
+            body: `${user.forename} ${user.surname} changed its status from ${existing.status.toLowerCase()}.`,
+            link: `/batches/detail?id=${id}`,
+            subjectType: "batch",
+            subjectId: id,
+          })),
+        );
+      }
+
       return toBatchSummary(updated);
     });
   }
@@ -229,6 +250,27 @@ export class ProductBatchesService {
           recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : undefined,
         },
       });
+      // A temperature excursion needs a documented review: ask each QA
+      // reviewer (products.approve) to do it. Reviewing the log closes them.
+      if (row.hasExcursion) {
+        const reviewers = await usersWithPermission(tx, user.organizationId, "products.approve", user.id);
+        await createNotifications(
+          tx,
+          reviewers.map((rid) => ({
+            organizationId: user.organizationId,
+            recipientUserId: rid,
+            actorUserId: user.id,
+            kind: "TEMPERATURE_EXCURSION",
+            category: "LOGISTICS",
+            title: `Review temperature excursion on batch ${batch.batchNumber}`,
+            body: row.excursionNotes ?? "A temperature excursion was logged and needs a documented review.",
+            link: `/batches/detail?id=${batchId}`,
+            subjectType: "batch_temperature_log",
+            subjectId: row.id,
+            requiresAction: true,
+          })),
+        );
+      }
       return toTemperatureLogSummary(row);
     });
   }
@@ -252,6 +294,7 @@ export class ProductBatchesService {
           ...(dto.excursionNotes !== undefined ? { excursionNotes: dto.excursionNotes } : {}),
         },
       });
+      await completeActionsFor(tx, user.organizationId, "batch_temperature_log", logId);
       return toTemperatureLogSummary(row);
     });
   }

@@ -22,6 +22,7 @@ import { ProductSourcingInsightsModule } from "./product-sourcing-insights/produ
 import { ContactsModule } from "./contacts/contacts.module";
 import { BrandingModule } from "./branding/branding.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { SearchModule } from "./search/search.module";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     ContactsModule,
     BrandingModule,
     NotificationsModule,
+    SearchModule,
   ],
   controllers: [MeController],
 })

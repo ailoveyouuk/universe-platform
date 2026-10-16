@@ -304,7 +304,8 @@ export function NotificationsView({ api, LinkComponent }: { api: NotificationsAp
   // Group actions by what they are about (category), then show newest first.
   const groups = new Map<string, NotificationRowData[]>();
   for (const n of items ?? []) {
-    const label = (n as any).category === "PROJECT" || !(n as any).category ? "Projects" : String((n as any).category);
+    const cat = String((n as any).category ?? "PROJECT");
+    const label = ({ PROJECT: "Projects", QUALITY: "Quality", LOGISTICS: "Logistics", RISK: "Risk" } as Record<string, string>)[cat] ?? cat;
     groups.set(label, [...(groups.get(label) ?? []), n]);
   }
 

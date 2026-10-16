@@ -80,6 +80,15 @@ export default function ProductCatalogPage() {
   const [loading, setLoading] = useState(false);
 
   const [search, setSearch] = useState("");
+  // Opened from global search: /?q=<product name> pre-fills the box.
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get("q");
+      if (q) setSearch(q);
+    } catch {
+      /* no query */
+    }
+  }, []);
   const [category, setCategory] = useState("");
   const [sourceStandard, setSourceStandard] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
