@@ -188,6 +188,11 @@ model Organization {
   id                        String   @id @default(uuid())
   name                      String
   slug                      String   @unique // used in URLs / subdomains
+  /// Demo organisation (2026-10-17): a sandbox for prospective stakeholders.
+  /// Non-staff users whose home organisation is a demo org can write inside it
+  /// but are blocked from every write that would reach data shared across
+  /// organisations (see assertNotDemoUser in apps/api).
+  isDemo                    Boolean  @default(false)
   status                    String   @default("PILOT") // see allowed values reference above
   /// One of the six values in the allowed values reference above (expanded
   /// 2026-09-26 — see claude/stakeholder-taxonomy-research.md). Drives which

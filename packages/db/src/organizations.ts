@@ -132,6 +132,50 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
 ];
 
 /**
+ * "Stakeholder Demo" role (2026-10-17): lets a prospective organisation
+ * explore every workflow in the demo organisation (Universe Demo) as a
+ * fully-featured user — projects incl. financials, partners, product
+ * quality queue, supplier/manufacturer/funder/insights views — but with no
+ * organisation, user or role administration. The role is not part of any
+ * organisation's default template; it is created on demand in a demo org
+ * (see ensureStakeholderDemoRole). What keeps demo activity away from real
+ * data is NOT this permission set but the isDemo flag on the organisation
+ * (assertNotDemoUser in the API blocks writes to shared data) plus the
+ * normal tenant isolation, since the user belongs to the demo organisation.
+ */
+export const STAKEHOLDER_DEMO_ROLE_NAME = "Stakeholder Demo";
+export const STAKEHOLDER_DEMO_PERMISSION_KEYS = [
+  "projects.view", "projects.create", "projects.edit", "projects.delete",
+  "projects.financials.view", "projects.financials.edit",
+  "supplier.profile.manage", "supplier.products.manage", "supplier.leads.view",
+  "manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view",
+  "funder.grants.view", "insights.aggregate.view",
+  "partners.approve", "evidence.verify", "products.approve", "qa.queue.view",
+  "partners.financials.view", "partners.financials.edit",
+];
+
+/** Finds or creates the Stakeholder Demo role in a demo organisation. Refuses a non-demo org. */
+export async function ensureStakeholderDemoRole(organizationId: string): Promise<{ id: string }> {
+  return withTenantContext(organizationId, async (tx) => {
+    const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { isDemo: true } });
+    if (!org?.isDemo) throw new Error("The Stakeholder Demo role can only be created in a demo organisation.");
+    const existing = await tx.role.findFirst({ where: { organizationId, name: STAKEHOLDER_DEMO_ROLE_NAME, appScope: "*" } });
+    const permissions = await tx.permission.findMany({ where: { key: { in: STAKEHOLDER_DEMO_PERMISSION_KEYS } } });
+    const role =
+      existing ??
+      (await tx.role.create({
+        data: { organizationId, name: STAKEHOLDER_DEMO_ROLE_NAME, appScope: "*", description: "Explore the whole platform in the demo organisation. No administration." },
+      }));
+    if (existing?.archivedAt) await tx.role.update({ where: { id: role.id }, data: { archivedAt: null, archivedById: null } });
+    const have = await tx.rolePermission.findMany({ where: { roleId: role.id } });
+    const haveIds = new Set(have.map((r: { permissionId: string }) => r.permissionId));
+    const missing = permissions.filter((p: { id: string }) => !haveIds.has(p.id));
+    if (missing.length) await tx.rolePermission.createMany({ data: missing.map((p: { id: string }) => ({ roleId: role.id, permissionId: p.id })) });
+    return { id: role.id };
+  });
+}
+
+/**
  * SUPPLIER-type organizations (added 2026-09-24 — see architecture doc,
  * "Supplier/manufacturer marketplace") get this instead of
  * DEFAULT_ROLE_TEMPLATE — "Project Manager"/"Read Only" don't mean anything

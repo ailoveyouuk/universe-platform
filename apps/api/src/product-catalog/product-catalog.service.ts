@@ -3,7 +3,7 @@ import { createNotifications, completeActionsFor, usersWithPermission } from "..
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
-import { assertHasPermission } from "../common/authorization";
+import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
 import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
@@ -425,6 +425,7 @@ export class ProductCatalogService {
    * org gets a 404, not a permission error, so existence isn't leaked
    * cross-tenant either. */
   async ratifyAmendment(user: RequestUser, amendmentId: string): Promise<ProductAmendmentSummary> {
+    assertNotDemoUser(user, "Ratifying a product amendment (it changes the shared catalogue)");
     assertHasPermission(user, "products.approve");
 
     const updated = await withTenantContext(user.organizationId, async (tx) => {
@@ -556,6 +557,7 @@ export class ProductCatalogService {
     sourceStandard: string,
     rows: ImportProductMasterRowDto[],
   ): Promise<ImportProductMasterResult> {
+    assertNotDemoUser(user, "Importing products into the shared catalogue");
     const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { type: true } });
     let created = 0;
     let updated = 0;
@@ -635,6 +637,7 @@ export class ProductCatalogService {
    * name), so de-duplication is intentionally left to the human who already
    * saw the search results, not guessed at server-side. */
   async create(user: RequestUser, dto: CreateProductMasterDto): Promise<ProductCatalogMatch> {
+    assertNotDemoUser(user, "Adding a product to the shared catalogue");
     const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { type: true } });
     const created = await prisma.productMaster.create({
       data: {

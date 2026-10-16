@@ -27,6 +27,8 @@ export interface RequestUser {
   organizationWelcomeMessage: string | null;
   platformStaffRole: PlatformStaffRole;
   permissions: string[];
+  /** True for non-staff users whose home organisation is a demo sandbox: they may write inside it but never to data shared across organisations. */
+  isDemoUser?: boolean;
 }
 
 function toRequestUser(user: {
@@ -40,7 +42,7 @@ function toRequestUser(user: {
   // packages/db/src/enums.ts). Narrowed to PlatformStaffRole below since
   // the database only ever stores one of that const object's values.
   platformStaffRole: string;
-  organization: { name: string; logoUrl: string | null; logoIconUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
+  organization: { name: string; isDemo: boolean; logoUrl: string | null; logoIconUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
   const permissions = user.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
@@ -59,11 +61,12 @@ function toRequestUser(user: {
     organizationWelcomeMessage: user.organization.welcomeMessage,
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
+    isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
   };
 }
 
 const userInclude = {
-  organization: { select: { name: true, status: true, logoUrl: true, logoIconUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true } },
+  organization: { select: { name: true, isDemo: true, status: true, logoUrl: true, logoIconUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true } },
   userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } },
 } as const;
 

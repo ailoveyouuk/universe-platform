@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
-import { assertCanManageOrg } from "../common/authorization";
+import { assertCanManageOrg, assertNotDemoUser } from "../common/authorization";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type {
@@ -107,6 +107,7 @@ export class SupplierDirectoryService {
    * every other org, so it's a deliberate step, not a side effect of
    * saving a draft. */
   async setPublished(caller: RequestUser, published: boolean) {
+    assertNotDemoUser(caller, "Publishing to the supplier directory");
     assertCanManageOrg(caller, caller.organizationId, "supplier.profile.manage");
     const result = await withTenantContext(caller.organizationId, (tx) =>
       tx.supplierProfile.update({
@@ -183,6 +184,7 @@ export class SupplierDirectoryService {
    * something to guess here.
    */
   async selectProduct(caller: RequestUser, supplierProductId: string) {
+    assertNotDemoUser(caller, "Selecting a supplier product");
     const product = await withTenantContext(caller.organizationId, (tx) =>
       tx.supplierProduct.findFirst({
         where: { id: supplierProductId, isPublished: true },

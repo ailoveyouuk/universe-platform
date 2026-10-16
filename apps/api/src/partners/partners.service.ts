@@ -310,7 +310,9 @@ export class PartnersService {
     // future, separate consent that would govern sharing that kind of data
     // with the specific organization that created this record; it does
     // not gate identity matching/autopopulate, which is always on.
-    const registryEntryId = await this.stakeholderRegistryService.resolveForPartnerCreate({
+    // Demo users never touch the shared stakeholder registry (it spans every
+    // organisation); their partners are simply not linked to a registry entry.
+    const registryEntryId = user.isDemoUser ? undefined : await this.stakeholderRegistryService.resolveForPartnerCreate({
       explicitRegistryEntryId: dto.registryEntryId,
       name: dto.name,
       countryCode: dto.countryCode,

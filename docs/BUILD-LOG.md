@@ -6,6 +6,13 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Stakeholder demo: demo-organisation flag, role and shared-data write guard (stage 2)
+
+- `Organization.isDemo` (migration `20261017120000_organization_is_demo`; the existing "Universe Demo" org is set to true by the migration).
+- `RequestUser.isDemoUser` = home organisation is demo AND not platform staff (so Lewis, who is staff and based in Universe Demo, is exempt). `assertNotDemoUser` (apps/api `common/authorization.ts`) now blocks demo users from every write that reaches data shared across organisations: product catalogue create / batch import / amendment ratify, publishing to the supplier directory, selecting a supplier product (writes shared SupplierLead). Partner creation by a demo user skips the shared stakeholder registry (partner is simply not linked). Everything else a demo user does lands in the demo organisation's own tenant-isolated data.
+- "Stakeholder Demo" role: `STAKEHOLDER_DEMO_PERMISSION_KEYS` / `ensureStakeholderDemoRole(orgId)` in `@universe/db` — all project (incl. financials), partner, quality, supplier/manufacturer/funder/insights permissions, but no `org.users.manage`, `org.roles.manage` or `org.profile.manage`. Refuses non-demo organisations. Not part of any default role template.
+- Tests: `apps/api/test/stakeholder-demo.test.ts`. Admin UI to assign/disable it by email, plus sandbox reset, is stage 3 (not built yet).
+
 ## 2026-10-17 — Archive, never delete (stage 1 of the stakeholder-demo work)
 
 **Platform rule (Lewis, 2026-10-17): nothing is deleted anywhere — records are archived, and removed accounts are logged.**

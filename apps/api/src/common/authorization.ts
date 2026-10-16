@@ -49,6 +49,20 @@ export function assertHasPermission(user: RequestUser, permission: string): void
   }
 }
 
+/**
+ * Demo-sandbox guard (2026-10-17). Users of a demo organisation (e.g. the
+ * stakeholder accounts in Universe Demo) can try every workflow, but must
+ * never write to data that is shared across organisations — the product
+ * catalogue, the stakeholder registry, the public supplier directory — or
+ * demo activity would appear in real organisations' views. Called at the
+ * top of every shared-data write. Platform staff are exempt.
+ */
+export function assertNotDemoUser(user: RequestUser, what: string): void {
+  if (user.isDemoUser) {
+    throw new ForbiddenException(`${what} is not available in a demo account, because it would change data shared with other organisations.`);
+  }
+}
+
 export function assertPlatformStaff(user: RequestUser): void {
   if (user.platformStaffRole === "NONE") {
     throw new ForbiddenException("Platform staff only.");
