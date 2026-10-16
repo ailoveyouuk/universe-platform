@@ -827,6 +827,9 @@ export interface AddProjectContactInput {
 /** Full project detail (header + lines) — what GET /projects/:id returns.
  * ProjectSummary stays as the list-row shape (GET /projects). */
 export interface ProjectDetail extends ProjectSummary {
+  /** True when the caller lacks projects.financials.view: every price, cost,
+   * margin, payment and invoice figure below has been blanked server-side. */
+  financialsRedacted: boolean;
   clientId: string | null;
   donorReference: string | null;
   deliveryCountryCode: string | null;

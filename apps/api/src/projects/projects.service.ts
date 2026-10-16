@@ -65,7 +65,10 @@ function assertFieldLevelPermission(
   const touchesFinancial = keys.some((k) => financialFields.includes(k));
   const touchesOther = keys.some((k) => !financialFields.includes(k));
   if (touchesOther) assertHasPermission(user, "projects.edit");
-  if (touchesFinancial) assertHasPermission(user, "projects.financials.edit");
+  if (touchesFinancial) {
+    assertHasPermission(user, "projects.financials.view");
+    assertHasPermission(user, "projects.financials.edit");
+  }
 }
 
 function daysRemaining(dueDate: Date | null): number | null {
@@ -351,9 +354,52 @@ function toContactSummary(c: ContactLinkWithContact): ProjectContactSummary {
   };
 }
 
+/**
+ * Read-side redaction (added 2026-10-17): users without
+ * `projects.financials.view` get a project detail with every price, cost,
+ * margin, payment and invoice figure blanked server-side — the data never
+ * leaves the API, rather than being hidden in the UI. Non-numeric
+ * operational fields (dates, quantities, PO numbers, statuses) stay. Write
+ * access to financials additionally requires view (see
+ * assertFieldLevelPermission) so a redacted form can never write back nulls.
+ */
+const REDACTED_LINE_FIELDS = [
+  ...PROJECT_LINE_FINANCIAL_FIELDS,
+  "supplierRemainingBalance",
+  "productMarginAmount",
+  "supplierPriceLockedAt",
+  "supplierUnitPriceReportingCcy",
+  "supplierTotalPriceReportingCcy",
+  "salesPriceLockedAt",
+  "salesUnitPriceReportingCcy",
+  "salesTotalPriceReportingCcy",
+] as const;
+
+const REDACTED_PROJECT_FIELDS = [
+  ...PROJECT_FINANCIAL_FIELDS,
+  "freightTotalCost",
+  "freightMarginAmount",
+  "freightPriceLockedAt",
+  "freightTotalCostReportingCcy",
+  "freightInvoiceAmountReportingCcy",
+] as const;
+
+function redactFinancials(detail: ProjectDetail): ProjectDetail {
+  const out: Record<string, unknown> = { ...detail, financialsRedacted: true };
+  for (const f of REDACTED_PROJECT_FIELDS) out[f] = null;
+  out.lines = detail.lines.map((line) => {
+    const l: Record<string, unknown> = { ...line };
+    for (const f of REDACTED_LINE_FIELDS) l[f] = null;
+    l.enquiries = line.enquiries.map((e) => ({ ...e, quotedPrice: null, quotedCurrency: null }));
+    return l;
+  });
+  return out as unknown as ProjectDetail;
+}
+
 function toDetail(p: ProjectWithLines): ProjectDetail {
   return {
     ...toSummary(p),
+    financialsRedacted: false,
     clientId: p.clientId,
     donorReference: p.donorReference,
     deliveryCountryCode: p.deliveryCountryCode,
@@ -458,6 +504,7 @@ export class ProjectsService {
    * locked) via summarize()/convertFromBase() — the mechanism behind the
    * dashboard's currency selector. */
   async getFinancialSummary(user: RequestUser, currency?: string): Promise<ProjectFinancialSummary> {
+    assertHasPermission(user, "projects.financials.view");
     const [lines, projects] = await withTenantContext(user.organizationId, (tx) =>
       Promise.all([
         tx.projectLine.findMany({
@@ -477,6 +524,7 @@ export class ProjectsService {
    * lines' product totals plus its OWN single freight record (not summed
    * from lines any more). */
   async getProjectFinancialSummary(user: RequestUser, projectId: string, currency?: string): Promise<ProjectFinancialSummary> {
+    assertHasPermission(user, "projects.financials.view");
     const project = await withTenantContext(user.organizationId, (tx) =>
       tx.project.findFirst({
         where: { id: projectId, ...tenantScope(user.organizationId) },
@@ -572,7 +620,8 @@ export class ProjectsService {
       }),
     );
     if (!p) throw new NotFoundException(`Project ${id} not found`);
-    return toDetail(p);
+    const detail = toDetail(p);
+    return user.permissions.includes("projects.financials.view") ? detail : redactFinancials(detail);
   }
 
   async create(user: RequestUser, dto: CreateProjectDto): Promise<ProjectSummary> {

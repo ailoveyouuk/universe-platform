@@ -116,6 +116,7 @@ export function LineForm({
   projectStatus,
   manufacturers,
   suppliers,
+  hideFinancials = false,
   onSave,
   onCancel,
 }: {
@@ -128,6 +129,8 @@ export function LineForm({
   projectStatus: string;
   manufacturers: PartnerSummary[];
   suppliers: PartnerSummary[];
+  /** True when the API redacted financials for this user: the Financials section is not shown. */
+  hideFinancials?: boolean;
   onSave: (input: ProjectLineInput) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -540,6 +543,7 @@ export function LineForm({
         </Field>
       </Section>
 
+      {!hideFinancials && (
       <Section title="Financials">
         <Field label="Supplier Unit Price">
           <input type="number" step="0.01" style={inputStyle} value={form.supplierUnitPrice ?? ""} onChange={(e) => update("supplierUnitPrice", numOrNull(e.target.value))} />
@@ -661,6 +665,7 @@ export function LineForm({
           </>
         )}
       </Section>
+      )}
 
       {isPharma && (
         <Section title="Pharma Batch Details">

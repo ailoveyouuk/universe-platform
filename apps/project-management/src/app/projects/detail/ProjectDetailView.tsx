@@ -67,6 +67,16 @@ function isLinesSectionRelevant(project: ProjectDetail): boolean {
  * carry, and Next's static-export + dynamic-route limitation it explains;
  * unchanged by this rework.
  */
+/** Financial keys the API blanks (and refuses to write) without
+ * projects.financials.view — mirrored from apps/api ProjectsService. */
+const PROJECT_FINANCIAL_KEYS = ["freightCost", "freightCurrency", "insuredValue", "insuredCurrency", "freightInsuranceCost", "freightAdditionalCost", "freightMarginPercent"];
+const LINE_FINANCIAL_KEYS = ["supplierUnitPrice", "supplierPaymentAmountTotal", "supplierPaymentCurrency", "supplierPaymentDate", "supplierAmountPaid", "supplierPaymentStatus", "unitSalesPrice", "clientPaymentAmount", "clientPaymentCurrency", "clientPaymentDate", "internalInvoiceNumber", "internalInvoiceDate", "grossMargin", "margin", "productMarginPercent"];
+function omitKeys<T extends object>(input: T, keys: string[]): T {
+  const copy = { ...input } as Record<string, unknown>;
+  for (const k of keys) delete copy[k];
+  return copy as T;
+}
+
 export function ProjectDetailView() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
@@ -179,7 +189,7 @@ export function ProjectDetailView() {
     if (!id) return;
     setSavingHeader(true);
     try {
-      const updated = await apiClient.updateProject(id, headerForm);
+      const updated = await apiClient.updateProject(id, project?.financialsRedacted ? omitKeys(headerForm, PROJECT_FINANCIAL_KEYS) : headerForm);
       setProject(updated);
       setEditingHeader(false);
     } catch (err) {
@@ -608,6 +618,10 @@ export function ProjectDetailView() {
                 ))}
               </select>
             </label>
+            {project.financialsRedacted ? (
+              <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>Freight cost and margin details are hidden for your role.</p>
+            ) : (
+              <>
             <label style={{ fontSize: 13 }}>
               Freight Cost
               <input
@@ -724,6 +738,8 @@ export function ProjectDetailView() {
                 />
               </label>
             )}
+              </>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
@@ -788,6 +804,7 @@ export function ProjectDetailView() {
 
       {addingLine && (
         <LineForm
+              hideFinancials={project.financialsRedacted}
           existing={null}
           isPharma={isPharma}
           projectStatus={project.status}
@@ -795,7 +812,7 @@ export function ProjectDetailView() {
           suppliers={suppliers}
           onCancel={() => setAddingLine(false)}
           onSave={async (input) => {
-            const updated = await apiClient.addProjectLine(project.id, input);
+            const updated = await apiClient.addProjectLine(project.id, project.financialsRedacted ? omitKeys(input, LINE_FINANCIAL_KEYS) : input);
             setProject(updated);
             setAddingLine(false);
           }}
@@ -878,6 +895,7 @@ export function ProjectDetailView() {
 
           {editingLineId === line.id && (
             <LineForm
+              hideFinancials={project.financialsRedacted}
               existing={line}
               isPharma={isPharma}
               projectStatus={project.status}
@@ -885,7 +903,7 @@ export function ProjectDetailView() {
               suppliers={suppliers}
               onCancel={() => setEditingLineId(null)}
               onSave={async (input) => {
-                const updated = await apiClient.updateProjectLine(project.id, line.id, input);
+                const updated = await apiClient.updateProjectLine(project.id, line.id, project.financialsRedacted ? omitKeys(input, LINE_FINANCIAL_KEYS) : input);
                 setProject(updated);
                 setEditingLineId(null);
               }}

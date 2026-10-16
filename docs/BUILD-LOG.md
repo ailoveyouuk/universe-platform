@@ -6,6 +6,14 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Read-side redaction of project financials
+
+- Users without `projects.financials.view` now get project detail with all prices, costs, margins, payments, invoice numbers/dates, price locks, reporting-currency figures and supplier-enquiry quotes blanked **server-side** (`ProjectsService.findOne` -> `redactFinancials`); `ProjectDetail.financialsRedacted` tells the UI. Quantities, dates, PO numbers and statuses stay visible.
+- `GET /projects/financial-summary` and `/:id/financial-summary` now return 403 without the permission (dashboard tile and project summary simply don't show).
+- Writing a financial field now needs `financials.view` **and** `financials.edit`, so a form populated from redacted (null) data can never write nulls back. UI: Financials section of the line form and freight cost block hidden when redacted; financial keys dropped from saves.
+- Which roles are affected: defaults give view to Organization Admin, Project Manager and Finance; Read Only, Quality Assurance and Responsible Person are redacted.
+- Test: `apps/api/test/project-financial-redaction.test.ts`. No migration, no RLS change. Not yet checked live as a redacted user (the demo users can't sign in).
+
 ## 2026-10-17 — Project line-item delete
 
 - `DELETE /projects/:id/lines/:lineId` (needs `projects.edit`); Delete button with inline "Yes, delete / Cancel" confirm beside Edit on each line in project detail.
