@@ -70,3 +70,11 @@ auto-pause. Not measurable in this setup: logistics global routes (needs the ins
 Partners no longer fails: legacy `GET /partners` returns the capped 500 rows in 96 ms warm / 605 ms cold (the UI now uses `/partners/page`, `/partners/overview`, `/partners/options`).
 Slowest remaining (warm / cold ms): quality performance 579 / 1003 (2,245 rows, unbounded); users platform-wide 354 / 1049 (3,000 rows); QA queue 342 / 1874; contacts 304 / 1906 (6,090 rows); projects 131 / 609 (1,598 rows). Everything else is under 150 ms warm.
 Done after that run: users, contacts and projects paging (see build log). Remaining: then quality performance and QA queue (bound/aggregate in the database). Indexes after that, informed by plans.
+
+## Re-run after all list fixes and indexes (2026-10-17, full profile: 300 orgs, 3,000 users, 30,000 products, 12,000 partners, 6,000 projects, 22,464 lines)
+Every list endpoint is now paged or aggregated in the database. Slowest warm timings: global search 115 ms, product catalogue page 106 ms, catalogue search 96 ms, project financial summary 56 ms, QA queue deep page 52 ms, quality performance 42 ms; everything else under 40 ms (users page 6–39 ms, partners page 13–20 ms, projects page 6–9 ms, contacts search 4 ms). Before: quality performance 579, users 354, QA queue 342, contacts 304, projects 131.
+Remaining watch-list:
+- `GET /partners/options` returns every partner for the pickers (3,045 rows for the largest org, 23 ms). Fine now; make it search-as-you-type if an organisation passes ~10,000 partners.
+- Global search and catalogue search use `contains` (no index use); fine at 30,000 products, move to full-text search past ~100,000.
+- Financial summary still sums all lines in code; fine at 22,000 lines, move to a database SUM if an organisation reaches several hundred thousand.
+- Not measured: product source approvals and logistics insights (the generator creates none), the insights database, HTTP/JSON/screen cost, Azure SQL (these ran on a container). Re-measure over HTTP against the live API after the demo load.
