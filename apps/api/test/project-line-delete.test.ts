@@ -64,13 +64,13 @@ describe("Project line delete", () => {
 
   it("another organisation cannot delete the line", async () => {
     await expect(projects.deleteLine(asUser(orgB, ["projects.edit"]), projectId, lineId)).rejects.toBeInstanceOf(NotFoundException);
-    expect(await prisma.projectLine.count({ where: { id: lineId } })).toBe(1);
+    expect(await withPlatformStaffContext((tx) => tx.projectLine.count({ where: { id: lineId } }))).toBe(1);
   });
 
   it("deletes only the requested line and audits it", async () => {
     const detail = await projects.deleteLine(asUser(orgA, ["projects.edit"]), projectId, lineId);
     expect(detail.lines.map((l) => l.id)).toEqual([otherLineId]);
-    expect(await prisma.projectLine.count({ where: { id: lineId } })).toBe(0);
-    expect(await prisma.fieldChangeLog.count({ where: { tableName: "project_lines", recordId: lineId } })).toBe(1);
+    expect(await withPlatformStaffContext((tx) => tx.projectLine.count({ where: { id: lineId } }))).toBe(0);
+    expect(await withPlatformStaffContext((tx) => tx.fieldChangeLog.count({ where: { tableName: "project_lines", recordId: lineId } }))).toBe(1);
   });
 });
