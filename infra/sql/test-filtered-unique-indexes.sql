@@ -3,7 +3,11 @@
 -- with `prisma db push`, which can only create plain UNIQUE constraints —
 -- and on SQL Server those allow a single NULL per table. Replace them with
 -- the same filtered unique indexes production has so tests exercise real behaviour.
+SET QUOTED_IDENTIFIER ON;
+GO
 ALTER TABLE [dbo].[users] DROP CONSTRAINT [users_entraObjectId_key];
+GO
+SET QUOTED_IDENTIFIER ON;
 GO
 CREATE UNIQUE INDEX [users_entraObjectId_key] ON [dbo].[users]([entraObjectId]) WHERE [entraObjectId] IS NOT NULL;
 GO
