@@ -6,6 +6,16 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Demo users for every Universe Demo role (data change, no code)
+Created through the live Admin app (Invite a User), all in **Universe Demo**, status INVITED (never signed in):
+Avery Admin `demo.admin@example.com` (Organization Admin) · Morgan Manager `demo.projectmanager@example.com` (Project Manager) ·
+Quinn Quality `demo.qa@example.com` (Quality Assurance) · Riley Responsible `demo.rp@example.com` (Responsible Person) ·
+Finley Finance `demo.finance@example.com` (Finance) · Reese Reader `demo.readonly@example.com` (Read Only).
+Universe Demo has exactly these six roles (the supplier/manufacturer/funder/insights roles only exist for orgs of those types).
+Notes: they cannot sign in (example.com addresses, no Entra accounts) — they exist to be assigned to projects, actions and
+risks. Notification code that targets QA reviewers only picks ACTIVE users, so Quinn/Riley will not receive review actions
+while INVITED. Avery now appears as Universe Demo's support contact (first non-platform Organization Admin). To remove: Admin → Users → deactivate.
+
 ## 2026-10-17 — Global search; notifications for risk, logistics and quality
 Commits `feat: Global search…` (CI/deploys green after a test-teardown fix). No migration, no new RLS.
 
