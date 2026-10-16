@@ -37,3 +37,31 @@ or a prefix-match design (to be confirmed by measurement).
 2. Add paging/filter/sort (`{ items, total, page, pageSize }`) to the lists above in the order the measurements justify, with UI to match.
 3. Add indexes the plans call for; revisit search.
 4. Only then load the live demo at full scale.
+
+## Measured results — run of 2026-10-17 (profile `full`, throwaway Azure SQL Edge, real RLS)
+Dataset: 300 organisations, 3,000 users, 30,000 products, 12,000 partners (a quarter in one large organisation), 24,000+ contacts,
+6,000 projects, ~22,000 lines, 6,000 batches, 4,000 risks, 40,000 audit rows. Generated in ~100–140s.
+Service-level timings (database + mapping only), warm second call:
+
+| Endpoint | Warm ms | Note |
+|---|---:|---|
+| `GET /partners` (largest org, ~3,000 partners) | **FAILS** | exceeded Prisma's 5s interactive-transaction timeout — a real production bug at this volume (heavy include on an unpaged list) |
+| `GET /quality/performance` | 591 | 2,245 rows returned |
+| `GET /users` (platform staff) | 382 (cold 1,120) | 3,000 rows returned |
+| `GET /quality/qa-queue` | 363 (cold 1,861) | scans the org's work |
+| `GET /contacts` | 334 (cold 1,931) | 6,090 rows returned |
+| `GET /projects` | 144 (cold 621) | 1,598 rows returned |
+| `GET /product-catalog` page 1 | 143 | already paged; 30,000 products |
+| Global search `q=syringe` | 139 | text match across tables; watch as data grows |
+| Catalogue search | 132 | |
+| Financial summary | 68 | sums every line in code |
+| everything else | < 35 | audit feed, org list, batches, risks, dashboard stats |
+
+Caveats: container SQL Edge, not Azure SQL; no network/JSON/UI cost (a 3,000-row list is also a large payload and a long screen); cold times matter after
+auto-pause. Not measurable in this setup: logistics global routes (needs the insights database).
+
+## Fix order from the measurements
+1. Partners list (broken at volume) — lighter list shape + server paging/search/sort.
+2. Users, contacts, projects (Admin and PM lists) — server paging/search/sort.
+3. Quality performance and QA queue — bound and/or aggregate in the database.
+4. Re-run the harness, then add indexes the plans justify; revisit global search; then load the live demo at full scale.
