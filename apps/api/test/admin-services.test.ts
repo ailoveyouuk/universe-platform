@@ -396,6 +396,9 @@ describe("Admin services", () => {
       const attempt = makeCtx(orgB);
       await guard.canActivate(attempt.ctx);
       expect(attempt.req.user?.organizationId).toBe(orgA);
+
+      // Release the shared local-dev identity so later tests can link it.
+      await withPlatformStaffContext((tx) => tx.user.update({ where: { id: staff.id }, data: { entraObjectId: `released-${suffix}` } }));
     });
 
     it("locks out a suspended organisation's users on their next request but never platform staff, and restores on reactivation", async () => {
