@@ -20,6 +20,37 @@ export class ProjectsController {
     return this.projectsService.findAll(user);
   }
 
+  @Get("page")
+  findPage(
+    @CurrentUser() user: RequestUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("q") q?: string,
+    @Query("status") status?: string,
+    @Query("type") type?: string,
+    @Query("country") country?: string,
+    @Query("archived") archived?: string,
+    @Query("sort") sort?: string,
+    @Query("dir") dir?: string,
+  ) {
+    return this.projectsService.findPage(user, {
+      page: Number(page) || 1,
+      pageSize: Number(pageSize) || 25,
+      q,
+      status,
+      type,
+      country,
+      archived: archived === "true",
+      sort,
+      dir,
+    });
+  }
+
+  @Get("overview")
+  overview(@CurrentUser() user: RequestUser) {
+    return this.projectsService.overview(user);
+  }
+
   // Declared BEFORE the ":id" route below — Nest/Express match routes in
   // declaration order, and a single dynamic segment would otherwise treat
   // "financial-summary" as an :id value and shadow this entirely.

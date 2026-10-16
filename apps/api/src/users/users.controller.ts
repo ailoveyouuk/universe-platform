@@ -12,6 +12,29 @@ import { UsersService } from "./users.service";
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // Static routes are declared before ":id" so they are never read as an id.
+  @Get("page")
+  findPage(
+    @CurrentUser() user: RequestUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("q") q?: string,
+    @Query("status") status?: string,
+    @Query("organizationId") organizationId?: string,
+  ) {
+    return this.usersService.findPage(user, { page: Number(page) || 1, pageSize: Number(pageSize) || 25, q, status, organizationId });
+  }
+
+  @Get("counts")
+  counts(@CurrentUser() user: RequestUser, @Query("organizationId") organizationId?: string) {
+    return this.usersService.counts(user, organizationId);
+  }
+
+  @Get("options")
+  options(@CurrentUser() user: RequestUser, @Query("q") q?: string) {
+    return this.usersService.options(user, q);
+  }
+
   @Get()
   findAll(@CurrentUser() user: RequestUser, @Query("organizationId") organizationId?: string) {
     return this.usersService.findAll(user, organizationId);

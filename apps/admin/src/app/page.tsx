@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { FieldChangeFeedEntry, OrganizationSummary, UserSummary } from "@universe/types";
+import type { FieldChangeFeedEntry, OrganizationSummary, UserCounts } from "@universe/types";
 import { BuildingIcon, CheckCircleIcon, ClockIcon, PartnersIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -14,18 +14,18 @@ export default function AdminHomePage() {
   const me = useCurrentUser();
   const isPlatform = !!me && me.platformStaffRole !== "NONE";
   const [orgs, setOrgs] = useState<OrganizationSummary[] | null>(null);
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
+  const [userCounts, setUserCounts] = useState<UserCounts | null>(null);
   const [recent, setRecent] = useState<FieldChangeFeedEntry[] | null>(null);
 
   useEffect(() => {
     if (!me) return;
     apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
-    apiClient.listUsers().then(setUsers).catch(() => setUsers([]));
+    apiClient.getUserCounts().then(setUserCounts).catch(() => setUserCounts(null));
     apiClient.getActivityFeed({ limit: 8 }).then((p) => setRecent(p.entries)).catch(() => setRecent([]));
   }, [me]);
 
   const pilot = orgs?.filter((o) => o.status === "PILOT").length;
-  const invited = users?.filter((u) => u.status === "INVITED").length;
+  const invited = userCounts?.invited;
 
   return (
     <main style={{ padding: 32, maxWidth: 1000 }}>
@@ -38,7 +38,7 @@ export default function AdminHomePage() {
 
       <StatTileGrid style={{ margin: "20px 0" }}>
         <StatTile label={isPlatform ? "Organisations" : "Your organisation"} value={orgs?.length} icon={<BuildingIcon size={18} />} tone="brand" onClick={() => router.push("/organizations")} />
-        <StatTile label="Users" value={users?.length} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => router.push("/users")} />
+        <StatTile label="Users" value={userCounts?.total} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => router.push("/users")} />
         <StatTile label="Awaiting first sign-in" value={invited} icon={<ClockIcon size={18} />} tone="warning" onClick={() => router.push("/users")} />
         <StatTile label="Pilot organisations" value={pilot} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => router.push("/organizations")} />
       </StatTileGrid>

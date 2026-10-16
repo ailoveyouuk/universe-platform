@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { ContactSummary, ProjectDetail, UserSummary } from "@universe/types";
+import { useEffect, useState } from "react";
+import type { ContactSummary, ProjectDetail, UserOption } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { Button, Select } from "@universe/ui";
 
@@ -24,12 +24,12 @@ import { Button, Select } from "@universe/ui";
 export function ProjectTeam({
   project,
   users,
-  contacts,
+  searchContacts,
   onUpdated,
 }: {
   project: ProjectDetail;
-  users: UserSummary[];
-  contacts: ContactSummary[];
+  users: UserOption[];
+  searchContacts: (q: string) => Promise<ContactSummary[]>;
   onUpdated: (project: ProjectDetail) => void;
 }) {
   const [addingLeadId, setAddingLeadId] = useState<string>("");
@@ -40,6 +40,27 @@ export function ProjectTeam({
   const [actionNote, setActionNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Contacts are found by typing (an organisation can hold thousands), not pre-loaded.
+  const [contactQuery, setContactQuery] = useState("");
+  const [contacts, setContacts] = useState<ContactSummary[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      searchContacts(contactQuery.trim())
+        .then((r) => {
+          if (!cancelled) setContacts(r);
+        })
+        .catch(() => {
+          if (!cancelled) setContacts([]);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactQuery]);
 
   const availableUsers = users.filter((u) => !project.leads.some((l) => l.userId === u.id));
   const availableContacts = contacts.filter((c) => !project.contacts.some((pc) => pc.contactId === c.id));
@@ -182,6 +203,13 @@ export function ProjectTeam({
             ))}
           </ul>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+            <input
+              value={contactQuery}
+              onChange={(e) => setContactQuery(e.target.value)}
+              placeholder="Search contacts…"
+              aria-label="Search contacts"
+              style={{ minWidth: 0, width: 150, padding: "8px 10px", fontSize: 13, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", background: "var(--u-surface)", color: "var(--u-ink)" }}
+            />
             <Select
               value={addingContactId}
               onChange={setAddingContactId}

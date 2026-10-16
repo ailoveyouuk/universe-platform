@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
-import type { UserDetail, UserSummary } from "@universe/types";
+import type { PagedResult, UserCounts, UserDetail, UserOption, UserSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { InviteUserDto } from "./dto/invite-user.dto";
@@ -134,6 +134,7 @@ export class UsersService {
    * of what's passed in organizationId — never trust a client-supplied
    * organization filter over the caller's own tenant.
    */
+  /** @deprecated Capped at 500 — screens use findPage / counts / options. */
   async findAll(caller: RequestUser, organizationId?: string): Promise<UserSummary[]> {
     const scopedOrgId = caller.platformStaffRole !== "NONE" ? organizationId : caller.organizationId;
     const canManage = caller.platformStaffRole !== "NONE" || caller.permissions.includes("org.users.manage");
@@ -148,8 +149,85 @@ export class UsersService {
         where: scopedOrgId ? { organizationId: scopedOrgId } : undefined,
         include,
         orderBy: { invitedAt: "desc" },
+        take: 500,
       });
       return users.map(toSummary);
+    });
+  }
+
+  /** One page of users with search/status/organisation filters applied in the database
+   * (2026-10-17, scale work). Replaces loading every user for the Admin Users screen. */
+  async findPage(
+    caller: RequestUser,
+    q: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string },
+  ): Promise<PagedResult<UserSummary>> {
+    const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(q.page ?? 1), 1);
+    const isStaff = caller.platformStaffRole !== "NONE";
+    const canManage = isStaff || caller.permissions.includes("org.users.manage");
+    const scopedOrgId = isStaff ? q.organizationId : caller.organizationId;
+    const term = q.q?.trim();
+    const where: Record<string, unknown> = {
+      ...(canManage ? {} : { id: caller.id }),
+      ...(scopedOrgId ? { organizationId: scopedOrgId } : {}),
+      ...(q.status ? { status: q.status } : {}),
+      ...(term
+        ? {
+            OR: [
+              { forename: { contains: term } },
+              { surname: { contains: term } },
+              { email: { contains: term } },
+              { organization: { name: { contains: term } } },
+              { userRoles: { some: { role: { name: { contains: term } } } } },
+            ],
+          }
+        : {}),
+    };
+    return runAs(caller, async (tx) => {
+      const total = await tx.user.count({ where });
+      const rows = await tx.user.findMany({
+        where,
+        include,
+        orderBy: [{ invitedAt: "desc" }, { id: "asc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      });
+      return { items: rows.map(toSummary), total, page, pageSize };
+    });
+  }
+
+  /** Tile counts without loading users. Same visibility rules as findPage. */
+  async counts(caller: RequestUser, organizationId?: string): Promise<UserCounts> {
+    const isStaff = caller.platformStaffRole !== "NONE";
+    const canManage = isStaff || caller.permissions.includes("org.users.manage");
+    const scopedOrgId = isStaff ? organizationId : caller.organizationId;
+    const where = { ...(canManage ? {} : { id: caller.id }), ...(scopedOrgId ? { organizationId: scopedOrgId } : {}) };
+    return runAs(caller, async (tx) => {
+      const grouped = await tx.user.groupBy({ by: ["status"], where, _count: { _all: true } });
+      const n = (s: string) => grouped.find((g: { status: string }) => g.status === s)?._count._all ?? 0;
+      const active = n("ACTIVE");
+      const invited = n("INVITED");
+      const archived = n("DEACTIVATED");
+      return { total: active + invited + archived, active, invited, archived };
+    });
+  }
+
+  /** Colleagues in the caller's own organisation, names only, for pickers. Open to every member
+   * (findAll is admin-only, so pickers were showing non-admins just themselves). */
+  async options(caller: RequestUser, search?: string): Promise<UserOption[]> {
+    const term = search?.trim();
+    return runAs(caller, async (tx) => {
+      const rows = await tx.user.findMany({
+        where: {
+          organizationId: caller.organizationId,
+          status: { not: "DEACTIVATED" },
+          ...(term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }] } : {}),
+        },
+        select: { id: true, forename: true, surname: true },
+        orderBy: [{ forename: "asc" }, { surname: "asc" }, { id: "asc" }],
+        take: 200,
+      });
+      return rows;
     });
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import type { RiskAssessmentListItem, UserSummary } from "@universe/types";
+import type { RiskAssessmentListItem, UserOption } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import {
   SearchInput,
@@ -87,7 +87,7 @@ function subjectTypeLabel(subjectType: string): string {
  */
 export default function RiskRegisterPage() {
   const [risks, setRisks] = useState<RiskAssessmentListItem[] | null>(null);
-  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -113,7 +113,7 @@ export default function RiskRegisterPage() {
 
   useEffect(() => {
     reload();
-    apiClient.listUsers().then(setUsers).catch(() => setUsers([]));
+    apiClient.listUserOptions().then(setUsers).catch(() => setUsers([]));
   }, []);
 
   const filtered = useMemo(() => {
@@ -336,7 +336,7 @@ function RiskEditPanel({
   onSaved,
 }: {
   risk: RiskAssessmentListItem;
-  users: UserSummary[];
+  users: UserOption[];
   onClose: () => void;
   onSaved: () => void;
 }) {

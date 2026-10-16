@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
-import type { ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
+import type { PagedResult, ProjectOverview, ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { createNotifications } from "../notifications/notify";
 import type { AssignProjectActionDto } from "./dto/assign-project-action.dto";
@@ -114,6 +114,9 @@ function toSummary(p: {
     deliveryCountryCode: p.deliveryCountryCode,
   };
 }
+
+/** Statuses that count as finished for the "overdue" test. */
+const FINISHED_STATUSES = ["COMPLETED", "AWARDED", "UNAWARDED", "DECLINED", "CANCELLED"];
 
 const PROJECT_DETAIL_INCLUDE = {
   client: true,
@@ -483,12 +486,103 @@ export class ProjectsService {
 
   constructor(private readonly exchangeRates: ExchangeRatesService) {}
 
+  /** One page of projects with search / status / type / country filters and sort applied in the
+   * database (2026-10-17, scale work). Status "ACTIVE" is the not-yet-submitted group
+   * (IDENTIFIED, IN_PROGRESS); "OVERDUE" is past-due and not in a finished state. Rows with no due
+   * date always sort last. */
+  async findPage(
+    user: RequestUser,
+    q: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; archived?: boolean; sort?: string; dir?: string },
+  ): Promise<PagedResult<ProjectSummary>> {
+    const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
+    const page = Math.max(Math.floor(q.page ?? 1), 1);
+    const term = q.q?.trim();
+    const where: Record<string, unknown> = {
+      ...tenantScope(user.organizationId),
+      ...(q.archived ? {} : { isArchived: false }),
+      ...(q.type ? { projectType: q.type } : {}),
+      ...(q.country ? { deliveryCountryCode: q.country } : {}),
+      ...(q.status === "ACTIVE"
+        ? { status: { in: ["IDENTIFIED", "IN_PROGRESS"] } }
+        : q.status === "OVERDUE"
+          ? { dueDate: { lt: new Date() }, status: { notIn: FINISHED_STATUSES } }
+          : q.status
+            ? { status: q.status }
+            : {}),
+      ...(term ? { OR: [{ referenceNumber: { contains: term } }, { title: { contains: term } }, { client: { name: { contains: term } } }] } : {}),
+    };
+    const dir = q.dir === "desc" ? "desc" : "asc";
+    const secondary = [{ id: "asc" as const }];
+    const skip = (page - 1) * pageSize;
+    return withTenantContext(user.organizationId, async (tx) => {
+      const total = await tx.project.count({ where });
+      const find = (w: Record<string, unknown>, orderBy: unknown, sk: number, take: number) =>
+        tx.project.findMany({ where: w, include: { client: true }, orderBy: orderBy as never, skip: sk, take });
+      let rows: Awaited<ReturnType<typeof find>>;
+      const key = q.sort ?? "due";
+      if (key === "due" || key === "daysLeft") {
+        // SQL Server sorts NULL first ascending; we want no-due-date rows last in both directions.
+        const withDate = { ...where, dueDate: { ...((where.dueDate as object) ?? {}), not: null } };
+        const noDate = { ...where, dueDate: null };
+        if (dir === "desc") {
+          rows = await find(where, [{ dueDate: "desc" }, ...secondary], skip, pageSize);
+        } else {
+          const dated = await tx.project.count({ where: withDate });
+          if (skip < dated) {
+            rows = await find(withDate, [{ dueDate: "asc" }, ...secondary], skip, pageSize);
+            if (rows.length < pageSize) rows = rows.concat(await find(noDate, secondary, 0, pageSize - rows.length));
+          } else {
+            rows = await find(noDate, secondary, skip - dated, pageSize);
+          }
+        }
+      } else {
+        const field: Record<string, unknown> = {
+          reference: { referenceNumber: dir },
+          title: { title: dir },
+          client: { client: { name: dir } },
+          status: { status: dir },
+        };
+        rows = await find(where, [field[key] ?? { updatedAt: "desc" }, ...secondary], skip, pageSize);
+      }
+      return { items: rows.map(toSummary), total, page, pageSize };
+    });
+  }
+
+  /** Tile counts, recent lists and delivery countries for the dashboard — computed in the database. */
+  async overview(user: RequestUser): Promise<ProjectOverview> {
+    const base = { ...tenantScope(user.organizationId), isArchived: false };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const grouped = await tx.project.groupBy({ by: ["status"], where: base, _count: { _all: true } });
+      const n = (...statuses: string[]) => grouped.filter((g) => statuses.includes(g.status)).reduce((a, g) => a + g._count._all, 0);
+      const overdue = await tx.project.count({ where: { ...base, dueDate: { lt: new Date() }, status: { notIn: FINISHED_STATUSES } } });
+      const countries = await tx.project.groupBy({ by: ["deliveryCountryCode"], where: { ...base, deliveryCountryCode: { not: null } } });
+      const recent = (status: string[]) =>
+        tx.project.findMany({ where: { ...base, status: { in: status } }, include: { client: true }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: 5 });
+      const [recentActive, recentAwarded] = await Promise.all([recent(["IDENTIFIED", "IN_PROGRESS"]), recent(["AWARDED"])]);
+      return {
+        counts: {
+          total: grouped.reduce((a, g) => a + g._count._all, 0),
+          active: n("IDENTIFIED", "IN_PROGRESS"),
+          submitted: n("SUBMITTED"),
+          awarded: n("AWARDED"),
+          completed: n("COMPLETED"),
+          overdue,
+        },
+        deliveryCountryCodes: countries.map((c) => c.deliveryCountryCode as string).sort(),
+        recentActive: recentActive.map(toSummary),
+        recentAwarded: recentAwarded.map(toSummary),
+      };
+    });
+  }
+
+  /** @deprecated Capped at 500 — screens use findPage / overview. */
   async findAll(user: RequestUser): Promise<ProjectSummary[]> {
     const projects = await withTenantContext(user.organizationId, (tx) =>
       tx.project.findMany({
         where: tenantScope(user.organizationId),
         include: { client: true },
         orderBy: { updatedAt: "desc" },
+        take: 500,
       }),
     );
     return projects.map(toSummary);

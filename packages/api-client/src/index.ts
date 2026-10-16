@@ -1,6 +1,9 @@
 import type {
   StakeholderAccessOverview,
   PagedResult,
+  ProjectOverview,
+  UserCounts,
+  UserOption,
   PartnerListItem,
   PartnerOverview,
   PartnerOption,
@@ -247,6 +250,18 @@ export class UniverseApiClient {
     return this.request("/me");
   }
 
+  /** Server-paged, filtered, sorted project list. */
+  listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; archived?: boolean; sort?: string; dir?: string }): Promise<PagedResult<ProjectSummary>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
+    return this.request(`/projects/page?${qs.toString()}`);
+  }
+
+  getProjectOverview(): Promise<ProjectOverview> {
+    return this.request("/projects/overview");
+  }
+
+  /** @deprecated Capped at 500 — use listProjectsPage / getProjectOverview. */
   listProjects(): Promise<ProjectSummary[]> {
     return this.request("/projects");
   }
@@ -422,8 +437,12 @@ export class UniverseApiClient {
   // --- Contacts (added 2026-10-08) — read-only finder backing the Team &
   // Contacts picker above. See ContactsService's doc comment in apps/api. ---
 
-  listContacts(): Promise<ContactSummary[]> {
-    return this.request(`/contacts`);
+  /** Search-driven contact finder (max 100 per call) — an organisation can hold thousands. */
+  listContacts(q?: string, limit?: number): Promise<ContactSummary[]> {
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    if (limit) qs.set("limit", String(limit));
+    return this.request(`/contacts${qs.toString() ? `?${qs.toString()}` : ""}`);
   }
 
   // --- Partners (added 2026-09-27) ---
@@ -805,6 +824,23 @@ export class UniverseApiClient {
     return this.request(`/organizations/${organizationId}/manufacturer-sites/${siteId}`, { method: "DELETE" });
   }
 
+  /** Server-paged users (admin screens). */
+  listUsersPage(params: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string }): Promise<PagedResult<UserSummary>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/users/page?${qs.toString()}`);
+  }
+
+  getUserCounts(organizationId?: string): Promise<UserCounts> {
+    return this.request(`/users/counts${organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ""}`);
+  }
+
+  /** Colleagues in your organisation (names only) for pickers; any member may call it. */
+  listUserOptions(q?: string): Promise<UserOption[]> {
+    return this.request(`/users/options${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  }
+
+  /** @deprecated Unpaged (capped at 500) — use listUsersPage / getUserCounts / listUserOptions. */
   listUsers(organizationId?: string): Promise<UserSummary[]> {
     const query = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : "";
     return this.request(`/users${query}`);

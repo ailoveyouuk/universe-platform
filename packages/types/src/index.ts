@@ -123,6 +123,21 @@ export interface UserSummary {
   archiveReason: string | null;
 }
 
+/** Counts for the Users tiles, computed in the database (2026-10-17, scale work). */
+export interface UserCounts {
+  total: number;
+  active: number;
+  invited: number;
+  archived: number;
+}
+
+/** Slim colleague record for pickers (project lead, risk owner, assign an action) — names only. */
+export interface UserOption {
+  id: string;
+  forename: string;
+  surname: string;
+}
+
 /** Stakeholder demo access (2026-10-17): the demo organisation and the people who hold the Stakeholder Demo role. */
 export interface StakeholderAccessOverview {
   organizationId: string;
@@ -838,6 +853,15 @@ export interface AddProjectLeadInput {
 /** Body of POST /projects/:id/contacts. */
 export interface AddProjectContactInput {
   contactId: string;
+}
+
+/** Dashboard/list-tile data for Projects, computed in the database (2026-10-17, scale work). Archived projects are excluded. */
+export interface ProjectOverview {
+  counts: { total: number; active: number; submitted: number; awarded: number; completed: number; overdue: number };
+  /** Distinct delivery countries (for the dashboard tile and the list's country filter). */
+  deliveryCountryCodes: string[];
+  recentActive: ProjectSummary[];
+  recentAwarded: ProjectSummary[];
 }
 
 /** Full project detail (header + lines) — what GET /projects/:id returns.

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ProjectSummary, PartnerOverview, ProjectFinancialSummary } from "@universe/types";
+import type { PartnerOverview, ProjectOverview, ProjectSummary, ProjectFinancialSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES } from "@universe/types";
 import {
   ActionsCard,
@@ -23,12 +23,7 @@ import {
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
 
-// Mirrors projects/page.tsx's own STATUS_GROUPS/isOverdue logic exactly —
-// kept in sync by hand since this page only needs the counts, not the
-// full filterable table. See that file's comment for why "Active" means
-// not-yet-submitted and "Awarded" is deliberately AWARDED only.
-const ACTIVE_STATUSES = ["IDENTIFIED", "IN_PROGRESS"];
-const TERMINAL_STATUSES = ["COMPLETED", "AWARDED", "UNAWARDED", "DECLINED", "CANCELLED"];
+// The Active / Awarded / Overdue definitions live in the API (ProjectsService.findPage/overview).
 
 /**
  * The Project Management landing dashboard — the "nerve centre" redesign,
@@ -52,7 +47,7 @@ const TERMINAL_STATUSES = ["COMPLETED", "AWARDED", "UNAWARDED", "DECLINED", "CAN
 export default function HomePage() {
   const me = useCurrentUser();
   const router = useRouter();
-  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+  const [projectOverview, setProjectOverview] = useState<ProjectOverview | null>(null);
   const [partnerOverview, setPartnerOverview] = useState<PartnerOverview | null>(null);
   // Financial Overview (added 2026-10-02, made currency-agnostic
   // 2026-10-03) — org-wide rollup across every ProjectLine's LOCKED
@@ -71,7 +66,7 @@ export default function HomePage() {
   const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.listProjects().then(setProjects).catch(() => setProjects([]));
+    apiClient.getProjectOverview().then(setProjectOverview).catch(() => setProjectOverview({ counts: { total: 0, active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0 }, deliveryCountryCodes: [], recentActive: [], recentAwarded: [] }));
     apiClient.getPartnerOverview().then(setPartnerOverview).catch(() => setPartnerOverview(null));
   }, []);
 
@@ -89,38 +84,12 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayCurrency]);
 
-  function isOverdue(p: ProjectSummary): boolean {
-    return Boolean(p.dueDate) && new Date(p.dueDate as string) < new Date() && !TERMINAL_STATUSES.includes(p.status);
-  }
-
-  const stats = useMemo(() => {
-    const list = projects ?? [];
-    const active = list.filter((p) => ACTIVE_STATUSES.includes(p.status));
-    const submitted = list.filter((p) => p.status === "SUBMITTED");
-    const awarded = list.filter((p) => p.status === "AWARDED");
-    const overdue = list.filter(isOverdue);
-    return { active: active.length, submitted: submitted.length, awarded: awarded.length, overdue: overdue.length };
-  }, [projects]);
-
-  // Stage 3b (product-database-and-map-roadmap.md) — "Total countries"
-  // stat tile, counting distinct delivery countries across this org's own
-  // projects (ProjectSummary.deliveryCountryCode, not archived). The tile
-  // itself links through to /projects, where the actual country filter
-  // control lives (added alongside this) — a single headline number has
-  // nowhere useful to "select" to on its own, so filtering happens on the
-  // list screen, same split as every other dashboard tile here (a count
-  // here, the real filter UI on the destination page).
-  const countryStats = useMemo(() => {
-    const list = projects ?? [];
-    const codes = new Set(list.map((p) => p.deliveryCountryCode).filter((c): c is string => Boolean(c)));
-    return { count: codes.size };
-  }, [projects]);
-
-  const activeProjects = useMemo(
-    () => (projects ?? []).filter((p) => ACTIVE_STATUSES.includes(p.status)).slice(0, 5),
-    [projects]
-  );
-  const awardedProjects = useMemo(() => (projects ?? []).filter((p) => p.status === "AWARDED").slice(0, 5), [projects]);
+  // Counts, recents and delivery countries come from the database (GET /projects/overview),
+  // not from loading every project (2026-10-17, scale work).
+  const stats = projectOverview?.counts ?? { active: 0, submitted: 0, awarded: 0, overdue: 0 };
+  const countryStats = { count: projectOverview?.deliveryCountryCodes.length ?? 0 };
+  const activeProjects = projectOverview?.recentActive ?? [];
+  const awardedProjects = projectOverview?.recentAwarded ?? [];
 
   const stakeholderStats = useMemo(() => {
     if (!partnerOverview) return null;
@@ -274,7 +243,7 @@ export default function HomePage() {
           subtitle="Not yet submitted"
           viewAllHref="/projects?status=ACTIVE"
           projects={activeProjects}
-          loading={!projects}
+          loading={!projectOverview}
           emptyText="No active projects right now."
           icon={<ClockIcon size={14} />}
         />
@@ -283,7 +252,7 @@ export default function HomePage() {
           subtitle="Now being worked on"
           viewAllHref="/projects?status=AWARDED"
           projects={awardedProjects}
-          loading={!projects}
+          loading={!projectOverview}
           emptyText="No awarded projects right now."
           icon={<CheckCircleIcon size={14} />}
         />

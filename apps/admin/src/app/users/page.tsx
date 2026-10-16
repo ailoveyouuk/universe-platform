@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { OrganizationSummary, UserSummary } from "@universe/types";
-import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid } from "@universe/ui";
+import type { OrganizationSummary, PagedResult, UserCounts, UserSummary } from "@universe/types";
+import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid, Pagination, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { StatusChip } from "../../components/form";
@@ -23,43 +23,61 @@ function UsersList() {
   const isPlatform = !!me && me.platformStaffRole !== "NONE";
   const initialOrg = useSearchParams()?.get("organizationId") ?? "";
 
-  const [users, setUsers] = useState<UserSummary[] | null>(null);
+  // Server-side paging (2026-10-17, scale work): search, filters and paging run in the
+  // API, tile counts come from the database, so thousands of users never load at once.
+  const [result, setResult] = useState<PagedResult<UserSummary> | null>(null);
+  const [counts, setCounts] = useState<UserCounts | null>(null);
   const [orgs, setOrgs] = useState<OrganizationSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [orgFilter, setOrgFilter] = useState(initialOrg);
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
-    apiClient
-      .listUsers()
-      .then(setUsers)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load users"));
     apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
   }, []);
 
-  const scoped = useMemo(() => (users ?? []).filter((u) => !orgFilter || u.organizationId === orgFilter), [users, orgFilter]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const counts = useMemo(
-    () => ({
-      total: scoped.length,
-      active: scoped.filter((u) => u.status === "ACTIVE").length,
-      invited: scoped.filter((u) => u.status === "INVITED").length,
-      deactivated: scoped.filter((u) => u.status === "DEACTIVATED").length,
-    }),
-    [scoped],
-  );
+  useEffect(() => {
+    apiClient.getUserCounts(orgFilter || undefined).then(setCounts).catch(() => setCounts(null));
+  }, [orgFilter]);
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return scoped.filter(
-      (u) =>
-        (!statusFilter || u.status === statusFilter) &&
-        (!q || `${u.forename} ${u.surname} ${u.email} ${u.organizationName} ${u.roleNames.join(" ")}`.toLowerCase().includes(q)),
-    );
-  }, [scoped, statusFilter, search]);
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .listUsersPage({ page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize, q: debouncedSearch, status: statusFilter, organizationId: orgFilter })
+      .then((r) => {
+        if (!cancelled) {
+          setResult(r);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load users");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, pageSize, debouncedSearch, statusFilter, orgFilter]);
 
-  const toggleStatus = (s: string) => setStatusFilter((cur) => (cur === s ? "" : s));
+  const visible = result?.items ?? [];
+  const effectivePageSize = pageSize === "all" ? 100 : pageSize;
+  const pageCount = Math.max(1, Math.ceil((result?.total ?? 0) / effectivePageSize));
+
+  const toggleStatus = (s: string) => {
+    setStatusFilter((cur) => (cur === s ? "" : s));
+    setPage(0);
+  };
 
   return (
     <main style={{ padding: 32 }}>
@@ -69,10 +87,10 @@ function UsersList() {
       </div>
 
       <StatTileGrid style={{ margin: "20px 0" }}>
-        <StatTile label="Total users" value={users ? counts.total : undefined} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => setStatusFilter("")} active={statusFilter === ""} />
-        <StatTile label="Active" value={users ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggleStatus("ACTIVE")} active={statusFilter === "ACTIVE"} />
-        <StatTile label="Invited" value={users ? counts.invited : undefined} icon={<ClockIcon size={18} />} tone="warning" onClick={() => toggleStatus("INVITED")} active={statusFilter === "INVITED"} />
-        <StatTile label="Archived" value={users ? counts.deactivated : undefined} icon={<LockIcon size={18} />} tone="neutral" onClick={() => toggleStatus("DEACTIVATED")} active={statusFilter === "DEACTIVATED"} />
+        <StatTile label="Total users" value={counts?.total} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => toggleStatus(statusFilter)} active={statusFilter === ""} />
+        <StatTile label="Active" value={counts?.active} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggleStatus("ACTIVE")} active={statusFilter === "ACTIVE"} />
+        <StatTile label="Invited" value={counts?.invited} icon={<ClockIcon size={18} />} tone="warning" onClick={() => toggleStatus("INVITED")} active={statusFilter === "INVITED"} />
+        <StatTile label="Archived" value={counts?.archived} icon={<LockIcon size={18} />} tone="neutral" onClick={() => toggleStatus("DEACTIVATED")} active={statusFilter === "DEACTIVATED"} />
       </StatTileGrid>
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
@@ -83,7 +101,7 @@ function UsersList() {
           <div style={{ minWidth: 220 }}>
             <Select
               value={orgFilter}
-              onChange={setOrgFilter}
+              onChange={(v) => { setOrgFilter(v); setPage(0); }}
               allLabel="All organisations"
               options={orgs.map((o) => ({ value: o.id, label: o.name }))}
               ariaLabel="Filter by organisation"
@@ -93,9 +111,10 @@ function UsersList() {
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
-      {!users && !error && <p>Loading…</p>}
+      {!result && !error && <p>Loading…</p>}
 
-      {users && (
+      {result && (
+        <>
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
@@ -137,6 +156,8 @@ function UsersList() {
             )}
           </tbody>
         </table>
+        <Pagination pageSize={pageSize} onPageSizeChange={(sz) => { setPageSize(sz); setPage(0); }} page={page} pageCount={pageCount} onPageChange={setPage} totalCount={result.total} />
+        </>
       )}
     </main>
   );

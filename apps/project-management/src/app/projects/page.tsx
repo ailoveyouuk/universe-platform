@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { ProjectSummary } from "@universe/types";
+import type { PagedResult, ProjectOverview, ProjectSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import {
@@ -54,7 +54,11 @@ type SortKey = "reference" | "title" | "client" | "status" | "due" | "daysLeft";
  */
 export default function ProjectsPage() {
   const searchParams = useSearchParams();
-  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
+  // Server-side paging (2026-10-17, scale work): search, filters, sort and paging run in the
+  // API, and the tiles come from database counts, so only one page of projects ever loads.
+  const [result, setResult] = useState<PagedResult<ProjectSummary> | null>(null);
+  const [overview, setOverview] = useState<ProjectOverview | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -80,73 +84,46 @@ export default function ProjectsPage() {
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
-    apiClient
-      .listProjects()
-      .then(setProjects)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load projects"));
+    apiClient.getProjectOverview().then(setOverview).catch(() => setOverview(null));
   }, []);
 
-  function isOverdue(p: ProjectSummary): boolean {
-    return Boolean(p.dueDate) && new Date(p.dueDate as string) < new Date() && !["COMPLETED", "AWARDED", ...TERMINAL_STAGES].includes(p.status as any);
-  }
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const stats = useMemo(() => {
-    const list = projects ?? [];
-    const active = list.filter((p) => STATUS_GROUPS.ACTIVE.includes(p.status));
-    const submitted = list.filter((p) => p.status === "SUBMITTED");
-    const awarded = list.filter((p) => p.status === "AWARDED");
-    const completed = list.filter((p) => p.status === "COMPLETED");
-    const overdue = list.filter(isOverdue);
-    return { active: active.length, submitted: submitted.length, awarded: awarded.length, completed: completed.length, overdue: overdue.length };
-  }, [projects]);
-
-  const filtered = useMemo(() => {
-    if (!projects) return [];
-    const q = search.trim().toLowerCase();
-    return projects.filter((p) => {
-      if (statusFilter === "OVERDUE") {
-        if (!isOverdue(p)) return false;
-      } else if (statusFilter && STATUS_GROUPS[statusFilter]) {
-        if (!STATUS_GROUPS[statusFilter].includes(p.status)) return false;
-      } else if (statusFilter && p.status !== statusFilter) {
-        return false;
-      }
-      if (typeFilter && p.projectType !== typeFilter) return false;
-      if (countryFilter && p.deliveryCountryCode !== countryFilter) return false;
-      if (!showArchived && p.isArchived) return false;
-      if (q) {
-        const haystack = `${p.referenceNumber} ${p.title} ${p.clientName ?? ""}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [projects, search, statusFilter, typeFilter, countryFilter, showArchived]);
-
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    const dir = sortDir === "asc" ? 1 : -1;
-    list.sort((a, b) => {
-      switch (sortKey) {
-        case "reference":
-          return a.referenceNumber.localeCompare(b.referenceNumber) * dir;
-        case "title":
-          return a.title.localeCompare(b.title) * dir;
-        case "client":
-          return (a.clientName ?? "").localeCompare(b.clientName ?? "") * dir;
-        case "status":
-          return a.status.localeCompare(b.status) * dir;
-        case "daysLeft":
-          return ((a.daysRemainingForSubmission ?? Infinity) - (b.daysRemainingForSubmission ?? Infinity)) * dir;
-        case "due":
-        default: {
-          const at = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-          const bt = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-          return (at - bt) * dir;
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .listProjectsPage({
+        page: page + 1,
+        pageSize: pageSize === "all" ? 100 : pageSize,
+        q: debouncedSearch,
+        status: statusFilter,
+        type: typeFilter,
+        country: countryFilter,
+        archived: showArchived,
+        sort: sortKey,
+        dir: sortDir,
+      })
+      .then((r) => {
+        if (!cancelled) {
+          setResult(r);
+          setError(null);
         }
-      }
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, pageSize, debouncedSearch, statusFilter, typeFilter, countryFilter, showArchived, sortKey, sortDir]);
+
+  const stats = overview?.counts ?? { active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0, total: 0 };
 
   function onSort(key: string) {
     if (key === sortKey) {
@@ -158,16 +135,14 @@ export default function ProjectsPage() {
     setPage(0);
   }
 
-  const countryOptions = useMemo(() => {
-    const list = projects ?? [];
-    const codes = new Set(list.map((p) => p.deliveryCountryCode).filter((c): c is string => Boolean(c)));
-    return Array.from(codes)
-      .map((code) => ({ value: code, label: countries.find((c) => c.code === code)?.name ?? code }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [projects, countries]);
+  const countryOptions = (overview?.deliveryCountryCodes ?? [])
+    .map((code) => ({ value: code, label: countries.find((c) => c.code === code)?.name ?? code }))
+    .sort((x, y) => x.label.localeCompare(y.label));
 
-  const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(sorted.length / pageSize));
-  const visible = pageSize === "all" ? sorted : sorted.slice(page * pageSize, page * pageSize + pageSize);
+  const effectivePageSize = pageSize === "all" ? 100 : pageSize;
+  const total = result?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / effectivePageSize));
+  const visible = result?.items ?? [];
 
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
@@ -236,7 +211,7 @@ export default function ProjectsPage() {
 
       {/* Filters + search */}
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by reference, title, client…" />
+        <SearchInput value={search} onChange={setSearch} placeholder="Search by reference, title, client…" />
         <Select
           value={statusFilter}
           onChange={(v) => { setStatusFilter(v); setPage(0); }}
@@ -265,9 +240,9 @@ export default function ProjectsPage() {
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
-      {!projects && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
+      {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
-      {projects && (
+      {result && (
         <>
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
             <thead>
@@ -327,7 +302,7 @@ export default function ProjectsPage() {
             page={page}
             pageCount={pageCount}
             onPageChange={setPage}
-            totalCount={sorted.length}
+            totalCount={total}
           />
         </>
       )}

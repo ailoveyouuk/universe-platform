@@ -6,6 +6,18 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Users, contacts and projects: server-side paging (scale fixes 2–3)
+
+Same approach as partners; every screen that used an unpaged list was moved, across all three apps.
+- **Users:** `GET /users/page` (page, pageSize ≤100, q, status, organizationId), `GET /users/counts` (tile counts via group-by), `GET /users/options` (names only, own organisation, any member). Legacy `GET /users` capped at 500. Admin Users screen and Admin dashboard now use them. Side fix: the project-lead, risk-owner and assign-an-action pickers in Project Management used the admin-only list, so non-admins saw only themselves; they now use `/users/options`.
+- **Contacts:** `GET /contacts?q=&limit=` is search-driven (default 25, max 100). The project Team & Contacts picker is now a type-to-search box instead of preloading every contact.
+- **Projects:** `GET /projects/page` (q, status incl. ACTIVE and OVERDUE groups, type, country, archived, sort, dir; no-due-date rows always last) and `GET /projects/overview` (counts excluding archived, five recent active/awarded, distinct delivery countries). Projects list and PM dashboard use them. Legacy `GET /projects` capped at 500. Behaviour change: dashboard tile counts now exclude archived projects.
+- Types: `UserCounts`, `UserOption`, `ProjectOverview`. Client: `listUsersPage`, `getUserCounts`, `listUserOptions`, `listContacts(q, limit)`, `listProjectsPage`, `getProjectOverview`.
+- Verified: all four apps typecheck clean; new `apps/api/test/list-paging.test.ts` (CI, RLS database). Not yet checked in the live apps.
+- Next: quality performance and QA queue (aggregate/bound in the database), re-run scale test, indexes.
+
+---
+
 ## 2026-10-17 — Partners list: server-side paging (first scale fix)
 
 - Measured failure: `GET /partners` for a ~3,000-partner organisation exceeded the 5s transaction timeout. Fixed by moving paging, search, filters and sort into the API.

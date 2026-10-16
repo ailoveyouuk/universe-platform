@@ -29,12 +29,21 @@ function toSummary(c: { id: string; name: string; email: string | null; phone: s
  */
 @Injectable()
 export class ContactsService {
-  async findAll(user: RequestUser): Promise<ContactSummary[]> {
+  /** Search-driven (2026-10-17, scale work): an organisation can hold thousands of contacts, so
+   * this returns at most `limit` (default 25, max 100) matches for `q` (name, email or stakeholder
+   * name) instead of the whole book. With no `q` it returns the first page alphabetically. */
+  async findAll(user: RequestUser, q?: string, limit?: number): Promise<ContactSummary[]> {
+    const take = Math.min(Math.max(Math.floor(limit ?? 25), 1), 100);
+    const term = q?.trim();
     const contacts = await withTenantContext(user.organizationId, (tx) =>
       tx.contact.findMany({
-        where: tenantScope(user.organizationId),
+        where: {
+          ...tenantScope(user.organizationId),
+          ...(term ? { OR: [{ name: { contains: term } }, { email: { contains: term } }, { partner: { name: { contains: term } } }] } : {}),
+        },
         include: { partner: true },
-        orderBy: { name: "asc" },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        take,
       }),
     );
     return contacts.map(toSummary);

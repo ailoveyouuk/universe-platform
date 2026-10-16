@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { ContactSummary, CountryOption, PartnerOption, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserSummary } from "@universe/types";
+import type { CountryOption, PartnerOption, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -89,8 +89,7 @@ export function ProjectDetailView() {
   const [freightForwarders, setFreightForwarders] = useState<PartnerOption[]>([]);
   // Team & Contacts (added 2026-10-08) — org-wide pickable lists, fetched
   // once alongside the partner lists above; see ProjectTeam's doc comment.
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [contacts, setContacts] = useState<ContactSummary[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [editingHeader, setEditingHeader] = useState(false);
@@ -139,8 +138,7 @@ export function ProjectDetailView() {
     apiClient.listPartnerOptions("MANUFACTURER").then(setManufacturers).catch(() => {});
     apiClient.listPartnerOptions("SUPPLIER").then(setSuppliers).catch(() => {});
     apiClient.listPartnerOptions("FREIGHT_FORWARDER").then(setFreightForwarders).catch(() => {});
-    apiClient.listUsers().then(setUsers).catch(() => {});
-    apiClient.listContacts().then(setContacts).catch(() => {});
+    apiClient.listUserOptions().then(setUsers).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -922,7 +920,7 @@ export function ProjectDetailView() {
         </p>
       )}
 
-      <ProjectTeam project={project} users={users} contacts={contacts} onUpdated={setProject} />
+      <ProjectTeam project={project} users={users} searchContacts={(q) => apiClient.listContacts(q, 25)} onUpdated={setProject} />
 
       <ProjectDocuments project={project} onUpdated={setProject} />
 
