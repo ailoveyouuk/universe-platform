@@ -25,6 +25,7 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationDetail,
+  FieldChangeFeedPage,
   PermissionSummary,
   RoleDetail,
   CreateRoleInput,
@@ -895,6 +896,14 @@ export class UniverseApiClient {
   getAuditLog(tableName: string, recordId: string): Promise<FieldChangeLogEntry[]> {
     const qs = new URLSearchParams({ tableName, recordId });
     return this.request(`/audit-log?${qs.toString()}`);
+  }
+
+  /** Admin app global activity feed (added 2026-10-16). */
+  getActivityFeed(params: { organizationId?: string; tableName?: string; changedById?: string; before?: string; limit?: number } = {}): Promise<FieldChangeFeedPage> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    const suffix = qs.toString();
+    return this.request(`/audit-log/feed${suffix ? `?${suffix}` : ""}`);
   }
 
   /** Gap 4 — the risk register entries logged against one subject

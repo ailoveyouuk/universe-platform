@@ -1895,6 +1895,21 @@ export interface FieldChangeLogEntry {
   certificationStatement: string | null;
 }
 
+/** One row of the Admin app's global activity feed (GET /audit-log/feed). */
+export interface FieldChangeFeedEntry extends FieldChangeLogEntry {
+  organizationId: string;
+  organizationName: string | null;
+  /** Human label for the changed record (user name, org name, role name,
+   * partner name, project reference), or "<table> <short id>". */
+  recordLabel: string;
+}
+
+export interface FieldChangeFeedPage {
+  entries: FieldChangeFeedEntry[];
+  /** Pass as `before` to fetch the next (older) page; null when exhausted. */
+  nextBefore: string | null;
+}
+
 /** Gap 3 (compliance-standards-gap-analysis.md's GDP compliance assessment
  * addendum) — one row of an organisation's own Standards & Evidence
  * catalog. appliesToStakeholderTypes is a real string[] at this boundary

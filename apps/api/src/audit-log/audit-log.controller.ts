@@ -13,6 +13,22 @@ import { AuditLogService } from "./audit-log.service";
 export class AuditLogController {
   constructor(private readonly auditLogService: AuditLogService) {}
 
+  /** Global activity feed (Admin app, added 2026-10-16): newest-first field
+   * changes across records. Platform staff: any/all organisations. Org
+   * admins (org.users.manage): their own organisation only. Keyset-paginated
+   * on changedAt via `before`. */
+  @Get("feed")
+  feed(
+    @CurrentUser() user: RequestUser,
+    @Query("organizationId") organizationId?: string,
+    @Query("tableName") tableName?: string,
+    @Query("changedById") changedById?: string,
+    @Query("before") before?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.auditLogService.feed(user, { organizationId, tableName, changedById, before, limit: limit ? Number(limit) : undefined });
+  }
+
   @Get()
   forRecord(@CurrentUser() user: RequestUser, @Query("tableName") tableName: string, @Query("recordId") recordId: string) {
     return this.auditLogService.forRecord(user, tableName, recordId);
