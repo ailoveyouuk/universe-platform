@@ -228,8 +228,9 @@ describe("Admin services", () => {
       await expect(
         roles.update(limited, limitedRole.id, { permissionKeys: ["org.roles.manage", "org.users.manage"] }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+      const platformCaller = await asRequestUser((await makeUser(orgA, "role-platform", { platform: "SUPER_ADMIN" })).id);
       await expect(
-        roles.create(limited, { organizationId: orgA, name: `Bogus ${suffix}`, permissionKeys: ["not.a.permission"] }),
+        roles.create(platformCaller, { organizationId: orgA, name: `Bogus ${suffix}`, permissionKeys: ["not.a.permission"] }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
