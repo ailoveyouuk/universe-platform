@@ -72,7 +72,7 @@ describe("Partners paging", () => {
 
   it("filters by role, approval and country", async () => {
     const mfg = await service.findPage(asUser(orgA), { q: suffix, roleType: "MANUFACTURER" });
-    expect(mfg.total).toBe(3); // i = 0,3,6,9
+    expect(mfg.total).toBe(4); // i = 0,3,6,9
     const approved = await service.findPage(asUser(orgA), { q: suffix, approval: "APPROVED" });
     expect(approved.total).toBe(4);
     const ke = await service.findPage(asUser(orgA), { q: suffix, country: "KE" });
@@ -81,7 +81,7 @@ describe("Partners paging", () => {
 
   it("overview counts roles and approvals without loading the list", async () => {
     const o = await service.overview(asUser(orgA));
-    expect(o.counts.byRole.MANUFACTURER).toBe(3);
+    expect(o.counts.byRole.MANUFACTURER).toBe(4);
     expect(o.counts.approved).toBe(4);
     expect(o.recent.CLIENT.length).toBeLessThanOrEqual(5);
   });
