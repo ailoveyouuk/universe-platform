@@ -88,6 +88,7 @@ describe("Notification events (risk, logistics, quality) and global search", () 
       await tx.batchTemperatureLog.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
       await tx.productBatch.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
       await tx.riskAssessment.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
+      await tx.project.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
       await tx.productAmendment.deleteMany({ where: { organizationId: { in: [orgA, orgB] } } });
       await tx.productMaster.deleteMany({ where: { id: productId } });
       await tx.userRole.deleteMany({ where: { userId: { in: userIds } } });
