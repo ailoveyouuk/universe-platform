@@ -121,21 +121,32 @@ export class UniverseApiClient {
   constructor(
     private baseUrl: string,
     private getAccessToken: () => Promise<string>,
+    /** Platform staff only: the organisation chosen in the header switcher.
+     * Sent on every request; the API ignores it for everyone else. */
+    private getActiveOrganizationId?: () => string | null,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const token = await this.getAccessToken();
+    const activeOrg = this.getActiveOrganizationId?.();
     const res = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        ...(activeOrg ? { "X-Universe-Organization": activeOrg } : {}),
         ...init?.headers,
       },
     });
 
     if (!res.ok) {
       const body = await res.text();
+      // A remembered organisation that no longer exists would otherwise break
+      // every request — forget it and fall back to the user's own.
+      if (res.status === 400 && activeOrg && body.includes("selected organisation does not exist")) {
+        setStoredActiveOrganizationId(null);
+        if (typeof window !== "undefined") window.location.reload();
+      }
       // Nest's default error body is {"statusCode":...,"message":"...","error":"..."}
       // — surface just the human-readable message when the body parses as
       // that shape (e.g. EvidenceService.gateFailureMessage's text on a
@@ -997,5 +1008,26 @@ export class UniverseApiClient {
 
   getGlobalProductSourcing(): Promise<ProductSourcingSummary[]> {
     return this.request("/product-sourcing-insights/global");
+  }
+}
+
+const ACTIVE_ORG_KEY = "universe.activeOrganizationId";
+
+/** The organisation platform staff last chose in this app's header switcher
+ * (per browser, per app). Wrapped because storage can be unavailable. */
+export function getStoredActiveOrganizationId(): string | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage.getItem(ACTIVE_ORG_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredActiveOrganizationId(id: string | null): void {
+  try {
+    if (id) window.localStorage.setItem(ACTIVE_ORG_KEY, id);
+    else window.localStorage.removeItem(ACTIVE_ORG_KEY);
+  } catch {
+    /* storage unavailable — selection just won't persist */
   }
 }

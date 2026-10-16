@@ -1,6 +1,6 @@
 "use client";
 
-import { UniverseApiClient } from "@universe/api-client";
+import { UniverseApiClient, getStoredActiveOrganizationId } from "@universe/api-client";
 import { API_SCOPES } from "@universe/auth";
 import { msalInstance } from "./msalInstance";
 
@@ -18,4 +18,5 @@ async function getAccessToken(): Promise<string> {
 export const apiClient = new UniverseApiClient(
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
   getAccessToken,
+  getStoredActiveOrganizationId,
 );

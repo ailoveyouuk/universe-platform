@@ -20,6 +20,7 @@ import {
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
+import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 
 /** Route → nav + breadcrumb metadata, in one place so adding a page means
  * adding one line here rather than touching the shell itself. */
@@ -227,6 +228,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+                <PlatformOrgSwitcher me={me} />
                 <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
                   <SearchIcon size={18} />
                 </span>

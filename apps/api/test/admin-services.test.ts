@@ -60,6 +60,7 @@ describe("Admin services", () => {
     return {
       id: u.id,
       organizationId: u.organizationId,
+      homeOrganizationId: u.organizationId,
       email: u.email,
       forename: u.forename,
       surname: u.surname,
@@ -368,6 +369,34 @@ describe("Admin services", () => {
       const req = { headers: { authorization: "Bearer t" } } as Record<string, unknown>;
       return { ctx: { switchToHttp: () => ({ getRequest: () => req }) } as unknown as ExecutionContext };
     }
+
+    it("lets platform staff act inside a chosen organisation, and ignores the choice for everyone else", async () => {
+      const staff = await makeUser(orgA, "switch-staff", { roleName: "Read Only", entra: "local-dev", platform: "SUPPORT" });
+      const makeCtx = (orgHeader?: string) => {
+        const req = { headers: { authorization: "Bearer t", ...(orgHeader ? { "x-universe-organization": orgHeader } : {}) } } as Record<string, unknown> & { user?: RequestUser };
+        return { req, ctx: { switchToHttp: () => ({ getRequest: () => req }) } as unknown as ExecutionContext };
+      };
+      process.env.LOCAL_DEV_EMAIL = staff.email;
+      const guard = new EntraAuthGuard();
+
+      const chosen = makeCtx(orgB);
+      await expect(guard.canActivate(chosen.ctx)).resolves.toBe(true);
+      expect(chosen.req.user?.organizationId).toBe(orgB);
+      expect(chosen.req.user?.homeOrganizationId).toBe(orgA);
+      expect(chosen.req.user?.organizationName).toContain("Admin Svc B");
+
+      await expect(guard.canActivate(makeCtx("00000000-0000-0000-0000-000000000000").ctx)).rejects.toBeInstanceOf(BadRequestException);
+
+      const home = makeCtx();
+      await guard.canActivate(home.ctx);
+      expect(home.req.user?.organizationId).toBe(orgA);
+
+      // An ordinary user cannot widen their reach with the header.
+      await withPlatformStaffContext((tx) => tx.user.update({ where: { id: staff.id }, data: { platformStaffRole: "NONE" } }));
+      const attempt = makeCtx(orgB);
+      await guard.canActivate(attempt.ctx);
+      expect(attempt.req.user?.organizationId).toBe(orgA);
+    });
 
     it("locks out a suspended organisation's users on their next request but never platform staff, and restores on reactivation", async () => {
       const org = (await createOrganizationWithDefaultRoles({ name: `Suspend ${suffix}`, slug: `suspend-${suffix}` })).id;

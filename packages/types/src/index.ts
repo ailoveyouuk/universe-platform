@@ -67,7 +67,12 @@ export interface CreateProjectInput {
 
 export interface AuthenticatedUser {
   id: string;
+  /** The organisation the app is currently acting as — for platform staff,
+   * the one chosen in the header switcher. */
   organizationId: string;
+  /** The signed-in user's own organisation (differs from organizationId only
+   * when platform staff are acting inside another organisation). */
+  homeOrganizationId: string;
   email: string;
   forename: string;
   surname: string;

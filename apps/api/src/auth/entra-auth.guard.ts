@@ -1,11 +1,17 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { createTokenVerifier } from "@universe/auth";
 import { PlatformStaffRole, UserStatus, withPlatformStaffContext } from "@universe/db";
 import type { Request } from "express";
 
 export interface RequestUser {
   id: string;
+  /** The organisation this request runs as. For ordinary users always their
+   * own; platform staff may choose another via the X-Universe-Organization
+   * header (see canActivate), in which case this is the chosen organisation. */
   organizationId: string;
+  /** The caller's own organisation — differs from organizationId only when
+   * platform staff are acting inside another organisation. */
+  homeOrganizationId: string;
   email: string;
   forename: string;
   surname: string;
@@ -39,6 +45,7 @@ function toRequestUser(user: {
   return {
     id: user.id,
     organizationId: user.organizationId,
+    homeOrganizationId: user.organizationId,
     email: user.email,
     forename: user.forename,
     surname: user.surname,
@@ -178,7 +185,32 @@ export class EntraAuthGuard implements CanActivate {
       throw new ForbiddenException("Your organisation's access to Universe has been suspended. Contact Universe support.");
     }
 
-    req.user = toRequestUser(user);
+    const requestUser = toRequestUser(user);
+
+    // Platform staff may act inside any organisation: the apps send the one
+    // they picked in the header switcher as X-Universe-Organization, and the
+    // whole request then runs scoped to it (name/branding included, so the
+    // UI reflects it). Ignored for everyone else — an ordinary user can never
+    // widen their reach by sending this header. A bad id is a clear 400, not a
+    // silent fallback to the home org, so nobody edits the wrong tenant.
+    const requested = req.headers["x-universe-organization"];
+    const requestedId = Array.isArray(requested) ? requested[0] : requested;
+    if (requestedId && requestedId !== user.organizationId && user.platformStaffRole !== PlatformStaffRole.NONE) {
+      const target = await withPlatformStaffContext((tx) =>
+        tx.organization.findUnique({
+          where: { id: requestedId },
+          select: { id: true, name: true, logoUrl: true, primaryColor: true, secondaryColor: true },
+        }),
+      );
+      if (!target) throw new BadRequestException("The selected organisation does not exist.");
+      requestUser.organizationId = target.id;
+      requestUser.organizationName = target.name;
+      requestUser.organizationLogoUrl = target.logoUrl;
+      requestUser.organizationPrimaryColor = target.primaryColor;
+      requestUser.organizationSecondaryColor = target.secondaryColor;
+    }
+
+    req.user = requestUser;
     return true;
   }
 }
