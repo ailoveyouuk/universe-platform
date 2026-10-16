@@ -66,9 +66,7 @@ Commits `0054af8`, `07a61db`. CI, Deploy API (applies migration) and Deploy Stat
 - Tests: `apps/api/test/notifications.test.ts` (8 tests: targeting, actor exclusion, cross-org refusal, isolation between
   users, complete/reopen, mark-all-read, self-assign).
 
-**MANUAL STEP STILL OWED (Lewis):** re-run `infra/sql/row-level-security.sql` in the Azure Portal Query Editor (idempotent) so
-the new `notifications` table gets the database-level RLS policy in production. Until then it is protected by
-application-layer scoping only. CI/test DB already apply it.
+**Manual step done:** Lewis re-ran `infra/sql/row-level-security.sql` in the Azure Query Editor on 2026-10-16 evening (he reported it ran; the output was not reviewed by Claude), so `notifications` should now have database-level RLS in production. Not yet independently verified — a quick check is `SELECT * FROM sys.security_predicates` for `dbo.notifications`.
 
 **Not verified live yet** (CI only). Future categories (quality, logistics, risk) just need more `createNotifications` calls.
 
