@@ -102,7 +102,7 @@ export function ProjectTeam({
 
       {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, marginTop: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 20, marginTop: 8 }}>
         <div>
           <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 6px" }}>Project Leads</h3>
           {project.leads.length === 0 && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "0 0 8px" }}>No leads assigned yet.</p>}

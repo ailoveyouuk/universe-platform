@@ -130,7 +130,7 @@ export default function AddProductPage() {
           <input required style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
           <label style={{ display: "block" }}>
             <span>Category</span>
             <div style={{ marginTop: 4 }}>
@@ -158,7 +158,7 @@ export default function AddProductPage() {
           </label>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 12 }}>
           <label>
             HS Code
             <input style={inputStyle} value={hsCode} onChange={(e) => setHsCode(e.target.value)} />
@@ -173,7 +173,7 @@ export default function AddProductPage() {
           </label>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12 }}>
           <label>
             Standard Unit
             <input

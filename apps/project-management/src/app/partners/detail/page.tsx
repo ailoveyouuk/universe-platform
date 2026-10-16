@@ -950,7 +950,7 @@ function EditEvidenceRecordForm({
 
   return (
     <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
         <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Reference number
           <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
@@ -1093,7 +1093,7 @@ function LogEvidenceForm({
 
   return (
     <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
         <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Reference number
           <input style={inputStyle} value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} />
@@ -1217,7 +1217,7 @@ function AddCertificationForm({
         gap: 10,
       }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
         <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Document type
           <Select
@@ -1364,7 +1364,7 @@ function CertificationRow({
       {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
       {editing && (
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
             <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
               Document type
               <Select
@@ -1467,7 +1467,7 @@ function AddCompanyCheckForm({ partnerId, onSaved }: { partnerId: string; onSave
         gap: 10,
       }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
         <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Check type
           <Select value={checkType} onChange={setCheckType} ariaLabel="Check type" options={[...COMPANY_CHECK_TYPES]} />
@@ -1577,7 +1577,7 @@ function CompanyCheckRow({
       {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
       {editing && (
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
             {check.checkType === "OTHER" && (
               <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
                 Custom label

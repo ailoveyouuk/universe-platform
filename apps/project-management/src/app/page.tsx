@@ -150,13 +150,16 @@ export default function HomePage() {
             {me?.organizationWelcomeMessage || `Here's what's happening across ${me?.organizationName}'s projects.`}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Link href="/projects/new" style={{ textDecoration: "none" }}>
-            <Button variant="primary" icon={<ProjectsIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
+        <div className="u-quick-actions">
+          <Link href="/projects/new" style={{ textDecoration: "none", display: "block" }}>
+            <Button className="u-quick-action" variant="primary" icon={<ProjectsIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">
               New Project
             </Button>
           </Link>
           <AddMenu
+            tone="tonal"
+            block
+            className="u-quick-action"
             label="Add Stakeholder"
             options={[
               { label: "Client", onSelect: () => router.push("/partners/new?role=CLIENT") },
@@ -165,6 +168,9 @@ export default function HomePage() {
             ]}
           />
           <AddMenu
+            tone="tonal"
+            block
+            className="u-quick-action"
             label="Add Product"
             options={[
               { label: "Non-Pharmaceutical", onSelect: () => router.push("/products/new?context=NON_PHARMACEUTICAL") },
@@ -177,7 +183,7 @@ export default function HomePage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
           gap: 16,
           marginBottom: 32,
         }}
@@ -248,7 +254,7 @@ export default function HomePage() {
               <span style={{ color: "var(--u-status-critical)" }}> Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.</span>
             )}
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 16 }}>
             <FinancialStat label="Product cost" value={financialSummary.totalProductCost} currency={financialSummary.displayCurrencyCode} />
             <FinancialStat label="Freight cost" value={financialSummary.totalFreightCost} currency={financialSummary.displayCurrencyCode} />
             <FinancialStat label="Margin" value={financialSummary.totalMargin} currency={financialSummary.displayCurrencyCode} tone={Number(financialSummary.totalMargin) >= 0 ? "good" : "critical"} />
@@ -260,7 +266,7 @@ export default function HomePage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
           gap: 20,
         }}
       >
@@ -339,21 +345,22 @@ function ProjectPanel({
       {!loading && projects.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {projects.map((p) => (
-            <Link key={p.id} href={`/projects/detail?id=${p.id}`} style={{ textDecoration: "none" }}>
+            <Link key={p.id} href={`/projects/detail?id=${p.id}`} style={{ textDecoration: "none", display: "block", minWidth: 0 }}>
               <div
                 className="u-card-hover"
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 12,
+                  gap: "8px 12px",
                   padding: "10px 14px",
                   borderRadius: "var(--u-radius-md)",
                   border: "1px solid var(--u-border)",
                   backgroundColor: "var(--u-surface-base, var(--u-surface-raised))",
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, flex: "1 1 200px" }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {p.title}
                   </div>
@@ -361,7 +368,7 @@ function ProjectPanel({
                     {p.referenceNumber} {p.clientName ? `· ${p.clientName}` : ""}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
                   {p.dueDate && (
                     <Pill tone="neutral" icon={<ClockIcon size={11} />}>
                       {new Date(p.dueDate).toLocaleDateString()}

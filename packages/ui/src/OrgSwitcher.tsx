@@ -15,7 +15,7 @@ export function OrgSwitcher({
   onChange: (organizationId: string) => void;
 }): ReactNode {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--u-ink-secondary)" }}>
+    <label className="u-org-switcher" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--u-ink-secondary)" }}>
       <span>Organisation</span>
       <select
         value={value}

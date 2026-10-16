@@ -178,7 +178,7 @@ export default function PartnersPage() {
       </div>
 
       {/* Section dashboard — key counts at a glance, each a working filter shortcut. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 12, marginTop: 24 }}>
         <StatTile label="Clients" value={counts.byRole.CLIENT ?? 0} icon={<BuildingIcon size={18} />} onClick={() => { setRoleFilter("CLIENT"); setApprovalFilter(""); }} active={roleFilter === "CLIENT"} />
         <StatTile label="Manufacturers" value={counts.byRole.MANUFACTURER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("MANUFACTURER"); setApprovalFilter(""); }} active={roleFilter === "MANUFACTURER"} />
         <StatTile label="Suppliers" value={counts.byRole.SUPPLIER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("SUPPLIER"); setApprovalFilter(""); }} active={roleFilter === "SUPPLIER"} />
@@ -190,7 +190,7 @@ export default function PartnersPage() {
       {/* Recently added — five per category. */}
       <section style={{ marginTop: 28 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", marginBottom: 10 }}>Recently added</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 12 }}>
           {RECENT_CATEGORIES.map((cat) => (
             <div
               key={cat}

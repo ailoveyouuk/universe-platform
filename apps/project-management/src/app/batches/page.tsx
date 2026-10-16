@@ -262,7 +262,7 @@ function NewBatchForm({ onCreated, onCancel }: { onCreated: () => void; onCancel
     >
       <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>New batch</h3>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
           Batch number
           <input style={inputStyle} value={batchNumber} onChange={(e) => setBatchNumber(e.target.value)} />

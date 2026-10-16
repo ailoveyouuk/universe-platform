@@ -220,7 +220,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 gap: 16,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
+              <div className="u-app-header-left" style={{ display: "flex", alignItems: "center", gap: 16, minWidth: 0 }}>
                 <button
                   className="u-mobile-menu-btn"
                   onClick={() => setMobileOpen(true)}
@@ -232,7 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Breadcrumbs items={crumbsFor(pathname)} LinkComponent={Link} />
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+              <div className="u-app-header-right" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
                 <PlatformOrgSwitcher me={me} />
                 <span style={{ color: "var(--u-ink-secondary)", display: "flex", cursor: "pointer" }} title="Search">
                   <SearchIcon size={18} />

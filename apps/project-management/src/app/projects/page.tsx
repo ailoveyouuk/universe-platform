@@ -185,7 +185,7 @@ export default function ProjectsPage() {
           that Awarded projects were under-represented here before. Click
           any tile to filter the table below to exactly that group; click
           the active one again (or "All Projects") to clear it. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginTop: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 12, marginTop: 20 }}>
         <SectionStat
           label="Active (not submitted)"
           value={stats.active}

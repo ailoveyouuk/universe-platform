@@ -374,7 +374,7 @@ export function ProjectDetailView() {
               Show all fields
             </label>
           </div>
-          <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <dl style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <div>
               <dt style={{ fontWeight: 600 }}>Client</dt>
               <dd>
@@ -444,7 +444,7 @@ export function ProjectDetailView() {
 
       {editingHeader && (
         <div style={{ background: "var(--u-surface-alt)", border: "1px solid var(--u-border)", borderRadius: 8, padding: 20, marginTop: 24 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Status
               <div style={{ marginTop: 2 }}>
@@ -569,7 +569,7 @@ export function ProjectDetailView() {
           <h3 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginTop: 24, marginBottom: 8 }}>
             Freight & Logistics
           </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Freight Forwarder
               <select className="u-native-select"
@@ -768,7 +768,7 @@ export function ProjectDetailView() {
               Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.
             </p>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(140px, 100%), 1fr))", gap: 14 }}>
             <ProjectFinancialStat label="Product cost" value={financialSummary.totalProductCost} currency={financialSummary.displayCurrencyCode} />
             <ProjectFinancialStat label="Freight cost" value={financialSummary.totalFreightCost} currency={financialSummary.displayCurrencyCode} />
             <ProjectFinancialStat label="Margin" value={financialSummary.totalMargin} currency={financialSummary.displayCurrencyCode} />

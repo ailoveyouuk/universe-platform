@@ -1180,7 +1180,7 @@ export default function NewPartnerPage() {
                       />
                     </label>
                   )}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginBottom: 8 }}>
                     <label style={{ display: "block" }}>
                       <span>Result</span>
                       <div style={{ marginTop: 4 }}>
@@ -1262,7 +1262,7 @@ export default function NewPartnerPage() {
             </p>
             {certifications.map((cert, i) => (
               <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, marginBottom: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10, marginBottom: 8 }}>
                   <label style={{ display: "block" }}>
                     <span>Document Type</span>
                     <div style={{ marginTop: 4 }}>
@@ -1280,7 +1280,7 @@ export default function NewPartnerPage() {
                     <input style={inputStyle} value={cert.referenceNumber} onChange={(e) => updateCertification(i, { referenceNumber: e.target.value })} />
                   </label>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginBottom: 8 }}>
                   <label>
                     Revision
                     <input style={inputStyle} value={cert.revision} onChange={(e) => updateCertification(i, { revision: e.target.value })} />

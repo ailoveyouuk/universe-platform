@@ -22,7 +22,24 @@ export interface AddMenuOption {
  * (not a native <select>, so the open/close motion is visible) — closes
  * on outside click or Escape, consistent with standard menu behaviour.
  */
-export function AddMenu({ label = "Add", options, accent }: { label?: string; options: AddMenuOption[]; accent?: string | null }) {
+export function AddMenu({
+  label = "Add",
+  options,
+  accent,
+  tone = "solid",
+  block = false,
+  className,
+}: {
+  label?: string;
+  options: AddMenuOption[];
+  accent?: string | null;
+  /** "tonal": a soft accent-tinted button, for secondary actions beside a filled primary. */
+  tone?: "solid" | "tonal";
+  /** Fill the width of the parent (for grid layouts). */
+  block?: boolean;
+  className?: string;
+}) {
+  const accentColour = accent ?? "var(--u-org-accent, var(--u-brand-violet))";
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,8 +59,9 @@ export function AddMenu({ label = "Add", options, accent }: { label?: string; op
   }, []);
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+    <div ref={ref} style={{ position: "relative", display: block ? "block" : "inline-block" }}>
       <button
+        className={className}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         style={{
@@ -56,15 +74,25 @@ export function AddMenu({ label = "Add", options, accent }: { label?: string; op
           fontWeight: 600,
           borderRadius: "var(--u-radius-md)",
           cursor: "pointer",
-          border: "1px solid transparent",
-          backgroundColor: accent ?? "var(--u-brand-violet)",
-          color: accent?.includes("--u-org-accent") ? "var(--u-org-accent-on, var(--u-brand-violet-on))" : "var(--u-brand-violet-on)",
-          transition: "opacity 150ms ease",
+          ...(tone === "tonal"
+            ? {
+                border: `1px solid color-mix(in srgb, ${accentColour} 38%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${accentColour} 9%, var(--u-surface))`,
+                color: "var(--u-ink)",
+              }
+            : {
+                border: "1px solid transparent",
+                backgroundColor: accent ?? "var(--u-brand-violet)",
+                color: accent?.includes("--u-org-accent") ? "var(--u-org-accent-on, var(--u-brand-violet-on))" : "var(--u-brand-violet-on)",
+              }),
+          transition: "opacity 150ms ease, background-color 150ms ease",
         }}
       >
-        <PlusIcon size={16} />
+        <span style={{ display: "flex", color: tone === "tonal" ? accentColour : "inherit" }}>
+          <PlusIcon size={16} />
+        </span>
         {label}
-        <ChevronDownIcon size={14} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 200ms ease" }} />
+        <ChevronDownIcon className="u-quick-chevron" size={14} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 200ms ease" }} />
       </button>
 
       <div
@@ -73,6 +101,7 @@ export function AddMenu({ label = "Add", options, accent }: { label?: string; op
           top: "calc(100% + 6px)",
           right: 0,
           minWidth: 220,
+          maxWidth: "calc(100vw - 32px)",
           backgroundColor: "var(--u-surface-raised)",
           border: "1px solid var(--u-border)",
           borderRadius: "var(--u-radius-md)",

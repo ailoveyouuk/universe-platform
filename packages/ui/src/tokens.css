@@ -289,6 +289,94 @@ input[type="checkbox"], input[type="radio"] {
   }
 }
 
+/*
+ * App shell header, narrow screens (2026-10-16). With the organisation
+ * switcher added, the breadcrumb, switcher and icon cluster no longer fit on
+ * one row on phones/small tablets and visibly overlapped. The header now
+ * wraps: the breadcrumb row (with the menu button) first, then a second row
+ * holding the switcher and the icon/avatar cluster. Deeper, never clipped.
+ */
+.u-app-header {
+  flex-wrap: wrap !important;
+  row-gap: 8px !important;
+}
+.u-app-header-left {
+  flex: 1 1 240px !important;
+  min-width: 0;
+}
+.u-app-header-right {
+  flex-shrink: 1 !important;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+@media (max-width: 860px) {
+  .u-app-header {
+    padding: 12px 16px 12px !important;
+  }
+  .u-app-header-left {
+    flex: 1 1 100% !important;
+  }
+  .u-app-header-right {
+    flex: 1 1 100% !important;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--u-border);
+  }
+  .u-org-switcher {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .u-org-switcher select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none !important;
+  }
+}
+
+/*
+ * Dashboard quick actions (2026-10-16): New Project / Add Stakeholder / Add
+ * Product as one equal-sized set — a single filled primary and two tonal
+ * secondaries, same height and width. Desktop: a three-up row. Phones: three
+ * equal tiles, icon above label, so nothing reflows to different widths.
+ */
+.u-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 10px;
+  width: min(100%, 560px);
+}
+.u-quick-actions > * {
+  min-width: 0;
+}
+.u-quick-action {
+  width: 100% !important;
+  min-height: 46px;
+  justify-content: center !important;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .u-quick-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .u-quick-action {
+    flex-direction: column !important;
+    gap: 5px !important;
+    padding: 10px 6px !important;
+    min-height: 66px;
+    font-size: 12.5px !important;
+    line-height: 1.2;
+    white-space: normal !important;
+    text-align: center;
+  }
+  .u-quick-action .u-quick-chevron {
+    display: none !important;
+  }
+}
+
 /* Sidebar: an overlay drawer below 900px, a static rail above it. */
 .u-sidebar {
   transform: translateX(0);

@@ -152,7 +152,7 @@ export default function QualityPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 32 }}>
         <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" />
         <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" />
         <StatTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" />
@@ -523,7 +523,7 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
     >
       <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>New sourcing approval</h3>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
           Product (search the shared catalogue)
           <ProductPicker
