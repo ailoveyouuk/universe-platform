@@ -524,8 +524,9 @@ export class ProjectsService {
         // SQL Server sorts NULL first ascending; we want no-due-date rows last in both directions.
         const withDate = { ...where, dueDate: { ...((where.dueDate as object) ?? {}), not: null } };
         const noDate = { ...where, dueDate: null };
-        if (dir === "desc") {
-          rows = await find(where, [{ dueDate: "desc" }, ...secondary], skip, pageSize);
+        if (dir === "desc" || where.dueDate) {
+          // (An overdue filter already excludes rows with no due date, so plain ordering is enough.)
+          rows = await find(where, [{ dueDate: dir }, ...secondary], skip, pageSize);
         } else {
           const dated = await tx.project.count({ where: withDate });
           if (skip < dated) {

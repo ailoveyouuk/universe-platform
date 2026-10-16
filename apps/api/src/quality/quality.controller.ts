@@ -37,9 +37,30 @@ export class QualityController {
     return this.approvalsService.update(user, id, dto);
   }
 
+  @Get("performance/page")
+  getPerformancePage(
+    @CurrentUser() user: RequestUser,
+    @Query("roleType") roleType?: string,
+    @Query("q") q?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.performanceService.getPerformancePage(user, { roleType, q, page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
+  }
+
   @Get("performance")
   getPerformance(@CurrentUser() user: RequestUser, @Query("roleType") roleType?: string) {
     return this.performanceService.getPerformance(user, roleType);
+  }
+
+  @Get("qa-queue/page")
+  getQaQueuePage(
+    @CurrentUser() user: RequestUser,
+    @Query("category") category?: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ) {
+    return this.qaQueueService.getQueuePage(user, { category, page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
   }
 
   @Get("qa-queue")

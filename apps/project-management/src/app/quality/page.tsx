@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type {
+  PagedResult,
   PartnerPerformanceMetric,
   PartnerOption,
   ProductCatalogMatch,
@@ -23,6 +24,8 @@ import {
   GaugeIcon,
   PlusIcon,
   ProductPicker,
+  Pagination,
+  type PageSize,
   type ProductPickerOption,
   StandardsReference,
   StatTile,
@@ -65,7 +68,10 @@ export default function QualityPage() {
   const canApproveProducts = me?.permissions.includes("products.approve") ?? false;
   const [dashboard, setDashboard] = useState<QualityDashboardSummary | null>(null);
   const [approvals, setApprovals] = useState<ProductSourceApprovalSummary[] | null>(null);
-  const [performance, setPerformance] = useState<PartnerPerformanceMetric[] | null>(null);
+  const [performanceResult, setPerformanceResult] = useState<PagedResult<PartnerPerformanceMetric> | null>(null);
+  const [perfPageSize, setPerfPageSize] = useState<PageSize>(25);
+  const [perfPage, setPerfPage] = useState(0);
+  const performance = performanceResult?.items ?? null;
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("");
   const [performanceRole, setPerformanceRole] = useState<(typeof PERFORMANCE_ROLE_FILTERS)[number]>("");
   const [showNewForm, setShowNewForm] = useState(false);
@@ -98,11 +104,19 @@ export default function QualityPage() {
   }, [statusFilter]);
 
   useEffect(() => {
+    let cancelled = false;
     apiClient
-      .getPartnerPerformance(performanceRole || undefined)
-      .then(setPerformance)
-      .catch(() => setPerformance([]));
-  }, [performanceRole]);
+      .getPartnerPerformancePage({ roleType: performanceRole || undefined, page: perfPage + 1, pageSize: perfPageSize === "all" ? 100 : perfPageSize })
+      .then((r) => {
+        if (!cancelled) setPerformanceResult(r);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformanceResult({ items: [], total: 0, page: 1, pageSize: 25 });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [performanceRole, perfPage, perfPageSize]);
 
   async function handleStatusChange(id: string, status: string) {
     await apiClient.updateProductSourceApproval(id, { status });
@@ -348,7 +362,7 @@ export default function QualityPage() {
           <div style={{ width: 220 }}>
             <Select
               value={performanceRole}
-              onChange={(v) => setPerformanceRole(v as (typeof PERFORMANCE_ROLE_FILTERS)[number])}
+              onChange={(v) => { setPerformanceRole(v as (typeof PERFORMANCE_ROLE_FILTERS)[number]); setPerfPage(0); }}
               allLabel="All roles"
               ariaLabel="Filter by role"
               options={PERFORMANCE_ROLE_FILTERS.filter(Boolean).map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
@@ -416,6 +430,14 @@ export default function QualityPage() {
                 ))}
               </tbody>
             </table>
+            <Pagination
+              pageSize={perfPageSize}
+              onPageSizeChange={(sz) => { setPerfPageSize(sz); setPerfPage(0); }}
+              page={perfPage}
+              pageCount={Math.max(1, Math.ceil((performanceResult?.total ?? 0) / (perfPageSize === "all" ? 100 : perfPageSize)))}
+              onPageChange={setPerfPage}
+              totalCount={performanceResult?.total ?? 0}
+            />
           </div>
         )}
       </section>

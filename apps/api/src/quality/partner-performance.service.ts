@@ -1,20 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { withTenantContext } from "@universe/db";
-import type { PartnerPerformanceMetric } from "@universe/types";
+import { Prisma, withTenantContext } from "@universe/db";
+import type { PagedResult, PartnerPerformanceMetric } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 
 const PERFORMANCE_ROLE_TYPES = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER"] as const;
 type PerformanceRoleType = (typeof PERFORMANCE_ROLE_TYPES)[number];
-
-function daysLate(promised: Date | null, actual: Date | null): number | null {
-  if (!promised || !actual) return null;
-  const ms = actual.getTime() - promised.getTime();
-  const days = Math.round(ms / (1000 * 60 * 60 * 24));
-  // Floored at 0 — see PartnerPerformanceMetric.avgDaysLate's doc comment
-  // in packages/types: an early delivery is not "negative days late".
-  return days > 0 ? days : 0;
-}
 
 function pct(numerator: number, denominator: number): number | null {
   if (denominator === 0) return null;
@@ -39,122 +30,115 @@ function pct(numerator: number, denominator: number): number | null {
  */
 @Injectable()
 export class PartnerPerformanceService {
+  /** Unpaged compatibility wrapper (first 500 by activity). Screens use getPerformancePage. */
   async getPerformance(user: RequestUser, roleType?: string): Promise<PartnerPerformanceMetric[]> {
-    const roleTypes: PerformanceRoleType[] = roleType
-      ? (PERFORMANCE_ROLE_TYPES.filter((r) => r === roleType) as PerformanceRoleType[])
-      : [...PERFORMANCE_ROLE_TYPES];
-    if (roleTypes.length === 0) return [];
+    return (await this.getPerformancePage(user, { roleType, page: 1, pageSize: 500 })).items;
+  }
 
-    return withTenantContext(user.organizationId, async (tx) => {
-      const partners = await tx.partner.findMany({
-        where: {
-          ...tenantScope(user.organizationId),
-          isArchived: false,
-          roles: { some: { roleType: { in: roleTypes }, isActive: true } },
-        },
-        include: { roles: true },
-      });
+  /**
+   * One page of scorecards, aggregated in the database (2026-10-17, scale work). The previous
+   * version loaded every partner and every project line into memory and filtered the whole line
+   * list once per partner and role (quadratic), which is the slowest list in the scale test.
+   * Now a single grouped query per role computes the counts, percentages and average days late,
+   * and the page is sorted and cut in SQL.
+   *
+   * Behaviour change: partners with no project-line activity in a role are no longer listed with a
+   * row of zeros; a scorecard only exists once there is something to score.
+   * Late days are the rounded whole days between projected and actual delivery, floored at 0.
+   */
+  async getPerformancePage(
+    user: RequestUser,
+    opts: { roleType?: string; q?: string; page?: number; pageSize?: number },
+  ): Promise<PagedResult<PartnerPerformanceMetric>> {
+    const roleType = PERFORMANCE_ROLE_TYPES.find((r) => r === opts.roleType);
+    if (opts.roleType && !roleType) return { items: [], total: 0, page: 1, pageSize: opts.pageSize ?? 25 };
+    const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 500);
+    const page = Math.max(Math.floor(opts.page ?? 1), 1);
+    const term = opts.q?.trim();
+    const org = user.organizationId;
 
-      const lines = await tx.projectLine.findMany({
-        where: { archivedAt: null, ...tenantScope(user.organizationId) },
-        select: {
-          projectId: true,
-          manufacturerId: true,
-          supplierId: true,
-          internalOnTime: true,
-          supplierOnTime: true,
-          supplierInFull: true,
-          projectedDeliveryDate: true,
-          actualDeliveryDate: true,
-        },
-      });
+    const late = Prisma.sql`CASE WHEN l.projectedDeliveryDate IS NOT NULL AND l.actualDeliveryDate IS NOT NULL
+      THEN CASE WHEN ROUND(DATEDIFF(SECOND, l.projectedDeliveryDate, l.actualDeliveryDate) / 86400.0, 0) > 0
+        THEN ROUND(DATEDIFF(SECOND, l.projectedDeliveryDate, l.actualDeliveryDate) / 86400.0, 0) ELSE 0 END END`;
+    const manufacturer = Prisma.sql`SELECT l.manufacturerId AS partnerId, 'MANUFACTURER' AS roleType, COUNT(*) AS totalLines,
+        COUNT(l.internalOnTime) AS onTimeFlags, SUM(CASE WHEN l.internalOnTime = 1 THEN 1 ELSE 0 END) AS onTimeCount,
+        0 AS inFullFlags, 0 AS inFullCount, 0 AS otifNum, 0 AS otifDen, COUNT(${late}) AS lateN, SUM(${late}) AS lateSum
+      FROM project_lines l WHERE l.organizationId = ${org} AND l.archivedAt IS NULL AND l.manufacturerId IS NOT NULL GROUP BY l.manufacturerId`;
+    const supplier = Prisma.sql`SELECT l.supplierId AS partnerId, 'SUPPLIER' AS roleType, COUNT(*) AS totalLines,
+        COUNT(l.supplierOnTime) AS onTimeFlags, SUM(CASE WHEN l.supplierOnTime = 1 THEN 1 ELSE 0 END) AS onTimeCount,
+        COUNT(l.supplierInFull) AS inFullFlags, SUM(CASE WHEN l.supplierInFull = 1 THEN 1 ELSE 0 END) AS inFullCount,
+        SUM(CASE WHEN l.supplierOnTime = 1 AND l.supplierInFull = 1 THEN 1 ELSE 0 END) AS otifNum,
+        SUM(CASE WHEN l.supplierOnTime IS NOT NULL AND l.supplierInFull IS NOT NULL THEN 1 ELSE 0 END) AS otifDen,
+        COUNT(${late}) AS lateN, SUM(${late}) AS lateSum
+      FROM project_lines l WHERE l.organizationId = ${org} AND l.archivedAt IS NULL AND l.supplierId IS NOT NULL GROUP BY l.supplierId`;
+    // Freight forwarder is recorded per project (moved off the line 2026-10-03): a forwarder's lines
+    // are every line of a project it handles.
+    const freight = Prisma.sql`SELECT pr.freightForwarderId AS partnerId, 'FREIGHT_FORWARDER' AS roleType, COUNT(*) AS totalLines,
+        COUNT(l.internalOnTime) AS onTimeFlags, SUM(CASE WHEN l.internalOnTime = 1 THEN 1 ELSE 0 END) AS onTimeCount,
+        0 AS inFullFlags, 0 AS inFullCount, 0 AS otifNum, 0 AS otifDen, COUNT(${late}) AS lateN, SUM(${late}) AS lateSum
+      FROM project_lines l JOIN projects pr ON pr.id = l.projectId
+      WHERE l.organizationId = ${org} AND l.archivedAt IS NULL AND pr.freightForwarderId IS NOT NULL GROUP BY pr.freightForwarderId`;
+    const source =
+      roleType === "MANUFACTURER"
+        ? manufacturer
+        : roleType === "SUPPLIER"
+          ? supplier
+          : roleType === "FREIGHT_FORWARDER"
+            ? freight
+            : Prisma.sql`${manufacturer} UNION ALL ${supplier} UNION ALL ${freight}`;
+    const search = term ? Prisma.sql`AND p.name LIKE ${"%" + term + "%"}` : Prisma.empty;
 
-      // freightForwarderId moved from ProjectLine to Project 2026-10-03 —
-      // see Project's "Freight & Logistics" doc comment in schema.prisma.
-      // A FREIGHT_FORWARDER's "lines" are now every line belonging to a
-      // project where that partner is the project's own freight forwarder,
-      // not a per-line match any more.
-      const freightForwarderByProject = new Map<string, string | null>(
-        (
-          await tx.project.findMany({
-            where: tenantScope(user.organizationId),
-            select: { id: true, freightForwarderId: true },
-          })
-        ).map((p) => [p.id, p.freightForwarderId]),
-      );
+    type Row = {
+      partnerId: string;
+      partnerName: string;
+      roleType: string;
+      totalLines: number;
+      onTimeFlags: number;
+      onTimeCount: number;
+      inFullFlags: number;
+      inFullCount: number;
+      otifNum: number;
+      otifDen: number;
+      lateN: number;
+      lateSum: number | null;
+      issues: number;
+      total: number;
+    };
+    const rows = await withTenantContext(org, (tx) =>
+      tx.$queryRaw<Row[]>(Prisma.sql`
+        SELECT a.partnerId, p.name AS partnerName, a.roleType, a.totalLines, a.onTimeFlags, a.onTimeCount, a.inFullFlags, a.inFullCount,
+               a.otifNum, a.otifDen, a.lateN, a.lateSum, ISNULL(e.issues, 0) AS issues, COUNT(*) OVER() AS total
+        FROM (${source}) a
+        JOIN partners p ON p.id = a.partnerId AND p.organizationId = ${org} AND p.isArchived = 0
+        JOIN partner_roles r ON r.partnerId = p.id AND r.roleType = a.roleType AND r.isActive = 1
+        LEFT JOIN (
+          SELECT supplierId, COUNT(*) AS issues FROM supplier_enquiries
+          WHERE organizationId = ${org} AND responseStatus IN ('DECLINED', 'NO_RESPONSE') GROUP BY supplierId
+        ) e ON e.supplierId = a.partnerId AND a.roleType = 'SUPPLIER'
+        WHERE 1 = 1 ${search}
+        ORDER BY a.totalLines DESC, p.name ASC, a.partnerId ASC, a.roleType ASC
+        OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`),
+    );
 
-      const enquiries = await tx.supplierEnquiry.findMany({
-        where: tenantScope(user.organizationId),
-        select: { supplierId: true, responseStatus: true },
-      });
-
-      const results: PartnerPerformanceMetric[] = [];
-
-      for (const partner of partners) {
-        const activeRoleTypes = partner.roles
-          .filter((r) => r.isActive && (roleTypes as string[]).includes(r.roleType))
-          .map((r) => r.roleType as PerformanceRoleType);
-
-        for (const role of activeRoleTypes) {
-          const roleLines = lines.filter((l) =>
-            role === "MANUFACTURER"
-              ? l.manufacturerId === partner.id
-              : role === "SUPPLIER"
-                ? l.supplierId === partner.id
-                : freightForwarderByProject.get(l.projectId) === partner.id,
-          );
-
-          const onTimeFlags = roleLines
-            .map((l) => (role === "SUPPLIER" ? l.supplierOnTime : l.internalOnTime))
-            .filter((v): v is boolean => v !== null && v !== undefined);
-          const onTimeCount = onTimeFlags.filter(Boolean).length;
-          const onTimePercent = pct(onTimeCount, onTimeFlags.length);
-
-          const inFullFlags =
-            role === "SUPPLIER"
-              ? roleLines.map((l) => l.supplierInFull).filter((v): v is boolean => v !== null && v !== undefined)
-              : [];
-          const inFullCount = inFullFlags.filter(Boolean).length;
-          const inFullPercent = role === "SUPPLIER" ? pct(inFullCount, inFullFlags.length) : null;
-
-          const otifPercent =
-            role === "SUPPLIER"
-              ? pct(
-                  roleLines.filter((l) => l.supplierOnTime === true && l.supplierInFull === true).length,
-                  roleLines.filter((l) => l.supplierOnTime !== null && l.supplierInFull !== null).length,
-                )
-              : onTimePercent; // approximation for roles with no separate in-full flag — see class doc comment
-
-          const lateSpans = roleLines
-            .map((l) => daysLate(l.projectedDeliveryDate, l.actualDeliveryDate))
-            .filter((v): v is number => v !== null);
-          const avgDaysLate =
-            lateSpans.length === 0 ? null : Math.round((lateSpans.reduce((a, b) => a + b, 0) / lateSpans.length) * 10) / 10;
-
-          const issueCount =
-            role === "SUPPLIER"
-              ? enquiries.filter(
-                  (e) => e.supplierId === partner.id && (e.responseStatus === "DECLINED" || e.responseStatus === "NO_RESPONSE"),
-                ).length
-              : 0;
-
-          results.push({
-            partnerId: partner.id,
-            partnerName: partner.name,
-            roleType: role,
-            totalLines: roleLines.length,
-            onTimeCount,
-            onTimePercent,
-            inFullCount,
-            inFullPercent,
-            otifPercent,
-            issueCount,
-            avgDaysLate,
-          });
-        }
-      }
-
-      return results.sort((a, b) => b.totalLines - a.totalLines);
+    const num = (v: unknown) => Number(v ?? 0);
+    const items: PartnerPerformanceMetric[] = rows.map((r) => {
+      const supplierRole = r.roleType === "SUPPLIER";
+      const onTimePercent = pct(num(r.onTimeCount), num(r.onTimeFlags));
+      return {
+        partnerId: r.partnerId,
+        partnerName: r.partnerName,
+        roleType: r.roleType,
+        totalLines: num(r.totalLines),
+        onTimeCount: num(r.onTimeCount),
+        onTimePercent,
+        inFullCount: num(r.inFullCount),
+        inFullPercent: supplierRole ? pct(num(r.inFullCount), num(r.inFullFlags)) : null,
+        // Roles with no separate in-full flag use on-time as the OTIF approximation (see class doc above).
+        otifPercent: supplierRole ? pct(num(r.otifNum), num(r.otifDen)) : onTimePercent,
+        issueCount: supplierRole ? num(r.issues) : 0,
+        avgDaysLate: num(r.lateN) === 0 ? null : Math.round((num(r.lateSum) / num(r.lateN)) * 10) / 10,
+      };
     });
+    return { items, total: rows.length ? num(rows[0].total) : 0, page, pageSize };
   }
 }

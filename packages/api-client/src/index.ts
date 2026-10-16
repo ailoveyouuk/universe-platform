@@ -62,6 +62,7 @@ import type {
   ProjectSummary,
   QualityDashboardSummary,
   QaQueueSummary,
+  QaQueuePage,
   RequestDocumentUploadInput,
   RequestDocumentUploadResult,
   RoleSummary,
@@ -673,6 +674,14 @@ export class UniverseApiClient {
     return this.request("/quality/dashboard");
   }
 
+  /** One page of the QA queue (oldest first) with category counts. */
+  getQaQueuePage(params: { category?: string; page?: number; pageSize?: number }): Promise<QaQueuePage> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/quality/qa-queue/page?${qs.toString()}`);
+  }
+
+  /** @deprecated Oldest 200 per source only — use getQaQueuePage. */
   getQaQueue(): Promise<QaQueueSummary> {
     return this.request("/quality/qa-queue");
   }
@@ -704,6 +713,14 @@ export class UniverseApiClient {
     return this.request(`/quality/product-approvals/${id}`, { method: "PATCH", body: JSON.stringify(input) });
   }
 
+  /** Server-paged scorecards (aggregated in the database). */
+  getPartnerPerformancePage(params: { roleType?: string; q?: string; page?: number; pageSize?: number }): Promise<PagedResult<PartnerPerformanceMetric>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    return this.request(`/quality/performance/page?${qs.toString()}`);
+  }
+
+  /** @deprecated First 500 only — use getPartnerPerformancePage. */
   getPartnerPerformance(roleType?: string): Promise<PartnerPerformanceMetric[]> {
     const query = roleType ? `?roleType=${encodeURIComponent(roleType)}` : "";
     return this.request(`/quality/performance${query}`);

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { QaQueueItem, QaQueueSummary } from "@universe/types";
+import type { QaQueueItem, QaQueuePage } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button, TextLink, ShieldIcon, ClockIcon, AlertIcon, ChevronLeftIcon } from "@universe/ui";
+import { Button, TextLink, ShieldIcon, ClockIcon, AlertIcon, ChevronLeftIcon, Pagination, type PageSize } from "@universe/ui";
 
 /**
  * QA Queue — added 2026-10-08, Lewis's QA/procurement segregation-of-
@@ -25,18 +25,25 @@ import { Button, TextLink, ShieldIcon, ClockIcon, AlertIcon, ChevronLeftIcon } f
  * longest" without category boundaries.
  */
 export default function QaQueuePage() {
-  const [queue, setQueue] = useState<QaQueueSummary | null>(null);
+  // Server-paged (2026-10-17, scale work): category counts come from the database and only one
+  // page of the oldest-first list is loaded. The category buttons filter the list server-side.
+  const [queue, setQueue] = useState<QaQueuePage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"categorised" | "all">("categorised");
+  const [category, setCategory] = useState("");
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     apiClient
-      .getQaQueue()
+      .getQaQueuePage({ category: category || undefined, page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize })
       .then((data) => {
+        if (cancelled) return;
         setQueue(data);
         setError(null);
       })
       .catch((err) => {
+        if (cancelled) return;
         console.error("Failed to load QA queue:", err);
         setQueue(null);
         setError(
@@ -45,10 +52,19 @@ export default function QaQueuePage() {
             : "Couldn't load the QA queue. This is usually temporary — try again in a moment.",
         );
       });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [category, page, pageSize]);
 
-  const totalItems = queue?.all.length ?? 0;
-  const oldestAgeDays = useMemo(() => (queue?.all.length ? Math.max(...queue.all.map((i) => i.ageDays)) : 0), [queue]);
+  const totalItems = queue?.total ?? 0;
+  const oldestAgeDays = queue?.oldestAgeDays ?? 0;
+  const effectivePageSize = pageSize === "all" ? 100 : pageSize;
+  const pageCount = Math.max(1, Math.ceil((queue?.filteredTotal ?? 0) / effectivePageSize));
+  const pick = (key: string) => {
+    setCategory(key);
+    setPage(0);
+  };
 
   return (
     <div style={{ padding: "28px 32px 48px", maxWidth: 1100, margin: "0 auto" }}>
@@ -58,24 +74,14 @@ export default function QaQueuePage() {
         </span>
       </Link>
 
-      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0, color: "var(--u-ink)", display: "flex", alignItems: "center", gap: 10 }}>
-            <ShieldIcon size={22} /> QA Queue
-          </h1>
-          <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6, maxWidth: 620 }}>
-            Every stakeholder, piece of evidence, and product source currently waiting on a Quality Assurance /
-            Responsible Person review — not just what's sitting on each partner's own page.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button variant={view === "categorised" ? "primary" : "secondary"} onClick={() => setView("categorised")}>
-            Categorised
-          </Button>
-          <Button variant={view === "all" ? "primary" : "secondary"} onClick={() => setView("all")}>
-            All (by time in queue)
-          </Button>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0, color: "var(--u-ink)", display: "flex", alignItems: "center", gap: 10 }}>
+          <ShieldIcon size={22} /> QA Queue
+        </h1>
+        <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6, maxWidth: 620 }}>
+          Every stakeholder, piece of evidence, and product source currently waiting on a Quality Assurance /
+          Responsible Person review — longest-waiting first. Pick a category to narrow the list.
+        </p>
       </div>
 
       {error && (
@@ -102,7 +108,7 @@ export default function QaQueuePage() {
 
       {queue && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 24 }}>
             <SummaryTile label="Total awaiting QA" value={totalItems} icon={<ShieldIcon size={20} />} tone="brand" />
             <SummaryTile label="Categories affected" value={queue.categories.length} icon={<ClockIcon size={20} />} tone="neutral" />
             <SummaryTile
@@ -113,7 +119,7 @@ export default function QaQueuePage() {
             />
           </div>
 
-          {totalItems === 0 && (
+          {totalItems === 0 ? (
             <div
               style={{
                 padding: 28,
@@ -127,42 +133,32 @@ export default function QaQueuePage() {
             >
               Nothing is waiting on QA review right now.
             </div>
-          )}
-
-          {totalItems > 0 && view === "categorised" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-              {queue.categories.map((cat) => (
-                <section key={cat.key}>
-                  <h2
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: "var(--u-ink)",
-                      margin: "0 0 12px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {cat.label}
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>({cat.items.length})</span>
-                  </h2>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {cat.items.map((item) => (
-                      <QueueRow key={`${cat.key}-${item.kind}-${item.id}`} item={item} />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-
-          {totalItems > 0 && view === "all" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {queue.all.map((item) => (
-                <QueueRow key={`${item.kind}-${item.id}`} item={item} showCategories />
-              ))}
-            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                <Button variant={category === "" ? "primary" : "secondary"} onClick={() => pick("")}>
+                  All ({totalItems})
+                </Button>
+                {queue.categories.map((c) => (
+                  <Button key={c.key} variant={category === c.key ? "primary" : "secondary"} onClick={() => pick(c.key)}>
+                    {c.label} ({c.count ?? 0})
+                  </Button>
+                ))}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {queue.items.map((item) => (
+                  <QueueRow key={`${item.kind}-${item.id}`} item={item} showCategories={category === ""} />
+                ))}
+              </div>
+              <Pagination
+                pageSize={pageSize}
+                onPageSizeChange={(sz) => { setPageSize(sz); setPage(0); }}
+                page={page}
+                pageCount={pageCount}
+                onPageChange={setPage}
+                totalCount={queue.filteredTotal}
+              />
+            </>
           )}
         </>
       )}

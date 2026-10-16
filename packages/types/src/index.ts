@@ -2313,7 +2313,22 @@ export interface QaQueueItem {
 export interface QaQueueCategory {
   key: string;
   label: string;
+  /** Items in this category — present on the legacy summary only. */
+  items?: QaQueueItem[];
+  /** Pending count in this category — present on the paged queue (database count). */
+  count?: number;
+}
+
+/** One page of the QA queue (oldest first) plus database-computed totals (2026-10-17, scale work). */
+export interface QaQueuePage {
+  total: number;
+  oldestAgeDays: number;
+  categories: QaQueueCategory[];
   items: QaQueueItem[];
+  /** Total for the selected category (or all, when none selected). */
+  filteredTotal: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface QaQueueSummary {
