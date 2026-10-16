@@ -20,6 +20,7 @@ import { ProductBatchesModule } from "./batches/product-batches.module";
 import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights.module";
 import { ProductSourcingInsightsModule } from "./product-sourcing-insights/product-sourcing-insights.module";
 import { ContactsModule } from "./contacts/contacts.module";
+import { BrandingModule } from "./branding/branding.module";
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ContactsModule } from "./contacts/contacts.module";
     LogisticsInsightsModule,
     ProductSourcingInsightsModule,
     ContactsModule,
+    BrandingModule,
   ],
   controllers: [MeController],
 })

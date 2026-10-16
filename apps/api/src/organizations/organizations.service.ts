@@ -3,6 +3,7 @@ import { createOrganizationWithDefaultRoles, prisma, withTenantContext, withPlat
 import type {
   OrganizationSummary,
   OrganizationDetail,
+  SupportContact,
   RoleSummary,
   DataSharingConsentSummary,
   OrganizationCountryPresenceSummary,
@@ -82,6 +83,42 @@ export class OrganizationsService {
     }));
   }
 
+  /** Who a user in this organisation should contact for help. If the
+   * organisation has set a primary contact with an email, that wins;
+   * otherwise its active administrators (anyone holding org.users.manage —
+   * never Universe platform staff), with their role names. Runs against the
+   * organisation the request is acting as, so platform staff using the
+   * organisation switcher see that organisation's contacts. */
+  async supportContacts(caller: RequestUser): Promise<SupportContact[]> {
+    const organizationId = caller.organizationId;
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { primaryContactName: true, primaryContactTitle: true, primaryContactEmail: true },
+    });
+    if (org?.primaryContactEmail) {
+      return [{ name: org.primaryContactName ?? org.primaryContactEmail, role: org.primaryContactTitle ?? "Primary contact", email: org.primaryContactEmail }];
+    }
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+    const admins: any[] = await runInContext((tx) =>
+      tx.user.findMany({
+        where: {
+          organizationId,
+          status: "ACTIVE",
+          platformStaffRole: "NONE",
+          userRoles: { some: { role: { rolePermissions: { some: { permission: { key: "org.users.manage" } } } } } },
+        },
+        include: { userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } } },
+        orderBy: [{ surname: "asc" }, { forename: "asc" }],
+        take: 3,
+      }),
+    );
+    return admins.map((u) => ({
+      name: `${u.forename} ${u.surname}`.trim(),
+      role: u.userRoles.find((ur: any) => ur.role.rolePermissions.some((rp: any) => rp.permission.key === "org.users.manage"))?.role.name ?? "Administrator",
+      email: u.email,
+    }));
+  }
+
   /** Fields only platform staff (Universe's own operating team) may change.
    * An org admin can't rename their own tenant, re-slug its URLs, or flip
    * its lifecycle status — all identity/contractual-level facts. */
@@ -101,6 +138,7 @@ export class OrganizationsService {
     "logoUrl",
     "primaryColor",
     "secondaryColor",
+    "welcomeMessage",
     "notes",
   ] as const;
 
@@ -128,6 +166,7 @@ export class OrganizationsService {
       primaryContactEmail: o.primaryContactEmail,
       primaryContactPhone: o.primaryContactPhone,
       onboardingSource: o.onboardingSource as OrganizationDetail["onboardingSource"],
+      welcomeMessage: o.welcomeMessage ?? null,
       notes: o.notes,
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),

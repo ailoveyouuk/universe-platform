@@ -211,6 +211,9 @@ model Organization {
   /// Hex string, e.g. "#1B203D". Falls back to Universe's own default
   /// header styling when unset.
   primaryColor   String?
+  /// Short greeting shown under the dashboard welcome heading (max 200 chars,
+  /// enforced in the DTO). Set by the org admin / platform staff in Admin.
+  welcomeMessage String?
   /// Same as primaryColor — used for the sign-in/out button and other
   /// small accents. Falls back to Universe's own default when unset.
   secondaryColor String?

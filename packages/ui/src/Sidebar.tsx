@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "./Logo";
 import { ChevronLeftIcon, ChevronRightIcon, MenuIcon } from "./icons";
 import { useOrgTheme } from "./OrgTheme";
@@ -39,6 +39,7 @@ export function Sidebar({
   orgLogoUrl,
   footer,
   currentApp,
+  support,
 }: {
   items: NavItem[];
   collapsed: boolean;
@@ -49,6 +50,8 @@ export function Sidebar({
   orgName: string;
   orgLogoUrl: string | null;
   footer?: ReactNode;
+  /** Who to contact for help (name, role, email) — shown as a small "Need help?" link. */
+  support?: { name: string; role: string; email: string }[];
   /** UNIVERSE_APPS[].key of the app this Sidebar belongs to (e.g.
    * "product-database") -- passed straight through to AppSwitcher so it
    * can show the right app as "CURRENT". Required: every app wiring up
@@ -58,6 +61,13 @@ export function Sidebar({
 }) {
   const Link = LinkComponent;
   const theme = useOrgTheme();
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  useEffect(() => setLogoFailed(false), [orgLogoUrl]);
+  // The organisation's own logo takes the top-left slot (expanded rail only);
+  // the Universe mark stays when collapsed, when no logo is set, or if the
+  // image fails to load. "Powered by Universe" moves to the footer.
+  const showOrgLogo = !!orgLogoUrl && !logoFailed;
   const width = collapsed ? 72 : 232;
 
   return (
@@ -99,7 +109,16 @@ export function Sidebar({
           }}
         >
           <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-            <Logo variant={collapsed ? "mark" : "lockup"} size={26} />
+            {showOrgLogo && !collapsed ? (
+              <img
+                src={orgLogoUrl!}
+                alt={orgName}
+                onError={() => setLogoFailed(true)}
+                style={{ maxHeight: 34, maxWidth: 150, width: "auto", height: "auto", objectFit: "contain", display: "block" }}
+              />
+            ) : (
+              <Logo variant={collapsed ? "mark" : "lockup"} size={26} />
+            )}
           </Link>
           {!collapsed && (
             <button
@@ -185,17 +204,39 @@ export function Sidebar({
             gap: 8,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {orgLogoUrl ? (
-              <img src={orgLogoUrl} alt={orgName} style={{ height: 18, width: "auto" }} />
-            ) : (
-              !collapsed && (
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--u-ink)" }}>{orgName}</span>
-              )
-            )}
-          </div>
+          {!showOrgLogo && !collapsed && (
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--u-ink)" }}>{orgName}</span>
+          )}
+          {!collapsed && support && support.length > 0 && (
+            <div style={{ width: "100%" }}>
+              <button
+                type="button"
+                onClick={() => setSupportOpen((o) => !o)}
+                aria-expanded={supportOpen}
+                style={{ border: "none", background: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--u-org-accent, var(--u-brand-violet))" }}
+              >
+                Need help? {supportOpen ? "▾" : "▸"}
+              </button>
+              {supportOpen && (
+                <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {support.map((c) => (
+                    <li key={c.email} style={{ fontSize: 12, lineHeight: 1.35, color: "var(--u-ink-secondary)" }}>
+                      <span style={{ color: "var(--u-ink)", fontWeight: 600 }}>{c.name}</span>
+                      <br />
+                      {c.role}
+                      <br />
+                      <a href={`mailto:${c.email}`} style={{ color: "var(--u-org-accent, var(--u-brand-violet))", wordBreak: "break-all" }}>
+                        {c.email}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {!collapsed && (
-            <span style={{ fontSize: 10, color: "var(--u-ink-secondary)", letterSpacing: 0.3 }}>
+            <span style={{ fontSize: 10, color: "var(--u-ink-secondary)", letterSpacing: 0.3, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              {showOrgLogo && <Logo variant="mark" size={12} />}
               Powered by Universe
             </span>
           )}

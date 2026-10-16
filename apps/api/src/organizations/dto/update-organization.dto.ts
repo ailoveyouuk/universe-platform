@@ -38,5 +38,6 @@ export class UpdateOrganizationDto {
   @IsOptional()
   @IsIn(["SELF_REFERRED", "INVITED_BY_PROCUREMENT_AGENT", "INVITED_BY_FUNDER", "PLATFORM_STAFF_OUTREACH", "OTHER"])
   onboardingSource?: string | null;
+  @IsOptional() @IsString() @MaxLength(200) welcomeMessage?: string | null;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string | null;
 }

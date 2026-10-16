@@ -23,6 +23,7 @@ export interface RequestUser {
   organizationLogoUrl: string | null;
   organizationPrimaryColor: string | null;
   organizationSecondaryColor: string | null;
+  organizationWelcomeMessage: string | null;
   platformStaffRole: PlatformStaffRole;
   permissions: string[];
 }
@@ -38,7 +39,7 @@ function toRequestUser(user: {
   // packages/db/src/enums.ts). Narrowed to PlatformStaffRole below since
   // the database only ever stores one of that const object's values.
   platformStaffRole: string;
-  organization: { name: string; logoUrl: string | null; primaryColor: string | null; secondaryColor: string | null };
+  organization: { name: string; logoUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
   const permissions = user.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key));
@@ -53,13 +54,14 @@ function toRequestUser(user: {
     organizationLogoUrl: user.organization.logoUrl,
     organizationPrimaryColor: user.organization.primaryColor,
     organizationSecondaryColor: user.organization.secondaryColor,
+    organizationWelcomeMessage: user.organization.welcomeMessage,
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
   };
 }
 
 const userInclude = {
-  organization: { select: { name: true, status: true, logoUrl: true, primaryColor: true, secondaryColor: true } },
+  organization: { select: { name: true, status: true, logoUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true } },
   userRoles: { include: { role: { include: { rolePermissions: { include: { permission: true } } } } } },
 } as const;
 
@@ -199,7 +201,7 @@ export class EntraAuthGuard implements CanActivate {
       const target = await withPlatformStaffContext((tx) =>
         tx.organization.findUnique({
           where: { id: requestedId },
-          select: { id: true, name: true, logoUrl: true, primaryColor: true, secondaryColor: true },
+          select: { id: true, name: true, logoUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true },
         }),
       );
       if (!target) throw new BadRequestException("The selected organisation does not exist.");
@@ -208,6 +210,7 @@ export class EntraAuthGuard implements CanActivate {
       requestUser.organizationLogoUrl = target.logoUrl;
       requestUser.organizationPrimaryColor = target.primaryColor;
       requestUser.organizationSecondaryColor = target.secondaryColor;
+      requestUser.organizationWelcomeMessage = target.welcomeMessage;
     }
 
     req.user = requestUser;

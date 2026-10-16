@@ -37,7 +37,7 @@ export function Button({ variant = "secondary", size = "md", icon, accent, style
   const variants: Record<string, React.CSSProperties> = {
     primary: {
       backgroundColor: accent ?? "var(--u-brand-violet)",
-      color: "var(--u-brand-violet-on)",
+      color: accent?.includes("--u-org-accent") ? "var(--u-org-accent-on, var(--u-brand-violet-on))" : "var(--u-brand-violet-on)",
     },
     secondary: {
       backgroundColor: "var(--u-surface)",

@@ -9,6 +9,7 @@ import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
 import { AuditHistory } from "../../../components/AuditHistory";
+import { ColourField, LogoField, isValidHex } from "../../../components/BrandingFields";
 import {
   Field,
   FormGrid,
@@ -39,6 +40,7 @@ type FormState = {
   logoUrl: string;
   primaryColor: string;
   secondaryColor: string;
+  welcomeMessage: string;
   notes: string;
 };
 
@@ -60,6 +62,7 @@ function toForm(o: OrganizationDetail): FormState {
     logoUrl: o.logoUrl ?? "",
     primaryColor: o.primaryColor ?? "",
     secondaryColor: o.secondaryColor ?? "",
+    welcomeMessage: o.welcomeMessage ?? "",
     notes: o.notes ?? "",
   };
 }
@@ -75,6 +78,7 @@ const NULLABLE_TEXT = [
   "logoUrl",
   "primaryColor",
   "secondaryColor",
+  "welcomeMessage",
   "notes",
   "legalEntityType",
   "countryOfRegistrationCode",
@@ -253,24 +257,27 @@ export function OrganizationDetailView() {
         </FormGrid>
 
         <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Branding</h3>
+        <LogoField
+          organizationId={org.id}
+          logoUrl={org.logoUrl}
+          onChanged={(logoUrl) => {
+            setOrg({ ...org, logoUrl });
+            setForm({ ...form, logoUrl: logoUrl ?? "" });
+          }}
+        />
+        <div style={{ height: 12 }} />
         <FormGrid>
-          <Field label="Logo URL">
-            <input style={inputStyle} value={form.logoUrl} placeholder="https://" onChange={(e) => set({ logoUrl: e.target.value })} />
-          </Field>
-          <div />
-          <Field label="Primary colour" hint="#RRGGBB — used for the organisation's subtle accent.">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input style={inputStyle} value={form.primaryColor} placeholder="#1B203D" onChange={(e) => set({ primaryColor: e.target.value })} />
-              <span style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid var(--u-border)", background: /^#[0-9A-Fa-f]{6}$/.test(form.primaryColor) ? form.primaryColor : "transparent", flexShrink: 0, marginTop: 4 }} />
-            </div>
-          </Field>
-          <Field label="Secondary colour">
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input style={inputStyle} value={form.secondaryColor} placeholder="#2EB0BD" onChange={(e) => set({ secondaryColor: e.target.value })} />
-              <span style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid var(--u-border)", background: /^#[0-9A-Fa-f]{6}$/.test(form.secondaryColor) ? form.secondaryColor : "transparent", flexShrink: 0, marginTop: 4 }} />
-            </div>
-          </Field>
+          <ColourField label="Primary colour" hint="Buttons, active navigation and key accents. Text on top of it is chosen automatically." value={form.primaryColor} placeholder="#4A2E8C" onChange={(v) => set({ primaryColor: v })} />
+          <ColourField label="Secondary colour" hint="Secondary accents." value={form.secondaryColor} placeholder="#B23A82" onChange={(v) => set({ secondaryColor: v })} />
         </FormGrid>
+        <div style={{ marginTop: 12 }}>
+          <Field label="Welcome line" hint={`Shown under the greeting on the dashboard. ${form.welcomeMessage.length}/200`}>
+            <input style={inputStyle} maxLength={200} value={form.welcomeMessage} placeholder="Here's what's happening across your projects." onChange={(e) => set({ welcomeMessage: e.target.value })} />
+          </Field>
+        </div>
+        <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "10px 0 0" }}>
+          Help contact: shown to your users as "Need help?" — the primary contact above if set, otherwise your organisation's active administrators.
+        </p>
 
         <div style={{ marginTop: 20 }}>
           <Field label="Internal notes">
@@ -281,7 +288,7 @@ export function OrganizationDetailView() {
         {error && <Notice tone="error">{error}</Notice>}
         {saved && !dirty && <Notice tone="success">Saved.</Notice>}
         <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-          <Button variant="primary" disabled={!dirty || saving} onClick={save}>
+          <Button variant="primary" disabled={!dirty || saving || !isValidHex(form.primaryColor) || !isValidHex(form.secondaryColor)} onClick={save}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
           <Button

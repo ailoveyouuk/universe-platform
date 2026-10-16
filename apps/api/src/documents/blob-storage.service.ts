@@ -133,6 +133,24 @@ export class BlobStorageService {
     return `${blobClient.url}?${sas}`;
   }
 
+  /** Server-side write of a small file (used for organisation logos, which the
+   * API validates itself before storing — unlike documents, which go
+   * browser-to-blob via SAS). */
+  async putBlob(organizationId: string, blobName: string, data: Buffer, contentType: string): Promise<void> {
+    await this.ensureContainer(organizationId);
+    const blobClient = this.blobServiceClient.getContainerClient(this.containerName(organizationId)).getBlockBlobClient(blobName);
+    await blobClient.uploadData(data, { blobHTTPHeaders: { blobContentType: contentType } });
+  }
+
+  /** Reads a blob fully into memory — only for small assets such as logos. */
+  async readBlob(organizationId: string, blobName: string): Promise<{ data: Buffer; contentType: string } | null> {
+    const blobClient = this.blobServiceClient.getContainerClient(this.containerName(organizationId)).getBlockBlobClient(blobName);
+    if (!(await blobClient.exists())) return null;
+    const props = await blobClient.getProperties();
+    const data = await blobClient.downloadToBuffer();
+    return { data, contentType: props.contentType ?? "application/octet-stream" };
+  }
+
   async deleteBlob(organizationId: string, blobName: string): Promise<void> {
     const containerName = this.containerName(organizationId);
     const blobClient = this.blobServiceClient.getContainerClient(containerName).getBlockBlobClient(blobName);

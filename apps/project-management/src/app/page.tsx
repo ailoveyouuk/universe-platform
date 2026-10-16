@@ -147,7 +147,7 @@ export default function HomePage() {
             Welcome back, {me?.forename}.
           </h1>
           <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6 }}>
-            Here's what's happening across {me?.organizationName}'s projects.
+            {me?.organizationWelcomeMessage || `Here's what's happening across ${me?.organizationName}'s projects.`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

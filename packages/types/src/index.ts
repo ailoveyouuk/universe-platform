@@ -85,6 +85,8 @@ export interface AuthenticatedUser {
    * doc comment in schema.prisma and @universe/ui's OrgHeader. */
   organizationPrimaryColor: string | null;
   organizationSecondaryColor: string | null;
+  /** Dashboard greeting line set by the organisation (branding). */
+  organizationWelcomeMessage: string | null;
   platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
   permissions: string[];
 }
@@ -221,6 +223,8 @@ export interface OrganizationDetail extends OrganizationSummary {
   primaryContactEmail: string | null;
   primaryContactPhone: string | null;
   onboardingSource: OrganizationOnboardingSource | null;
+  /** Dashboard greeting line (max 200 chars). */
+  welcomeMessage: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -248,6 +252,7 @@ export interface UpdateOrganizationInput {
   logoUrl?: string | null;
   primaryColor?: string | null;
   secondaryColor?: string | null;
+  welcomeMessage?: string | null;
   onboardingSource?: OrganizationOnboardingSource | null;
   notes?: string | null;
 }
@@ -2321,4 +2326,12 @@ export interface StakeholderRatingBucket {
   scoreBand: string;
   averageScoreFloor: number;
   count: number;
+}
+
+/** Who to contact for help inside an organisation: the primary contact if one
+ * is set, otherwise the organisation's active administrators. */
+export interface SupportContact {
+  name: string;
+  role: string;
+  email: string;
 }

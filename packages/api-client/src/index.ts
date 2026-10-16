@@ -109,6 +109,7 @@ import type {
   LogisticsRouteSummary,
   ProductSourcingSummary,
   StakeholderRatingBucket,
+  SupportContact,
 } from "@universe/types";
 
 /**
@@ -125,6 +126,44 @@ export class UniverseApiClient {
      * Sent on every request; the API ignores it for everyone else. */
     private getActiveOrganizationId?: () => string | null,
   ) {}
+
+  /** Turns a stored asset path (e.g. an uploaded logo's "/branding/…") into a
+   * full URL on the API; absolute URLs pass through unchanged. */
+  assetUrl(path: string | null | undefined): string | null {
+    if (!path) return null;
+    return path.startsWith("/") ? `${this.baseUrl}${path}` : path;
+  }
+
+  getSupportContacts(): Promise<SupportContact[]> {
+    return this.request("/organizations/current/support-contacts");
+  }
+
+  /** Uploads an organisation's logo (PNG/JPEG/WebP/SVG, max 512 KB). */
+  async uploadOrganizationLogo(organizationId: string, file: File): Promise<{ logoUrl: string }> {
+    const token = await this.getAccessToken();
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${this.baseUrl}/organizations/${organizationId}/logo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+    });
+    if (!res.ok) {
+      let message = await res.text();
+      try {
+        const parsed = JSON.parse(message);
+        if (typeof parsed?.message === "string") message = parsed.message;
+      } catch {
+        /* keep raw text */
+      }
+      throw new Error(message || `Upload failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  async removeOrganizationLogo(organizationId: string): Promise<void> {
+    await this.request<void>(`/organizations/${organizationId}/logo`, { method: "DELETE" });
+  }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const token = await this.getAccessToken();
@@ -1029,5 +1068,34 @@ export function setStoredActiveOrganizationId(id: string | null): void {
     else window.localStorage.removeItem(ACTIVE_ORG_KEY);
   } catch {
     /* storage unavailable — selection just won't persist */
+  }
+}
+
+const BRAND_KEY = "universe.rememberedBrand";
+
+export interface RememberedBrand {
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
+/** The last organisation brand this browser signed in as, so the sign-in
+ * screen can show it before anyone is authenticated. Local to this app/browser. */
+export function getRememberedBrand(): RememberedBrand | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(BRAND_KEY);
+    return raw ? (JSON.parse(raw) as RememberedBrand) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberBrand(brand: RememberedBrand): void {
+  try {
+    window.localStorage.setItem(BRAND_KEY, JSON.stringify(brand));
+  } catch {
+    /* storage unavailable — sign-in screen just shows the Universe default */
   }
 }

@@ -29,6 +29,13 @@ export class OrganizationsController {
     return this.organizationsService.create(user, dto);
   }
 
+  /** Who to contact for help in the organisation the app is acting as. Must
+   * stay above ":id" so "support-contacts" isn't read as an id. */
+  @Get("current/support-contacts")
+  supportContacts(@CurrentUser() user: RequestUser) {
+    return this.organizationsService.supportContacts(user);
+  }
+
   /** Admin app detail page (added 2026-10-16). Declared before the
    * more specific ":id/..." routes only for readability — Nest matches on
    * the full path so ordering doesn't matter here. */

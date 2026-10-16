@@ -68,6 +68,7 @@ describe("Admin services", () => {
       organizationLogoUrl: null,
       organizationPrimaryColor: null,
       organizationSecondaryColor: null,
+      organizationWelcomeMessage: null,
       platformStaffRole: u.platformStaffRole as RequestUser["platformStaffRole"],
       permissions: u.userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.key)),
     };
@@ -325,6 +326,49 @@ describe("Admin services", () => {
       const before = (await logFor(orgB)).length;
       await orgs.update(platform, orgB, {});
       expect((await logFor(orgB)).length).toBe(before);
+    });
+  });
+
+  // ------------------------------------------------------------- branding
+  describe("branding", () => {
+    it("support contacts default to the organisation's active admins (role + email), never platform staff", async () => {
+      const org = (await createOrganizationWithDefaultRoles({ name: `Brand ${suffix}`, slug: `brand-${suffix}` })).id;
+      try {
+        const admin = await makeUser(org, "brand-admin", { roleName: "Organization Admin" });
+        await makeUser(org, "brand-reader", { roleName: "Read Only" });
+        await makeUser(org, "brand-invited-admin", { roleName: "Organization Admin", status: "INVITED", entra: null });
+        await makeUser(org, "brand-staff", { roleName: "Organization Admin", platform: "SUPPORT" });
+        const caller = await asRequestUser(admin.id);
+
+        const contacts = await orgs.supportContacts(caller);
+        expect(contacts).toHaveLength(1);
+        expect(contacts[0]).toEqual({ name: "brand-admin Tester", role: "Organization Admin", email: email("brand-admin") });
+      } finally {
+        await withPlatformStaffContext(async (tx) => {
+          const doomed = await tx.user.findMany({ where: { organizationId: org }, select: { id: true } });
+          const ids = doomed.map((d) => d.id);
+          await tx.fieldChangeLog.deleteMany({ where: { organizationId: org } });
+          await tx.userRole.deleteMany({ where: { userId: { in: ids } } });
+          await tx.user.deleteMany({ where: { id: { in: ids } } });
+          await tx.rolePermission.deleteMany({ where: { role: { organizationId: org } } });
+          await tx.role.deleteMany({ where: { organizationId: org } });
+          await tx.dataSharingConsent.deleteMany({ where: { organizationId: org } });
+        });
+        await prisma.organization.delete({ where: { id: org } });
+      }
+    });
+
+    it("an explicit primary contact overrides the admin default; welcome message is editable, capped by the DTO, and audited", async () => {
+      const platform = await asRequestUser((await makeUser(orgB, "brand-platform", { platform: "SUPER_ADMIN" })).id);
+      const adminB = await asRequestUser((await makeUser(orgB, "brand-admin-b", { roleName: "Organization Admin" })).id);
+
+      await orgs.update(platform, orgB, { primaryContactName: "Pat Lead", primaryContactTitle: "Programme lead", primaryContactEmail: "pat@example.org", welcomeMessage: "Welcome to our workspace" });
+      expect(await orgs.supportContacts(adminB)).toEqual([{ name: "Pat Lead", role: "Programme lead", email: "pat@example.org" }]);
+      expect((await orgs.findOne(adminB, orgB)).welcomeMessage).toBe("Welcome to our workspace");
+      expect((await logFor(orgB)).some((l) => l.fieldName === "welcomeMessage")).toBe(true);
+
+      await orgs.update(platform, orgB, { primaryContactName: null, primaryContactTitle: null, primaryContactEmail: null, welcomeMessage: null });
+      expect((await orgs.supportContacts(adminB)).map((c) => c.role)).toContain("Organization Admin");
     });
   });
 

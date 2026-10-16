@@ -58,7 +58,7 @@ export function AddMenu({ label = "Add", options, accent }: { label?: string; op
           cursor: "pointer",
           border: "1px solid transparent",
           backgroundColor: accent ?? "var(--u-brand-violet)",
-          color: "var(--u-brand-violet-on)",
+          color: accent?.includes("--u-org-accent") ? "var(--u-org-accent-on, var(--u-brand-violet-on))" : "var(--u-brand-violet-on)",
           transition: "opacity 150ms ease",
         }}
       >

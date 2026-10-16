@@ -9,6 +9,8 @@ import {
   Logo,
   OrgThemeProvider,
   Button,
+  BrandMark,
+  readableTextOn,
   Breadcrumbs,
   DashboardIcon,
   ProjectsIcon,
@@ -24,6 +26,7 @@ import {
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
+import { useBranding } from "../lib/useBranding";
 import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 
 /** Route → nav + breadcrumb metadata, in one place so adding a page means
@@ -66,6 +69,7 @@ function crumbsFor(pathname: string) {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { status, me, error, signIn, signOut } = useAuth();
+  const { logoUrl: brandLogoUrl, support, remembered } = useBranding(me);
   const pathname = usePathname() ?? "/";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -147,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               gap: 8,
             }}
           >
-            <Logo variant="mark" size={44} />
+            <BrandMark logoUrl={remembered?.logoUrl} name={remembered?.name} size={44} />
             <h1
               style={{
                 fontFamily: "var(--u-font-display)",
@@ -156,7 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 margin: "14px 0 0",
               }}
             >
-              {status === "unauthorized" ? "Access restricted" : "Welcome to Universe"}
+              {status === "unauthorized" ? "Access restricted" : `Welcome to ${remembered?.name ?? "Universe"}`}
             </h1>
             <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, margin: "6px 0 10px", lineHeight: 1.5 }}>
               {status === "initializing" && "Loading your workspace…"}
@@ -164,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {status === "signedOut" && "Sign in with your organisation's Microsoft account to continue to Project Management."}
             </p>
             {status === "signedOut" && (
-              <Button variant="primary" onClick={signIn} style={{ marginTop: 8 }}>
+              <Button variant="primary" onClick={signIn} accent={remembered?.primaryColor ?? undefined} style={{ marginTop: 8, ...(remembered?.primaryColor ? { color: readableTextOn(remembered.primaryColor) ?? undefined } : {}) }}>
                 Sign in
               </Button>
             )}
@@ -201,7 +205,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             onCloseMobile={() => setMobileOpen(false)}
             LinkComponent={Link}
             orgName={me.organizationName}
-            orgLogoUrl={me.organizationLogoUrl}
+            orgLogoUrl={brandLogoUrl}
+            support={support}
           />
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -255,7 +260,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       height: 28,
                       borderRadius: "50%",
                       backgroundColor: "var(--u-org-accent, var(--u-brand-violet))",
-                      color: "var(--u-brand-violet-on)",
+                      color: "var(--u-org-accent-on, var(--u-brand-violet-on))",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
