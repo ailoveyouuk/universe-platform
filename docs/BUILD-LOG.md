@@ -6,6 +6,16 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Ring-fencing the demo and simulated data from real organisations
+
+Lewis: the demo must stay in place but be fenced off from real organisations, users and data.
+Already in place before this: Universe Demo's own rows are isolated by RLS; demo (Stakeholder Demo) users cannot write to shared data (`assertNotDemoUser`); sim users cannot sign in (no identity, `@sim.example`). Gaps found and closed:
+- **Shared product catalogue** was open to every org, so the 30,000 SIM-SCALE products showed in real orgs' search. New `ProductMaster.isSimulated`; catalogue search/list/detail/stats and global search show them only when the request runs inside a demo organisation (`RequestUser.inDemoOrganization` — a demo member's own org, or the org platform staff switched into).
+- **Anonymised benchmarks** (insights ETL, `packages/insights-db/src/aggregate-etl.ts`) now exclude `isDemo` and `isSimulated` organisations in all four consent lookups, so demo data can never feed another org's insights. (Any insights rows written earlier by a run that included the demo org are not cleaned up — none known.)
+- **Admin**: new `Organization.isSimulated` and `User.isSimulated`. Organisations list, Users (page/counts), and the all-organisations Activity feed hide simulated/demo data by default; platform staff tick "Include simulated data" (Users, Organisations, Activity) to see it. Members of a demo org see their simulated colleagues as part of the demo. Admin default now shows 5 real orgs / 7 real users; ticking shows 3,127 users.
+- Migration `20261017180000_simulated_flags` adds the three columns and backfills; RLS hid the user rows from the migration login (0 users flagged), so `load-demo-scale-data` now also idempotently marks simulated rows via the platform-staff context (ran: 3,120 users marked). The generator sets the flags on new data.
+- Test `apps/api/test/ring-fence.test.ts` (CI). CI and deploys green. Not covered yet: Product Database app live check (needs its own sign-in).
+
 ## 2026-10-17 — Live timings with the full demo data (no code change)
 
 Measured from the signed-in apps (browser resource timings of the real API calls, warm, 1 vCore serverless tier, UK South):

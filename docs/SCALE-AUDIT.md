@@ -81,3 +81,6 @@ Remaining watch-list:
 
 ## Live check with the loaded demo data (2026-10-17)
 Real API calls from the signed-in apps against Universe Demo (3,127 users, 3,000 partners, 1,500+ projects, 5,564 lines, 818 approvals, 1,205 risks, 1,503 batches, 30,000 products), warm, 1 vCore serverless: every paged screen's main call 76–317 ms; dashboard overview tiles 406–607 ms. Unmeasured: Product Database search (separate sign-in) and cold start after SQL auto-pause. Watch-list additions: Admin Users organisation filter (loads all ~300 orgs — make search-driven past ~1,000); dashboard overview aggregates (cache if needed).
+
+## Ring-fence (2026-10-17)
+Simulated data is flagged (`isSimulated` on organisations, users and catalogue products) and hidden from real organisations: catalogue and global search show simulated products only inside a demo organisation; the anonymised benchmark ETL excludes demo/simulated organisations; Admin hides simulated organisations, users and activity by default (toggle for platform staff). See BUILD-LOG 2026-10-17.
