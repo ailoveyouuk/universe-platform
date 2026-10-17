@@ -6,6 +6,12 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Demo scale data LOADED into the live Universe Demo
+
+Run `Load demo scale data` (seed 1, real load, 1 vCore tier, ~80 min — mostly 299 org/role creations at ~14 s each; bulk inserts took ~10 min). First attempt failed with Prisma's 5 s interactive-transaction limit during org creation (nothing but orgs written); fixed by `transactionOptions.timeout` from env `PRISMA_TX_TIMEOUT_MS` (default 5000, workflow sets 120000) in `packages/db/src/index.ts`, and the loader now resumes over leftover orgs (org creation is an upsert).
+Row counts after: sim orgs 299, sim users 3,120, products 30,000; in Universe Demo: partners 3,000 (+ 6,000 contacts), projects 1,500 (+ originals), lines 5,564, logistics metrics 3,330, source approvals 818, risks 1,205, batches 1,503, audit rows 8,000.
+Live check (Project Management, Universe Demo): Projects, dashboard, Stakeholders, Quality, QA queue (263 awaiting), Logistics, Risk register (1,205) and Batches all render with the new data. Hard-delete clean-up script still not written (needs Lewis's OK). Next: HTTP re-measure, agree baseline, Reset sandbox.
+
 ## 2026-10-17 — Demo scale data: richer generator, `demo` profile and guarded loader
 
 Lewis: use the simulated scale dataset in the live demo, with product source approvals and logistics records, built so every app works on it.
