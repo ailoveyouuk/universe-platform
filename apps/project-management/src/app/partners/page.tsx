@@ -60,10 +60,10 @@ export default function PartnersPage() {
   // Deep-linkable from the dashboard's stat tiles, e.g. /partners?role=CLIENT
   // or /partners?approval=APPROVED.
   const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>(
-    () => (ROLE_FILTERS as readonly string[]).includes(searchParams.get("role") ?? "") ? (searchParams.get("role") as any) : ""
+    () => (ROLE_FILTERS as readonly string[]).includes(searchParams.get("role") ?? "") ? ((searchParams.get("role") ?? "") as any) : ""
   );
   const [approvalFilter, setApprovalFilter] = useState<(typeof APPROVAL_FILTERS)[number]>(
-    () => (APPROVAL_FILTERS as readonly string[]).includes(searchParams.get("approval") ?? "") ? (searchParams.get("approval") as any) : ""
+    () => (APPROVAL_FILTERS as readonly string[]).includes(searchParams.get("approval") ?? "") ? ((searchParams.get("approval") ?? "") as any) : ""
   );
   const [countryFilter, setCountryFilter] = useState("");
   const [riskFilter, setRiskFilter] = useState<(typeof RISK_FILTERS)[number]>("");
