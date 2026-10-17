@@ -277,3 +277,7 @@ plain UNIQUE allowed only one NULL → filtered unique index (migration `2026101
 - All app data is simulated. Renewables Connect is a separate project.
 - Azure: resource group `universe-platform`, subscription "RC Sub", SQL server `universe-pilot-sql`, DB `universe`
   (plus separate `universe-insights`). Branding blobs: per-org private containers `org-<orgId>` via managed identity.
+
+## 2026-10-17 — Ranked country tiles + Stakeholders list fix
+- Ranked "Top countries of manufacture / Top delivery countries" tiles (`RankedTile` in `@universe/ui`) now sit above the maps on Logistics, Global Benchmark and Product Database; clicking a row focuses the map. Deployed.
+- Fixed empty Stakeholders list ("No stakeholders match these filters", 0 total): `partners/page.tsx` initialised the role/approval filters from `searchParams.get()` which returns `null` when absent, so the API was called with `roleType=null&approval=null` and matched nothing. Now falls back to `""`. Found by intercepting the page's own fetch (response was `{items:[],total:0}` with 200).
