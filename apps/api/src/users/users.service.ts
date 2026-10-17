@@ -134,9 +134,10 @@ export class UsersService {
    * of what's passed in organizationId — never trust a client-supplied
    * organization filter over the caller's own tenant.
    */
-  /** Simulated (scale-test) users are hidden unless asked for, or the caller works inside a demo organisation. */
+  /** Simulated (scale-test) users are hidden unless asked for, or the caller is a member of a demo organisation. */
   private hideSimulated(caller: RequestUser, includeSimulated?: boolean): { isSimulated?: false } {
-    return includeSimulated || caller.inDemoOrganization ? {} : { isSimulated: false };
+    // Platform staff see them only by choosing to; members of a demo organisation see them as part of the demo.
+    return includeSimulated || (caller.platformStaffRole === "NONE" && caller.inDemoOrganization) ? {} : { isSimulated: false };
   }
 
   /** @deprecated Capped at 500 — screens use findPage / counts / options. */
