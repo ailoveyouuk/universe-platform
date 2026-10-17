@@ -1,3 +1,4 @@
+import { NAMING } from "./_catalogue-naming";
 import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "../src/index";
 
@@ -172,7 +173,10 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
     const category = pick(PRODUCT_CATEGORIES);
     products.push({
       id,
-      name: `${pick(PRODUCT_NOUNS)}, ${pick(PRODUCT_SPEC)}, ${pick(PRODUCT_SPEC)} #${i + 1}`,
+      name: (() => {
+        const naming = NAMING[category];
+        return naming ? `${pick(naming.nouns)}, ${pick(naming.specs)}, ${pick(naming.specs)} #${i + 1}` : `${pick(PRODUCT_NOUNS)}, ${pick(PRODUCT_SPEC)} #${i + 1}`;
+      })(),
       category,
       sourceStandard: "SIM-SCALE",
       isSimulated: true,

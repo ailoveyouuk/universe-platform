@@ -1,3 +1,4 @@
+import { NAMING } from "./_catalogue-naming";
 import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, type TransportMode } from "../src/index";
 
 /**
@@ -104,6 +105,33 @@ async function applyGaps() {
     }
   }
   console.log(`Catalogue gaps ${dryRun ? "(would blank)" : "blanked"}:`, JSON.stringify(counts));
+}
+
+/** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
+async function fixNames() {
+  const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
+  const todo: { id: string; name: string }[] = [];
+  for (const r of rows) {
+    const naming = NAMING[r.category.split(".")[0]];
+    const suffix = /#(\d+)$/.exec(r.name)?.[1];
+    if (!naming || !suffix) continue;
+    const noun = r.name.split(",")[0];
+    if (naming.nouns.includes(noun)) continue; // already consistent (also makes re-runs a no-op)
+    const spec1 = pickBy(naming.specs, r.id + "n1");
+    let spec2 = pickBy(naming.specs, r.id + "n2");
+    if (spec2 === spec1) spec2 = naming.specs[(naming.specs.indexOf(spec1) + 1) % naming.specs.length];
+    todo.push({ id: r.id, name: `${pickBy(naming.nouns, r.id + "n0")}, ${spec1}, ${spec2} #${suffix}` });
+  }
+  console.log(`Names: ${todo.length} entries to rename (of ${rows.length})`);
+  if (dryRun) return;
+  for (const group of chunks(todo, 400)) {
+    const values = group.map((t) => {
+      if (!/^[0-9a-f-]{36}$/i.test(t.id)) throw new Error("Unexpected id");
+      return `('${t.id}',N'${t.name.replace(/'/g, "''")}')`;
+    });
+    await prisma.$executeRawUnsafe(`UPDATE p SET name = v.n FROM product_master p JOIN (VALUES ${values.join(",")}) AS v(id, n) ON p.id = v.id`);
+  }
+  console.log(`Names: renamed ${todo.length}`);
 }
 
 async function demoOrgId(): Promise<string> {
@@ -283,6 +311,7 @@ async function main() {
   await summary(orgId);
   await enrichCatalogue();
   await applyGaps();
+  await fixNames();
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);
