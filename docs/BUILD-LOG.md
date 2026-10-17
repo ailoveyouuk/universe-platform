@@ -6,6 +6,16 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Ring-fence extended: everything that exists today counts as simulated (Lewis)
+
+Lewis: everything in the system now is simulated (so it can serve as the benchmark/demo); a real organisation or user (anything not a demo stakeholder) must see everything except the simulated data.
+- Migration `20261017200000_simulated_existing_data`: `StakeholderRegistryEntry.isSimulated`; ALL existing product-catalogue rows (61 seeded HS_CODE/WHO_EML/GS1_GTIN/INTERNAL + 30,000 SIM-SCALE), ALL 34 stakeholder-registry entries, and the 4 pilot test organisations (Meridian Health Sourcing, Pacific Rim Medical Trading, Delta Procurement Partners, Continental Supply Co) flagged simulated. Only Universe Demo (demo) remains un-flagged among organisations.
+- Rule going forward: anything created from inside a demo organisation (including by platform staff switched into it) is flagged simulated — product create/import and stakeholder-registry create (`isSimulated: user.inDemoOrganization`); registry matching never merges across the flag. Real orgs/users create unflagged rows; demo contexts see both, real contexts only unflagged (catalogue, search, registry).
+- **Consequence:** a brand-new real organisation starts with an empty shared catalogue and registry (the seeded HS/WHO/GTIN reference rows are hidden too, since they were part of the test batch). Reversible per row (`isSimulated`); real reference data will need importing when real onboarding starts.
+- Loader dry-run now prints a read-only inventory of shared data; non-dry runs also flag users of simulated orgs. Ran: nothing further to mark.
+- **Owed by Lewis — separate insights database:** run `infra/sql/insights-simulated-flag.sql` in the Azure Query Editor against `universe-insights` (adds `isSimulated` to the three aggregated_* tables and flags every existing row). Claude then pushes the matching query change (real orgs read isSimulated = 0 only; demo reads both; ETL already excludes demo/simulated orgs). Held back deliberately so the API never queries a column that does not exist yet.
+- Test: `ring-fence.test.ts` extended for registry search/matching. CI + deploys green.
+
 ## 2026-10-17 — Ring-fencing the demo and simulated data from real organisations
 
 Lewis: the demo must stay in place but be fenced off from real organisations, users and data.
