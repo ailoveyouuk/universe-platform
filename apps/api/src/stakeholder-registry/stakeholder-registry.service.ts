@@ -55,6 +55,7 @@ export class StakeholderRegistryService {
     type: string | undefined,
     q: string | undefined,
     field?: "name" | "registrationNumber" | "vatNumber",
+    showSimulated = false,
   ): Promise<StakeholderRegistryMatch[]> {
     if (!q || q.trim().length < 2) return [];
     const trimmed = q.trim();
@@ -67,6 +68,7 @@ export class StakeholderRegistryService {
     const rows = await prisma.stakeholderRegistryEntry.findMany({
       where: {
         ...matchClause,
+        ...(showSimulated ? {} : { isSimulated: false }),
         ...(type ? { stakeholderTypes: { contains: `"${type}"` } } : {}),
       },
       include: { linkedOrganization: { include: { supplierProfile: true } } },
@@ -82,7 +84,7 @@ export class StakeholderRegistryService {
    * linked Organization's own self-published profile fields (their own
    * asserted public data, never another tenant's private assessment of
    * them, per the doc's explicit boundary). */
-  async getOne(id: string): Promise<StakeholderRegistryDetail | null> {
+  async getOne(id: string, showSimulated = false): Promise<StakeholderRegistryDetail | null> {
     const entry = await prisma.stakeholderRegistryEntry.findUnique({
       where: { id },
       include: {
@@ -91,7 +93,7 @@ export class StakeholderRegistryService {
         },
       },
     });
-    if (!entry) return null;
+    if (!entry || (entry.isSimulated && !showSimulated)) return null;
     const isPublic = this.isIdentityPublic(entry);
     return {
       ...this.toMatch(entry),
@@ -121,12 +123,12 @@ export class StakeholderRegistryService {
    * name itself. Never includes pricing (SupplierProduct doesn't carry
    * pricing at all — that only ever lives in a tenant's own
    * ProductSourceApproval/ProductPriceHistory). */
-  async getProducts(id: string): Promise<StakeholderRegistryProduct[]> {
+  async getProducts(id: string, showSimulated = false): Promise<StakeholderRegistryProduct[]> {
     const entry = await prisma.stakeholderRegistryEntry.findUnique({
       where: { id },
       include: { linkedOrganization: { include: { supplierProfile: true } } },
     });
-    if (!entry || !this.isIdentityPublic(entry) || !entry.linkedOrganizationId) return [];
+    if (!entry || (entry.isSimulated && !showSimulated) || !this.isIdentityPublic(entry) || !entry.linkedOrganizationId) return [];
 
     const products = await prisma.supplierProduct.findMany({
       where: { organizationId: entry.linkedOrganizationId, isPublished: true },
@@ -154,6 +156,8 @@ export class StakeholderRegistryService {
     registrationNumber?: string;
     vatNumber?: string;
     roleTypes: string[];
+    /** True when created from inside a demo organisation: such entries only ever match, and are only visible to, other demo activity. */
+    simulated?: boolean;
   }): Promise<string> {
     if (args.explicitRegistryEntryId) {
       await this.mergeStakeholderTypes(args.explicitRegistryEntryId, args.roleTypes);
@@ -173,20 +177,22 @@ export class StakeholderRegistryService {
     registrationNumber?: string;
     vatNumber?: string;
     roleTypes: string[];
+    simulated?: boolean;
   }): Promise<string> {
     const normalizedName = normalizeStakeholderName(args.name);
+    const flag = { isSimulated: args.simulated === true };
 
     let existing = args.registrationNumber
-      ? await prisma.stakeholderRegistryEntry.findFirst({ where: { registrationNumber: args.registrationNumber } })
+      ? await prisma.stakeholderRegistryEntry.findFirst({ where: { registrationNumber: args.registrationNumber, ...flag } })
       : null;
 
     if (!existing && args.vatNumber) {
-      existing = await prisma.stakeholderRegistryEntry.findFirst({ where: { vatNumber: args.vatNumber } });
+      existing = await prisma.stakeholderRegistryEntry.findFirst({ where: { vatNumber: args.vatNumber, ...flag } });
     }
 
     if (!existing) {
       existing = await prisma.stakeholderRegistryEntry.findFirst({
-        where: { normalizedName, ...(args.countryCode ? { countryCode: args.countryCode } : {}) },
+        where: { normalizedName, ...flag, ...(args.countryCode ? { countryCode: args.countryCode } : {}) },
       });
     }
 
@@ -203,6 +209,7 @@ export class StakeholderRegistryService {
         registrationNumber: args.registrationNumber,
         vatNumber: args.vatNumber,
         stakeholderTypes: JSON.stringify(args.roleTypes),
+        ...flag,
       },
     });
     return created.id;

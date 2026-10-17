@@ -44,6 +44,7 @@ async function markSimulated() {
   return withPlatformStaffContext(async (tx) => ({
     organisations: (await tx.organization.updateMany({ where: { slug: { startsWith: "sim-" }, isSimulated: false }, data: { isSimulated: true } })).count,
     users: (await tx.user.updateMany({ where: { email: { endsWith: "@sim.example" }, isSimulated: false }, data: { isSimulated: true } })).count,
+    usersOfSimulatedOrgs: (await tx.user.updateMany({ where: { organization: { isSimulated: true }, isSimulated: false }, data: { isSimulated: true } })).count,
     products: (await tx.productMaster.updateMany({ where: { sourceStandard: "SIM-SCALE", isSimulated: false }, data: { isSimulated: true } })).count,
   }));
 }

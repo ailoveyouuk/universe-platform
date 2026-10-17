@@ -418,6 +418,7 @@ export class PartnersService {
       registrationNumber: dto.companyRegistrationNumber,
       vatNumber: dto.vatNumber,
       roleTypes: dto.roleTypes,
+      simulated: user.inDemoOrganization === true,
     });
 
     const p = await withTenantContext(user.organizationId, async (tx) => {

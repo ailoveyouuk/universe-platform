@@ -2167,6 +2167,8 @@ model TenderingBodyProfile {
 
 /// See the section header comment above for the full design rationale.
 model StakeholderRegistryEntry {
+  /// Simulated (demo) registry entry (2026-10-17): only visible to, and only matched by, activity inside a demo organisation.
+  isSimulated Boolean @default(false)
   id                   String        @id @default(uuid())
   /// Same normalize() convention as Partner.normalizedName (lowercased,
   /// legal-suffix-stripped) — the primary fuzzy-matching key.

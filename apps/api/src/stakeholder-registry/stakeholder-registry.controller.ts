@@ -1,5 +1,7 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
+import type { RequestUser } from "../auth/entra-auth.guard";
+import { CurrentUser } from "../common/current-user.decorator";
 import { StakeholderRegistryService } from "./stakeholder-registry.service";
 
 /**
@@ -16,20 +18,21 @@ export class StakeholderRegistryController {
 
   @Get("search")
   search(
+    @CurrentUser() user: RequestUser,
     @Query("type") type?: string,
     @Query("q") q?: string,
     @Query("field") field?: "name" | "registrationNumber" | "vatNumber",
   ) {
-    return this.stakeholderRegistryService.search(type, q, field);
+    return this.stakeholderRegistryService.search(type, q, field, user.inDemoOrganization === true);
   }
 
   @Get(":id")
-  getOne(@Param("id") id: string) {
-    return this.stakeholderRegistryService.getOne(id);
+  getOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.stakeholderRegistryService.getOne(id, user.inDemoOrganization === true);
   }
 
   @Get(":id/products")
-  getProducts(@Param("id") id: string) {
-    return this.stakeholderRegistryService.getProducts(id);
+  getProducts(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.stakeholderRegistryService.getProducts(id, user.inDemoOrganization === true);
   }
 }

@@ -5,6 +5,7 @@ import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { ProductCatalogService } from "../src/product-catalog/product-catalog.service";
 import { OrganizationsService } from "../src/organizations/organizations.service";
 import { UsersService } from "../src/users/users.service";
+import { StakeholderRegistryService } from "../src/stakeholder-registry/stakeholder-registry.service";
 
 /** Ring-fence: simulated (scale-test) data never reaches real organisations (2026-10-17). */
 describe("Simulated data ring-fence", () => {
@@ -12,6 +13,9 @@ describe("Simulated data ring-fence", () => {
   const catalog = new ProductCatalogService();
   const orgs = new OrganizationsService();
   const users = new UsersService();
+  const registry = new StakeholderRegistryService();
+  let realEntry: string;
+  let simEntry: string;
   let realOrg: string;
   let simOrg: string;
   let realProduct: string;
@@ -43,6 +47,8 @@ describe("Simulated data ring-fence", () => {
       await tx.organization.update({ where: { id: simOrg }, data: { isSimulated: true } });
       realProduct = (await tx.productMaster.create({ data: { name: `RingTest real ${suffix}`, category: "Diagnostics" } })).id;
       simProduct = (await tx.productMaster.create({ data: { name: `RingTest sim ${suffix}`, category: "Diagnostics", sourceStandard: "SIM-SCALE", isSimulated: true } })).id;
+      realEntry = (await tx.stakeholderRegistryEntry.create({ data: { normalizedName: `ringco${suffix}`, legalName: `RingCo ${suffix}`, stakeholderTypes: '["SUPPLIER"]' } })).id;
+      simEntry = (await tx.stakeholderRegistryEntry.create({ data: { normalizedName: `ringsimco${suffix}`, legalName: `RingCo Sim ${suffix}`, stakeholderTypes: '["SUPPLIER"]', isSimulated: true } })).id;
       realUser = (await tx.user.create({ data: { organizationId: realOrg, email: `real-${suffix}@example.com`, forename: "Real", surname: "Ring" } })).id;
       simUser = (await tx.user.create({ data: { organizationId: realOrg, email: `sim-${suffix}@sim.example`, forename: "Sim", surname: "Ring", isSimulated: true } })).id;
     });
@@ -51,6 +57,7 @@ describe("Simulated data ring-fence", () => {
   afterAll(async () => {
     await withPlatformStaffContext(async (tx) => {
       await tx.user.deleteMany({ where: { id: { in: [realUser, simUser] } } });
+      await tx.stakeholderRegistryEntry.deleteMany({ where: { id: { in: [realEntry, simEntry] } } });
       await tx.productMaster.deleteMany({ where: { id: { in: [realProduct, simProduct] } } });
       await tx.rolePermission.deleteMany({ where: { role: { organizationId: { in: [realOrg, simOrg] } } } });
       await tx.role.deleteMany({ where: { organizationId: { in: [realOrg, simOrg] } } });
@@ -89,5 +96,17 @@ describe("Simulated data ring-fence", () => {
     expect(all.items.map((u) => u.id)).toContain(simUser);
     expect((await users.counts(staff(), realOrg, false)).total).toBe(1);
     expect((await users.counts(staff(), realOrg, true)).total).toBe(2);
+  });
+
+  it("keeps simulated stakeholder-registry entries out of real organisations' searches and matching", async () => {
+    const real = await registry.search(undefined, `RingCo`, "name", false);
+    expect(real.map((r) => r.id)).toEqual([realEntry]);
+    const demo = await registry.search(undefined, `RingCo`, "name", true);
+    expect(demo.map((r) => r.id).sort()).toEqual([realEntry, simEntry].sort());
+    expect(await registry.getOne(simEntry, false)).toBeNull();
+    // A demo-side stakeholder with the same name never merges into a real entry, nor the reverse.
+    const demoId = await registry.resolveForPartnerCreate({ name: `RingCo ${suffix}`, roleTypes: ["SUPPLIER"], simulated: true });
+    expect(demoId).not.toBe(realEntry);
+    await withPlatformStaffContext((tx) => tx.stakeholderRegistryEntry.deleteMany({ where: { id: demoId } }));
   });
 });
