@@ -19,3 +19,4 @@ if (process.env.NODE_ENV !== "production") {
 export * from "../generated/client";
 export * from "./aggregate-etl";
 export * from "./query";
+export * from "./simulated-aggregates";

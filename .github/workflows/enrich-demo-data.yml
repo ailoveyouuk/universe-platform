@@ -1,0 +1,33 @@
+name: Enrich demo data
+
+# Manual run (2026-10-17). Fills blank identifiers (GTIN, HS, UNSPSC, unit,
+# part number) on simulated catalogue entries, adds product source approvals,
+# and recomputes logistics / CO2 metrics for the Universe Demo organisation.
+# Fills blanks only - never overwrites a value, never deletes. DRY RUN by
+# default. Uses the same DEMO_LOAD_DATABASE_URL secret as the scale-data load.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (writes nothing). Untick to actually enrich."
+        default: true
+        type: boolean
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Enrich (or dry run)
+        run: npm run enrich:demo --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

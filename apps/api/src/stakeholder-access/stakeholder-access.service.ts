@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ensureStakeholderDemoRole, STAKEHOLDER_DEMO_ROLE_NAME, withPlatformStaffContext } from "@universe/db";
 import type { StakeholderAccessOverview, UserSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { seedSimulatedAggregates } from "@universe/insights-db";
 import { assertPlatformStaff } from "../common/authorization";
 import { UsersService } from "../users/users.service";
 import type { GrantStakeholderAccessDto } from "./dto/grant-stakeholder-access.dto";
@@ -33,6 +34,11 @@ export class StakeholderAccessService {
       organizationName: org.name,
       users: all.filter((u) => u.roleNames.includes(STAKEHOLDER_DEMO_ROLE_NAME)),
     };
+  }
+
+  async seedDemoBenchmarks(caller: RequestUser) {
+    assertPlatformStaff(caller);
+    return seedSimulatedAggregates();
   }
 
   async grant(caller: RequestUser, dto: GrantStakeholderAccessDto): Promise<UserSummary> {
