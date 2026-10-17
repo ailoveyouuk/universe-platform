@@ -6,6 +6,20 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Demo data enrichment: catalogue identifiers, sourcing, logistics & CO2 (Lewis)
+
+Lewis, reviewing the live demo: nearly all products lacked GTIN / HS / UNSPSC / unit / country of manufacture, and most lines had no usable CO2 / distance / logistics data. No hard deletes ("let's not hard delete anything at the moment").
+- `packages/db/scripts/enrich-demo-data.ts` + workflow `enrich-demo-data.yml` (DRY_RUN default true; fills NULLs only, never overwrites or deletes). Run live (dry run first):
+  - Catalogue: all 30,060 simulated entries now have GTIN-13 (valid check digit, prefix 506), HS code, UNSPSC code, standard unit and manufacturer part number, by category (completeness tiles now show 0 missing).
+  - Source approvals in the Demo org: 818 → 9,012 (6,650 approved) so country of manufacture is populated.
+  - Logistics: every one of the 5,564 demo lines now has a `ProjectLineLogisticsMetric` (was 3,330), recomputed with the platform's `computeLogisticsMetric` (real centroid distances, GLEC-aligned factors; the generator's earlier random distances were replaced via update). 2,375 have delivery duration. Missing delivery country / mode / incoterm / line weights / manufacture countries were filled. **485 simulated projects switched from LAND to SEA** (road between continents is not credible).
+- Benchmark views (Logistics routes, pricing, sourcing map) read `universe-insights`, which has no simulated rows yet. `packages/insights-db/src/simulated-aggregates.ts` (`seedSimulatedAggregates`, rows flagged `isSimulated`, synthetic source hashes, cohort floor respected, adds rows only, skips tables that already have simulated rows) + workflow `seed-demo-benchmarks.yml`. An API endpoint was tried and removed: the API's insights login is read-only by design (INSERT denied).
+- **Owed by Lewis:** repository secret `INSIGHTS_LOAD_DATABASE_URL` (universeadmin connection string for `universe-insights`); then Claude runs `seed-demo-benchmarks`.
+- Known cosmetic: generated product names are noun/spec combinations (e.g. "bandage, 10 mL"), unrelated to their category.
+- Verified live: Product Database completeness tiles all 0 missing; enrichment run summary above.
+
+---
+
 ## 2026-10-17 — Ring-fence extended: everything that exists today counts as simulated (Lewis)
 
 Lewis: everything in the system now is simulated (so it can serve as the benchmark/demo); a real organisation or user (anything not a demo stakeholder) must see everything except the simulated data.
