@@ -91,7 +91,8 @@ export async function seedSimulatedAggregates() {
         }
       }
     }
-    for (const c of chunks(rows, 500)) await insightsPrisma.aggregatedLogisticsMetric.createMany({ data: c });
+    // SQL Server allows ~2,100 parameters per statement, so keep rows x columns under that.
+    for (const c of chunks(rows, 120)) await insightsPrisma.aggregatedLogisticsMetric.createMany({ data: c });
     result.logistics = rows.length;
   }
 
@@ -127,7 +128,7 @@ export async function seedSimulatedAggregates() {
         }
       }
     }
-    for (const c of chunks(rows, 500)) await insightsPrisma.aggregatedProductPrice.createMany({ data: c });
+    for (const c of chunks(rows, 150)) await insightsPrisma.aggregatedProductPrice.createMany({ data: c });
     result.pricing = rows.length;
   }
 
@@ -145,7 +146,7 @@ export async function seedSimulatedAggregates() {
         }
       }
     }
-    for (const c of chunks(rows, 500)) await insightsPrisma.aggregatedProductSourcing.createMany({ data: c });
+    for (const c of chunks(rows, 400)) await insightsPrisma.aggregatedProductSourcing.createMany({ data: c });
     result.sourcing = rows.length;
   }
   return result;
