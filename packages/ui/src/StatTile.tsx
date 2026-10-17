@@ -35,6 +35,8 @@ export function StatTile({
   tone = "brand",
   active,
   onClick,
+  note,
+  indicator,
 }: {
   label: string;
   value: number | string | undefined;
@@ -45,6 +47,10 @@ export function StatTile({
   /** When set, the tile renders as a `<button>` and applies a filter in place
    * rather than relying on an outer `<Link>` for navigation. */
   onClick?: () => void;
+  /** Small qualifier shown before the figure, e.g. "approx." */
+  note?: string;
+  /** Colour-coded quick-read indicator under the figure (e.g. a score band); `fraction` (0–1) fills a thin gauge. */
+  indicator?: { color: string; label: string; fraction?: number };
 }) {
   const color = TONE_COLORS[tone];
   const Tag = (onClick ? "button" : "div") as "button" | "div";
@@ -71,9 +77,25 @@ export function StatTile({
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
         <span style={{ color, display: "flex" }}>{icon}</span>
       </div>
-      <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
-        {value === undefined ? "—" : value}
+      <span style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+        {note && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{note}</span>}
+        <span style={{ fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>
+          {value === undefined ? "—" : value}
+        </span>
       </span>
+      {indicator && (
+        <span style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {indicator.fraction !== undefined && (
+            <span aria-hidden style={{ display: "block", height: 6, borderRadius: "var(--u-radius-pill)", backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
+              <span style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.color, borderRadius: "var(--u-radius-pill)" }} />
+            </span>
+          )}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: indicator.color }}>
+            <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: indicator.color }} />
+            {indicator.label}
+          </span>
+        </span>
+      )}
     </Tag>
   );
 }

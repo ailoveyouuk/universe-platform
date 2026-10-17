@@ -43,7 +43,7 @@ const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
  * data (plain tenant-scoped read via /logistics-insights/lines) — see
  * supply-chain-co2-efficiency.md for the full methodology.
  *
- * The world map below the 4 stat tiles is different: it's the anonymized,
+ * The world map below the 4 stat tiles is different: it's the anonymised,
  * cross-tenant benchmark (AggregatedLogisticsMetric via
  * getGlobalLogisticsRoutes — never this organization's own tenant data
  * directly, same MINIMUM_COHORT_SIZE floor as everywhere else that reads
@@ -54,6 +54,17 @@ const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
  * standalone /logistics/global page (route list, filters, stakeholder
  * ratings) still exists for deeper benchmarking, linked from below the map.
  */
+/** Compact "approx." figures for the stat tiles: 35,504,994 km → 35.5M km; 8,405,129 kg → 8,405 t. */
+function compactKm(km: number): string {
+  if (km >= 1_000_000) return `${(km / 1_000_000).toFixed(1)}M km`;
+  if (km >= 10_000) return `${Math.round(km / 1_000).toLocaleString()}k km`;
+  return `${Math.round(km).toLocaleString()} km`;
+}
+function compactCo2(kg: number): string {
+  if (kg >= 10_000) return `${Math.round(kg / 1_000).toLocaleString()} t`;
+  return `${Math.round(kg).toLocaleString()} kg`;
+}
+
 export default function LogisticsPage() {
   const countries = useCountries();
   // Server-paged with database-computed totals (2026-10-17, scale work).
@@ -226,7 +237,7 @@ export default function LogisticsPage() {
           <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6, maxWidth: 680 }}>
             Manufacture-to-delivery distance, approximate CO2 (GLEC-Framework-aligned), and a 1–10
             efficiency/CO2-impact score per project line — this organisation&apos;s own data only.
-            The map below is the anonymized, cross-platform benchmark against other organisations.
+            The map below is the anonymised, cross-platform benchmark against other organisations.
           </p>
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <StandardsReference
@@ -241,14 +252,20 @@ export default function LogisticsPage() {
       {totals && (
         <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
           <StatTile label="Lines" value={totals.count} icon={<ProjectsIcon size={18} />} tone="neutral" />
-          <StatTile label="Total distance" value={`${Math.round(totals.totalDistance).toLocaleString()} km`} icon={<TrendingUpIcon size={18} />} tone="neutral" />
-          <StatTile label="Total CO2e" value={`${Math.round(totals.totalCo2).toLocaleString()} kg`} icon={<AlertIcon size={18} />} tone="warning" />
-          <StatTile label="Avg. efficiency score" value={`${totals.avgScore.toFixed(1)} / 10`} icon={<GaugeIcon size={18} />} tone="brand" />
+          <StatTile label="Total distance" note="approx." value={compactKm(totals.totalDistance)} icon={<TrendingUpIcon size={18} />} tone="neutral" />
+          <StatTile label="Total CO2e" note="approx." value={compactCo2(totals.totalCo2)} icon={<AlertIcon size={18} />} tone="warning" />
+          <StatTile
+            label="Avg. efficiency score"
+            value={`${totals.avgScore.toFixed(1)}/10`}
+            icon={<GaugeIcon size={18} />}
+            tone="brand"
+            indicator={{ color: SCORE_BAND_COLORS[bandForScore(totals.avgScore)], label: { RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[bandForScore(totals.avgScore)] ?? "", fraction: totals.avgScore / 10 }}
+          />
         </div>
       )}
 
       <section style={{ marginBottom: 28 }}>
-        <h2 style={{ fontSize: 18, margin: "0 0 10px", color: "var(--u-ink)" }}>Global benchmark (anonymized)</h2>
+        <h2 style={{ fontSize: 18, margin: "0 0 10px", color: "var(--u-ink)" }}>Global benchmark (anonymised)</h2>
         <div style={{ marginBottom: 16 }}>
           <RankedTileGrid>
             <RankedTile

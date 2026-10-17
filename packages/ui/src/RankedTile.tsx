@@ -22,6 +22,9 @@ export interface RankedRow {
   detail?: string;
 }
 
+/** Opacity for rank n (0-based): full for #1, stepping down evenly to 0.4 at #5; later ranks stay at the floor. */
+const rankOpacity = (i: number, limit: number) => Math.max(0.4, 1 - (i * 0.6) / Math.max(limit - 1, 1));
+
 export function RankedTile({
   label,
   icon,
@@ -95,11 +98,11 @@ export function RankedTile({
                   color: "var(--u-ink)",
                 }}
               >
-                <span style={{ fontFamily: "var(--u-font-display)", fontSize: 13, fontWeight: 700, color: i === 0 ? tone : "var(--u-ink-secondary)" }}>{i + 1}</span>
+                <span style={{ fontFamily: "var(--u-font-display)", fontSize: 13, fontWeight: 700, color: i === 0 ? tone : "var(--u-ink-secondary)", opacity: i === 0 ? 1 : Math.max(0.6, rankOpacity(i, limit) + 0.2) }}>{i + 1}</span>
                 <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</span>
                   <span style={{ display: "flex", height: 6, borderRadius: "var(--u-radius-pill)", backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }} aria-hidden>
-                    <span style={{ display: "flex", width: `${Math.max(3, (row.value / max) * 100)}%`, borderRadius: "var(--u-radius-pill)", overflow: "hidden" }}>
+                    <span style={{ display: "flex", width: `${Math.max(3, (row.value / max) * 100)}%`, borderRadius: "var(--u-radius-pill)", overflow: "hidden", opacity: rankOpacity(i, limit) }}>
                       {row.segments && row.segments.length > 0
                         ? row.segments.map((seg, s) => <span key={s} title={seg.label} style={{ flexGrow: Math.max(seg.value, 0), flexBasis: 0, backgroundColor: seg.color }} />)
                         : <span style={{ flex: 1, backgroundColor: row.color }} />}
