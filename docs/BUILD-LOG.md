@@ -14,9 +14,10 @@ Lewis, reviewing the live demo: nearly all products lacked GTIN / HS / UNSPSC / 
   - Source approvals in the Demo org: 818 → 9,012 (6,650 approved) so country of manufacture is populated.
   - Logistics: every one of the 5,564 demo lines now has a `ProjectLineLogisticsMetric` (was 3,330), recomputed with the platform's `computeLogisticsMetric` (real centroid distances, GLEC-aligned factors; the generator's earlier random distances were replaced via update). 2,375 have delivery duration. Missing delivery country / mode / incoterm / line weights / manufacture countries were filled. **485 simulated projects switched from LAND to SEA** (road between continents is not credible).
 - Benchmark views (Logistics routes, pricing, sourcing map) read `universe-insights`, which has no simulated rows yet. `packages/insights-db/src/simulated-aggregates.ts` (`seedSimulatedAggregates`, rows flagged `isSimulated`, synthetic source hashes, cohort floor respected, adds rows only, skips tables that already have simulated rows) + workflow `seed-demo-benchmarks.yml`. An API endpoint was tried and removed: the API's insights login is read-only by design (INSERT denied).
-- **Owed by Lewis:** repository secret `INSIGHTS_LOAD_DATABASE_URL` (universeadmin connection string for `universe-insights`); then Claude runs `seed-demo-benchmarks`.
+- Benchmarks seeded (Lewis added secret `INSIGHTS_LOAD_DATABASE_URL`; workflow `seed-demo-benchmarks`): 4,315 pricing + 6,790 logistics + 1,807 sourcing simulated rows (the "already seeded" check is now a 1,000-row threshold, since earlier test rows were flagged simulated too). Verified live: Product Database sourcing map and the Project Management global benchmark map show data.
+- Realism (Lewis, same evening — 100% completeness looked unrealistic): a deterministic small share of simulated catalogue entries is left blank — GTIN 7%, HS 4%, UNSPSC 6%, unit 3%, part number 14% (live: 2,074 / 1,181 / 1,821 / 823 missing). Re-runs keep the same gaps. Workflow input `only=catalogue` re-runs just the catalogue steps.
 - Known cosmetic: generated product names are noun/spec combinations (e.g. "bandage, 10 mL"), unrelated to their category.
-- Verified live: Product Database completeness tiles all 0 missing; enrichment run summary above.
+- Verified live: completeness tiles show the gaps above; enrichment run summary above.
 
 ---
 
