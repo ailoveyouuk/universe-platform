@@ -150,7 +150,7 @@ export class LogisticsInsightsService {
     });
   }
 
-  async getGlobalRoutes(filters: LogisticsFilters): Promise<LogisticsRouteSummary[]> {
+  async getGlobalRoutes(filters: LogisticsFilters, showSimulated = false): Promise<LogisticsRouteSummary[]> {
     const rows = await getAggregatedLogisticsRoutes({
       manufactureCountryCode: filters.manufactureCountryCode,
       destinationCountryCode: filters.destinationCountryCode,
@@ -159,7 +159,7 @@ export class LogisticsInsightsService {
       commodityGroup: filters.commodityGroup,
       minDurationDays: filters.minDurationDays,
       maxDurationDays: filters.maxDurationDays,
-    });
+    }, showSimulated);
     return rows.map((r) => ({
       manufactureCountryCode: r.manufactureCountryCode,
       destinationCountryCode: r.destinationCountryCode,
@@ -175,7 +175,7 @@ export class LogisticsInsightsService {
     }));
   }
 
-  async getGlobalStakeholderRatings(): Promise<StakeholderRatingBucket[]> {
-    return getStakeholderRatingDistribution();
+  async getGlobalStakeholderRatings(showSimulated = false): Promise<StakeholderRatingBucket[]> {
+    return getStakeholderRatingDistribution(showSimulated);
   }
 }

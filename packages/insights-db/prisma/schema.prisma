@@ -97,6 +97,8 @@ model AggregatedProductPrice {
   quantity          Int?
   unitOfSupply      String?
   sourceHash        String
+  /// Ring-fence flag: simulated/demo rows only surface to demo-organisation requests.
+  isSimulated       Boolean  @default(false)
   createdAt         DateTime @default(now())
 
   @@index([category, effectiveMonth])
@@ -153,6 +155,7 @@ model AggregatedLogisticsMetric {
   scoreBand              String
   effectiveMonth         DateTime
   sourceHash             String
+  isSimulated            Boolean  @default(false)
   createdAt              DateTime @default(now())
 
   @@index([manufactureCountryCode, destinationCountryCode])
@@ -196,6 +199,7 @@ model AggregatedProductSourcing {
   category               String
   manufactureCountryCode String?
   sourceHash             String
+  isSimulated            Boolean  @default(false)
   createdAt              DateTime @default(now())
 
   @@index([category, manufactureCountryCode])

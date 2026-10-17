@@ -13,8 +13,8 @@ import type { ProductSourcingSummary } from "@universe/types";
  */
 @Injectable()
 export class ProductSourcingInsightsService {
-  async getGlobalSourcing(): Promise<ProductSourcingSummary[]> {
-    const rows = await getAggregatedProductSourcing();
+  async getGlobalSourcing(showSimulated = false): Promise<ProductSourcingSummary[]> {
+    const rows = await getAggregatedProductSourcing(showSimulated);
     return rows.map((r) => ({
       category: r.category,
       manufactureCountryCode: r.manufactureCountryCode,

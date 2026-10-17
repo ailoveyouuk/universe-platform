@@ -1,5 +1,7 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
+import { CurrentUser } from "../common/current-user.decorator";
+import type { RequestUser } from "../auth/entra-auth.guard";
 import { ProductSourcingInsightsService } from "./product-sourcing-insights.service";
 
 /**
@@ -15,7 +17,7 @@ export class ProductSourcingInsightsController {
   constructor(private readonly productSourcingInsightsService: ProductSourcingInsightsService) {}
 
   @Get("global")
-  getGlobalSourcing() {
-    return this.productSourcingInsightsService.getGlobalSourcing();
+  getGlobalSourcing(@CurrentUser() user: RequestUser) {
+    return this.productSourcingInsightsService.getGlobalSourcing(user.inDemoOrganization === true);
   }
 }

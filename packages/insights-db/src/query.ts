@@ -36,7 +36,7 @@ export interface CategoryPricingSummary {
  * (Universe doesn't do FX conversion anywhere yet — a real gap if/when this
  * is built out further).
  */
-export async function getAggregatedPricing(category: string): Promise<CategoryPricingSummary[]> {
+export async function getAggregatedPricing(category: string, showSimulated = false): Promise<CategoryPricingSummary[]> {
   const rows = await insightsPrisma.$queryRaw<
     {
       destinationRegion: string | null;
@@ -61,7 +61,7 @@ export async function getAggregatedPricing(category: string): Promise<CategoryPr
       MAX(unitPrice) AS maxPrice,
       AVG(unitPrice) AS avgPrice
     FROM aggregated_product_prices
-    WHERE category = ${category}
+    WHERE category = ${category}${showSimulated ? Prisma.empty : Prisma.sql` AND isSimulated = 0`}
     GROUP BY destinationRegion, manufactureRegion, incoterm, effectiveMonth, currency
     HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
     ORDER BY effectiveMonth DESC
@@ -108,7 +108,7 @@ export interface LogisticsRouteSummary {
  * and leaves ordering to the caller rather than two near-duplicate
  * queries.
  */
-export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilters = {}): Promise<LogisticsRouteSummary[]> {
+export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilters = {}, showSimulated = false): Promise<LogisticsRouteSummary[]> {
   // Fixed 2026-10-09 — this previously used $queryRawUnsafe with
   // hand-rolled "@P1"-style positional placeholders, which 500'd in
   // production (confirmed live: both this page's embedded map and the
@@ -120,6 +120,7 @@ export async function getAggregatedLogisticsRoutes(filters: LogisticsRouteFilter
   // the variable-length WHERE clause) rather than hand-building SQL text
   // and a separate positional-params array.
   const conditions: Prisma.Sql[] = [];
+  if (!showSimulated) conditions.push(Prisma.sql`isSimulated = 0`);
 
   if (filters.manufactureCountryCode) {
     conditions.push(Prisma.sql`manufactureCountryCode = ${filters.manufactureCountryCode}`);
@@ -201,7 +202,7 @@ export interface ProductSourcingSummary {
  * behind that count), same shipmentCount/sourceCount split
  * getAggregatedLogisticsRoutes already uses.
  */
-export async function getAggregatedProductSourcing(): Promise<ProductSourcingSummary[]> {
+export async function getAggregatedProductSourcing(showSimulated = false): Promise<ProductSourcingSummary[]> {
   const rows = await insightsPrisma.$queryRaw<
     {
       category: string;
@@ -216,6 +217,7 @@ export async function getAggregatedProductSourcing(): Promise<ProductSourcingSum
       COUNT(DISTINCT sourceHash) AS sourceCount,
       COUNT(*) AS approvalCount
     FROM aggregated_product_sourcing
+    ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
     GROUP BY category, manufactureCountryCode
     HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
     ORDER BY approvalCount DESC

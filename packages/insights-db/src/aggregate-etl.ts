@@ -246,9 +246,9 @@ function bandFor(score: number): string {
   return "GREEN";
 }
 
-export async function getStakeholderRatingDistribution(): Promise<StakeholderRatingBucket[]> {
+export async function getStakeholderRatingDistribution(showSimulated = false): Promise<StakeholderRatingBucket[]> {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
-    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } }, select: { organizationId: true } });
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, ...(showSimulated ? {} : { organization: { isDemo: false, isSimulated: false } }) }, select: { organizationId: true } });
     return rows.map((r) => r.organizationId);
   });
 

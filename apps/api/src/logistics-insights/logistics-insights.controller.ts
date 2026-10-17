@@ -50,12 +50,12 @@ export class LogisticsInsightsController {
   }
 
   @Get("global/routes")
-  getGlobalRoutes(@Query() query: Record<string, unknown>) {
-    return this.logisticsInsightsService.getGlobalRoutes(filtersFromQuery(query));
+  getGlobalRoutes(@CurrentUser() user: RequestUser, @Query() query: Record<string, unknown>) {
+    return this.logisticsInsightsService.getGlobalRoutes(filtersFromQuery(query), user.inDemoOrganization === true);
   }
 
   @Get("global/stakeholder-ratings")
-  getGlobalStakeholderRatings() {
-    return this.logisticsInsightsService.getGlobalStakeholderRatings();
+  getGlobalStakeholderRatings(@CurrentUser() user: RequestUser) {
+    return this.logisticsInsightsService.getGlobalStakeholderRatings(user.inDemoOrganization === true);
   }
 }
