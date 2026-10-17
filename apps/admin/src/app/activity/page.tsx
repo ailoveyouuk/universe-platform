@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { FieldChangeFeedEntry, OrganizationSummary } from "@universe/types";
 import { Button, Select } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { IncludeSimulatedToggle } from "../../components/IncludeSimulatedToggle";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { Notice } from "../../components/form";
 
@@ -32,21 +33,22 @@ export default function ActivityPage() {
   const [orgs, setOrgs] = useState<OrganizationSummary[]>([]);
   const [orgId, setOrgId] = useState("");
   const [table, setTable] = useState("");
+  const [includeSimulated, setIncludeSimulated] = useState(false);
   const [entries, setEntries] = useState<FieldChangeFeedEntry[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isPlatform) apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
-  }, [isPlatform]);
+    if (isPlatform) apiClient.listOrganizations(includeSimulated).then(setOrgs).catch(() => setOrgs([]));
+  }, [isPlatform, includeSimulated]);
 
   useEffect(() => {
     if (!me) return;
     setEntries(null);
     setError(null);
     apiClient
-      .getActivityFeed({ organizationId: orgId, tableName: table })
+      .getActivityFeed({ organizationId: orgId, tableName: table, includeSimulated })
       .then((p) => {
         setEntries(p.entries);
         setNext(p.nextBefore);
@@ -55,13 +57,13 @@ export default function ActivityPage() {
         setEntries([]);
         setError(e instanceof Error ? e.message : "Failed to load activity");
       });
-  }, [me, orgId, table]);
+  }, [me, orgId, table, includeSimulated]);
 
   async function more() {
     if (!next) return;
     setLoadingMore(true);
     try {
-      const p = await apiClient.getActivityFeed({ organizationId: orgId, tableName: table, before: next });
+      const p = await apiClient.getActivityFeed({ organizationId: orgId, tableName: table, before: next, includeSimulated });
       setEntries((prev) => [...(prev ?? []), ...p.entries]);
       setNext(p.nextBefore);
     } catch (e) {
@@ -87,6 +89,7 @@ export default function ActivityPage() {
         <div style={{ minWidth: 200 }}>
           <Select value={table} onChange={setTable} allLabel="All record types" options={TABLES} ariaLabel="Record type" />
         </div>
+        {isPlatform && <IncludeSimulatedToggle checked={includeSimulated} onChange={setIncludeSimulated} />}
       </div>
 
       {error && <Notice tone="error">{error}</Notice>}

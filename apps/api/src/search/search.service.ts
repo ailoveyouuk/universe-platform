@@ -58,7 +58,7 @@ export class SearchService {
 
     // The shared catalogue has no tenant column, so it is read directly.
     const products = await prisma.productMaster.findMany({
-      where: { OR: [{ name: { contains: q } }, { hsCode: { contains: q } }, { gtin: { contains: q } }] },
+      where: { OR: [{ name: { contains: q } }, { hsCode: { contains: q } }, { gtin: { contains: q } }], ...(user.inDemoOrganization ? {} : { isSimulated: false }) },
       select: { id: true, name: true, category: true },
       orderBy: { name: "asc" },
       take: PER_GROUP,

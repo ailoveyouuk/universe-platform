@@ -25,8 +25,9 @@ export class AuditLogController {
     @Query("changedById") changedById?: string,
     @Query("before") before?: string,
     @Query("limit") limit?: string,
+    @Query("includeSimulated") includeSimulated?: string,
   ) {
-    return this.auditLogService.feed(user, { organizationId, tableName, changedById, before, limit: limit ? Number(limit) : undefined });
+    return this.auditLogService.feed(user, { organizationId, tableName, changedById, before, limit: limit ? Number(limit) : undefined, includeSimulated: includeSimulated === "true" });
   }
 
   @Get()

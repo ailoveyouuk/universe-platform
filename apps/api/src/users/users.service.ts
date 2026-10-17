@@ -134,6 +134,11 @@ export class UsersService {
    * of what's passed in organizationId — never trust a client-supplied
    * organization filter over the caller's own tenant.
    */
+  /** Simulated (scale-test) users are hidden unless asked for, or the caller works inside a demo organisation. */
+  private hideSimulated(caller: RequestUser, includeSimulated?: boolean): { isSimulated?: false } {
+    return includeSimulated || caller.inDemoOrganization ? {} : { isSimulated: false };
+  }
+
   /** @deprecated Capped at 500 — screens use findPage / counts / options. */
   async findAll(caller: RequestUser, organizationId?: string): Promise<UserSummary[]> {
     const scopedOrgId = caller.platformStaffRole !== "NONE" ? organizationId : caller.organizationId;
@@ -146,7 +151,7 @@ export class UsersService {
         return self ? [toSummary(self)] : [];
       }
       const users = await tx.user.findMany({
-        where: scopedOrgId ? { organizationId: scopedOrgId } : undefined,
+        where: { ...(scopedOrgId ? { organizationId: scopedOrgId } : {}), ...this.hideSimulated(caller) },
         include,
         orderBy: { invitedAt: "desc" },
         take: 500,
@@ -159,7 +164,7 @@ export class UsersService {
    * (2026-10-17, scale work). Replaces loading every user for the Admin Users screen. */
   async findPage(
     caller: RequestUser,
-    q: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string },
+    q: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string; includeSimulated?: boolean },
   ): Promise<PagedResult<UserSummary>> {
     const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
     const page = Math.max(Math.floor(q.page ?? 1), 1);
@@ -169,6 +174,7 @@ export class UsersService {
     const term = q.q?.trim();
     const where: Record<string, unknown> = {
       ...(canManage ? {} : { id: caller.id }),
+      ...this.hideSimulated(caller, q.includeSimulated),
       ...(scopedOrgId ? { organizationId: scopedOrgId } : {}),
       ...(q.status ? { status: q.status } : {}),
       ...(term
@@ -197,11 +203,11 @@ export class UsersService {
   }
 
   /** Tile counts without loading users. Same visibility rules as findPage. */
-  async counts(caller: RequestUser, organizationId?: string): Promise<UserCounts> {
+  async counts(caller: RequestUser, organizationId?: string, includeSimulated?: boolean): Promise<UserCounts> {
     const isStaff = caller.platformStaffRole !== "NONE";
     const canManage = isStaff || caller.permissions.includes("org.users.manage");
     const scopedOrgId = isStaff ? organizationId : caller.organizationId;
-    const where = { ...(canManage ? {} : { id: caller.id }), ...(scopedOrgId ? { organizationId: scopedOrgId } : {}) };
+    const where = { ...(canManage ? {} : { id: caller.id }), ...this.hideSimulated(caller, includeSimulated), ...(scopedOrgId ? { organizationId: scopedOrgId } : {}) };
     return runAs(caller, async (tx) => {
       const grouped = await tx.user.groupBy({ by: ["status"], where, _count: { _all: true } });
       const n = (s: string) => grouped.find((g: { status: string }) => g.status === s)?._count._all ?? 0;

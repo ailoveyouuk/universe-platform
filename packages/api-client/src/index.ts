@@ -738,8 +738,9 @@ export class UniverseApiClient {
     return this.request(`/quality/performance${query}`);
   }
 
-  listOrganizations(): Promise<OrganizationSummary[]> {
-    return this.request("/organizations");
+  /** Simulated (scale-test) organisations are left out unless includeSimulated is true (platform staff only). */
+  listOrganizations(includeSimulated = false): Promise<OrganizationSummary[]> {
+    return this.request(`/organizations${includeSimulated ? "?includeSimulated=true" : ""}`);
   }
 
   getOrganization(organizationId: string): Promise<OrganizationDetail> {
@@ -854,14 +855,18 @@ export class UniverseApiClient {
   }
 
   /** Server-paged users (admin screens). */
-  listUsersPage(params: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string }): Promise<PagedResult<UserSummary>> {
+  listUsersPage(params: { page?: number; pageSize?: number; q?: string; status?: string; organizationId?: string; includeSimulated?: boolean }): Promise<PagedResult<UserSummary>> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
     return this.request(`/users/page?${qs.toString()}`);
   }
 
-  getUserCounts(organizationId?: string): Promise<UserCounts> {
-    return this.request(`/users/counts${organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ""}`);
+  getUserCounts(organizationId?: string, includeSimulated = false): Promise<UserCounts> {
+    const qs = new URLSearchParams();
+    if (organizationId) qs.set("organizationId", organizationId);
+    if (includeSimulated) qs.set("includeSimulated", "true");
+    const suffix = qs.toString();
+    return this.request(`/users/counts${suffix ? `?${suffix}` : ""}`);
   }
 
   /** Colleagues in your organisation (names only) for pickers; any member may call it. */
@@ -1093,7 +1098,7 @@ export class UniverseApiClient {
   }
 
   /** Admin app global activity feed (added 2026-10-16). */
-  getActivityFeed(params: { organizationId?: string; tableName?: string; changedById?: string; before?: string; limit?: number } = {}): Promise<FieldChangeFeedPage> {
+  getActivityFeed(params: { organizationId?: string; tableName?: string; changedById?: string; before?: string; limit?: number; includeSimulated?: boolean } = {}): Promise<FieldChangeFeedPage> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
     const suffix = qs.toString();

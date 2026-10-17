@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -20,8 +20,8 @@ export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Get()
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.organizationsService.findAll(user);
+  findAll(@CurrentUser() user: RequestUser, @Query("includeSimulated") includeSimulated?: string) {
+    return this.organizationsService.findAll(user, includeSimulated === "true");
   }
 
   @Post()

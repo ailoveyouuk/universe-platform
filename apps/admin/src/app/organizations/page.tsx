@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { OrganizationSummary } from "@universe/types";
 import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { IncludeSimulatedToggle } from "../../components/IncludeSimulatedToggle";
 import { ORG_TYPE_LABELS } from "../../components/form";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { useCountries } from "../../lib/useCountries";
@@ -35,13 +36,14 @@ export default function OrganizationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isPlatformStaff = me?.platformStaffRole !== "NONE";
+  const [includeSimulated, setIncludeSimulated] = useState(false);
 
   useEffect(() => {
     apiClient
-      .listOrganizations()
+      .listOrganizations(includeSimulated)
       .then(setOrganizations)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load organisations"));
-  }, []);
+  }, [includeSimulated]);
 
   // Section mini-dashboard — shared StatTile/StatTileGrid from
   // @universe/ui, same component Project Management uses.
@@ -68,6 +70,12 @@ export default function OrganizationsPage() {
         <StatTile label="Pilot" value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
         <StatTile label="Suspended" value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
       </StatTileGrid>
+
+      {isPlatformStaff && (
+        <div style={{ marginBottom: 12 }}>
+          <IncludeSimulatedToggle checked={includeSimulated} onChange={setIncludeSimulated} />
+        </div>
+      )}
 
       {!isPlatformStaff && (
         <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, maxWidth: 560 }}>

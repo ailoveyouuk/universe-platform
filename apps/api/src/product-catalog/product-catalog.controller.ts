@@ -35,6 +35,7 @@ export class ProductCatalogController {
    * Management app's catalogue screen. Added 2026-10-03. */
   @Get()
   list(
+    @CurrentUser() user: RequestUser,
     @Query("q") q?: string,
     @Query("category") category?: string,
     @Query("sourceStandard") sourceStandard?: string,
@@ -51,6 +52,7 @@ export class ProductCatalogController {
       pageSize: pageSize ? Number(pageSize) : undefined,
       includeArchived: includeArchived === "true",
       missingField,
+      showSimulated: user.inDemoOrganization === true,
     });
   }
 
@@ -58,21 +60,21 @@ export class ProductCatalogController {
    * completeness pass). Declared before ":id" for the same routing
    * reason as "search"/"import"/"amendments" above. Added 2026-10-09. */
   @Get("completeness-stats")
-  getCompletenessStats() {
-    return this.productCatalogService.getCompletenessStats();
+  getCompletenessStats(@CurrentUser() user: RequestUser) {
+    return this.productCatalogService.getCompletenessStats(user.inDemoOrganization === true);
   }
 
   /** GET /product-catalog/dashboard-stats — Stage 1 (standardised
    * dashboard pattern), applied to the catalogue screen for the first
    * time. Same routing reason as above. Added 2026-10-09. */
   @Get("dashboard-stats")
-  getDashboardStats() {
-    return this.productCatalogService.getDashboardStats();
+  getDashboardStats(@CurrentUser() user: RequestUser) {
+    return this.productCatalogService.getDashboardStats(user.inDemoOrganization === true);
   }
 
   @Get("search")
-  search(@Query("q") q?: string, @Query("category") category?: string) {
-    return this.productCatalogService.search(q, category);
+  search(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string) {
+    return this.productCatalogService.search(q, category, user.inDemoOrganization === true);
   }
 
   /** POST /product-catalog/import — bulk reference-data importer. See
@@ -114,8 +116,8 @@ export class ProductCatalogController {
   }
 
   @Get(":id")
-  getOne(@Param("id") id: string) {
-    return this.productCatalogService.getOne(id);
+  getOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.productCatalogService.getOne(id, user.inDemoOrganization === true);
   }
 
   /** GET /product-catalog/:id/price-history — ProductPriceHistory rows for

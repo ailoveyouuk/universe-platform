@@ -65,9 +65,10 @@ export class OrganizationsService {
    * their own — enough for an org admin inviting within their own org,
    * never enough to browse other tenants.
    */
-  async findAll(caller: RequestUser): Promise<OrganizationSummary[]> {
+  async findAll(caller: RequestUser, includeSimulated = false): Promise<OrganizationSummary[]> {
     const orgs = await prisma.organization.findMany({
-      where: caller.platformStaffRole !== "NONE" ? undefined : { id: caller.organizationId },
+      // Simulated (scale-test) organisations are hidden unless platform staff ask for them.
+      where: caller.platformStaffRole !== "NONE" ? (includeSimulated ? undefined : { isSimulated: false }) : { id: caller.organizationId },
       orderBy: { name: "asc" },
     });
     return orgs.map((o) => ({

@@ -29,6 +29,8 @@ export interface RequestUser {
   permissions: string[];
   /** True for non-staff users whose home organisation is a demo sandbox: they may write inside it but never to data shared across organisations. */
   isDemoUser?: boolean;
+  /** True when this request runs inside a demo organisation (a demo user's own, or one platform staff switched into). Gates visibility of simulated shared data. */
+  inDemoOrganization?: boolean;
 }
 
 function toRequestUser(user: {
@@ -62,6 +64,7 @@ function toRequestUser(user: {
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
     isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
+    inDemoOrganization: user.organization.isDemo,
   };
 }
 
@@ -206,12 +209,13 @@ export class EntraAuthGuard implements CanActivate {
       const target = await withPlatformStaffContext((tx) =>
         tx.organization.findUnique({
           where: { id: requestedId },
-          select: { id: true, name: true, logoUrl: true, logoIconUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true },
+          select: { id: true, name: true, isDemo: true, logoUrl: true, logoIconUrl: true, primaryColor: true, secondaryColor: true, welcomeMessage: true },
         }),
       );
       if (!target) throw new BadRequestException("The selected organisation does not exist.");
       requestUser.organizationId = target.id;
       requestUser.organizationName = target.name;
+      requestUser.inDemoOrganization = target.isDemo;
       requestUser.organizationLogoUrl = target.logoUrl;
       requestUser.organizationLogoIconUrl = target.logoIconUrl;
       requestUser.organizationPrimaryColor = target.primaryColor;

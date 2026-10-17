@@ -38,6 +38,11 @@ const UPDATABLE_FIELDS = [
   "isArchived",
 ] as const;
 
+/** Simulated (scale-test) catalogue entries are ring-fenced: only visible when the request runs inside a demo organisation. */
+function simulatedFilter(showSimulated?: boolean): { isSimulated?: false } {
+  return showSimulated ? {} : { isSimulated: false };
+}
+
 /**
  * The shared, central product catalogue (ProductMaster) — search-or-create,
  * the same reusable pattern as StakeholderRegistryService (see that file's
@@ -75,10 +80,11 @@ export class ProductCatalogService {
    * the Project Management line-item picker, the Quality module's existing
    * "new approval" product field, and, going forward, CRM/Supplier
    * Portal. */
-  async search(q: string | undefined, category?: string): Promise<ProductCatalogMatch[]> {
+  async search(q: string | undefined, category?: string, showSimulated = false): Promise<ProductCatalogMatch[]> {
     const rows = await prisma.productMaster.findMany({
       where: {
         isArchived: false,
+        ...simulatedFilter(showSimulated),
         ...(q && q.trim() ? { name: { contains: q.trim() } } : {}),
         ...(category ? { category: { startsWith: category } } : {}),
       },
@@ -98,12 +104,12 @@ export class ProductCatalogService {
    * importer built yet — see ProductAttributeDefinition's doc comment in
    * schema.prisma), so this returns an empty array until that's populated;
    * the plumbing is ready regardless. */
-  async getOne(id: string): Promise<ProductCatalogDetail | null> {
+  async getOne(id: string, showSimulated = false): Promise<ProductCatalogDetail | null> {
     const row = await prisma.productMaster.findUnique({
       where: { id },
       include: { addedByOrganization: { select: { name: true } } },
     });
-    if (!row) return null;
+    if (!row || (row.isSimulated && !showSimulated)) return null;
     const attributeDefinitions = await prisma.productAttributeDefinition.findMany({
       where: { category: row.category },
       orderBy: { sortOrder: "asc" },
@@ -171,6 +177,8 @@ export class ProductCatalogService {
      * one. One field at a time (not a combined "missing anything" mode)
      * since each field is its own work queue for whoever's filling it in. */
     missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
+    /** Simulated (scale-test) entries are visible only inside a demo organisation. */
+    showSimulated?: boolean;
   }): Promise<ProductCatalogListResult> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
@@ -189,6 +197,7 @@ export class ProductCatalogService {
               ? { standardUnit: null }
               : {};
     const where = {
+      ...simulatedFilter(params.showSimulated),
       ...(params.includeArchived ? {} : { isArchived: false }),
       ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
       ...(params.category ? { category: { startsWith: params.category } } : {}),
@@ -216,8 +225,8 @@ export class ProductCatalogService {
    * ProductCatalogCompletenessStats's doc comment in @universe/types for
    * why (GTIN and friends are legitimately absent on some entries, not
    * universally required). */
-  async getCompletenessStats(): Promise<ProductCatalogCompletenessStats> {
-    const where = { isArchived: false };
+  async getCompletenessStats(showSimulated = false): Promise<ProductCatalogCompletenessStats> {
+    const where = { isArchived: false, ...simulatedFilter(showSimulated) };
     const [total, missingGtin, missingHsCode, missingUnspscCode, missingStandardUnit] = await Promise.all([
       prisma.productMaster.count({ where }),
       prisma.productMaster.count({ where: { ...where, gtin: null } }),
@@ -247,8 +256,8 @@ export class ProductCatalogService {
    * (one query, bounded by the number of distinct categories — small),
    * then the top-level collapse + count-summing happens in JS, since
    * Prisma's groupBy can't split a column's value mid-query. */
-  async getDashboardStats(): Promise<ProductCatalogDashboardStats> {
-    const where = { isArchived: false };
+  async getDashboardStats(showSimulated = false): Promise<ProductCatalogDashboardStats> {
+    const where = { isArchived: false, ...simulatedFilter(showSimulated) };
     const [total, addedLast30Days, grouped] = await Promise.all([
       prisma.productMaster.count({ where }),
       prisma.productMaster.count({

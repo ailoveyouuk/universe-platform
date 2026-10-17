@@ -122,7 +122,7 @@ export class AuditLogService {
    * back to table + short id. */
   async feed(
     user: RequestUser,
-    q: { organizationId?: string; tableName?: string; changedById?: string; before?: string; limit?: number },
+    q: { organizationId?: string; tableName?: string; changedById?: string; before?: string; limit?: number; includeSimulated?: boolean },
   ): Promise<FieldChangeFeedPage> {
     const isPlatform = user.platformStaffRole !== "NONE";
     const orgId = isPlatform ? q.organizationId : user.organizationId;
@@ -143,6 +143,9 @@ export class AuditLogService {
 
     const where: Record<string, unknown> = {};
     if (orgId) where.organizationId = orgId;
+    // The all-organisations platform feed leaves out demo and simulated organisations' activity (8,000+ generated
+    // rows would bury real activity) unless asked for, or one organisation is selected explicitly.
+    else if (isPlatform && !q.includeSimulated) where.organization = { isDemo: false, isSimulated: false };
     if (q.tableName) where.tableName = q.tableName;
     if (q.changedById) where.changedById = q.changedById;
     if (cursor) {

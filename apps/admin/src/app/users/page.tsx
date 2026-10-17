@@ -7,6 +7,7 @@ import type { OrganizationSummary, PagedResult, UserCounts, UserSummary } from "
 import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid, Pagination, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
+import { IncludeSimulatedToggle } from "../../components/IncludeSimulatedToggle";
 import { StatusChip } from "../../components/form";
 
 export default function UsersPage() {
@@ -35,10 +36,11 @@ function UsersList() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
+  const [includeSimulated, setIncludeSimulated] = useState(false);
 
   useEffect(() => {
-    apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
-  }, []);
+    apiClient.listOrganizations(includeSimulated).then(setOrgs).catch(() => setOrgs([]));
+  }, [includeSimulated]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -49,13 +51,13 @@ function UsersList() {
   }, [search]);
 
   useEffect(() => {
-    apiClient.getUserCounts(orgFilter || undefined).then(setCounts).catch(() => setCounts(null));
-  }, [orgFilter]);
+    apiClient.getUserCounts(orgFilter || undefined, includeSimulated).then(setCounts).catch(() => setCounts(null));
+  }, [orgFilter, includeSimulated]);
 
   useEffect(() => {
     let cancelled = false;
     apiClient
-      .listUsersPage({ page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize, q: debouncedSearch, status: statusFilter, organizationId: orgFilter })
+      .listUsersPage({ page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize, q: debouncedSearch, status: statusFilter, organizationId: orgFilter, includeSimulated })
       .then((r) => {
         if (!cancelled) {
           setResult(r);
@@ -68,7 +70,7 @@ function UsersList() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, debouncedSearch, statusFilter, orgFilter]);
+  }, [page, pageSize, debouncedSearch, statusFilter, orgFilter, includeSimulated]);
 
   const visible = result?.items ?? [];
   const effectivePageSize = pageSize === "all" ? 100 : pageSize;
@@ -108,6 +110,7 @@ function UsersList() {
             />
           </div>
         )}
+        {isPlatform && <IncludeSimulatedToggle checked={includeSimulated} onChange={(v) => { setIncludeSimulated(v); setPage(0); }} />}
       </div>
 
       {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}

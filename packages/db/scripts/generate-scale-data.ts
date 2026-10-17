@@ -117,6 +117,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
     const org = await createOrganizationWithDefaultRoles({ name: `${pick(ORG_A)} ${pick(ORG_B)} ${i + 1}`, slug, type });
     orgs.push({ id: org.id, type, slug });
   }
+  await withPlatformStaffContext((tx) => tx.organization.updateMany({ where: { slug: { startsWith: "sim-" } }, data: { isSimulated: true } }));
   lap(`organisations: ${orgs.length}`);
 
   // Demo mode: the portfolio lives in the existing demo organisation.
@@ -141,7 +142,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
     const id = randomUUID();
     const forename = pick(FORENAMES);
     const surname = pick(SURNAMES);
-    users.push({ id, organizationId: org.id, email: `${forename}.${surname}.${i + 1}@sim.example`.toLowerCase(), forename, surname, status: r() < 0.82 ? "ACTIVE" : r() < 0.7 ? "INVITED" : "DEACTIVATED" });
+    users.push({ id, organizationId: org.id, isSimulated: true, email: `${forename}.${surname}.${i + 1}@sim.example`.toLowerCase(), forename, surname, status: r() < 0.82 ? "ACTIVE" : r() < 0.7 ? "INVITED" : "DEACTIVATED" });
     const orgRoles = rolesByOrg.get(org.id) ?? [];
     if (orgRoles.length) userRoles.push({ userId: id, roleId: pick(orgRoles) });
     usersByOrg.set(org.id, [...(usersByOrg.get(org.id) ?? []), id]);
@@ -152,7 +153,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
       const id = randomUUID();
       const forename = pick(FORENAMES);
       const surname = pick(SURNAMES);
-      users.push({ id, organizationId: demoOrg.id, email: `${forename}.${surname}.d${i + 1}@sim.example`.toLowerCase(), forename, surname, status: r() < 0.85 ? "ACTIVE" : "INVITED" });
+      users.push({ id, organizationId: demoOrg.id, isSimulated: true, email: `${forename}.${surname}.d${i + 1}@sim.example`.toLowerCase(), forename, surname, status: r() < 0.85 ? "ACTIVE" : "INVITED" });
       const orgRoles = rolesByOrg.get(demoOrg.id) ?? [];
       if (orgRoles.length) userRoles.push({ userId: id, roleId: pick(orgRoles) });
       usersByOrg.set(demoOrg.id, [...(usersByOrg.get(demoOrg.id) ?? []), id]);
@@ -174,6 +175,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
       name: `${pick(PRODUCT_NOUNS)}, ${pick(PRODUCT_SPEC)}, ${pick(PRODUCT_SPEC)} #${i + 1}`,
       category,
       sourceStandard: "SIM-SCALE",
+      isSimulated: true,
       addedByOrganizationId: pick(orgs).id,
     });
   }

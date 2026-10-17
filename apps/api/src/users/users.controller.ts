@@ -21,13 +21,14 @@ export class UsersController {
     @Query("q") q?: string,
     @Query("status") status?: string,
     @Query("organizationId") organizationId?: string,
+    @Query("includeSimulated") includeSimulated?: string,
   ) {
-    return this.usersService.findPage(user, { page: Number(page) || 1, pageSize: Number(pageSize) || 25, q, status, organizationId });
+    return this.usersService.findPage(user, { page: Number(page) || 1, pageSize: Number(pageSize) || 25, q, status, organizationId, includeSimulated: includeSimulated === "true" });
   }
 
   @Get("counts")
-  counts(@CurrentUser() user: RequestUser, @Query("organizationId") organizationId?: string) {
-    return this.usersService.counts(user, organizationId);
+  counts(@CurrentUser() user: RequestUser, @Query("organizationId") organizationId?: string, @Query("includeSimulated") includeSimulated?: string) {
+    return this.usersService.counts(user, organizationId, includeSimulated === "true");
   }
 
   @Get("options")

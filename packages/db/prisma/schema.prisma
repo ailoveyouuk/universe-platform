@@ -193,6 +193,9 @@ model Organization {
   /// but are blocked from every write that would reach data shared across
   /// organisations (see assertNotDemoUser in apps/api).
   isDemo                    Boolean  @default(false)
+  /// Simulated organisation (2026-10-17): generated scale-test data, not a real customer. Hidden from
+  /// Admin lists by default and excluded from anonymised cross-organisation benchmarks.
+  isSimulated               Boolean  @default(false)
   status                    String   @default("PILOT") // see allowed values reference above
   /// One of the six values in the allowed values reference above (expanded
   /// 2026-09-26 — see claude/stakeholder-taxonomy-research.md). Drives which
@@ -346,6 +349,8 @@ model User {
   id                String       @id @default(uuid())
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Simulated user (2026-10-17): generated scale-test data (cannot sign in). Hidden from Admin lists by default.
+  isSimulated       Boolean      @default(false)
   entraObjectId     String?      @unique
   email             String       @unique
   forename          String
@@ -1646,6 +1651,9 @@ model ProductMaster {
   /// explicit provenance trail given the mixed licensing landscape across
   /// sources. See allowed values reference above.
   sourceStandard                  String?
+  /// Simulated catalogue entry (2026-10-17): generated scale-test data. Visible only to users working inside a
+  /// demo organisation; hidden from every real organisation's search and lists.
+  isSimulated                     Boolean       @default(false)
   isArchived                      Boolean       @default(false)
   /// Attribution — added 2026-10-02 (sop-driven-quality-roadmap.md Section
   /// B1): which organisation originally contributed this entry, and in

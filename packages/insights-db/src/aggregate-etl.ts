@@ -30,6 +30,8 @@ const HASH_SECRET = process.env.INSIGHTS_HASH_SECRET;
  * comment in prisma/schema.prisma for why this exists (cohort-size counting
  * without storing which orgs are in the cohort). Throws rather than silently
  * aggregating unhashed/identifiable data if the secret isn't configured. */
+// Demo and simulated organisations never feed the anonymised cross-organisation benchmarks (every consent
+// lookup below excludes them): demo data must not appear in real organisations' views.
 function hashOrganizationId(organizationId: string): string {
   if (!HASH_SECRET) {
     throw new Error(
@@ -48,7 +50,7 @@ function truncateToMonth(date: Date): Date {
 export async function runAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
     const rows = await tx.dataSharingConsent.findMany({
-      where: { revokedAt: null },
+      where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } },
       select: { organizationId: true },
     });
     return rows.map((r) => r.organizationId);
@@ -174,7 +176,7 @@ async function sanitizeAttributes(category: string, rawAttributes: string | null
 export async function runLogisticsAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
     const rows = await tx.dataSharingConsent.findMany({
-      where: { revokedAt: null },
+      where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } },
       select: { organizationId: true },
     });
     return rows.map((r) => r.organizationId);
@@ -246,7 +248,7 @@ function bandFor(score: number): string {
 
 export async function getStakeholderRatingDistribution(): Promise<StakeholderRatingBucket[]> {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
-    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null }, select: { organizationId: true } });
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } }, select: { organizationId: true } });
     return rows.map((r) => r.organizationId);
   });
 
@@ -340,7 +342,7 @@ export async function getStakeholderRatingDistribution(): Promise<StakeholderRat
 export async function runProductSourcingAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
     const rows = await tx.dataSharingConsent.findMany({
-      where: { revokedAt: null },
+      where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } },
       select: { organizationId: true },
     });
     return rows.map((r) => r.organizationId);
