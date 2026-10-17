@@ -50,44 +50,58 @@ export async function seedSimulatedAggregates() {
   };
 
   // --- Logistics / CO2 ---
-  if ((await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("logistics");
+  // v2 (2026-10-17): v1 spread each route's few contributors over every incoterm x commodity combination, so almost
+  // no group reached the cohort floor and the map showed only a handful of routes. Each lane (route + mode + incoterm +
+  // commodity group) now gets its own cohort of 6-10 contributors. v2 rows carry the "s2" hash prefix.
+  const originPool = ["IN", "CN", "DE", "GB", "FR", "BE", "NL", "TR", "ZA", "KE", "VN", "BD", "PK", "US", "CH", "ID", "TH", "EG", "MA", "IT", "ES", "AE", "SG", "BR", "MX", "JP", "KR", "PL", "RW", "ET"].filter((c) => byCode.has(c));
+  const destPool = ["KE", "UG", "TZ", "NG", "GH", "ZA", "ET", "MZ", "ZM", "BD", "PK", "IN", "MW", "ZW", "SN", "CM", "CD", "RW", "SS", "SD", "NP", "MM", "KH", "HT", "YE", "AF", "SL", "LR", "ML", "BF"].filter((c) => byCode.has(c));
+  const GROUPS = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"];
+  const LANE_INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP", "FOB"];
+  if ((await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })) >= SEEDED_THRESHOLD) result.skipped.push("logistics");
   else {
     const rows: any[] = [];
-    for (const o of ORIGINS) {
-      for (const d of DESTINATIONS) {
-        if (o === d) continue;
-        const a = centroid(o);
-        const b = centroid(d);
-        if (!a || !b) continue;
-        const near = Math.abs(a.lat - b.lat) + Math.abs(a.lng - b.lng) < 40;
-        const modes: TransportMode[] = near ? ["LAND", "AIR"] : ["SEA", "AIR"];
+    for (const d of destPool) {
+      const dest = centroid(d);
+      if (!dest) continue;
+      // each destination is supplied from ~14 origins
+      const start = Math.floor(r() * originPool.length);
+      for (let k = 0; k < 14; k++) {
+        const o = originPool[(start + k * 2) % originPool.length];
+        const orig = centroid(o);
+        if (!orig || o === d) continue;
+        const near = Math.abs(orig.lat - dest.lat) + Math.abs(orig.lng - dest.lng) < 40;
+        const modes: TransportMode[] = near ? ["LAND", "AIR"] : r() < 0.35 ? ["SEA", "AIR"] : ["SEA"];
         for (const mode of modes) {
-          const cohort = pickHashes(6 + Math.floor(r() * 4));
-          const perHash = 2 + Math.floor(r() * 3);
-          for (const sourceHash of cohort) {
-            for (let k = 0; k < perHash; k++) {
-              const weight = Math.round((20 + r() * 1800) * 10) / 10;
-              const category = CATEGORIES[Math.floor(r() * CATEGORIES.length)];
-              const collected = new Date(Date.now() - (30 + r() * 300) * day);
-              const delivered = new Date(collected.getTime() + (mode === "AIR" ? 4 + r() * 8 : mode === "SEA" ? 24 + r() * 26 : 8 + r() * 12) * day);
-              const m = computeLogisticsMetric({ manufactureCentroid: a, destinationCentroid: b, transportMode: mode, weightKg: weight, productCategory: category, goodsCollectedDate: collected, goodsDeliveredToClientDate: delivered });
-              if (!m) continue;
-              rows.push({
-                manufactureCountryCode: o,
-                destinationCountryCode: d,
-                transportMode: mode,
-                incoterm: INCOTERMS[Math.floor(r() * INCOTERMS.length)],
-                commodityGroup: category,
-                distanceKm: m.distanceKm,
-                co2FactorKgPerTonneKm: m.co2FactorKgPerTonneKm,
-                co2TotalKg: m.co2TotalKg,
-                durationDays: m.durationDays,
-                efficiencyScore: m.efficiencyScore,
-                scoreBand: m.scoreBand,
-                effectiveMonth: new Date(Date.UTC(delivered.getUTCFullYear(), delivered.getUTCMonth(), 1)),
-                sourceHash,
-                isSimulated: true,
-              });
+          const lanes = 1 + Math.floor(r() * 2);
+          for (let ln = 0; ln < lanes; ln++) {
+            const incoterm = LANE_INCOTERMS[Math.floor(r() * LANE_INCOTERMS.length)];
+            const group = GROUPS[Math.floor(r() * GROUPS.length)];
+            const cohort = pickHashes(6 + Math.floor(r() * 5)).map((h) => "s2" + h.slice(2));
+            for (const sourceHash of cohort) {
+              const perHash = 1 + Math.floor(r() * 3);
+              for (let q = 0; q < perHash; q++) {
+                const weight = Math.round((20 + r() * 1800) * 10) / 10;
+                const collected = new Date(Date.now() - (30 + r() * 300) * day);
+                const delivered = new Date(collected.getTime() + (mode === "AIR" ? 4 + r() * 8 : mode === "SEA" ? 24 + r() * 26 : 8 + r() * 12) * day);
+                const m = computeLogisticsMetric({ manufactureCentroid: orig, destinationCentroid: dest, transportMode: mode, weightKg: weight, productCategory: group, goodsCollectedDate: collected, goodsDeliveredToClientDate: delivered });
+                if (!m) continue;
+                rows.push({
+                  manufactureCountryCode: o,
+                  destinationCountryCode: d,
+                  transportMode: mode,
+                  incoterm,
+                  commodityGroup: group,
+                  distanceKm: m.distanceKm,
+                  co2FactorKgPerTonneKm: m.co2FactorKgPerTonneKm,
+                  co2TotalKg: m.co2TotalKg,
+                  durationDays: m.durationDays,
+                  efficiencyScore: m.efficiencyScore,
+                  scoreBand: m.scoreBand,
+                  effectiveMonth: new Date(Date.UTC(delivered.getUTCFullYear(), delivered.getUTCMonth(), 1)),
+                  sourceHash,
+                  isSimulated: true,
+                });
+              }
             }
           }
         }
