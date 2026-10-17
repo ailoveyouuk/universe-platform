@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 /**
  * The reusable world-map component — product-database-and-map-roadmap.md
@@ -286,18 +286,36 @@ function MapTooltip({ tooltip }: { tooltip: TooltipState }) {
  * reasoning, including the "Interactivity" section for hover/tap
  * callouts and `onPointClick`.
  *
- * Per-point value labels sit ON the map (added 2026-10-09, Lewis's design
- * feedback before Stage 3a) rather than only being available via the
- * hover callout: a small halo'd number beside each point, flipped to the
- * point's left near the map's right edge so it doesn't run off-canvas.
- * `legend` is deliberately NOT where per-point numbers live — it stays a
- * short, minimal colour key (what each colour/series means), sitting
- * below the map rather than competing with it for width, which is also
- * why it was kept out of the map's own viewBox entirely. Two labels
- * landing on top of each other when two points are very close together on
- * the map is a known, accepted limitation — not worth a label-collision
- * layout pass for this platform's actual point density.
+ * Growing-data handling (2026-10-17, Lewis: "a more elegant solution to
+ * represent this growing data pool", desktop/tablet/mobile):
+ *  - CLUSTERING: points of the same colour that would sit closer than
+ *    `clusterPx` screen pixels are merged into one bubble showing their
+ *    summed value; hover/tap lists the biggest members; click/tap zooms
+ *    the map in on the cluster, which splits it. The grouping is
+ *    recomputed from the real on-screen size, so a phone clusters harder
+ *    than a desktop and zooming in always separates points again.
+ *  - ZOOM & PAN: +/- and reset buttons, drag to pan, pinch on touch,
+ *    ctrl/cmd + wheel on desktop (a plain wheel still scrolls the page).
+ *    Bubble sizes and labels stay a constant on-screen size while the map
+ *    zooms underneath them.
+ *  - LABELS: value labels are placed biggest-first and skipped when they
+ *    would overlap one already placed - the hover/tap callout always has
+ *    the number, so nothing is lost.
+ * `legend` is deliberately NOT where per-point numbers live - it stays a
+ * short, minimal colour key.
  */
+const MAX_ZOOM = 12;
+const CLUSTER_DEFAULT_PX = 34;
+
+interface MapItem {
+  id: string;
+  x: number;
+  y: number;
+  value: number;
+  color: string;
+  members: WorldMapPoint[];
+}
+
 export function WorldMap({
   points,
   arcs = [],
@@ -306,56 +324,34 @@ export function WorldMap({
   showValueLabels = true,
   emptyMessage = "No locations to show yet.",
   onPointClick,
+  cluster = true,
+  clusterPx = CLUSTER_DEFAULT_PX,
+  zoomable = true,
 }: {
   points: WorldMapPoint[];
   arcs?: WorldMapArc[];
   legend?: WorldMapLegendEntry[];
-  /** Caps the SVG's rendered height in px on wide viewports — the map
-   * always keeps the fixed VIEW_WIDTH:VIEW_HEIGHT (2:1) aspect ratio via
-   * CSS `aspect-ratio` and fills its container's width, so on a narrow
-   * (mobile/tablet) container it shrinks in height right along with the
-   * width rather than staying a tall fixed box with mostly empty
-   * graticule. Renamed from a plain `height` 2026-10-09 (no call site
-   * existed yet to migrate — Stage 3 is what adds the first ones) once
-   * it became clear a literal fixed height fought responsive width
-   * rather than complementing it. */
+  /** Caps the SVG's rendered height in px on wide viewports (the map keeps the fixed 2:1 aspect ratio and fills its container's width). */
   maxHeight?: number;
-  /** Prints each point's raw `value` beside it on the map itself (see the
-   * module doc comment) — set false if a caller's points are packed
-   * tightly enough that the labels would mostly overlap, and the hover/
-   * tap callout (always present regardless of this flag) is enough. */
+  /** Prints each point's raw `value` beside it when there is room (labels that would overlap are skipped; the callout always has the number). */
   showValueLabels?: boolean;
-  /** Shown centred on the map when `points` is empty, e.g. before the
-   * first country-of-manufacture is recorded. */
+  /** Shown centred on the map when `points` is empty. */
   emptyMessage?: string;
-  /** Called when a point is clicked/tapped — e.g. to filter whatever
-   * list sits below the map down to that point's country/series. Purely
-   * optional: a caller that omits this gets a map with hover/tap
-   * callouts but no click behaviour, same as before this was added
-   * (points still render exactly the same either way). WorldMap itself
-   * has no idea what "filtering" means here — the caller owns that. */
+  /** Called when a single (un-clustered) point is clicked/tapped. Clicking a cluster zooms in instead. */
   onPointClick?: (point: WorldMapPoint) => void;
+  /** Merge nearby same-coloured points into one bubble (default true). */
+  cluster?: boolean;
+  /** Screen-pixel distance under which same-coloured points merge. */
+  clusterPx?: number;
+  /** Zoom/pan controls and gestures (default true). */
+  zoomable?: boolean;
 }) {
-  const scaleRadius = useMemo(() => buildRadiusScale(points), [points]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-
-  // Tracks the container's real rendered width so the per-point value
-  // labels below (drawn as SVG `<text>`, unlike the HTML tooltip overlay
-  // above) can compensate for the viewBox scaling down on a narrow
-  // mobile/tablet container — added 2026-10-14 after Lewis reported the
-  // point-count numbers on the map were unreadably small on a phone.
-  // `viewBoxScale` is renderedWidthPx / VIEW_WIDTH: 1 at exactly 1000px
-  // wide, well under 1 on a phone. A `<text fontSize={12}>` at
-  // viewBoxScale 0.35 (roughly an iPhone-width container minus page
-  // padding) renders at barely 4 real px — illegible — so `labelFontSize`
-  // below divides a fixed real-pixel target by this scale to counteract
-  // it, the same "stay legible regardless of viewBox scale" reasoning as
-  // the MapTooltip overlay, just solved in viewBox units here instead of
-  // switching this one piece to HTML, since the label has to stay
-  // pixel-anchored to its point on every render (not just on hover) and
-  // doesn't need rich multi-line content.
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -366,59 +362,229 @@ export function WorldMap({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  const viewBoxScale = containerWidth ? containerWidth / VIEW_WIDTH : 1;
-  const MIN_LABEL_PX = 11;
-  const labelFontSize = Math.min(18, Math.max(9, MIN_LABEL_PX / viewBoxScale));
-  const labelStrokeWidth = Math.max(3, labelFontSize / 3);
 
-  // Half of MapTooltip's own maxWidth (220) below — kept as a named
-  // constant here (not imported from MapTooltip, which doesn't export
-  // anything) purely so the clamping logic and the width it's clamping
-  // against are easy to eyeball as matching. On a narrow mobile
-  // container the tooltip is centred (translate(-50%, ...)) on the
-  // tapped point by default, which pushes it half off-screen for any
-  // point within this margin of the container's left/right edge —
-  // clamping x keeps the full callout on-screen (at the cost of no
-  // longer being pixel-centred on very edge points, an acceptable
-  // trade since there's no pointer/arrow tying it to the point visually
-  // anyway).
+  const viewW = VIEW_WIDTH / view.zoom;
+  const viewH = VIEW_HEIGHT / view.zoom;
+  // screen pixels per viewBox unit at the current zoom
+  const pxPerUnit = (containerWidth ?? VIEW_WIDTH) / viewW;
+  const k = 1 / view.zoom; // sizes drawn in viewBox units are divided by zoom so they keep their on-screen size
+  const labelFontSize = Math.min(18 * k, Math.max(9 * k, 11 / pxPerUnit));
+  const labelStrokeWidth = Math.max(3 * k, labelFontSize / 3);
+
+  const clampView = useCallback((zoom: number, x: number, y: number) => {
+    const z = Math.min(MAX_ZOOM, Math.max(1, zoom));
+    const w = VIEW_WIDTH / z;
+    const h = VIEW_HEIGHT / z;
+    return { zoom: z, x: Math.min(Math.max(x, 0), VIEW_WIDTH - w), y: Math.min(Math.max(y, 0), VIEW_HEIGHT - h) };
+  }, []);
+
+  /** Zoom by `factor`, keeping the viewBox point (ax, ay) fixed on screen. */
+  const zoomAt = useCallback(
+    (factor: number, ax: number, ay: number) => {
+      setView((v) => {
+        const z = Math.min(MAX_ZOOM, Math.max(1, v.zoom * factor));
+        const w0 = VIEW_WIDTH / v.zoom;
+        const h0 = VIEW_HEIGHT / v.zoom;
+        const w1 = VIEW_WIDTH / z;
+        const h1 = VIEW_HEIGHT / z;
+        return clampView(z, ax - ((ax - v.x) / w0) * w1, ay - ((ay - v.y) / h0) * h1);
+      });
+      setTooltip(null);
+    },
+    [clampView],
+  );
+
+  function zoomCentre(factor: number) {
+    zoomAt(factor, view.x + viewW / 2, view.y + viewH / 2);
+  }
+
+  function clientToView(clientX: number, clientY: number) {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || !rect.width) return { x: view.x + viewW / 2, y: view.y + viewH / 2 };
+    return { x: view.x + ((clientX - rect.left) / rect.width) * viewW, y: view.y + ((clientY - rect.top) / rect.height) * viewH };
+  }
+
+  // Ctrl/cmd + wheel zooms (also what a trackpad pinch sends); a plain wheel scrolls the page as normal.
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || !zoomable) return;
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const v = viewRef.current;
+      const rect = svg!.getBoundingClientRect();
+      const ax = v.x + ((e.clientX - rect.left) / rect.width) * (VIEW_WIDTH / v.zoom);
+      const ay = v.y + ((e.clientY - rect.top) / rect.height) * (VIEW_HEIGHT / v.zoom);
+      zoomAt(Math.exp(-e.deltaY * 0.01), ax, ay);
+    }
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [zoomable, zoomAt]);
+
+  // Drag to pan (when zoomed in) and two-finger pinch.
+  const pointers = useRef(new Map<number, { x: number; y: number; sx: number; sy: number }>());
+  const gesture = useRef<{ pinchDist: number | null; moved: boolean }>({ pinchDist: null, moved: false });
+
+  function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
+    if (!zoomable) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+    gesture.current.moved = false;
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      gesture.current.pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+    }
+  }
+  function onPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
+    if (!zoomable) return;
+    const prev = pointers.current.get(e.pointerId);
+    if (!prev) return;
+    const next = { ...prev, x: e.clientX, y: e.clientY };
+    if (pointers.current.size === 2) {
+      pointers.current.set(e.pointerId, next);
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const last = gesture.current.pinchDist;
+      if (last && dist > 0) {
+        const mid = clientToView((a.x + b.x) / 2, (a.y + b.y) / 2);
+        zoomAt(dist / last, mid.x, mid.y);
+        gesture.current.moved = true;
+      }
+      gesture.current.pinchDist = dist;
+      return;
+    }
+    if (Math.hypot(next.x - next.sx, next.y - next.sy) > 4) gesture.current.moved = true;
+    const dragging = view.zoom > 1 && (e.buttons !== 0 || e.pointerType === "touch");
+    if (dragging && gesture.current.moved) {
+      const rect = svgRef.current?.getBoundingClientRect();
+      if (rect && rect.width) {
+        const dx = next.x - prev.x;
+        const dy = next.y - prev.y;
+        setView((v) => clampView(v.zoom, v.x - (dx / rect.width) * (VIEW_WIDTH / v.zoom), v.y - (dy / rect.height) * (VIEW_HEIGHT / v.zoom)));
+        setTooltip(null);
+      }
+    }
+    pointers.current.set(e.pointerId, next);
+  }
+  function onPointerUp(e: ReactPointerEvent<SVGSVGElement>) {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) gesture.current.pinchDist = null;
+  }
+
+  // --- Clustering (screen-space, recomputed with zoom and container size) ---
+  const items = useMemo<MapItem[]>(() => {
+    const projected = points
+      .map((p) => ({ p, ...project(p.latitude, p.longitude) }))
+      .filter((q) => Number.isFinite(q.x) && Number.isFinite(q.y))
+      .sort((a, b) => b.p.value - a.p.value);
+    const threshold = cluster ? clusterPx / pxPerUnit : 0;
+    const out: MapItem[] = [];
+    for (const q of projected) {
+      const target = threshold
+        ? out.find((c) => c.color === q.p.color && Math.hypot(c.x - q.x, c.y - q.y) < threshold)
+        : undefined;
+      if (target) {
+        const total = target.value + Math.max(q.p.value, 0);
+        target.x = total > 0 ? (target.x * target.value + q.x * Math.max(q.p.value, 0)) / total : target.x;
+        target.y = total > 0 ? (target.y * target.value + q.y * Math.max(q.p.value, 0)) / total : target.y;
+        target.value = total;
+        target.members.push(q.p);
+      } else {
+        out.push({ id: q.p.id, x: q.x, y: q.y, value: Math.max(q.p.value, 0), color: q.p.color, members: [q.p] });
+      }
+    }
+    return out;
+  }, [points, cluster, clusterPx, pxPerUnit]);
+
+  const scaleRadius = useMemo(() => buildRadiusScale(items.map((it) => ({ value: it.value }) as WorldMapPoint)), [items]);
+
+  // Value labels, biggest first, skipping any that would overlap one already placed.
+  const labelled = useMemo(() => {
+    const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+    const show = new Set<string>();
+    if (!showValueLabels) return show;
+    for (const it of [...items].sort((a, b) => b.value - a.value)) {
+      const r = scaleRadius(it.value) * k;
+      const text = String(Math.round(it.value));
+      const w = text.length * labelFontSize * 0.62 + 4 * k;
+      const onRight = it.x < viewW + view.x - w - r - 8 * k;
+      const x0 = onRight ? it.x + r + 5 * k : it.x - r - 5 * k - w;
+      const box = { x0, y0: it.y - labelFontSize * 0.6, x1: x0 + w, y1: it.y + labelFontSize * 0.6 };
+      if (placed.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) continue;
+      placed.push(box);
+      show.add(it.id);
+    }
+    return show;
+  }, [items, showValueLabels, scaleRadius, k, labelFontSize, viewW, view.x]);
+
   const TOOLTIP_HALF_WIDTH = 110;
-
   function positionFromEvent(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
     const rawX = e.clientX - rect.left;
     const minX = Math.min(TOOLTIP_HALF_WIDTH, rect.width / 2);
     const maxX = Math.max(rect.width - TOOLTIP_HALF_WIDTH, rect.width / 2);
-    const x = Math.min(Math.max(rawX, minX), maxX);
-    return { x, y: e.clientY - rect.top };
+    return { x: Math.min(Math.max(rawX, minX), maxX), y: e.clientY - rect.top };
   }
 
-  function showPointTooltip(e: MouseEvent, point: WorldMapPoint) {
+  function showItemTooltip(e: MouseEvent, item: MapItem) {
     const { x, y } = positionFromEvent(e);
-    setTooltip({
-      x,
-      y,
-      title: point.label,
-      lines: point.tooltipLines ?? [{ text: String(point.value) }],
-    });
+    if (item.members.length === 1) {
+      const point = item.members[0];
+      setTooltip({ x, y, title: point.label, lines: point.tooltipLines ?? [{ text: String(point.value) }] });
+      return;
+    }
+    const top = [...item.members].sort((a, b) => b.value - a.value);
+    const lines: WorldMapTooltipLine[] = [{ text: `${item.members.length} locations · ${Math.round(item.value).toLocaleString()} in total` }];
+    for (const m of top.slice(0, 6)) lines.push({ text: `${m.label}: ${m.value.toLocaleString()}` });
+    if (top.length > 6) lines.push({ text: `+${top.length - 6} more — tap to zoom in` });
+    else lines.push({ text: "Tap to zoom in" });
+    setTooltip({ x, y, title: top[0].label.split(" — ")[0] + " and nearby", lines });
   }
 
   function showArcTooltip(e: MouseEvent, arc: WorldMapArc) {
     if (!arc.label && !arc.tooltipLines?.length) return;
     const { x, y } = positionFromEvent(e);
-    setTooltip({
-      x,
-      y,
-      title: arc.label ?? "",
-      lines: arc.tooltipLines ?? [],
-    });
+    setTooltip({ x, y, title: arc.label ?? "", lines: arc.tooltipLines ?? [] });
   }
+
+  function zoomToItem(item: MapItem) {
+    const xs = item.members.map((m) => project(m.latitude, m.longitude));
+    const minX = Math.min(...xs.map((q) => q.x));
+    const maxX = Math.max(...xs.map((q) => q.x));
+    const minY = Math.min(...xs.map((q) => q.y));
+    const maxY = Math.max(...xs.map((q) => q.y));
+    const w = Math.max(maxX - minX, 10);
+    const h = Math.max(maxY - minY, 10);
+    const fit = Math.min(VIEW_WIDTH / (w * 2.4), VIEW_HEIGHT / (h * 2.4));
+    const zoom = Math.min(MAX_ZOOM, Math.max(view.zoom * 1.8, Math.min(fit, view.zoom * 6)));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    setView(clampView(zoom, cx - VIEW_WIDTH / zoom / 2, cy - VIEW_HEIGHT / zoom / 2));
+    setTooltip(null);
+  }
+
+  const btn: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: "var(--u-radius-md)",
+    border: "1px solid var(--u-border)",
+    backgroundColor: "var(--u-surface-raised)",
+    color: "var(--u-ink)",
+    fontSize: 18,
+    lineHeight: 1,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
 
   return (
     <div ref={containerRef} style={{ position: "relative" }}>
       <svg
-        viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+        ref={svgRef}
+        viewBox={`${view.x} ${view.y} ${viewW} ${viewH}`}
         style={{
           width: "100%",
           aspectRatio: `${VIEW_WIDTH} / ${VIEW_HEIGHT}`,
@@ -427,14 +593,17 @@ export function WorldMap({
           borderRadius: "var(--u-radius-lg)",
           border: "1px solid var(--u-border)",
           backgroundColor: "var(--u-surface-alt)",
+          touchAction: zoomable ? (view.zoom > 1 ? "none" : "pan-y") : undefined,
+          cursor: zoomable && view.zoom > 1 ? "grab" : undefined,
         }}
         role="img"
         aria-label="World map"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
         onClick={(e) => {
-          // Only clears the callout when the click landed on empty map
-          // background (not bubbled up from a point/arc, which call
-          // stopPropagation in their own handlers below) — lets a tap
-          // elsewhere on the map dismiss a pinned mobile callout.
           if (e.target === e.currentTarget) setTooltip(null);
         }}
       >
@@ -449,7 +618,7 @@ export function WorldMap({
           const hasTooltip = Boolean(arc.label || arc.tooltipLines?.length);
           return (
             <g key={arc.id}>
-              <path d={d} fill="none" stroke={arc.color} strokeWidth={1.5} strokeDasharray="4 3" opacity={0.7} pointerEvents="none">
+              <path d={d} fill="none" stroke={arc.color} strokeWidth={1.5 * k} strokeDasharray={`${4 * k} ${3 * k}`} opacity={0.7} pointerEvents="none">
                 {arc.label && <title>{arc.label}</title>}
               </path>
               {hasTooltip && (
@@ -457,7 +626,7 @@ export function WorldMap({
                   d={d}
                   fill="none"
                   stroke="transparent"
-                  strokeWidth={ARC_HIT_STROKE_WIDTH}
+                  strokeWidth={ARC_HIT_STROKE_WIDTH * k}
                   onMouseEnter={(e) => showArcTooltip(e, arc)}
                   onMouseMove={(e) => showArcTooltip(e, arc)}
                   onMouseLeave={() => setTooltip(null)}
@@ -471,60 +640,56 @@ export function WorldMap({
           );
         })}
 
-        {points.map((point, i) => {
-          const { x, y } = project(point.latitude, point.longitude);
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-          const r = scaleRadius(point.value);
-          const hitRadius = Math.max(r * 1.6, MIN_HIT_RADIUS);
-          // Flip the value label to the point's left once it's past 85%
-          // of the map's width, so it doesn't run off the right edge of
-          // the viewBox for a point near the antimeridian.
-          const labelOnRight = x < VIEW_WIDTH * 0.85;
-          const labelX = labelOnRight ? x + r + 5 : x - r - 5;
-          const interactive = Boolean(onPointClick);
+        {items.map((item, i) => {
+          const { x, y } = item;
+          const isCluster = item.members.length > 1;
+          const r = scaleRadius(item.value) * k;
+          const hitRadius = Math.max(r * 1.6, MIN_HIT_RADIUS * k);
+          const rightEdge = view.x + viewW;
+          const labelOnRight = x < rightEdge - 24 * k - r;
+          const labelX = labelOnRight ? x + r + 5 * k : x - r - 5 * k;
+          const interactive = isCluster || Boolean(onPointClick);
+          const single = item.members[0];
           return (
-            <g key={point.id}>
+            <g key={item.id}>
               <circle
                 cx={x}
                 cy={y}
                 r={r}
                 fill="none"
-                stroke={point.color}
-                strokeWidth={2}
+                stroke={item.color}
+                strokeWidth={2 * k}
                 className="u-map-pulse-ring"
-                style={{
-                  transformBox: "fill-box" as never,
-                  transformOrigin: "center",
-                  animationDelay: `${(i % 8) * 0.3}s`,
-                }}
+                style={{ transformBox: "fill-box" as never, transformOrigin: "center", animationDelay: `${(i % 8) * 0.3}s` }}
               />
-              <circle cx={x} cy={y} r={r} fill={point.color} opacity={0.9} pointerEvents="none">
-                <title>{`${point.label} — ${point.value}`}</title>
+              <circle cx={x} cy={y} r={r} fill={item.color} opacity={0.9} stroke={isCluster ? "var(--u-surface-alt)" : "none"} strokeWidth={isCluster ? 2 * k : 0} pointerEvents="none">
+                <title>{isCluster ? `${item.members.length} locations — ${Math.round(item.value)}` : `${single.label} — ${single.value}`}</title>
               </circle>
-              {/* Invisible, generously-sized hit target — see
-                  MIN_HIT_RADIUS's doc comment above for why this is
-                  bigger than the visible pulse. Carries all the actual
-                  interaction handlers. */}
               <circle
                 cx={x}
                 cy={y}
                 r={hitRadius}
                 fill="transparent"
                 style={{ cursor: interactive ? "pointer" : "default" }}
-                onMouseEnter={(e) => showPointTooltip(e, point)}
-                onMouseMove={(e) => showPointTooltip(e, point)}
+                onMouseEnter={(e) => showItemTooltip(e, item)}
+                onMouseMove={(e) => showItemTooltip(e, item)}
                 onMouseLeave={() => setTooltip(null)}
                 onClick={(e) => {
                   e.stopPropagation();
-                  showPointTooltip(e, point);
-                  onPointClick?.(point);
+                  if (gesture.current.moved) return; // end of a drag/pinch, not a tap
+                  if (isCluster) {
+                    zoomToItem(item);
+                    return;
+                  }
+                  showItemTooltip(e, item);
+                  onPointClick?.(single);
                 }}
               />
-              {showValueLabels && (
+              {labelled.has(item.id) && (
                 <text
                   x={labelX}
                   y={y}
-                  dy={4}
+                  dy={4 * k}
                   textAnchor={labelOnRight ? "start" : "end"}
                   fontSize={labelFontSize}
                   fontWeight={700}
@@ -535,7 +700,7 @@ export function WorldMap({
                   paintOrder="stroke"
                   pointerEvents="none"
                 >
-                  {point.value}
+                  {Math.round(item.value)}
                 </text>
               )}
             </g>
@@ -543,11 +708,23 @@ export function WorldMap({
         })}
 
         {points.length === 0 && (
-          <text x={VIEW_WIDTH / 2} y={VIEW_HEIGHT / 2} textAnchor="middle" fontSize={16} fill="var(--u-ink-secondary)">
+          <text x={view.x + viewW / 2} y={view.y + viewH / 2} textAnchor="middle" fontSize={16 * k} fill="var(--u-ink-secondary)">
             {emptyMessage}
           </text>
         )}
       </svg>
+
+      {zoomable && points.length > 0 && (
+        <div style={{ position: "absolute", top: 10, right: 10, display: "flex", flexDirection: "column", gap: 6, zIndex: 10 }}>
+          <button type="button" style={btn} aria-label="Zoom in" title="Zoom in" onClick={() => zoomCentre(1.6)} disabled={view.zoom >= MAX_ZOOM}>+</button>
+          <button type="button" style={btn} aria-label="Zoom out" title="Zoom out" onClick={() => zoomCentre(1 / 1.6)} disabled={view.zoom <= 1}>−</button>
+          {view.zoom > 1 && (
+            <button type="button" style={{ ...btn, fontSize: 13 }} aria-label="Reset map view" title="Reset view" onClick={() => { setView({ zoom: 1, x: 0, y: 0 }); setTooltip(null); }}>
+              ⟲
+            </button>
+          )}
+        </div>
+      )}
 
       {tooltip && <MapTooltip tooltip={tooltip} />}
 
@@ -563,6 +740,9 @@ export function WorldMap({
               {entry.label}
             </span>
           ))}
+          {cluster && points.length > 8 && (
+            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>Nearby points are grouped — tap a group to zoom in.</span>
+          )}
         </div>
       )}
     </div>

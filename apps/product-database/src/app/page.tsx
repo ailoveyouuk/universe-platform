@@ -138,39 +138,37 @@ export default function ProductCatalogPage() {
     apiClient.getGlobalProductSourcing().then(setSourcing).catch(() => setSourcing(null));
   }, []);
 
-  // Stage 3c map data — one WorldMap point per (category, country)
-  // combination the anonymized endpoint returned. Multiple categories
-  // sourced from the same country land on the same lat/long, which would
-  // otherwise stack pulses exactly on top of each other — WorldMap has no
-  // built-in clustering (it's presentation-only, see its own doc comment),
-  // so each category gets a small fixed angular offset around that
-  // country's real centroid, arranged like points on a clock face (one of
-  // up to 6 positions, matching CATEGORIES' length) purely to keep
-  // same-country pulses visually separable. This is a deliberate, cosmetic
-  // approximation — it does not change which country a pulse represents,
-  // only where around that country's centroid it's drawn.
+  // Stage 3c map data — ONE bubble per country of manufacture (changed 2026-10-17, Lewis: with many categories the old
+  // one-dot-per-category-per-country layout overlapped and became unreadable). The bubble's size is the country's total
+  // approved sourcing relationships, its colour is the country's leading category, and hover/tap lists the category
+  // split. Nearby countries are then grouped automatically by WorldMap's clustering and zoom.
   const sourcingMapData = useMemo(() => {
     const points: WorldMapPoint[] = [];
     if (!sourcing || sourcing.length === 0) return points;
-    const OFFSET_DEGREES = 2.4;
+    const byCountry = new Map<string, { code: string; total: number; categories: Map<string, number> }>();
     for (const row of sourcing) {
       if (!row.manufactureCountryCode) continue;
-      const c = countries.find((x) => x.code === row.manufactureCountryCode);
+      const entry = byCountry.get(row.manufactureCountryCode) ?? { code: row.manufactureCountryCode, total: 0, categories: new Map() };
+      entry.total += row.approvalCount;
+      entry.categories.set(row.category, (entry.categories.get(row.category) ?? 0) + row.approvalCount);
+      byCountry.set(row.manufactureCountryCode, entry);
+    }
+    for (const entry of byCountry.values()) {
+      const c = countries.find((x) => x.code === entry.code);
       if (!c || c.latitude === null || c.longitude === null) continue;
-      const categoryIndex = Math.max(0, CATEGORIES.indexOf(row.category as (typeof CATEGORIES)[number]));
-      const angle = (categoryIndex / CATEGORIES.length) * 2 * Math.PI;
-      const latitude = c.latitude + OFFSET_DEGREES * Math.sin(angle);
-      const longitude = c.longitude + OFFSET_DEGREES * Math.cos(angle);
+      const ranked = [...entry.categories.entries()].sort((a, b) => b[1] - a[1]);
+      const [leadCategory] = ranked[0];
       points.push({
-        id: `${row.category}:${row.manufactureCountryCode}`,
-        latitude,
-        longitude,
+        id: entry.code,
+        latitude: c.latitude,
+        longitude: c.longitude,
         label: c.name,
-        color: CATEGORY_COLORS[row.category] ?? "var(--u-ink-secondary)",
-        value: row.approvalCount,
+        color: CATEGORY_COLORS[leadCategory] ?? "var(--u-ink-secondary)",
+        value: entry.total,
         tooltipLines: [
-          { text: row.category, color: CATEGORY_COLORS[row.category] ?? "var(--u-ink-secondary)" },
-          { text: `${row.approvalCount.toLocaleString()} approved for sourcing` },
+          { text: `${entry.total.toLocaleString()} approved for sourcing` },
+          ...ranked.slice(0, 5).map(([cat, n]) => ({ text: `${cat}: ${n.toLocaleString()}`, color: CATEGORY_COLORS[cat] ?? "var(--u-ink-secondary)" })),
+          ...(ranked.length > 5 ? [{ text: `+${ranked.length - 5} more categories` }] : []),
         ],
       });
     }
@@ -342,12 +340,10 @@ export default function ProductCatalogPage() {
         points={sourcingMapData}
         legend={sourcingLegend}
         emptyMessage="No anonymised sourcing data meets the minimum cohort size yet."
-        onPointClick={(point) => {
-          const pointCategory = point.id.split(":")[0];
-          setCategory((current) => (current === pointCategory ? "" : pointCategory));
-          setPage(0);
-        }}
       />
+      <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>
+        One bubble per country: size is the number of approved sources, colour is the country's leading category. Hover or tap for the category split; zoom in to separate close countries.
+      </p>
 
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by product name…" />
