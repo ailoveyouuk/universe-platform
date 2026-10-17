@@ -102,32 +102,6 @@ export default function StakeholdersPage() {
         </form>
       </Section>
 
-      <Section title="Demo benchmark data">
-        <p style={{ color: "var(--u-ink-secondary)", marginTop: 0 }}>
-          Adds simulated anonymised benchmarks (logistics and CO2 routes, pricing, product sourcing by country) so the shared views have something to show.
-          Visible only inside the demo organisation. Adds rows only; anything already added is left as it is.
-        </p>
-        <Button
-          variant="secondary"
-          disabled={busy !== null}
-          onClick={async () => {
-            setBusy("bench");
-            setError(null);
-            setNotice(null);
-            try {
-              const r = await apiClient.seedDemoBenchmarks();
-              setNotice(`Added ${r.logistics} logistics, ${r.pricing} pricing and ${r.sourcing} sourcing rows${r.skipped.length ? ` (already present: ${r.skipped.join(", ")})` : ""}.`);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "That didn't work");
-            } finally {
-              setBusy(null);
-            }
-          }}
-        >
-          {busy === "bench" ? "Adding…" : "Add demo benchmark data"}
-        </Button>
-      </Section>
-
       <Section title="Stakeholders">
         {!data ? (
           <p style={{ color: "var(--u-ink-secondary)" }}>{loadError ? "" : "Loading…"}</p>

@@ -930,10 +930,6 @@ export class UniverseApiClient {
     return this.request("/stakeholder-access");
   }
 
-  seedDemoBenchmarks(): Promise<{ logistics: number; pricing: number; sourcing: number; skipped: string[] }> {
-    return this.request("/stakeholder-access/demo-benchmarks", { method: "POST" });
-  }
-
   grantStakeholderAccess(input: GrantStakeholderAccessInput): Promise<UserSummary> {
     return this.request("/stakeholder-access", { method: "POST", body: JSON.stringify(input) });
   }

@@ -1,0 +1,32 @@
+name: Seed demo benchmarks
+
+# Manual run (2026-10-17). Adds SIMULATED anonymised benchmark rows (logistics
+# and CO2 routes, pricing, product sourcing) to universe-insights so the demo's
+# shared benchmark views have data. Rows are flagged isSimulated and only show
+# inside demo organisations. Adds rows only, skips tables that already have
+# them, deletes nothing. Needs repository secret INSIGHTS_LOAD_DATABASE_URL
+# (write login connection string for universe-insights) in addition to
+# DEMO_LOAD_DATABASE_URL (country centroids). The API's own insights login is
+# read-only by design, so this cannot run from the API.
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - run: npm run build --workspace=@universe/db
+      - name: Seed
+        run: npm run seed:simulated --workspace=@universe/insights-db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

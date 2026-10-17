@@ -15,12 +15,6 @@ export class StakeholderAccessController {
     return this.service.overview(user);
   }
 
-  /** Seeds simulated anonymised benchmark rows (logistics/CO2, pricing, sourcing) for the demo. Platform staff only; adds rows only, deletes nothing, skips any table that already has them. */
-  @Post("demo-benchmarks")
-  seedDemoBenchmarks(@CurrentUser() user: RequestUser) {
-    return this.service.seedDemoBenchmarks(user);
-  }
-
   @Post()
   grant(@CurrentUser() user: RequestUser, @Body() dto: GrantStakeholderAccessDto) {
     return this.service.grant(user, dto);

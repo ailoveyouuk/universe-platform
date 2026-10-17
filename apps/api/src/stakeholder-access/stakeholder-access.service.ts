@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { ensureStakeholderDemoRole, STAKEHOLDER_DEMO_ROLE_NAME, withPlatformStaffContext } from "@universe/db";
 import type { StakeholderAccessOverview, UserSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
-import { seedSimulatedAggregates } from "@universe/insights-db";
 import { assertPlatformStaff } from "../common/authorization";
 import { UsersService } from "../users/users.service";
 import type { GrantStakeholderAccessDto } from "./dto/grant-stakeholder-access.dto";
@@ -34,16 +33,6 @@ export class StakeholderAccessService {
       organizationName: org.name,
       users: all.filter((u) => u.roleNames.includes(STAKEHOLDER_DEMO_ROLE_NAME)),
     };
-  }
-
-  async seedDemoBenchmarks(caller: RequestUser) {
-    assertPlatformStaff(caller);
-    try {
-      return await seedSimulatedAggregates();
-    } catch (err) {
-      // Platform-staff-only action: surface the real cause rather than a bare 500.
-      throw new BadRequestException(`Seeding benchmark data failed: ${err instanceof Error ? err.message.slice(0, 600) : String(err)}`);
-    }
   }
 
   async grant(caller: RequestUser, dto: GrantStakeholderAccessDto): Promise<UserSummary> {

@@ -11,6 +11,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "aggregate": "tsx src/aggregate-etl.ts",
+    "seed:simulated": "tsx scripts/seed-simulated-aggregates.ts",
     "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts",
     "aggregate:product-sourcing": "tsx scripts/run-product-sourcing-aggregation.ts"
   },
