@@ -327,6 +327,8 @@ export function WorldMap({
   cluster = true,
   clusterPx = CLUSTER_DEFAULT_PX,
   zoomable = true,
+  focus = null,
+  highlightId = null,
 }: {
   points: WorldMapPoint[];
   arcs?: WorldMapArc[];
@@ -345,6 +347,10 @@ export function WorldMap({
   clusterPx?: number;
   /** Zoom/pan controls and gestures (default true). */
   zoomable?: boolean;
+  /** Zoom to a point by id (e.g. when a ranked-list row is clicked). Bump `nonce` to re-trigger for the same id. */
+  focus?: { id: string; nonce: number } | null;
+  /** Draws an emphasis ring around the point with this id. */
+  highlightId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -403,6 +409,19 @@ export function WorldMap({
     if (!rect || !rect.width) return { x: view.x + viewW / 2, y: view.y + viewH / 2 };
     return { x: view.x + ((clientX - rect.left) / rect.width) * viewW, y: view.y + ((clientY - rect.top) / rect.height) * viewH };
   }
+
+  // External focus request (ranked-list tile -> map): zoom in on that point and bring the map into view.
+  useEffect(() => {
+    if (!focus) return;
+    const target = points.find((p) => p.id === focus.id);
+    if (!target) return;
+    const { x, y } = project(target.latitude, target.longitude);
+    const zoom = 5;
+    setView(clampView(zoom, x - VIEW_WIDTH / zoom / 2, y - VIEW_HEIGHT / zoom / 2));
+    setTooltip(null);
+    containerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.nonce]);
 
   // Ctrl/cmd + wheel zooms (also what a trackpad pinch sends); a plain wheel scrolls the page as normal.
   const viewRef = useRef(view);
@@ -662,6 +681,9 @@ export function WorldMap({
                 className="u-map-pulse-ring"
                 style={{ transformBox: "fill-box" as never, transformOrigin: "center", animationDelay: `${(i % 8) * 0.3}s` }}
               />
+              {highlightId && item.members.some((m) => m.id === highlightId) && (
+                <circle cx={x} cy={y} r={r + 5 * k} fill="none" stroke="var(--u-ink)" strokeWidth={2.5 * k} pointerEvents="none" />
+              )}
               <circle cx={x} cy={y} r={r} fill={item.color} opacity={0.9} stroke={isCluster ? "var(--u-surface-alt)" : "none"} strokeWidth={isCluster ? 2 * k : 0} pointerEvents="none">
                 <title>{isCluster ? `${item.members.length} locations — ${Math.round(item.value)}` : `${single.label} — ${single.value}`}</title>
               </circle>

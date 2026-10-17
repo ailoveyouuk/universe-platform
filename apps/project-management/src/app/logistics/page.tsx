@@ -18,6 +18,10 @@ import {
   TrendingUpIcon,
   AlertIcon,
   WorldMap,
+  RankedTile,
+  RankedTileGrid,
+  GlobeIcon,
+  type RankedRow,
   type WorldMapPoint,
   type WorldMapArc,
   type WorldMapLegendEntry,
@@ -103,12 +107,14 @@ export default function LogisticsPage() {
   // are the TOP_ROUTE_COUNT manufacture->destination country pairs by
   // that same summed count. A country with no seeded centroid is
   // silently skipped.
+  const [mapFocus, setMapFocus] = useState<{ id: string; nonce: number } | null>(null);
   const countryIndex = useMemo(() => new Map(countries.map((c) => [c.code, c])), [countries]);
 
   const globalMapData = useMemo(() => {
     const points: WorldMapPoint[] = [];
     const arcs: WorldMapArc[] = [];
-    if (!globalRoutes || globalRoutes.length === 0) return { points, arcs };
+    const rankings = { manufacture: [] as RankedRow[], destination: [] as RankedRow[] };
+    if (!globalRoutes || globalRoutes.length === 0) return { points, arcs, rankings };
 
     const manufactureTotals = new Map<string, number>();
     const destinationTotals = new Map<string, number>();
@@ -177,7 +183,13 @@ export default function LogisticsPage() {
       });
     }
 
-    return { points, arcs };
+    const rank = (totals: Map<string, number>, prefix: string, color: string): RankedRow[] =>
+      Array.from(totals.entries())
+        .map(([code, value]) => ({ id: `${prefix}:${code}`, label: countryIndex.get(code)?.name ?? code, value, color }))
+        .sort((a, b) => b.value - a.value);
+    rankings.manufacture = rank(manufactureTotals, "mfg", "var(--u-brand-violet)");
+    rankings.destination = rank(destinationTotals, "dest", "var(--u-accent-magenta)");
+    return { points, arcs, rankings };
   }, [globalRoutes, countryIndex]);
 
   const globalMapLegend: WorldMapLegendEntry[] = [
@@ -237,7 +249,34 @@ export default function LogisticsPage() {
 
       <section style={{ marginBottom: 28 }}>
         <h2 style={{ fontSize: 18, margin: "0 0 10px", color: "var(--u-ink)" }}>Global benchmark (anonymized)</h2>
+        <div style={{ marginBottom: 16 }}>
+          <RankedTileGrid>
+            <RankedTile
+              label="Top countries of manufacture"
+              icon={<GlobeIcon size={18} />}
+              tone="var(--u-brand-violet)"
+              rows={globalMapData.rankings.manufacture}
+              activeId={mapFocus?.id ?? null}
+              onRowClick={(row) => setMapFocus({ id: row.id, nonce: Date.now() })}
+              formatValue={(v) => `${Math.round(v).toLocaleString()}`}
+              emptyMessage="No anonymised routes meet the minimum cohort size yet."
+            />
+            <RankedTile
+              label="Top delivery countries"
+              icon={<GlobeIcon size={18} />}
+              tone="var(--u-accent-magenta)"
+              rows={globalMapData.rankings.destination}
+              activeId={mapFocus?.id ?? null}
+              onRowClick={(row) => setMapFocus({ id: row.id, nonce: Date.now() })}
+              formatValue={(v) => `${Math.round(v).toLocaleString()}`}
+              emptyMessage="No anonymised routes meet the minimum cohort size yet."
+            />
+          </RankedTileGrid>
+          <p style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>Shipments by country. Select a country to find it on the map.</p>
+        </div>
         <WorldMap
+          focus={mapFocus}
+          highlightId={mapFocus?.id ?? null}
           points={globalMapData.points}
           arcs={globalMapData.arcs}
           legend={globalMapLegend}

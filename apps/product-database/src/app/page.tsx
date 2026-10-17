@@ -31,6 +31,9 @@ import {
   TextLink,
   TrendingUpIcon,
   WorldMap,
+  RankedTile,
+  GlobeIcon,
+  type RankedRow,
   type PageSize,
   type WorldMapPoint,
   type WorldMapLegendEntry,
@@ -144,7 +147,8 @@ export default function ProductCatalogPage() {
   // split. Nearby countries are then grouped automatically by WorldMap's clustering and zoom.
   const sourcingMapData = useMemo(() => {
     const points: WorldMapPoint[] = [];
-    if (!sourcing || sourcing.length === 0) return points;
+    const rows: RankedRow[] = [];
+    if (!sourcing || sourcing.length === 0) return { points, rows };
     const byCountry = new Map<string, { code: string; total: number; categories: Map<string, number> }>();
     for (const row of sourcing) {
       if (!row.manufactureCountryCode) continue;
@@ -158,6 +162,13 @@ export default function ProductCatalogPage() {
       if (!c || c.latitude === null || c.longitude === null) continue;
       const ranked = [...entry.categories.entries()].sort((a, b) => b[1] - a[1]);
       const [leadCategory] = ranked[0];
+      rows.push({
+        id: entry.code,
+        label: c.name,
+        value: entry.total,
+        color: CATEGORY_COLORS[leadCategory] ?? "var(--u-ink-secondary)",
+        segments: ranked.map(([cat, n]) => ({ color: CATEGORY_COLORS[cat] ?? "var(--u-ink-secondary)", value: n, label: `${cat}: ${n.toLocaleString()}` })),
+      });
       points.push({
         id: entry.code,
         latitude: c.latitude,
@@ -172,8 +183,10 @@ export default function ProductCatalogPage() {
         ],
       });
     }
-    return points;
+    rows.sort((a, b) => b.value - a.value);
+    return { points, rows };
   }, [sourcing, countries]);
+  const [mapFocus, setMapFocus] = useState<{ id: string; nonce: number } | null>(null);
 
   const sourcingLegend: WorldMapLegendEntry[] = CATEGORIES.map((cat) => ({
     color: CATEGORY_COLORS[cat] ?? "var(--u-ink-secondary)",
@@ -336,8 +349,21 @@ export default function ProductCatalogPage() {
           categories" dropdown already drives — clicking a pulse for the
           category already selected clears the filter, matching the
           toggle behaviour already used by the completeness tiles above. */}
+      <div style={{ marginBottom: 16 }}>
+        <RankedTile
+          label="Top countries of manufacture"
+          icon={<GlobeIcon size={18} />}
+          tone="var(--u-module-product-database, var(--u-brand-violet))"
+          rows={sourcingMapData.rows}
+          activeId={mapFocus?.id ?? null}
+          onRowClick={(row) => setMapFocus({ id: row.id, nonce: Date.now() })}
+          emptyMessage="No anonymised sourcing data meets the minimum cohort size yet."
+        />
+      </div>
       <WorldMap
-        points={sourcingMapData}
+        points={sourcingMapData.points}
+        focus={mapFocus}
+        highlightId={mapFocus?.id ?? null}
         legend={sourcingLegend}
         emptyMessage="No anonymised sourcing data meets the minimum cohort size yet."
       />
