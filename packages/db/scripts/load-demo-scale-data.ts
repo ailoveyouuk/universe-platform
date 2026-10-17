@@ -48,6 +48,21 @@ async function markSimulated() {
   }));
 }
 
+/** Read-only inventory of cross-organisation (shared) data and organisations, to decide what counts as simulated. */
+async function inventory() {
+  return withPlatformStaffContext(async (tx) => ({
+    organisations: (await tx.organization.findMany({ select: { name: true, slug: true, isDemo: true, isSimulated: true, status: true, type: true }, where: { isSimulated: false } })).map((o) => `${o.name} [${o.slug}] ${o.type} ${o.status}${o.isDemo ? " DEMO" : ""}`),
+    nonSimulatedUsers: await tx.user.count({ where: { isSimulated: false } }),
+    productMasterBySource: (await tx.productMaster.groupBy({ by: ["sourceStandard", "isSimulated"], _count: { _all: true } })).map((g) => `${g.sourceStandard ?? "(none)"} simulated=${g.isSimulated}: ${g._count._all}`),
+    productMasterByAddingOrg: (await tx.productMaster.groupBy({ by: ["addedByOrganizationId"], _count: { _all: true } })).map((g) => `${g.addedByOrganizationId ?? "(seeded)"}: ${g._count._all}`),
+    stakeholderRegistryEntries: await tx.stakeholderRegistryEntry.count(),
+    supplierProfilesPublished: await tx.supplierProfile.count({ where: { publishedAt: { not: null } } }),
+    supplierLeads: await tx.supplierLead.count(),
+    productAttributeDefinitions: await tx.productAttributeDefinition.count(),
+    countries: await tx.country.count(),
+  }));
+}
+
 async function main() {
   const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
   const force = process.env.FORCE === "true";
@@ -57,6 +72,7 @@ async function main() {
   if (!dryRun) console.log("Marked simulated rows:", JSON.stringify(await markSimulated()));
   const before = await counts();
   console.log("Before:", JSON.stringify(before, null, 2));
+  console.log("Shared-data inventory:", JSON.stringify(await inventory(), null, 2));
   // Organisations are created with upsert, so leftover orgs from an interrupted run are safe to continue over;
   // anything else means data was already loaded.
   const exists = before.simUsers > 0 || before.simProjectsInDemo > 0 || before.simProducts > 0 || before.simPartnersInDemo > 0;
