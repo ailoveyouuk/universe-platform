@@ -78,3 +78,6 @@ Remaining watch-list:
 - Global search and catalogue search use `contains` (no index use); fine at 30,000 products, move to full-text search past ~100,000.
 - Financial summary still sums all lines in code; fine at 22,000 lines, move to a database SUM if an organisation reaches several hundred thousand.
 - Not measured: product source approvals and logistics insights (the generator creates none), the insights database, HTTP/JSON/screen cost, Azure SQL (these ran on a container). Re-measure over HTTP against the live API after the demo load.
+
+## Live check with the loaded demo data (2026-10-17)
+Real API calls from the signed-in apps against Universe Demo (3,127 users, 3,000 partners, 1,500+ projects, 5,564 lines, 818 approvals, 1,205 risks, 1,503 batches, 30,000 products), warm, 1 vCore serverless: every paged screen's main call 76–317 ms; dashboard overview tiles 406–607 ms. Unmeasured: Product Database search (separate sign-in) and cold start after SQL auto-pause. Watch-list additions: Admin Users organisation filter (loads all ~300 orgs — make search-driven past ~1,000); dashboard overview aggregates (cache if needed).

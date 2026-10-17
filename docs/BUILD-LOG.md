@@ -6,6 +6,14 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Live timings with the full demo data (no code change)
+
+Measured from the signed-in apps (browser resource timings of the real API calls, warm, 1 vCore serverless tier, UK South):
+- Project Management: projects page 184 ms (+ overview 275), stakeholders page 150 (+ overview 197), quality dashboard 224 / approvals page 200 / performance page 317, QA queue 200, logistics lines page 85, risk register page 151 (+ counts 155), batches page 76. Dashboard overview tiles 406 and 607 ms (fired together on first load).
+- Admin: users page 225 ms, counts 144 ms (3,127 users).
+- Not measured: Product Database (needs its own sign-in — Lewis to sign in if wanted); cold start after SQL auto-pause.
+Observations / watch-list: Admin Users "All organisations" filter loads all ~300 organisations as one list — fine now, make it search-driven past ~1,000; dashboard overviews are the slowest calls (aggregate over all projects/partners) — candidates for caching if demos feel slow.
+
 ## 2026-10-17 — Demo scale data LOADED into the live Universe Demo
 
 Run `Load demo scale data` (seed 1, real load, 1 vCore tier, ~80 min — mostly 299 org/role creations at ~14 s each; bulk inserts took ~10 min). First attempt failed with Prisma's 5 s interactive-transaction limit during org creation (nothing but orgs written); fixed by `transactionOptions.timeout` from env `PRISMA_TX_TIMEOUT_MS` (default 5000, workflow sets 120000) in `packages/db/src/index.ts`, and the loader now resumes over leftover orgs (org creation is an upsert).
