@@ -6,6 +6,16 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-17 — Maps scale to a growing data pool; benchmark seed v2; category-true product names (Lewis)
+
+- **Why the Logistics map showed few routes:** the cohort floor (5 distinct organisations per route + mode + incoterm + commodity group) was missed by my first seed, which spread each route's few contributors over every incoterm/commodity combination; it also used only 13 origin / 12 destination countries. Seed v2 (`seedSimulatedAggregates`, hash prefix `s2`): ~30 delivery countries x ~14 origin countries, one cohort of 6-10 contributors per lane, commodity groups matching the filter list. 14,160 rows added (v1 rows left in place — no deletes; they stay below the floor). The map's arcs remain the 10 busiest routes; both Logistics maps' legends now say so (`WorldMapLegendEntry.shape = "line"`).
+- **`@universe/ui` WorldMap** (all call sites): same-colour points closer than `clusterPx` (34 px) merge into one bubble (summed value, hover/tap lists biggest members, click/tap zooms in); zoom & pan (+ / − / reset buttons, drag, two-finger pinch, ctrl/cmd + wheel); bubble sizes/labels keep a constant on-screen size while zooming; value labels placed biggest-first and skipped when overlapping. Props `cluster`, `clusterPx`, `zoomable` (default on). Verified live on the Logistics map (cluster click zooms and separates points).
+- **Product Database sourcing map:** now one bubble per country (size = approved sources, colour = leading category, tooltip = category split) instead of one dot per category per country; clicking a country no longer filters the catalogue.
+- **Product names:** 28,525 simulated products renamed so nouns/specs fit their category (`scripts/_catalogue-naming.ts`, shared with the generator); enrichment step `fixNames` is idempotent.
+- Not yet done (offered, not requested): ranked list under the map and bottom-sheet callouts on mobile; real-device check at tablet/phone widths (the built-in browser here is desktop width only).
+
+---
+
 ## 2026-10-17 — Demo data enrichment: catalogue identifiers, sourcing, logistics & CO2 (Lewis)
 
 Lewis, reviewing the live demo: nearly all products lacked GTIN / HS / UNSPSC / unit / country of manufacture, and most lines had no usable CO2 / distance / logistics data. No hard deletes ("let's not hard delete anything at the moment").
