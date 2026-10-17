@@ -38,3 +38,4 @@ jobs:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
           SEED: ${{ inputs.seed }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

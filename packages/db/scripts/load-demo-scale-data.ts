@@ -41,7 +41,9 @@ async function main() {
   console.log("Planned profile (demo):", JSON.stringify(PROFILES.demo));
   const before = await counts();
   console.log("Before:", JSON.stringify(before, null, 2));
-  const exists = before.simOrganisations > 0 || before.simProjectsInDemo > 0 || before.simProducts > 0;
+  // Organisations are created with upsert, so leftover orgs from an interrupted run are safe to continue over;
+  // anything else means data was already loaded.
+  const exists = before.simUsers > 0 || before.simProjectsInDemo > 0 || before.simProducts > 0 || before.simPartnersInDemo > 0;
   if (exists && !force) {
     console.log("Simulated data is already present - nothing to do (set FORCE=true only after clearing it).");
     return;

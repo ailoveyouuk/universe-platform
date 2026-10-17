@@ -7,6 +7,9 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    // Interactive transactions default to 5 s. Bulk jobs (demo data load) run against a small
+    // serverless tier and need longer; set PRISMA_TX_TIMEOUT_MS for them. Normal runs are unchanged.
+    transactionOptions: { maxWait: 10000, timeout: Number(process.env.PRISMA_TX_TIMEOUT_MS ?? 5000) },
     log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["warn", "error"],
   });
 
