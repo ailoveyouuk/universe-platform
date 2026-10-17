@@ -186,6 +186,7 @@ export default function GlobalLogisticsPage() {
   const mapLegend: WorldMapLegendEntry[] = [
     { color: "var(--u-brand-violet)", label: "Country of manufacture" },
     { color: "var(--u-accent-magenta)", label: "Delivery country" },
+    { color: "var(--u-ink-secondary)", label: `Dashed lines: the ${TOP_ROUTE_COUNT} busiest routes (by shipments)`, shape: "line" },
   ];
 
   return (

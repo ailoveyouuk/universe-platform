@@ -119,6 +119,8 @@ export interface WorldMapArc {
 export interface WorldMapLegendEntry {
   color: string;
   label: string;
+  /** "dot" (default) for a point series; "line" draws a dashed swatch for arcs. */
+  shape?: "dot" | "line";
 }
 
 const VIEW_WIDTH = 1000;
@@ -553,7 +555,11 @@ export function WorldMap({
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 10 }}>
           {legend.map((entry) => (
             <span key={entry.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--u-ink-secondary)" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: entry.color, flexShrink: 0 }} />
+              {entry.shape === "line" ? (
+                <span style={{ width: 18, height: 0, borderTop: `2px dashed ${entry.color}`, flexShrink: 0 }} />
+              ) : (
+                <span style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: entry.color, flexShrink: 0 }} />
+              )}
               {entry.label}
             </span>
           ))}
