@@ -13,6 +13,12 @@ on:
         default: true
         type: boolean
 
+      only:
+        description: "Limit to: all | catalogue (skips the slow logistics pass)"
+        default: "all"
+        type: choice
+        options: [all, catalogue]
+
 jobs:
   enrich:
     runs-on: ubuntu-latest
@@ -30,4 +36,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          ONLY: ${{ inputs.only }}
           PRISMA_TX_TIMEOUT_MS: "120000"

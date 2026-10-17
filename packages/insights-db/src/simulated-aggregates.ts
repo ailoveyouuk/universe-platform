@@ -10,6 +10,8 @@ import { insightsPrisma } from "./index";
  * would be for real data - the cohort rule itself is not bypassed. The hashes are random strings, not derived from any
  * organisation. Idempotent per table: a table that already holds simulated rows is left alone (nothing is deleted).
  */
+// A table counts as already seeded once it holds this many simulated rows (earlier test rows were flagged simulated too, so "any row" is not enough).
+const SEEDED_THRESHOLD = 1000;
 const day = 86400000;
 function rng(seed: number) {
   let s = seed >>> 0;
@@ -48,7 +50,7 @@ export async function seedSimulatedAggregates() {
   };
 
   // --- Logistics / CO2 ---
-  if ((await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true } })) > 0) result.skipped.push("logistics");
+  if ((await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("logistics");
   else {
     const rows: any[] = [];
     for (const o of ORIGINS) {
@@ -97,7 +99,7 @@ export async function seedSimulatedAggregates() {
   }
 
   // --- Pricing ---
-  if ((await insightsPrisma.aggregatedProductPrice.count({ where: { isSimulated: true } })) > 0) result.skipped.push("pricing");
+  if ((await insightsPrisma.aggregatedProductPrice.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("pricing");
   else {
     const rows: any[] = [];
     const destRegions = ["AFRO", "SEARO", "EMRO"];
@@ -133,7 +135,7 @@ export async function seedSimulatedAggregates() {
   }
 
   // --- Product sourcing (category x country of manufacture) ---
-  if ((await insightsPrisma.aggregatedProductSourcing.count({ where: { isSimulated: true } })) > 0) result.skipped.push("sourcing");
+  if ((await insightsPrisma.aggregatedProductSourcing.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("sourcing");
   else {
     const rows: any[] = [];
     for (const category of CATEGORIES) {
