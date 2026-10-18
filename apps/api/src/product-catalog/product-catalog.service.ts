@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
-import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
 import type {
   ProductCatalogDetail,
@@ -12,11 +12,14 @@ import type {
   ProductCatalogDashboardStats,
   ProductPriceHistoryPoint,
   ProductAmendmentSummary,
+  ProductChangeEntry,
+  ProductUsageSummary,
   UpdateProductMasterResult,
   ImportProductMasterResult,
   UpdateProductMasterInput,
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { applyProductChangeSet, computeCompleteness, writeProductChanges, PRODUCT_RECORD_FIELDS, diffProductRecord } from "./product-record";
 import type { CreateProductMasterDto } from "./dto/create-product-master.dto";
 import type { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import type { ImportProductMasterRowDto } from "./dto/import-product-master.dto";
@@ -26,17 +29,7 @@ import type { RejectProductAmendmentDto } from "./dto/reject-product-amendment.d
  * source for a direct apply and as diffForAudit's field list on
  * ratification. Keeping this one array as the source of truth means a new
  * editable field only needs adding here plus the DTO itself. */
-const UPDATABLE_FIELDS = [
-  "name",
-  "category",
-  "hsCode",
-  "unspscCode",
-  "gtin",
-  "standardUnit",
-  "canonicalManufacturerPartNumber",
-  "expectedQualityDocumentation",
-  "isArchived",
-] as const;
+const UPDATABLE_FIELDS = PRODUCT_RECORD_FIELDS;
 
 /** Simulated (scale-test) catalogue entries are ring-fenced: only visible when the request runs inside a demo organisation. */
 function simulatedFilter(showSimulated?: boolean): { isSimulated?: false } {
@@ -115,10 +108,35 @@ export class ProductCatalogService {
       orderBy: { sortOrder: "asc" },
     });
     const pending = await this.pendingAmendmentIds([row]);
+    const identifiers = await prisma.productIdentifier.findMany({
+      where: { productMasterId: id },
+      orderBy: [{ identifierType: "asc" }, { createdAt: "asc" }],
+    });
     return {
       ...this.toMatch(row, pending.has(row.id)),
       canonicalManufacturerPartNumber: row.canonicalManufacturerPartNumber,
       expectedQualityDocumentation: row.expectedQualityDocumentation,
+      sourceStandard: row.sourceStandard,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      lifecycleReason: row.lifecycleReason,
+      lifecycleChangedAt: row.lifecycleChangedAt ? row.lifecycleChangedAt.toISOString() : null,
+      storageClass: row.storageClass,
+      coldChain: row.coldChain,
+      shelfLifeMonths: row.shelfLifeMonths,
+      hazardClass: row.hazardClass,
+      controlledSubstance: row.controlledSubstance,
+      inn: row.inn,
+      strength: row.strength,
+      dosageForm: row.dosageForm,
+      brand: row.brand,
+      packSize: row.packSize,
+      regulatoryClass: row.regulatoryClass,
+      intendedUse: row.intendedUse,
+      nextReviewDue: row.nextReviewDue ? row.nextReviewDue.toISOString() : null,
+      version: row.version,
+      identifiers: identifiers.map((i) => ({ id: i.id, identifierType: i.identifierType, value: i.value, label: i.label, isActive: i.isActive })),
+      completeness: computeCompleteness(row),
       attributeDefinitions: attributeDefinitions.map((a) => ({
         attributeKey: a.attributeKey,
         label: a.label,
@@ -127,6 +145,57 @@ export class ProductCatalogService {
         required: a.required,
       })),
     };
+  }
+
+  /** GET /product-catalog/:id/history — the shared change history (ProductMasterChange), newest first, capped at 300.
+   * Readable by any signed-in user: it is the audit trail of the shared catalogue entry. Simulated products follow
+   * the same ring-fence as getOne. */
+  async getHistory(id: string, showSimulated = false): Promise<ProductChangeEntry[]> {
+    const product = await prisma.productMaster.findUnique({ where: { id }, select: { isSimulated: true } });
+    if (!product || (product.isSimulated && !showSimulated)) throw new NotFoundException("Product not found.");
+    const rows = await prisma.productMasterChange.findMany({
+      where: { productMasterId: id },
+      orderBy: [{ changedAt: "desc" }, { version: "desc" }],
+      take: 300,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      version: r.version,
+      fieldName: r.fieldName,
+      oldValue: r.oldValue,
+      newValue: r.newValue,
+      source: r.source,
+      reason: r.reason,
+      changedByName: r.changedByName,
+      changedByOrganizationName: r.changedByOrganizationName,
+      changedAt: r.changedAt.toISOString(),
+    }));
+  }
+
+  /** GET /product-catalog/:id/usage — how the caller's OWN organisation uses this product (tenant-scoped; never other
+   * organisations' usage). Line and project counts plus the ten most recently updated projects. */
+  async getUsage(user: RequestUser, id: string): Promise<ProductUsageSummary> {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const lines = await tx.projectLine.findMany({
+        where: { productMasterId: id, archivedAt: null, project: { organizationId: user.organizationId } },
+        select: { projectId: true },
+      });
+      const perProject = new Map<string, number>();
+      for (const l of lines) perProject.set(l.projectId, (perProject.get(l.projectId) ?? 0) + 1);
+      const projects = perProject.size
+        ? await tx.project.findMany({
+            where: { id: { in: [...perProject.keys()] }, organizationId: user.organizationId },
+            select: { id: true, referenceNumber: true, title: true, status: true },
+            orderBy: { updatedAt: "desc" },
+            take: 10,
+          })
+        : [];
+      return {
+        lineCount: lines.length,
+        projectCount: perProject.size,
+        recentProjects: projects.map((p) => ({ projectId: p.id, reference: p.referenceNumber, name: p.title, status: p.status, lineCount: perProject.get(p.id) ?? 0 })),
+      };
+    });
   }
 
   /** GET /product-catalog/:id/price-history — ProductPriceHistory rows
@@ -319,10 +388,9 @@ export class ProductCatalogService {
     if (!existing) throw new NotFoundException("Product not found.");
 
     if (user.platformStaffRole !== "NONE") {
-      const updated = await prisma.productMaster.update({
-        where: { id },
-        data: { ...dto },
-        include: { addedByOrganization: { select: { name: true } } },
+      const updated = await prisma.$transaction(async (tx) => {
+        await applyProductChangeSet(tx, id, dto, { source: "STAFF_EDIT", user });
+        return tx.productMaster.findUniqueOrThrow({ where: { id }, include: { addedByOrganization: { select: { name: true } } } });
       });
       const pending = await this.pendingAmendmentIds([updated]);
       return { status: "APPLIED", product: this.toMatch(updated, pending.has(updated.id)) };
@@ -448,10 +516,12 @@ export class ProductCatalogService {
       const before = await tx.productMaster.findUnique({ where: { id: existing.productMasterId } });
       if (!before) throw new NotFoundException("Product not found.");
 
-      const changes = diffForAudit(before, proposed, UPDATABLE_FIELDS);
-      await tx.productMaster.update({
-        where: { id: existing.productMasterId },
-        data: { ...proposed },
+      const changes = diffProductRecord(before, proposed);
+      await applyProductChangeSet(tx, existing.productMasterId, proposed, {
+        source: "AMENDMENT_RATIFIED",
+        user,
+        reason: "Product amendment ratified",
+        amendmentId,
       });
       await recordFieldChanges(tx, {
         organizationId: existing.organizationId,
@@ -600,20 +670,24 @@ export class ProductCatalogService {
         }
 
         if (existing) {
-          await prisma.productMaster.update({
-            where: { id: existing.id },
-            data: {
-              name: row.name,
-              category: row.category,
-              hsCode: row.hsCode ?? existing.hsCode,
-              unspscCode: row.unspscCode ?? existing.unspscCode,
-              gtin: row.gtin ?? existing.gtin,
-              standardUnit: row.standardUnit ?? existing.standardUnit,
-            },
-          });
+          await prisma.$transaction((tx) =>
+            applyProductChangeSet(
+              tx,
+              existing!.id,
+              {
+                name: row.name,
+                category: row.category,
+                hsCode: row.hsCode ?? existing!.hsCode ?? undefined,
+                unspscCode: row.unspscCode ?? existing!.unspscCode ?? undefined,
+                gtin: row.gtin ?? existing!.gtin ?? undefined,
+                standardUnit: row.standardUnit ?? existing!.standardUnit ?? undefined,
+              },
+              { source: "IMPORT", user, reason: `Import (${sourceStandard})` },
+            ),
+          );
           updated++;
         } else {
-          await prisma.productMaster.create({
+          const made = await prisma.productMaster.create({
             data: {
               name: row.name,
               category: row.category,
@@ -626,6 +700,14 @@ export class ProductCatalogService {
               addedByOrganizationId: user.organizationId,
               addedByOrganizationType: org?.type ?? null,
             },
+          });
+          await writeProductChanges(prisma, {
+            productMasterId: made.id,
+            version: 1,
+            changes: [{ field: "(created)", oldValue: null, newValue: made.name }],
+            source: "IMPORT",
+            user,
+            reason: `Import (${sourceStandard})`,
           });
           created++;
         }
@@ -665,6 +747,13 @@ export class ProductCatalogService {
         addedByOrganizationType: org?.type ?? null,
       },
       include: { addedByOrganization: { select: { name: true } } },
+    });
+    await writeProductChanges(prisma, {
+      productMasterId: created.id,
+      version: 1,
+      changes: [{ field: "(created)", oldValue: null, newValue: created.name }],
+      source: "CREATE",
+      user,
     });
     return this.toMatch(created, false);
   }
@@ -753,6 +842,7 @@ export class ProductCatalogService {
       gtin: string | null;
       standardUnit: string | null;
       isArchived: boolean;
+      lifecycleStatus: string;
       addedByOrganizationId: string | null;
       addedByOrganization: { name: string } | null;
     },
@@ -769,6 +859,7 @@ export class ProductCatalogService {
       addedByOrganizationName: row.addedByOrganization?.name ?? null,
       addedByOrganizationId: row.addedByOrganizationId,
       isArchived: row.isArchived,
+      lifecycleStatus: row.lifecycleStatus,
       hasPendingAmendment,
     };
   }

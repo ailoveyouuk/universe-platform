@@ -127,6 +127,18 @@ export class ProductCatalogController {
    * route is fine here since Nest still matches "/:id/price-history" as a
    * separate, more specific path — not ambiguous with ":id" the way
    * "search"/"import" were. */
+  /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
+  @Get(":id/history")
+  getHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.productCatalogService.getHistory(id, user.inDemoOrganization === true);
+  }
+
+  /** GET /product-catalog/:id/usage — the caller's own organisation's use of this product. */
+  @Get(":id/usage")
+  getUsage(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.productCatalogService.getUsage(user, id);
+  }
+
   @Get(":id/price-history")
   getPriceHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.productCatalogService.getPriceHistory(user, id);

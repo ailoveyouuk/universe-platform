@@ -4,23 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type {
   ProductCatalogMatch,
-  ProductCatalogDetail,
-  ProductCatalogAttribute,
   ProductCatalogCompletenessStats,
   ProductCatalogDashboardStats,
-  ProductPriceHistoryPoint,
-  ProductSourceApprovalSummary,
   ProductSourcingSummary,
-  UpdateProductMasterInput,
 } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useRouter } from "next/navigation";
-import { useCurrentUser } from "../lib/AuthContext";
 import { useCountries } from "../lib/useCountries";
 import {
   AddMenu,
   AlertIcon,
-  Button,
   GridIcon,
   Pagination,
   Pill,
@@ -104,7 +97,6 @@ export default function ProductCatalogPage() {
   // completeness tile again clears it (see the tile's onClick below).
   const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">("");
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Section mini-dashboard — added 2026-10-09, Stage 1: the standardised
   // StatTile/StatTileGrid pattern (packages/ui/src/StatTile.tsx, already
@@ -415,14 +407,7 @@ export default function ProductCatalogPage() {
             </thead>
             <tbody>
               {items.map((p) => (
-                <ProductRow
-                  key={p.id}
-                  product={p}
-                  expanded={expandedId === p.id}
-                  onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                  onSaved={() => { setExpandedId(null); load(); loadStats(); }}
-                  onRefresh={() => { load(); loadStats(); }}
-                />
+                <ProductRow key={p.id} product={p} />
               ))}
               {items.length === 0 && !loading && (
                 <tr>
@@ -448,448 +433,43 @@ export default function ProductCatalogPage() {
   );
 }
 
-function ProductRow({
-  product,
-  expanded,
-  onToggle,
-  onSaved,
-  onRefresh,
-}: {
-  product: ProductCatalogMatch;
-  expanded: boolean;
-  onToggle: () => void;
-  onSaved: () => void;
-  onRefresh: () => void;
-}) {
+function ProductRow({ product }: { product: ProductCatalogMatch }) {
+  const router = useRouter();
+  const open = () => router.push(`/products/detail?id=${product.id}`);
+  const lifecycleTone = product.lifecycleStatus === "RECALLED" || product.lifecycleStatus === "WITHDRAWN" ? "critical" : product.lifecycleStatus === "RESTRICTED" ? "warning" : "neutral";
   return (
-    <>
-      <tr
-        onClick={onToggle}
-        style={{ borderBottom: expanded ? "none" : "1px solid var(--u-border)", cursor: "pointer" }}
-        className="u-card-hover"
-      >
-        <td style={{ padding: 8, fontWeight: 600 }}>
-          {product.name}
-          {product.isArchived && (
-            <span style={{ marginLeft: 8 }}>
-              <Pill tone="neutral">Archived</Pill>
-            </span>
-          )}
-          {product.hasPendingAmendment && (
-            <span style={{ marginLeft: 8 }} title="A proposed change to this product is awaiting QA/RP ratification — it can still be used on a project line.">
-              <Pill tone="warning">Pending amendment</Pill>
-            </span>
-          )}
-        </td>
-        <td style={{ padding: 8 }}>
-          <Pill tone="neutral">{product.category}</Pill>
-        </td>
-        <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.hsCode ?? "—"}</td>
-        <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.unspscCode ?? "—"}</td>
-        <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
-        <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.addedByOrganizationName ?? "—"}</td>
-      </tr>
-      {expanded && (
-        <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
-          <td colSpan={6} style={{ padding: "4px 8px 16px" }}>
-            <ProductEditPanel productId={product.id} onSaved={onSaved} onRefresh={onRefresh} onCancel={onToggle} />
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-function ProductEditPanel({
-  productId,
-  onSaved,
-  onRefresh,
-  onCancel,
-}: {
-  productId: string;
-  onSaved: () => void;
-  onRefresh: () => void;
-  onCancel: () => void;
-}) {
-  const me = useCurrentUser();
-  const countries = useCountries();
-  const [detail, setDetail] = useState<ProductCatalogDetail | null>(null);
-  const [form, setForm] = useState<UpdateProductMasterInput>({});
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [submittedNotice, setSubmittedNotice] = useState<string | null>(null);
-
-  const [priceHistory, setPriceHistory] = useState<ProductPriceHistoryPoint[] | null>(null);
-  const [priceHistoryError, setPriceHistoryError] = useState<string | null>(null);
-
-  // This organisation's own sourcing decisions for this product — added
-  // 2026-10-09, Stage 0 point 2 (country display consistency audit): the
-  // roadmap flagged Product Database as showing zero country data anywhere,
-  // despite manufacturer/supplier country being available via this org's own
-  // ProductSourceApproval records (product_source_approvals is RLS-scoped
-  // per-org, so this is never cross-tenant data — see that table's doc
-  // comment in row-level-security.sql). listProductSourceApprovals takes a
-  // productMasterId filter (server-side since 2026-10-17, scale work).
-  const [sourcing, setSourcing] = useState<ProductSourceApprovalSummary[] | null>(null);
-
-  const isPlatformStaff = (me?.platformStaffRole ?? "NONE") !== "NONE";
-  const isOwnOrg = Boolean(me && detail && detail.addedByOrganizationId === me.organizationId);
-  const hasAmendPermission = Boolean(
-    me && (me.permissions.includes("projects.edit") || me.permissions.includes("products.approve")),
-  );
-  const canProposeAmendment = isOwnOrg && hasAmendPermission;
-  const canEdit = isPlatformStaff || canProposeAmendment;
-
-  useEffect(() => {
-    apiClient
-      .getProductCatalogEntry(productId)
-      .then((d) => {
-        setDetail(d);
-        setForm({
-          name: d.name,
-          category: d.category,
-          hsCode: d.hsCode ?? "",
-          unspscCode: d.unspscCode ?? "",
-          gtin: d.gtin ?? "",
-          standardUnit: d.standardUnit ?? "",
-          canonicalManufacturerPartNumber: d.canonicalManufacturerPartNumber ?? "",
-          expectedQualityDocumentation: d.expectedQualityDocumentation ?? "",
-        });
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load entry"));
-  }, [productId]);
-
-  // Price history — read-only, sourced from ProductPriceHistory rows recorded
-  // against this ProductMaster. Fetched alongside the catalogue entry rather
-  // than bundled into it, since most products will have zero rows and the
-  // list can grow unbounded over the product's lifetime.
-  useEffect(() => {
-    apiClient
-      .getProductPriceHistory(productId)
-      .then((rows) => {
-        setPriceHistory(rows);
-        setPriceHistoryError(null);
-      })
-      .catch((err) => setPriceHistoryError(err instanceof Error ? err.message : "Failed to load price history"));
-  }, [productId]);
-
-  // Your organisation's sourcing — see the `sourcing` state's doc comment
-  // above. Silently empty on failure (e.g. no products.view-adjacent
-  // permission) rather than surfacing another error banner on this panel.
-  useEffect(() => {
-    apiClient
-      .listProductSourceApprovals(undefined, productId)
-      .then((rows) => setSourcing(rows))
-      .catch(() => setSourcing([]));
-  }, [productId]);
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    setSubmittedNotice(null);
-    try {
-      const result = await apiClient.updateProductCatalogEntry(productId, form);
-      if (result.status === "PENDING_AMENDMENT") {
-        setSubmittedNotice(
-          "Change submitted for QA/RP ratification — the live catalogue entry is unchanged until it's reviewed.",
-        );
-        onRefresh();
-      } else {
-        onSaved();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // Archive/restore — added 2026-10-03. Archiving is a soft delete: the
-  // entry stays in the database (ProductMaster.isArchived) and drops out
-  // of the catalogue's default browse/search/picker results rather than
-  // being destroyed, since other apps' historical records (project lines,
-  // product source approvals, etc.) still reference it by id. Added
-  // 2026-10-09: same update() gate as every other field now — a same-org
-  // non-admin archives via a ratified amendment like any other change,
-  // not applied immediately.
-  async function setArchived(archived: boolean) {
-    setSaving(true);
-    setError(null);
-    setSubmittedNotice(null);
-    try {
-      const result = await apiClient.updateProductCatalogEntry(productId, { isArchived: archived });
-      if (result.status === "PENDING_AMENDMENT") {
-        setSubmittedNotice(
-          "Change submitted for QA/RP ratification — the live catalogue entry is unchanged until it's reviewed.",
-        );
-        onRefresh();
-      } else {
-        onSaved();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${archived ? "archive" : "restore"} entry`);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!detail) {
-    return <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>{error ?? "Loading…"}</p>;
-  }
-
-  const fieldStyle: React.CSSProperties = {
-    padding: "8px 10px",
-    borderRadius: "var(--u-radius-md)",
-    border: "1px solid var(--u-border)",
-    fontSize: 13.5,
-    width: "100%",
-  };
-
-  const readOnlyFieldStyle: React.CSSProperties = {
-    ...fieldStyle,
-    backgroundColor: "var(--u-surface-alt)",
-    color: "var(--u-ink-secondary)",
-    cursor: "not-allowed",
-  };
-
-  return (
-    <div
-      style={{
-        border: "1px solid var(--u-border)",
-        borderRadius: "var(--u-radius-lg)",
-        backgroundColor: "var(--u-surface-raised)",
-        padding: 16,
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))",
-        gap: 12,
-      }}
+    <tr
+      onClick={open}
+      onKeyDown={(e) => { if (e.key === "Enter") open(); }}
+      tabIndex={0}
+      style={{ borderBottom: "1px solid var(--u-border)", cursor: "pointer" }}
+      className="u-card-hover"
     >
-      {!canEdit && (
-        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-          Read-only — only {detail.addedByOrganizationName ?? "the organisation that added this product"} (or a
-          platform admin) can edit this entry.
-        </p>
-      )}
-      {canProposeAmendment && !isPlatformStaff && (
-        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-          Changes you make here will be submitted for QA/RP ratification before taking effect on the shared
-          catalogue.
-        </p>
-      )}
-      {detail.hasPendingAmendment && (
-        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-status-warning)", fontWeight: 600 }}>
-          This product has a change awaiting QA/RP ratification. It can still be added to a project line in the
-          meantime — the values below are the current, unamended ones.
-        </p>
-      )}
-      {submittedNotice && (
-        <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: 13, color: "var(--u-status-good)", fontWeight: 600 }}>
-          {submittedNotice}
-        </p>
-      )}
-      <Field label="Name">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.name ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-        />
-      </Field>
-      <Field label="Category">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.category ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-        />
-      </Field>
-      <Field label="HS Code">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.hsCode ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, hsCode: e.target.value }))}
-        />
-      </Field>
-      <Field label="UNSPSC Code">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.unspscCode ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, unspscCode: e.target.value }))}
-        />
-      </Field>
-      <Field label="GTIN">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.gtin ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, gtin: e.target.value }))}
-        />
-      </Field>
-      <Field label="Standard Unit">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.standardUnit ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, standardUnit: e.target.value }))}
-        />
-      </Field>
-      <Field label="Canonical Manufacturer Part Number">
-        <input
-          style={canEdit ? fieldStyle : readOnlyFieldStyle}
-          disabled={!canEdit}
-          value={form.canonicalManufacturerPartNumber ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, canonicalManufacturerPartNumber: e.target.value }))}
-        />
-      </Field>
-      <Field label="Expected Quality Documentation" span>
-        <textarea
-          style={canEdit ? { ...fieldStyle, minHeight: 60 } : { ...readOnlyFieldStyle, minHeight: 60 }}
-          disabled={!canEdit}
-          value={form.expectedQualityDocumentation ?? ""}
-          onChange={(e) => setForm((f) => ({ ...f, expectedQualityDocumentation: e.target.value }))}
-        />
-      </Field>
-
-      {detail.attributeDefinitions.length > 0 && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Category attributes</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-            {detail.attributeDefinitions.map((attr: ProductCatalogAttribute) => (
-              <div
-                key={attr.attributeKey}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  fontSize: 13,
-                  padding: "4px 0",
-                  borderBottom: "1px solid var(--u-border)",
-                }}
-              >
-                <span style={{ color: "var(--u-ink)" }}>
-                  {attr.label}{" "}
-                  <span style={{ color: "var(--u-ink-secondary)" }}>
-                    ({attr.dataType}
-                    {attr.enumOptions && attr.enumOptions.length > 0 ? `: ${attr.enumOptions.join(" / ")}` : ""})
-                  </span>
-                </span>
-                {attr.required && <span style={{ fontSize: 11, color: "var(--u-status-critical)" }}>Required</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {priceHistoryError && (
-        <p style={{ gridColumn: "1 / -1", color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>{priceHistoryError}</p>
-      )}
-
-      {priceHistory && priceHistory.length > 0 && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Price history</span>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Date</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Unit Price</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Currency</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Recorded By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...priceHistory]
-                .reverse()
-                .map((p: ProductPriceHistoryPoint) => (
-                  <tr key={p.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                    <td style={{ padding: "6px 8px", fontSize: 13 }}>{new Date(p.effectiveDate).toLocaleDateString()}</td>
-                    <td style={{ padding: "6px 8px", fontSize: 13 }}>{p.unitPrice}</td>
-                    <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{p.currency}</td>
-                    <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{p.recordedByName ?? "—"}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {sourcing && sourcing.length > 0 && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
-            Your organisation's sourcing
+      <td style={{ padding: 8, fontWeight: 600 }}>
+        <Link href={`/products/detail?id=${product.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{product.name}</Link>
+        {product.isArchived && (
+          <span style={{ marginLeft: 8 }}>
+            <Pill tone="neutral">Archived</Pill>
           </span>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Manufacturer</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Supplier</th>
-                <th style={{ padding: "6px 8px", textAlign: "left", fontSize: 11.5, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sourcing.map((s) => (
-                <tr key={s.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                  <td style={{ padding: "6px 8px", fontSize: 13 }}>
-                    {s.manufacturerName}
-                    {s.manufacturerCountryCode && (
-                      <span style={{ color: "var(--u-ink-secondary)" }}>
-                        {" — "}
-                        {countries.find((c) => c.code === s.manufacturerCountryCode)?.name ?? s.manufacturerCountryCode}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>
-                    {s.supplierName ? (
-                      <>
-                        {s.supplierName}
-                        {s.supplierCountryCode && ` — ${countries.find((c) => c.code === s.supplierCountryCode)?.name ?? s.supplierCountryCode}`}
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td style={{ padding: "6px 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{s.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {error && (
-        <p style={{ gridColumn: "1 / -1", color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>{error}</p>
-      )}
-
-      <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
-        {canEdit &&
-          (detail.isArchived ? (
-            <Button variant="secondary" size="sm" onClick={() => setArchived(false)} disabled={saving}>
-              Restore
-            </Button>
-          ) : (
-            <Button variant="secondary" size="sm" onClick={() => setArchived(true)} disabled={saving}>
-              Archive
-            </Button>
-          ))}
-        <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-          <Button variant="secondary" size="sm" onClick={onCancel}>Cancel</Button>
-          {canEdit && (
-            <Button variant="primary" size="sm" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : isPlatformStaff ? "Save" : "Propose amendment"}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, span, children }: { label: string; span?: boolean; children: React.ReactNode }) {
-  return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4, gridColumn: span ? "1 / -1" : undefined }}>
-      <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{label}</span>
-      {children}
-    </label>
+        )}
+        {product.lifecycleStatus !== "ACTIVE" && !product.isArchived && (
+          <span style={{ marginLeft: 8 }}>
+            <Pill tone={lifecycleTone}>{product.lifecycleStatus.charAt(0) + product.lifecycleStatus.slice(1).toLowerCase()}</Pill>
+          </span>
+        )}
+        {product.hasPendingAmendment && (
+          <span style={{ marginLeft: 8 }} title="A proposed change to this product is awaiting QA/RP ratification — it can still be used on a project line.">
+            <Pill tone="warning">Pending amendment</Pill>
+          </span>
+        )}
+      </td>
+      <td style={{ padding: 8 }}>
+        <Pill tone="neutral">{product.category}</Pill>
+      </td>
+      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.hsCode ?? "—"}</td>
+      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.unspscCode ?? "—"}</td>
+      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
+      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.addedByOrganizationName ?? "—"}</td>
+    </tr>
   );
 }

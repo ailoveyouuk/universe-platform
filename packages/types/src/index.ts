@@ -1473,6 +1473,8 @@ export interface ProductCatalogMatch {
    * ProjectLine. See ProductPickerOption in @universe/ui for the picker's
    * own copy of this flag. */
   hasPendingAmendment: boolean;
+  /** Added 2026-10-18 — DRAFT | ACTIVE | RESTRICTED | DISCONTINUED | WITHDRAWN | RECALLED. */
+  lifecycleStatus: string;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see
@@ -1500,10 +1502,73 @@ export interface ProductPriceHistoryPoint {
   recordedByName: string | null;
 }
 
-export interface ProductCatalogDetail extends ProductCatalogMatch {
+export interface ProductIdentifierSummary {
+  id: string;
+  identifierType: string;
+  value: string;
+  label: string | null;
+  isActive: boolean;
+}
+
+/** Product-record fields added 2026-10-18 (shared catalogue, see docs/PRODUCT-DATABASE-GAP-ANALYSIS.md). */
+export interface ProductRecordFields {
+  lifecycleReason: string | null;
+  lifecycleChangedAt: string | null;
+  storageClass: string | null;
+  coldChain: boolean;
+  shelfLifeMonths: number | null;
+  hazardClass: string | null;
+  controlledSubstance: boolean;
+  inn: string | null;
+  strength: string | null;
+  dosageForm: string | null;
+  brand: string | null;
+  packSize: string | null;
+  regulatoryClass: string | null;
+  intendedUse: string | null;
+  nextReviewDue: string | null;
+  version: number;
+}
+
+export interface ProductRecordCompleteness {
+  /** 0–100, share of applicable record fields filled. */
+  score: number;
+  filled: number;
+  total: number;
+  /** Human-readable names of the applicable fields still empty. */
+  missing: string[];
+}
+
+export interface ProductCatalogDetail extends ProductCatalogMatch, ProductRecordFields {
   canonicalManufacturerPartNumber: string | null;
   expectedQualityDocumentation: string | null;
   attributeDefinitions: ProductCatalogAttribute[];
+  identifiers: ProductIdentifierSummary[];
+  completeness: ProductRecordCompleteness;
+  sourceStandard: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One applied change to a shared catalogue entry (ProductMasterChange). */
+export interface ProductChangeEntry {
+  id: string;
+  version: number;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+  source: string;
+  reason: string | null;
+  changedByName: string | null;
+  changedByOrganizationName: string | null;
+  changedAt: string;
+}
+
+/** GET /product-catalog/:id/usage — the caller's own organisation's use of a product. */
+export interface ProductUsageSummary {
+  lineCount: number;
+  projectCount: number;
+  recentProjects: { projectId: string; reference: string; name: string; status: string; lineCount: number }[];
 }
 
 /** POST /product-catalog body — adds a new entry to the shared catalogue.
@@ -1579,6 +1644,22 @@ export interface UpdateProductMasterInput {
   canonicalManufacturerPartNumber?: string;
   expectedQualityDocumentation?: string;
   isArchived?: boolean;
+  /** Product-record fields (2026-10-18). An empty string clears a text field. */
+  lifecycleStatus?: string;
+  lifecycleReason?: string;
+  storageClass?: string;
+  coldChain?: boolean;
+  shelfLifeMonths?: number;
+  hazardClass?: string;
+  controlledSubstance?: boolean;
+  inn?: string;
+  strength?: string;
+  dosageForm?: string;
+  brand?: string;
+  packSize?: string;
+  regulatoryClass?: string;
+  intendedUse?: string;
+  nextReviewDue?: string;
 }
 
 /** One row of a POST /product-catalog/import request body. See

@@ -12,7 +12,7 @@ export function Pill({
   icon,
 }: {
   children: ReactNode;
-  tone?: "neutral" | "brand" | "accent" | "good" | "warning";
+  tone?: "neutral" | "brand" | "accent" | "good" | "warning" | "critical";
   icon?: ReactNode;
 }) {
   const tones: Record<string, { bg: string; fg: string }> = {
@@ -21,6 +21,7 @@ export function Pill({
     accent: { bg: "var(--u-accent-magenta-tint)", fg: "var(--u-accent-magenta)" },
     good: { bg: "rgba(12,163,12,0.12)", fg: "var(--u-status-good)" },
     warning: { bg: "rgba(250,178,25,0.16)", fg: "#946014" },
+    critical: { bg: "rgba(208,59,59,0.12)", fg: "var(--u-status-critical)" },
   };
   const t = tones[tone];
   return (

@@ -71,7 +71,7 @@ export class SearchService {
       ...contacts.map((c) => ({ type: "contact" as const, id: c.id, title: c.name, subtitle: [c.partner?.name, c.email].filter(Boolean).join(" · "), link: `/partners/detail?id=${c.partnerId}`, app: "project-management" as const })),
       ...batches.map((b) => ({ type: "batch" as const, id: b.id, title: `Batch ${b.batchNumber}`, subtitle: [b.productMaster?.name, pretty(b.status)].filter(Boolean).join(" · "), link: `/batches/detail?id=${b.id}`, app: "project-management" as const })),
       ...risks.map((r) => ({ type: "risk" as const, id: r.id, title: r.title, subtitle: [r.severity && pretty(String(r.severity)), pretty(r.status)].filter(Boolean).join(" · "), link: "/risk-register", app: "project-management" as const })),
-      ...products.map((p) => ({ type: "product" as const, id: p.id, title: p.name, subtitle: p.category, link: `/?q=${encodeURIComponent(p.name)}`, app: "product-database" as const })),
+      ...products.map((p) => ({ type: "product" as const, id: p.id, title: p.name, subtitle: p.category, link: `/products/detail?id=${p.id}`, app: "product-database" as const })),
     ];
     return { query: q, results };
   }

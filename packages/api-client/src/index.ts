@@ -47,6 +47,8 @@ import type {
   PartnerSummary,
   ProductAmendmentSummary,
   ProductCatalogDetail,
+  ProductChangeEntry,
+  ProductUsageSummary,
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductCatalogCompletenessStats,
@@ -577,6 +579,16 @@ export class UniverseApiClient {
    * this catalogue entry. Added 2026-10-09. */
   getProductPriceHistory(productMasterId: string): Promise<ProductPriceHistoryPoint[]> {
     return this.request(`/product-catalog/${productMasterId}/price-history`);
+  }
+
+  /** GET /product-catalog/:id/history — shared change history (added 2026-10-18). */
+  getProductHistory(productMasterId: string): Promise<ProductChangeEntry[]> {
+    return this.request(`/product-catalog/${productMasterId}/history`);
+  }
+
+  /** GET /product-catalog/:id/usage — this organisation's own use of the product (added 2026-10-18). */
+  getProductUsage(productMasterId: string): Promise<ProductUsageSummary> {
+    return this.request(`/product-catalog/${productMasterId}/usage`);
   }
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {

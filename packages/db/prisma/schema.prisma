@@ -1672,9 +1672,37 @@ model ProductMaster {
   /// record of who-added-what-in-what-capacity doesn't silently change if
   /// an organisation's type is ever edited later.
   addedByOrganizationType         String?
+  /// Product-record fields added 2026-10-18 (Product Database completion, see docs/PRODUCT-DATABASE-GAP-ANALYSIS.md).
+  /// DRAFT | ACTIVE | RESTRICTED | DISCONTINUED | WITHDRAWN | RECALLED — see ProductLifecycleStatus in packages/db/src/enums.ts.
+  lifecycleStatus                 String        @default("ACTIVE")
+  lifecycleReason                 String?       @db.NVarChar(Max)
+  lifecycleChangedAt              DateTime?
+  /// AMBIENT | CRT (15-25 C) | COOL (8-15 C) | REFRIGERATED (2-8 C) | FROZEN | DEEP_FROZEN | OTHER — ProductStorageClass.
+  storageClass                    String?
+  coldChain                       Boolean       @default(false)
+  shelfLifeMonths                 Int?
+  /// UN number / dangerous goods class, free text e.g. "UN3373 Cat. B".
+  hazardClass                     String?
+  controlledSubstance             Boolean       @default(false)
+  /// International non-proprietary name, strength, dosage form (medicines) and brand.
+  inn                             String?
+  strength                        String?
+  dosageForm                      String?
+  brand                           String?
+  /// Pack size/hierarchy as text, e.g. "10 x 10 tablets; inner 10; outer 100; pallet 5,000".
+  packSize                        String?
+  /// Regulatory class where it applies (e.g. device class I, IIa, IIb, III; IVD class A-D; Rx/OTC).
+  regulatoryClass                 String?
+  intendedUse                     String?       @db.NVarChar(Max)
+  /// Periodic review of the catalogue entry itself.
+  nextReviewDue                   DateTime?
+  /// Incremented each time an applied change set is written (see ProductMasterChange).
+  version                         Int           @default(1)
   createdAt                       DateTime      @default(now())
   updatedAt                       DateTime      @updatedAt
 
+  identifiers            ProductIdentifier[]
+  changes                ProductMasterChange[]
   attributeDefinitions   ProductAttributeDefinition[]
   projectLines           ProjectLine[]
   productLines           ProductLine[]
@@ -1692,6 +1720,8 @@ model ProductMaster {
   @@index([unspscCode])
   @@index([gtin])
   @@index([addedByOrganizationId])
+  @@index([lifecycleStatus])
+  @@index([nextReviewDue])
   @@map("product_master")
 }
 
@@ -2728,4 +2758,50 @@ model Notification {
   @@index([recipientUserId, requiresAction, actionStatus])
   @@index([organizationId])
   @@map("notifications")
+}
+
+
+/// Additional identifiers for one catalogue product (added 2026-10-18): a product can carry many GTINs, manufacturer part
+/// numbers, UDI-DIs, NDCs and other codes. Shared (no organizationId), like product_master; deactivated, never deleted.
+model ProductIdentifier {
+  id              String        @id @default(uuid())
+  productMasterId String
+  productMaster   ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// GTIN | MPN | UDI_DI | NDC | ATC | GMDN | OTHER
+  identifierType  String
+  value           String
+  label           String?
+  isActive        Boolean       @default(true)
+  createdById     String?
+  createdAt       DateTime      @default(now())
+
+  @@unique([productMasterId, identifierType, value])
+  @@index([identifierType, value])
+  @@map("product_identifiers")
+}
+
+/// Append-only change history for the shared catalogue (added 2026-10-18). FieldChangeLog is tenant-scoped, so it could
+/// not record platform-staff edits to the shared product_master row; this shared table records every applied change
+/// (staff edit, ratified amendment, import, creation) with who, from which organisation, why and the resulting version.
+/// Names are denormalised on purpose: the user and organisation rows are tenant-protected and may later change.
+model ProductMasterChange {
+  id                    String        @id @default(uuid())
+  productMasterId       String
+  productMaster         ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  version               Int
+  fieldName             String
+  oldValue              String?       @db.NVarChar(Max)
+  newValue              String?       @db.NVarChar(Max)
+  /// CREATE | STAFF_EDIT | AMENDMENT_RATIFIED | IMPORT | SYSTEM
+  source                String
+  reason                String?       @db.NVarChar(Max)
+  amendmentId           String?
+  changedById           String?
+  changedByName         String?
+  changedByOrganizationId   String?
+  changedByOrganizationName String?
+  changedAt             DateTime      @default(now())
+
+  @@index([productMasterId, changedAt])
+  @@map("product_master_changes")
 }

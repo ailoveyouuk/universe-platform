@@ -172,6 +172,39 @@ export const ProductBatchStatus = {
 } as const;
 export type ProductBatchStatus = (typeof ProductBatchStatus)[keyof typeof ProductBatchStatus];
 
+/// Catalogue lifecycle (ProductMaster.lifecycleStatus), added 2026-10-18.
+export const ProductLifecycleStatus = {
+  DRAFT: "DRAFT",
+  ACTIVE: "ACTIVE",
+  RESTRICTED: "RESTRICTED",
+  DISCONTINUED: "DISCONTINUED",
+  WITHDRAWN: "WITHDRAWN",
+  RECALLED: "RECALLED",
+} as const;
+export type ProductLifecycleStatus = (typeof ProductLifecycleStatus)[keyof typeof ProductLifecycleStatus];
+
+export const ProductStorageClass = {
+  AMBIENT: "AMBIENT",
+  CRT: "CRT",
+  COOL: "COOL",
+  REFRIGERATED: "REFRIGERATED",
+  FROZEN: "FROZEN",
+  DEEP_FROZEN: "DEEP_FROZEN",
+  OTHER: "OTHER",
+} as const;
+export type ProductStorageClass = (typeof ProductStorageClass)[keyof typeof ProductStorageClass];
+
+export const ProductIdentifierType = {
+  GTIN: "GTIN",
+  MPN: "MPN",
+  UDI_DI: "UDI_DI",
+  NDC: "NDC",
+  ATC: "ATC",
+  GMDN: "GMDN",
+  OTHER: "OTHER",
+} as const;
+export type ProductIdentifierType = (typeof ProductIdentifierType)[keyof typeof ProductIdentifierType];
+
 /// Expanded 2026-10-02 after a research pass on real-world supplier
 /// files — covers every document type actually observed, not just the
 /// original four.
