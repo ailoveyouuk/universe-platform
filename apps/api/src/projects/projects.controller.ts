@@ -51,6 +51,11 @@ export class ProjectsController {
     return this.projectsService.overview(user);
   }
 
+  @Get("country-overview")
+  countryOverview(@CurrentUser() user: RequestUser) {
+    return this.projectsService.countryOverview(user);
+  }
+
   // Declared BEFORE the ":id" route below — Nest/Express match routes in
   // declaration order, and a single dynamic segment would otherwise treat
   // "financial-summary" as an :id value and shadow this entirely.

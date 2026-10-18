@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { PartnerOverview, ProjectOverview, ProjectSummary, ProjectFinancialSummary } from "@universe/types";
+import type { PartnerOverview, ProjectCountryOverview, ProjectOverview, ProjectSummary, ProjectFinancialSummary } from "@universe/types";
 import { SUPPORTED_CURRENCIES } from "@universe/types";
 import {
   ActionsCard,
@@ -18,10 +18,12 @@ import {
   CheckCircleIcon,
   AlertIcon,
   GlobeIcon,
+  SearchIcon,
   StatTile,
 } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
+import { useCountries } from "../lib/useCountries";
 
 // The Active / Awarded / Overdue definitions live in the API (ProjectsService.findPage/overview).
 
@@ -86,6 +88,14 @@ export default function HomePage() {
 
   // Counts, recents and delivery countries come from the database (GET /projects/overview),
   // not from loading every project (2026-10-17, scale work).
+  const [showCountries, setShowCountries] = useState(false);
+  const [countryRows, setCountryRows] = useState<ProjectCountryOverview[] | null>(null);
+  const countries = useCountries();
+  const countryName = (code: string) => countries.find((c) => c.code === code)?.name ?? code;
+  useEffect(() => {
+    if (showCountries && countryRows === null) apiClient.getProjectCountryOverview().then(setCountryRows).catch(() => setCountryRows([]));
+  }, [showCountries, countryRows]);
+
   const stats = projectOverview?.counts ?? { active: 0, submitted: 0, awarded: 0, overdue: 0 };
   const countryStats = { count: projectOverview?.deliveryCountryCodes.length ?? 0 };
   const activeProjects = projectOverview?.recentActive ?? [];
@@ -174,10 +184,17 @@ export default function HomePage() {
         <Link href="/partners?approval=APPROVED" style={{ textDecoration: "none" }}>
           <StatTile label="QA Approved Mfg. & Suppliers" value={stakeholderStats?.qaApproved} icon={<CheckCircleIcon size={20} />} tone="good" />
         </Link>
-        <Link href="/projects" style={{ textDecoration: "none" }}>
-          <StatTile label="Delivery countries" value={countryStats?.count} icon={<GlobeIcon size={20} />} tone="neutral" />
-        </Link>
+        <StatTile
+          label="Delivery countries"
+          value={countryStats?.count}
+          icon={<GlobeIcon size={20} />}
+          tone="brand"
+          active={showCountries}
+          onClick={() => setShowCountries((v) => !v)}
+        />
       </div>
+
+      {showCountries && <CountryPanel rows={countryRows} countryName={countryName} onClose={() => setShowCountries(false)} />}
 
       {financialSummary && financialSummary.linesWithPricing > 0 && (
         <section
@@ -378,3 +395,88 @@ function FinancialStat({
   );
 }
 
+
+/** Palette for the country cards, all Universe tokens, cycled so neighbouring cards are easy to tell apart. */
+const COUNTRY_ACCENTS = [
+  "var(--u-brand-violet)",
+  "var(--u-accent-magenta)",
+  "var(--u-status-good)",
+  "var(--u-signal-amber)",
+  "var(--u-status-serious)",
+  "var(--u-ink-secondary)",
+];
+
+/** Opens from the "Delivery countries" tile: filter the countries, see the five most recent/active projects for each. */
+function CountryPanel({ rows, countryName, onClose }: { rows: ProjectCountryOverview[] | null; countryName: (code: string) => string; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const [liveOnly, setLiveOnly] = useState(false);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (rows ?? [])
+      .filter((r) => (!liveOnly || r.liveCount > 0) && (!q || countryName(r.countryCode).toLowerCase().includes(q) || r.countryCode.toLowerCase() === q))
+      .sort((a, b) => b.liveCount - a.liveCount || b.projectCount - a.projectCount || countryName(a.countryCode).localeCompare(countryName(b.countryCode)));
+  }, [rows, query, liveOnly, countryName]);
+
+  return (
+    <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", padding: "18px 20px", marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <GlobeIcon size={16} />
+          Delivery countries
+        </h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--u-ink-secondary)", display: "flex" }}>
+              <SearchIcon size={14} />
+            </span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter countries…"
+              aria-label="Filter countries"
+              style={{ padding: "7px 10px 7px 30px", fontSize: 13, borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-surface)", color: "var(--u-ink)" }}
+            />
+          </div>
+          <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, color: "var(--u-ink-secondary)" }}>
+            <input type="checkbox" checked={liveOnly} onChange={(e) => setLiveOnly(e.target.checked)} /> Live projects only
+          </label>
+          <Button variant="secondary" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+      {rows === null && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>Loading…</p>}
+      {rows !== null && shown.length === 0 && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>No matching countries.</p>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(300px, 100%), 1fr))", gap: 14 }}>
+        {shown.map((r, i) => {
+          const accent = COUNTRY_ACCENTS[i % COUNTRY_ACCENTS.length];
+          return (
+            <div key={r.countryCode} style={{ border: "1px solid var(--u-border)", borderLeft: `4px solid ${accent}`, borderRadius: "var(--u-radius-md)", padding: "12px 14px", backgroundColor: "var(--u-surface)", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+                <Link href={`/projects?country=${r.countryCode}`} style={{ fontWeight: 600, fontSize: 14, color: "var(--u-ink)", textDecoration: "none" }}>
+                  {countryName(r.countryCode)}
+                </Link>
+                <span style={{ fontSize: 12, color: "var(--u-ink-secondary)", whiteSpace: "nowrap" }}>
+                  {r.liveCount} live · {r.projectCount} total
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {r.projects.map((p) => (
+                  <Link key={p.id} href={`/projects/detail?id=${p.id}`} style={{ textDecoration: "none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: accent === "var(--u-signal-amber)" || accent === "var(--u-ink-secondary)" ? "var(--u-ink)" : accent }}>
+                      <strong style={{ fontWeight: 600 }}>{p.referenceNumber}</strong> {p.title}
+                    </span>
+                    <StatusBadge status={p.status} />
+                  </Link>
+                ))}
+              </div>
+              {r.projectCount > r.projects.length && (
+                <Link href={`/projects?country=${r.countryCode}`} style={{ display: "inline-block", marginTop: 8, fontSize: 12, color: "var(--u-ink-secondary)" }}>
+                  View all {r.projectCount}
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}

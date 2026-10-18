@@ -2,6 +2,7 @@ import type {
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
+  ProjectCountryOverview,
   ProjectOverview,
   UserCounts,
   UserOption,
@@ -301,6 +302,10 @@ export class UniverseApiClient {
 
   getProjectOverview(): Promise<ProjectOverview> {
     return this.request("/projects/overview");
+  }
+
+  getProjectCountryOverview(): Promise<ProjectCountryOverview[]> {
+    return this.request("/projects/country-overview");
   }
 
   /** @deprecated Capped at 500 — use listProjectsPage / getProjectOverview. */

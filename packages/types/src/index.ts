@@ -871,6 +871,17 @@ export interface ProjectOverview {
   recentAwarded: ProjectSummary[];
 }
 
+/** One delivery country on the dashboard: how many live projects deliver there and the five most recent/active of them. */
+export interface ProjectCountryOverview {
+  countryCode: string;
+  /** Non-archived projects delivering to this country (any status). */
+  projectCount: number;
+  /** Of those, projects still live (identified, in progress, submitted or awarded). */
+  liveCount: number;
+  /** Up to five: live projects first, then by most recent update. */
+  projects: ProjectSummary[];
+}
+
 /** Full project detail (header + lines) — what GET /projects/:id returns.
  * ProjectSummary stays as the list-row shape (GET /projects). */
 export interface ProjectDetail extends ProjectSummary {

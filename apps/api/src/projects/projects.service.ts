@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
-import type { PagedResult, ProjectOverview, ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
+import type { PagedResult, ProjectCountryOverview, ProjectOverview, ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import { createNotifications } from "../notifications/notify";
 import type { AssignProjectActionDto } from "./dto/assign-project-action.dto";
@@ -549,6 +549,47 @@ export class ProjectsService {
         rows = await find(where, [field[key] ?? { updatedAt: "desc" }, ...secondary], skip, pageSize);
       }
       return { items: rows.map(toSummary), total, page, pageSize };
+    });
+  }
+
+  /** Per delivery country: project counts and the five most recent/active projects (dashboard "Delivery countries" tile).
+   * One light scan to rank, then one fetch of at most five projects per country. */
+  async countryOverview(user: RequestUser): Promise<ProjectCountryOverview[]> {
+    const LIVE = ["IDENTIFIED", "IN_PROGRESS", "SUBMITTED", "AWARDED"];
+    return withTenantContext(user.organizationId, async (tx) => {
+      const light = await tx.project.findMany({
+        where: { ...tenantScope(user.organizationId), isArchived: false, deliveryCountryCode: { not: null } },
+        select: { id: true, status: true, updatedAt: true, deliveryCountryCode: true, deliveryCountryCodes: true },
+        orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      });
+      const byCountry = new Map<string, { count: number; live: number; live5: string[]; other5: string[] }>();
+      for (const p of light) {
+        const isLive = LIVE.includes(p.status);
+        for (const code of readDeliveryCountries(p)) {
+          const e = byCountry.get(code) ?? { count: 0, live: 0, live5: [], other5: [] };
+          e.count += 1;
+          if (isLive) {
+            e.live += 1;
+            if (e.live5.length < 5) e.live5.push(p.id);
+          } else if (e.other5.length < 5) e.other5.push(p.id);
+          byCountry.set(code, e);
+        }
+      }
+      const pick = (e: { live5: string[]; other5: string[] }) => [...e.live5, ...e.other5].slice(0, 5);
+      const ids = [...new Set([...byCountry.values()].flatMap(pick))];
+      const rows = new Map<string, ReturnType<typeof toSummary>>();
+      for (let i = 0; i < ids.length; i += 500) {
+        const found = await tx.project.findMany({ where: { id: { in: ids.slice(i, i + 500) } }, include: { client: true } });
+        for (const r of found) rows.set(r.id, toSummary(r));
+      }
+      return [...byCountry.entries()]
+        .map(([countryCode, e]) => ({
+          countryCode,
+          projectCount: e.count,
+          liveCount: e.live,
+          projects: pick(e).map((id) => rows.get(id)).filter((r): r is ProjectSummary => !!r),
+        }))
+        .sort((a, b) => b.liveCount - a.liveCount || b.projectCount - a.projectCount || a.countryCode.localeCompare(b.countryCode));
     });
   }
 

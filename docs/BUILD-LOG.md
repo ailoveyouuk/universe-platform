@@ -432,3 +432,9 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Follows through:** the Projects list country filter and dashboard countries tile count every destination; the export-restriction check on project lines runs once per destination; the own-organisation projects CSV lists all countries (semicolon-separated); changes are audited.
 - **Known limit:** the CO2/distance figure for a project line still uses the primary (first) country only. Per-line destinations would be the proper next step.
 - **Tests:** `delivery-countries.test.ts` (normalising, storage format, fall-back for older rows, exact-match filter). No manual step: no new tenant table, so no RLS change.
+
+## 2026-10-18 — Dashboard: Delivery countries tile opens a per-country view
+- **Change:** clicking the "Delivery countries" tile on the Project Management dashboard now opens a panel (it used to jump to the Projects list). Each delivery country is a card in the Universe palette (violet, magenta, green, amber, orange, grey, cycled) showing live and total project counts and its five most recent/active projects, each linking to the project; "View all" opens the Projects list filtered to that country. The panel has a country filter box and a "Live projects only" switch.
+- **How "recent/active" is ranked:** live projects (identified, in progress, submitted, awarded) first, then by most recent update, then finished ones to fill up to five. Archived projects are excluded. A project with several delivery countries appears under each.
+- **API:** `GET /projects/country-overview` (two queries: one light ranking scan, one fetch of at most five projects per country; tenant-scoped).
+- **Tests:** `project-country-overview.test.ts` (counts per destination, live first, five-project cap, archived excluded, no cross-organisation leakage).
