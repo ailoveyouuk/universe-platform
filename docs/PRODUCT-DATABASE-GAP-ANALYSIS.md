@@ -99,3 +99,9 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 - The per-organisation "checked and verified / not applicable / action taken" review for safety notices and potential alerts moves into step 4 and 4b, alongside the registration verification already built.
 - Proposed step 3b (raised by Lewis, awaiting agreement): product family with variants. A family holds the generic product (name, category, INN, regulatory class); variants hold strength, pack size, packaging hierarchy and GTINs. Registrations and documents can attach at family or variant level. Simulated names to be regenerated without pack details or "#N".
 - Step 3 (controlled product documents) built: private per organisation, versioned, four-eyes approval, expiry tracking, upload limits, malware-scan check, archive only.
+
+## Update 2026-10-18 — step 3b delivered; plan changes
+
+- **3b done:** product families with variants (shared catalogue); family-level registrations/documents inherited by variants; Families pages; Project Management now creates/selects products through the same family-aware form with duplicate refusal and links to the Product Database page (see BUILD-LOG, "Step 3b" and "Step 3b follow-up").
+- **Step 4 (safety notices/recalls) design note:** each organisation records its own "checked / verified" review of a notice or registration (tenant table, RLS), and an unreviewed notice on a product used in a project line or approval raises a visible flag. Notices attach to a variant or a family (applies to all variants), reusing the same Target pattern as registrations and documents.
+- **Known data-quality note:** the simulated catalogue has many near-identical variants (same strength and pack size, different GTIN) because the original generator reused a few specs; real data would normally differ by strength, pack size or manufacturer. Variants that differ only by supplier belong under sourcing, not as variants.
