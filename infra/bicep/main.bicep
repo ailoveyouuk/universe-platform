@@ -130,7 +130,11 @@ module storage 'modules/storage.bicep' = {
     // Management SWA uploads documents today (see storage.bicep's own
     // comment on this param); add adminSwa's hostname here too if/when the
     // Admin app ever grows a Documents feature of its own.
-    allowedOrigin: 'https://${projectManagementSwa.outputs.defaultHostname}'
+    // Product Database added 2026-10-18 (controlled product documents upload directly to blob storage).
+    allowedOrigins: [
+      'https://${projectManagementSwa.outputs.defaultHostname}'
+      'https://${productDatabaseSwa.outputs.defaultHostname}'
+    ]
   }
 }
 

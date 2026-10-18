@@ -20,7 +20,7 @@ param name string
 param location string
 
 @description('Origins allowed to PUT directly to blob storage with a SAS (the two-step browser upload flow in documents.service.ts) — the Project Management SWA\'s own hostname. Without this, every browser-side upload fails with a CORS preflight error even though the SAS itself is valid, since Blob Storage default-denies cross-origin requests. Found and fixed 2026-10-01 during the Phase 2b smoke test: upload-url minted fine, the direct-to-blob PUT never got there.')
-param allowedOrigin string
+param allowedOrigins array
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: name
@@ -71,7 +71,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
     cors: {
       corsRules: [
         {
-          allowedOrigins: [allowedOrigin]
+          allowedOrigins: allowedOrigins
           allowedMethods: ['GET', 'HEAD', 'PUT', 'OPTIONS']
           allowedHeaders: ['*']
           exposedHeaders: ['*']
