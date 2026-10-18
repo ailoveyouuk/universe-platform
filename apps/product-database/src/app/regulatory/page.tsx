@@ -34,6 +34,9 @@ export default function RegulatoryPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
             <StatTile label="Registrations awaiting your verification" value={n(d.mine.unverified)} icon={<span>🔎</span>} tone="warning" />
             <StatTile label="Re-verification overdue" value={n(d.mine.reverificationDue)} icon={<span>🔁</span>} tone="critical" />
+            <StatTile label="Documents awaiting approval" value={n(d.mine.documentsAwaitingApproval)} icon={<span>📝</span>} tone="warning" />
+            <StatTile label="Documents expiring within 90 days" value={n(d.mine.documentsExpiringSoon)} icon={<span>⏳</span>} tone="warning" />
+            <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<span>⌛</span>} tone="critical" />
             <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<span>⚠️</span>} tone="critical" />
           </div>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Needs attention</h2>

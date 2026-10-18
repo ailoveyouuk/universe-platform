@@ -306,6 +306,7 @@ model Organization {
   /// amendments proposed by users belonging to this org.
   productAmendments             ProductAmendment[]
   productRegistrationVerifications ProductRegistrationVerification[]
+  productDocuments ProductDocument[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -383,6 +384,8 @@ model User {
   submittedProductAmendments   ProductAmendment[]     @relation("ProductAmendmentSubmittedBy")
   reviewedProductAmendments    ProductAmendment[]     @relation("ProductAmendmentReviewedBy")
   productRegistrationVerifications ProductRegistrationVerification[]
+  productDocumentsUploaded ProductDocument[] @relation("ProductDocumentUploader")
+  productDocumentsApproved ProductDocument[] @relation("ProductDocumentApprover")
   /// Added 2026-10-16 — in-app notifications / actions, see Notification.
   notifications                Notification[]         @relation("NotificationRecipient")
   triggeredNotifications       Notification[]         @relation("NotificationActor")
@@ -1705,6 +1708,7 @@ model ProductMaster {
 
   identifiers            ProductIdentifier[]
   changes                ProductMasterChange[]
+  documents ProductDocument[]
   registrations          ProductRegulatoryRegistration[]
   attributeDefinitions   ProductAttributeDefinition[]
   projectLines           ProjectLine[]
@@ -2856,6 +2860,53 @@ model ProductRegulatoryRegistration {
 
 /// An organisation's own check of a registration (added 2026-10-18) — the "checked and verified" audit record for its QA
 /// staff. Tenant-scoped (RLS); append-only: a re-check adds a row, the newest row is the current position.
+/// Controlled product-level documents (Product Database step 3, 2026-10-18): certificates, IFU/labelling, SDS,
+/// specifications, CoA templates, test reports, technical file. Private to the organisation (RLS). Versioned by
+/// supersession; never deleted (archivedAt). Approval is four-eyes: the approver cannot be the uploader.
+model ProductDocument {
+  id                String    @id @default(uuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId   String
+  productMaster     ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Optional link to the registration this document evidences.
+  registrationId    String?
+  /// CERTIFICATE | IFU | LABELLING | SDS | SPECIFICATION | COA_TEMPLATE | TEST_REPORT | TECHNICAL_FILE | OTHER
+  docType           String
+  title             String
+  version           String    @default("1.0")
+  /// DRAFT | APPROVED | SUPERSEDED
+  status            String    @default("DRAFT")
+  effectiveDate     DateTime?
+  expiryDate        DateTime?
+  reviewDueDate     DateTime?
+  supersedesId      String?
+  blobName          String?
+  fileName          String?
+  fileSizeBytes     Int?
+  mimeType          String?
+  /// Blob ETag at confirmation: an integrity reference for the stored file.
+  blobEtag          String?
+  /// NOT_SCANNED | CLEAN | INFECTED (from Defender for Storage blob tags, checked at confirmation and on download)
+  scanStatus        String    @default("NOT_SCANNED")
+  notes             String?   @db.NVarChar(Max)
+  uploadedById      String
+  uploadedBy        User      @relation("ProductDocumentUploader", fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById      String?
+  approvedBy        User?     @relation("ProductDocumentApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedAt        DateTime?
+  isSimulated       Boolean   @default(false)
+  archivedAt        DateTime?
+  archivedById      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([organizationId, productMasterId, archivedAt])
+  @@index([organizationId, expiryDate])
+  @@index([productMasterId])
+  @@map("product_documents")
+}
+
 model ProductRegistrationVerification {
   id               String                        @id @default(uuid())
   organizationId   String

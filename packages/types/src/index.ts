@@ -1637,7 +1637,7 @@ export interface ProductComplianceStatus {
 
 export interface RegulatoryDashboard {
   totals: { registrations: number; active: number; expiringSoon: number; expired: number; suspendedOrWithdrawn: number; productsWithoutRegistration: number };
-  mine: { unverified: number; reverificationDue: number; issuesFound: number };
+  mine: { unverified: number; reverificationDue: number; issuesFound: number; documentsExpiringSoon: number; documentsExpired: number; documentsAwaitingApproval: number };
   attention: { registrationId: string; productMasterId: string; productName: string; authority: string; referenceNumber: string; expiryDate: string | null; effectiveStatus: string; daysToExpiry: number | null }[];
 }
 
@@ -2673,4 +2673,57 @@ export interface SearchResult {
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
+}
+
+
+/** Controlled product documents (Product Database step 3, 2026-10-18). Private to the caller's organisation. */
+export interface ProductDocumentSummary {
+  id: string;
+  productMasterId: string;
+  registrationId: string | null;
+  docType: string;
+  title: string;
+  version: string;
+  /** DRAFT | APPROVED | SUPERSEDED */
+  status: string;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  reviewDueDate: string | null;
+  /** True when an APPROVED document is past its expiry date. */
+  isExpired: boolean;
+  daysToExpiry: number | null;
+  supersedesId: string | null;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  mimeType: string | null;
+  hasFile: boolean;
+  /** NOT_SCANNED | CLEAN | INFECTED */
+  scanStatus: string;
+  notes: string | null;
+  uploadedByName: string;
+  uploadedAt: string;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  archived: boolean;
+}
+
+export interface RequestProductDocumentUploadInput {
+  fileName: string;
+  contentType: string;
+  fileSizeBytes: number;
+}
+
+export interface CreateProductDocumentInput {
+  docType: string;
+  title: string;
+  version?: string;
+  registrationId?: string;
+  effectiveDate?: string;
+  expiryDate?: string;
+  reviewDueDate?: string;
+  supersedesId?: string;
+  notes?: string;
+  /** From the upload-url step; omitted for a record with no file. */
+  blobName?: string;
+  fileName?: string;
 }

@@ -305,7 +305,12 @@ export class ProductRegistrationsService {
       for (const v of verifs) if (!latest.has(v.registrationId)) latest.set(v.registrationId, v);
       // Registrations on products the organisation actually uses on project lines.
       const used = await tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 2000 });
-      return { latest, usedIds: used.map((u) => u.productMasterId as string) };
+      const docs = await tx.productDocument.findMany({ where: { organizationId: user.organizationId, archivedAt: null }, select: { status: true, expiryDate: true } });
+      const t = Date.now();
+      const documentsExpired = docs.filter((d) => d.status === "APPROVED" && d.expiryDate && d.expiryDate.getTime() < t).length;
+      const documentsExpiringSoon = docs.filter((d) => d.status === "APPROVED" && d.expiryDate && d.expiryDate.getTime() >= t && d.expiryDate.getTime() <= t + EXPIRING_SOON_DAYS * DAY).length;
+      const documentsAwaitingApproval = docs.filter((d) => d.status === "DRAFT").length;
+      return { latest, usedIds: used.map((u) => u.productMasterId as string), documentsExpired, documentsExpiringSoon, documentsAwaitingApproval };
     });
     const usedRegs = mine.usedIds.length
       ? await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productMasterId: { in: mine.usedIds } }, select: { id: true } })
@@ -316,7 +321,7 @@ export class ProductRegistrationsService {
     const issuesFound = [...mine.latest.values()].filter((v) => v.outcome === "ISSUE_FOUND").length;
     return {
       totals: { registrations, active, expiringSoon, expired, suspendedOrWithdrawn, productsWithoutRegistration: Math.max(productCount - productsWithRegs, 0) },
-      mine: { unverified, reverificationDue, issuesFound },
+      mine: { unverified, reverificationDue, issuesFound, documentsExpiringSoon: mine.documentsExpiringSoon, documentsExpired: mine.documentsExpired, documentsAwaitingApproval: mine.documentsAwaitingApproval },
       attention: attentionRows.map((r) => ({
         registrationId: r.id,
         productMasterId: r.productMasterId,

@@ -297,6 +297,44 @@ async function enrichVerifications(orgId: string) {
   return todo.length;
 }
 
+
+/** Controlled product documents for products the demo organisation actually uses (records only, no stored files). */
+async function enrichProductDocuments(orgId: string) {
+  const day = 86400000;
+  const users = await withPlatformStaffContext((tx) => tx.user.findMany({ where: { organizationId: orgId, isSimulated: false }, select: { id: true }, orderBy: { id: "asc" }, take: 3 }));
+  if (users.length === 0) { console.log("Documents: no demo-organisation user, skipped"); return 0; }
+  const used = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 3000 }));
+  const ids = used.map((u) => u.productMasterId as string);
+  const have = await withTenantContext(orgId, (tx) => tx.productDocument.findMany({ where: { organizationId: orgId }, distinct: ["productMasterId"], select: { productMasterId: true } }));
+  const haveSet = new Set(have.map((h) => h.productMasterId));
+  const products = await prisma.productMaster.findMany({ where: { id: { in: ids.filter((i) => !haveSet.has(i)).slice(0, 2000) } }, select: { id: true, category: true, name: true } });
+  const todo: Record<string, unknown>[] = [];
+  for (const p of products) {
+    const top = p.category.split(".")[0];
+    const kinds = top === "Medical Devices" ? [["CERTIFICATE", "CE certificate"], ["IFU", "Instructions for use"]] : top === "Pharmaceuticals" ? [["CERTIFICATE", "Certificate of analysis template"], ["SPECIFICATION", "Product specification"]] : top === "Diagnostics" ? [["CERTIFICATE", "Performance evaluation certificate"], ["IFU", "Instructions for use"]] : [["SPECIFICATION", "Product specification"], ["SDS", "Safety data sheet"]];
+    kinds.forEach(([docType, label], i) => {
+      if (hash(`${p.id}:doc${i}`) % 100 >= (i === 0 ? 80 : 55)) return;
+      const k = hash(`${p.id}:ds${i}`) % 100;
+      const status = k < 78 ? "APPROVED" : "DRAFT";
+      const uploader = users[hash(`${p.id}:du${i}`) % users.length].id;
+      const approver = users.find((u) => u.id !== uploader)?.id ?? uploader;
+      const expOffset = docType === "CERTIFICATE" ? (k < 6 ? -(5 + (hash(`${p.id}:de${i}`) % 200)) : k < 16 ? 5 + (hash(`${p.id}:de${i}`) % 80) : 120 + (hash(`${p.id}:de${i}`) % 900)) : null;
+      const created = new Date(Date.now() - (30 + (hash(`${p.id}:dc${i}`) % 500)) * day);
+      todo.push({
+        organizationId: orgId, productMasterId: p.id, docType, title: `${label} - ${p.name.split(",")[0]}`, version: `${1 + (hash(`${p.id}:dv${i}`) % 3)}.0`, status,
+        effectiveDate: created, expiryDate: expOffset === null ? null : new Date(Date.now() + expOffset * day), reviewDueDate: new Date(created.getTime() + 365 * day),
+        fileName: null, scanStatus: "NOT_SCANNED", notes: "Simulated record (no file stored).", uploadedById: uploader,
+        approvedById: status === "APPROVED" ? approver : null, approvedAt: status === "APPROVED" ? new Date(created.getTime() + 2 * day) : null, isSimulated: true,
+      });
+    });
+  }
+  console.log(`Documents: ${todo.length} to add across ${products.length} products`);
+  if (dryRun || todo.length === 0) return todo.length;
+  for (const group of chunks(todo, 80)) await withTenantContext(orgId, (tx) => tx.productDocument.createMany({ data: group as never }));
+  console.log(`Documents: added ${todo.length}`);
+  return todo.length;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -506,6 +544,7 @@ async function main() {
   await enrichIdentifiers();
   await enrichRegistrations();
   await enrichVerifications(orgId);
+  await enrichProductDocuments(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);

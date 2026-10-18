@@ -97,3 +97,5 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 ## 6. Update 2026-10-18
 - Step 1 and step 2 (registrations, per-organisation registration verification, regulatory dashboard) are built. Products are never archived from the product page: lifecycle "Discontinued" is used; archive flags remain soft and restorable, nothing is deleted.
 - The per-organisation "checked and verified / not applicable / action taken" review for safety notices and potential alerts moves into step 4 and 4b, alongside the registration verification already built.
+- Proposed step 3b (raised by Lewis, awaiting agreement): product family with variants. A family holds the generic product (name, category, INN, regulatory class); variants hold strength, pack size, packaging hierarchy and GTINs. Registrations and documents can attach at family or variant level. Simulated names to be regenerated without pack details or "#N".
+- Step 3 (controlled product documents) built: private per organisation, versioned, four-eyes approval, expiry tracking, upload limits, malware-scan check, archive only.

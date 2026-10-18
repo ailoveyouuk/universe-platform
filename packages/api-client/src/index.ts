@@ -54,6 +54,9 @@ import type {
   UpdateRegistrationInput,
   VerifyRegistrationInput,
   RegulatoryDashboard,
+  ProductDocumentSummary,
+  RequestProductDocumentUploadInput,
+  CreateProductDocumentInput,
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductCatalogCompletenessStats,
@@ -611,6 +614,26 @@ export class UniverseApiClient {
   }
   getRegulatoryDashboard(): Promise<RegulatoryDashboard> {
     return this.request("/product-catalog/regulatory/dashboard");
+  }
+
+  /** Controlled product documents (step 3, 2026-10-18): private to the caller's organisation. */
+  listProductDocuments(productMasterId: string, includeArchived = false): Promise<ProductDocumentSummary[]> {
+    return this.request(`/product-catalog/${productMasterId}/documents${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  requestProductDocumentUpload(productMasterId: string, input: RequestProductDocumentUploadInput): Promise<{ uploadUrl: string; blobName: string }> {
+    return this.request(`/product-catalog/${productMasterId}/documents/upload-url`, { method: "POST", body: JSON.stringify(input) });
+  }
+  createProductDocument(productMasterId: string, input: CreateProductDocumentInput): Promise<ProductDocumentSummary> {
+    return this.request(`/product-catalog/${productMasterId}/documents`, { method: "POST", body: JSON.stringify(input) });
+  }
+  approveProductDocument(documentId: string): Promise<ProductDocumentSummary> {
+    return this.request(`/product-catalog/documents/${documentId}/approve`, { method: "POST", body: "{}" });
+  }
+  archiveProductDocument(documentId: string, reason?: string): Promise<ProductDocumentSummary> {
+    return this.request(`/product-catalog/documents/${documentId}/archive`, { method: "POST", body: JSON.stringify({ reason }) });
+  }
+  getProductDocumentDownloadUrl(documentId: string): Promise<{ downloadUrl: string }> {
+    return this.request(`/product-catalog/documents/${documentId}/download-url`);
   }
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {

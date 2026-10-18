@@ -151,6 +151,25 @@ export class BlobStorageService {
     return { data, contentType: props.contentType ?? "application/octet-stream" };
   }
 
+  /** Size, content type, ETag and malware-scan result of a stored blob. The scan result comes from Microsoft Defender for
+   * Storage, which tags scanned blobs ("Malware Scanning scan result"); when scanning is not enabled, or the API's identity
+   * cannot read tags, the status is NOT_SCANNED rather than a false "clean". Null if the blob does not exist. */
+  async getBlobInfo(organizationId: string, blobName: string): Promise<{ size: number; contentType: string; etag: string; scanStatus: "NOT_SCANNED" | "CLEAN" | "INFECTED" } | null> {
+    const blobClient = this.blobServiceClient.getContainerClient(this.containerName(organizationId)).getBlockBlobClient(blobName);
+    if (!(await blobClient.exists())) return null;
+    const props = await blobClient.getProperties();
+    let scanStatus: "NOT_SCANNED" | "CLEAN" | "INFECTED" = "NOT_SCANNED";
+    try {
+      const tags = (await blobClient.getTags()).tags;
+      const result = tags["Malware Scanning scan result"];
+      if (result === "No threats found") scanStatus = "CLEAN";
+      else if (result === "Malicious") scanStatus = "INFECTED";
+    } catch {
+      /* tags unavailable: leave NOT_SCANNED */
+    }
+    return { size: props.contentLength ?? 0, contentType: props.contentType ?? "application/octet-stream", etag: props.etag ?? "", scanStatus };
+  }
+
   async deleteBlob(organizationId: string, blobName: string): Promise<void> {
     const containerName = this.containerName(organizationId);
     const blobClient = this.blobServiceClient.getContainerClient(containerName).getBlockBlobClient(blobName);

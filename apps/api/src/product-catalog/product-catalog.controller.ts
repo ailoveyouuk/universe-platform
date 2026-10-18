@@ -8,6 +8,8 @@ import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductRegistrationsService } from "./product-registrations.service";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
+import { ProductDocumentsService } from "./product-documents.service";
+import { CreateProductDocumentDto, RequestProductDocumentUploadDto } from "./dto/product-document.dto";
 import { ProductCatalogService } from "./product-catalog.service";
 
 /**
@@ -34,6 +36,7 @@ export class ProductCatalogController {
   constructor(
     private readonly productCatalogService: ProductCatalogService,
     private readonly registrations: ProductRegistrationsService,
+    private readonly documents: ProductDocumentsService,
   ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
@@ -93,6 +96,22 @@ export class ProductCatalogController {
   @Post("registrations/:registrationId/verify")
   verifyRegistration(@CurrentUser() user: RequestUser, @Param("registrationId") registrationId: string, @Body() dto: VerifyRegistrationDto) {
     return this.registrations.verify(user, registrationId, dto);
+  }
+
+  /** Controlled product documents: private to the caller's organisation. Approve is four-eyes; archive is soft. */
+  @Post("documents/:documentId/approve")
+  approveDocument(@CurrentUser() user: RequestUser, @Param("documentId") documentId: string) {
+    return this.documents.approve(user, documentId);
+  }
+
+  @Post("documents/:documentId/archive")
+  archiveDocument(@CurrentUser() user: RequestUser, @Param("documentId") documentId: string, @Body() body: { reason?: string }) {
+    return this.documents.archive(user, documentId, body?.reason);
+  }
+
+  @Get("documents/:documentId/download-url")
+  documentDownloadUrl(@CurrentUser() user: RequestUser, @Param("documentId") documentId: string) {
+    return this.documents.downloadUrl(user, documentId);
   }
 
   @Get("search")
@@ -159,6 +178,21 @@ export class ProductCatalogController {
   @Post(":id/registrations")
   createRegistration(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateRegistrationDto) {
     return this.registrations.create(user, id, dto);
+  }
+
+  @Get(":id/documents")
+  listDocuments(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
+    return this.documents.list(user, id, includeArchived === "true");
+  }
+
+  @Post(":id/documents/upload-url")
+  requestDocumentUpload(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: RequestProductDocumentUploadDto) {
+    return this.documents.requestUpload(user, id, dto);
+  }
+
+  @Post(":id/documents")
+  createDocument(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateProductDocumentDto) {
+    return this.documents.create(user, id, dto);
   }
 
   @Get(":id/history")

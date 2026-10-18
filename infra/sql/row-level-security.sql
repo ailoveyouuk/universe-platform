@@ -236,6 +236,12 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER UPDATE,
 
+    -- product_documents — controlled product documents (certificates, IFU, SDS, specifications...), added
+    -- 2026-10-18. Tenant-scoped: each organisation's documents are private to it.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_documents,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_documents AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_documents AFTER UPDATE,
+
     -- notifications — in-app notifications / per-user actions, added
     -- 2026-10-16. Tenant-scoped; the API additionally only ever reads rows
     -- WHERE recipientUserId = the signed-in user.

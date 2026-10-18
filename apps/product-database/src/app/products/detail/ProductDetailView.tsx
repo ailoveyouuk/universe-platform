@@ -8,6 +8,7 @@ import type {
   ProductBatchSummary,
   ProductChangeEntry,
   ProductRegistrationSummary,
+  ProductDocumentSummary,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
   ProductUsageSummary,
@@ -27,7 +28,7 @@ import { useCountries } from "../../../lib/useCountries";
  * the product proposes an amendment that QA ratifies.
  */
 
-const TABS = ["Record", "Regulatory", "Sourcing & batches", "Usage", "History"] as const;
+const TABS = ["Record", "Regulatory", "Documents", "Sourcing & batches", "Usage", "History"] as const;
 type Tab = (typeof TABS)[number];
 
 const LIFECYCLE: { value: string; label: string; tone: "good" | "neutral" | "warning" | "critical" | "brand" }[] = [
@@ -240,6 +241,7 @@ export function ProductDetailView() {
           <RecordTab detail={detail} />
         ))}
         {tab === "Regulatory" && <RegulatoryTab detail={detail} />}
+        {tab === "Documents" && <DocumentsTab productId={detail.id} />}
         {tab === "Sourcing & batches" && <SourcingTab productId={detail.id} />}
         {tab === "Usage" && <UsageTab productId={detail.id} />}
         {tab === "History" && <HistoryTab productId={detail.id} />}
@@ -558,10 +560,113 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
           ["Hazard class", detail.hazardClass],
         ]} />
       </Card>
-      <Card title="Documents and safety notices" note="Coming next in the Product Database build.">
+      <Card title="Safety notices" note="Coming next in the Product Database build.">
         <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-          Controlled product documents and recall / safety notices will appear here. Until then no alert monitoring has run for this product — an empty list does not mean the product is clear.
+          Recall and safety notices will appear here. Until then no alert monitoring has run for this product — an empty list does not mean the product is clear.
         </p>
+      </Card>
+    </div>
+  );
+}
+
+const DOC_TYPES: [string, string][] = [
+  ["CERTIFICATE", "Certificate"], ["IFU", "Instructions for use"], ["LABELLING", "Labelling"], ["SDS", "Safety data sheet"], ["SPECIFICATION", "Specification"],
+  ["COA_TEMPLATE", "CoA template"], ["TEST_REPORT", "Test report"], ["TECHNICAL_FILE", "Technical file"], ["OTHER", "Other"],
+];
+const ACCEPT = ".pdf,.png,.jpg,.jpeg,.txt,.csv,.docx,.xlsx";
+
+function DocumentsTab({ productId }: { productId: string }) {
+  const user = useCurrentUser();
+  const [docs, setDocs] = useState<ProductDocumentSummary[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({ docType: "CERTIFICATE", version: "1.0" });
+  const [busy, setBusy] = useState(false);
+  const perms: string[] = user?.permissions ?? [];
+  const staff = !!user && user.platformStaffRole !== "NONE";
+  const canWrite = staff || perms.includes("projects.edit") || perms.includes("products.approve");
+  const canApprove = staff || perms.includes("products.approve");
+  const load = useCallback(() => { apiClient.listProductDocuments(productId).then(setDocs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load documents.")); }, [productId]);
+  useEffect(load, [load]);
+  const input: CSSProperties = { padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" };
+  const f = (k: string, label: string, type = "text") => (
+    <label key={k} style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{label}
+      <input type={type} style={input} value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+    </label>
+  );
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true); setErr(null);
+    try { await fn(); load(); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); }
+  };
+  const save = () => run(async () => {
+    let blobName: string | undefined;
+    if (file) {
+      const { uploadUrl, blobName: bn } = await apiClient.requestProductDocumentUpload(productId, { fileName: file.name, contentType: file.type, fileSizeBytes: file.size });
+      await apiClient.uploadDocumentFile(uploadUrl, file);
+      blobName = bn;
+    }
+    await apiClient.createProductDocument(productId, { ...form, docType: form.docType, title: form.title, blobName, fileName: file?.name } as never);
+    setAdding(false); setFile(null); setForm({ docType: "CERTIFICATE", version: "1.0" });
+  });
+  const open = (id: string) => run(async () => { const { downloadUrl } = await apiClient.getProductDocumentDownloadUrl(id); window.open(downloadUrl, "_blank", "noopener,noreferrer"); });
+  const typeLabel = (t: string) => DOC_TYPES.find(([k]) => k === t)?.[1] ?? t;
+  const size = (b: number | null) => (b === null ? "" : b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <Card title="Controlled documents" note="Private to your organisation. Approval needs a second person (QA). New versions supersede older ones; nothing is deleted.">
+        {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+        {docs === null ? <p style={{ fontSize: 13 }}>Loading…</p> : docs.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No documents recorded for this product by your organisation yet.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {docs.map((d) => (
+              <div key={d.id} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, opacity: d.status === "SUPERSEDED" ? 0.65 : 1 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <strong style={{ fontSize: 14 }}>{d.title}</strong>
+                  <Pill tone="neutral">{typeLabel(d.docType)}</Pill>
+                  <span style={{ fontSize: 12.5 }}>v{d.version}</span>
+                  <Pill tone={d.status === "APPROVED" ? "good" : d.status === "DRAFT" ? "warning" : "neutral"}>{d.status.toLowerCase()}</Pill>
+                  {d.isExpired && <Pill tone="critical">expired</Pill>}
+                  {!d.isExpired && d.daysToExpiry !== null && d.daysToExpiry <= 90 && d.status === "APPROVED" && <Pill tone="warning">expires in {d.daysToExpiry} days</Pill>}
+                  {d.hasFile && d.scanStatus === "CLEAN" && <Pill tone="good">Scanned: clear</Pill>}
+                  {d.hasFile && d.scanStatus === "NOT_SCANNED" && <Pill tone="neutral">Not scanned</Pill>}
+                  {d.scanStatus === "INFECTED" && <Pill tone="critical">Failed malware scan</Pill>}
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+                  Effective {dateOnly(d.effectiveDate)} · Expires {d.expiryDate ? dateOnly(d.expiryDate) : "no expiry"} · Review due {dateOnly(d.reviewDueDate)}
+                  {" · "}Uploaded by {d.uploadedByName} on {dateOnly(d.uploadedAt)}{d.approvedByName ? ` · Approved by ${d.approvedByName} on ${dateOnly(d.approvedAt)}` : ""}
+                  {d.fileName ? ` · ${d.fileName} ${size(d.fileSizeBytes)}` : " · no file stored"}
+                </p>
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {d.hasFile && d.scanStatus !== "INFECTED" && <Button variant="secondary" size="sm" disabled={busy} onClick={() => open(d.id)}>Open file</Button>}
+                  {canApprove && d.status === "DRAFT" && <Button variant="primary" size="sm" disabled={busy} onClick={() => run(() => apiClient.approveProductDocument(d.id))}>Approve</Button>}
+                  {canWrite && d.status === "APPROVED" && <Button variant="secondary" size="sm" disabled={busy} onClick={() => { setAdding(true); setForm({ docType: d.docType, title: d.title, version: "", supersedesId: d.id, registrationId: d.registrationId ?? "" }); }}>New version</Button>}
+                  {canWrite && <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.archiveProductDocument(d.id))}>Archive</Button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {canWrite && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add document</Button></div>}
+        {adding && (
+          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <label style={{ fontSize: 12 }}>Type
+              <select style={input} value={form.docType} onChange={(e) => setForm({ ...form, docType: e.target.value })}>
+                {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </label>
+            {f("title", "Title")}{f("version", "Version")}{f("effectiveDate", "Effective date", "date")}{f("expiryDate", "Expiry date", "date")}{f("reviewDueDate", "Review due", "date")}
+            <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>File (PDF, image, Word, Excel, text or CSV; up to 25 MB)
+              <input type="file" accept={ACCEPT} style={input} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            </label>
+            <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+              <Button variant="primary" size="sm" disabled={busy || !form.title} onClick={save}>Save as draft</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setAdding(false); setFile(null); }}>Cancel</Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
