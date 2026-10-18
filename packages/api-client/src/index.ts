@@ -55,6 +55,11 @@ import type {
   VerifyRegistrationInput,
   RegulatoryDashboard,
   ProductDocumentSummary,
+  ProductFamilyDetail,
+  ProductFamilyListResult,
+  ProductFamilySummary,
+  CreateProductFamilyInput,
+  UpdateProductFamilyInput,
   RequestProductDocumentUploadInput,
   CreateProductDocumentInput,
   ProductCatalogListResult,
@@ -634,6 +639,46 @@ export class UniverseApiClient {
   }
   getProductDocumentDownloadUrl(documentId: string): Promise<{ downloadUrl: string }> {
     return this.request(`/product-catalog/documents/${documentId}/download-url`);
+  }
+
+  /** Product families (step 3b, 2026-10-18). */
+  listProductFamilies(params: { search?: string; category?: string; page?: number; pageSize?: number } = {}): Promise<ProductFamilyListResult> {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") q.set(k, String(v));
+    return this.request(`/product-catalog/families${q.toString() ? `?${q}` : ""}`);
+  }
+  getProductFamily(familyId: string): Promise<ProductFamilyDetail> {
+    return this.request(`/product-catalog/families/${familyId}`);
+  }
+  createProductFamily(input: CreateProductFamilyInput): Promise<ProductFamilySummary> {
+    return this.request("/product-catalog/families", { method: "POST", body: JSON.stringify(input) });
+  }
+  updateProductFamily(familyId: string, input: UpdateProductFamilyInput): Promise<ProductFamilySummary> {
+    return this.request(`/product-catalog/families/${familyId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  getProductFamilyHistory(familyId: string): Promise<ProductChangeEntry[]> {
+    return this.request(`/product-catalog/families/${familyId}/history`);
+  }
+  listFamilyRegistrations(familyId: string, includeArchived = false): Promise<ProductRegistrationSummary[]> {
+    return this.request(`/product-catalog/families/${familyId}/registrations${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  createFamilyRegistration(familyId: string, input: CreateRegistrationInput): Promise<ProductRegistrationSummary> {
+    return this.request(`/product-catalog/families/${familyId}/registrations`, { method: "POST", body: JSON.stringify(input) });
+  }
+  listFamilyDocuments(familyId: string, includeArchived = false): Promise<ProductDocumentSummary[]> {
+    return this.request(`/product-catalog/families/${familyId}/documents${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  requestFamilyDocumentUpload(familyId: string, input: RequestProductDocumentUploadInput): Promise<{ uploadUrl: string; blobName: string }> {
+    return this.request(`/product-catalog/families/${familyId}/documents/upload-url`, { method: "POST", body: JSON.stringify(input) });
+  }
+  createFamilyDocument(familyId: string, input: CreateProductDocumentInput): Promise<ProductDocumentSummary> {
+    return this.request(`/product-catalog/families/${familyId}/documents`, { method: "POST", body: JSON.stringify(input) });
+  }
+  assignProductFamily(productId: string, input: { familyId: string | null; variantLabel?: string }): Promise<{ ok: true }> {
+    return this.request(`/product-catalog/${productId}/family`, { method: "POST", body: JSON.stringify(input) });
+  }
+  createFamilyFromProduct(productId: string): Promise<ProductFamilySummary> {
+    return this.request(`/product-catalog/${productId}/family/create`, { method: "POST", body: "{}" });
   }
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {

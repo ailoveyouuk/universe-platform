@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NAMING } from "./_catalogue-naming";
 import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, type TransportMode } from "../src/index";
 
@@ -335,6 +336,156 @@ async function enrichProductDocuments(orgId: string) {
   return todo.length;
 }
 
+
+const SERIES = ["Classic", "Plus", "Pro", "Lite", "Advance", "Essential", "Select", "Care", "Prime", "Core", "Flex", "One"];
+const capital = (t: string) => (t.length ? t[0].toUpperCase() + t.slice(1) : t);
+
+/**
+ * Product families (step 3b, 2026-10-18). Regroups the simulated catalogue into families with variants and replaces the
+ * generated "noun, spec, spec #N" names with "Brand Series noun, variant" names (no "#N", no pack details in the family
+ * name). A family is (category, noun, brand, series); a variant label is its two specs, made unique within the family.
+ * Idempotent: only entries with no family and a "#N" suffix are touched. Simulated entries only.
+ */
+async function enrichFamilies() {
+  const rows = await prisma.productMaster.findMany({
+    where: { isSimulated: true, sourceStandard: "SIM-SCALE", productFamilyId: null, name: { contains: "#" } },
+    select: { id: true, name: true, category: true, brand: true, inn: true, regulatoryClass: true, intendedUse: true, packSize: true },
+    orderBy: { id: "asc" },
+  });
+  type Member = { id: string; label: string };
+  const groups = new Map<string, { name: string; category: string; brand: string | null; inn: string | null; regulatoryClass: string | null; intendedUse: string | null; members: Member[]; used: Set<string> }>();
+  for (const r of rows) {
+    const m = /^([^,]+),\s*([^,]+),\s*([^#]+?)\s*#\d+$/.exec(r.name);
+    if (!m) continue;
+    const noun = m[1].trim();
+    const spec1 = m[2].trim();
+    let spec2 = m[3].trim();
+    const top = r.category.split(".")[0];
+    const naming = NAMING[top];
+    const series = SERIES[hash(`${r.id}:series`) % SERIES.length];
+    const key = `${r.category}|${noun}|${r.brand ?? ""}|${series}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { name: `${capital(`${r.brand ?? "Generic"} ${series} ${noun}`)}`, category: r.category, brand: r.brand, inn: r.inn, regulatoryClass: r.regulatoryClass, intendedUse: r.intendedUse, members: [], used: new Set() };
+      groups.set(key, g);
+    }
+    let label = `${spec1}, ${spec2}`;
+    // keep variant labels distinct inside the family: rotate the second spec, then fall back to pack size
+    if (g.used.has(label) && naming) {
+      for (const alt of naming.specs) { if (alt !== spec1 && !g.used.has(`${spec1}, ${alt}`)) { spec2 = alt; label = `${spec1}, ${alt}`; break; } }
+    }
+    if (g.used.has(label) && r.packSize) label = `${label}, ${r.packSize}`;
+    g.used.add(label);
+    g.members.push({ id: r.id, label });
+    if (!g.inn && r.inn) g.inn = r.inn;
+    if (!g.regulatoryClass && r.regulatoryClass) g.regulatoryClass = r.regulatoryClass;
+    if (!g.intendedUse && r.intendedUse) g.intendedUse = r.intendedUse;
+  }
+  const families = [...groups.values()].map((g) => ({ id: randomUUID(), ...g }));
+  console.log(`Families: ${families.length} to create covering ${rows.length} products (avg ${(rows.length / Math.max(families.length, 1)).toFixed(1)} variants)`);
+  if (dryRun || families.length === 0) return families.length;
+  for (const group of chunks(families, 100)) {
+    await prisma.productFamily.createMany({
+      data: group.map((f) => ({ id: f.id, name: f.name, category: f.category, brand: f.brand, inn: f.inn, regulatoryClass: f.regulatoryClass, intendedUse: f.intendedUse, isSimulated: true, addedByOrganizationName: "Universe reference data" })),
+    });
+  }
+  const links = families.flatMap((f) => f.members.map((m) => ({ id: m.id, familyId: f.id, label: m.label, name: `${f.name}, ${m.label}` })));
+  for (const group of chunks(links, 300)) {
+    const values = group.map((l) => {
+      if (!/^[0-9a-f-]{36}$/i.test(l.id) || !/^[0-9a-f-]{36}$/i.test(l.familyId)) throw new Error("Unexpected id");
+      return `('${l.id}','${l.familyId}',N'${l.label.replace(/'/g, "''")}',N'${l.name.replace(/'/g, "''")}')`;
+    });
+    await prisma.$executeRawUnsafe(`UPDATE p SET productFamilyId = v.f, variantLabel = v.l, name = v.n FROM product_master p JOIN (VALUES ${values.join(",")}) AS v(id, f, l, n) ON p.id = v.id`);
+  }
+  console.log(`Families: created ${families.length}, linked ${links.length} variants`);
+  return families.length;
+}
+
+/** Family-level registrations for about 55% of simulated families (apply to every variant). */
+async function enrichFamilyRegistrations() {
+  const day = 86400000;
+  const fams = await prisma.productFamily.findMany({ where: { isSimulated: true, registrations: { none: {} } }, select: { id: true, category: true }, orderBy: { id: "asc" } });
+  const list: Record<string, unknown>[] = [];
+  for (const f of fams) {
+    if (hash(f.id + "freg") % 100 >= 55) continue;
+    const top = f.category.split(".")[0];
+    const auths = REG_AUTH[top] ?? ["NATIONAL", "EU_CE", "SRA"];
+    const count = hash(f.id + "frc") % 100 < 35 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const authority = auths[hash(`${f.id}:fa${i}`) % auths.length];
+      const k = hash(`${f.id}:fs${i}`) % 100;
+      const status = k < 2 ? "SUSPENDED" : k < 3 ? "WITHDRAWN" : "ACTIVE";
+      const expiryOffset = k >= 3 && k < 7 ? -(10 + (hash(`${f.id}:fe${i}`) % 300)) : k >= 7 && k < 14 ? 5 + (hash(`${f.id}:fe${i}`) % 85) : 120 + (hash(`${f.id}:fe${i}`) % 1500);
+      list.push({
+        productFamilyId: f.id, productMasterId: null, authority, scheme: REG_SCHEME[authority] ?? null, referenceNumber: REG_REFERENCE[authority](hash(`${f.id}:fn${i}`)),
+        regulatoryClass: top === "Medical Devices" ? ["I", "IIa", "IIb"][hash(f.id + "fcl") % 3] : null, countryCode: REG_COUNTRY[authority] ?? null,
+        issueDate: new Date(Date.now() + expiryOffset * day - (1095 + (hash(`${f.id}:fi${i}`) % 700)) * day), expiryDate: new Date(Date.now() + expiryOffset * day), status,
+        notes: status === "ACTIVE" ? "Covers all variants in the family (simulated)." : "Status reported by the issuing authority (simulated).",
+        verificationLevel: hash(`${f.id}:fv${i}`) % 100 < 40 ? "SOURCE_VERIFIED" : "CONTRIBUTED", contributedByOrganizationName: "Universe reference data", isSimulated: true,
+      });
+    }
+  }
+  console.log(`Family registrations: ${list.length} to add across ${fams.length} families without registrations`);
+  if (dryRun || list.length === 0) return list.length;
+  for (const group of chunks(list, 100)) await prisma.productRegulatoryRegistration.createMany({ data: group as never });
+  console.log(`Family registrations: added ${list.length}`);
+  return list.length;
+}
+
+/** Packaging level on existing extra identifiers (outer-carton GTINs, UDI-DIs), with units per pack. */
+async function enrichPackagingLevels() {
+  const rows = await prisma.productIdentifier.findMany({ where: { packagingLevel: null }, select: { id: true, identifierType: true, label: true } });
+  const todo = rows.map((r) => ({
+    id: r.id,
+    level: r.identifierType === "UDI_DI" ? "UNIT" : /carton/i.test(r.label ?? "") ? "OUTER" : "UNIT",
+    units: /carton/i.test(r.label ?? "") ? [10, 12, 20, 24, 50, 100][hash(r.id + "u") % 6] : r.identifierType === "UDI_DI" ? 1 : "NULL",
+  }));
+  console.log(`Packaging levels: ${todo.length} identifiers to classify`);
+  if (dryRun || todo.length === 0) return todo.length;
+  for (const group of chunks(todo, 400)) {
+    const values = group.map((t) => {
+      if (!/^[0-9a-f-]{36}$/i.test(t.id)) throw new Error("Unexpected id");
+      return `('${t.id}','${t.level}',${t.units})`;
+    });
+    await prisma.$executeRawUnsafe(`UPDATE i SET packagingLevel = v.lv, unitsPerPack = v.u FROM product_identifiers i JOIN (VALUES ${values.join(",")}) AS v(id, lv, u) ON i.id = v.id`);
+  }
+  console.log(`Packaging levels: classified ${todo.length}`);
+  return todo.length;
+}
+
+/** The demo organisation's own family-level controlled documents for families whose variants it uses. */
+async function enrichFamilyDocuments(orgId: string) {
+  const day = 86400000;
+  const users = await withPlatformStaffContext((tx) => tx.user.findMany({ where: { organizationId: orgId, isSimulated: false }, select: { id: true }, orderBy: { id: "asc" }, take: 3 }));
+  if (users.length === 0) return 0;
+  const used = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 3000 }));
+  const famIds = [...new Set((await prisma.productMaster.findMany({ where: { id: { in: used.map((u) => u.productMasterId as string) }, productFamilyId: { not: null } }, select: { productFamilyId: true } })).map((p) => p.productFamilyId as string))];
+  const have = new Set((await withTenantContext(orgId, (tx) => tx.productDocument.findMany({ where: { organizationId: orgId, productFamilyId: { not: null } }, select: { productFamilyId: true } }))).map((h) => h.productFamilyId));
+  const fams = await prisma.productFamily.findMany({ where: { id: { in: famIds.filter((i) => !have.has(i)) } }, select: { id: true, name: true, category: true } });
+  const todo: Record<string, unknown>[] = [];
+  for (const f of fams) {
+    if (hash(f.id + "fdoc") % 100 >= 55) continue;
+    const top = f.category.split(".")[0];
+    const [docType, label] = top === "Pharmaceuticals" ? ["SPECIFICATION", "Product specification"] : top === "Medical Devices" || top === "Diagnostics" ? ["TECHNICAL_FILE", "Technical file summary"] : ["SDS", "Safety data sheet"];
+    const k = hash(f.id + "fds") % 100;
+    const status = k < 80 ? "APPROVED" : "DRAFT";
+    const uploader = users[hash(f.id + "fdu") % users.length].id;
+    const approver = users.find((u) => u.id !== uploader)?.id ?? uploader;
+    const created = new Date(Date.now() - (30 + (hash(f.id + "fdc") % 500)) * day);
+    todo.push({
+      organizationId: orgId, productFamilyId: f.id, productMasterId: null, docType, title: `${label} - ${f.name}`, version: `${1 + (hash(f.id + "fdv") % 3)}.0`, status,
+      effectiveDate: created, expiryDate: docType === "TECHNICAL_FILE" ? new Date(Date.now() + (k < 8 ? -(5 + (hash(f.id + "fde") % 150)) : 90 + (hash(f.id + "fde") % 800)) * day) : null,
+      reviewDueDate: new Date(created.getTime() + 365 * day), scanStatus: "NOT_SCANNED", notes: "Simulated record (no file stored).", uploadedById: uploader,
+      approvedById: status === "APPROVED" ? approver : null, approvedAt: status === "APPROVED" ? new Date(created.getTime() + 2 * day) : null, isSimulated: true,
+    });
+  }
+  console.log(`Family documents: ${todo.length} to add`);
+  if (dryRun || todo.length === 0) return todo.length;
+  for (const group of chunks(todo, 80)) await withTenantContext(orgId, (tx) => tx.productDocument.createMany({ data: group as never }));
+  console.log(`Family documents: added ${todo.length}`);
+  return todo.length;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -545,6 +696,10 @@ async function main() {
   await enrichRegistrations();
   await enrichVerifications(orgId);
   await enrichProductDocuments(orgId);
+  await enrichFamilies();
+  await enrichFamilyRegistrations();
+  await enrichPackagingLevels();
+  await enrichFamilyDocuments(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);

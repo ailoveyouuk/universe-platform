@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type {
   ProductCatalogDetail,
@@ -49,9 +50,9 @@ const STORAGE: { value: string; label: string }[] = [
   { value: "OTHER", label: "Other (see notes)" },
 ];
 
-const lifecycleMeta = (v: string) => LIFECYCLE.find((l) => l.value === v) ?? { value: v, label: v, tone: "neutral" as const };
+export const lifecycleMeta = (v: string) => LIFECYCLE.find((l) => l.value === v) ?? { value: v, label: v, tone: "neutral" as const };
 const storageLabel = (v: string | null) => (v ? STORAGE.find((s) => s.value === v)?.label ?? v : null);
-const dateOnly = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB") : null);
+export const dateOnly = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB") : null);
 const FIELD_LABELS: Record<string, string> = {
   name: "Name", category: "Category", hsCode: "HS code", unspscCode: "UNSPSC code", gtin: "GTIN", standardUnit: "Standard unit",
   canonicalManufacturerPartNumber: "Manufacturer part number", expectedQualityDocumentation: "Expected quality documentation",
@@ -166,6 +167,12 @@ export function ProductDetailView() {
             {detail.coldChain && <Pill tone="brand">Cold chain</Pill>}
             {detail.controlledSubstance && <Pill tone="warning">Controlled substance</Pill>}
           </div>
+          {detail.family && (
+            <p style={{ margin: "8px 0 0", fontSize: 13 }}>
+              Variant of <Link href={`/families/detail?id=${detail.family.id}`} style={{ fontWeight: 600 }}>{detail.family.name}</Link>
+              {detail.variantLabel ? ` — ${detail.variantLabel}` : ""} · {detail.family.variantCount} variant{detail.family.variantCount === 1 ? "" : "s"} in family
+            </p>
+          )}
           <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
             Added by {detail.addedByOrganizationName ?? "Universe reference data"} · version {detail.version} · updated {dateOnly(detail.updatedAt)}
             {detail.sourceStandard ? ` · source ${detail.sourceStandard}` : ""}
@@ -184,6 +191,13 @@ export function ProductDetailView() {
             </Button>
           )}
           {/* Legacy only: products archived before lifecycle status existed can still be restored. Nothing is ever deleted. */}
+          {isStaff && !editing && !detail.family && (
+            <Button variant="secondary" size="sm" disabled={saving} onClick={async () => {
+              setSaving(true); setError(null);
+              try { const f = await apiClient.createFamilyFromProduct(detail.id); window.location.href = `/families/detail?id=${f.id}`; }
+              catch (e) { setError(e instanceof Error ? e.message : "Could not create the family."); setSaving(false); }
+            }}>Create family from this product</Button>
+          )}
           {canEdit && !editing && detail.isArchived && (
             <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ isArchived: false })}>
               Restore
@@ -252,7 +266,7 @@ export function ProductDetailView() {
 
 /* ---------- small pieces ---------- */
 
-function Card({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
+export function Card({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
   return (
     <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", background: "var(--u-surface-raised)", padding: "16px 18px" }}>
       <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>{title}</h3>
@@ -262,7 +276,7 @@ function Card({ title, children, note }: { title: string; children: ReactNode; n
   );
 }
 
-function Facts({ rows }: { rows: [string, ReactNode][] }) {
+export function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
     <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "12px 20px" }}>
       {rows.map(([k, v]) => (
@@ -296,7 +310,7 @@ function RecordTab({ detail }: { detail: ProductCatalogDetail }) {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Card title="Identity">
-        <Facts rows={[["Brand", detail.brand], ["INN (generic name)", detail.inn], ["Strength", detail.strength], ["Dosage form", detail.dosageForm], ["Pack size", detail.packSize], ["Standard unit", detail.standardUnit], ["Intended use", detail.intendedUse]]} />
+        <Facts rows={[["Variant", detail.variantLabel], ["Brand", detail.brand], ["INN (generic name)", detail.inn], ["Strength", detail.strength], ["Dosage form", detail.dosageForm], ["Pack size", detail.packSize], ["Standard unit", detail.standardUnit], ["Intended use", detail.intendedUse]]} />
       </Card>
       <Card title="Classification and identifiers">
         <Facts rows={[["HS code", detail.hsCode], ["UNSPSC code", detail.unspscCode], ["GTIN", detail.gtin], ["Manufacturer part number", detail.canonicalManufacturerPartNumber], ["Regulatory class", detail.regulatoryClass]]} />
@@ -304,11 +318,26 @@ function RecordTab({ detail }: { detail: ProductCatalogDetail }) {
           <div style={{ marginTop: 14 }}>
             <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Other identifiers</span>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-              {activeIds.map((i) => (<Pill key={i.id} tone="neutral">{i.identifierType.replace("_", "-")}: {i.value}{i.label ? ` (${i.label})` : ""}</Pill>))}
+              {activeIds.map((i) => (<Pill key={i.id} tone="neutral">{i.identifierType.replace("_", "-")}: {i.value}{i.packagingLevel ? ` (${i.packagingLevel.toLowerCase()}${i.unitsPerPack && i.unitsPerPack > 1 ? `, ${i.unitsPerPack} units` : ""})` : i.label ? ` (${i.label})` : ""}</Pill>))}
             </div>
           </div>
         )}
       </Card>
+      {detail.family && detail.siblings.length > 0 && (
+        <Card title="Other variants in this family" note={`Part of ${detail.family.name}. Registrations and documents held by the family apply to every variant.`}>
+          <SimpleTable
+            head={["Variant", "Pack size", "GTIN", "Status"]}
+            loading={false}
+            empty="No other variants."
+            rows={detail.siblings.map((v) => [
+              <Link key={v.id} href={`/products/detail?id=${v.id}`}>{v.variantLabel ?? v.name}</Link>,
+              v.packSize ?? "—",
+              v.gtin ?? "—",
+              <Pill key={`${v.id}s`} tone={lifecycleMeta(v.lifecycleStatus).tone}>{lifecycleMeta(v.lifecycleStatus).label}</Pill>,
+            ])}
+          />
+        </Card>
+      )}
       <Card title="Storage and handling">
         <Facts rows={[["Storage class", storageLabel(detail.storageClass)], ["Cold chain", detail.coldChain ? "Required" : "Not required"], ["Shelf life", detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : null], ["Hazard class", detail.hazardClass], ["Controlled substance", detail.controlledSubstance ? "Yes" : "No"]]} />
       </Card>
@@ -419,9 +448,9 @@ const authorityLabel = (a: string) => AUTHORITIES.find(([k]) => k === a)?.[1] ??
 const regTone = (s: string): "good" | "warning" | "critical" | "neutral" =>
   s === "ACTIVE" ? "good" : s === "PENDING" ? "neutral" : s === "EXPIRED" || s === "SUSPENDED" || s === "WITHDRAWN" || s === "REFUSED" ? "critical" : "neutral";
 
-function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
+export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDetail; familyId?: string }) {
   const user = useCurrentUser();
-  const lc = lifecycleMeta(detail.lifecycleStatus);
+  const lc = detail ? lifecycleMeta(detail.lifecycleStatus) : null;
   const [regs, setRegs] = useState<ProductRegistrationSummary[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -435,8 +464,8 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
   const canVerify = isStaff || perms.includes("products.approve");
 
   const load = useCallback(() => {
-    apiClient.listProductRegistrations(detail.id, true).then(setRegs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load registrations."));
-  }, [detail.id]);
+    (familyId ? apiClient.listFamilyRegistrations(familyId, true) : apiClient.listProductRegistrations(detail!.id, true)).then(setRegs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load registrations."));
+  }, [detail, familyId]);
   useEffect(load, [load]);
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -449,20 +478,20 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
       <input type={type} style={input} value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
     </label>
   );
-  const comp = detail.compliance;
-  const compColor = comp.status === "BLOCKED" ? "var(--u-status-critical)" : comp.status === "WARNING" ? "var(--u-status-warning, #b7791f)" : "var(--u-status-good)";
+  const comp = detail?.compliance;
+  const compColor = !comp ? "var(--u-border)" : comp.status === "BLOCKED" ? "var(--u-status-critical)" : comp.status === "WARNING" ? "var(--u-status-warning, #b7791f)" : "var(--u-status-good)";
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: `1px solid ${compColor}`, fontSize: 13 }}>
+      {comp && <div style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: `1px solid ${compColor}`, fontSize: 13 }}>
         <strong style={{ color: compColor }}>{comp.status === "OK" ? "Active registration on record" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
         {comp.reasons.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{comp.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Based on recorded registrations and lifecycle only. Recall and safety-notice monitoring is not yet active, so this is not a clearance.
         </p>
-      </div>
+      </div>}
 
-      <Card title="Registrations" note="Shared facts, visible to every organisation. Your verification below is private to your organisation.">
+      <Card title="Registrations" note={familyId ? "Apply to every variant in this family. Shared facts, visible to every organisation. Your verification below is private to your organisation." : "Shared facts, visible to every organisation. Your verification below is private to your organisation. Registrations held by the product family also apply here."}>
         {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
         {regs === null ? <p style={{ fontSize: 13 }}>Loading…</p> : regs.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No registrations recorded for this product yet.</p>
@@ -477,6 +506,7 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
                     <Pill tone={regTone(r.effectiveStatus)}>{r.effectiveStatus.toLowerCase()}</Pill>
                     {r.verificationLevel === "SOURCE_VERIFIED" && <Pill tone="brand">Source verified</Pill>}
                     {r.isArchived && <Pill tone="neutral">Archived</Pill>}
+                    {r.inherited && <Pill tone="brand">Applies via family</Pill>}
                   </div>
                   {r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>View source <ExternalLinkIcon size={13} /></span></a>}
                 </div>
@@ -497,7 +527,7 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
                     </span>
                   ) : <span style={{ color: "var(--u-ink-secondary)" }}>Not yet verified by your organisation.</span>}
                   {canVerify && !r.isArchived && <Button variant="secondary" size="sm" onClick={() => { setVerifying(r.id); setVform({ outcome: "VERIFIED" }); }}>Record verification</Button>}
-                  {isStaff && (
+                  {isStaff && !r.inherited && (
                     <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateProductRegistration(r.id, { isArchived: !r.isArchived }))}>
                       {r.isArchived ? "Restore" : "Retire"}
                     </Button>
@@ -543,13 +573,14 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
             {f("countryCode", "Country (2-letter)")}{f("holderName", "Holder")}{f("issueDate", "Issue date", "date")}{f("expiryDate", "Expiry date", "date")}
             {f("sourceUrl", "Source link")}
             <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
-              <Button variant="primary" size="sm" disabled={busy || !form.referenceNumber} onClick={() => run(() => apiClient.createProductRegistration(detail.id, form as never))}>Save registration</Button>
+              <Button variant="primary" size="sm" disabled={busy || !form.referenceNumber} onClick={() => run(() => (familyId ? apiClient.createFamilyRegistration(familyId, form as never) : apiClient.createProductRegistration(detail!.id, form as never)))}>Save registration</Button>
               <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
             </div>
           </div>
         )}
       </Card>
 
+      {detail && lc && (<>
       <Card title="Current status">
         <Facts rows={[
           ["Lifecycle status", <Pill key="l" tone={lc.tone}>{lc.label}</Pill>],
@@ -565,6 +596,7 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
           Recall and safety notices will appear here. Until then no alert monitoring has run for this product — an empty list does not mean the product is clear.
         </p>
       </Card>
+      </>)}
     </div>
   );
 }
@@ -575,7 +607,7 @@ const DOC_TYPES: [string, string][] = [
 ];
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.txt,.csv,.docx,.xlsx";
 
-function DocumentsTab({ productId }: { productId: string }) {
+export function DocumentsTab({ productId, familyId }: { productId?: string; familyId?: string }) {
   const user = useCurrentUser();
   const [docs, setDocs] = useState<ProductDocumentSummary[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -587,7 +619,7 @@ function DocumentsTab({ productId }: { productId: string }) {
   const staff = !!user && user.platformStaffRole !== "NONE";
   const canWrite = staff || perms.includes("projects.edit") || perms.includes("products.approve");
   const canApprove = staff || perms.includes("products.approve");
-  const load = useCallback(() => { apiClient.listProductDocuments(productId).then(setDocs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load documents.")); }, [productId]);
+  const load = useCallback(() => { (familyId ? apiClient.listFamilyDocuments(familyId) : apiClient.listProductDocuments(productId!)).then(setDocs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load documents.")); }, [productId, familyId]);
   useEffect(load, [load]);
   const input: CSSProperties = { padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" };
   const f = (k: string, label: string, type = "text") => (
@@ -602,11 +634,13 @@ function DocumentsTab({ productId }: { productId: string }) {
   const save = () => run(async () => {
     let blobName: string | undefined;
     if (file) {
-      const { uploadUrl, blobName: bn } = await apiClient.requestProductDocumentUpload(productId, { fileName: file.name, contentType: file.type, fileSizeBytes: file.size });
+      const upload = { fileName: file.name, contentType: file.type, fileSizeBytes: file.size };
+      const { uploadUrl, blobName: bn } = await (familyId ? apiClient.requestFamilyDocumentUpload(familyId, upload) : apiClient.requestProductDocumentUpload(productId!, upload));
       await apiClient.uploadDocumentFile(uploadUrl, file);
       blobName = bn;
     }
-    await apiClient.createProductDocument(productId, { ...form, docType: form.docType, title: form.title, blobName, fileName: file?.name } as never);
+    const body = { ...form, docType: form.docType, title: form.title, blobName, fileName: file?.name } as never;
+    await (familyId ? apiClient.createFamilyDocument(familyId, body) : apiClient.createProductDocument(productId!, body));
     setAdding(false); setFile(null); setForm({ docType: "CERTIFICATE", version: "1.0" });
   });
   const open = (id: string) => run(async () => { const { downloadUrl } = await apiClient.getProductDocumentDownloadUrl(id); window.open(downloadUrl, "_blank", "noopener,noreferrer"); });
@@ -628,6 +662,7 @@ function DocumentsTab({ productId }: { productId: string }) {
                   <Pill tone="neutral">{typeLabel(d.docType)}</Pill>
                   <span style={{ fontSize: 12.5 }}>v{d.version}</span>
                   <Pill tone={d.status === "APPROVED" ? "good" : d.status === "DRAFT" ? "warning" : "neutral"}>{d.status.toLowerCase()}</Pill>
+                  {d.inherited && <Pill tone="brand">Applies via family</Pill>}
                   {d.isExpired && <Pill tone="critical">expired</Pill>}
                   {!d.isExpired && d.daysToExpiry !== null && d.daysToExpiry <= 90 && d.status === "APPROVED" && <Pill tone="warning">expires in {d.daysToExpiry} days</Pill>}
                   {d.hasFile && d.scanStatus === "CLEAN" && <Pill tone="good">Scanned: clear</Pill>}
@@ -796,7 +831,7 @@ function HistoryTab({ productId }: { productId: string }) {
   );
 }
 
-function SimpleTable({ head, rows, empty, loading }: { head: string[]; rows: ReactNode[][]; empty: string; loading: boolean }) {
+export function SimpleTable({ head, rows, empty, loading }: { head: string[]; rows: ReactNode[][]; empty: string; loading: boolean }) {
   if (loading) return <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: 0 }}>Loading…</p>;
   if (rows.length === 0) return <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: 0 }}>{empty}</p>;
   return (

@@ -6,6 +6,15 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-18 — Product Database step 3b: product families with variants (Lewis)
+
+**Why:** product names bundled pack size, box size and a "#N" counter. Standard practice is a generic product (family) with strengths and pack sizes as variants.
+**What:** new shared tables `ProductFamily` and `ProductFamilyChange` (migration `20261018170000_product_families`); `ProductMaster` gains `productFamilyId` and `variantLabel`; `ProductIdentifier` gains `packagingLevel` and `unitsPerPack` (each/inner/carton/pallet GTINs). Registrations and documents may attach to a variant or to a family (applies to all variants); compliance for a variant uses its own plus its family's registrations. Staff-only family create/edit/archive/assign (nothing deleted; every change in family history). API: `/product-catalog/families…`, `:id/family`, `:id/family/create`; shared `product-target.ts` makes registrations/documents target-aware. UI: Families list and Family page (Variants, Regulatory, Documents, History), "Variant of …" link and "Other variants" card on the product page, "Create family from this product", family-level items on the Regulatory dashboard. Enrichment (`enrichFamilies` etc.) groups simulated products into families, renames them without "#N", adds family registrations/documents and packaging levels.
+**Verified:** type-checks across packages; `product-families.test.ts` added and the registration/document tests updated to the Target API; live check after deploy (below).
+**Owed:** no new tenant tables, so no RLS re-run. Defender for Storage malware scanning still to be enabled by Lewis.
+
+---
+
 ## 2026-10-17 — Maps scale to a growing data pool; benchmark seed v2; category-true product names (Lewis)
 
 - **Why the Logistics map showed few routes:** the cohort floor (5 distinct organisations per route + mode + incoterm + commodity group) was missed by my first seed, which spread each route's few contributors over every incoterm/commodity combination; it also used only 13 origin / 12 destination countries. Seed v2 (`seedSimulatedAggregates`, hash prefix `s2`): ~30 delivery countries x ~14 origin countries, one cohort of 6-10 contributors per lane, commodity groups matching the filter list. 14,160 rows added (v1 rows left in place — no deletes; they stay below the floor). The map's arcs remain the 10 busiest routes; both Logistics maps' legends now say so (`WorldMapLegendEntry.shape = "line"`).

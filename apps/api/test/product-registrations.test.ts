@@ -3,6 +3,7 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { ProductCatalogService } from "../src/product-catalog/product-catalog.service";
+import { productTarget } from "../src/product-catalog/product-target";
 import { ProductRegistrationsService, computeCompliance, effectiveStatus } from "../src/product-catalog/product-registrations.service";
 
 /** Regulatory registrations: shared facts, private per-organisation verification, compliance, audit (2026-10-18). Real RLS database. */
@@ -51,9 +52,9 @@ describe("Product regulatory registrations", () => {
   });
 
   it("adds a registration, audits it, and shows it to another organisation", async () => {
-    const created = await regs.create(asUser(orgA, userA), productId, { authority: "EU_MDR", referenceNumber: `MDR-${suffix}`, expiryDate: new Date(Date.now() + 86400000 * 700).toISOString().slice(0, 10) });
+    const created = await regs.create(asUser(orgA, userA), productTarget(productId), { authority: "EU_MDR", referenceNumber: `MDR-${suffix}`, expiryDate: new Date(Date.now() + 86400000 * 700).toISOString().slice(0, 10) });
     expect(created.status).toBe("ACTIVE");
-    const seenByB = await regs.list(asUser(orgB, userB), productId);
+    const seenByB = await regs.list(asUser(orgB, userB), productTarget(productId));
     expect(seenByB.map((r) => r.referenceNumber)).toContain(`MDR-${suffix}`);
     const history = await catalogue.getHistory(productId, true);
     expect(history.some((h) => h.fieldName === "registration added")).toBe(true);
@@ -61,22 +62,22 @@ describe("Product regulatory registrations", () => {
   });
 
   it("verification is private to the verifying organisation, and needs QA permission", async () => {
-    const [reg] = await regs.list(asUser(orgA, userA), productId);
+    const [reg] = await regs.list(asUser(orgA, userA), productTarget(productId));
     await expect(regs.verify(asUser(orgA, userA, false, ["projects.edit"]), reg.id, { outcome: "VERIFIED" })).rejects.toThrow();
     await expect(regs.verify(asUser(orgA, userA), reg.id, { outcome: "ISSUE_FOUND" })).rejects.toThrow(/note/i);
     await regs.verify(asUser(orgA, userA), reg.id, { outcome: "VERIFIED", jurisdiction: "United Kingdom" });
-    expect((await regs.list(asUser(orgA, userA), productId))[0].myVerification?.outcome).toBe("VERIFIED");
-    expect((await regs.list(asUser(orgB, userB), productId))[0].myVerification).toBeNull();
+    expect((await regs.list(asUser(orgA, userA), productTarget(productId)))[0].myVerification?.outcome).toBe("VERIFIED");
+    expect((await regs.list(asUser(orgB, userB), productTarget(productId)))[0].myVerification).toBeNull();
   });
 
   it("only staff or the contributor can edit; retiring archives rather than deleting", async () => {
-    const [reg] = await regs.list(asUser(orgA, userA), productId);
+    const [reg] = await regs.list(asUser(orgA, userA), productTarget(productId));
     await expect(regs.update(asUser(orgB, userB), reg.id, { notes: "x" })).rejects.toThrow();
     await regs.update(asUser(orgA, userA), reg.id, { status: "SUSPENDED" });
     expect((await catalogue.getOne(productId, true))?.compliance.status).toBe("BLOCKED");
     await regs.update(asUser(orgA, userA, true), reg.id, { isArchived: true });
-    expect(await regs.list(asUser(orgA, userA), productId)).toHaveLength(0);
-    const all = await regs.list(asUser(orgA, userA), productId, true);
+    expect(await regs.list(asUser(orgA, userA), productTarget(productId))).toHaveLength(0);
+    const all = await regs.list(asUser(orgA, userA), productTarget(productId), true);
     expect(all).toHaveLength(1);
     expect(all[0].isArchived).toBe(true);
   });

@@ -8,6 +8,9 @@ import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductRegistrationsService } from "./product-registrations.service";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
+import { familyTarget, productTarget } from "./product-target";
+import { ProductFamiliesService } from "./product-families.service";
+import { AssignFamilyDto, CreateProductFamilyDto, UpdateProductFamilyDto } from "./dto/product-family.dto";
 import { ProductDocumentsService } from "./product-documents.service";
 import { CreateProductDocumentDto, RequestProductDocumentUploadDto } from "./dto/product-document.dto";
 import { ProductCatalogService } from "./product-catalog.service";
@@ -37,6 +40,7 @@ export class ProductCatalogController {
     private readonly productCatalogService: ProductCatalogService,
     private readonly registrations: ProductRegistrationsService,
     private readonly documents: ProductDocumentsService,
+    private readonly families: ProductFamiliesService,
   ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
@@ -96,6 +100,57 @@ export class ProductCatalogController {
   @Post("registrations/:registrationId/verify")
   verifyRegistration(@CurrentUser() user: RequestUser, @Param("registrationId") registrationId: string, @Body() dto: VerifyRegistrationDto) {
     return this.registrations.verify(user, registrationId, dto);
+  }
+
+  // ---- Product families (step 3b). Declared before ":id" so "families" is not read as an id. ----
+  @Get("families")
+  listFamilies(@CurrentUser() user: RequestUser, @Query("search") search?: string, @Query("category") category?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+    return this.families.list(user, { search, category, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined });
+  }
+
+  @Post("families")
+  createFamily(@CurrentUser() user: RequestUser, @Body() dto: CreateProductFamilyDto) {
+    return this.families.create(user, dto);
+  }
+
+  @Get("families/:familyId")
+  getFamily(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string) {
+    return this.families.getOne(user, familyId);
+  }
+
+  @Patch("families/:familyId")
+  updateFamily(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Body() dto: UpdateProductFamilyDto) {
+    return this.families.update(user, familyId, dto);
+  }
+
+  @Get("families/:familyId/history")
+  familyHistory(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string) {
+    return this.families.history(user, familyId);
+  }
+
+  @Get("families/:familyId/registrations")
+  listFamilyRegistrations(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Query("includeArchived") includeArchived?: string) {
+    return this.registrations.list(user, familyTarget(familyId), includeArchived === "true");
+  }
+
+  @Post("families/:familyId/registrations")
+  createFamilyRegistration(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Body() dto: CreateRegistrationDto) {
+    return this.registrations.create(user, familyTarget(familyId), dto);
+  }
+
+  @Get("families/:familyId/documents")
+  listFamilyDocuments(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Query("includeArchived") includeArchived?: string) {
+    return this.documents.list(user, familyTarget(familyId), includeArchived === "true");
+  }
+
+  @Post("families/:familyId/documents/upload-url")
+  requestFamilyDocumentUpload(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Body() dto: RequestProductDocumentUploadDto) {
+    return this.documents.requestUpload(user, familyTarget(familyId), dto);
+  }
+
+  @Post("families/:familyId/documents")
+  createFamilyDocument(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Body() dto: CreateProductDocumentDto) {
+    return this.documents.create(user, familyTarget(familyId), dto);
   }
 
   /** Controlled product documents: private to the caller's organisation. Approve is four-eyes; archive is soft. */
@@ -172,27 +227,37 @@ export class ProductCatalogController {
   /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
   @Get(":id/registrations")
   listRegistrations(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
-    return this.registrations.list(user, id, includeArchived === "true");
+    return this.registrations.list(user, productTarget(id), includeArchived === "true");
   }
 
   @Post(":id/registrations")
   createRegistration(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateRegistrationDto) {
-    return this.registrations.create(user, id, dto);
+    return this.registrations.create(user, productTarget(id), dto);
   }
 
   @Get(":id/documents")
   listDocuments(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
-    return this.documents.list(user, id, includeArchived === "true");
+    return this.documents.list(user, productTarget(id), includeArchived === "true");
   }
 
   @Post(":id/documents/upload-url")
   requestDocumentUpload(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: RequestProductDocumentUploadDto) {
-    return this.documents.requestUpload(user, id, dto);
+    return this.documents.requestUpload(user, productTarget(id), dto);
   }
 
   @Post(":id/documents")
   createDocument(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateProductDocumentDto) {
-    return this.documents.create(user, id, dto);
+    return this.documents.create(user, productTarget(id), dto);
+  }
+
+  @Post(":id/family")
+  assignFamily(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AssignFamilyDto) {
+    return this.families.assign(user, id, dto);
+  }
+
+  @Post(":id/family/create")
+  createFamilyFromProduct(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.families.createFromProduct(user, id);
   }
 
   @Get(":id/history")

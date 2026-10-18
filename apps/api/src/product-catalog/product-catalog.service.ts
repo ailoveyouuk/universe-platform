@@ -101,9 +101,18 @@ export class ProductCatalogService {
   async getOne(id: string, showSimulated = false): Promise<ProductCatalogDetail | null> {
     const row = await prisma.productMaster.findUnique({
       where: { id },
-      include: { addedByOrganization: { select: { name: true } } },
+      include: { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true, isSimulated: true, _count: { select: { variants: true } } } } },
     });
     if (!row || (row.isSimulated && !showSimulated)) return null;
+    const family = row.productFamily && (!row.productFamily.isSimulated || showSimulated) ? row.productFamily : null;
+    const siblings = family
+      ? await prisma.productMaster.findMany({
+          where: { productFamilyId: family.id, id: { not: row.id }, ...(showSimulated ? {} : { isSimulated: false }) },
+          select: { id: true, name: true, variantLabel: true, strength: true, packSize: true, dosageForm: true, gtin: true, lifecycleStatus: true, isArchived: true },
+          orderBy: { name: "asc" },
+          take: 50,
+        })
+      : [];
     const attributeDefinitions = await prisma.productAttributeDefinition.findMany({
       where: { category: row.category },
       orderBy: { sortOrder: "asc" },
@@ -136,12 +145,15 @@ export class ProductCatalogService {
       intendedUse: row.intendedUse,
       nextReviewDue: row.nextReviewDue ? row.nextReviewDue.toISOString() : null,
       version: row.version,
-      identifiers: identifiers.map((i) => ({ id: i.id, identifierType: i.identifierType, value: i.value, label: i.label, isActive: i.isActive })),
+      identifiers: identifiers.map((i) => ({ id: i.id, identifierType: i.identifierType, value: i.value, label: i.label, packagingLevel: i.packagingLevel, unitsPerPack: i.unitsPerPack, isActive: i.isActive })),
+      family: family ? { id: family.id, name: family.name, variantCount: family._count.variants } : null,
+      variantLabel: row.variantLabel,
+      siblings,
       completeness: computeCompleteness(row),
       compliance: computeCompliance(
         row.lifecycleStatus,
         await prisma.productRegulatoryRegistration.findMany({
-          where: { productMasterId: id, isArchived: false },
+          where: { isArchived: false, OR: family ? [{ productMasterId: id }, { productFamilyId: family.id }] : [{ productMasterId: id }] },
           select: { status: true, expiryDate: true, authority: true, referenceNumber: true },
         }),
       ),
@@ -159,14 +171,21 @@ export class ProductCatalogService {
    * Readable by any signed-in user: it is the audit trail of the shared catalogue entry. Simulated products follow
    * the same ring-fence as getOne. */
   async getHistory(id: string, showSimulated = false): Promise<ProductChangeEntry[]> {
-    const product = await prisma.productMaster.findUnique({ where: { id }, select: { isSimulated: true } });
+    const product = await prisma.productMaster.findUnique({ where: { id }, select: { isSimulated: true, productFamilyId: true } });
     if (!product || (product.isSimulated && !showSimulated)) throw new NotFoundException("Product not found.");
     const rows = await prisma.productMasterChange.findMany({
       where: { productMasterId: id },
       orderBy: [{ changedAt: "desc" }, { version: "desc" }],
       take: 300,
     });
-    return rows.map((r) => ({
+    const familyRows = product.productFamilyId
+      ? await prisma.productFamilyChange.findMany({ where: { productFamilyId: product.productFamilyId }, orderBy: { changedAt: "desc" }, take: 100 })
+      : [];
+    const fromFamily = familyRows.map((r) => ({
+      id: r.id, version: 0, fieldName: `Family: ${r.fieldName}`, oldValue: r.oldValue, newValue: r.newValue, source: r.source, reason: null as string | null,
+      changedByName: r.changedByName, changedByOrganizationName: r.changedByOrganizationName, changedAt: r.changedAt.toISOString(),
+    }));
+    const own = rows.map((r) => ({
       id: r.id,
       version: r.version,
       fieldName: r.fieldName,
@@ -178,6 +197,7 @@ export class ProductCatalogService {
       changedByOrganizationName: r.changedByOrganizationName,
       changedAt: r.changedAt.toISOString(),
     }));
+    return [...own, ...fromFamily].sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 300);
   }
 
   /** GET /product-catalog/:id/usage — how the caller's OWN organisation uses this product (tenant-scoped; never other

@@ -8,7 +8,7 @@ import type {
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertNotDemoUser } from "../common/authorization";
-import { writeProductChanges } from "./product-record";
+import { ownerData, ownerFilter, resolveTarget, writeTargetChanges, type Target } from "./product-target";
 import type { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 
 const DAY = 86400000;
@@ -16,7 +16,8 @@ export const EXPIRING_SOON_DAYS = 90;
 
 type RegRow = {
   id: string;
-  productMasterId: string;
+  productMasterId: string | null;
+  productFamilyId: string | null;
   authority: string;
   scheme: string | null;
   referenceNumber: string;
@@ -89,12 +90,6 @@ export class ProductRegistrationsService {
     return user.platformStaffRole !== "NONE" || user.permissions.includes("projects.edit") || user.permissions.includes("products.approve");
   }
 
-  private async assertProductVisible(productId: string, showSimulated: boolean) {
-    const p = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, name: true, isSimulated: true, version: true } });
-    if (!p || (p.isSimulated && !showSimulated)) throw new NotFoundException("Product not found.");
-    return p;
-  }
-
   private async myVerifications(user: RequestUser, registrationIds: string[]): Promise<Map<string, RegistrationVerificationSummary>> {
     const out = new Map<string, RegistrationVerificationSummary>();
     if (registrationIds.length === 0) return out;
@@ -120,10 +115,12 @@ export class ProductRegistrationsService {
     return out;
   }
 
-  private toSummary(r: RegRow, mine: RegistrationVerificationSummary | undefined): ProductRegistrationSummary {
+  private toSummary(r: RegRow, mine: RegistrationVerificationSummary | undefined, viewingProductId?: string): ProductRegistrationSummary {
     return {
       id: r.id,
       productMasterId: r.productMasterId,
+      productFamilyId: r.productFamilyId,
+      inherited: viewingProductId !== undefined && r.productFamilyId !== null,
       authority: r.authority,
       scheme: r.scheme,
       referenceNumber: r.referenceNumber,
@@ -144,34 +141,33 @@ export class ProductRegistrationsService {
     };
   }
 
-  /** GET /product-catalog/:id/registrations — shared registrations plus the caller's own latest verification of each. */
-  async list(user: RequestUser, productId: string, includeArchived = false): Promise<ProductRegistrationSummary[]> {
-    await this.assertProductVisible(productId, user.inDemoOrganization === true);
+  /** Shared registrations (a variant's own plus its family's) with the caller's own latest verification of each. */
+  async list(user: RequestUser, target: Target, includeArchived = false): Promise<ProductRegistrationSummary[]> {
+    const rt = await resolveTarget(target, user.inDemoOrganization === true);
     const rows = await prisma.productRegulatoryRegistration.findMany({
-      where: { productMasterId: productId, ...(includeArchived ? {} : { isArchived: false }) },
+      where: { ...ownerFilter(rt), ...(includeArchived ? {} : { isArchived: false }) },
       orderBy: [{ authority: "asc" }, { expiryDate: "asc" }],
     });
     const mine = await this.myVerifications(user, rows.map((r) => r.id));
-    return rows.map((r) => this.toSummary(r, mine.get(r.id)));
+    return rows.map((r) => this.toSummary(r, mine.get(r.id), rt.kind === "product" ? rt.id : undefined));
   }
 
-  /** Used by the product detail: raw non-archived registrations for the compliance calculation. */
-  async activeRows(productId: string) {
+  /** Raw non-archived registrations (own and family) for the compliance calculation. */
+  async activeRows(productId: string, familyId: string | null) {
     return prisma.productRegulatoryRegistration.findMany({
-      where: { productMasterId: productId, isArchived: false },
+      where: { isArchived: false, OR: familyId ? [{ productMasterId: productId }, { productFamilyId: familyId }] : [{ productMasterId: productId }] },
       select: { status: true, expiryDate: true, authority: true, referenceNumber: true },
     });
   }
 
-  async create(user: RequestUser, productId: string, dto: CreateRegistrationDto): Promise<ProductRegistrationSummary> {
+  async create(user: RequestUser, target: Target, dto: CreateRegistrationDto): Promise<ProductRegistrationSummary> {
     assertNotDemoUser(user, "Adding a regulatory registration to the shared catalogue");
     if (!this.canContribute(user)) throw new ForbiddenException("Missing permission: adding a registration requires projects.edit or products.approve.");
-    const product = await this.assertProductVisible(productId, user.inDemoOrganization === true);
-    const isStaff = user.platformStaffRole !== "NONE";
+    const rt = await resolveTarget(target, user.inDemoOrganization === true);
     const created = await prisma.$transaction(async (tx) => {
       const row = await tx.productRegulatoryRegistration.create({
         data: {
-          productMasterId: productId,
+          ...ownerData(rt),
           authority: dto.authority,
           scheme: clean(dto.scheme) ?? null,
           referenceNumber: dto.referenceNumber.trim(),
@@ -190,23 +186,25 @@ export class ProductRegistrationsService {
           isSimulated: user.inDemoOrganization === true,
         },
       });
-      await writeProductChanges(tx, {
-        productMasterId: productId,
-        version: product.version,
+      await writeTargetChanges(tx, ownerData(rt), {
+        version: rt.version,
         changes: [{ field: "registration added", oldValue: null, newValue: `${row.authority} ${row.referenceNumber} (${row.status})` }],
         source: "REGISTRATION",
         user,
       });
       return row;
     });
-    void isStaff;
     return this.toSummary(created, undefined);
   }
 
   private async loadForEdit(user: RequestUser, registrationId: string) {
-    const reg = await prisma.productRegulatoryRegistration.findUnique({ where: { id: registrationId }, include: { productMaster: { select: { isSimulated: true, version: true } } } });
-    if (!reg || (reg.productMaster.isSimulated && user.inDemoOrganization !== true)) throw new NotFoundException("Registration not found.");
-    return reg;
+    const reg = await prisma.productRegulatoryRegistration.findUnique({
+      where: { id: registrationId },
+      include: { productMaster: { select: { isSimulated: true, version: true } }, productFamily: { select: { isSimulated: true, version: true } } },
+    });
+    const owner = reg?.productMaster ?? reg?.productFamily;
+    if (!reg || !owner || (owner.isSimulated && user.inDemoOrganization !== true)) throw new NotFoundException("Registration not found.");
+    return { ...reg, ownerVersion: owner.version };
   }
 
   /** PATCH /product-catalog/registrations/:id — platform staff, or the contributing organisation (with edit permission). */
@@ -243,7 +241,7 @@ export class ProductRegistrationsService {
     if (changes.length === 0) return this.toSummary(reg, (await this.myVerifications(user, [reg.id])).get(reg.id));
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.productRegulatoryRegistration.update({ where: { id: registrationId }, data });
-      await writeProductChanges(tx, { productMasterId: reg.productMasterId, version: reg.productMaster.version, changes, source: "REGISTRATION", user });
+      await writeTargetChanges(tx, { productMasterId: reg.productMasterId, productFamilyId: reg.productFamilyId }, { version: reg.ownerVersion, changes, source: "REGISTRATION", user });
       return row;
     });
     return this.toSummary(updated, (await this.myVerifications(user, [updated.id])).get(updated.id));
@@ -277,21 +275,22 @@ export class ProductRegistrationsService {
   /** GET /product-catalog/regulatory/dashboard — catalogue-wide registration health plus the caller's own verification queue. */
   async dashboard(user: RequestUser): Promise<RegulatoryDashboard> {
     const showSim = user.inDemoOrganization === true;
-    const simWhere = showSim ? {} : { productMaster: { isSimulated: false } };
+    const simWhere = showSim ? {} : { OR: [{ productMaster: { isSimulated: false } }, { productFamily: { isSimulated: false } }] };
     const now = new Date();
     const soon = new Date(now.getTime() + EXPIRING_SOON_DAYS * DAY);
     const base = { isArchived: false, ...simWhere };
+    const withStatus = (extra: object) => ({ AND: [base, extra] });
     const [registrations, active, expiringSoon, expired, suspendedOrWithdrawn, productsWithRegs, productCount, attentionRows] = await Promise.all([
       prisma.productRegulatoryRegistration.count({ where: base }),
-      prisma.productRegulatoryRegistration.count({ where: { ...base, status: "ACTIVE", OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] } }),
-      prisma.productRegulatoryRegistration.count({ where: { ...base, status: "ACTIVE", expiryDate: { gte: now, lte: soon } } }),
-      prisma.productRegulatoryRegistration.count({ where: { ...base, OR: [{ status: "EXPIRED" }, { status: "ACTIVE", expiryDate: { lt: now } }] } }),
-      prisma.productRegulatoryRegistration.count({ where: { ...base, status: { in: ["SUSPENDED", "WITHDRAWN"] } } }),
-      prisma.productRegulatoryRegistration.findMany({ where: base, distinct: ["productMasterId"], select: { productMasterId: true } }).then((r) => r.length),
+      prisma.productRegulatoryRegistration.count({ where: withStatus({ status: "ACTIVE", OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] }) }),
+      prisma.productRegulatoryRegistration.count({ where: withStatus({ status: "ACTIVE", expiryDate: { gte: now, lte: soon } }) }),
+      prisma.productRegulatoryRegistration.count({ where: withStatus({ OR: [{ status: "EXPIRED" }, { status: "ACTIVE", expiryDate: { lt: now } }] }) }),
+      prisma.productRegulatoryRegistration.count({ where: withStatus({ status: { in: ["SUSPENDED", "WITHDRAWN"] } }) }),
+      prisma.productMaster.count({ where: { isArchived: false, ...(showSim ? {} : { isSimulated: false }), OR: [{ registrations: { some: { isArchived: false } } }, { productFamily: { registrations: { some: { isArchived: false } } } }] } }),
       prisma.productMaster.count({ where: { isArchived: false, ...(showSim ? {} : { isSimulated: false }) } }),
       prisma.productRegulatoryRegistration.findMany({
-        where: { ...base, OR: [{ status: { in: ["SUSPENDED", "WITHDRAWN"] } }, { status: "ACTIVE", expiryDate: { lte: soon } }] },
-        include: { productMaster: { select: { name: true } } },
+        where: withStatus({ OR: [{ status: { in: ["SUSPENDED", "WITHDRAWN"] } }, { status: "ACTIVE", expiryDate: { lte: soon } }] }),
+        include: { productMaster: { select: { name: true } }, productFamily: { select: { name: true } } },
         orderBy: [{ expiryDate: "asc" }],
         take: 25,
       }),
@@ -313,8 +312,14 @@ export class ProductRegistrationsService {
       const documentsAwaitingApproval = docs.filter((d) => d.status === "DRAFT").length;
       return { latest, usedIds: used.map((u) => u.productMasterId as string), documentsExpired, documentsExpiringSoon, documentsAwaitingApproval };
     });
+    const usedFamilies = mine.usedIds.length
+      ? (await prisma.productMaster.findMany({ where: { id: { in: mine.usedIds }, productFamilyId: { not: null } }, select: { productFamilyId: true } })).map((p) => p.productFamilyId as string)
+      : [];
     const usedRegs = mine.usedIds.length
-      ? await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productMasterId: { in: mine.usedIds } }, select: { id: true } })
+      ? await prisma.productRegulatoryRegistration.findMany({
+          where: { isArchived: false, OR: [{ productMasterId: { in: mine.usedIds } }, ...(usedFamilies.length ? [{ productFamilyId: { in: [...new Set(usedFamilies)] } }] : [])] },
+          select: { id: true },
+        })
       : [];
     const unverified = usedRegs.filter((r) => !mine.latest.has(r.id)).length;
     const nowMs = now.getTime();
@@ -326,7 +331,8 @@ export class ProductRegistrationsService {
       attention: attentionRows.map((r) => ({
         registrationId: r.id,
         productMasterId: r.productMasterId,
-        productName: r.productMaster.name,
+        productFamilyId: r.productFamilyId,
+        productName: r.productMaster?.name ?? r.productFamily?.name ?? "",
         authority: r.authority,
         referenceNumber: r.referenceNumber,
         expiryDate: r.expiryDate ? r.expiryDate.toISOString() : null,

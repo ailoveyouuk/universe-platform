@@ -5,22 +5,23 @@ import type { ProductDocumentSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
 import { BlobStorageService } from "../documents/blob-storage.service";
+import { ownerData, ownerFilter, resolveTarget, writeTargetChanges, type Target } from "./product-target";
 import { PRODUCT_DOC_MAX_BYTES, PRODUCT_DOC_MIME_TYPES, type CreateProductDocumentDto, type RequestProductDocumentUploadDto } from "./dto/product-document.dto";
 
 const DAY = 86400000;
 
 type Row = {
-  id: string; productMasterId: string; registrationId: string | null; docType: string; title: string; version: string; status: string;
+  id: string; productMasterId: string | null; productFamilyId: string | null; registrationId: string | null; docType: string; title: string; version: string; status: string;
   effectiveDate: Date | null; expiryDate: Date | null; reviewDueDate: Date | null; supersedesId: string | null; blobName: string | null;
   fileName: string | null; fileSizeBytes: number | null; mimeType: string | null; scanStatus: string; notes: string | null; createdAt: Date;
   approvedAt: Date | null; archivedAt: Date | null;
   uploadedBy: { forename: string; surname: string }; approvedBy: { forename: string; surname: string } | null;
 };
 
-export function toDocumentSummary(r: Row, now = Date.now()): ProductDocumentSummary {
+export function toDocumentSummary(r: Row, now = Date.now(), viewingProduct = false): ProductDocumentSummary {
   const days = r.expiryDate ? Math.floor((r.expiryDate.getTime() - now) / DAY) : null;
   return {
-    id: r.id, productMasterId: r.productMasterId, registrationId: r.registrationId, docType: r.docType, title: r.title, version: r.version, status: r.status,
+    id: r.id, productMasterId: r.productMasterId, productFamilyId: r.productFamilyId, inherited: viewingProduct && r.productFamilyId !== null, registrationId: r.registrationId, docType: r.docType, title: r.title, version: r.version, status: r.status,
     effectiveDate: r.effectiveDate?.toISOString() ?? null, expiryDate: r.expiryDate?.toISOString() ?? null, reviewDueDate: r.reviewDueDate?.toISOString() ?? null,
     isExpired: r.status === "APPROVED" && days !== null && days < 0, daysToExpiry: days, supersedesId: r.supersedesId,
     fileName: r.fileName, fileSizeBytes: r.fileSizeBytes, mimeType: r.mimeType, hasFile: !!r.blobName, scanStatus: r.scanStatus, notes: r.notes,
@@ -46,37 +47,34 @@ export class ProductDocumentsService {
   private canWrite(u: RequestUser) { return u.permissions.includes("projects.edit") || u.permissions.includes("products.approve") || u.platformStaffRole !== "NONE"; }
   private canApprove(u: RequestUser) { return u.permissions.includes("products.approve") || u.platformStaffRole !== "NONE"; }
 
-  private async assertProductVisible(user: RequestUser, productId: string) {
-    const p = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, isSimulated: true } });
-    if (!p || (p.isSimulated && user.inDemoOrganization !== true)) throw new NotFoundException("Product not found.");
-  }
-
-  async list(user: RequestUser, productId: string, includeArchived = false): Promise<ProductDocumentSummary[]> {
-    await this.assertProductVisible(user, productId);
+  async list(user: RequestUser, target: Target, includeArchived = false): Promise<ProductDocumentSummary[]> {
+    const rt = await resolveTarget(target, user.inDemoOrganization === true);
     const rows = await withTenantContext(user.organizationId, (tx) =>
       tx.productDocument.findMany({
-        where: { organizationId: user.organizationId, productMasterId: productId, ...(includeArchived ? {} : { archivedAt: null }) },
+        where: { organizationId: user.organizationId, ...ownerFilter(rt), ...(includeArchived ? {} : { archivedAt: null }) },
         include, orderBy: [{ docType: "asc" }, { createdAt: "desc" }],
       }),
     );
-    return rows.map((r) => toDocumentSummary(r));
+    return rows.map((r) => toDocumentSummary(r, Date.now(), rt.kind === "product"));
   }
 
-  async requestUpload(user: RequestUser, productId: string, dto: RequestProductDocumentUploadDto) {
+  private blobPrefix(rt: { kind: string; id: string }) { return rt.kind === "family" ? `product-docs/family-${rt.id}/` : `product-docs/${rt.id}/`; }
+
+  async requestUpload(user: RequestUser, target: Target, dto: RequestProductDocumentUploadDto) {
     if (!this.canWrite(user)) throw new ForbiddenException("Missing permission to add product documents.");
-    await this.assertProductVisible(user, productId);
+    const rt = await resolveTarget(target, user.inDemoOrganization === true);
     if (!PRODUCT_DOC_MIME_TYPES.includes(dto.contentType)) throw new BadRequestException("File type not allowed. Use PDF, PNG, JPEG, text, CSV, Word or Excel.");
     if (dto.fileSizeBytes > PRODUCT_DOC_MAX_BYTES) throw new BadRequestException("File is larger than the 25 MB limit.");
     const safe = dto.fileName.replace(/[^a-zA-Z0-9.\-_ ]/g, "_").slice(-150);
-    return this.blobs.getUploadUrl(user.organizationId, `product-docs/${productId}/${randomUUID()}-${safe}`, dto.contentType);
+    return this.blobs.getUploadUrl(user.organizationId, `${this.blobPrefix(rt)}${randomUUID()}-${safe}`, dto.contentType);
   }
 
-  async create(user: RequestUser, productId: string, dto: CreateProductDocumentDto): Promise<ProductDocumentSummary> {
+  async create(user: RequestUser, target: Target, dto: CreateProductDocumentDto): Promise<ProductDocumentSummary> {
     if (!this.canWrite(user)) throw new ForbiddenException("Missing permission to add product documents.");
-    await this.assertProductVisible(user, productId);
+    const rt = await resolveTarget(target, user.inDemoOrganization === true);
     let file: { size: number; contentType: string; etag: string; scanStatus: string } | null = null;
     if (dto.blobName) {
-      if (!dto.blobName.startsWith(`product-docs/${productId}/`)) throw new BadRequestException("Upload does not belong to this product.");
+      if (!dto.blobName.startsWith(this.blobPrefix(rt))) throw new BadRequestException("Upload does not belong to this product.");
       file = await this.blobs.getBlobInfo(user.organizationId, dto.blobName);
       if (!file) throw new BadRequestException("The uploaded file was not found. Please upload again.");
       if (file.size > PRODUCT_DOC_MAX_BYTES || !PRODUCT_DOC_MIME_TYPES.includes(file.contentType)) throw new BadRequestException("The uploaded file is not an accepted type or size, so it was not recorded.");
@@ -84,12 +82,12 @@ export class ProductDocumentsService {
     }
     const row = await withTenantContext(user.organizationId, async (tx) => {
       if (dto.supersedesId) {
-        const prior = await tx.productDocument.findFirst({ where: { id: dto.supersedesId, organizationId: user.organizationId, productMasterId: productId } });
+        const prior = await tx.productDocument.findFirst({ where: { id: dto.supersedesId, organizationId: user.organizationId, ...ownerData(rt) } });
         if (!prior) throw new BadRequestException("The document to supersede was not found for this product.");
       }
       const created = await tx.productDocument.create({
         data: {
-          organizationId: user.organizationId, productMasterId: productId, registrationId: dto.registrationId ?? null, docType: dto.docType, title: dto.title.trim(),
+          organizationId: user.organizationId, ...ownerData(rt), registrationId: dto.registrationId ?? null, docType: dto.docType, title: dto.title.trim(),
           version: dto.version?.trim() || "1.0", status: "DRAFT", effectiveDate: toDate(dto.effectiveDate), expiryDate: toDate(dto.expiryDate), reviewDueDate: toDate(dto.reviewDueDate),
           supersedesId: dto.supersedesId ?? null, blobName: dto.blobName ?? null, fileName: dto.fileName ?? null, fileSizeBytes: file?.size ?? null,
           mimeType: file?.contentType ?? null, blobEtag: file?.etag ?? null, scanStatus: file?.scanStatus ?? "NOT_SCANNED", notes: dto.notes?.trim() || null,

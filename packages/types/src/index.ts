@@ -1507,6 +1507,9 @@ export interface ProductIdentifierSummary {
   identifierType: string;
   value: string;
   label: string | null;
+  /** UNIT | INNER | OUTER | PALLET */
+  packagingLevel: string | null;
+  unitsPerPack: number | null;
   isActive: boolean;
 }
 
@@ -1539,6 +1542,13 @@ export interface ProductRecordCompleteness {
   missing: string[];
 }
 
+/** Family link shown on a variant's page (step 3b). */
+export interface ProductFamilyLink {
+  id: string;
+  name: string;
+  variantCount: number;
+}
+
 export interface ProductCatalogDetail extends ProductCatalogMatch, ProductRecordFields {
   canonicalManufacturerPartNumber: string | null;
   expectedQualityDocumentation: string | null;
@@ -1546,6 +1556,10 @@ export interface ProductCatalogDetail extends ProductCatalogMatch, ProductRecord
   identifiers: ProductIdentifierSummary[];
   completeness: ProductRecordCompleteness;
   compliance: ProductComplianceStatus;
+  family: ProductFamilyLink | null;
+  variantLabel: string | null;
+  /** Other variants in the same family (excluding this one), up to 50. */
+  siblings: ProductFamilyVariant[];
   sourceStandard: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1579,7 +1593,12 @@ export interface RegistrationVerificationSummary {
 /** Product Database step 2 (2026-10-18): a shared regulatory registration plus the caller's own latest verification. */
 export interface ProductRegistrationSummary {
   id: string;
-  productMasterId: string;
+  /** Set for a variant-level registration; null when the registration belongs to the family. */
+  productMasterId: string | null;
+  /** Set when the registration belongs to a product family (applies to every variant). */
+  productFamilyId: string | null;
+  /** True when shown on a variant but held by its family. */
+  inherited: boolean;
   authority: string;
   scheme: string | null;
   referenceNumber: string;
@@ -1638,7 +1657,7 @@ export interface ProductComplianceStatus {
 export interface RegulatoryDashboard {
   totals: { registrations: number; active: number; expiringSoon: number; expired: number; suspendedOrWithdrawn: number; productsWithoutRegistration: number };
   mine: { unverified: number; reverificationDue: number; issuesFound: number; documentsExpiringSoon: number; documentsExpired: number; documentsAwaitingApproval: number };
-  attention: { registrationId: string; productMasterId: string; productName: string; authority: string; referenceNumber: string; expiryDate: string | null; effectiveStatus: string; daysToExpiry: number | null }[];
+  attention: { registrationId: string; productMasterId: string | null; productFamilyId: string | null; productName: string; authority: string; referenceNumber: string; expiryDate: string | null; effectiveStatus: string; daysToExpiry: number | null }[];
 }
 
 /** GET /product-catalog/:id/usage — the caller's own organisation's use of a product. */
@@ -2679,7 +2698,10 @@ export interface SearchResponse {
 /** Controlled product documents (Product Database step 3, 2026-10-18). Private to the caller's organisation. */
 export interface ProductDocumentSummary {
   id: string;
-  productMasterId: string;
+  productMasterId: string | null;
+  productFamilyId: string | null;
+  /** True when shown on a variant but held by its family. */
+  inherited: boolean;
   registrationId: string | null;
   docType: string;
   title: string;
@@ -2727,3 +2749,58 @@ export interface CreateProductDocumentInput {
   blobName?: string;
   fileName?: string;
 }
+
+
+/** Product families (step 3b, 2026-10-18): the generic product above its variants. */
+export interface ProductFamilySummary {
+  id: string;
+  name: string;
+  category: string;
+  brand: string | null;
+  inn: string | null;
+  regulatoryClass: string | null;
+  variantCount: number;
+  isArchived: boolean;
+}
+
+export interface ProductFamilyVariant {
+  id: string;
+  name: string;
+  variantLabel: string | null;
+  strength: string | null;
+  packSize: string | null;
+  dosageForm: string | null;
+  gtin: string | null;
+  lifecycleStatus: string;
+  isArchived: boolean;
+}
+
+export interface ProductFamilyDetail extends ProductFamilySummary {
+  intendedUse: string | null;
+  description: string | null;
+  addedByOrganizationName: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  variants: ProductFamilyVariant[];
+  compliance: ProductComplianceStatus;
+}
+
+export interface ProductFamilyListResult {
+  items: ProductFamilySummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CreateProductFamilyInput {
+  name: string;
+  category: string;
+  brand?: string;
+  inn?: string;
+  regulatoryClass?: string;
+  intendedUse?: string;
+  description?: string;
+}
+
+export type UpdateProductFamilyInput = Partial<CreateProductFamilyInput> & { isArchived?: boolean };

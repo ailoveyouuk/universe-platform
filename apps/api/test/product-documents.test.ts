@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
+import { productTarget } from "../src/product-catalog/product-target";
 import { ProductDocumentsService } from "../src/product-catalog/product-documents.service";
 
 /** Controlled product documents: privacy, four-eyes approval, supersession, archive-not-delete, upload limits (2026-10-18). Real RLS database. */
@@ -29,32 +30,32 @@ describe("Product documents", () => {
   afterAll(async () => { await prisma.$disconnect(); });
 
   it("rejects disallowed file types and oversize uploads before any URL is issued", async () => {
-    await expect(service.requestUpload(asUser(orgA, uploader), productId, { fileName: "x.exe", contentType: "application/x-msdownload", fileSizeBytes: 100 })).rejects.toThrow(/not allowed/);
-    await expect(service.requestUpload(asUser(orgA, uploader), productId, { fileName: "x.pdf", contentType: "application/pdf", fileSizeBytes: 26 * 1024 * 1024 })).rejects.toThrow(/25 MB/);
+    await expect(service.requestUpload(asUser(orgA, uploader), productTarget(productId), { fileName: "x.exe", contentType: "application/x-msdownload", fileSizeBytes: 100 })).rejects.toThrow(/not allowed/);
+    await expect(service.requestUpload(asUser(orgA, uploader), productTarget(productId), { fileName: "x.pdf", contentType: "application/pdf", fileSizeBytes: 26 * 1024 * 1024 })).rejects.toThrow(/25 MB/);
   });
 
   it("creates a draft, enforces four-eyes approval, and supersedes the previous version", async () => {
-    const v1 = await service.create(asUser(orgA, uploader), productId, { docType: "CERTIFICATE", title: "CE certificate", version: "1.0", expiryDate: "2030-01-01" });
+    const v1 = await service.create(asUser(orgA, uploader), productTarget(productId), { docType: "CERTIFICATE", title: "CE certificate", version: "1.0", expiryDate: "2030-01-01" });
     expect(v1.status).toBe("DRAFT");
     await expect(service.approve(asUser(orgA, uploader), v1.id)).rejects.toThrow(/uploaded it/);
     expect((await service.approve(asUser(orgA, approver), v1.id)).status).toBe("APPROVED");
-    const v2 = await service.create(asUser(orgA, uploader), productId, { docType: "CERTIFICATE", title: "CE certificate", version: "2.0", supersedesId: v1.id });
+    const v2 = await service.create(asUser(orgA, uploader), productTarget(productId), { docType: "CERTIFICATE", title: "CE certificate", version: "2.0", supersedesId: v1.id });
     await service.approve(asUser(orgA, approver), v2.id);
-    const all = await service.list(asUser(orgA, uploader), productId);
+    const all = await service.list(asUser(orgA, uploader), productTarget(productId));
     expect(all.find((d) => d.id === v1.id)?.status).toBe("SUPERSEDED");
     expect(all.find((d) => d.id === v2.id)?.status).toBe("APPROVED");
   });
 
   it("is private to the organisation and needs QA permission to approve", async () => {
-    expect(await service.list(asUser(orgB, userB), productId)).toHaveLength(0);
-    const d = await service.create(asUser(orgA, uploader), productId, { docType: "SDS", title: "SDS" });
+    expect(await service.list(asUser(orgB, userB), productTarget(productId))).toHaveLength(0);
+    const d = await service.create(asUser(orgA, uploader), productTarget(productId), { docType: "SDS", title: "SDS" });
     await expect(service.approve(asUser(orgA, approver, ["projects.edit"]), d.id)).rejects.toThrow();
   });
 
   it("archives rather than deleting, keeping the row retrievable", async () => {
-    const d = await service.create(asUser(orgA, uploader), productId, { docType: "OTHER", title: "To retire" });
+    const d = await service.create(asUser(orgA, uploader), productTarget(productId), { docType: "OTHER", title: "To retire" });
     await service.archive(asUser(orgA, uploader), d.id, "Obsolete");
-    expect((await service.list(asUser(orgA, uploader), productId)).some((x) => x.id === d.id)).toBe(false);
-    expect((await service.list(asUser(orgA, uploader), productId, true)).find((x) => x.id === d.id)?.archived).toBe(true);
+    expect((await service.list(asUser(orgA, uploader), productTarget(productId))).some((x) => x.id === d.id)).toBe(false);
+    expect((await service.list(asUser(orgA, uploader), productTarget(productId), true)).find((x) => x.id === d.id)?.archived).toBe(true);
   });
 });

@@ -43,7 +43,7 @@ export default function RegulatoryPage() {
           {d.attention.length === 0 ? <p style={{ fontSize: 13 }}>Nothing expiring soon or suspended.</p> : (
             <div style={{ display: "grid", gap: 6 }}>
               {d.attention.map((a) => (
-                <Link key={a.registrationId} href={`/products/detail?id=${a.productMasterId}`} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "8px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", textDecoration: "none", color: "inherit", fontSize: 13 }}>
+                <Link key={a.registrationId} href={a.productMasterId ? `/products/detail?id=${a.productMasterId}` : `/families/detail?id=${a.productFamilyId}`} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "8px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", textDecoration: "none", color: "inherit", fontSize: 13 }}>
                   <strong>{a.productName}</strong>
                   <span>{AUTH[a.authority] ?? a.authority} {a.referenceNumber}</span>
                   <Pill tone={a.effectiveStatus === "ACTIVE" ? "warning" : "critical"}>{a.effectiveStatus === "ACTIVE" ? `expires in ${a.daysToExpiry} days` : a.effectiveStatus.toLowerCase()}</Pill>

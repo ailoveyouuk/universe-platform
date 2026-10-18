@@ -1703,6 +1703,10 @@ model ProductMaster {
   nextReviewDue                   DateTime?
   /// Incremented each time an applied change set is written (see ProductMasterChange).
   version                         Int           @default(1)
+  /// Family (step 3b): null = standalone product. variantLabel distinguishes this variant within its family.
+  productFamilyId                 String?
+  productFamily                   ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variantLabel                    String?
   createdAt                       DateTime      @default(now())
   updatedAt                       DateTime      @updatedAt
 
@@ -1729,6 +1733,7 @@ model ProductMaster {
   @@index([addedByOrganizationId])
   @@index([lifecycleStatus])
   @@index([nextReviewDue])
+  @@index([productFamilyId])
   @@map("product_master")
 }
 
@@ -2778,6 +2783,9 @@ model ProductIdentifier {
   identifierType  String
   value           String
   label           String?
+  /// Packaging level this identifier belongs to: UNIT | INNER | OUTER | PALLET (step 3b)
+  packagingLevel  String?
+  unitsPerPack    Int?
   isActive        Boolean       @default(true)
   createdById     String?
   createdAt       DateTime      @default(now())
@@ -2821,8 +2829,11 @@ model ProductMasterChange {
 /// ProductRegistrationVerification (tenant-scoped).
 model ProductRegulatoryRegistration {
   id                  String        @id @default(uuid())
-  productMasterId     String
-  productMaster       ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Exactly one of productMasterId (a variant) or productFamilyId (applies to every variant of the family) is set.
+  productMasterId     String?
+  productMaster       ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productFamilyId     String?
+  productFamily       ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// WHO_PQ | WHO_EUL | FDA | EU_CE | EU_MDR | EU_IVDR | EMA | MHRA | SRA | NATIONAL | OTHER — RegistrationAuthority.
   authority           String
   /// Pathway/scheme, e.g. "510(k)", "NDA", "ANDA", "Centralised procedure", "Annex IX", "PQ medicines".
@@ -2853,6 +2864,7 @@ model ProductRegulatoryRegistration {
   verifications ProductRegistrationVerification[]
 
   @@index([productMasterId, isArchived])
+  @@index([productFamilyId, isArchived])
   @@index([expiryDate, status])
   @@index([authority, referenceNumber])
   @@map("product_regulatory_registrations")
@@ -2860,6 +2872,56 @@ model ProductRegulatoryRegistration {
 
 /// An organisation's own check of a registration (added 2026-10-18) — the "checked and verified" audit record for its QA
 /// staff. Tenant-scoped (RLS); append-only: a re-check adds a row, the newest row is the current position.
+/// Product family (step 3b, 2026-10-18): the generic product above its variants. Every ProductMaster row is a variant (a
+/// specific strength / pack size / GTIN set); a family holds what is common (name, brand, category, INN, class) and can carry
+/// registrations and controlled documents that apply to all its variants. Shared catalogue data, not tenant-scoped.
+model ProductFamily {
+  id                String    @id @default(uuid())
+  name              String
+  category          String
+  brand             String?
+  inn               String?
+  regulatoryClass   String?
+  intendedUse       String?   @db.NVarChar(Max)
+  description       String?   @db.NVarChar(Max)
+  isSimulated       Boolean   @default(false)
+  isArchived        Boolean   @default(false)
+  addedByOrganizationId   String?
+  addedByOrganizationName String?
+  version           Int       @default(1)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  variants          ProductMaster[]
+  registrations     ProductRegulatoryRegistration[]
+  documents         ProductDocument[]
+  changes           ProductFamilyChange[]
+
+  @@index([category])
+  @@index([name])
+  @@index([isSimulated, isArchived])
+  @@map("product_families")
+}
+
+/// Audit trail for family-level changes (including registrations and documents attached to the family).
+model ProductFamilyChange {
+  id                        String        @id @default(uuid())
+  productFamilyId           String
+  productFamily             ProductFamily @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fieldName                 String
+  oldValue                  String?       @db.NVarChar(Max)
+  newValue                  String?       @db.NVarChar(Max)
+  source                    String
+  changedById               String?
+  changedByName             String?
+  changedByOrganizationId   String?
+  changedByOrganizationName String?
+  changedAt                 DateTime      @default(now())
+
+  @@index([productFamilyId, changedAt])
+  @@map("product_family_changes")
+}
+
 /// Controlled product-level documents (Product Database step 3, 2026-10-18): certificates, IFU/labelling, SDS,
 /// specifications, CoA templates, test reports, technical file. Private to the organisation (RLS). Versioned by
 /// supersession; never deleted (archivedAt). Approval is four-eyes: the approver cannot be the uploader.
@@ -2867,8 +2929,11 @@ model ProductDocument {
   id                String    @id @default(uuid())
   organizationId    String
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productMasterId   String
-  productMaster     ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Exactly one of productMasterId (a variant) or productFamilyId (every variant of the family) is set.
+  productMasterId   String?
+  productMaster     ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productFamilyId   String?
+  productFamily     ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Optional link to the registration this document evidences.
   registrationId    String?
   /// CERTIFICATE | IFU | LABELLING | SDS | SPECIFICATION | COA_TEMPLATE | TEST_REPORT | TECHNICAL_FILE | OTHER
@@ -2904,6 +2969,7 @@ model ProductDocument {
   @@index([organizationId, productMasterId, archivedAt])
   @@index([organizationId, expiryDate])
   @@index([productMasterId])
+  @@index([organizationId, productFamilyId, archivedAt])
   @@map("product_documents")
 }
 
