@@ -368,3 +368,4 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Demo data:** `enrich-demo-data` adds ~46 simulated notices (mostly closed, a handful open, two critical open recalls on products the demo organisation uses) and the demo organisation's reviews of about half the open ones. Run via the existing enrichment workflow (`only=catalogue`).
 - **Tests:** `product-safety-notices.test.ts` (compliance, permissions, sharing, notification to another organisation, private review, family inheritance, close/unblock, nothing deleted).
 - **Not yet:** automated daily regulator monitoring (step 4b) — an empty list is not a clearance and the UI says so.
+- **2026-10-18 (later):** CI and deploys green; demo notices loaded (46 notices, 35 reviews). **Lewis re-ran the RLS script on the `universe` database and it succeeded**, so `product_safety_notice_reviews` now has database-level row-level security.
