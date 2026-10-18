@@ -205,6 +205,38 @@ export const ProductIdentifierType = {
 } as const;
 export type ProductIdentifierType = (typeof ProductIdentifierType)[keyof typeof ProductIdentifierType];
 
+export const RegistrationAuthority = {
+  WHO_PQ: "WHO_PQ",
+  WHO_EUL: "WHO_EUL",
+  FDA: "FDA",
+  EU_CE: "EU_CE",
+  EU_MDR: "EU_MDR",
+  EU_IVDR: "EU_IVDR",
+  EMA: "EMA",
+  MHRA: "MHRA",
+  SRA: "SRA",
+  NATIONAL: "NATIONAL",
+  OTHER: "OTHER",
+} as const;
+export type RegistrationAuthority = (typeof RegistrationAuthority)[keyof typeof RegistrationAuthority];
+
+export const RegistrationStatus = {
+  ACTIVE: "ACTIVE",
+  PENDING: "PENDING",
+  SUSPENDED: "SUSPENDED",
+  WITHDRAWN: "WITHDRAWN",
+  EXPIRED: "EXPIRED",
+  REFUSED: "REFUSED",
+} as const;
+export type RegistrationStatus = (typeof RegistrationStatus)[keyof typeof RegistrationStatus];
+
+export const RegistrationVerificationOutcome = {
+  VERIFIED: "VERIFIED",
+  NOT_APPLICABLE: "NOT_APPLICABLE",
+  ISSUE_FOUND: "ISSUE_FOUND",
+} as const;
+export type RegistrationVerificationOutcome = (typeof RegistrationVerificationOutcome)[keyof typeof RegistrationVerificationOutcome];
+
 /// Expanded 2026-10-02 after a research pass on real-world supplier
 /// files — covers every document type actually observed, not just the
 /// original four.

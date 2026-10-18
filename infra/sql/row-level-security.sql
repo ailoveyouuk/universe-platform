@@ -229,6 +229,13 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_amendments AFTER UPDATE,
 
+    -- product_registration_verifications — an organisation's own "checked and
+    -- verified" record against a (shared) regulatory registration, added
+    -- 2026-10-18. Tenant-scoped; the registrations themselves are shared.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER UPDATE,
+
     -- notifications — in-app notifications / per-user actions, added
     -- 2026-10-16. Tenant-scoped; the API additionally only ever reads rows
     -- WHERE recipientUserId = the signed-in user.

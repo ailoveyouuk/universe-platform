@@ -1545,6 +1545,7 @@ export interface ProductCatalogDetail extends ProductCatalogMatch, ProductRecord
   attributeDefinitions: ProductCatalogAttribute[];
   identifiers: ProductIdentifierSummary[];
   completeness: ProductRecordCompleteness;
+  compliance: ProductComplianceStatus;
   sourceStandard: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1562,6 +1563,82 @@ export interface ProductChangeEntry {
   changedByName: string | null;
   changedByOrganizationName: string | null;
   changedAt: string;
+}
+
+/** A registration's current position for the calling organisation (its newest ProductRegistrationVerification). */
+export interface RegistrationVerificationSummary {
+  id: string;
+  outcome: string;
+  jurisdiction: string | null;
+  notes: string | null;
+  nextReverificationDue: string | null;
+  verifiedByName: string;
+  verifiedAt: string;
+}
+
+/** Product Database step 2 (2026-10-18): a shared regulatory registration plus the caller's own latest verification. */
+export interface ProductRegistrationSummary {
+  id: string;
+  productMasterId: string;
+  authority: string;
+  scheme: string | null;
+  referenceNumber: string;
+  regulatoryClass: string | null;
+  countryCode: string | null;
+  holderName: string | null;
+  issueDate: string | null;
+  expiryDate: string | null;
+  /** Stored status. */
+  status: string;
+  /** Stored status, except ACTIVE with a past expiry date reads EXPIRED. */
+  effectiveStatus: string;
+  daysToExpiry: number | null;
+  sourceUrl: string | null;
+  notes: string | null;
+  /** CONTRIBUTED | SOURCE_VERIFIED */
+  verificationLevel: string;
+  contributedByOrganizationName: string | null;
+  isArchived: boolean;
+  myVerification: RegistrationVerificationSummary | null;
+}
+
+export interface CreateRegistrationInput {
+  authority: string;
+  scheme?: string;
+  referenceNumber: string;
+  regulatoryClass?: string;
+  countryCode?: string;
+  holderName?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  status?: string;
+  sourceUrl?: string;
+  notes?: string;
+}
+
+export interface UpdateRegistrationInput extends Partial<CreateRegistrationInput> {
+  isArchived?: boolean;
+  /** Platform staff only. */
+  verificationLevel?: string;
+}
+
+export interface VerifyRegistrationInput {
+  outcome: string;
+  jurisdiction?: string;
+  notes?: string;
+  nextReverificationDue?: string;
+}
+
+/** Computed per product from lifecycle, registrations and (later) safety notices. */
+export interface ProductComplianceStatus {
+  status: "OK" | "WARNING" | "BLOCKED";
+  reasons: string[];
+}
+
+export interface RegulatoryDashboard {
+  totals: { registrations: number; active: number; expiringSoon: number; expired: number; suspendedOrWithdrawn: number; productsWithoutRegistration: number };
+  mine: { unverified: number; reverificationDue: number; issuesFound: number };
+  attention: { registrationId: string; productMasterId: string; productName: string; authority: string; referenceNumber: string; expiryDate: string | null; effectiveStatus: string; daysToExpiry: number | null }[];
 }
 
 /** GET /product-catalog/:id/usage — the caller's own organisation's use of a product. */

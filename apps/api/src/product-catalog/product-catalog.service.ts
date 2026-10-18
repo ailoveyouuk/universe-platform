@@ -3,6 +3,7 @@ import { createNotifications, completeActionsFor, usersWithPermission } from "..
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { recordFieldChanges } from "../common/audit-log";
+import { computeCompliance } from "./product-registrations.service";
 import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
 import type {
   ProductCatalogDetail,
@@ -137,6 +138,13 @@ export class ProductCatalogService {
       version: row.version,
       identifiers: identifiers.map((i) => ({ id: i.id, identifierType: i.identifierType, value: i.value, label: i.label, isActive: i.isActive })),
       completeness: computeCompleteness(row),
+      compliance: computeCompliance(
+        row.lifecycleStatus,
+        await prisma.productRegulatoryRegistration.findMany({
+          where: { productMasterId: id, isArchived: false },
+          select: { status: true, expiryDate: true, authority: true, referenceNumber: true },
+        }),
+      ),
       attributeDefinitions: attributeDefinitions.map((a) => ({
         attributeKey: a.attributeKey,
         label: a.label,

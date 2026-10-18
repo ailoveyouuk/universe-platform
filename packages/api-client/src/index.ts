@@ -49,6 +49,11 @@ import type {
   ProductCatalogDetail,
   ProductChangeEntry,
   ProductUsageSummary,
+  ProductRegistrationSummary,
+  CreateRegistrationInput,
+  UpdateRegistrationInput,
+  VerifyRegistrationInput,
+  RegulatoryDashboard,
   ProductCatalogListResult,
   ProductCatalogMatch,
   ProductCatalogCompletenessStats,
@@ -589,6 +594,23 @@ export class UniverseApiClient {
   /** GET /product-catalog/:id/usage — this organisation's own use of the product (added 2026-10-18). */
   getProductUsage(productMasterId: string): Promise<ProductUsageSummary> {
     return this.request(`/product-catalog/${productMasterId}/usage`);
+  }
+
+  /** Regulatory registrations (Product Database step 2, 2026-10-18). Shared facts; the caller's own verification is private. */
+  listProductRegistrations(productMasterId: string, includeArchived = false): Promise<ProductRegistrationSummary[]> {
+    return this.request(`/product-catalog/${productMasterId}/registrations${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  createProductRegistration(productMasterId: string, input: CreateRegistrationInput): Promise<ProductRegistrationSummary> {
+    return this.request(`/product-catalog/${productMasterId}/registrations`, { method: "POST", body: JSON.stringify(input) });
+  }
+  updateProductRegistration(registrationId: string, input: UpdateRegistrationInput): Promise<ProductRegistrationSummary> {
+    return this.request(`/product-catalog/registrations/${registrationId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  verifyProductRegistration(registrationId: string, input: VerifyRegistrationInput): Promise<ProductRegistrationSummary> {
+    return this.request(`/product-catalog/registrations/${registrationId}/verify`, { method: "POST", body: JSON.stringify(input) });
+  }
+  getRegulatoryDashboard(): Promise<RegulatoryDashboard> {
+    return this.request("/product-catalog/regulatory/dashboard");
   }
 
   createProductCatalogEntry(input: CreateProductMasterInput): Promise<ProductCatalogMatch> {

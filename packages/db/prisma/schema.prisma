@@ -305,6 +305,7 @@ model Organization {
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow:
   /// amendments proposed by users belonging to this org.
   productAmendments             ProductAmendment[]
+  productRegistrationVerifications ProductRegistrationVerification[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -381,6 +382,7 @@ model User {
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow.
   submittedProductAmendments   ProductAmendment[]     @relation("ProductAmendmentSubmittedBy")
   reviewedProductAmendments    ProductAmendment[]     @relation("ProductAmendmentReviewedBy")
+  productRegistrationVerifications ProductRegistrationVerification[]
   /// Added 2026-10-16 — in-app notifications / actions, see Notification.
   notifications                Notification[]         @relation("NotificationRecipient")
   triggeredNotifications       Notification[]         @relation("NotificationActor")
@@ -1703,6 +1705,7 @@ model ProductMaster {
 
   identifiers            ProductIdentifier[]
   changes                ProductMasterChange[]
+  registrations          ProductRegulatoryRegistration[]
   attributeDefinitions   ProductAttributeDefinition[]
   projectLines           ProjectLine[]
   productLines           ProductLine[]
@@ -2804,4 +2807,72 @@ model ProductMasterChange {
 
   @@index([productMasterId, changedAt])
   @@map("product_master_changes")
+}
+
+
+/// Structured regulatory registration of a catalogue product (added 2026-10-18, Product Database step 2). SHARED fact, like
+/// product_master: what is registered with which authority, under which reference, until when. Contributed by platform staff
+/// or by an organisation's users (verificationLevel CONTRIBUTED until platform staff mark it SOURCE_VERIFIED against the
+/// authority's own record). Never deleted: retired via isArchived. Each organisation's own check lives in
+/// ProductRegistrationVerification (tenant-scoped).
+model ProductRegulatoryRegistration {
+  id                  String        @id @default(uuid())
+  productMasterId     String
+  productMaster       ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// WHO_PQ | WHO_EUL | FDA | EU_CE | EU_MDR | EU_IVDR | EMA | MHRA | SRA | NATIONAL | OTHER — RegistrationAuthority.
+  authority           String
+  /// Pathway/scheme, e.g. "510(k)", "NDA", "ANDA", "Centralised procedure", "Annex IX", "PQ medicines".
+  scheme              String?
+  referenceNumber     String
+  /// Device/IVD class or listing category, where it applies.
+  regulatoryClass     String?
+  /// ISO alpha-2 country the registration applies to (null = supranational, e.g. EU or WHO).
+  countryCode         String?
+  /// Registration/marketing-authorisation holder or applicant, as stated by the authority.
+  holderName          String?
+  issueDate           DateTime?
+  expiryDate          DateTime?
+  /// ACTIVE | PENDING | SUSPENDED | WITHDRAWN | EXPIRED | REFUSED — RegistrationStatus. A past expiryDate is treated as expired by the API even if this is still ACTIVE.
+  status              String        @default("ACTIVE")
+  sourceUrl           String?
+  notes               String?       @db.NVarChar(Max)
+  /// CONTRIBUTED | SOURCE_VERIFIED
+  verificationLevel   String        @default("CONTRIBUTED")
+  contributedByOrganizationId   String?
+  contributedByOrganizationName String?
+  contributedById     String?
+  isSimulated         Boolean       @default(false)
+  isArchived          Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  verifications ProductRegistrationVerification[]
+
+  @@index([productMasterId, isArchived])
+  @@index([expiryDate, status])
+  @@index([authority, referenceNumber])
+  @@map("product_regulatory_registrations")
+}
+
+/// An organisation's own check of a registration (added 2026-10-18) — the "checked and verified" audit record for its QA
+/// staff. Tenant-scoped (RLS); append-only: a re-check adds a row, the newest row is the current position.
+model ProductRegistrationVerification {
+  id               String                        @id @default(uuid())
+  organizationId   String
+  organization     Organization                  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  registrationId   String
+  registration     ProductRegulatoryRegistration @relation(fields: [registrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// VERIFIED | NOT_APPLICABLE | ISSUE_FOUND — RegistrationVerificationOutcome.
+  outcome          String
+  /// The jurisdiction the check was made for (free text, e.g. "Kenya" or "UK/MHRA").
+  jurisdiction     String?
+  notes            String?                       @db.NVarChar(Max)
+  nextReverificationDue DateTime?
+  verifiedById     String
+  verifiedBy       User                          @relation(fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedAt       DateTime                      @default(now())
+
+  @@index([organizationId, registrationId, verifiedAt])
+  @@index([organizationId, nextReverificationDue])
+  @@map("product_registration_verifications")
 }

@@ -214,6 +214,89 @@ async function enrichIdentifiers() {
   return n;
 }
 
+
+const REG_AUTH: Record<string, string[]> = {
+  Pharmaceuticals: ["WHO_PQ", "FDA", "EMA", "MHRA", "NATIONAL"],
+  "Medical Devices": ["EU_MDR", "FDA", "EU_CE", "NATIONAL"],
+  Diagnostics: ["EU_IVDR", "WHO_PQ", "FDA", "NATIONAL"],
+};
+const REG_SCHEME: Record<string, string> = { WHO_PQ: "WHO prequalification", FDA: "510(k) / NDA", EMA: "Centralised procedure", MHRA: "UK marketing authorisation", EU_MDR: "Regulation (EU) 2017/745", EU_IVDR: "Regulation (EU) 2017/746", EU_CE: "CE marking", NATIONAL: "National registration", SRA: "Stringent regulatory authority" };
+const REG_COUNTRY: Record<string, string | null> = { WHO_PQ: null, FDA: "US", EMA: "DE", MHRA: "GB", EU_MDR: "DE", EU_IVDR: "FR", EU_CE: "NL", NATIONAL: "KE", SRA: "CH" };
+const REG_REFERENCE: Record<string, (n: number) => string> = {
+  WHO_PQ: (n) => `PQ-${1000 + (n % 8999)}`, FDA: (n) => `K${200000 + (n % 799999)}`, EMA: (n) => `EU/1/${20 + (n % 5)}/${1000 + (n % 8999)}`,
+  MHRA: (n) => `PLGB ${10000 + (n % 89999)}/${1000 + ((n >> 4) % 8999)}`, EU_MDR: (n) => `MDR-${100000 + (n % 899999)}`, EU_IVDR: (n) => `IVDR-${100000 + (n % 899999)}`,
+  EU_CE: (n) => `CE-${100000 + (n % 899999)}`, NATIONAL: (n) => `REG/${2018 + (n % 8)}/${10000 + (n % 89999)}`, SRA: (n) => `SRA-${10000 + (n % 89999)}`,
+};
+
+/** Structured regulatory registrations for simulated catalogue entries (Product Database step 2). ~65% of products get 1-2; a realistic tail is expired, expiring or suspended. */
+async function enrichRegistrations() {
+  const day = 86400000;
+  const rows = await prisma.productMaster.findMany({
+    where: { isSimulated: true, sourceStandard: "SIM-SCALE", registrations: { none: {} } },
+    select: { id: true, category: true },
+    orderBy: { id: "asc" },
+  });
+  const todo: Parameters<typeof prisma.productRegulatoryRegistration.createMany>[0]["data"] = [] as never;
+  const list = todo as unknown as Record<string, unknown>[];
+  for (const r of rows) {
+    if (hash(r.id + "reg") % 100 >= 65) continue;
+    const top = r.category.split(".")[0];
+    const auths = REG_AUTH[top] ?? ["NATIONAL", "EU_CE", "SRA"];
+    const count = hash(r.id + "rc") % 100 < 30 ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      const authority = auths[hash(`${r.id}:a${i}`) % auths.length];
+      const k = hash(`${r.id}:s${i}`) % 100;
+      const status = k < 2 ? "SUSPENDED" : k < 3 ? "WITHDRAWN" : "ACTIVE";
+      const expiryOffset = k >= 3 && k < 8 ? -(10 + (hash(`${r.id}:e${i}`) % 300)) : k >= 8 && k < 16 ? 5 + (hash(`${r.id}:e${i}`) % 85) : 120 + (hash(`${r.id}:e${i}`) % 1500);
+      const issue = new Date(Date.now() + expiryOffset * day - (1095 + (hash(`${r.id}:i${i}`) % 700)) * day);
+      list.push({
+        productMasterId: r.id, authority, scheme: REG_SCHEME[authority] ?? null, referenceNumber: REG_REFERENCE[authority](hash(`${r.id}:n${i}`)),
+        regulatoryClass: top === "Medical Devices" ? ["I", "IIa", "IIb"][hash(r.id + "cl") % 3] : null, countryCode: REG_COUNTRY[authority] ?? null,
+        holderName: null, issueDate: issue, expiryDate: new Date(Date.now() + expiryOffset * day), status,
+        sourceUrl: null, notes: status === "ACTIVE" ? null : "Status reported by the issuing authority (simulated).",
+        verificationLevel: hash(`${r.id}:v${i}`) % 100 < 35 ? "SOURCE_VERIFIED" : "CONTRIBUTED",
+        contributedByOrganizationName: "Universe reference data", isSimulated: true,
+      });
+    }
+  }
+  console.log(`Registrations: ${list.length} to add across ${rows.length} entries without registrations`);
+  if (dryRun || list.length === 0) return list.length;
+  let n = 0;
+  for (const group of chunks(list, 100)) {
+    await prisma.productRegulatoryRegistration.createMany({ data: group as never });
+    n += group.length;
+  }
+  console.log(`Registrations: added ${n}`);
+  return n;
+}
+
+/** The demo organisation's own "checked and verified" records on ~40% of simulated registrations. */
+async function enrichVerifications(orgId: string) {
+  const user = await withPlatformStaffContext((tx) => tx.user.findFirst({ where: { organizationId: orgId, isSimulated: false }, select: { id: true } }));
+  if (!user) { console.log("Verifications: no demo-organisation user found, skipped"); return 0; }
+  const regs = await prisma.productRegulatoryRegistration.findMany({ where: { isSimulated: true, isArchived: false }, select: { id: true, status: true }, orderBy: { id: "asc" } });
+  const done = await withTenantContext(orgId, (tx) => tx.productRegistrationVerification.findMany({ where: { organizationId: orgId }, select: { registrationId: true } }));
+  const have = new Set(done.map((d) => d.registrationId));
+  const day = 86400000;
+  const todo = regs.filter((r) => !have.has(r.id) && hash(r.id + "ver") % 100 < 40).map((r) => {
+    const k = hash(r.id + "vo") % 100;
+    const outcome = r.status !== "ACTIVE" ? "ISSUE_FOUND" : k < 88 ? "VERIFIED" : k < 96 ? "NOT_APPLICABLE" : "ISSUE_FOUND";
+    return {
+      organizationId: orgId, registrationId: r.id, outcome, jurisdiction: ["United Kingdom", "Kenya", "Uganda", "Nigeria", "Ethiopia"][hash(r.id + "j") % 5],
+      notes: outcome === "VERIFIED" ? null : outcome === "NOT_APPLICABLE" ? "Registration relates to a market we do not supply." : "Registration status queried with the issuing authority; supplier asked to confirm.",
+      nextReverificationDue: new Date(Date.now() + ((hash(r.id + "rv2") % 500) - 40) * day), verifiedById: user.id,
+      verifiedAt: new Date(Date.now() - (hash(r.id + "vd") % 300) * day),
+    };
+  });
+  console.log(`Verifications: ${todo.length} to add`);
+  if (dryRun || todo.length === 0) return todo.length;
+  for (const group of chunks(todo, 150)) {
+    await withTenantContext(orgId, (tx) => tx.productRegistrationVerification.createMany({ data: group }));
+  }
+  console.log(`Verifications: added ${todo.length}`);
+  return todo.length;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -421,6 +504,8 @@ async function main() {
   await fixNames();
   await enrichProductRecords();
   await enrichIdentifiers();
+  await enrichRegistrations();
+  await enrichVerifications(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);

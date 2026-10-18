@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ProductCatalogController } from "./product-catalog.controller";
+import { ProductRegistrationsService } from "./product-registrations.service";
 import { ProductCatalogService } from "./product-catalog.service";
 
 @Module({
   controllers: [ProductCatalogController],
-  providers: [ProductCatalogService],
+  providers: [ProductCatalogService, ProductRegistrationsService],
   // QualityModule imports this to delegate its existing product search to
   // the shared implementation (see product-source-approvals.service.ts) —
   // exported for exactly that, and for any future module (CRM, Supplier

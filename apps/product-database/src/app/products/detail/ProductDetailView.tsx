@@ -7,6 +7,7 @@ import type {
   ProductAmendmentSummary,
   ProductBatchSummary,
   ProductChangeEntry,
+  ProductRegistrationSummary,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
   ProductUsageSummary,
@@ -171,9 +172,20 @@ export function ProductDetailView() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {canEdit && !editing && <Button variant="primary" size="sm" onClick={startEdit}>{isStaff ? "Edit record" : "Propose changes"}</Button>}
-          {canEdit && !editing && (
-            <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ isArchived: !detail.isArchived })}>
-              {detail.isArchived ? "Restore" : "Archive"}
+          {canEdit && !editing && !detail.isArchived && (detail.lifecycleStatus === "ACTIVE" || detail.lifecycleStatus === "DRAFT") && (
+            <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ lifecycleStatus: "DISCONTINUED" })}>
+              Mark discontinued
+            </Button>
+          )}
+          {canEdit && !editing && detail.lifecycleStatus === "DISCONTINUED" && (
+            <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ lifecycleStatus: "ACTIVE" })}>
+              Reinstate
+            </Button>
+          )}
+          {/* Legacy only: products archived before lifecycle status existed can still be restored. Nothing is ever deleted. */}
+          {canEdit && !editing && detail.isArchived && (
+            <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ isArchived: false })}>
+              Restore
             </Button>
           )}
         </div>
@@ -396,10 +408,146 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
 
 /* ---------- Regulatory tab ---------- */
 
+const AUTHORITIES: [string, string][] = [
+  ["WHO_PQ", "WHO prequalification"], ["WHO_EUL", "WHO emergency use listing"], ["FDA", "US FDA"], ["EU_CE", "EU CE mark"],
+  ["EU_MDR", "EU MDR"], ["EU_IVDR", "EU IVDR"], ["EMA", "EMA"], ["MHRA", "UK MHRA"], ["SRA", "Stringent regulatory authority"],
+  ["NATIONAL", "National registration"], ["OTHER", "Other"],
+];
+const authorityLabel = (a: string) => AUTHORITIES.find(([k]) => k === a)?.[1] ?? a;
+const regTone = (s: string): "good" | "warning" | "critical" | "neutral" =>
+  s === "ACTIVE" ? "good" : s === "PENDING" ? "neutral" : s === "EXPIRED" || s === "SUSPENDED" || s === "WITHDRAWN" || s === "REFUSED" ? "critical" : "neutral";
+
 function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
+  const user = useCurrentUser();
   const lc = lifecycleMeta(detail.lifecycleStatus);
+  const [regs, setRegs] = useState<ProductRegistrationSummary[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({ authority: "WHO_PQ" });
+  const [vform, setVform] = useState<Record<string, string>>({ outcome: "VERIFIED" });
+  const [busy, setBusy] = useState(false);
+  const perms: string[] = ((user as unknown as { permissions?: string[] })?.permissions) ?? [];
+  const isStaff = !!(user as unknown as { platformStaffRole?: string })?.platformStaffRole && (user as unknown as { platformStaffRole?: string }).platformStaffRole !== "NONE";
+  const canAdd = isStaff || perms.includes("projects.edit") || perms.includes("products.approve");
+  const canVerify = isStaff || perms.includes("products.approve");
+
+  const load = useCallback(() => {
+    apiClient.listProductRegistrations(detail.id, true).then(setRegs).catch((e) => setErr(e instanceof Error ? e.message : "Could not load registrations."));
+  }, [detail.id]);
+  useEffect(load, [load]);
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true); setErr(null);
+    try { await fn(); load(); setAdding(false); setVerifying(null); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); }
+  };
+  const input: CSSProperties = { padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" };
+  const f = (k: string, label: string, type = "text") => (
+    <label key={k} style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{label}
+      <input type={type} style={input} value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+    </label>
+  );
+  const comp = detail.compliance;
+  const compColor = comp.status === "BLOCKED" ? "var(--u-status-critical)" : comp.status === "WARNING" ? "var(--u-status-warning, #b7791f)" : "var(--u-status-good)";
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: `1px solid ${compColor}`, fontSize: 13 }}>
+        <strong style={{ color: compColor }}>{comp.status === "OK" ? "Registrations in good standing" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
+        {comp.reasons.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{comp.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+        <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>
+          Based on recorded registrations and lifecycle only. Recall and safety-notice monitoring is not yet active, so this is not a clearance.
+        </p>
+      </div>
+
+      <Card title="Registrations" note="Shared facts, visible to every organisation. Your verification below is private to your organisation.">
+        {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+        {regs === null ? <p style={{ fontSize: 13 }}>Loading…</p> : regs.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No registrations recorded for this product yet.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {regs.map((r) => (
+              <div key={r.id} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12, opacity: r.isArchived ? 0.6 : 1 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <strong style={{ fontSize: 14 }}>{authorityLabel(r.authority)}</strong>
+                    <span style={{ fontSize: 13 }}>{r.referenceNumber}</span>
+                    <Pill tone={regTone(r.effectiveStatus)}>{r.effectiveStatus.toLowerCase()}</Pill>
+                    {r.verificationLevel === "SOURCE_VERIFIED" && <Pill tone="brand">Source verified</Pill>}
+                    {r.isArchived && <Pill tone="neutral">Archived</Pill>}
+                  </div>
+                  {r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5 }}>View source ↗</a>}
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+                  {[r.scheme, r.regulatoryClass && `Class ${r.regulatoryClass}`, r.countryCode, r.holderName && `Holder: ${r.holderName}`].filter(Boolean).join(" · ") || "—"}
+                  {" · "}Issued {dateOnly(r.issueDate)} · Expires {r.expiryDate ? `${dateOnly(r.expiryDate)}${r.daysToExpiry !== null && r.daysToExpiry >= 0 && r.daysToExpiry <= 90 ? ` (${r.daysToExpiry} days)` : ""}` : "no expiry recorded"}
+                  {r.contributedByOrganizationName ? ` · Added by ${r.contributedByOrganizationName}` : ""}
+                </p>
+                <div style={{ marginTop: 8, fontSize: 12.5, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  {r.myVerification ? (
+                    <span>
+                      <Pill tone={r.myVerification.outcome === "VERIFIED" ? "good" : r.myVerification.outcome === "ISSUE_FOUND" ? "critical" : "neutral"}>
+                        {r.myVerification.outcome === "VERIFIED" ? "Checked and verified" : r.myVerification.outcome === "ISSUE_FOUND" ? "Issue found" : "Not applicable"}
+                      </Pill>{" "}
+                      by {r.myVerification.verifiedByName} on {dateOnly(r.myVerification.verifiedAt)}
+                      {r.myVerification.jurisdiction ? ` (${r.myVerification.jurisdiction})` : ""}
+                      {r.myVerification.notes ? ` — ${r.myVerification.notes}` : ""}
+                    </span>
+                  ) : <span style={{ color: "var(--u-ink-secondary)" }}>Not yet verified by your organisation.</span>}
+                  {canVerify && !r.isArchived && <Button variant="secondary" size="sm" onClick={() => { setVerifying(r.id); setVform({ outcome: "VERIFIED" }); }}>Record verification</Button>}
+                  {isStaff && (
+                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateProductRegistration(r.id, { isArchived: !r.isArchived }))}>
+                      {r.isArchived ? "Restore" : "Retire"}
+                    </Button>
+                  )}
+                </div>
+                {verifying === r.id && (
+                  <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                    <label style={{ fontSize: 12 }}>Outcome
+                      <select style={input} value={vform.outcome} onChange={(e) => setVform({ ...vform, outcome: e.target.value })}>
+                        <option value="VERIFIED">Checked and verified</option>
+                        <option value="NOT_APPLICABLE">Not applicable to us</option>
+                        <option value="ISSUE_FOUND">Issue found / action taken</option>
+                      </select>
+                    </label>
+                    <label style={{ fontSize: 12 }}>Jurisdiction
+                      <input style={input} value={vform.jurisdiction ?? ""} onChange={(e) => setVform({ ...vform, jurisdiction: e.target.value })} />
+                    </label>
+                    <label style={{ fontSize: 12 }}>Re-verify by
+                      <input type="date" style={input} value={vform.nextReverificationDue ?? ""} onChange={(e) => setVform({ ...vform, nextReverificationDue: e.target.value })} />
+                    </label>
+                    <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>Notes {vform.outcome !== "VERIFIED" ? "(required)" : ""}
+                      <input style={input} value={vform.notes ?? ""} onChange={(e) => setVform({ ...vform, notes: e.target.value })} />
+                    </label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Button variant="primary" size="sm" disabled={busy} onClick={() => run(() => apiClient.verifyProductRegistration(r.id, vform as never))}>Save verification</Button>
+                      <Button variant="secondary" size="sm" onClick={() => setVerifying(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {canAdd && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add registration</Button></div>}
+        {adding && (
+          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <label style={{ fontSize: 12 }}>Authority
+              <select style={input} value={form.authority} onChange={(e) => setForm({ ...form, authority: e.target.value })}>
+                {AUTHORITIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </label>
+            {f("referenceNumber", "Reference number")}{f("scheme", "Scheme / pathway")}{f("regulatoryClass", "Class")}
+            {f("countryCode", "Country (2-letter)")}{f("holderName", "Holder")}{f("issueDate", "Issue date", "date")}{f("expiryDate", "Expiry date", "date")}
+            {f("sourceUrl", "Source link")}
+            <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+              <Button variant="primary" size="sm" disabled={busy || !form.referenceNumber} onClick={() => run(() => apiClient.createProductRegistration(detail.id, form as never))}>Save registration</Button>
+              <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       <Card title="Current status">
         <Facts rows={[
           ["Lifecycle status", <Pill key="l" tone={lc.tone}>{lc.label}</Pill>],
@@ -410,11 +558,9 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
           ["Hazard class", detail.hazardClass],
         ]} />
       </Card>
-      <Card title="Registrations, documents and safety notices" note="Coming next in the Product Database build.">
+      <Card title="Documents and safety notices" note="Coming next in the Product Database build.">
         <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-          Structured registrations (WHO prequalification, FDA, EU CE / MDR / IVDR, national), controlled product documents with expiry, recall and
-          safety notices, and your organisation's own &ldquo;checked and verified&rdquo; reviews will appear here. Until then no alert monitoring has
-          run for this product — an empty list does not mean the product is clear.
+          Controlled product documents and recall / safety notices will appear here. Until then no alert monitoring has run for this product — an empty list does not mean the product is clear.
         </p>
       </Card>
     </div>

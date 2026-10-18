@@ -93,3 +93,7 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 - Limits to be honest about: public feeds differ in structure and can change without notice; some (WHO alerts, EUDAMED) have no stable API; matching is probabilistic so a human confirms; this supports, but does not replace, formal regulatory intelligence and legal advice.
 
 **Build slot:** after step 4 (safety notices) as step 4b — connectors first for openFDA, MHRA, WHO PQ/alerts and sanctions lists; EMA/EUDAMED and curated export-restriction entries next.
+
+## 6. Update 2026-10-18
+- Step 1 and step 2 (registrations, per-organisation registration verification, regulatory dashboard) are built. Products are never archived from the product page: lifecycle "Discontinued" is used; archive flags remain soft and restorable, nothing is deleted.
+- The per-organisation "checked and verified / not applicable / action taken" review for safety notices and potential alerts moves into step 4 and 4b, alongside the registration verification already built.

@@ -1,0 +1,56 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { RegulatoryDashboard } from "@universe/types";
+import { Pill, StatTile } from "@universe/ui";
+import { apiClient } from "../../lib/apiClient";
+
+/** Regulatory dashboard (Product Database step 2, 2026-10-18): registration health across the catalogue plus this organisation's own verification queue. */
+const AUTH: Record<string, string> = { WHO_PQ: "WHO PQ", WHO_EUL: "WHO EUL", FDA: "US FDA", EU_CE: "EU CE", EU_MDR: "EU MDR", EU_IVDR: "EU IVDR", EMA: "EMA", MHRA: "MHRA", SRA: "SRA", NATIONAL: "National", OTHER: "Other" };
+
+export default function RegulatoryPage() {
+  const [d, setD] = useState<RegulatoryDashboard | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
+  const n = (v: number) => v.toLocaleString("en-GB");
+  return (
+    <main style={{ padding: "8px 0 40px", maxWidth: 1100 }}>
+      <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory status</h1>
+      <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Registration health across the shared catalogue, and your organisation&rsquo;s verification queue.</p>
+      {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
+      {!d ? !err && <p>Loading…</p> : (
+        <>
+          <h2 style={{ fontSize: 15, marginTop: 20 }}>Catalogue</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+            <StatTile label="Registrations" value={n(d.totals.registrations)} icon={<span>📋</span>} tone="brand" />
+            <StatTile label="Active" value={n(d.totals.active)} icon={<span>✅</span>} tone="good" />
+            <StatTile label="Expiring within 90 days" value={n(d.totals.expiringSoon)} icon={<span>⏳</span>} tone="warning" />
+            <StatTile label="Expired" value={n(d.totals.expired)} icon={<span>⌛</span>} tone="critical" />
+            <StatTile label="Suspended or withdrawn" value={n(d.totals.suspendedOrWithdrawn)} icon={<span>⛔</span>} tone="critical" />
+            <StatTile label="Products with no registration" value={n(d.totals.productsWithoutRegistration)} icon={<span>❓</span>} tone="warning" />
+          </div>
+          <h2 style={{ fontSize: 15, marginTop: 24 }}>Your organisation</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+            <StatTile label="Registrations awaiting your verification" value={n(d.mine.unverified)} icon={<span>🔎</span>} tone="warning" />
+            <StatTile label="Re-verification overdue" value={n(d.mine.reverificationDue)} icon={<span>🔁</span>} tone="critical" />
+            <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<span>⚠️</span>} tone="critical" />
+          </div>
+          <h2 style={{ fontSize: 15, marginTop: 24 }}>Needs attention</h2>
+          {d.attention.length === 0 ? <p style={{ fontSize: 13 }}>Nothing expiring soon or suspended.</p> : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {d.attention.map((a) => (
+                <Link key={a.registrationId} href={`/products/detail?id=${a.productMasterId}`} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "8px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", textDecoration: "none", color: "inherit", fontSize: 13 }}>
+                  <strong>{a.productName}</strong>
+                  <span>{AUTH[a.authority] ?? a.authority} {a.referenceNumber}</span>
+                  <Pill tone={a.effectiveStatus === "ACTIVE" ? "warning" : "critical"}>{a.effectiveStatus === "ACTIVE" ? `expires in ${a.daysToExpiry} days` : a.effectiveStatus.toLowerCase()}</Pill>
+                </Link>
+              ))}
+            </div>
+          )}
+          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations only. Automated recall and safety-alert monitoring is not yet active.</p>
+        </>
+      )}
+    </main>
+  );
+}

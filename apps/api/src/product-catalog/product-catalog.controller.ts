@@ -6,6 +6,8 @@ import { CreateProductMasterDto } from "./dto/create-product-master.dto";
 import { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
+import { ProductRegistrationsService } from "./product-registrations.service";
+import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 import { ProductCatalogService } from "./product-catalog.service";
 
 /**
@@ -29,7 +31,10 @@ import { ProductCatalogService } from "./product-catalog.service";
 @Controller("product-catalog")
 @UseGuards(EntraAuthGuard)
 export class ProductCatalogController {
-  constructor(private readonly productCatalogService: ProductCatalogService) {}
+  constructor(
+    private readonly productCatalogService: ProductCatalogService,
+    private readonly registrations: ProductRegistrationsService,
+  ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
    * Management app's catalogue screen. Added 2026-10-03. */
@@ -70,6 +75,24 @@ export class ProductCatalogController {
   @Get("dashboard-stats")
   getDashboardStats(@CurrentUser() user: RequestUser) {
     return this.productCatalogService.getDashboardStats(user.inDemoOrganization === true);
+  }
+
+  /** GET /product-catalog/regulatory/dashboard — registration health plus the caller's own verification queue. */
+  @Get("regulatory/dashboard")
+  regulatoryDashboard(@CurrentUser() user: RequestUser) {
+    return this.registrations.dashboard(user);
+  }
+
+  /** PATCH /product-catalog/registrations/:registrationId — nothing is deleted; retire with isArchived. */
+  @Patch("registrations/:registrationId")
+  updateRegistration(@CurrentUser() user: RequestUser, @Param("registrationId") registrationId: string, @Body() dto: UpdateRegistrationDto) {
+    return this.registrations.update(user, registrationId, dto);
+  }
+
+  /** POST /product-catalog/registrations/:registrationId/verify — the caller's organisation records its own check. */
+  @Post("registrations/:registrationId/verify")
+  verifyRegistration(@CurrentUser() user: RequestUser, @Param("registrationId") registrationId: string, @Body() dto: VerifyRegistrationDto) {
+    return this.registrations.verify(user, registrationId, dto);
   }
 
   @Get("search")
@@ -128,6 +151,16 @@ export class ProductCatalogController {
    * separate, more specific path — not ambiguous with ":id" the way
    * "search"/"import" were. */
   /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
+  @Get(":id/registrations")
+  listRegistrations(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
+    return this.registrations.list(user, id, includeArchived === "true");
+  }
+
+  @Post(":id/registrations")
+  createRegistration(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateRegistrationDto) {
+    return this.registrations.create(user, id, dto);
+  }
+
   @Get(":id/history")
   getHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.productCatalogService.getHistory(id, user.inDemoOrganization === true);

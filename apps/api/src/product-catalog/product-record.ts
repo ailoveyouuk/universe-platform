@@ -65,7 +65,7 @@ export interface ChangeWriteOptions {
   productMasterId: string;
   version: number;
   changes: { field: string; oldValue: string | null; newValue: string | null }[];
-  source: "CREATE" | "STAFF_EDIT" | "AMENDMENT_RATIFIED" | "IMPORT" | "SYSTEM";
+  source: "CREATE" | "STAFF_EDIT" | "AMENDMENT_RATIFIED" | "IMPORT" | "SYSTEM" | "REGISTRATION";
   user: Pick<RequestUser, "id" | "forename" | "surname" | "organizationId" | "organizationName">;
   reason?: string | null;
   amendmentId?: string | null;
