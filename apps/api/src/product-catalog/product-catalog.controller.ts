@@ -169,6 +169,11 @@ export class ProductCatalogController {
     return this.documents.downloadUrl(user, documentId);
   }
 
+  @Get("search-scoped")
+  searchScoped(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("scope") scope?: string) {
+    return this.productCatalogService.searchScoped(user, q, category, scope === "APPROVED" || scope === "CATALOGUE" ? scope : "ALL");
+  }
+
   @Get("search")
   search(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string) {
     return this.productCatalogService.search(q, category, user.inDemoOrganization === true);

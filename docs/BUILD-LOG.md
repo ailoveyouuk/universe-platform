@@ -6,6 +6,15 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-18 — Project line product search: shared catalogue and the organisation's own approvals in one workflow (Lewis)
+
+**Why:** organisations may want to compare their own approved products with the pooled catalogue, or have no approvals yet; both had to work in the same picker.
+**What:** `GET /product-catalog/search-scoped?q&category&scope=ALL|APPROVED|CATALOGUE` (shared catalogue plus the caller's own source approvals, which are tenant/RLS data). ALL lists approved products first then the rest, de-duplicated; APPROVED only approved; CATALOGUE everything. Each result carries `orgApproval` (APPROVED / IN_REVIEW / REJECTED / none) and the approved sources (manufacturer, supplier). Picker (`@universe/ui`): scope chips (All / Approved by <org> / Universe catalogue) and a source tag per result. Project line form: selected product shows the tag and "Not yet approved by <org> — you can still use it" (non-blocking, per Lewis); approved sources appear as "Manufacturer via Supplier — use" chips; a single approved source is applied automatically when the line has no manufacturer/supplier yet, and the user can change it. Terminology: "Approved" (not "qualified"/"verified", which imply regulatory clearance and are reserved for step 4's per-organisation review).
+**Verified:** type-checks; `product-search-scoped.test.ts` (ordering, scopes, tenant privacy); live check after deploy.
+**Owed:** nothing; no schema or RLS change.
+
+---
+
 ## 2026-10-18 — Step 3b follow-up: family-aware add/select in Project Management, linked to Product Database (Lewis)
 
 **Why:** Project Management still created flat products ("name + category"), which would have reintroduced bundled names and duplicates. One catalogue, one way to add a product.

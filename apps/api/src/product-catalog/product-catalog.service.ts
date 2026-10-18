@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
-import { prisma, withTenantContext } from "@universe/db";
+import { prisma, withTenantContext, type Prisma } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { recordFieldChanges } from "../common/audit-log";
 import { computeCompliance } from "./product-registrations.service";
@@ -10,6 +10,9 @@ import type {
   ProductCatalogDetail,
   ProductCatalogListResult,
   ProductCatalogMatch,
+  ProductApprovedSource,
+  ProductSearchResult,
+  ProductSearchScope,
   ProductCatalogCompletenessStats,
   ProductCatalogDashboardStats,
   ProductPriceHistoryPoint,
@@ -91,6 +94,54 @@ export class ProductCatalogService {
     });
     const pending = await this.pendingAmendmentIds(rows);
     return rows.map((r) => this.toMatch(r, pending.has(r.id)));
+  }
+
+  /**
+   * Scoped type-to-search for project lines (2026-10-18). One search across the shared catalogue and this organisation's own
+   * source approvals: scope ALL lists the organisation's approved products first, then the rest of the catalogue (a product that
+   * is both appears once, tagged); APPROVED shows only products this organisation has approved; CATALOGUE ignores approvals for
+   * ordering but still tags them. Approvals are tenant data (RLS); the catalogue is shared.
+   */
+  async searchScoped(user: RequestUser, q: string | undefined, category: string | undefined, scope: ProductSearchScope = "ALL"): Promise<ProductSearchResult[]> {
+    const showSimulated = user.inDemoOrganization === true;
+    const term = q?.trim();
+    const productWhere = {
+      isArchived: false,
+      ...simulatedFilter(showSimulated),
+      ...(term ? { OR: [{ name: { contains: term } }, { brand: { contains: term } }, { inn: { contains: term } }, { gtin: { contains: term } }, { productFamily: { name: { contains: term } } }] } : {}),
+      ...(category ? { category: { startsWith: category } } : {}),
+    };
+    const approvals = await withTenantContext(user.organizationId, (tx) =>
+      tx.productSourceApproval.findMany({
+        where: { ...tenantScope(user.organizationId), isArchived: false, productMaster: productWhere },
+        include: { manufacturer: { select: { name: true } }, supplier: { select: { name: true } } },
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+        take: 200,
+      }),
+    );
+    const rank = { APPROVED: 3, IN_REVIEW: 2, REJECTED: 1 } as const;
+    const byProduct = new Map<string, ProductApprovedSource[]>();
+    const statusOf = new Map<string, "APPROVED" | "IN_REVIEW" | "REJECTED">();
+    for (const a of approvals) {
+      const st = a.status === "APPROVED" ? "APPROVED" : a.status === "REJECTED" ? "REJECTED" : "IN_REVIEW";
+      byProduct.set(a.productMasterId, [...(byProduct.get(a.productMasterId) ?? []), { approvalId: a.id, status: a.status, manufacturerId: a.manufacturerId, manufacturerName: a.manufacturer?.name ?? null, supplierId: a.supplierId, supplierName: a.supplier?.name ?? null }]);
+      const cur = statusOf.get(a.productMasterId);
+      if (!cur || rank[st] > rank[cur]) statusOf.set(a.productMasterId, st);
+    }
+    const include = { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true } } } as const;
+    const approvedIds = [...statusOf.entries()].filter(([, s]) => s === "APPROVED").map(([id]) => id);
+    const fetched: Prisma.ProductMasterGetPayload<{ include: typeof include }>[] = [];
+    if (scope !== "CATALOGUE" && approvedIds.length > 0) {
+      fetched.push(...(await prisma.productMaster.findMany({ where: { id: { in: approvedIds.slice(0, 100) } }, include, orderBy: { name: "asc" } })));
+    }
+    if (scope !== "APPROVED") {
+      const seen = new Set(fetched.map((r) => r.id));
+      const rest = await prisma.productMaster.findMany({ where: { ...productWhere, ...(seen.size ? { id: { notIn: [...seen] } } : {}) }, include, orderBy: { name: "asc" }, take: 25 });
+      fetched.push(...rest);
+    }
+    const rows = fetched.slice(0, 25);
+    const pending = await this.pendingAmendmentIds(rows);
+    return rows.map((r) => ({ ...this.toMatch(r, pending.has(r.id)), orgApproval: statusOf.get(r.id) ?? null, approvedSources: (byProduct.get(r.id) ?? []).filter((x) => x.status === "APPROVED") }));
   }
 
   /** Full detail for a single catalogue entry, including the category's

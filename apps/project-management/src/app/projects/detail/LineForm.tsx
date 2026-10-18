@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import type { PartnerOption, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
 import { CURRENCY_OPTIONS } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
-import { Button, CountrySelect, CurrencySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
+import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
+import { useCurrentUser } from "../../../lib/AuthContext";
 import { apiClient } from "../../../lib/apiClient";
 
 const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
@@ -221,7 +222,11 @@ export function LineForm({
   // working state — the only thing that ends up on the form is
   // productMasterId itself.
   const [productQuery, setProductQuery] = useState("");
-  const [productOptions, setProductOptions] = useState<ProductCatalogMatch[]>([]);
+  const me = useCurrentUser();
+  const [productScope, setProductScope] = useState<ProductPickerScope>("ALL");
+  const [productOptions, setProductOptions] = useState<ProductSearchResult[]>([]);
+  const [selectedApproval, setSelectedApproval] = useState<ProductSearchResult["orgApproval"]>(null);
+  const [approvedSources, setApprovedSources] = useState<ProductApprovedSource[]>([]);
   const [productLabel, setProductLabel] = useState<string | null>(existing?.productMasterName ?? null);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [newProductName, setNewProductName] = useState("");
@@ -241,16 +246,27 @@ export function LineForm({
     }
     const handle = setTimeout(() => {
       apiClient
-        .searchProductCatalog(productQuery, form.productCategory ?? undefined)
+        .searchProductCatalogScoped(productQuery, form.productCategory ?? undefined, productScope)
         .then(setProductOptions)
         .catch(() => setProductOptions([]));
     }, 250);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productQuery]);
+  }, [productQuery, productScope]);
 
-  function handleSelectProduct(option: ProductPickerOption) {
+  /** Applies an approved source (manufacturer + supplier) to the line as a suggestion the user can still change. */
+  function applySource(src: ProductApprovedSource) {
+    update("manufacturerId", src.manufacturerId);
+    update("supplierId", src.supplierId);
+  }
+
+  function handleSelectProduct(option: ProductPickerOption & { approvedSources?: ProductApprovedSource[] }) {
     update("productMasterId", option.id);
+    setSelectedApproval(option.orgApproval ?? null);
+    const sources = option.approvedSources ?? [];
+    setApprovedSources(sources);
+    // One approved source and nothing chosen yet: suggest it straight away.
+    if (sources.length === 1 && !form.manufacturerId && !form.supplierId) applySource(sources[0]);
     setProductLabel(option.name);
     setProductHasPendingAmendment(Boolean(option.hasPendingAmendment));
     setProductQuery("");
@@ -259,6 +275,8 @@ export function LineForm({
 
   function handleClearProduct() {
     update("productMasterId", null);
+    setSelectedApproval(null);
+    setApprovedSources([]);
     setProductLabel(null);
     setProductHasPendingAmendment(false);
   }
@@ -274,7 +292,16 @@ export function LineForm({
     const id = form.productMasterId;
     if (!id) { setProductDetail(null); return; }
     let live = true;
-    apiClient.getProductCatalogEntry(id).then((d) => { if (live) { setProductDetail(d); setProductHasPendingAmendment(d.hasPendingAmendment); } }).catch(() => { if (live) setProductDetail(null); });
+    apiClient.getProductCatalogEntry(id).then((d) => {
+      if (!live) return;
+      setProductDetail(d);
+      setProductHasPendingAmendment(d.hasPendingAmendment);
+      // This organisation's own approval status and approved sources for the product, from the same scoped search.
+      apiClient.searchProductCatalogScoped(d.name, undefined, "ALL").then((r) => {
+        const m = r.find((x) => x.id === id);
+        if (live) { setSelectedApproval(m?.orgApproval ?? null); setApprovedSources(m?.approvedSources ?? []); }
+      }).catch(() => undefined);
+    }).catch(() => { if (live) setProductDetail(null); });
     return () => { live = false; };
   }, [form.productMasterId]);
 
@@ -362,7 +389,30 @@ export function LineForm({
             onClear={handleClearProduct}
             onCreateNew={handleCreateProduct}
             ariaLabel="Search the product catalogue"
+            scope={productScope}
+            onScopeChange={setProductScope}
+            orgName={me?.organizationName ?? null}
           />
+          {form.productMasterId && (
+            <div style={{ margin: "6px 0 0", fontSize: 12.5 }}>
+              <ProductSourceTag approval={selectedApproval} orgName={me?.organizationName ?? null} />
+              {selectedApproval !== "APPROVED" && (
+                <span style={{ marginLeft: 8, color: "var(--u-status-warning)" }}>
+                  Not yet approved by {me?.organizationName ?? "your organisation"} — you can still use it on this line.
+                </span>
+              )}
+              {approvedSources.length > 0 && (
+                <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ color: "var(--u-ink-secondary)" }}>Approved sources:</span>
+                  {approvedSources.map((src) => (
+                    <button key={src.approvalId} type="button" onClick={() => applySource(src)} style={{ padding: "3px 9px", fontSize: 12, cursor: "pointer", borderRadius: 999, border: "1px solid var(--u-border)", background: form.manufacturerId === src.manufacturerId && (form.supplierId ?? null) === src.supplierId ? "var(--u-surface-alt)" : "transparent" }}>
+                      {src.manufacturerName ?? "Manufacturer"}{src.supplierName ? ` via ${src.supplierName}` : " (direct)"} — use
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {showCreateProduct && (
             <div style={{ marginTop: 10, padding: 14, border: "1px solid var(--u-border)", borderRadius: 8, background: "var(--u-surface-raised)" }}>
               <strong style={{ fontSize: 13.5 }}>Add a product to the shared catalogue</strong>

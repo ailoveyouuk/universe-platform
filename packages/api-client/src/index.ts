@@ -56,6 +56,8 @@ import type {
   RegulatoryDashboard,
   ProductDocumentSummary,
   ProductFamilyDetail,
+  ProductSearchResult,
+  ProductSearchScope,
   ProductFamilyListResult,
   ProductFamilySummary,
   CreateProductFamilyInput,
@@ -579,6 +581,13 @@ export class UniverseApiClient {
   // future Supplier Portal app should call these same three methods rather
   // than rebuilding product search/creation. ---
 
+  /** Scoped project-line search: shared catalogue plus this organisation's own approvals, tagged (2026-10-18). */
+  searchProductCatalogScoped(q: string | undefined, category: string | undefined, scope: ProductSearchScope = "ALL"): Promise<ProductSearchResult[]> {
+    const params = new URLSearchParams({ scope });
+    if (q) params.set("q", q);
+    if (category) params.set("category", category);
+    return this.request(`/product-catalog/search-scoped?${params.toString()}`);
+  }
   searchProductCatalog(q?: string, category?: string): Promise<ProductCatalogMatch[]> {
     const params = new URLSearchParams();
     if (q) params.set("q", q);

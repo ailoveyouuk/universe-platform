@@ -24,6 +24,22 @@ export interface ProductPickerOption {
   packSize?: string | null;
   brand?: string | null;
   lifecycleStatus?: string | null;
+  /** This organisation's own source-approval status for the product (2026-10-18). Drives the source tag. */
+  orgApproval?: "APPROVED" | "IN_REVIEW" | "REJECTED" | null;
+}
+
+export type ProductPickerScope = "ALL" | "APPROVED" | "CATALOGUE";
+
+/** Source tag: "<Org> approved" when the organisation's QA has approved it, otherwise "Universe catalogue" (the shared record). */
+export function ProductSourceTag({ approval, orgName }: { approval?: ProductPickerOption["orgApproval"]; orgName?: string | null }) {
+  const [text, color] =
+    approval === "APPROVED" ? [`Approved by ${orgName ?? "your organisation"}`, "var(--u-status-good)"]
+    : approval === "IN_REVIEW" ? ["Approval in review", "var(--u-status-warning)"]
+    : approval === "REJECTED" ? ["Approval rejected", "var(--u-status-critical)"]
+    : ["Universe catalogue", "var(--u-ink-secondary)"];
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color, border: `1px solid ${color}`, borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>{text}</span>
+  );
 }
 
 /**
@@ -65,7 +81,15 @@ export function ProductPicker({
   placeholder = "Search the product catalogue…",
   ariaLabel,
   createLabel,
+  scope,
+  onScopeChange,
+  orgName,
 }: {
+  /** Optional source scope control (All / Approved by <org> / Universe catalogue). Omit to hide it. */
+  scope?: ProductPickerScope;
+  onScopeChange?: (s: ProductPickerScope) => void;
+  /** Used in the "Approved by <org>" tag. */
+  orgName?: string | null;
   /** The current free-text search string (debounced server search is the
    * caller's responsibility, same as the stakeholder-registry prompt). */
   query: string;
@@ -189,6 +213,13 @@ export function ProductPicker({
         )}
       </div>
 
+      {scope && onScopeChange && !selectedId && (
+        <div role="group" aria-label="Product source" style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+          {([["ALL", "All"], ["APPROVED", `Approved by ${orgName ?? "us"}`], ["CATALOGUE", "Universe catalogue"]] as const).map(([v, l]) => (
+            <button key={v} type="button" onClick={() => onScopeChange(v)} style={{ padding: "3px 9px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, border: "1px solid var(--u-border)", background: scope === v ? "var(--u-brand-violet)" : "transparent", color: scope === v ? "#fff" : "var(--u-ink)" }}>{l}</button>
+          ))}
+        </div>
+      )}
       {showDropdown && (
         <div
           role="listbox"
@@ -208,7 +239,7 @@ export function ProductPicker({
         >
           <div style={{ padding: 4 }}>
             {options.length === 0 && (
-              <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--u-ink-secondary)" }}>No matching products</div>
+              <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--u-ink-secondary)" }}>{scope === "APPROVED" ? "No approved products match. Try “All” to include the Universe catalogue." : "No matching products"}</div>
             )}
             {options.map((o) => (
               <button
@@ -236,6 +267,7 @@ export function ProductPicker({
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {o.name}
+                  {scope && <ProductSourceTag approval={o.orgApproval} orgName={orgName} />}
                   {o.hasPendingAmendment && (
                     <span
                       title="This product has a pending amendment awaiting QA/RP ratification — it can still be selected."

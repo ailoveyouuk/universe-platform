@@ -2772,6 +2772,25 @@ export interface CreateProductDocumentInput {
 }
 
 
+/** One of the caller's organisation's source approvals for a product (product + manufacturer + optional supplier). */
+export interface ProductApprovedSource {
+  approvalId: string;
+  status: string;
+  manufacturerId: string;
+  manufacturerName: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
+}
+
+/** GET /product-catalog/search-scoped — a catalogue match tagged with this organisation's own approval status. */
+export interface ProductSearchResult extends ProductCatalogMatch {
+  /** APPROVED | IN_REVIEW | REJECTED | null (no approval record for this organisation). Most favourable status wins. */
+  orgApproval: "APPROVED" | "IN_REVIEW" | "REJECTED" | null;
+  approvedSources: ProductApprovedSource[];
+}
+
+export type ProductSearchScope = "ALL" | "APPROVED" | "CATALOGUE";
+
 /** Product families (step 3b, 2026-10-18): the generic product above its variants. */
 export interface ProductFamilySummary {
   id: string;
