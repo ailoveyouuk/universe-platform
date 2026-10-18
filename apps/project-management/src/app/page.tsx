@@ -464,7 +464,9 @@ function CountryPanel({ rows, countryName, onClose }: { rows: ProjectCountryOver
                     <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: accent === "var(--u-signal-amber)" || accent === "var(--u-ink-secondary)" ? "var(--u-ink)" : accent }}>
                       <strong style={{ fontWeight: 600 }}>{p.referenceNumber}</strong> {p.title}
                     </span>
-                    <StatusBadge status={p.status} />
+                    <span style={{ flexShrink: 0, whiteSpace: "nowrap" }}>
+                      <StatusBadge status={p.status} />
+                    </span>
                   </Link>
                 ))}
               </div>
