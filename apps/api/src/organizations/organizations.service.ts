@@ -141,6 +141,7 @@ export class OrganizationsService {
     "secondaryColor",
     "welcomeMessage",
     "notes",
+    "shareIdentityWithUniverse",
   ] as const;
 
   private toDetail(
@@ -169,6 +170,7 @@ export class OrganizationsService {
       primaryContactPhone: o.primaryContactPhone,
       onboardingSource: o.onboardingSource as OrganizationDetail["onboardingSource"],
       welcomeMessage: o.welcomeMessage ?? null,
+      shareIdentityWithUniverse: o.shareIdentityWithUniverse === true,
       notes: o.notes,
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),

@@ -210,7 +210,7 @@ export function ProductDetailView() {
       {error && <p style={{ color: "var(--u-status-critical)", fontSize: 13, margin: "12px 0 0" }}>{error}</p>}
       {!canEdit && (
         <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "10px 0 0" }}>
-          Read-only — only {detail.addedByOrganizationName ?? "the contributing organisation"} (or a platform admin) can change this record.
+          Read-only — only the contributing organisation (or a platform admin) can change this record.
         </p>
       )}
       {detail.lifecycleStatus === "RECALLED" || detail.lifecycleStatus === "WITHDRAWN" ? (

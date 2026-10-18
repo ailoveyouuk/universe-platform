@@ -60,6 +60,7 @@ export function ProductCreateForm({
   const [standardUnit, setStandardUnit] = useState("");
   const [mpn, setMpn] = useState("");
   const [docs, setDocs] = useState("");
+  const [contributor, setContributor] = useState<"" | "show" | "hide">("");
   const [gtins, setGtins] = useState<Record<string, { value: string; units: string }>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export function ProductCreateForm({
       hsCode: hsCode || undefined, unspscCode: unspscCode || undefined, standardUnit: standardUnit || undefined,
       canonicalManufacturerPartNumber: mpn || undefined, expectedQualityDocumentation: docs || undefined,
       identifiers: identifiers.length ? identifiers : undefined,
+      ...(contributor ? { showContributor: contributor === "show" } : {}),
     };
     setSaving(true);
     try {
@@ -193,6 +195,13 @@ export function ProductCreateForm({
         <label>{label("Manufacturer part number", true)}<input style={inputStyle} value={mpn} onChange={(e) => setMpn(e.target.value)} /></label>
       </div>
       <label>{label("Expected quality documentation", true)}<textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={docs} onChange={(e) => setDocs(e.target.value)} placeholder="e.g. WHO PQ listing, GMP certificate, Certificate of Analysis, ISO 13485" /></label>
+      <label>{label("Contributor shown to other organisations", true)}
+        <select className="u-native-select" style={inputStyle} value={contributor} onChange={(e) => setContributor(e.target.value as "" | "show" | "hide")}>
+          <option value="">Follow my organisation&rsquo;s setting (anonymous unless you share with Universe)</option>
+          <option value="show">Show my organisation as the contributor</option>
+          <option value="hide">Keep anonymous</option>
+        </select>
+      </label>
       <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: 0 }}>Registrations, documents and safety notices are managed on the product&rsquo;s page in the Product Database, once it is added.</p>
 
       {error && (

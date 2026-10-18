@@ -21,7 +21,7 @@ import {
   StatusChip,
   inputStyle,
 } from "../../../components/form";
-import { CategoryProfileSection, ConsentSection, CountryPresenceSection, ManufacturerSitesSection } from "../../../components/OrgSections";
+import { CategoryProfileSection, ConsentSection, ContributorVisibilitySection, CountryPresenceSection, ManufacturerSitesSection } from "../../../components/OrgSections";
 
 type FormState = {
   name: string;
@@ -314,6 +314,7 @@ export function OrganizationDetailView() {
       <CountryPresenceSection organizationId={org.id} />
       <CategoryProfileSection org={org} />
       {org.type === "MANUFACTURER" && <ManufacturerSitesSection organizationId={org.id} />}
+      <ContributorVisibilitySection org={org} onChanged={(o) => setOrg({ ...org, ...o })} />
       <ConsentSection organizationId={org.id} />
       <AuditHistory tableName="organizations" recordId={org.id} />
     </main>

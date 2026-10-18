@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 
 export class CreateProductIdentifierDto {
   @IsString() @IsNotEmpty() value!: string;
@@ -27,6 +27,8 @@ export class CreateProductMasterDto {
   @IsOptional() @IsString() standardUnit?: string;
   @IsOptional() @IsString() canonicalManufacturerPartNumber?: string;
   @IsOptional() @IsString() expectedQualityDocumentation?: string;
+  /** Explicitly show (true) or hide (false) this contributor on this product; omitted = follow the organisation setting. */
+  @IsOptional() @IsBoolean() showContributor?: boolean;
   @IsOptional() @IsString() familyId?: string;
   @IsOptional() @IsString() variantLabel?: string;
   @IsOptional() @IsString() newFamilyName?: string;

@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 /**
  * Admin app "edit organisation" (added 2026-10-16). Every field optional;
@@ -17,6 +17,8 @@ export class UpdateOrganizationDto {
   slug?: string;
 
   @IsOptional() @IsIn(["PILOT", "ACTIVE", "SUSPENDED"]) status?: string;
+
+  @IsOptional() @IsBoolean() shareIdentityWithUniverse?: boolean;
 
   @IsOptional() @IsString() @MaxLength(200) legalName?: string | null;
   @IsOptional()

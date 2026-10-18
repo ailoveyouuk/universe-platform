@@ -5,6 +5,7 @@ import { tenantScope } from "../common/tenant-scoped";
 import { recordFieldChanges } from "../common/audit-log";
 import { computeCompliance } from "./product-registrations.service";
 import { writeTargetChanges } from "./product-target";
+import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
 import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
 import type {
   ProductCatalogDetail,
@@ -78,7 +79,7 @@ export class ProductCatalogService {
    * the Project Management line-item picker, the Quality module's existing
    * "new approval" product field, and, going forward, CRM/Supplier
    * Portal. */
-  async search(q: string | undefined, category?: string, showSimulated = false): Promise<ProductCatalogMatch[]> {
+  async search(q: string | undefined, category?: string, showSimulated = false, viewer?: RequestUser): Promise<ProductCatalogMatch[]> {
     const rows = await prisma.productMaster.findMany({
       where: {
         isArchived: false,
@@ -93,7 +94,8 @@ export class ProductCatalogService {
       take: 25,
     });
     const pending = await this.pendingAmendmentIds(rows);
-    return rows.map((r) => this.toMatch(r, pending.has(r.id)));
+    const ctx = await attributionContext(viewer, rows.map((r) => r.addedByOrganizationId));
+    return rows.map((r) => this.toMatch(r, pending.has(r.id), ctx));
   }
 
   /**
@@ -141,7 +143,8 @@ export class ProductCatalogService {
     }
     const rows = fetched.slice(0, 25);
     const pending = await this.pendingAmendmentIds(rows);
-    return rows.map((r) => ({ ...this.toMatch(r, pending.has(r.id)), orgApproval: statusOf.get(r.id) ?? null, approvedSources: (byProduct.get(r.id) ?? []).filter((x) => x.status === "APPROVED") }));
+    const ctx = await attributionContext(user, rows.map((r) => r.addedByOrganizationId));
+    return rows.map((r) => ({ ...this.toMatch(r, pending.has(r.id), ctx), orgApproval: statusOf.get(r.id) ?? null, approvedSources: (byProduct.get(r.id) ?? []).filter((x) => x.status === "APPROVED") }));
   }
 
   /** Full detail for a single catalogue entry, including the category's
@@ -152,7 +155,7 @@ export class ProductCatalogService {
    * importer built yet — see ProductAttributeDefinition's doc comment in
    * schema.prisma), so this returns an empty array until that's populated;
    * the plumbing is ready regardless. */
-  async getOne(id: string, showSimulated = false): Promise<ProductCatalogDetail | null> {
+  async getOne(id: string, showSimulated = false, viewer?: RequestUser): Promise<ProductCatalogDetail | null> {
     const row = await prisma.productMaster.findUnique({
       where: { id },
       include: { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true, isSimulated: true, _count: { select: { variants: true } } } } },
@@ -176,8 +179,9 @@ export class ProductCatalogService {
       where: { productMasterId: id },
       orderBy: [{ identifierType: "asc" }, { createdAt: "asc" }],
     });
+    const ctx = await attributionContext(viewer, [row.addedByOrganizationId]);
     return {
-      ...this.toMatch(row, pending.has(row.id)),
+      ...this.toMatch(row, pending.has(row.id), ctx),
       canonicalManufacturerPartNumber: row.canonicalManufacturerPartNumber,
       expectedQualityDocumentation: row.expectedQualityDocumentation,
       sourceStandard: row.sourceStandard,
@@ -224,7 +228,7 @@ export class ProductCatalogService {
   /** GET /product-catalog/:id/history — the shared change history (ProductMasterChange), newest first, capped at 300.
    * Readable by any signed-in user: it is the audit trail of the shared catalogue entry. Simulated products follow
    * the same ring-fence as getOne. */
-  async getHistory(id: string, showSimulated = false): Promise<ProductChangeEntry[]> {
+  async getHistory(id: string, showSimulated = false, viewer?: RequestUser): Promise<ProductChangeEntry[]> {
     const product = await prisma.productMaster.findUnique({ where: { id }, select: { isSimulated: true, productFamilyId: true } });
     if (!product || (product.isSimulated && !showSimulated)) throw new NotFoundException("Product not found.");
     const rows = await prisma.productMasterChange.findMany({
@@ -235,9 +239,10 @@ export class ProductCatalogService {
     const familyRows = product.productFamilyId
       ? await prisma.productFamilyChange.findMany({ where: { productFamilyId: product.productFamilyId }, orderBy: { changedAt: "desc" }, take: 100 })
       : [];
+    const ctx = await attributionContext(viewer, [...rows.map((r) => r.changedByOrganizationId), ...familyRows.map((r) => r.changedByOrganizationId)]);
     const fromFamily = familyRows.map((r) => ({
       id: r.id, version: 0, fieldName: `Family: ${r.fieldName}`, oldValue: r.oldValue, newValue: r.newValue, source: r.source, reason: null as string | null,
-      changedByName: r.changedByName, changedByOrganizationName: r.changedByOrganizationName, changedAt: r.changedAt.toISOString(),
+      changedByName: maskContributor(ctx, r.changedByOrganizationId, r.changedByName).anonymised ? null : r.changedByName, changedByOrganizationName: maskContributor(ctx, r.changedByOrganizationId, r.changedByOrganizationName).name, changedAt: r.changedAt.toISOString(),
     }));
     const own = rows.map((r) => ({
       id: r.id,
@@ -247,8 +252,8 @@ export class ProductCatalogService {
       newValue: r.newValue,
       source: r.source,
       reason: r.reason,
-      changedByName: r.changedByName,
-      changedByOrganizationName: r.changedByOrganizationName,
+      changedByName: maskContributor(ctx, r.changedByOrganizationId, r.changedByName).anonymised ? null : r.changedByName,
+      changedByOrganizationName: maskContributor(ctx, r.changedByOrganizationId, r.changedByOrganizationName).name,
       changedAt: r.changedAt.toISOString(),
     }));
     return [...own, ...fromFamily].sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, 300);
@@ -312,6 +317,7 @@ export class ProductCatalogService {
    * picker, this is the full list view with a real total count for
    * pagination. Added 2026-10-03. */
   async list(params: {
+    viewer?: RequestUser;
     q?: string;
     category?: string;
     sourceStandard?: string;
@@ -366,7 +372,8 @@ export class ProductCatalogService {
       prisma.productMaster.count({ where }),
     ]);
     const pending = await this.pendingAmendmentIds(rows);
-    return { items: rows.map((r) => this.toMatch(r, pending.has(r.id))), total, page, pageSize };
+    const ctx = await attributionContext(params.viewer, rows.map((r) => r.addedByOrganizationId));
+    return { items: rows.map((r) => this.toMatch(r, pending.has(r.id), ctx)), total, page, pageSize };
   }
 
   /** GET /product-catalog/completeness-stats — product-database-and-map-
@@ -475,7 +482,7 @@ export class ProductCatalogService {
         return tx.productMaster.findUniqueOrThrow({ where: { id }, include: { addedByOrganization: { select: { name: true } } } });
       });
       const pending = await this.pendingAmendmentIds([updated]);
-      return { status: "APPLIED", product: this.toMatch(updated, pending.has(updated.id)) };
+      return { status: "APPLIED", product: this.toMatch(updated, pending.has(updated.id), await attributionContext(user, [updated.addedByOrganizationId])) };
     }
 
     if (existing.addedByOrganizationId !== user.organizationId) {
@@ -873,6 +880,7 @@ export class ProductCatalogService {
           isSimulated: user.inDemoOrganization === true,
           addedByOrganizationId: user.organizationId,
           addedByOrganizationType: org?.type ?? null,
+          attributionOverride: typeof dto.showContributor === "boolean" ? dto.showContributor : null,
         },
         include: { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true } } },
       });
@@ -882,7 +890,7 @@ export class ProductCatalogService {
       if (family) await writeTargetChanges(tx, { productMasterId: null, productFamilyId: family.id }, { version: 0, changes: [{ field: "variant added", oldValue: null, newValue: row.name }], source: "CREATE", user });
       return row;
     });
-    return this.toMatch(created, false);
+    return this.toMatch(created, false, await attributionContext(user, [created.addedByOrganizationId]));
   }
 
   /** Groups the given rows by addedByOrganizationId and, per org, checks
@@ -972,6 +980,7 @@ export class ProductCatalogService {
       lifecycleStatus: string;
       addedByOrganizationId: string | null;
       addedByOrganization: { name: string } | null;
+      attributionOverride?: boolean | null;
       productFamily?: { id: string; name: string } | null;
       variantLabel?: string | null;
       packSize?: string | null;
@@ -979,7 +988,10 @@ export class ProductCatalogService {
       brand?: string | null;
     },
     hasPendingAmendment: boolean,
+    ctx?: AttributionContext,
   ): ProductCatalogMatch {
+    // Pooled-database rule: contributors are anonymous to other organisations unless they have chosen to be identifiable.
+    const who = maskContributor(ctx ?? { viewerOrgId: null, staff: false, visible: new Set() }, row.addedByOrganizationId, row.addedByOrganization?.name, row.attributionOverride);
     return {
       id: row.id,
       name: row.name,
@@ -988,8 +1000,9 @@ export class ProductCatalogService {
       unspscCode: row.unspscCode,
       gtin: row.gtin,
       standardUnit: row.standardUnit,
-      addedByOrganizationName: row.addedByOrganization?.name ?? null,
-      addedByOrganizationId: row.addedByOrganizationId,
+      addedByOrganizationName: who.name,
+      addedByOrganizationId: who.id,
+      contributorAnonymised: who.anonymised,
       isArchived: row.isArchived,
       lifecycleStatus: row.lifecycleStatus,
       hasPendingAmendment,

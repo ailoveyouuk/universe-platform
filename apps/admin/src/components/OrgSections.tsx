@@ -612,3 +612,29 @@ export function ConsentSection({ organizationId }: { organizationId: string }) {
     </Section>
   );
 }
+
+/**
+ * "Share with Universe database" (2026-10-18). Everything an organisation adds goes into the pooled database and is searchable by
+ * all organisations, anonymously ("A Universe member"). Turning this on makes the organisation identifiable as the contributor.
+ * Suppliers, manufacturers and freight forwarders are identifiable through the supplier directory regardless.
+ */
+export function ContributorVisibilitySection({ org, onChanged }: { org: OrganizationDetail; onChanged: (o: OrganizationDetail) => void }) {
+  const { saving, error, run } = useSaveState();
+  return (
+    <Section title="Share with Universe database" hint="Everything your organisation adds (products, projects, logistics) joins the pooled Universe database and can be found by every organisation, anonymously. Turn this on to be shown by name as the contributor.">
+      <label style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5 }}>
+        <input
+          type="checkbox"
+          checked={org.shareIdentityWithUniverse}
+          disabled={saving}
+          onChange={(e) => run(async () => onChanged(await apiClient.updateOrganization(org.id, { shareIdentityWithUniverse: e.target.checked })), "Could not save the setting.")}
+        />
+        Show {org.name} as the contributor of what it adds
+      </label>
+      <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>
+        Currently: {org.shareIdentityWithUniverse ? "identifiable to other organisations." : "anonymous (\u201cA Universe member\u201d). Platform staff and your own users always see the real name."} Individual products can override this when added.
+      </p>
+      {error && <Notice tone="error">{error}</Notice>}
+    </Section>
+  );
+}

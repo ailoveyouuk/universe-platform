@@ -4,6 +4,7 @@ import type { ProductChangeEntry, ProductFamilyDetail, ProductFamilyListResult, 
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertNotDemoUser } from "../common/authorization";
 import type { AssignFamilyDto, CreateProductFamilyDto, UpdateProductFamilyDto } from "./dto/product-family.dto";
+import { attributionContext, maskContributor } from "./attribution";
 import { computeCompliance } from "./product-registrations.service";
 import { writeTargetChanges } from "./product-target";
 
@@ -56,11 +57,12 @@ export class ProductFamiliesService {
       take: 200,
     });
     const regs = await prisma.productRegulatoryRegistration.findMany({ where: { productFamilyId: id, isArchived: false }, select: { status: true, expiryDate: true, authority: true, referenceNumber: true } });
+    const ctx = await attributionContext(user, [f.addedByOrganizationId]);
     return {
       ...this.toSummary(f),
       intendedUse: f.intendedUse,
       description: f.description,
-      addedByOrganizationName: f.addedByOrganizationName,
+      addedByOrganizationName: maskContributor(ctx, f.addedByOrganizationId, f.addedByOrganizationName).name,
       version: f.version,
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
@@ -142,9 +144,11 @@ export class ProductFamiliesService {
     const f = await prisma.productFamily.findUnique({ where: { id }, select: { isSimulated: true } });
     if (!f || (f.isSimulated && user.inDemoOrganization !== true)) throw new NotFoundException("Product family not found.");
     const rows = await prisma.productFamilyChange.findMany({ where: { productFamilyId: id }, orderBy: { changedAt: "desc" }, take: 300 });
+    const ctx = await attributionContext(user, rows.map((r) => r.changedByOrganizationId));
     return rows.map((r) => ({
-      id: r.id, version: 0, fieldName: r.fieldName, oldValue: r.oldValue, newValue: r.newValue, source: r.source, reason: null, changedByName: r.changedByName,
-      changedByOrganizationName: r.changedByOrganizationName, changedAt: r.changedAt.toISOString(),
+      id: r.id, version: 0, fieldName: r.fieldName, oldValue: r.oldValue, newValue: r.newValue, source: r.source, reason: null,
+      changedByName: maskContributor(ctx, r.changedByOrganizationId, r.changedByName).anonymised ? null : r.changedByName,
+      changedByOrganizationName: maskContributor(ctx, r.changedByOrganizationId, r.changedByOrganizationName).name, changedAt: r.changedAt.toISOString(),
     }));
   }
 }

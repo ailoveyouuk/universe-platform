@@ -247,6 +247,8 @@ export type OrganizationOnboardingSource =
  * 2026-10-16). Superset of OrganizationSummary — the list endpoint stays
  * lean, this is fetched one org at a time. */
 export interface OrganizationDetail extends OrganizationSummary {
+  /** Identifiable to other organisations as a contributor ("share with Universe database"). Default false = anonymous. */
+  shareIdentityWithUniverse: boolean;
   /** Optional square icon (phones/tablets, collapsed menu, tab icon). */
   logoIconUrl: string | null;
   legalName: string | null;
@@ -272,6 +274,7 @@ export interface OrganizationDetail extends OrganizationSummary {
  * enforced server-side in OrganizationsService.update; an org admin holding
  * org.profile.manage may change the rest for their own organisation. */
 export interface UpdateOrganizationInput {
+  shareIdentityWithUniverse?: boolean;
   name?: string;
   slug?: string;
   status?: "PILOT" | "ACTIVE" | "SUSPENDED";
@@ -1482,6 +1485,8 @@ export interface ProductCatalogMatch {
   packSize: string | null;
   strength: string | null;
   brand: string | null;
+  /** True when the contributing organisation is hidden from the viewer (pooled-database rule): the name reads "A Universe member". */
+  contributorAnonymised?: boolean;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see
@@ -1692,6 +1697,8 @@ export interface CreateProductMasterInput {
   dosageForm?: string;
   packSize?: string;
   regulatoryClass?: string;
+  /** Show (true) or hide (false) this organisation as the contributor of this product; omitted = the organisation setting. */
+  showContributor?: boolean;
   /** Barcodes per packaging level (UNIT | INNER | OUTER | PALLET). */
   identifiers?: { value: string; packagingLevel: string; unitsPerPack?: number }[];
   hsCode?: string;

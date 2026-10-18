@@ -6,6 +6,15 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-18 — Pooled database: contributions are searchable by all but anonymous unless the organisation shares its identity (Lewis)
+
+**Rule (Lewis):** every organisation agrees, as a minimum, that what it adds (projects, products, logistics, everything) goes into the pooled database, searchable by all organisations and visible in insights, and not identifiable back to the organisation unless it ticks "share with Universe database". Manufacturers, suppliers and freight forwarders are identifiable by design through the supplier directory.
+**Infrastructure check (before building):** present already — the blanket `DataSharingConsent` (anonymised insights pool, ETL reads it) and the supplier directory (`SupplierProfile.isPublished`, identifiable by design). Not present for the catalogue: the product catalogue showed the contributing organisation's name to everyone, and the only "share" flag, `Partner.sharedWithUniverseRegistry`, is a partner-level field documented as not wired to anything.
+**What:** `Organization.shareIdentityWithUniverse` (default false) and `ProductMaster.attributionOverride` (per-product show/hide; migration `20261018190000_contributor_visibility`). `attribution.ts` masks a contributor as "A Universe member" (id withheld) for everyone except platform staff, the contributing organisation itself, and viewers where the organisation shares (or the product overrides to show). Applied to catalogue list/search/scoped search/detail/create/update, product and family history (including who changed what), registrations (`contributedByOrganizationName`) and families. Reference data with no contributing organisation is unchanged. Admin → organisation → "Share with Universe database" checkbox (platform staff and org admins with `org.profile.manage`); Project Management add-product form has "Contributor shown to other organisations" (follow setting / show / keep anonymous). Existing contributions become anonymous to other organisations (default off) — reversible by ticking the setting.
+**Verified:** type-checks; `product-contributor-visibility.test.ts`; live check after deploy. **Owed:** none (no RLS change). **Not yet covered:** projects/logistics already feed the anonymised insights pool; any other screen that shows another organisation's name for pooled data should be audited next (stakeholder registry, supplier directory excluded by design).
+
+---
+
 ## 2026-10-18 — Project line product search: shared catalogue and the organisation's own approvals in one workflow (Lewis)
 
 **Why:** organisations may want to compare their own approved products with the pooled catalogue, or have no approvals yet; both had to work in the same picker.

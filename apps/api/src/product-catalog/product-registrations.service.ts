@@ -6,6 +6,7 @@ import type {
   RegulatoryDashboard,
   RegistrationVerificationSummary,
 } from "@universe/types";
+import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertNotDemoUser } from "../common/authorization";
 import { ownerData, ownerFilter, resolveTarget, writeTargetChanges, type Target } from "./product-target";
@@ -31,6 +32,7 @@ type RegRow = {
   notes: string | null;
   verificationLevel: string;
   contributedByOrganizationName: string | null;
+  contributedByOrganizationId: string | null;
   isArchived: boolean;
 };
 
@@ -115,7 +117,7 @@ export class ProductRegistrationsService {
     return out;
   }
 
-  private toSummary(r: RegRow, mine: RegistrationVerificationSummary | undefined, viewingProductId?: string): ProductRegistrationSummary {
+  private toSummary(r: RegRow, mine: RegistrationVerificationSummary | undefined, viewingProductId: string | undefined, ctx: AttributionContext): ProductRegistrationSummary {
     return {
       id: r.id,
       productMasterId: r.productMasterId,
@@ -135,7 +137,7 @@ export class ProductRegistrationsService {
       sourceUrl: r.sourceUrl,
       notes: r.notes,
       verificationLevel: r.verificationLevel,
-      contributedByOrganizationName: r.contributedByOrganizationName,
+      contributedByOrganizationName: maskContributor(ctx, r.contributedByOrganizationId, r.contributedByOrganizationName).name,
       isArchived: r.isArchived,
       myVerification: mine ?? null,
     };
@@ -149,7 +151,8 @@ export class ProductRegistrationsService {
       orderBy: [{ authority: "asc" }, { expiryDate: "asc" }],
     });
     const mine = await this.myVerifications(user, rows.map((r) => r.id));
-    return rows.map((r) => this.toSummary(r, mine.get(r.id), rt.kind === "product" ? rt.id : undefined));
+    const ctx = await attributionContext(user, rows.map((r) => r.contributedByOrganizationId));
+    return rows.map((r) => this.toSummary(r, mine.get(r.id), rt.kind === "product" ? rt.id : undefined, ctx));
   }
 
   /** Raw non-archived registrations (own and family) for the compliance calculation. */
@@ -194,7 +197,7 @@ export class ProductRegistrationsService {
       });
       return row;
     });
-    return this.toSummary(created, undefined);
+    return this.toSummary(created, undefined, undefined, await attributionContext(user, [created.contributedByOrganizationId]));
   }
 
   private async loadForEdit(user: RequestUser, registrationId: string) {
@@ -238,13 +241,13 @@ export class ProductRegistrationsService {
     const changes = Object.entries(data)
       .filter(([k, v]) => norm(before[k]) !== norm(v))
       .map(([k, v]) => ({ field: `registration ${reg.authority} ${reg.referenceNumber}: ${k}`, oldValue: norm(before[k]) || null, newValue: norm(v) || null }));
-    if (changes.length === 0) return this.toSummary(reg, (await this.myVerifications(user, [reg.id])).get(reg.id));
+    if (changes.length === 0) return this.toSummary(reg, (await this.myVerifications(user, [reg.id])).get(reg.id), undefined, await attributionContext(user, [reg.contributedByOrganizationId]));
     const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.productRegulatoryRegistration.update({ where: { id: registrationId }, data });
       await writeTargetChanges(tx, { productMasterId: reg.productMasterId, productFamilyId: reg.productFamilyId }, { version: reg.ownerVersion, changes, source: "REGISTRATION", user });
       return row;
     });
-    return this.toSummary(updated, (await this.myVerifications(user, [updated.id])).get(updated.id));
+    return this.toSummary(updated, (await this.myVerifications(user, [updated.id])).get(updated.id), undefined, await attributionContext(user, [updated.contributedByOrganizationId]));
   }
 
   /** POST /product-catalog/registrations/:id/verify — the caller's organisation records "checked and verified" (QA only). */
@@ -269,7 +272,7 @@ export class ProductRegistrationsService {
         },
       }),
     );
-    return this.toSummary(reg, (await this.myVerifications(user, [registrationId])).get(registrationId));
+    return this.toSummary(reg, (await this.myVerifications(user, [registrationId])).get(registrationId), undefined, await attributionContext(user, [reg.contributedByOrganizationId]));
   }
 
   /** GET /product-catalog/regulatory/dashboard — catalogue-wide registration health plus the caller's own verification queue. */

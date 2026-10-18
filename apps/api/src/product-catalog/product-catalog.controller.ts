@@ -57,6 +57,7 @@ export class ProductCatalogController {
     @Query("missingField") missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit",
   ) {
     return this.productCatalogService.list({
+      viewer: user,
       q,
       category,
       sourceStandard,
@@ -176,7 +177,7 @@ export class ProductCatalogController {
 
   @Get("search")
   search(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string) {
-    return this.productCatalogService.search(q, category, user.inDemoOrganization === true);
+    return this.productCatalogService.search(q, category, user.inDemoOrganization === true, user);
   }
 
   /** POST /product-catalog/import — bulk reference-data importer. See
@@ -219,7 +220,7 @@ export class ProductCatalogController {
 
   @Get(":id")
   getOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.productCatalogService.getOne(id, user.inDemoOrganization === true);
+    return this.productCatalogService.getOne(id, user.inDemoOrganization === true, user);
   }
 
   /** GET /product-catalog/:id/price-history — ProductPriceHistory rows for
@@ -267,7 +268,7 @@ export class ProductCatalogController {
 
   @Get(":id/history")
   getHistory(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.productCatalogService.getHistory(id, user.inDemoOrganization === true);
+    return this.productCatalogService.getHistory(id, user.inDemoOrganization === true, user);
   }
 
   /** GET /product-catalog/:id/usage — the caller's own organisation's use of this product. */

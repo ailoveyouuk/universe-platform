@@ -193,6 +193,11 @@ model Organization {
   /// but are blocked from every write that would reach data shared across
   /// organisations (see assertNotDemoUser in apps/api).
   isDemo                    Boolean  @default(false)
+  /// Contributor visibility (2026-10-18). Everything an organisation adds goes into the pooled Universe database and is
+  /// searchable by all organisations, but anonymously ("A Universe member") unless this is true. Platform staff and the
+  /// organisation itself always see the real name. Suppliers/manufacturers/freight forwarders are identifiable through the
+  /// supplier directory instead, by design.
+  shareIdentityWithUniverse Boolean  @default(false)
   /// Simulated organisation (2026-10-17): generated scale-test data, not a real customer. Hidden from
   /// Admin lists by default and excluded from anonymised cross-organisation benchmarks.
   isSimulated               Boolean  @default(false)
@@ -1677,6 +1682,8 @@ model ProductMaster {
   /// record of who-added-what-in-what-capacity doesn't silently change if
   /// an organisation's type is ever edited later.
   addedByOrganizationType         String?
+  /// Per-product override of the contributing organisation's identity visibility: true = show the organisation, false = hide, null = follow Organization.shareIdentityWithUniverse.
+  attributionOverride             Boolean?
   /// Product-record fields added 2026-10-18 (Product Database completion, see docs/PRODUCT-DATABASE-GAP-ANALYSIS.md).
   /// DRAFT | ACTIVE | RESTRICTED | DISCONTINUED | WITHDRAWN | RECALLED — see ProductLifecycleStatus in packages/db/src/enums.ts.
   lifecycleStatus                 String        @default("ACTIVE")
