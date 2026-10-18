@@ -455,7 +455,7 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: `1px solid ${compColor}`, fontSize: 13 }}>
-        <strong style={{ color: compColor }}>{comp.status === "OK" ? "Registrations in good standing" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
+        <strong style={{ color: compColor }}>{comp.status === "OK" ? "Active registration on record" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
         {comp.reasons.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{comp.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Based on recorded registrations and lifecycle only. Recall and safety-notice monitoring is not yet active, so this is not a clearance.

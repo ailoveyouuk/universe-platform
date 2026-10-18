@@ -58,6 +58,7 @@ export function computeCompliance(lifecycleStatus: string, regs: Pick<RegRow, "s
     const live = eff.filter((r) => r.eff === "ACTIVE");
     for (const r of eff.filter((x) => x.eff === "SUSPENDED" || x.eff === "WITHDRAWN")) { bump("BLOCKED"); reasons.push(`${r.authority} ${r.referenceNumber} is ${r.eff.toLowerCase()}`); }
     if (live.length === 0) { bump("WARNING"); reasons.push("No active registration (all expired, pending or refused)"); }
+    for (const r of eff.filter((x) => x.eff === "EXPIRED")) { reasons.push(`${r.authority} ${r.referenceNumber} has expired${live.length > 0 ? " (another registration is active)" : ""}`); }
     for (const r of live) {
       const d = daysToExpiry(r.expiryDate, now);
       if (d !== null && d <= EXPIRING_SOON_DAYS) { bump("WARNING"); reasons.push(`${r.authority} ${r.referenceNumber} expires in ${d} days`); }
