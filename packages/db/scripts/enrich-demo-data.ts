@@ -107,6 +107,113 @@ async function applyGaps() {
   console.log(`Catalogue gaps ${dryRun ? "(would blank)" : "blanked"}:`, JSON.stringify(counts));
 }
 
+
+// ---------------------------------------------------------------------------
+// Product record fields (added 2026-10-18, Product Database completion step 1): storage, shelf life, hazard class,
+// identity (INN/strength/dosage form/brand/pack), regulatory class, intended use, review date, and a few extra identifiers.
+// Only entries that have never been enriched (all those fields empty) are touched; COALESCE-style, nothing overwritten.
+// ---------------------------------------------------------------------------
+interface RecordProfile {
+  storage: (noun: string) => { cls: string; cold: boolean; shelf: number };
+  regClass: (noun: string) => string;
+  intended: (noun: string) => string;
+  hazard?: (noun: string) => string | null;
+  brands: string[];
+  pack: string[];
+}
+const lc = (n: string) => n.toLowerCase();
+const RECORD_PROFILES: Record<string, RecordProfile> = {
+  "Laboratory Consumables": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: () => "General laboratory use", intended: (n) => `Collection, handling or storage of laboratory samples (${n}).`, brands: ["LabCore", "Sterilex", "BioPlast", "Cellmark"], pack: ["Pack of 500", "Box of 100", "Case of 10 x 100"] },
+  Diagnostics: { storage: (n) => (lc(n).includes("elisa") ? { cls: "REFRIGERATED", cold: true, shelf: 18 } : { cls: "CRT", cold: false, shelf: 24 }), regClass: (n) => (/hiv|malaria|elisa/.test(lc(n)) ? "IVD Class C" : "IVD Class B"), intended: (n) => `In vitro diagnostic use by trained health workers (${n}).`, brands: ["DiagnoPlus", "Medisure", "Quickdx", "Veritas Dx"], pack: ["Kit of 25 tests", "Kit of 50 tests", "Kit of 96 tests"] },
+  "Medical Devices": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/infusion|oxygen|nebuliser/.test(lc(n)) ? "Class IIb" : "Class IIa"), intended: (n) => `Clinical monitoring or treatment support (${n}).`, brands: ["MediTech", "Healix", "Vitalis", "OxyCare"], pack: ["1 unit", "1 unit with accessories", "Carton of 5"] },
+  Pharmaceuticals: { storage: (n) => (/injection/.test(lc(n)) ? { cls: "REFRIGERATED", cold: true, shelf: 24 } : { cls: "CRT", cold: false, shelf: 36 }), regClass: (n) => (/paracetamol|ibuprofen|oral rehydration|zinc/.test(lc(n)) ? "OTC" : "Prescription only"), intended: (n) => `Treatment as indicated in national and WHO guidelines (${n}).`, brands: ["Pharmaco", "Curalis", "Medigen", "AfriPharm"], pack: ["Blister pack of 10", "Bottle of 100", "Box of 10 x 10", "Carton of 25 vials"] },
+  "Personal Protective Equipment": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/respirator/.test(lc(n)) ? "PPE Category III (FFP2/N95)" : "PPE Category I"), intended: (n) => `Protection of health workers against infection and contamination (${n}).`, brands: ["ShieldOne", "SafeGuard", "ProtectaMed", "Barrier+"], pack: ["Box of 100", "Box of 50", "Case of 10 boxes"] },
+  "Cold Chain": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 120 }), regClass: () => "WHO PQS category equipment", intended: (n) => `Maintaining the vaccine cold chain (${n}).`, brands: ["ArcticPro", "CoolSafe", "Frostline", "Thermavax"], pack: ["1 unit", "Pack of 4", "Carton of 6"] },
+  Reagents: { storage: (n) => (/pcr|master mix/.test(lc(n)) ? { cls: "FROZEN", cold: true, shelf: 12 } : /culture/.test(lc(n)) ? { cls: "REFRIGERATED", cold: true, shelf: 12 } : { cls: "CRT", cold: false, shelf: 24 }), regClass: () => "IVD reagent (general)", intended: (n) => `Laboratory testing and sample preparation (${n}).`, hazard: (n) => (/lysis|staining|gram/.test(lc(n)) ? "UN1993 Class 3 (flammable liquid)" : null), brands: ["ReagentLab", "Biomed Reagents", "Genova", "Clearbuffer"], pack: ["Bottle 500 mL", "Bottle 100 mL", "Kit of 10"] },
+  "Surgical Supplies": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/suture|catheter|scalpel/.test(lc(n)) ? "Class IIa" : "Class I"), intended: (n) => `Surgical procedures in a sterile environment (${n}).`, brands: ["SurgiPro", "Steriline", "Clinix", "Medicut"], pack: ["Box of 10", "Box of 25", "Pack of 5"] },
+  "Wound Care": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: () => "Class I", intended: (n) => `Dressing and protection of wounds (${n}).`, brands: ["WoundWell", "Healsure", "DermaCare", "Careplast"], pack: ["Box of 50", "Box of 10", "Pack of 100"] },
+  Imaging: { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 36 }), regClass: (n) => (/contrast/.test(lc(n)) ? "Prescription only" : "Class I"), intended: (n) => `Diagnostic imaging support (${n}).`, brands: ["RadiaMed", "ImageCore", "Sonique", "Lumina"], pack: ["Pack of 100", "1 unit", "Tube of 250 g"] },
+};
+const PHARMA: Record<string, { inn: string; strength: string; form: string }> = {
+  "amoxicillin tablets": { inn: "Amoxicillin", strength: "500 mg", form: "Tablet" },
+  "paracetamol tablets": { inn: "Paracetamol", strength: "500 mg", form: "Tablet" },
+  "oral rehydration salts": { inn: "Oral rehydration salts", strength: "20.5 g/L sachet", form: "Powder for oral solution" },
+  "artemether injection": { inn: "Artemether", strength: "80 mg/mL", form: "Solution for injection" },
+  "ibuprofen tablets": { inn: "Ibuprofen", strength: "400 mg", form: "Tablet" },
+  "zinc dispersible tablets": { inn: "Zinc sulfate", strength: "20 mg", form: "Dispersible tablet" },
+};
+const RECORD_GAP_PERCENT = 8; // each optional record field is left blank for ~8% of entries, as real catalogues are
+const recGap = (id: string, f: string) => hash(`${id}:rec:${f}`) % 100 < RECORD_GAP_PERCENT;
+
+async function enrichProductRecords() {
+  const rows = await prisma.productMaster.findMany({
+    where: { isSimulated: true, storageClass: null, regulatoryClass: null, shelfLifeMonths: null, brand: null, intendedUse: null },
+    select: { id: true, name: true, category: true },
+    orderBy: { id: "asc" },
+  });
+  console.log(`Product records: ${rows.length} simulated entries not yet enriched`);
+  if (dryRun || rows.length === 0) return rows.length;
+  const esc = (v: string) => v.replace(/'/g, "''");
+  const lit = (v: string | null) => (v === null ? "NULL" : `N'${esc(v)}'`);
+  const now = Date.now();
+  let n = 0;
+  for (const group of chunks(rows, 400)) {
+    const values = group
+      .map((r) => {
+        if (!/^[0-9a-f-]{36}$/i.test(r.id)) throw new Error(`Unexpected id ${r.id}`);
+        const top = r.category.split(".")[0];
+        const profile = RECORD_PROFILES[top] ?? RECORD_PROFILES["Medical Devices"];
+        const noun = r.name.split(",")[0];
+        const st = profile.storage(noun);
+        const pharma = top === "Pharmaceuticals" ? PHARMA[noun] : undefined;
+        const controlled = top === "Pharmaceuticals" && hash(r.id + "cs") % 100 < 4 ? 1 : 0;
+        const reviewDays = (hash(r.id + "rv") % 700) - 60; // some overdue, most in the next two years
+        const review = new Date(now + reviewDays * 86400000).toISOString().slice(0, 10);
+        const g = (f: string, v: string | null) => (recGap(r.id, f) ? null : v);
+        return `('${r.id}',${lit(g("storage", st.cls))},${st.cold ? 1 : 0},${g("shelf", String(st.shelf)) === null ? "NULL" : st.shelf},${lit(profile.hazard ? profile.hazard(noun) : null)},${controlled},${lit(g("inn", pharma?.inn ?? null))},${lit(g("strength", pharma?.strength ?? null))},${lit(g("form", pharma?.form ?? null))},${lit(g("brand", pickBy(profile.brands, r.id + "br")))},${lit(g("pack", pickBy(profile.pack, r.id + "pk")))},${lit(g("regclass", profile.regClass(noun)))},${lit(g("intended", profile.intended(noun)))},${lit(g("review", review))})`;
+      })
+      .join(",");
+    await prisma.$executeRawUnsafe(
+      `UPDATE p SET storageClass = COALESCE(p.storageClass, v.sc), coldChain = CASE WHEN v.cc = 1 THEN 1 ELSE p.coldChain END, shelfLifeMonths = COALESCE(p.shelfLifeMonths, v.sl), hazardClass = COALESCE(p.hazardClass, v.hz), controlledSubstance = CASE WHEN v.cs = 1 THEN 1 ELSE p.controlledSubstance END, inn = COALESCE(p.inn, v.inn), strength = COALESCE(p.strength, v.st), dosageForm = COALESCE(p.dosageForm, v.df), brand = COALESCE(p.brand, v.br), packSize = COALESCE(p.packSize, v.pk), regulatoryClass = COALESCE(p.regulatoryClass, v.rc), intendedUse = COALESCE(p.intendedUse, v.iu), nextReviewDue = COALESCE(p.nextReviewDue, CAST(v.rv AS DATETIME2))
+       FROM product_master p JOIN (VALUES ${values}) AS v(id, sc, cc, sl, hz, cs, inn, st, df, br, pk, rc, iu, rv) ON p.id = v.id`,
+    );
+    n += group.length;
+    if (n % 4000 === 0) console.log(`  product records updated: ${n}`);
+  }
+  console.log(`Product records: enriched ${n} entries`);
+  return n;
+}
+
+/** Adds a second GTIN (pack level) to ~25% of entries and a UDI-DI to devices/diagnostics. Skips entries that already have extra identifiers. */
+async function enrichIdentifiers() {
+  const rows = await prisma.productMaster.findMany({
+    where: { isSimulated: true, sourceStandard: "SIM-SCALE", gtin: { not: null }, identifiers: { none: {} } },
+    select: { id: true, category: true, gtin: true },
+    orderBy: { id: "asc" },
+  });
+  const todo: { productMasterId: string; identifierType: string; value: string; label: string | null }[] = [];
+  let seq = 700000;
+  for (const r of rows) {
+    const top = r.category.split(".")[0];
+    if (hash(r.id + "g2") % 100 < 25) {
+      seq += 1 + (hash(r.id) % 5);
+      todo.push({ productMasterId: r.id, identifierType: "GTIN", value: gtin13(seq), label: "Outer carton" });
+    }
+    if ((top === "Medical Devices" || top === "Diagnostics") && hash(r.id + "udi") % 100 < 70) {
+      todo.push({ productMasterId: r.id, identifierType: "UDI_DI", value: `(01)${gtin13(seq + 900000 + (hash(r.id) % 9999))}`, label: null });
+    }
+  }
+  console.log(`Identifiers: ${todo.length} to add across ${rows.length} entries without extra identifiers`);
+  if (dryRun || todo.length === 0) return todo.length;
+  let n = 0;
+  for (const group of chunks(todo, 250)) {
+    await prisma.productIdentifier.createMany({ data: group });
+    n += group.length;
+  }
+  console.log(`Identifiers: added ${n}`);
+  return n;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -312,6 +419,8 @@ async function main() {
   await enrichCatalogue();
   await applyGaps();
   await fixNames();
+  await enrichProductRecords();
+  await enrichIdentifiers();
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);
