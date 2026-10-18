@@ -153,11 +153,11 @@ export function ProductDetailView() {
   const setF = (k: keyof UpdateProductMasterInput, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <main style={{ padding: "8px 0 40px", maxWidth: 1100 }}>
+    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, color: "var(--u-ink)", margin: 0 }}>{detail.name}</h1>
+          <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, color: "var(--u-ink)", margin: 0, overflowWrap: "anywhere" }}>{detail.name}</h1>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8, alignItems: "center" }}>
             <Pill tone="neutral">{detail.category}</Pill>
             <Pill tone={lc.tone}>{lc.label}</Pill>

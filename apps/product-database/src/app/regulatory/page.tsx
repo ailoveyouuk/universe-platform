@@ -15,7 +15,7 @@ export default function RegulatoryPage() {
   useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   const n = (v: number) => v.toLocaleString("en-GB");
   return (
-    <main style={{ padding: "8px 0 40px", maxWidth: 1100 }}>
+    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory status</h1>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Registration health across the shared catalogue, and your organisation&rsquo;s verification queue.</p>
       {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
