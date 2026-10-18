@@ -3064,3 +3064,26 @@ export interface CreateProductFamilyInput {
 }
 
 export type UpdateProductFamilyInput = Partial<CreateProductFamilyInput> & { isArchived?: boolean };
+
+/** Product Database exports (step 5, 2026-10-18). */
+export interface ProductExportFile {
+  filename: string;
+  /** UTF-8 CSV with a byte-order mark so spreadsheets open it correctly. */
+  csv: string;
+  rowCount: number;
+  /** True when the row ceiling was hit and the file is incomplete. */
+  truncated: boolean;
+}
+
+/** One product's whole record, as seen by the calling organisation. */
+export interface ProductDossier {
+  generatedAt: string;
+  generatedFor: string;
+  product: ProductCatalogDetail;
+  registrations: ProductRegistrationSummary[];
+  /** Metadata only; files are downloaded separately through the document controls. */
+  documents: ProductDocumentSummary[];
+  safetyNotices: ProductSafetyNoticeSummary[];
+  exportRestrictions: ProductExportRestrictionMatch[];
+  history: ProductChangeEntry[];
+}

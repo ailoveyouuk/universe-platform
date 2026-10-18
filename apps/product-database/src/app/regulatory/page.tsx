@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { RegulatoryDashboard, SafetyNoticeDashboard } from "@universe/types";
-import { AlertIcon, BanIcon, CalendarXIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, FileEditIcon, HelpCircleIcon, Pill, RefreshIcon, ShieldIcon, StatTile } from "@universe/ui";
+import { AlertIcon, BanIcon, Button, DownloadIcon, CalendarXIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, FileEditIcon, HelpCircleIcon, Pill, RefreshIcon, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { saveExport } from "../../lib/download";
 
 /** Regulatory dashboard (Product Database step 2, 2026-10-18): registration health across the catalogue plus this organisation's own verification queue. */
 const AUTH: Record<string, string> = { WHO_PQ: "WHO PQ", WHO_EUL: "WHO EUL", FDA: "US FDA", EU_CE: "EU CE", EU_MDR: "EU MDR", EU_IVDR: "EU IVDR", EMA: "EMA", MHRA: "MHRA", SRA: "SRA", NATIONAL: "National", OTHER: "Other" };
@@ -13,12 +14,28 @@ export default function RegulatoryPage() {
   const [d, setD] = useState<RegulatoryDashboard | null>(null);
   const [sd, setSd] = useState<SafetyNoticeDashboard | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   useEffect(() => { apiClient.getSafetyNoticeDashboard().then(setSd).catch(() => undefined); }, []);
   useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   const n = (v: number) => v.toLocaleString("en-GB");
   return (
     <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory status</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory status</h1>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true); setErr(null);
+            try { saveExport(await apiClient.exportRegistrationsCsv()); }
+            catch (e) { setErr(e instanceof Error ? e.message : "Export failed."); }
+            finally { setExporting(false); }
+          }}
+        >
+          <DownloadIcon size={14} /> {exporting ? "Preparing…" : "Export registrations CSV"}
+        </Button>
+      </div>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Registration health across the shared catalogue, and your organisation&rsquo;s verification queue.</p>
       {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
       {!d ? !err && <p>Loading…</p> : (

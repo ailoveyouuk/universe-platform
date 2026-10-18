@@ -11,8 +11,11 @@ import type {
 import { apiClient } from "../lib/apiClient";
 import { useRouter } from "next/navigation";
 import { useCountries } from "../lib/useCountries";
+import { saveExport } from "../lib/download";
 import {
   AddMenu,
+  Button,
+  DownloadIcon,
   AlertIcon,
   GridIcon,
   Pagination,
@@ -88,6 +91,8 @@ export default function ProductCatalogPage() {
   const [category, setCategory] = useState("");
   const [sourceStandard, setSourceStandard] = useState("");
   const [includeArchived, setIncludeArchived] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
 
@@ -387,7 +392,24 @@ export default function ProductCatalogPage() {
           />
           Show archived
         </label>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true); setExportNote(null);
+            try {
+              const f = await apiClient.exportCatalogueCsv({ q: search || undefined, category: category || undefined, sourceStandard: sourceStandard || undefined, includeArchived });
+              saveExport(f);
+              setExportNote(`${f.rowCount.toLocaleString("en-GB")} products exported${f.truncated ? " (stopped at the row limit; narrow the filters for the rest)" : ""}.`);
+            } catch (e) { setExportNote(e instanceof Error ? e.message : "Export failed."); }
+            finally { setExporting(false); }
+          }}
+        >
+          <DownloadIcon size={14} /> {exporting ? "Preparing…" : "Export CSV"}
+        </Button>
       </div>
+      {exportNote && <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>{exportNote} The export follows your current filters and is recorded in your audit trail.</p>}
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
       {!items && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}

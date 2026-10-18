@@ -58,6 +58,8 @@ import type {
   RegulatoryWatchDashboard,
   ExportRestrictionSummary,
   ProductExportRestrictionMatch,
+  ProductExportFile,
+  ProductDossier,
   CreateExportRestrictionInput,
   UpdateExportRestrictionInput,
   ProjectExportCheckItem,
@@ -677,6 +679,23 @@ export class UniverseApiClient {
   }
   listProductExportRestrictions(productMasterId: string): Promise<ProductExportRestrictionMatch[]> {
     return this.request(`/product-catalog/${productMasterId}/export-restrictions`);
+  }
+  exportCatalogueCsv(filters: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean } = {}): Promise<ProductExportFile> {
+    const qs = new URLSearchParams();
+    if (filters.q) qs.set("q", filters.q);
+    if (filters.category) qs.set("category", filters.category);
+    if (filters.sourceStandard) qs.set("sourceStandard", filters.sourceStandard);
+    if (filters.includeArchived) qs.set("includeArchived", "true");
+    return this.request(`/product-catalog/exports/catalogue${qs.toString() ? `?${qs}` : ""}`);
+  }
+  exportRegistrationsCsv(filters: { status?: string; includeArchived?: boolean } = {}): Promise<ProductExportFile> {
+    const qs = new URLSearchParams();
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.includeArchived) qs.set("includeArchived", "true");
+    return this.request(`/product-catalog/exports/registrations${qs.toString() ? `?${qs}` : ""}`);
+  }
+  getProductDossier(productMasterId: string): Promise<ProductDossier> {
+    return this.request(`/product-catalog/${productMasterId}/dossier`);
   }
   getRegulatoryWatchDashboard(): Promise<RegulatoryWatchDashboard> {
     return this.request(`/product-catalog/regulatory-watch/dashboard`);

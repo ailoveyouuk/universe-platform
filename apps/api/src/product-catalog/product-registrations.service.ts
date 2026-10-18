@@ -102,7 +102,7 @@ export class ProductRegistrationsService {
     return user.platformStaffRole !== "NONE" || user.permissions.includes("projects.edit") || user.permissions.includes("products.approve");
   }
 
-  private async myVerifications(user: RequestUser, registrationIds: string[]): Promise<Map<string, RegistrationVerificationSummary>> {
+  async myVerifications(user: RequestUser, registrationIds: string[]): Promise<Map<string, RegistrationVerificationSummary>> {
     const out = new Map<string, RegistrationVerificationSummary>();
     if (registrationIds.length === 0) return out;
     const rows = await withTenantContext(user.organizationId, (tx) =>

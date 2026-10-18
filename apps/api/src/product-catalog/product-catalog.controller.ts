@@ -15,6 +15,7 @@ import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 import { familyTarget, productTarget } from "./product-target";
+import { ProductExportsService } from "./product-exports.service";
 import { ProductFamiliesService } from "./product-families.service";
 import { AssignFamilyDto, CreateProductFamilyDto, UpdateProductFamilyDto } from "./dto/product-family.dto";
 import { ProductDocumentsService } from "./product-documents.service";
@@ -50,6 +51,7 @@ export class ProductCatalogController {
     private readonly exportRestrictions: ExportRestrictionsService,
     private readonly documents: ProductDocumentsService,
     private readonly families: ProductFamiliesService,
+    private readonly exportsService: ProductExportsService,
   ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
@@ -76,6 +78,18 @@ export class ProductCatalogController {
       missingField,
       showSimulated: user.inDemoOrganization === true,
     });
+  }
+
+  /** GET /product-catalog/exports/catalogue — CSV of the catalogue (same filters as the browse screen); audited. */
+  @Get("exports/catalogue")
+  exportCatalogue(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string) {
+    return this.exportsService.catalogueCsv(user, { q, category, sourceStandard, includeArchived: includeArchived === "true" });
+  }
+
+  /** GET /product-catalog/exports/registrations — CSV of shared registrations with the caller's own verification; audited. */
+  @Get("exports/registrations")
+  exportRegistrations(@CurrentUser() user: RequestUser, @Query("status") status?: string, @Query("includeArchived") includeArchived?: string) {
+    return this.exportsService.registrationsCsv(user, { status, includeArchived: includeArchived === "true" });
   }
 
   /** GET /product-catalog/completeness-stats — Stage 0 point 3 (data
@@ -324,6 +338,11 @@ export class ProductCatalogController {
    * separate, more specific path — not ambiguous with ":id" the way
    * "search"/"import" were. */
   /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
+  @Get(":id/dossier")
+  dossier(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.exportsService.dossier(user, id);
+  }
+
   @Get(":id/safety-notices")
   listSafetyNotices(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
     return this.safety.list(user, productTarget(id), includeArchived === "true");

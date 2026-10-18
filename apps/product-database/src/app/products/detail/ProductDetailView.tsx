@@ -182,6 +182,9 @@ export function ProductDetailView() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href={`/products/dossier?id=${detail.id}`} style={{ textDecoration: "none" }}>
+            <Button variant="secondary" size="sm">Product dossier</Button>
+          </Link>
           {canEdit && !editing && <Button variant="primary" size="sm" onClick={startEdit}>{isStaff ? "Edit record" : "Propose changes"}</Button>}
           {canEdit && !editing && !detail.isArchived && (detail.lifecycleStatus === "ACTIVE" || detail.lifecycleStatus === "DRAFT") && (
             <Button variant="secondary" size="sm" disabled={saving} onClick={() => save({ lifecycleStatus: "DISCONTINUED" })}>
