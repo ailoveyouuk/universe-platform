@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
+import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -133,6 +133,13 @@ export function ProjectDetailView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Export / hoarding restrictions that apply to a line's route: goods originating in a restricting country (e.g. the UK list) and delivered elsewhere.
+  const [exportChecks, setExportChecks] = useState<ProjectExportCheckItem[]>([]);
+  useEffect(() => {
+    if (!id) return;
+    apiClient.getProjectExportChecks(id).then(setExportChecks).catch(() => setExportChecks([]));
+  }, [id, project?.deliveryCountryCode, project?.lines]);
 
   // Open safety notices / recalls on the catalogue products used by this project's lines (Product Database step 4).
   const [safetyFlags, setSafetyFlags] = useState<Record<string, ProductSafetyFlag>>({});
@@ -828,6 +835,22 @@ export function ProjectDetailView() {
 
       {project.lines.length === 0 && !addingLine && (
         <p style={{ color: "var(--u-ink-secondary)", marginTop: 8 }}>No line items yet.</p>
+      )}
+
+      {exportChecks.length > 0 && (
+        <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--u-status-critical)", fontSize: 13 }}>
+          <strong style={{ color: "var(--u-status-critical)" }}>Export or hoarding restriction check ({exportChecks.length})</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {exportChecks.map((c) => (
+              <li key={`${c.lineId}-${c.restriction.id}`}>
+                {c.lineDescription || c.productName}: {c.restriction.medicineName}{c.restriction.strength && c.restriction.strength !== "All" ? ` ${c.restriction.strength}` : ""} is on the {c.restriction.restrictingCountryCode} restricted list.
+                {" "}Supplied from {c.originCountryCode} ({c.originBasis}){c.route === "APPLIES" ? `, delivered to ${c.destinationCountryCode}: it may not be exported.` : ", but the project has no delivery country set: check before shipping."}
+                {c.certainty === "CHECK" ? ` (${c.detail}.)` : ""}
+              </li>
+            ))}
+          </ul>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>An initial check from the published list, matched by medicine name, strength and form. Confirm with the licence holder before shipping.</p>
+        </div>
       )}
 
       {project.lines.map((line) => (

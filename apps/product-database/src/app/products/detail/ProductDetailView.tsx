@@ -11,6 +11,7 @@ import type {
   ProductRegistrationSummary,
   ProductSafetyNoticeSummary,
   WatchMatchSummary,
+  ProductExportRestrictionMatch,
   ProductDocumentSummary,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
@@ -463,6 +464,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
   const user = useCurrentUser();
   const [items, setItems] = useState<ProductSafetyNoticeSummary[] | null>(null);
   const [watch, setWatch] = useState<WatchMatchSummary[]>([]);
+  const [restrictions, setRestrictions] = useState<ProductExportRestrictionMatch[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -479,6 +481,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
   }, [detail, familyId]);
   useEffect(load, [load]);
   useEffect(() => { if (detail && !familyId) apiClient.listProductWatchMatches(detail.id).then(setWatch).catch(() => setWatch([])); }, [detail, familyId]);
+  useEffect(() => { if (detail && !familyId) apiClient.listProductExportRestrictions(detail.id).then(setRestrictions).catch(() => setRestrictions([])); }, [detail, familyId]);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setErr(null);
     try { await fn(); load(); setAdding(false); setReviewing(null); setClosing(null); setReason(""); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); }
@@ -494,6 +497,22 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
   return (
     <Card title="Safety notices and recalls" note="The notice is shared, so every organisation sees the same record. Your review below is private to your organisation. Saving a notice alerts the QA team of every organisation that uses the product.">
       {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {restrictions.length > 0 && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", fontSize: 13 }}>
+          <strong>Export and hoarding restriction applies to this medicine</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {restrictions.map((m) => (
+              <li key={m.restriction.id}>
+                {m.restriction.restrictingCountryCode}: {m.restriction.medicineName}{m.restriction.strength && m.restriction.strength !== "All" ? ` ${m.restriction.strength}` : ""}{m.restriction.form && m.restriction.form !== "All" ? `, ${m.restriction.form}` : ""}
+                {m.restriction.restrictionDate ? ` — listed ${dateOnly(m.restriction.restrictionDate)}` : ""}{" "}
+                {m.certainty === "CHECK" ? <Pill tone="warning">check: {m.detail}</Pill> : null}
+                {m.restriction.sourceUrl ? <> — <a href={m.restriction.sourceUrl} target="_blank" rel="noopener noreferrer">source</a></> : null}
+              </li>
+            ))}
+          </ul>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>An initial check only. Goods supplied from the restricting country cannot be exported or hoarded; the legal duty stays with the licence holder. Project lines sourced from that country and delivered elsewhere are flagged.</p>
+        </div>
+      )}
       {watch.filter((w) => w.status === "PENDING").length > 0 && (
         <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-warning, #b7791f)", fontSize: 13 }}>
           <strong>Potential alert from the regulatory watch (advisory, awaiting platform review)</strong>

@@ -3156,3 +3156,39 @@ model RegulatoryWatchRun {
   @@index([source, startedAt])
   @@map("regulatory_watch_runs")
 }
+
+/// Medicines that a country restricts from export and/or hoarding (Product Database, 2026-10-18). SHARED reference data.
+/// The UK list is fetched daily from the DHSC/MHRA CSV (source UK_DHSC_CSV); other countries' restrictions have no single feed
+/// and are curated by platform staff (source MANUAL) with a source link. Entries are never deleted: one that leaves the source
+/// list is marked REMOVED with the date. Matching to products is by generic name, strength and form and is advisory: the legal
+/// duty stays with the licence holder.
+model ExportRestriction {
+  id                     String    @id @default(uuid())
+  /// ISO alpha-2 country whose export / hoarding rule this is (GB for the UK list).
+  restrictingCountryCode String
+  /// UK_DHSC_CSV | MANUAL
+  source                 String
+  /// Normalised "name|strength|form"; unique within a source.
+  sourceKey              String
+  medicineName           String
+  /// "All" or a slash-separated list such as "1g/2g/500mg".
+  strength               String?
+  /// "All" or a pharmaceutical form as published.
+  form                   String?
+  /// EXPORT | HOARDING | BOTH — what the restriction covers.
+  scope                  String    @default("BOTH")
+  restrictionDate        DateTime?
+  /// ACTIVE | REMOVED
+  status                 String    @default("ACTIVE")
+  removedAt              DateTime?
+  sourceUrl              String?
+  notes                  String?   @db.NVarChar(Max)
+  addedByName            String?
+  isSimulated            Boolean   @default(false)
+  firstSeenAt            DateTime  @default(now())
+  lastSeenAt             DateTime  @default(now())
+
+  @@unique([source, restrictingCountryCode, sourceKey])
+  @@index([restrictingCountryCode, status])
+  @@map("export_restrictions")
+}

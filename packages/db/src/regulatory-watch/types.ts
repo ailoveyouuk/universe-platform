@@ -23,7 +23,7 @@ export interface WatchItemInput {
   url: string | null;
 }
 
-export type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+export type FetchLike = (url: string) => Promise<{ ok: boolean; status: number; json(): Promise<unknown>; text?(): Promise<string> }>;
 
 export interface Connector {
   source: RegulatoryWatchSource;

@@ -1812,6 +1812,65 @@ export interface RegulatoryWatchDashboard {
   runs: WatchRunSummary[];
   pending: WatchMatchSummary[];
   recentItems: WatchItemSummary[];
+  exportRestrictions: ExportRestrictionSummary[];
+}
+
+/** Export / hoarding restrictions (2026-10-18): medicines a country restricts, matched to products and to project-line routes. */
+export interface ExportRestrictionSummary {
+  id: string;
+  restrictingCountryCode: string;
+  /** UK_DHSC_CSV (fetched daily) | MANUAL (curated by platform staff) */
+  source: string;
+  medicineName: string;
+  strength: string | null;
+  form: string | null;
+  /** EXPORT | HOARDING | BOTH */
+  scope: string;
+  restrictionDate: string | null;
+  /** ACTIVE | REMOVED */
+  status: string;
+  removedAt: string | null;
+  sourceUrl: string | null;
+  notes: string | null;
+}
+
+export interface ProductExportRestrictionMatch {
+  restriction: ExportRestrictionSummary;
+  /** MATCH = name, strength and form agree; CHECK = name agrees but the product record lacks a strength or form to confirm. */
+  certainty: string;
+  detail: string;
+}
+
+export interface CreateExportRestrictionInput {
+  restrictingCountryCode: string;
+  medicineName: string;
+  strength?: string;
+  form?: string;
+  scope?: string;
+  restrictionDate?: string;
+  sourceUrl: string;
+  notes?: string;
+}
+
+export interface UpdateExportRestrictionInput {
+  status?: string;
+  notes?: string;
+  sourceUrl?: string;
+}
+
+export interface ProjectExportCheckItem {
+  lineId: string;
+  lineDescription: string | null;
+  productMasterId: string;
+  productName: string;
+  restriction: ExportRestrictionSummary;
+  certainty: string;
+  detail: string;
+  /** APPLIES = goods originate in the restricting country and the delivery country is elsewhere; DESTINATION_UNKNOWN = no delivery country set on the project. */
+  route: string;
+  originCountryCode: string;
+  originBasis: string;
+  destinationCountryCode: string | null;
 }
 
 /** Computed per product from lifecycle, registrations and open safety notices. */

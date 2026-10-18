@@ -2,11 +2,12 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { prisma } from "@universe/db";
 import type { RegulatoryWatchDashboard, WatchItemSummary, WatchMatchSummary, WatchRunSummary, WatchSourceHealth } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { ExportRestrictionsService } from "./export-restrictions.service";
 import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { productTarget } from "./product-target";
 
 const DAY = 86400000;
-const SOURCES = ["OPENFDA_DEVICE", "OPENFDA_DRUG", "MHRA_ALERTS"];
+const SOURCES = ["OPENFDA_DEVICE", "OPENFDA_DRUG", "MHRA_ALERTS", "UK_EXPORT_RESTRICTIONS"];
 const STALE_AFTER_MS = 36 * 3600000;
 
 type ItemRow = { id: string; source: string; authority: string; noticeType: string; severity: string; title: string; summary: string; affectedText: string | null; actionRequired: string | null; firmName: string | null; countryCodes: string | null; issueDate: Date; status: string; url: string | null; sourceReference: string; isSimulated: boolean };
@@ -29,7 +30,7 @@ const toMatch = (m: MatchRow): WatchMatchSummary => ({
  */
 @Injectable()
 export class RegulatoryWatchService {
-  constructor(private readonly safety: ProductSafetyNoticesService) {}
+  constructor(private readonly safety: ProductSafetyNoticesService, private readonly restrictions: ExportRestrictionsService) {}
 
   private sim(user: RequestUser): boolean {
     return user.inDemoOrganization === true;
@@ -62,7 +63,7 @@ export class RegulatoryWatchService {
       id: r.id, source: r.source, startedAt: r.startedAt.toISOString(), finishedAt: r.finishedAt ? r.finishedAt.toISOString() : null, status: r.status,
       fetched: r.fetched, newItems: r.newItems, changedItems: r.changedItems, newMatches: r.newMatches, error: r.error,
     }));
-    return { sources, totals: { itemsLast30Days: itemsLast30, pendingMatches: pendingCount, confirmed, dismissed }, runs, pending: pendingRows.map((m) => toMatch(m as unknown as MatchRow)), recentItems: recentItems.map((i) => toItem(i as ItemRow)) };
+    return { exportRestrictions: await this.restrictions.list(), sources, totals: { itemsLast30Days: itemsLast30, pendingMatches: pendingCount, confirmed, dismissed }, runs, pending: pendingRows.map((m) => toMatch(m as unknown as MatchRow)), recentItems: recentItems.map((i) => toItem(i as ItemRow)) };
   }
 
   /** Pending and confirmed matches for one product (read-only for everyone who can see the product). */

@@ -56,6 +56,11 @@ import type {
   ReviewSafetyNoticeInput,
   ProductSafetyFlag,
   RegulatoryWatchDashboard,
+  ExportRestrictionSummary,
+  ProductExportRestrictionMatch,
+  CreateExportRestrictionInput,
+  UpdateExportRestrictionInput,
+  ProjectExportCheckItem,
   WatchMatchSummary,
   SafetyNoticeDashboard,
   CreateRegistrationInput,
@@ -657,6 +662,22 @@ export class UniverseApiClient {
     return this.request(`/product-catalog/safety-notices/dashboard`);
   }
   /** Regulatory watch (step 4b): advisory matches of public regulator recalls to catalogue products; platform staff confirm or dismiss. */
+  /** Export / hoarding restrictions: the UK list is fetched daily; other countries are curated by platform staff. */
+  listExportRestrictions(includeRemoved = false): Promise<ExportRestrictionSummary[]> {
+    return this.request(`/product-catalog/export-restrictions${includeRemoved ? "?includeRemoved=true" : ""}`);
+  }
+  createExportRestriction(input: CreateExportRestrictionInput): Promise<ExportRestrictionSummary> {
+    return this.request(`/product-catalog/export-restrictions`, { method: "POST", body: JSON.stringify(input) });
+  }
+  updateExportRestriction(id: string, input: UpdateExportRestrictionInput): Promise<ExportRestrictionSummary> {
+    return this.request(`/product-catalog/export-restrictions/${id}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  getProjectExportChecks(projectId: string): Promise<ProjectExportCheckItem[]> {
+    return this.request(`/product-catalog/export-restrictions/project/${projectId}`);
+  }
+  listProductExportRestrictions(productMasterId: string): Promise<ProductExportRestrictionMatch[]> {
+    return this.request(`/product-catalog/${productMasterId}/export-restrictions`);
+  }
   getRegulatoryWatchDashboard(): Promise<RegulatoryWatchDashboard> {
     return this.request(`/product-catalog/regulatory-watch/dashboard`);
   }

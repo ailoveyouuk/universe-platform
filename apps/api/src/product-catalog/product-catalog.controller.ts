@@ -7,6 +7,8 @@ import { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductRegistrationsService } from "./product-registrations.service";
+import { ExportRestrictionsService } from "./export-restrictions.service";
+import { CreateExportRestrictionDto, UpdateExportRestrictionDto } from "./dto/export-restriction.dto";
 import { RegulatoryWatchService } from "./regulatory-watch.service";
 import { ConfirmWatchMatchDto, DismissWatchMatchDto } from "./dto/watch-match.dto";
 import { ProductSafetyNoticesService } from "./product-safety-notices.service";
@@ -45,6 +47,7 @@ export class ProductCatalogController {
     private readonly registrations: ProductRegistrationsService,
     private readonly safety: ProductSafetyNoticesService,
     private readonly watch: RegulatoryWatchService,
+    private readonly exportRestrictions: ExportRestrictionsService,
     private readonly documents: ProductDocumentsService,
     private readonly families: ProductFamiliesService,
   ) {}
@@ -95,6 +98,33 @@ export class ProductCatalogController {
   @Get("regulatory/dashboard")
   regulatoryDashboard(@CurrentUser() user: RequestUser) {
     return this.registrations.dashboard(user);
+  }
+
+  /** Export / hoarding restrictions: UK list fetched daily; other countries curated by platform staff. */
+  @Get("export-restrictions")
+  listExportRestrictions(@Query("includeRemoved") includeRemoved?: string) {
+    return this.exportRestrictions.list(includeRemoved === "true");
+  }
+
+  @Post("export-restrictions")
+  createExportRestriction(@CurrentUser() user: RequestUser, @Body() dto: CreateExportRestrictionDto) {
+    return this.exportRestrictions.create(user, dto);
+  }
+
+  /** GET …/export-restrictions/project/:projectId — project lines whose route (origin to delivery country) is restricted. */
+  @Get("export-restrictions/project/:projectId")
+  projectExportChecks(@CurrentUser() user: RequestUser, @Param("projectId") projectId: string) {
+    return this.exportRestrictions.checkProject(user, projectId);
+  }
+
+  @Patch("export-restrictions/:restrictionId")
+  updateExportRestriction(@CurrentUser() user: RequestUser, @Param("restrictionId") restrictionId: string, @Body() dto: UpdateExportRestrictionDto) {
+    return this.exportRestrictions.update(user, restrictionId, dto);
+  }
+
+  @Get(":id/export-restrictions")
+  productExportRestrictions(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.exportRestrictions.forProduct(user, id);
   }
 
   /** GET /product-catalog/regulatory-watch/dashboard — source health, run log, pending advisory matches, recent items. */

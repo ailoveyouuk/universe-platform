@@ -107,11 +107,11 @@ export const CONNECTORS: Connector[] = [
 
 export const defaultFetch: FetchLike = async (url) => {
   const u = new URL(url);
-  if (u.hostname !== "api.fda.gov" && u.hostname !== "www.gov.uk") throw new Error(`Host not on the regulatory-watch allow-list: ${u.hostname}`);
+  if (!["api.fda.gov", "www.gov.uk", "assets.publishing.service.gov.uk"].includes(u.hostname)) throw new Error(`Host not on the regulatory-watch allow-list: ${u.hostname}`);
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 30000);
   try {
-    return await fetch(url, { signal: ctl.signal, headers: { accept: "application/json", "user-agent": "universe-regulatory-watch/1.0" } });
+    return await fetch(url, { signal: ctl.signal, headers: { accept: u.hostname === "assets.publishing.service.gov.uk" ? "text/csv" : "application/json", "user-agent": "universe-regulatory-watch/1.0" } });
   } finally {
     clearTimeout(t);
   }

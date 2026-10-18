@@ -5,6 +5,7 @@ import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { ProductCatalogService } from "../src/product-catalog/product-catalog.service";
 import { ProductSafetyNoticesService } from "../src/product-catalog/product-safety-notices.service";
 import { RegulatoryWatchService } from "../src/product-catalog/regulatory-watch.service";
+import { ExportRestrictionsService } from "../src/product-catalog/export-restrictions.service";
 import { productTarget } from "../src/product-catalog/product-target";
 
 /** Regulatory watch: connectors, deterministic matching, idempotent runs, advisory triage (2026-10-18). Real database; no live network. */
@@ -12,7 +13,7 @@ describe("Regulatory watch", () => {
   const suffix = randomUUID().slice(0, 8);
   const gtin = `9${String(Math.floor(Math.random() * 1e12)).padStart(12, "0")}`; // 13 digits
   const safety = new ProductSafetyNoticesService();
-  const watch = new RegulatoryWatchService(safety);
+  const watch = new RegulatoryWatchService(safety, new ExportRestrictionsService());
   const catalogue = new ProductCatalogService();
   let org: string;
   let userId: string;

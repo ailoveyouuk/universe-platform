@@ -12,7 +12,7 @@ import { useCurrentUser } from "../../lib/AuthContext";
  * Matches to catalogue products are ADVISORY. Platform staff confirm a match (which records a safety notice and alerts the
  * organisations using the product) or dismiss it with a reason. Nothing is blocked automatically.
  */
-const SOURCE_LABEL: Record<string, string> = { OPENFDA_DEVICE: "openFDA — devices", OPENFDA_DRUG: "openFDA — drugs", MHRA_ALERTS: "MHRA / GOV.UK alerts" };
+const SOURCE_LABEL: Record<string, string> = { OPENFDA_DEVICE: "openFDA — devices", OPENFDA_DRUG: "openFDA — drugs", MHRA_ALERTS: "MHRA / GOV.UK alerts", UK_EXPORT_RESTRICTIONS: "UK export and hoarding list" };
 const dt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" }) : "never");
 const tone = (s: string): "critical" | "warning" | "neutral" => (s === "CRITICAL" ? "critical" : s === "HIGH" || s === "MEDIUM" ? "warning" : "neutral");
 
@@ -24,6 +24,8 @@ export default function WatchPage() {
   const [busy, setBusy] = useState(false);
   const [dismissing, setDismissing] = useState<string | null>(null);
   const [reason, setReason] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [rf, setRf] = useState<Record<string, string>>({ restrictingCountryCode: "", scope: "BOTH" });
   const load = useCallback(() => { apiClient.getRegulatoryWatchDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   useEffect(load, [load]);
   const run = async (fn: () => Promise<unknown>) => {
@@ -102,6 +104,40 @@ export default function WatchPage() {
                   <span style={{ color: "var(--u-ink-secondary)" }}>{new Date(i.issueDate).toLocaleDateString("en-GB")}</span>
                 </div>
               ))}
+            </div>
+          )}
+          <h2 style={{ fontSize: 15, marginTop: 24 }}>Export and hoarding restrictions</h2>
+          <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 8px" }}>
+            The UK list of medicines that cannot be exported or hoarded is fetched daily. Other countries publish no single feed, so platform staff add their restrictions here with a source link. A project line is flagged when its goods originate in a restricting country and are delivered elsewhere. An initial check only; the legal duty stays with the licence holder.
+          </p>
+          {d.exportRestrictions.length === 0 ? <p style={{ fontSize: 13 }}>None recorded yet. The first daily run loads the UK list.</p> : (
+            <div style={{ maxHeight: 320, overflowY: "auto", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)" }}>
+              <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse" }}>
+                <thead><tr style={{ textAlign: "left", color: "var(--u-ink-secondary)" }}><th style={{ padding: 6 }}>Country</th><th>Medicine</th><th>Strength</th><th>Form</th><th>Listed</th><th>Source</th></tr></thead>
+                <tbody>
+                  {d.exportRestrictions.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid var(--u-border)" }}>
+                      <td style={{ padding: 6 }}>{r.restrictingCountryCode}</td><td>{r.medicineName}</td><td>{r.strength ?? "All"}</td><td>{r.form ?? "All"}</td>
+                      <td>{r.restrictionDate ? new Date(r.restrictionDate).toLocaleDateString("en-GB") : "—"}</td>
+                      <td>{r.source === "MANUAL" ? (r.sourceUrl ? <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer">curated</a> : "curated") : "UK list (daily)"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {isStaff && !adding && <div style={{ marginTop: 10 }}><Button variant="secondary" size="sm" onClick={() => setAdding(true)}>Add a restriction for another country</Button></div>}
+          {isStaff && adding && (
+            <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+              {[["restrictingCountryCode", "Country (2-letter code)"], ["medicineName", "Medicine (generic name)"], ["strength", "Strength (blank = all)"], ["form", "Form (blank = all)"], ["restrictionDate", "Date in force"], ["sourceUrl", "Source link (required)"]].map(([k, l]) => (
+                <label key={k} style={{ fontSize: 12 }}>{l}
+                  <input type={k === "restrictionDate" ? "date" : "text"} style={{ padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={rf[k] ?? ""} onChange={(e) => setRf({ ...rf, [k]: e.target.value })} />
+                </label>
+              ))}
+              <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+                <Button variant="primary" size="sm" disabled={busy || !rf.restrictingCountryCode || !rf.medicineName || !rf.sourceUrl} onClick={() => run(async () => { await apiClient.createExportRestriction(rf as never); setAdding(false); setRf({ restrictingCountryCode: "", scope: "BOTH" }); })}>Save restriction</Button>
+                <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
+              </div>
             </div>
           )}
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Run log</h2>

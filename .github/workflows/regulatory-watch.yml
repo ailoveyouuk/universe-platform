@@ -1,7 +1,7 @@
 name: Regulatory watch
 
 # Daily check of public regulator feeds (openFDA device and drug enforcement reports, MHRA / GOV.UK drug and device alerts)
-# for recalls and safety alerts (Product Database step 4b, 2026-10-18). Read-only fetches from a fixed host allow-list; results
+# for recalls and safety alerts (Product Database step 4b, 2026-10-18), and the UK list of medicines that cannot be exported or hoarded. Read-only fetches from a fixed host allow-list; results
 # are stored idempotently, matched to real catalogue products as ADVISORY flags for platform staff to confirm, and each run is
 # logged in regulatory_watch_runs (evidence that monitoring happened). A failing source fails the run, so GitHub notifies the
 # repository owner. Uses the same database secret as the demo load (the live Universe database).
@@ -15,7 +15,7 @@ on:
         default: true
         type: boolean
       sources:
-        description: "Comma-separated sources (OPENFDA_DEVICE, OPENFDA_DRUG, MHRA_ALERTS). Blank = all."
+        description: "Comma-separated sources (OPENFDA_DEVICE, OPENFDA_DRUG, MHRA_ALERTS, UK_EXPORT_RESTRICTIONS). Blank = all."
         default: ""
         type: string
 
