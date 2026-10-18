@@ -46,8 +46,13 @@ export function daysToExpiry(expiryDate: Date | null, now = Date.now()): number 
   return expiryDate ? Math.floor((expiryDate.getTime() - now) / DAY) : null;
 }
 
-/** Compliance position of a product from its lifecycle and (non-archived) registrations. Safety notices join in step 4. */
-export function computeCompliance(lifecycleStatus: string, regs: Pick<RegRow, "status" | "expiryDate" | "authority" | "referenceNumber">[], now = Date.now()): ProductComplianceStatus {
+/** Compliance position of a product from its lifecycle, (non-archived) registrations and open safety notices. */
+export function computeCompliance(
+  lifecycleStatus: string,
+  regs: Pick<RegRow, "status" | "expiryDate" | "authority" | "referenceNumber">[],
+  now = Date.now(),
+  notices: { severity: string; noticeType: string; title: string }[] = [],
+): ProductComplianceStatus {
   const reasons: string[] = [];
   let status: ProductComplianceStatus["status"] = "OK";
   const bump = (s: ProductComplianceStatus["status"]) => { if (s === "BLOCKED" || (s === "WARNING" && status === "OK")) status = s; };
@@ -55,6 +60,11 @@ export function computeCompliance(lifecycleStatus: string, regs: Pick<RegRow, "s
   else if (lifecycleStatus === "RESTRICTED") { bump("WARNING"); reasons.push("Product is restricted"); }
   else if (lifecycleStatus === "DISCONTINUED") { bump("WARNING"); reasons.push("Product is discontinued"); }
   else if (lifecycleStatus === "DRAFT") { bump("WARNING"); reasons.push("Catalogue entry is still a draft"); }
+  for (const n of notices) {
+    const label = n.noticeType === "RECALL" ? "Open recall" : "Open safety notice";
+    if (n.severity === "CRITICAL") { bump("BLOCKED"); reasons.push(`${label}: ${n.title}`); }
+    else { bump("WARNING"); reasons.push(`${label}: ${n.title}`); }
+  }
   if (regs.length === 0) { bump("WARNING"); reasons.push("No regulatory registration recorded"); }
   else {
     const eff = regs.map((r) => ({ ...r, eff: effectiveStatus(r.status, r.expiryDate, now) }));

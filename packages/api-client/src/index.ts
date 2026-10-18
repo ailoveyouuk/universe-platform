@@ -50,6 +50,12 @@ import type {
   ProductChangeEntry,
   ProductUsageSummary,
   ProductRegistrationSummary,
+  ProductSafetyNoticeSummary,
+  CreateSafetyNoticeInput,
+  UpdateSafetyNoticeInput,
+  ReviewSafetyNoticeInput,
+  ProductSafetyFlag,
+  SafetyNoticeDashboard,
   CreateRegistrationInput,
   UpdateRegistrationInput,
   VerifyRegistrationInput,
@@ -625,6 +631,31 @@ export class UniverseApiClient {
   }
   updateProductRegistration(registrationId: string, input: UpdateRegistrationInput): Promise<ProductRegistrationSummary> {
     return this.request(`/product-catalog/registrations/${registrationId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  /** Safety notices and recalls (Product Database step 4, 2026-10-18). Notices are shared; the review is the caller's organisation's own. */
+  listProductSafetyNotices(productMasterId: string, includeArchived = false): Promise<ProductSafetyNoticeSummary[]> {
+    return this.request(`/product-catalog/${productMasterId}/safety-notices${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  createProductSafetyNotice(productMasterId: string, input: CreateSafetyNoticeInput): Promise<ProductSafetyNoticeSummary> {
+    return this.request(`/product-catalog/${productMasterId}/safety-notices`, { method: "POST", body: JSON.stringify(input) });
+  }
+  listFamilySafetyNotices(familyId: string, includeArchived = false): Promise<ProductSafetyNoticeSummary[]> {
+    return this.request(`/product-catalog/families/${familyId}/safety-notices${includeArchived ? "?includeArchived=true" : ""}`);
+  }
+  createFamilySafetyNotice(familyId: string, input: CreateSafetyNoticeInput): Promise<ProductSafetyNoticeSummary> {
+    return this.request(`/product-catalog/families/${familyId}/safety-notices`, { method: "POST", body: JSON.stringify(input) });
+  }
+  updateSafetyNotice(noticeId: string, input: UpdateSafetyNoticeInput): Promise<ProductSafetyNoticeSummary> {
+    return this.request(`/product-catalog/safety-notices/${noticeId}`, { method: "PATCH", body: JSON.stringify(input) });
+  }
+  reviewSafetyNotice(noticeId: string, input: ReviewSafetyNoticeInput): Promise<ProductSafetyNoticeSummary> {
+    return this.request(`/product-catalog/safety-notices/${noticeId}/review`, { method: "POST", body: JSON.stringify(input) });
+  }
+  getSafetyNoticeDashboard(): Promise<SafetyNoticeDashboard> {
+    return this.request(`/product-catalog/safety-notices/dashboard`);
+  }
+  getProductSafetyFlags(productMasterIds: string[]): Promise<ProductSafetyFlag[]> {
+    return this.request(`/product-catalog/safety-notices/flags?ids=${encodeURIComponent(productMasterIds.join(","))}`);
   }
   verifyProductRegistration(registrationId: string, input: VerifyRegistrationInput): Promise<ProductRegistrationSummary> {
     return this.request(`/product-catalog/registrations/${registrationId}/verify`, { method: "POST", body: JSON.stringify(input) });

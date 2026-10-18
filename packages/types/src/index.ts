@@ -1660,7 +1660,95 @@ export interface VerifyRegistrationInput {
   nextReverificationDue?: string;
 }
 
-/** Computed per product from lifecycle, registrations and (later) safety notices. */
+/** Product Database step 4 (2026-10-18): an organisation's own review of a safety notice (private to it). */
+export interface SafetyNoticeReviewSummary {
+  id: string;
+  /** CHECKED_NO_IMPACT | NOT_APPLICABLE | ACTION_TAKEN | AFFECTED */
+  outcome: string;
+  notes: string | null;
+  reviewedByName: string;
+  reviewedAt: string;
+}
+
+/** A shared safety notice / recall / field safety notice plus the caller's organisation's own latest review. */
+export interface ProductSafetyNoticeSummary {
+  id: string;
+  productMasterId: string | null;
+  productFamilyId: string | null;
+  /** True when shown on a variant but held by its family. */
+  inherited: boolean;
+  /** Name of the variant or family the notice is attached to. */
+  productName: string;
+  /** RECALL | FIELD_SAFETY_NOTICE | SAFETY_ALERT | FALSIFIED_ALERT | SUPPLY_ALERT */
+  noticeType: string;
+  /** CRITICAL | HIGH | MEDIUM | LOW */
+  severity: string;
+  authority: string;
+  referenceNumber: string | null;
+  title: string;
+  summary: string;
+  actionRequired: string | null;
+  affectedBatches: string | null;
+  countryCodes: string | null;
+  issueDate: string;
+  /** OPEN | CLOSED */
+  status: string;
+  closedDate: string | null;
+  closedReason: string | null;
+  sourceUrl: string | null;
+  contributedByOrganizationName: string | null;
+  isArchived: boolean;
+  /** The caller's organisation's newest review, if any. */
+  myReview: SafetyNoticeReviewSummary | null;
+  /** Open and not yet reviewed by the caller's organisation. */
+  needsReview: boolean;
+}
+
+export interface CreateSafetyNoticeInput {
+  noticeType: string;
+  severity: string;
+  authority: string;
+  referenceNumber?: string;
+  title: string;
+  summary: string;
+  actionRequired?: string;
+  affectedBatches?: string;
+  countryCodes?: string;
+  issueDate: string;
+  sourceUrl?: string;
+}
+
+export interface UpdateSafetyNoticeInput extends Partial<CreateSafetyNoticeInput> {
+  status?: string;
+  closedReason?: string;
+  isArchived?: boolean;
+  /** Platform staff only. */
+  verificationLevel?: string;
+}
+
+export interface ReviewSafetyNoticeInput {
+  outcome: string;
+  notes?: string;
+}
+
+/** Per-product safety position for the caller's organisation (used to flag project lines). */
+export interface ProductSafetyFlag {
+  productMasterId: string;
+  openNotices: number;
+  criticalOpen: number;
+  /** Open notices this organisation has not yet reviewed. */
+  unreviewed: number;
+  /** Title of the most severe open notice. */
+  headline: string | null;
+}
+
+export interface SafetyNoticeDashboard {
+  totals: { open: number; critical: number; closedLast90Days: number; productsAffected: number };
+  mine: { awaitingReview: number; affected: number; actionTaken: number; onMyProjectLines: number };
+  items: ProductSafetyNoticeSummary[];
+}
+
+/** Computed per product from lifecycle, registrations and open safety notices. */
 export interface ProductComplianceStatus {
   status: "OK" | "WARNING" | "BLOCKED";
   reasons: string[];

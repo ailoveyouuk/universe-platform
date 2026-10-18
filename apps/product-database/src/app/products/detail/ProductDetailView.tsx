@@ -9,6 +9,7 @@ import type {
   ProductBatchSummary,
   ProductChangeEntry,
   ProductRegistrationSummary,
+  ProductSafetyNoticeSummary,
   ProductDocumentSummary,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
@@ -448,6 +449,153 @@ const authorityLabel = (a: string) => AUTHORITIES.find(([k]) => k === a)?.[1] ??
 const regTone = (s: string): "good" | "warning" | "critical" | "neutral" =>
   s === "ACTIVE" ? "good" : s === "PENDING" ? "neutral" : s === "EXPIRED" || s === "SUSPENDED" || s === "WITHDRAWN" || s === "REFUSED" ? "critical" : "neutral";
 
+/* ---------- Safety notices (step 4) ---------- */
+
+const NOTICE_TYPES: [string, string][] = [["RECALL", "Recall"], ["FIELD_SAFETY_NOTICE", "Field safety notice"], ["SAFETY_ALERT", "Safety alert"], ["FALSIFIED_ALERT", "Falsified / substandard alert"], ["SUPPLY_ALERT", "Supply alert"]];
+const SEVERITIES: [string, string][] = [["CRITICAL", "Critical (class I)"], ["HIGH", "High (class II)"], ["MEDIUM", "Medium (class III)"], ["LOW", "Advisory"]];
+const noticeTypeLabel = (t: string) => NOTICE_TYPES.find(([k]) => k === t)?.[1] ?? t;
+const severityTone = (s: string): "critical" | "warning" | "neutral" => (s === "CRITICAL" ? "critical" : s === "HIGH" || s === "MEDIUM" ? "warning" : "neutral");
+const REVIEW_LABELS: Record<string, string> = { CHECKED_NO_IMPACT: "Checked, no impact", NOT_APPLICABLE: "Not applicable to us", ACTION_TAKEN: "Action taken", AFFECTED: "We are affected" };
+const NOTICE_AUTHORITIES: [string, string][] = [...AUTHORITIES.filter(([k]) => k !== "OTHER"), ["MANUFACTURER", "Manufacturer"], ["OTHER", "Other"]];
+
+export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalogDetail; familyId?: string }) {
+  const user = useCurrentUser();
+  const [items, setItems] = useState<ProductSafetyNoticeSummary[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [closing, setClosing] = useState<string | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({ noticeType: "RECALL", severity: "HIGH", authority: "FDA" });
+  const [rform, setRform] = useState<Record<string, string>>({ outcome: "CHECKED_NO_IMPACT" });
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const perms: string[] = ((user as unknown as { permissions?: string[] })?.permissions) ?? [];
+  const isStaff = !!(user as unknown as { platformStaffRole?: string })?.platformStaffRole && (user as unknown as { platformStaffRole?: string }).platformStaffRole !== "NONE";
+  const canManage = isStaff || perms.includes("products.approve");
+  const load = useCallback(() => {
+    (familyId ? apiClient.listFamilySafetyNotices(familyId, true) : apiClient.listProductSafetyNotices(detail!.id, true)).then(setItems).catch((e) => setErr(e instanceof Error ? e.message : "Could not load safety notices."));
+  }, [detail, familyId]);
+  useEffect(load, [load]);
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true); setErr(null);
+    try { await fn(); load(); setAdding(false); setReviewing(null); setClosing(null); setReason(""); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); }
+  };
+  const input: CSSProperties = { padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" };
+  const f = (k: string, label: string, type = "text") => (
+    <label key={k} style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{label}
+      <input type={type} style={input} value={form[k] ?? ""} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+    </label>
+  );
+  const openCount = items?.filter((n) => n.status === "OPEN" && !n.isArchived).length ?? 0;
+
+  return (
+    <Card title="Safety notices and recalls" note="The notice is shared, so every organisation sees the same record. Your review below is private to your organisation. Saving a notice alerts the QA team of every organisation that uses the product.">
+      {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {items === null ? <p style={{ fontSize: 13 }}>Loading…</p> : items.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>
+          No safety notices or recalls recorded for this product. Automated monitoring of external regulators is not yet active, so an empty list is not a clearance.
+        </p>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {openCount === 0 && <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No open notices. Closed and archived notices are shown below.</p>}
+          {items.map((n) => (
+            <div key={n.id} style={{ border: `1px solid ${n.status === "OPEN" && n.severity === "CRITICAL" ? "var(--u-status-critical)" : "var(--u-border)"}`, borderRadius: "var(--u-radius-md)", padding: 12, opacity: n.isArchived || n.status === "CLOSED" ? 0.7 : 1 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <strong style={{ fontSize: 14 }}>{n.title}</strong>
+                  <Pill tone={severityTone(n.severity)}>{SEVERITIES.find(([k]) => k === n.severity)?.[1] ?? n.severity}</Pill>
+                  <Pill tone="neutral">{noticeTypeLabel(n.noticeType)}</Pill>
+                  <Pill tone={n.status === "OPEN" ? "warning" : "good"}>{n.status === "OPEN" ? "Open" : "Closed"}</Pill>
+                  {n.isArchived && <Pill tone="neutral">Archived</Pill>}
+                  {n.inherited && <Pill tone="brand">Applies via family</Pill>}
+                  {!n.inherited && familyId && n.productMasterId && <Pill tone="brand">{n.productName}</Pill>}
+                </div>
+                {n.sourceUrl && <a href={n.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>View source <ExternalLinkIcon size={13} /></span></a>}
+              </div>
+              <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+                {[n.authority === "MANUFACTURER" ? "Manufacturer" : authorityLabel(n.authority), n.referenceNumber, `Issued ${dateOnly(n.issueDate)}`, n.countryCodes ? `Countries: ${n.countryCodes.split(",").join(", ")}` : "Worldwide / not stated"].filter(Boolean).join(" · ")}
+                {n.contributedByOrganizationName ? ` · Recorded by ${n.contributedByOrganizationName}` : ""}
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: 13 }}>{n.summary}</p>
+              {n.actionRequired && <p style={{ margin: "6px 0 0", fontSize: 13 }}><strong>Action required:</strong> {n.actionRequired}</p>}
+              {n.affectedBatches && <p style={{ margin: "6px 0 0", fontSize: 13 }}><strong>Affected batches:</strong> {n.affectedBatches}</p>}
+              {n.status === "CLOSED" && <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Closed {dateOnly(n.closedDate)}{n.closedReason ? ` — ${n.closedReason}` : ""}</p>}
+              <div style={{ marginTop: 8, fontSize: 12.5, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                {n.myReview ? (
+                  <span>
+                    <Pill tone={n.myReview.outcome === "AFFECTED" ? "critical" : n.myReview.outcome === "ACTION_TAKEN" ? "warning" : n.myReview.outcome === "CHECKED_NO_IMPACT" ? "good" : "neutral"}>{REVIEW_LABELS[n.myReview.outcome] ?? n.myReview.outcome}</Pill>{" "}
+                    by {n.myReview.reviewedByName} on {dateOnly(n.myReview.reviewedAt)}{n.myReview.notes ? ` — ${n.myReview.notes}` : ""}
+                  </span>
+                ) : n.status === "OPEN" ? <span style={{ color: "var(--u-status-critical)" }}>Not yet reviewed by your organisation.</span> : <span style={{ color: "var(--u-ink-secondary)" }}>Not reviewed by your organisation.</span>}
+                {canManage && !n.isArchived && n.status === "OPEN" && <Button variant="secondary" size="sm" onClick={() => { setReviewing(n.id); setRform({ outcome: "CHECKED_NO_IMPACT" }); }}>Record our review</Button>}
+                {isStaff && !n.isArchived && n.status === "OPEN" && <Button variant="secondary" size="sm" onClick={() => setClosing(n.id)}>Close notice</Button>}
+                {isStaff && n.status === "CLOSED" && !n.isArchived && <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateSafetyNotice(n.id, { status: "OPEN" }))}>Reopen</Button>}
+                {isStaff && <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateSafetyNotice(n.id, { isArchived: !n.isArchived }))}>{n.isArchived ? "Restore" : "Archive"}</Button>}
+              </div>
+              {reviewing === n.id && (
+                <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                  <label style={{ fontSize: 12 }}>Outcome
+                    <select style={input} value={rform.outcome} onChange={(e) => setRform({ ...rform, outcome: e.target.value })}>
+                      {Object.entries(REVIEW_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>Notes {rform.outcome !== "CHECKED_NO_IMPACT" ? "(required)" : ""}
+                    <input style={input} value={rform.notes ?? ""} onChange={(e) => setRform({ ...rform, notes: e.target.value })} />
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Button variant="primary" size="sm" disabled={busy} onClick={() => run(() => apiClient.reviewSafetyNotice(n.id, rform as never))}>Save review</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setReviewing(null)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+              {closing === n.id && (
+                <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                  <label style={{ fontSize: 12 }}>Reason for closing (required)
+                    <input style={input} value={reason} onChange={(e) => setReason(e.target.value)} />
+                  </label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Button variant="primary" size="sm" disabled={busy || !reason.trim()} onClick={() => run(() => apiClient.updateSafetyNotice(n.id, { status: "CLOSED", closedReason: reason }))}>Close notice</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setClosing(null)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canManage && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Record safety notice</Button></div>}
+      {adding && (
+        <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <label style={{ fontSize: 12 }}>Type
+            <select style={input} value={form.noticeType} onChange={(e) => setForm({ ...form, noticeType: e.target.value })}>{NOTICE_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          </label>
+          <label style={{ fontSize: 12 }}>Severity
+            <select style={input} value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>{SEVERITIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          </label>
+          <label style={{ fontSize: 12 }}>Issued by
+            <select style={input} value={form.authority} onChange={(e) => setForm({ ...form, authority: e.target.value })}>{NOTICE_AUTHORITIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          </label>
+          {f("referenceNumber", "Reference number")}{f("issueDate", "Issue date", "date")}{f("countryCodes", "Countries (e.g. GB, KE) — blank = worldwide")}
+          {f("title", "Title")}{f("sourceUrl", "Source link")}
+          <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>Summary
+            <textarea style={{ ...input, minHeight: 64 }} value={form.summary ?? ""} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
+          </label>
+          <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>Action required
+            <textarea style={{ ...input, minHeight: 48 }} value={form.actionRequired ?? ""} onChange={(e) => setForm({ ...form, actionRequired: e.target.value })} />
+          </label>
+          <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>Affected batches
+            <input style={input} value={form.affectedBatches ?? ""} onChange={(e) => setForm({ ...form, affectedBatches: e.target.value })} />
+          </label>
+          <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+            <Button variant="primary" size="sm" disabled={busy || !form.title || !form.summary || !form.issueDate} onClick={() => run(() => (familyId ? apiClient.createFamilySafetyNotice(familyId, form as never) : apiClient.createProductSafetyNotice(detail!.id, form as never)))}>Save notice</Button>
+            <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDetail; familyId?: string }) {
   const user = useCurrentUser();
   const lc = detail ? lifecycleMeta(detail.lifecycleStatus) : null;
@@ -487,7 +635,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
         <strong style={{ color: compColor }}>{comp.status === "OK" ? "Active registration on record" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
         {comp.reasons.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{comp.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>
-          Based on recorded registrations and lifecycle only. Recall and safety-notice monitoring is not yet active, so this is not a clearance.
+          Based on recorded registrations, lifecycle and open safety notices. Automated monitoring of external regulators is not yet active, so this is not a clearance.
         </p>
       </div>}
 
@@ -580,6 +728,8 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
         )}
       </Card>
 
+      <SafetyNoticesCard detail={detail} familyId={familyId} />
+
       {detail && lc && (<>
       <Card title="Current status">
         <Facts rows={[
@@ -591,11 +741,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
           ["Hazard class", detail.hazardClass],
         ]} />
       </Card>
-      <Card title="Safety notices" note="Coming next in the Product Database build.">
-        <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
-          Recall and safety notices will appear here. Until then no alert monitoring has run for this product — an empty list does not mean the product is clear.
-        </p>
-      </Card>
+
       </>)}
     </div>
   );

@@ -237,6 +237,32 @@ export const RegistrationVerificationOutcome = {
 } as const;
 export type RegistrationVerificationOutcome = (typeof RegistrationVerificationOutcome)[keyof typeof RegistrationVerificationOutcome];
 
+export const SafetyNoticeType = {
+  RECALL: "RECALL",
+  FIELD_SAFETY_NOTICE: "FIELD_SAFETY_NOTICE",
+  SAFETY_ALERT: "SAFETY_ALERT",
+  FALSIFIED_ALERT: "FALSIFIED_ALERT",
+  SUPPLY_ALERT: "SUPPLY_ALERT",
+} as const;
+export type SafetyNoticeType = (typeof SafetyNoticeType)[keyof typeof SafetyNoticeType];
+
+/// CRITICAL = class I recall (serious health risk) — blocks the product; HIGH = class II; MEDIUM = class III; LOW = advisory.
+export const SafetyNoticeSeverity = {
+  CRITICAL: "CRITICAL",
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+export type SafetyNoticeSeverity = (typeof SafetyNoticeSeverity)[keyof typeof SafetyNoticeSeverity];
+
+export const SafetyNoticeReviewOutcome = {
+  CHECKED_NO_IMPACT: "CHECKED_NO_IMPACT",
+  NOT_APPLICABLE: "NOT_APPLICABLE",
+  ACTION_TAKEN: "ACTION_TAKEN",
+  AFFECTED: "AFFECTED",
+} as const;
+export type SafetyNoticeReviewOutcome = (typeof SafetyNoticeReviewOutcome)[keyof typeof SafetyNoticeReviewOutcome];
+
 /// Expanded 2026-10-02 after a research pass on real-world supplier
 /// files — covers every document type actually observed, not just the
 /// original four.

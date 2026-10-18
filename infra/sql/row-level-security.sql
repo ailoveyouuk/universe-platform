@@ -236,6 +236,12 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_registration_verifications AFTER UPDATE,
 
+    -- product_safety_notice_reviews — an organisation's own review ("checked / not applicable / action taken / affected")
+    -- of a (shared) product safety notice or recall, added 2026-10-18. Tenant-scoped; the notices themselves are shared.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_safety_notice_reviews,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_safety_notice_reviews AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_safety_notice_reviews AFTER UPDATE,
+
     -- product_documents — controlled product documents (certificates, IFU, SDS, specifications...), added
     -- 2026-10-18. Tenant-scoped: each organisation's documents are private to it.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_documents,

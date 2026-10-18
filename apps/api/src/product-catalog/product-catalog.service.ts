@@ -4,6 +4,7 @@ import { prisma, withTenantContext, type Prisma } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { recordFieldChanges } from "../common/audit-log";
 import { computeCompliance } from "./product-registrations.service";
+import { openNoticesForCompliance } from "./product-safety-notices.service";
 import { writeTargetChanges } from "./product-target";
 import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
 import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
@@ -214,6 +215,8 @@ export class ProductCatalogService {
           where: { isArchived: false, OR: family ? [{ productMasterId: id }, { productFamilyId: family.id }] : [{ productMasterId: id }] },
           select: { status: true, expiryDate: true, authority: true, referenceNumber: true },
         }),
+        Date.now(),
+        await openNoticesForCompliance({ kind: "product", id, familyId: family ? family.id : null }),
       ),
       attributeDefinitions: attributeDefinitions.map((a) => ({
         attributeKey: a.attributeKey,

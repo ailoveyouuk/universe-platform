@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { RegulatoryDashboard } from "@universe/types";
+import type { RegulatoryDashboard, SafetyNoticeDashboard } from "@universe/types";
 import { AlertIcon, BanIcon, CalendarXIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, FileEditIcon, HelpCircleIcon, Pill, RefreshIcon, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 
@@ -11,7 +11,9 @@ const AUTH: Record<string, string> = { WHO_PQ: "WHO PQ", WHO_EUL: "WHO EUL", FDA
 
 export default function RegulatoryPage() {
   const [d, setD] = useState<RegulatoryDashboard | null>(null);
+  const [sd, setSd] = useState<SafetyNoticeDashboard | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { apiClient.getSafetyNoticeDashboard().then(setSd).catch(() => undefined); }, []);
   useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   const n = (v: number) => v.toLocaleString("en-GB");
   return (
@@ -39,6 +41,29 @@ export default function RegulatoryPage() {
             <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<CalendarXIcon size={20} />} tone="critical" />
             <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<AlertIcon size={20} />} tone="critical" />
           </div>
+          {sd && (<>
+            <h2 style={{ fontSize: 15, marginTop: 24 }}>Safety notices and recalls</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+              <StatTile label="Open notices" value={n(sd.totals.open)} icon={<AlertIcon size={20} />} tone="warning" />
+              <StatTile label="Open critical (class I)" value={n(sd.totals.critical)} icon={<BanIcon size={20} />} tone="critical" />
+              <StatTile label="Awaiting your review" value={n(sd.mine.awaitingReview)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
+              <StatTile label="On your project lines" value={n(sd.mine.onMyProjectLines)} icon={<ShieldIcon size={20} />} tone="critical" />
+              <StatTile label="We are affected" value={n(sd.mine.affected)} icon={<AlertIcon size={20} />} tone="critical" />
+              <StatTile label="Closed in last 90 days" value={n(sd.totals.closedLast90Days)} icon={<CheckCircleIcon size={20} />} tone="good" />
+            </div>
+            {sd.items.length > 0 && (
+              <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+                {sd.items.map((x) => (
+                  <Link key={x.id} href={x.productMasterId ? `/products/detail?id=${x.productMasterId}` : `/families/detail?id=${x.productFamilyId}`} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "8px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", textDecoration: "none", color: "inherit", fontSize: 13 }}>
+                    <strong>{x.productName}</strong>
+                    <span>{x.title}</span>
+                    <Pill tone={x.severity === "CRITICAL" ? "critical" : "warning"}>{x.severity.toLowerCase()}</Pill>
+                    {x.needsReview && <Pill tone="critical">needs your review</Pill>}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>)}
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Needs attention</h2>
           {d.attention.length === 0 ? <p style={{ fontSize: 13 }}>Nothing expiring soon or suspended.</p> : (
             <div style={{ display: "grid", gap: 6 }}>
@@ -51,7 +76,7 @@ export default function RegulatoryPage() {
               ))}
             </div>
           )}
-          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations only. Automated recall and safety-alert monitoring is not yet active.</p>
+          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations and notices only. Automated monitoring of external regulators is not yet active.</p>
         </>
       )}
     </main>

@@ -7,6 +7,8 @@ import { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductRegistrationsService } from "./product-registrations.service";
+import { ProductSafetyNoticesService } from "./product-safety-notices.service";
+import { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 import { familyTarget, productTarget } from "./product-target";
 import { ProductFamiliesService } from "./product-families.service";
@@ -39,6 +41,7 @@ export class ProductCatalogController {
   constructor(
     private readonly productCatalogService: ProductCatalogService,
     private readonly registrations: ProductRegistrationsService,
+    private readonly safety: ProductSafetyNoticesService,
     private readonly documents: ProductDocumentsService,
     private readonly families: ProductFamiliesService,
   ) {}
@@ -89,6 +92,40 @@ export class ProductCatalogController {
   @Get("regulatory/dashboard")
   regulatoryDashboard(@CurrentUser() user: RequestUser) {
     return this.registrations.dashboard(user);
+  }
+
+  /** GET /product-catalog/safety-notices/dashboard — open notices plus the caller's organisation's review queue. */
+  @Get("safety-notices/dashboard")
+  safetyDashboard(@CurrentUser() user: RequestUser) {
+    return this.safety.dashboard(user);
+  }
+
+  /** GET /product-catalog/safety-notices/flags?ids=a,b — open-notice position per product, for project-line flags. */
+  @Get("safety-notices/flags")
+  safetyFlags(@CurrentUser() user: RequestUser, @Query("ids") ids?: string) {
+    return this.safety.flags(user, (ids ?? "").split(",").map((i) => i.trim()).filter(Boolean));
+  }
+
+  /** PATCH /product-catalog/safety-notices/:noticeId — edit, close (status CLOSED with a reason) or archive; nothing is deleted. */
+  @Patch("safety-notices/:noticeId")
+  updateSafetyNotice(@CurrentUser() user: RequestUser, @Param("noticeId") noticeId: string, @Body() dto: UpdateSafetyNoticeDto) {
+    return this.safety.update(user, noticeId, dto);
+  }
+
+  /** POST /product-catalog/safety-notices/:noticeId/review — the caller's organisation records its own check. */
+  @Post("safety-notices/:noticeId/review")
+  reviewSafetyNotice(@CurrentUser() user: RequestUser, @Param("noticeId") noticeId: string, @Body() dto: ReviewSafetyNoticeDto) {
+    return this.safety.review(user, noticeId, dto);
+  }
+
+  @Get("families/:familyId/safety-notices")
+  listFamilySafetyNotices(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Query("includeArchived") includeArchived?: string) {
+    return this.safety.list(user, familyTarget(familyId), includeArchived === "true");
+  }
+
+  @Post("families/:familyId/safety-notices")
+  createFamilySafetyNotice(@CurrentUser() user: RequestUser, @Param("familyId") familyId: string, @Body() dto: CreateSafetyNoticeDto) {
+    return this.safety.create(user, familyTarget(familyId), dto);
   }
 
   /** PATCH /product-catalog/registrations/:registrationId — nothing is deleted; retire with isArchived. */
@@ -231,6 +268,16 @@ export class ProductCatalogController {
    * separate, more specific path — not ambiguous with ":id" the way
    * "search"/"import" were. */
   /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
+  @Get(":id/safety-notices")
+  listSafetyNotices(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
+    return this.safety.list(user, productTarget(id), includeArchived === "true");
+  }
+
+  @Post(":id/safety-notices")
+  createSafetyNotice(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateSafetyNoticeDto) {
+    return this.safety.create(user, productTarget(id), dto);
+  }
+
   @Get(":id/registrations")
   listRegistrations(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("includeArchived") includeArchived?: string) {
     return this.registrations.list(user, productTarget(id), includeArchived === "true");

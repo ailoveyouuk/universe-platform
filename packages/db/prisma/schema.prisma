@@ -266,52 +266,52 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                         User[]
-  roles                         Role[]
-  partners                      Partner[]
-  projects                      Project[]
-  productLines                  ProductLine[]
-  dataSharingConsents           DataSharingConsent[]
-  productSourceApprovals        ProductSourceApproval[]
-  supplierProfile               SupplierProfile?
-  supplierProducts              SupplierProduct[]
-  supplierCountryPresence       SupplierCountryPresence[]
-  supplierLeadsAsSupplier       SupplierLead[]               @relation("SupplierLeadSupplier")
-  supplierLeadsAsBuyer          SupplierLead[]               @relation("SupplierLeadBuyer")
+  users                            User[]
+  roles                            Role[]
+  partners                         Partner[]
+  projects                         Project[]
+  productLines                     ProductLine[]
+  dataSharingConsents              DataSharingConsent[]
+  productSourceApprovals           ProductSourceApproval[]
+  supplierProfile                  SupplierProfile?
+  supplierProducts                 SupplierProduct[]
+  supplierCountryPresence          SupplierCountryPresence[]
+  supplierLeadsAsSupplier          SupplierLead[]                    @relation("SupplierLeadSupplier")
+  supplierLeadsAsBuyer             SupplierLead[]                    @relation("SupplierLeadBuyer")
   /// Added 2026-10-02 — see StakeholderRegistryEntry's doc comment
   /// (duplicate-prevention + identity-consent scaffolding).
-  stakeholderRegistryEntries    StakeholderRegistryEntry[]
+  stakeholderRegistryEntries       StakeholderRegistryEntry[]
   /// Added 2026-10-02 — ProductMaster entries this org originally
   /// contributed (see ProductMaster.addedByOrganizationId's doc comment).
-  productMastersAdded           ProductMaster[]
+  productMastersAdded              ProductMaster[]
   /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 1/9.
-  fieldChangeLogs               FieldChangeLog[]
-  notifications                 Notification[]
+  fieldChangeLogs                  FieldChangeLog[]
+  notifications                    Notification[]
   /// Added 2026-10-07 — compliance-standards-gap-analysis.md Gap 4.
-  riskAssessments               RiskAssessment[]
+  riskAssessments                  RiskAssessment[]
   /// Added 2026-10-07 — GDP gap-closing build, Gap 3 (Standards & Evidence
   /// scaffolding): each organisation builds its own catalog of standards.
-  evidenceStandardDefinitions   EvidenceStandardDefinition[]
-  stakeholderEvidenceRecords    StakeholderEvidenceRecord[]
+  evidenceStandardDefinitions      EvidenceStandardDefinition[]
+  stakeholderEvidenceRecords       StakeholderEvidenceRecord[]
   /// Added 2026-10-07 — GDP gap-closing build, Gaps 5/6 (batch
   /// traceability + cold-chain temperature logging).
-  productBatches                ProductBatch[]
-  batchTemperatureLogs          BatchTemperatureLog[]
+  productBatches                   ProductBatch[]
+  batchTemperatureLogs             BatchTemperatureLog[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
-  controlledDocuments           ControlledDocument[]
+  controlledDocuments              ControlledDocument[]
   /// Added 2026-10-07 — organizationId backfill, see each model's doc
   /// comment (compliance-standards-gap-analysis.md Gap 1 cross-check).
-  partnerCertifications         PartnerCertification[]
-  partnerCompanyChecks          PartnerCompanyCheck[]
-  partnerApprovalHistoryEntries PartnerApprovalHistory[]
+  partnerCertifications            PartnerCertification[]
+  partnerCompanyChecks             PartnerCompanyCheck[]
+  partnerApprovalHistoryEntries    PartnerApprovalHistory[]
   /// Added 2026-10-14 — same organizationId backfill as the three above,
   /// just four weeks later (see PartnerFinancialDetail's own doc comment).
-  partnerFinancialDetails       PartnerFinancialDetail[]
+  partnerFinancialDetails          PartnerFinancialDetail[]
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow:
   /// amendments proposed by users belonging to this org.
-  productAmendments             ProductAmendment[]
+  productAmendments                ProductAmendment[]
   productRegistrationVerifications ProductRegistrationVerification[]
-  productDocuments ProductDocument[]
+  productDocuments                 ProductDocument[]
 
   // Onboarding data model, 2026-09-26 (admin-onboarding-intake-spec.md
   // Phase 1) — universal "countries of operation" plus one optional
@@ -332,6 +332,7 @@ model Organization {
   /// uses. Lets a procurement-agent org eventually be asked "which
   /// tendering bodies use us" without a new query shape.
   tenderingBodiesUsingAsAgent TenderingBodyProfile[]         @relation("TenderingBodyProcurementAgent")
+  productSafetyNoticeReviews  ProductSafetyNoticeReview[]
 
   @@map("organizations")
 }
@@ -373,27 +374,28 @@ model User {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  projectLeads                 ProjectLead[]
-  userRoles                    UserRole[]
-  uploadedDocuments            ProjectDocument[]
-  recordedPrices               ProductPriceHistory[]
-  acceptedConsents             DataSharingConsent[]
-  createdSupplierProducts      SupplierProduct[]
+  projectLeads                     ProjectLead[]
+  userRoles                        UserRole[]
+  uploadedDocuments                ProjectDocument[]
+  recordedPrices                   ProductPriceHistory[]
+  acceptedConsents                 DataSharingConsent[]
+  createdSupplierProducts          SupplierProduct[]
   /// Added 2026-09-30 — see ProjectStatusHistory model.
-  recordedProjectStatusChanges ProjectStatusHistory[]
+  recordedProjectStatusChanges     ProjectStatusHistory[]
   /// Added 2026-10-07 — see RiskAssessment.owner.
-  ownedRiskAssessments         RiskAssessment[]
+  ownedRiskAssessments             RiskAssessment[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
-  approvedControlledDocuments  ControlledDocument[]
+  approvedControlledDocuments      ControlledDocument[]
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow.
-  submittedProductAmendments   ProductAmendment[]     @relation("ProductAmendmentSubmittedBy")
-  reviewedProductAmendments    ProductAmendment[]     @relation("ProductAmendmentReviewedBy")
+  submittedProductAmendments       ProductAmendment[]                @relation("ProductAmendmentSubmittedBy")
+  reviewedProductAmendments        ProductAmendment[]                @relation("ProductAmendmentReviewedBy")
   productRegistrationVerifications ProductRegistrationVerification[]
-  productDocumentsUploaded ProductDocument[] @relation("ProductDocumentUploader")
-  productDocumentsApproved ProductDocument[] @relation("ProductDocumentApprover")
+  productDocumentsUploaded         ProductDocument[]                 @relation("ProductDocumentUploader")
+  productDocumentsApproved         ProductDocument[]                 @relation("ProductDocumentApprover")
   /// Added 2026-10-16 — in-app notifications / actions, see Notification.
-  notifications                Notification[]         @relation("NotificationRecipient")
-  triggeredNotifications       Notification[]         @relation("NotificationActor")
+  notifications                    Notification[]                    @relation("NotificationRecipient")
+  triggeredNotifications           Notification[]                    @relation("NotificationActor")
+  safetyNoticeReviews              ProductSafetyNoticeReview[]       @relation("SafetyNoticeReviewer")
 
   @@index([organizationId])
   @@index([organizationId, status, invitedAt])
@@ -1643,7 +1645,7 @@ model ProductLine {
 /// the WHO Essential Medicines List) plus a procurement agent's own owned GTIN data, and
 /// grown organically as tenants' real products get matched/added over time.
 model ProductMaster {
-  id                              String        @id @default(uuid())
+  id                              String         @id @default(uuid())
   name                            String
   /// Hierarchical category path, e.g. "Laboratory Consumables.Cryovial" —
   /// what ProductAttributeDefinition below is keyed against.
@@ -1656,15 +1658,15 @@ model ProductMaster {
   gtin                            String?
   standardUnit                    String?
   canonicalManufacturerPartNumber String?
-  expectedQualityDocumentation    String?       @db.NVarChar(Max)
+  expectedQualityDocumentation    String?        @db.NVarChar(Max)
   /// Where this entry's classification data originally came from — an
   /// explicit provenance trail given the mixed licensing landscape across
   /// sources. See allowed values reference above.
   sourceStandard                  String?
   /// Simulated catalogue entry (2026-10-17): generated scale-test data. Visible only to users working inside a
   /// demo organisation; hidden from every real organisation's search and lists.
-  isSimulated                     Boolean       @default(false)
-  isArchived                      Boolean       @default(false)
+  isSimulated                     Boolean        @default(false)
+  isArchived                      Boolean        @default(false)
   /// Attribution — added 2026-10-02 (sop-driven-quality-roadmap.md Section
   /// B1): which organisation originally contributed this entry, and in
   /// what capacity, so the standardised central catalogue still records
@@ -1674,7 +1676,7 @@ model ProductMaster {
   /// for access control — ProductMaster stays globally readable/writable
   /// the same as today; this is a provenance tag only.
   addedByOrganizationId           String?
-  addedByOrganization             Organization? @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addedByOrganization             Organization?  @relation(fields: [addedByOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Denormalized copy of Organization.type at the moment of contribution
   /// (deliberately frozen, not a live lookup) — e.g. "PROCUREMENT_SERVICE_AGENT"
   /// for a procurement agent adding a product while building a project, vs.
@@ -1686,16 +1688,16 @@ model ProductMaster {
   attributionOverride             Boolean?
   /// Product-record fields added 2026-10-18 (Product Database completion, see docs/PRODUCT-DATABASE-GAP-ANALYSIS.md).
   /// DRAFT | ACTIVE | RESTRICTED | DISCONTINUED | WITHDRAWN | RECALLED — see ProductLifecycleStatus in packages/db/src/enums.ts.
-  lifecycleStatus                 String        @default("ACTIVE")
-  lifecycleReason                 String?       @db.NVarChar(Max)
+  lifecycleStatus                 String         @default("ACTIVE")
+  lifecycleReason                 String?        @db.NVarChar(Max)
   lifecycleChangedAt              DateTime?
   /// AMBIENT | CRT (15-25 C) | COOL (8-15 C) | REFRIGERATED (2-8 C) | FROZEN | DEEP_FROZEN | OTHER — ProductStorageClass.
   storageClass                    String?
-  coldChain                       Boolean       @default(false)
+  coldChain                       Boolean        @default(false)
   shelfLifeMonths                 Int?
   /// UN number / dangerous goods class, free text e.g. "UN3373 Cat. B".
   hazardClass                     String?
-  controlledSubstance             Boolean       @default(false)
+  controlledSubstance             Boolean        @default(false)
   /// International non-proprietary name, strength, dosage form (medicines) and brand.
   inn                             String?
   strength                        String?
@@ -1705,21 +1707,21 @@ model ProductMaster {
   packSize                        String?
   /// Regulatory class where it applies (e.g. device class I, IIa, IIb, III; IVD class A-D; Rx/OTC).
   regulatoryClass                 String?
-  intendedUse                     String?       @db.NVarChar(Max)
+  intendedUse                     String?        @db.NVarChar(Max)
   /// Periodic review of the catalogue entry itself.
   nextReviewDue                   DateTime?
   /// Incremented each time an applied change set is written (see ProductMasterChange).
-  version                         Int           @default(1)
+  version                         Int            @default(1)
   /// Family (step 3b): null = standalone product. variantLabel distinguishes this variant within its family.
   productFamilyId                 String?
   productFamily                   ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   variantLabel                    String?
-  createdAt                       DateTime      @default(now())
-  updatedAt                       DateTime      @updatedAt
+  createdAt                       DateTime       @default(now())
+  updatedAt                       DateTime       @updatedAt
 
   identifiers            ProductIdentifier[]
   changes                ProductMasterChange[]
-  documents ProductDocument[]
+  documents              ProductDocument[]
   registrations          ProductRegulatoryRegistration[]
   attributeDefinitions   ProductAttributeDefinition[]
   projectLines           ProjectLine[]
@@ -1732,6 +1734,7 @@ model ProductMaster {
   /// Added 2026-10-09 — catalogue edit-rights + ratification workflow (see
   /// ProductAmendment below).
   amendments             ProductAmendment[]
+  safetyNotices          ProductSafetyNotice[]
 
   @@index([category])
   @@index([hsCode])
@@ -2217,7 +2220,7 @@ model TenderingBodyProfile {
 /// See the section header comment above for the full design rationale.
 model StakeholderRegistryEntry {
   /// Simulated (demo) registry entry (2026-10-17): only visible to, and only matched by, activity inside a demo organisation.
-  isSimulated Boolean @default(false)
+  isSimulated          Boolean       @default(false)
   id                   String        @id @default(uuid())
   /// Same normalize() convention as Partner.normalizedName (lowercased,
   /// legal-suffix-stripped) — the primary fuzzy-matching key.
@@ -2779,7 +2782,6 @@ model Notification {
   @@map("notifications")
 }
 
-
 /// Additional identifiers for one catalogue product (added 2026-10-18): a product can carry many GTINs, manufacturer part
 /// numbers, UDI-DIs, NDCs and other codes. Shared (no organizationId), like product_master; deactivated, never deleted.
 model ProductIdentifier {
@@ -2807,27 +2809,26 @@ model ProductIdentifier {
 /// (staff edit, ratified amendment, import, creation) with who, from which organisation, why and the resulting version.
 /// Names are denormalised on purpose: the user and organisation rows are tenant-protected and may later change.
 model ProductMasterChange {
-  id                    String        @id @default(uuid())
-  productMasterId       String
-  productMaster         ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  version               Int
-  fieldName             String
-  oldValue              String?       @db.NVarChar(Max)
-  newValue              String?       @db.NVarChar(Max)
+  id                        String        @id @default(uuid())
+  productMasterId           String
+  productMaster             ProductMaster @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  version                   Int
+  fieldName                 String
+  oldValue                  String?       @db.NVarChar(Max)
+  newValue                  String?       @db.NVarChar(Max)
   /// CREATE | STAFF_EDIT | AMENDMENT_RATIFIED | IMPORT | SYSTEM
-  source                String
-  reason                String?       @db.NVarChar(Max)
-  amendmentId           String?
-  changedById           String?
-  changedByName         String?
+  source                    String
+  reason                    String?       @db.NVarChar(Max)
+  amendmentId               String?
+  changedById               String?
+  changedByName             String?
   changedByOrganizationId   String?
   changedByOrganizationName String?
-  changedAt             DateTime      @default(now())
+  changedAt                 DateTime      @default(now())
 
   @@index([productMasterId, changedAt])
   @@map("product_master_changes")
 }
-
 
 /// Structured regulatory registration of a catalogue product (added 2026-10-18, Product Database step 2). SHARED fact, like
 /// product_master: what is registered with which authority, under which reference, until when. Contributed by platform staff
@@ -2835,38 +2836,38 @@ model ProductMasterChange {
 /// authority's own record). Never deleted: retired via isArchived. Each organisation's own check lives in
 /// ProductRegistrationVerification (tenant-scoped).
 model ProductRegulatoryRegistration {
-  id                  String        @id @default(uuid())
+  id                            String         @id @default(uuid())
   /// Exactly one of productMasterId (a variant) or productFamilyId (applies to every variant of the family) is set.
-  productMasterId     String?
-  productMaster       ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productFamilyId     String?
-  productFamily       ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId               String?
+  productMaster                 ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productFamilyId               String?
+  productFamily                 ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// WHO_PQ | WHO_EUL | FDA | EU_CE | EU_MDR | EU_IVDR | EMA | MHRA | SRA | NATIONAL | OTHER — RegistrationAuthority.
-  authority           String
+  authority                     String
   /// Pathway/scheme, e.g. "510(k)", "NDA", "ANDA", "Centralised procedure", "Annex IX", "PQ medicines".
-  scheme              String?
-  referenceNumber     String
+  scheme                        String?
+  referenceNumber               String
   /// Device/IVD class or listing category, where it applies.
-  regulatoryClass     String?
+  regulatoryClass               String?
   /// ISO alpha-2 country the registration applies to (null = supranational, e.g. EU or WHO).
-  countryCode         String?
+  countryCode                   String?
   /// Registration/marketing-authorisation holder or applicant, as stated by the authority.
-  holderName          String?
-  issueDate           DateTime?
-  expiryDate          DateTime?
+  holderName                    String?
+  issueDate                     DateTime?
+  expiryDate                    DateTime?
   /// ACTIVE | PENDING | SUSPENDED | WITHDRAWN | EXPIRED | REFUSED — RegistrationStatus. A past expiryDate is treated as expired by the API even if this is still ACTIVE.
-  status              String        @default("ACTIVE")
-  sourceUrl           String?
-  notes               String?       @db.NVarChar(Max)
+  status                        String         @default("ACTIVE")
+  sourceUrl                     String?
+  notes                         String?        @db.NVarChar(Max)
   /// CONTRIBUTED | SOURCE_VERIFIED
-  verificationLevel   String        @default("CONTRIBUTED")
+  verificationLevel             String         @default("CONTRIBUTED")
   contributedByOrganizationId   String?
   contributedByOrganizationName String?
-  contributedById     String?
-  isSimulated         Boolean       @default(false)
-  isArchived          Boolean       @default(false)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  contributedById               String?
+  isSimulated                   Boolean        @default(false)
+  isArchived                    Boolean        @default(false)
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @updatedAt
 
   verifications ProductRegistrationVerification[]
 
@@ -2883,26 +2884,27 @@ model ProductRegulatoryRegistration {
 /// specific strength / pack size / GTIN set); a family holds what is common (name, brand, category, INN, class) and can carry
 /// registrations and controlled documents that apply to all its variants. Shared catalogue data, not tenant-scoped.
 model ProductFamily {
-  id                String    @id @default(uuid())
-  name              String
-  category          String
-  brand             String?
-  inn               String?
-  regulatoryClass   String?
-  intendedUse       String?   @db.NVarChar(Max)
-  description       String?   @db.NVarChar(Max)
-  isSimulated       Boolean   @default(false)
-  isArchived        Boolean   @default(false)
+  id                      String   @id @default(uuid())
+  name                    String
+  category                String
+  brand                   String?
+  inn                     String?
+  regulatoryClass         String?
+  intendedUse             String?  @db.NVarChar(Max)
+  description             String?  @db.NVarChar(Max)
+  isSimulated             Boolean  @default(false)
+  isArchived              Boolean  @default(false)
   addedByOrganizationId   String?
   addedByOrganizationName String?
-  version           Int       @default(1)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  version                 Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  variants          ProductMaster[]
-  registrations     ProductRegulatoryRegistration[]
-  documents         ProductDocument[]
-  changes           ProductFamilyChange[]
+  variants      ProductMaster[]
+  registrations ProductRegulatoryRegistration[]
+  documents     ProductDocument[]
+  changes       ProductFamilyChange[]
+  safetyNotices ProductSafetyNotice[]
 
   @@index([category])
   @@index([name])
@@ -2933,45 +2935,45 @@ model ProductFamilyChange {
 /// specifications, CoA templates, test reports, technical file. Private to the organisation (RLS). Versioned by
 /// supersession; never deleted (archivedAt). Approval is four-eyes: the approver cannot be the uploader.
 model ProductDocument {
-  id                String    @id @default(uuid())
-  organizationId    String
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              String         @id @default(uuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Exactly one of productMasterId (a variant) or productFamilyId (every variant of the family) is set.
-  productMasterId   String?
-  productMaster     ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  productFamilyId   String?
-  productFamily     ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId String?
+  productMaster   ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productFamilyId String?
+  productFamily   ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Optional link to the registration this document evidences.
-  registrationId    String?
+  registrationId  String?
   /// CERTIFICATE | IFU | LABELLING | SDS | SPECIFICATION | COA_TEMPLATE | TEST_REPORT | TECHNICAL_FILE | OTHER
-  docType           String
-  title             String
-  version           String    @default("1.0")
+  docType         String
+  title           String
+  version         String         @default("1.0")
   /// DRAFT | APPROVED | SUPERSEDED
-  status            String    @default("DRAFT")
-  effectiveDate     DateTime?
-  expiryDate        DateTime?
-  reviewDueDate     DateTime?
-  supersedesId      String?
-  blobName          String?
-  fileName          String?
-  fileSizeBytes     Int?
-  mimeType          String?
+  status          String         @default("DRAFT")
+  effectiveDate   DateTime?
+  expiryDate      DateTime?
+  reviewDueDate   DateTime?
+  supersedesId    String?
+  blobName        String?
+  fileName        String?
+  fileSizeBytes   Int?
+  mimeType        String?
   /// Blob ETag at confirmation: an integrity reference for the stored file.
-  blobEtag          String?
+  blobEtag        String?
   /// NOT_SCANNED | CLEAN | INFECTED (from Defender for Storage blob tags, checked at confirmation and on download)
-  scanStatus        String    @default("NOT_SCANNED")
-  notes             String?   @db.NVarChar(Max)
-  uploadedById      String
-  uploadedBy        User      @relation("ProductDocumentUploader", fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approvedById      String?
-  approvedBy        User?     @relation("ProductDocumentApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approvedAt        DateTime?
-  isSimulated       Boolean   @default(false)
-  archivedAt        DateTime?
-  archivedById      String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  scanStatus      String         @default("NOT_SCANNED")
+  notes           String?        @db.NVarChar(Max)
+  uploadedById    String
+  uploadedBy      User           @relation("ProductDocumentUploader", fields: [uploadedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedById    String?
+  approvedBy      User?          @relation("ProductDocumentApprover", fields: [approvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approvedAt      DateTime?
+  isSimulated     Boolean        @default(false)
+  archivedAt      DateTime?
+  archivedById    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([organizationId, productMasterId, archivedAt])
   @@index([organizationId, expiryDate])
@@ -2981,22 +2983,88 @@ model ProductDocument {
 }
 
 model ProductRegistrationVerification {
-  id               String                        @id @default(uuid())
-  organizationId   String
-  organization     Organization                  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  registrationId   String
-  registration     ProductRegulatoryRegistration @relation(fields: [registrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id                    String                        @id @default(uuid())
+  organizationId        String
+  organization          Organization                  @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  registrationId        String
+  registration          ProductRegulatoryRegistration @relation(fields: [registrationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// VERIFIED | NOT_APPLICABLE | ISSUE_FOUND — RegistrationVerificationOutcome.
-  outcome          String
+  outcome               String
   /// The jurisdiction the check was made for (free text, e.g. "Kenya" or "UK/MHRA").
-  jurisdiction     String?
-  notes            String?                       @db.NVarChar(Max)
+  jurisdiction          String?
+  notes                 String?                       @db.NVarChar(Max)
   nextReverificationDue DateTime?
-  verifiedById     String
-  verifiedBy       User                          @relation(fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  verifiedAt       DateTime                      @default(now())
+  verifiedById          String
+  verifiedBy            User                          @relation(fields: [verifiedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  verifiedAt            DateTime                      @default(now())
 
   @@index([organizationId, registrationId, verifiedAt])
   @@index([organizationId, nextReverificationDue])
   @@map("product_registration_verifications")
+}
+
+/// Safety notice / recall / field safety notice for a catalogue product (Product Database step 4, 2026-10-18). SHARED fact like
+/// product_regulatory_registrations: one record per notice, attached to a variant or to a family (applies to every variant).
+/// Contributed by platform staff or an organisation's QA users; never deleted (CLOSED / isArchived). Each organisation's own
+/// "checked / verified" review is ProductSafetyNoticeReview (tenant-scoped).
+model ProductSafetyNotice {
+  id                            String         @id @default(uuid())
+  productMasterId               String?
+  productMaster                 ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productFamilyId               String?
+  productFamily                 ProductFamily? @relation(fields: [productFamilyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// RECALL | FIELD_SAFETY_NOTICE | SAFETY_ALERT | FALSIFIED_ALERT | SUPPLY_ALERT — SafetyNoticeType.
+  noticeType                    String
+  /// CRITICAL (e.g. class I recall) | HIGH (class II) | MEDIUM (class III) | LOW (advisory) — SafetyNoticeSeverity.
+  severity                      String
+  /// The issuing body: same list as RegistrationAuthority (FDA, MHRA, WHO_PQ, EMA, NATIONAL, OTHER...) or MANUFACTURER.
+  authority                     String
+  referenceNumber               String?
+  title                         String
+  summary                       String         @db.NVarChar(Max)
+  actionRequired                String?        @db.NVarChar(Max)
+  /// Affected batch / lot numbers as stated in the notice (free text, comma or line separated).
+  affectedBatches               String?        @db.NVarChar(Max)
+  /// ISO alpha-2 country codes, comma separated; empty = worldwide / not stated.
+  countryCodes                  String?
+  issueDate                     DateTime
+  /// OPEN | CLOSED — closing records closedDate and a reason; reopening is allowed.
+  status                        String         @default("OPEN")
+  closedDate                    DateTime?
+  closedReason                  String?        @db.NVarChar(Max)
+  sourceUrl                     String?
+  verificationLevel             String         @default("CONTRIBUTED")
+  contributedByOrganizationId   String?
+  contributedByOrganizationName String?
+  contributedById               String?
+  isSimulated                   Boolean        @default(false)
+  isArchived                    Boolean        @default(false)
+  createdAt                     DateTime       @default(now())
+  updatedAt                     DateTime       @updatedAt
+
+  reviews ProductSafetyNoticeReview[]
+
+  @@index([productMasterId, isArchived, status])
+  @@index([productFamilyId, isArchived, status])
+  @@index([status, severity, issueDate])
+  @@map("product_safety_notices")
+}
+
+/// An organisation's own review of a safety notice (Product Database step 4): "checked, no impact" / "not applicable" /
+/// "action taken" / "affected". Tenant-scoped (RLS), append-only: a later review adds a row, the newest is current.
+model ProductSafetyNoticeReview {
+  id             String              @id @default(uuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  noticeId       String
+  notice         ProductSafetyNotice @relation(fields: [noticeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CHECKED_NO_IMPACT | NOT_APPLICABLE | ACTION_TAKEN | AFFECTED — SafetyNoticeReviewOutcome.
+  outcome        String
+  notes          String?             @db.NVarChar(Max)
+  reviewedById   String
+  reviewedBy     User                @relation("SafetyNoticeReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedAt     DateTime            @default(now())
+
+  @@index([organizationId, noticeId, reviewedAt])
+  @@map("product_safety_notice_reviews")
 }

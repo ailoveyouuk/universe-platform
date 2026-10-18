@@ -6,6 +6,7 @@ import { assertNotDemoUser } from "../common/authorization";
 import type { AssignFamilyDto, CreateProductFamilyDto, UpdateProductFamilyDto } from "./dto/product-family.dto";
 import { attributionContext, maskContributor } from "./attribution";
 import { computeCompliance } from "./product-registrations.service";
+import { openNoticesForCompliance } from "./product-safety-notices.service";
 import { writeTargetChanges } from "./product-target";
 
 const clean = (v: string | undefined) => (v === undefined ? undefined : v.trim() === "" ? null : v.trim());
@@ -67,7 +68,7 @@ export class ProductFamiliesService {
       createdAt: f.createdAt.toISOString(),
       updatedAt: f.updatedAt.toISOString(),
       variants,
-      compliance: computeCompliance("ACTIVE", regs),
+      compliance: computeCompliance("ACTIVE", regs, Date.now(), await openNoticesForCompliance({ kind: "family", id, familyId: id })),
     };
   }
 

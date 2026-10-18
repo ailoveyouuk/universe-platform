@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
-import type { CountryOption, PartnerOption, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
+import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { LineForm } from "./LineForm";
+import { PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
 import { StatusHistoryTimeline } from "./StatusHistoryTimeline";
@@ -132,6 +133,14 @@ export function ProjectDetailView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Open safety notices / recalls on the catalogue products used by this project's lines (Product Database step 4).
+  const [safetyFlags, setSafetyFlags] = useState<Record<string, ProductSafetyFlag>>({});
+  useEffect(() => {
+    const ids = [...new Set((project?.lines ?? []).map((l) => l.productMasterId).filter((v): v is string => !!v))];
+    if (ids.length === 0) { setSafetyFlags({}); return; }
+    apiClient.getProductSafetyFlags(ids).then((fl) => setSafetyFlags(Object.fromEntries(fl.map((f) => [f.productMasterId, f])))).catch(() => setSafetyFlags({}));
+  }, [project?.lines]);
 
   useEffect(() => {
     apiClient.listPartnerOptions("CLIENT").then(setClients).catch(() => {});
@@ -828,6 +837,16 @@ export function ProjectDetailView() {
               <p style={{ fontWeight: 600, margin: 0 }}>
                 {line.clientProductDescription || "(no description yet)"}
               </p>
+              {line.productMasterId && safetyFlags[line.productMasterId] && (() => {
+                const f = safetyFlags[line.productMasterId as string];
+                return (
+                  <p style={{ margin: "4px 0 0", fontSize: 12.5, color: f.criticalOpen > 0 ? "var(--u-status-critical)" : "var(--u-status-warning)", fontWeight: 600 }}>
+                    {f.criticalOpen > 0 ? "Open recall / critical safety notice" : "Open safety notice"}: {f.headline}
+                    {f.unreviewed > 0 ? " — not yet reviewed by your organisation" : ""}{" · "}
+                    <a href={`${PRODUCT_DATABASE_URL}/products/detail?id=${line.productMasterId}`} target="_blank" rel="noreferrer" style={{ color: "var(--u-brand-violet)" }}>Review in Product Database</a>
+                  </p>
+                );
+              })()}
               <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "4px 0 0" }}>
                 Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier:{" "}
                 <PartnerRef id={line.supplierId} name={line.supplierName} /> · Manufacturer:{" "}

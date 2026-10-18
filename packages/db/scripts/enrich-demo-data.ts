@@ -534,6 +534,72 @@ async function enrichFamilyDocuments(orgId: string) {
   return todo.length;
 }
 
+/**
+ * Simulated safety notices and recalls (Product Database step 4). About 70% attach to variants the demo organisation uses on
+ * project lines (so line flags and the review queue have realistic content), the rest to other simulated variants and a few
+ * to families. Mostly closed or advisory; a handful open, with two critical. The demo organisation has reviewed about half of
+ * the open ones. Idempotent: does nothing when simulated notices already exist.
+ */
+async function enrichSafetyNotices(orgId: string) {
+  const day = 86400000;
+  if ((await prisma.productSafetyNotice.count({ where: { isSimulated: true } })) > 0) { console.log("Safety notices: simulated notices already present, skipped"); return 0; }
+  const users = await withPlatformStaffContext((tx) => tx.user.findMany({ where: { organizationId: orgId, isSimulated: false }, select: { id: true }, orderBy: { id: "asc" }, take: 2 }));
+  const used = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 3000 }));
+  const usedIds = used.map((u) => u.productMasterId as string).sort();
+  const others = await prisma.productMaster.findMany({ where: { isSimulated: true, isArchived: false, id: { notIn: usedIds.slice(0, 400) } }, select: { id: true }, orderBy: { id: "asc" }, take: 400 });
+  const fams = await prisma.productFamily.findMany({ where: { isSimulated: true, isArchived: false }, select: { id: true }, orderBy: { id: "asc" }, take: 200 });
+  const pick = (ids: string[], n: number, salt: string) => [...ids].sort((a, b) => hash(a + salt) - hash(b + salt)).slice(0, n);
+  const targets: { productMasterId: string | null; productFamilyId: string | null }[] = [
+    ...pick(usedIds, 30, "sn-used").map((id) => ({ productMasterId: id, productFamilyId: null })),
+    ...pick(others.map((o) => o.id), 10, "sn-oth").map((id) => ({ productMasterId: id, productFamilyId: null })),
+    ...pick(fams.map((f) => f.id), 6, "sn-fam").map((id) => ({ productMasterId: null, productFamilyId: id })),
+  ];
+  const TEMPLATES = [
+    { noticeType: "RECALL", severity: "CRITICAL", authority: "FDA", title: "Class I recall: sterility assurance failure", summary: "The manufacturer identified a sterile barrier breach on units from specific lots. Affected units may not be sterile.", action: "Stop use and distribution. Quarantine affected lots and return to the supplier.", ref: (n: number) => `Z-${1000 + (n % 8000)}-2026` },
+    { noticeType: "RECALL", severity: "HIGH", authority: "MHRA", title: "Class II recall: labelling error on outer carton", summary: "The expiry date printed on the outer carton does not match the primary pack for affected lots.", action: "Check stock against the affected lots and relabel or return.", ref: (n: number) => `EL(26)A/${10 + (n % 80)}` },
+    { noticeType: "FIELD_SAFETY_NOTICE", severity: "HIGH", authority: "MANUFACTURER", title: "Field safety notice: software update required", summary: "A software issue may cause delayed alarms. A corrective update is available from the manufacturer.", action: "Apply the update and confirm completion to the manufacturer.", ref: (n: number) => `FSCA-${2600 + (n % 300)}` },
+    { noticeType: "SAFETY_ALERT", severity: "MEDIUM", authority: "WHO_PQ", title: "Safety alert: storage instruction clarification", summary: "Revised storage guidance published: product must not be exposed to temperatures above 25 C during transit.", action: "Update storage and transport instructions; review recent shipments.", ref: (n: number) => `WHO/PQ/SA/${100 + (n % 400)}` },
+    { noticeType: "FALSIFIED_ALERT", severity: "HIGH", authority: "WHO_PQ", title: "Falsified product alert: counterfeit packs in circulation", summary: "Falsified packs bearing the genuine brand name were detected in several markets. Packs may not contain the stated active ingredient.", action: "Verify batch numbers and supplier chain of custody before receipt.", ref: (n: number) => `WHO MPA ${1 + (n % 12)}/2026` },
+    { noticeType: "SAFETY_ALERT", severity: "LOW", authority: "EMA", title: "Advisory: updated product information", summary: "Product information updated with additional guidance on handling. No change to benefit-risk balance.", action: "Circulate the revised information to users.", ref: (n: number) => `EMA/DHPC/${300 + (n % 500)}` },
+    { noticeType: "SUPPLY_ALERT", severity: "MEDIUM", authority: "NATIONAL", title: "Supply alert: manufacturing delay", summary: "The manufacturer reports a delay at its filling site. Supply may be constrained for several weeks.", action: "Review open orders and consider alternative approved sources.", ref: (n: number) => `NS-${n % 900}` },
+  ];
+  const list: Record<string, unknown>[] = [];
+  targets.forEach((t, i) => {
+    const key = t.productMasterId ?? t.productFamilyId ?? "";
+    const tpl = TEMPLATES[hash(key + "tpl") % TEMPLATES.length];
+    // Two fixed critical open recalls on used products; otherwise severity as templated, ~35% still open.
+    const critical = i === 0 || i === 1;
+    const t0 = critical ? TEMPLATES[0] : tpl;
+    const open = critical || hash(key + "open") % 100 < 35;
+    const issued = new Date(Date.now() - (critical ? 4 + i * 6 : 8 + (hash(key + "iss") % 330)) * day);
+    list.push({
+      ...t, noticeType: t0.noticeType, severity: t0.severity, authority: t0.authority, referenceNumber: t0.ref(hash(key + "ref")), title: t0.title, summary: t0.summary,
+      actionRequired: t0.action, affectedBatches: t0.noticeType === "SUPPLY_ALERT" ? null : `L${2600 + (hash(key + "b1") % 400)}, L${3000 + (hash(key + "b2") % 400)}`,
+      countryCodes: hash(key + "cc") % 3 === 0 ? null : ["GB", "KE,UG", "NG,GH", "ET", "US,GB"][hash(key + "cc2") % 5],
+      issueDate: issued, status: open ? "OPEN" : "CLOSED", closedDate: open ? null : new Date(issued.getTime() + (14 + (hash(key + "cl") % 60)) * day),
+      closedReason: open ? null : "Corrective action completed by the manufacturer; affected lots reconciled.",
+      verificationLevel: hash(key + "sv") % 100 < 50 ? "SOURCE_VERIFIED" : "CONTRIBUTED", contributedByOrganizationName: "Universe reference data", isSimulated: true,
+    });
+  });
+  console.log(`Safety notices: ${list.length} to add`);
+  if (dryRun || list.length === 0) return list.length;
+  const created: { id: string; status: string }[] = [];
+  for (const row of list) created.push(await prisma.productSafetyNotice.create({ data: row as never, select: { id: true, status: true } }));
+  if (users.length > 0) {
+    const reviews = created
+      .filter((n) => n.status === "OPEN" ? hash(n.id + "rv") % 100 < 50 : hash(n.id + "rv") % 100 < 80)
+      .map((n) => {
+        const k = hash(n.id + "ro") % 100;
+        const outcome = k < 55 ? "CHECKED_NO_IMPACT" : k < 75 ? "NOT_APPLICABLE" : k < 92 ? "ACTION_TAKEN" : "AFFECTED";
+        return { organizationId: orgId, noticeId: n.id, outcome, notes: outcome === "CHECKED_NO_IMPACT" ? null : outcome === "NOT_APPLICABLE" ? "Affected lots were not supplied to our projects." : outcome === "ACTION_TAKEN" ? "Stock quarantined and supplier contacted; replacement requested." : "Affected lot held in the in-country warehouse; recall coordinated with the supplier.", reviewedById: users[hash(n.id + "ru") % users.length].id, reviewedAt: new Date(Date.now() - (hash(n.id + "rd") % 30) * day) };
+      });
+    for (const group of chunks(reviews, 100)) await withTenantContext(orgId, (tx) => tx.productSafetyNoticeReview.createMany({ data: group }));
+    console.log(`Safety notice reviews: added ${reviews.length}`);
+  }
+  console.log(`Safety notices: added ${created.length}`);
+  return created.length;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -749,6 +815,7 @@ async function main() {
   await enrichFamilyRegistrations();
   await enrichPackagingLevels();
   await enrichFamilyDocuments(orgId);
+  await enrichSafetyNotices(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);
