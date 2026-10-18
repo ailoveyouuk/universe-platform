@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountrySelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
 import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
 import Link from "next/link";
@@ -139,7 +139,7 @@ export function ProjectDetailView() {
   useEffect(() => {
     if (!id) return;
     apiClient.getProjectExportChecks(id).then(setExportChecks).catch(() => setExportChecks([]));
-  }, [id, project?.deliveryCountryCode, project?.lines]);
+  }, [id, project?.deliveryCountryCodes, project?.lines]);
 
   // Open safety notices / recalls on the catalogue products used by this project's lines (Product Database step 4).
   const [safetyFlags, setSafetyFlags] = useState<Record<string, ProductSafetyFlag>>({});
@@ -177,6 +177,7 @@ export function ProjectDetailView() {
       clientId: project.clientId,
       donorReference: project.donorReference,
       deliveryCountryCode: project.deliveryCountryCode,
+      deliveryCountryCodes: project.deliveryCountryCodes,
       startDate: project.startDate,
       dueDate: project.dueDate,
       submissionDate: project.submissionDate,
@@ -421,8 +422,8 @@ export function ProjectDetailView() {
               <dd>{project.donorReference ?? "—"}</dd>
             </div>
             <div>
-              <dt style={{ fontWeight: 600 }}>Delivery Country</dt>
-              <dd>{project.deliveryCountryCode ? countries.find((c) => c.code === project.deliveryCountryCode)?.name ?? project.deliveryCountryCode : "—"}</dd>
+              <dt style={{ fontWeight: 600 }}>{project.deliveryCountryCodes.length > 1 ? "Delivery Countries" : "Delivery Country"}</dt>
+              <dd>{project.deliveryCountryCodes.length ? project.deliveryCountryCodes.map((code) => countries.find((c) => c.code === code)?.name ?? code).join(", ") : "—"}</dd>
             </div>
             <div>
               <dt style={{ fontWeight: 600 }}>Start Date</dt>
@@ -505,13 +506,13 @@ export function ProjectDetailView() {
               />
             </label>
             <label style={{ fontSize: 13, display: "block" }}>
-              <span>Delivery Country</span>
+              <span>Delivery Countries</span>
               <div style={{ marginTop: 4 }}>
-                <CountrySelect
-                  value={headerForm.deliveryCountryCode ?? ""}
-                  onChange={(code) => setHeaderForm((f) => ({ ...f, deliveryCountryCode: code || null }))}
+                <CountryMultiSelect
+                  value={headerForm.deliveryCountryCodes ?? []}
+                  onChange={(codes) => setHeaderForm((f) => ({ ...f, deliveryCountryCodes: codes, deliveryCountryCode: codes[0] ?? null }))}
                   options={countries}
-                  ariaLabel="Delivery country"
+                  ariaLabel="Delivery countries"
                 />
               </div>
             </label>

@@ -425,3 +425,10 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Fix:** the new enrichment step queried 3,000 product IDs at once and hit the SQL parameter limit on the first dry run; now chunked.
 - **Tests:** `data-export-requests.test.ts` covers the demo ring-fence.
 - **Still to do in step 5:** live security and scale checks of the new screens (needs the Product Database tab signed in).
+
+## 2026-10-18 — Projects can have several delivery countries
+- **Change:** the New Project form and the project header editor now take several delivery countries (new searchable multi-select with removable chips; the first is the primary). The project page lists them all.
+- **Storage:** new `projects.deliveryCountryCodes` (migration `20261018260000_project_delivery_countries`, existing projects backfilled with their one country). `deliveryCountryCode` is kept and always equals the first country, so older readers still work.
+- **Follows through:** the Projects list country filter and dashboard countries tile count every destination; the export-restriction check on project lines runs once per destination; the own-organisation projects CSV lists all countries (semicolon-separated); changes are audited.
+- **Known limit:** the CO2/distance figure for a project line still uses the primary (first) country only. Per-line destinations would be the proper next step.
+- **Tests:** `delivery-countries.test.ts` (normalising, storage format, fall-back for older rows, exact-match filter). No manual step: no new tenant table, so no RLS change.

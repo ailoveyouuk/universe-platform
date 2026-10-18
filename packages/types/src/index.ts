@@ -33,6 +33,8 @@ export interface ProjectSummary {
    * already being fetched in full by ProjectsService.findAll(); this was
    * just never mapped through toSummary() until now. */
   deliveryCountryCode: string | null;
+  /** Every destination country (2026-10-18); the first is the primary, equal to deliveryCountryCode. */
+  deliveryCountryCodes: string[];
 }
 
 /**
@@ -60,6 +62,8 @@ export interface CreateProjectInput {
    * track it. See architecture doc: not a required structural concept. */
   donorReference?: string;
   deliveryCountryCode?: string;
+  /** All destination countries; the first becomes the primary. Takes precedence over deliveryCountryCode. */
+  deliveryCountryCodes?: string[];
   startDate?: string;
   dueDate?: string;
   firstLine?: CreateProjectLineInput;
@@ -1018,6 +1022,8 @@ export interface UpdateProjectInput {
   clientId?: string | null;
   donorReference?: string | null;
   deliveryCountryCode?: string | null;
+  /** All destination countries; replaces the list when sent (empty array clears it). */
+  deliveryCountryCodes?: string[];
   startDate?: string | null;
   dueDate?: string | null;
   submissionDate?: string | null;

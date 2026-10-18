@@ -1,5 +1,7 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsIn,
   IsInt,
@@ -38,6 +40,7 @@ export class CreateProjectDto {
    * source at all. Tracked only when the organization knows and wants it. */
   @IsOptional() @IsString() donorReference?: string;
   @IsOptional() @IsString() deliveryCountryCode?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(60) @IsString({ each: true }) deliveryCountryCodes?: string[];
   @IsOptional() @IsDateString() startDate?: string;
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional()

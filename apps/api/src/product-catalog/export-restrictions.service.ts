@@ -1,3 +1,4 @@
+import { readDeliveryCountries } from "../projects/delivery-countries";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { appliesToRoute, matchRestriction, prisma, restrictionKey, withTenantContext } from "@universe/db";
 import type { ExportRestrictionSummary, ProductExportRestrictionMatch, ProjectExportCheckItem } from "@universe/types";
@@ -75,7 +76,7 @@ export class ExportRestrictionsService {
    */
   async checkProject(user: RequestUser, projectId: string): Promise<ProjectExportCheckItem[]> {
     const data = await withTenantContext(user.organizationId, async (tx) => {
-      const project = await tx.project.findFirst({ where: { id: projectId }, select: { deliveryCountryCode: true } });
+      const project = await tx.project.findFirst({ where: { id: projectId }, select: { deliveryCountryCode: true, deliveryCountryCodes: true } });
       if (!project) return null;
       const lines = await tx.projectLine.findMany({
         where: { projectId, archivedAt: null, productMasterId: { not: null } },
@@ -92,7 +93,8 @@ export class ExportRestrictionsService {
     const productIds = [...new Set(data.lines.map((l) => l.productMasterId as string))];
     const products = new Map<string, { name: string; inn: string | null; strength: string | null; dosageForm: string | null }>();
     for (const ids of chunk(productIds, 500)) for (const p of await prisma.productMaster.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, inn: true, strength: true, dosageForm: true } })) products.set(p.id, p);
-    const dest = data.project.deliveryCountryCode ?? null;
+    const dests: (string | null)[] = readDeliveryCountries(data.project);
+    if (dests.length === 0) dests.push(null);
     const out: ProjectExportCheckItem[] = [];
     for (const l of data.lines) {
       const supplierCountry = l.supplierId ? data.partners.get(l.supplierId) ?? null : null;
@@ -100,7 +102,7 @@ export class ExportRestrictionsService {
       const origin = supplierCountry ? { code: supplierCountry, basis: "supplier's country" } : manufacturerCountry ? { code: manufacturerCountry, basis: "manufacturer's country" } : l.countryOfManufactureCode ? { code: l.countryOfManufactureCode, basis: "country of manufacture" } : null;
       const p = products.get(l.productMasterId as string);
       if (!origin || !p) continue;
-      for (const r of active) {
+      for (const dest of dests) for (const r of active) {
         const route = appliesToRoute(r.restrictingCountryCode, origin.code, dest);
         if (route === "NO") continue;
         const m = matchRestriction(p, r);

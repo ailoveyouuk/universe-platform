@@ -10,6 +10,7 @@ import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
 import type { CreateProjectDto } from "./dto/create-project.dto";
 import type { UpdateProjectDto } from "./dto/update-project.dto";
+import { deliversTo, deliveryCountryColumns, normaliseCountryCodes, readDeliveryCountries } from "./delivery-countries";
 import type { ProjectLineDto } from "./dto/project-line.dto";
 
 /**
@@ -96,6 +97,7 @@ function toSummary(p: {
   // existed on the Prisma row (findAll()/create() already fetch the full
   // Project) but was never mapped through toSummary().
   deliveryCountryCode: string | null;
+  deliveryCountryCodes?: string | null;
 }): ProjectSummary {
   return {
     id: p.id,
@@ -112,6 +114,7 @@ function toSummary(p: {
     archivedAt: p.archivedAt?.toISOString() ?? null,
     archivedById: p.archivedById,
     deliveryCountryCode: p.deliveryCountryCode,
+    deliveryCountryCodes: readDeliveryCountries(p),
   };
 }
 
@@ -501,7 +504,7 @@ export class ProjectsService {
       ...tenantScope(user.organizationId),
       ...(q.archived ? {} : { isArchived: false }),
       ...(q.type ? { projectType: q.type } : {}),
-      ...(q.country ? { deliveryCountryCode: q.country } : {}),
+      ...(q.country ? deliversTo(q.country) : {}),
       ...(q.status === "ACTIVE"
         ? { status: { in: ["IDENTIFIED", "IN_PROGRESS"] } }
         : q.status === "OVERDUE"
@@ -556,7 +559,7 @@ export class ProjectsService {
       const grouped = await tx.project.groupBy({ by: ["status"], where: base, _count: { _all: true } });
       const n = (...statuses: string[]) => grouped.filter((g) => statuses.includes(g.status)).reduce((a, g) => a + g._count._all, 0);
       const overdue = await tx.project.count({ where: { ...base, dueDate: { lt: new Date() }, status: { notIn: FINISHED_STATUSES } } });
-      const countries = await tx.project.groupBy({ by: ["deliveryCountryCode"], where: { ...base, deliveryCountryCode: { not: null } } });
+      const countries = await tx.project.groupBy({ by: ["deliveryCountryCode", "deliveryCountryCodes"], where: { ...base, deliveryCountryCode: { not: null } } });
       const recent = (status: string[]) =>
         tx.project.findMany({ where: { ...base, status: { in: status } }, include: { client: true }, orderBy: [{ updatedAt: "desc" }, { id: "asc" }], take: 5 });
       const [recentActive, recentAwarded] = await Promise.all([recent(["IDENTIFIED", "IN_PROGRESS"]), recent(["AWARDED"])]);
@@ -569,7 +572,7 @@ export class ProjectsService {
           completed: n("COMPLETED"),
           overdue,
         },
-        deliveryCountryCodes: countries.map((c) => c.deliveryCountryCode as string).sort(),
+        deliveryCountryCodes: [...new Set(countries.flatMap((c) => readDeliveryCountries(c)))].sort(),
         recentActive: recentActive.map(toSummary),
         recentAwarded: recentAwarded.map(toSummary),
       };
@@ -749,7 +752,7 @@ export class ProjectsService {
           projectType: dto.projectType,
           clientId: dto.clientId,
           donorReference: dto.donorReference,
-          deliveryCountryCode: dto.deliveryCountryCode,
+          ...deliveryCountryColumns(normaliseCountryCodes(dto.deliveryCountryCodes ?? [dto.deliveryCountryCode])),
           startDate: dto.startDate ? new Date(dto.startDate) : undefined,
           dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
           ...(dto.firstLine
@@ -819,7 +822,7 @@ export class ProjectsService {
         "status",
         "clientId",
         "donorReference",
-        "deliveryCountryCode",
+        "deliveryCountryCodes",
         "startDate",
         "dueDate",
         "submissionDate",
@@ -832,7 +835,11 @@ export class ProjectsService {
         "freightForwarderId",
         "freightAdditionalCostDescription",
       ] as const;
-      const changes = diffForAudit(existing, dto, auditedFields);
+      const countryColumns =
+        dto.deliveryCountryCodes !== undefined || dto.deliveryCountryCode !== undefined
+          ? deliveryCountryColumns(normaliseCountryCodes(dto.deliveryCountryCodes ?? [dto.deliveryCountryCode]))
+          : null;
+      const changes = diffForAudit(existing, { ...dto, deliveryCountryCodes: countryColumns ? countryColumns.deliveryCountryCodes : undefined }, auditedFields);
 
       const updated = await tx.project.update({
         where: { id },
@@ -841,7 +848,7 @@ export class ProjectsService {
           ...(dto.status !== undefined ? { status: dto.status } : {}),
           ...(dto.clientId !== undefined ? { clientId: dto.clientId } : {}),
           ...(dto.donorReference !== undefined ? { donorReference: dto.donorReference } : {}),
-          ...(dto.deliveryCountryCode !== undefined ? { deliveryCountryCode: dto.deliveryCountryCode } : {}),
+          ...(countryColumns ?? {}),
           ...(dto.startDate !== undefined ? { startDate: dto.startDate ? new Date(dto.startDate) : null } : {}),
           ...(dto.dueDate !== undefined ? { dueDate: dto.dueDate ? new Date(dto.dueDate) : null } : {}),
           ...(dto.submissionDate !== undefined

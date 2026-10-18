@@ -1,3 +1,4 @@
+import { readDeliveryCountries } from "../projects/delivery-countries";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { ProductExportFile } from "@universe/types";
@@ -37,13 +38,13 @@ export class OrganisationExportsService {
         return csvFile("stakeholders", header, lines, truncated);
       }
       if (entity === "projects") {
-        const header = ["Project ID", "Reference", "Title", "Category", "Type", "Client", "Donor reference", "Delivery country", "Status", "Start", "Due", "Submitted", "Management responsibility", "Completion stage", "Reason for cancellation", "Incoterm", "Freight mode", "Freight forwarder", "Archived", "Created", "Updated"];
+        const header = ["Project ID", "Reference", "Title", "Category", "Type", "Client", "Donor reference", "Delivery countries", "Status", "Start", "Due", "Submitted", "Management responsibility", "Completion stage", "Reason for cancellation", "Incoterm", "Freight mode", "Freight forwarder", "Archived", "Created", "Updated"];
         for (;;) {
           const rows = await tx.project.findMany({ where: { organizationId: user.organizationId, ...archiveFilter }, include: { client: { select: { name: true } }, freightForwarder: { select: { name: true } } }, take: EXPORT_PAGE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}), orderBy: { id: "asc" } });
           if (rows.length === 0) break;
           for (const r of rows) {
             if (lines.length >= EXPORT_ROW_LIMIT) { truncated = true; break; }
-            lines.push(csvRow([r.id, r.referenceNumber, r.title, r.category, r.projectType, r.client?.name, r.donorReference, r.deliveryCountryCode, r.status, isoDate(r.startDate), isoDate(r.dueDate), isoDate(r.submissionDate), r.managementResponsibility, r.completionStage, r.reasonForCancellation, r.incoterm, r.freightMode, r.freightForwarder?.name, r.isArchived ? "Yes" : "No", isoDate(r.createdAt), isoDate(r.updatedAt)]));
+            lines.push(csvRow([r.id, r.referenceNumber, r.title, r.category, r.projectType, r.client?.name, r.donorReference, readDeliveryCountries(r).join("; "), r.status, isoDate(r.startDate), isoDate(r.dueDate), isoDate(r.submissionDate), r.managementResponsibility, r.completionStage, r.reasonForCancellation, r.incoterm, r.freightMode, r.freightForwarder?.name, r.isArchived ? "Yes" : "No", isoDate(r.createdAt), isoDate(r.updatedAt)]));
           }
           if (truncated || rows.length < EXPORT_PAGE) break;
           cursor = rows[rows.length - 1].id;

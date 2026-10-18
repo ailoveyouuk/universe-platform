@@ -985,7 +985,10 @@ model Project {
   /// concept. A procurement service agent's `client` may or may not be the
   /// actual funder, and is often not knowable to them at all.
   donorReference           String?
-  deliveryCountryCode      String? // ISO 3166-1 alpha-2, see Country reference table below
+  deliveryCountryCode      String? // ISO 3166-1 alpha-2, see Country reference table below. The PRIMARY destination: always the first of deliveryCountryCodes.
+  /// All destination countries of the project, comma-delimited with leading and trailing commas (",GB,KE,") so an
+  /// exact-match filter is `contains: ",KE,"`. Added 2026-10-18: one project can serve several destinations.
+  deliveryCountryCodes     String?
   status                   String       @default("IDENTIFIED") // see allowed values reference above
   startDate                DateTime?
   dueDate                  DateTime?

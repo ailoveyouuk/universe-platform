@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { Button, CountrySelect } from "@universe/ui";
+import { Button, CountryMultiSelect } from "@universe/ui";
 
 const CATEGORY_OPTIONS = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
 const PROJECT_TYPE_OPTIONS = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
@@ -125,13 +125,13 @@ export default function NewProjectPage() {
         </fieldset>
 
         <label style={{ display: "block" }}>
-          <span>Delivery Country</span>
+          <span>Delivery Countries</span>
           <div style={{ marginTop: 4 }}>
-            <CountrySelect
-              value={form.deliveryCountryCode ?? ""}
-              onChange={(code) => update("deliveryCountryCode", code)}
+            <CountryMultiSelect
+              value={form.deliveryCountryCodes ?? []}
+              onChange={(codes) => setForm((f) => ({ ...f, deliveryCountryCodes: codes, deliveryCountryCode: codes[0] }))}
               options={countries}
-              ariaLabel="Delivery country"
+              ariaLabel="Delivery countries"
             />
           </div>
         </label>

@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { ArrayMaxSize, IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 const STATUSES = [
   "IDENTIFIED",
@@ -28,6 +28,7 @@ export class UpdateProjectDto {
   @IsOptional() @IsString() clientId?: string;
   @IsOptional() @IsString() donorReference?: string;
   @IsOptional() @IsString() deliveryCountryCode?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(60) @IsString({ each: true }) deliveryCountryCodes?: string[];
   @IsOptional() @IsDateString() startDate?: string;
   @IsOptional() @IsDateString() dueDate?: string;
   @IsOptional() @IsDateString() submissionDate?: string;
