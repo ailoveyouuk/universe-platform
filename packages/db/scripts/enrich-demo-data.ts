@@ -337,7 +337,7 @@ async function enrichProductDocuments(orgId: string) {
 }
 
 
-const SERIES = ["Classic", "Plus", "Pro", "Lite", "Advance", "Essential", "Select", "Care", "Prime", "Core", "Flex", "One"];
+const SERIES = ["Classic", "Plus", "Pro", "Lite", "Advance", "Essential", "Select", "Care", "Prime", "Core", "Flex", "One", "Vita", "Medi", "Safe", "Ultra", "Pure", "Nova", "Apex", "Aura", "Beacon", "Bright", "Clear", "Comfort", "Delta", "Eco", "Elite", "First", "Guard", "Harbour", "Ideal", "Journey", "Keystone", "Lumen", "Meridian", "Native", "Optima", "Pioneer", "Quest", "Reliant", "Sterling", "Trust", "Unity", "Vanguard", "Wellspring", "Zenith", "Allied", "Summit"];
 const capital = (t: string) => (t.length ? t[0].toUpperCase() + t.slice(1) : t);
 
 /**
@@ -459,9 +459,14 @@ async function enrichFamilyDocuments(orgId: string) {
   const users = await withPlatformStaffContext((tx) => tx.user.findMany({ where: { organizationId: orgId, isSimulated: false }, select: { id: true }, orderBy: { id: "asc" }, take: 3 }));
   if (users.length === 0) return 0;
   const used = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 3000 }));
-  const famIds = [...new Set((await prisma.productMaster.findMany({ where: { id: { in: used.map((u) => u.productMasterId as string) }, productFamilyId: { not: null } }, select: { productFamilyId: true } })).map((p) => p.productFamilyId as string))];
+  const famSet = new Set<string>();
+  for (const g of chunks(used.map((u) => u.productMasterId as string), 500)) {
+    for (const p of await prisma.productMaster.findMany({ where: { id: { in: g }, productFamilyId: { not: null } }, select: { productFamilyId: true } })) famSet.add(p.productFamilyId as string);
+  }
+  const famIds = [...famSet];
   const have = new Set((await withTenantContext(orgId, (tx) => tx.productDocument.findMany({ where: { organizationId: orgId, productFamilyId: { not: null } }, select: { productFamilyId: true } }))).map((h) => h.productFamilyId));
-  const fams = await prisma.productFamily.findMany({ where: { id: { in: famIds.filter((i) => !have.has(i)) } }, select: { id: true, name: true, category: true } });
+  const fams: { id: string; name: string; category: string }[] = [];
+  for (const g of chunks(famIds.filter((i) => !have.has(i)), 500)) fams.push(...(await prisma.productFamily.findMany({ where: { id: { in: g } }, select: { id: true, name: true, category: true } })));
   const todo: Record<string, unknown>[] = [];
   for (const f of fams) {
     if (hash(f.id + "fdoc") % 100 >= 55) continue;
