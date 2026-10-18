@@ -1,4 +1,4 @@
-import { prisma } from "../src/client";
+import { prisma } from "../src/index";
 import { runRegulatoryWatch } from "../src/regulatory-watch/run";
 
 /** Daily regulatory watch entry point (GitHub Actions cron). DRY_RUN=true fetches and counts without writing. Exits 1 if any source failed. */
