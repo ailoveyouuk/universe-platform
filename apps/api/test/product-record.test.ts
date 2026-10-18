@@ -70,7 +70,10 @@ describe("Product record, history and usage", () => {
   });
 
   it("the owning organisation's change goes through an amendment and is applied with history on ratification", async () => {
-    const user = asUser(orgA);
+    const real = await withPlatformStaffContext((tx) =>
+      tx.user.create({ data: { organizationId: orgA, email: `real-${suffix}@example.com`, forename: "Pat", surname: "Record", status: "ACTIVE", entraObjectId: `oid-pr-${suffix}` } }),
+    );
+    const user = { ...asUser(orgA), id: real.id };
     const res = await service.update(user, productId, { brand: "Acme Bio" });
     expect(res.status).toBe("PENDING_AMENDMENT");
     expect((await service.getOne(productId, true))?.brand).toBeNull();
