@@ -401,6 +401,49 @@ async function enrichFamilies() {
   return families.length;
 }
 
+/**
+ * Variant relabelling (step 3b follow-up, 2026-10-18). The labels produced when families were first created came from the old
+ * generated names and read oddly ("pack of 100, blister pack of 10"). A variant label is now built from the product's own
+ * clean fields (strength, pack size), made unique within the family with the last four digits of its GTIN, and the full name
+ * is "<family>, <label>". Idempotent: only rows whose label or name would change are written. Simulated entries only.
+ */
+async function relabelVariants() {
+  const fams = new Map((await prisma.productFamily.findMany({ where: { isSimulated: true }, select: { id: true, name: true } })).map((f) => [f.id, f.name]));
+  const rows = await prisma.productMaster.findMany({
+    where: { isSimulated: true, productFamilyId: { not: null } },
+    select: { id: true, name: true, variantLabel: true, productFamilyId: true, strength: true, packSize: true, gtin: true },
+    orderBy: { id: "asc" },
+  });
+  const used = new Map<string, Set<string>>();
+  const changes: { id: string; label: string; name: string }[] = [];
+  for (const r of rows) {
+    const famName = fams.get(r.productFamilyId as string);
+    if (!famName) continue;
+    const base = [r.strength, r.packSize].filter((v): v is string => Boolean(v && v.trim())).join(", ");
+    let label = base || r.variantLabel || "Standard";
+    const set = used.get(r.productFamilyId as string) ?? new Set<string>();
+    used.set(r.productFamilyId as string, set);
+    if (set.has(label.toLowerCase())) label = `${label} (GTIN …${(r.gtin ?? r.id).slice(-4)})`;
+    let n = 2;
+    const root = label;
+    while (set.has(label.toLowerCase())) label = `${root} #${n++}`.replace(" #", " v");
+    set.add(label.toLowerCase());
+    const name = `${famName}, ${label}`;
+    if (label !== r.variantLabel || name !== r.name) changes.push({ id: r.id, label, name });
+  }
+  console.log(`Variant labels: ${changes.length} to rewrite across ${rows.length} variants`);
+  if (dryRun || changes.length === 0) return changes.length;
+  for (const group of chunks(changes, 300)) {
+    const values = group.map((l) => {
+      if (!/^[0-9a-f-]{36}$/i.test(l.id)) throw new Error("Unexpected id");
+      return `('${l.id}',N'${l.label.replace(/'/g, "''")}',N'${l.name.replace(/'/g, "''")}')`;
+    });
+    await prisma.$executeRawUnsafe(`UPDATE p SET variantLabel = v.l, name = v.n FROM product_master p JOIN (VALUES ${values.join(",")}) AS v(id, l, n) ON p.id = v.id`);
+  }
+  console.log(`Variant labels: rewrote ${changes.length}`);
+  return changes.length;
+}
+
 /** Family-level registrations for about 55% of simulated families (apply to every variant). */
 async function enrichFamilyRegistrations() {
   const day = 86400000;
@@ -702,6 +745,7 @@ async function main() {
   await enrichVerifications(orgId);
   await enrichProductDocuments(orgId);
   await enrichFamilies();
+  await relabelVariants();
   await enrichFamilyRegistrations();
   await enrichPackagingLevels();
   await enrichFamilyDocuments(orgId);
