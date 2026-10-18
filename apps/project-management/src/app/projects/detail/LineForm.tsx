@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
-import type { PartnerOption, ProductBatchSummary, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
+import type { PartnerOption, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProjectLineInput, ProjectLineSummary } from "@universe/types";
 import { CURRENCY_OPTIONS } from "@universe/types";
+import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, type ProductPickerOption } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
 import { apiClient } from "../../../lib/apiClient";
@@ -222,7 +223,9 @@ export function LineForm({
   const [productQuery, setProductQuery] = useState("");
   const [productOptions, setProductOptions] = useState<ProductCatalogMatch[]>([]);
   const [productLabel, setProductLabel] = useState<string | null>(existing?.productMasterName ?? null);
-  const [creatingProduct, setCreatingProduct] = useState(false);
+  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [productDetail, setProductDetail] = useState<ProductCatalogDetail | null>(null);
   /** Added 2026-10-09 — catalogue edit-rights + ratification workflow.
    * Only known for a product picked THIS session (the search result
    * carries the flag); an existing line reopened for editing shows no
@@ -260,21 +263,20 @@ export function LineForm({
     setProductHasPendingAmendment(false);
   }
 
-  async function handleCreateProduct(name: string) {
-    if (!name) return;
-    setCreatingProduct(true);
-    try {
-      const created = await apiClient.createProductCatalogEntry({
-        name,
-        category: form.productCategory ?? "CONSUMABLES",
-      });
-      handleSelectProduct(created);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add product to the catalogue");
-    } finally {
-      setCreatingProduct(false);
-    }
+  /** Opens the shared family-aware create form (same catalogue and duplicate rules as the Product Database). */
+  function handleCreateProduct(name: string) {
+    setNewProductName(name);
+    setShowCreateProduct(true);
   }
+
+  /** The selected product's family, variant and compliance, from the single shared record (also fixes the pending-amendment note on reopened lines). */
+  useEffect(() => {
+    const id = form.productMasterId;
+    if (!id) { setProductDetail(null); return; }
+    let live = true;
+    apiClient.getProductCatalogEntry(id).then((d) => { if (live) { setProductDetail(d); setProductHasPendingAmendment(d.hasPendingAmendment); } }).catch(() => { if (live) setProductDetail(null); });
+    return () => { live = false; };
+  }, [form.productMasterId]);
 
   function update<K extends keyof ProjectLineInput>(key: K, value: ProjectLineInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -359,9 +361,35 @@ export function LineForm({
             onSelect={handleSelectProduct}
             onClear={handleClearProduct}
             onCreateNew={handleCreateProduct}
-            creating={creatingProduct}
             ariaLabel="Search the product catalogue"
           />
+          {showCreateProduct && (
+            <div style={{ marginTop: 10, padding: 14, border: "1px solid var(--u-border)", borderRadius: 8, background: "var(--u-surface-raised)" }}>
+              <strong style={{ fontSize: 13.5 }}>Add a product to the shared catalogue</strong>
+              <div style={{ marginTop: 10 }}>
+                <ProductCreateForm
+                  initialName={newProductName}
+                  defaultCategory={form.productCategory ?? undefined}
+                  categoryOptions={[...PRODUCT_CATEGORIES]}
+                  onCreated={(p) => { handleSelectProduct(p); setShowCreateProduct(false); }}
+                  onUseExisting={async (id) => { const d = await apiClient.getProductCatalogEntry(id); handleSelectProduct({ id: d.id, name: d.name, category: d.category, hasPendingAmendment: d.hasPendingAmendment }); setShowCreateProduct(false); }}
+                  onCancel={() => setShowCreateProduct(false)}
+                />
+              </div>
+            </div>
+          )}
+          {productDetail && (
+            <p style={{ fontSize: 12.5, margin: "6px 0 0", color: "var(--u-ink-secondary)" }}>
+              {productDetail.family ? <>Variant of <strong>{productDetail.family.name}</strong>{productDetail.variantLabel ? ` — ${productDetail.variantLabel}` : ""} · </> : "Standalone product · "}
+              {productDetail.packSize ? `${productDetail.packSize} · ` : ""}
+              <span style={{ color: productDetail.compliance.status === "BLOCKED" ? "var(--u-status-critical)" : productDetail.compliance.status === "WARNING" ? "var(--u-status-warning)" : "var(--u-status-good)", fontWeight: 600 }}>
+                {productDetail.compliance.status === "BLOCKED" ? "Regulatory block" : productDetail.compliance.status === "WARNING" ? "Regulatory attention" : "No regulatory issues recorded"}
+              </span>
+              {productDetail.compliance.reasons.length > 0 ? ` (${productDetail.compliance.reasons[0]})` : ""}
+              {" · "}
+              <a href={`${PRODUCT_DATABASE_URL}/products/detail?id=${productDetail.id}`} target="_blank" rel="noreferrer" style={{ color: "var(--u-brand-violet)", fontWeight: 600 }}>View or edit in Product Database</a>
+            </p>
+          )}
           {productHasPendingAmendment && (
             <p style={{ fontSize: 12, color: "var(--u-status-warning)", margin: "6px 0 0" }}>
               This product has a pending amendment awaiting QA/RP ratification — it can still be used on this line.

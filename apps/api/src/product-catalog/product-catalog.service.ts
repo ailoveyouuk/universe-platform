@@ -1,9 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { createNotifications, completeActionsFor, usersWithPermission } from "../notifications/notify";
 import { prisma, withTenantContext } from "@universe/db";
 import { tenantScope } from "../common/tenant-scoped";
 import { recordFieldChanges } from "../common/audit-log";
 import { computeCompliance } from "./product-registrations.service";
+import { writeTargetChanges } from "./product-target";
 import { assertHasPermission, assertNotDemoUser } from "../common/authorization";
 import type {
   ProductCatalogDetail,
@@ -79,10 +80,12 @@ export class ProductCatalogService {
       where: {
         isArchived: false,
         ...simulatedFilter(showSimulated),
-        ...(q && q.trim() ? { name: { contains: q.trim() } } : {}),
+        ...(q && q.trim()
+          ? { OR: [{ name: { contains: q.trim() } }, { brand: { contains: q.trim() } }, { inn: { contains: q.trim() } }, { gtin: { contains: q.trim() } }, { productFamily: { name: { contains: q.trim() } } }] }
+          : {}),
         ...(category ? { category: { startsWith: category } } : {}),
       },
-      include: { addedByOrganization: { select: { name: true } } },
+      include: { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true } } },
       orderBy: { name: "asc" },
       take: 25,
     });
@@ -756,32 +759,77 @@ export class ProductCatalogService {
    * collision is (plenty of distinct real products legitimately share a
    * name), so de-duplication is intentionally left to the human who already
    * saw the search results, not guessed at server-side. */
+  /**
+   * Adds a product to the shared catalogue. Step 3b follow-up (2026-10-18): a product is normally a VARIANT of a family
+   * (generic name + strength/pack size), so pass `familyId` + `variantLabel` and the name is derived; any organisation can
+   * add a variant to an existing family, and only platform staff can create a new family (`newFamilyName`, resolved in
+   * the controller). Duplicates are refused rather than merged: the same GTIN anywhere in the catalogue, the same variant
+   * label within a family, or (for a standalone product) the same name. The refusal names the existing product so the
+   * caller can select it instead.
+   */
   async create(user: RequestUser, dto: CreateProductMasterDto): Promise<ProductCatalogMatch> {
     assertNotDemoUser(user, "Adding a product to the shared catalogue");
     const org = await prisma.organization.findUnique({ where: { id: user.organizationId }, select: { type: true } });
-    const created = await prisma.productMaster.create({
-      data: {
-        name: dto.name,
-        category: dto.category,
-        hsCode: dto.hsCode,
-        unspscCode: dto.unspscCode,
-        gtin: dto.gtin,
-        standardUnit: dto.standardUnit,
-        canonicalManufacturerPartNumber: dto.canonicalManufacturerPartNumber,
-        expectedQualityDocumentation: dto.expectedQualityDocumentation,
-        sourceStandard: "INTERNAL",
-        isSimulated: user.inDemoOrganization === true,
-        addedByOrganizationId: user.organizationId,
-        addedByOrganizationType: org?.type ?? null,
-      },
-      include: { addedByOrganization: { select: { name: true } } },
-    });
-    await writeProductChanges(prisma, {
-      productMasterId: created.id,
-      version: 1,
-      changes: [{ field: "(created)", oldValue: null, newValue: created.name }],
-      source: "CREATE",
-      user,
+    const clean = (v?: string) => (v && v.trim() ? v.trim() : undefined);
+    const family = dto.familyId
+      ? await prisma.productFamily.findUnique({ where: { id: dto.familyId }, select: { id: true, name: true, category: true, brand: true, inn: true, regulatoryClass: true, isArchived: true, isSimulated: true } })
+      : null;
+    if (dto.familyId && (!family || family.isArchived)) throw new BadRequestException("That product family was not found or is archived.");
+    const variantLabel = clean(dto.variantLabel);
+    if (family && !variantLabel) throw new BadRequestException("Enter a variant label, for example '500 mg, 20 tablets'.");
+    const name = family ? `${family.name}, ${variantLabel}` : clean(dto.name);
+    if (!name) throw new BadRequestException("Enter a product name, or choose a family and a variant.");
+
+    // Duplicate prevention.
+    const gtins = [...new Set([clean(dto.gtin), ...(dto.identifiers ?? []).map((i) => clean(i.value))].filter((v): v is string => Boolean(v)))];
+    if (gtins.length > 0) {
+      const hit =
+        (await prisma.productIdentifier.findFirst({ where: { identifierType: "GTIN", value: { in: gtins } }, select: { value: true, productMaster: { select: { id: true, name: true } } } })) ??
+        null;
+      const hitMaster = hit ? null : await prisma.productMaster.findFirst({ where: { gtin: { in: gtins } }, select: { id: true, name: true, gtin: true } });
+      if (hit) throw new ConflictException({ message: `GTIN ${hit.value} is already in the catalogue as "${hit.productMaster.name}". Select that product instead.`, existingProductId: hit.productMaster.id });
+      if (hitMaster) throw new ConflictException({ message: `GTIN ${hitMaster.gtin} is already in the catalogue as "${hitMaster.name}". Select that product instead.`, existingProductId: hitMaster.id });
+    }
+    if (family) {
+      const dup = await prisma.productMaster.findFirst({ where: { productFamilyId: family.id, isArchived: false, variantLabel }, select: { id: true, name: true } });
+      if (dup) throw new ConflictException({ message: `"${dup.name}" already exists in this family. Select it instead of adding it again.`, existingProductId: dup.id });
+    } else {
+      const dup = await prisma.productMaster.findFirst({ where: { name, isArchived: false }, select: { id: true, name: true } });
+      if (dup) throw new ConflictException({ message: `"${dup.name}" is already in the catalogue. Select it instead of adding it again.`, existingProductId: dup.id });
+    }
+
+    const units = (dto.identifiers ?? []).find((i) => i.packagingLevel === "UNIT")?.value;
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.productMaster.create({
+        data: {
+          name,
+          category: family?.category ?? dto.category,
+          hsCode: dto.hsCode,
+          unspscCode: dto.unspscCode,
+          gtin: clean(dto.gtin) ?? clean(units),
+          standardUnit: dto.standardUnit,
+          canonicalManufacturerPartNumber: dto.canonicalManufacturerPartNumber,
+          expectedQualityDocumentation: dto.expectedQualityDocumentation,
+          brand: clean(dto.brand) ?? family?.brand ?? undefined,
+          inn: clean(dto.inn) ?? family?.inn ?? undefined,
+          strength: clean(dto.strength),
+          dosageForm: clean(dto.dosageForm),
+          packSize: clean(dto.packSize),
+          regulatoryClass: clean(dto.regulatoryClass) ?? family?.regulatoryClass ?? undefined,
+          productFamilyId: family?.id ?? null,
+          variantLabel: variantLabel ?? null,
+          sourceStandard: "INTERNAL",
+          isSimulated: user.inDemoOrganization === true,
+          addedByOrganizationId: user.organizationId,
+          addedByOrganizationType: org?.type ?? null,
+        },
+        include: { addedByOrganization: { select: { name: true } }, productFamily: { select: { id: true, name: true } } },
+      });
+      const idRows = (dto.identifiers ?? []).filter((i) => clean(i.value)).map((i) => ({ productMasterId: row.id, identifierType: "GTIN", value: i.value.trim(), packagingLevel: i.packagingLevel, unitsPerPack: i.unitsPerPack ?? null, createdById: user.id }));
+      if (idRows.length > 0) await tx.productIdentifier.createMany({ data: idRows });
+      await writeProductChanges(tx, { productMasterId: row.id, version: 1, changes: [{ field: "(created)", oldValue: null, newValue: row.name }], source: "CREATE", user });
+      if (family) await writeTargetChanges(tx, { productMasterId: null, productFamilyId: family.id }, { version: 0, changes: [{ field: "variant added", oldValue: null, newValue: row.name }], source: "CREATE", user });
+      return row;
     });
     return this.toMatch(created, false);
   }
@@ -873,6 +921,11 @@ export class ProductCatalogService {
       lifecycleStatus: string;
       addedByOrganizationId: string | null;
       addedByOrganization: { name: string } | null;
+      productFamily?: { id: string; name: string } | null;
+      variantLabel?: string | null;
+      packSize?: string | null;
+      strength?: string | null;
+      brand?: string | null;
     },
     hasPendingAmendment: boolean,
   ): ProductCatalogMatch {
@@ -889,6 +942,12 @@ export class ProductCatalogService {
       isArchived: row.isArchived,
       lifecycleStatus: row.lifecycleStatus,
       hasPendingAmendment,
+      familyId: row.productFamily?.id ?? null,
+      familyName: row.productFamily?.name ?? null,
+      variantLabel: row.variantLabel ?? null,
+      packSize: row.packSize ?? null,
+      strength: row.strength ?? null,
+      brand: row.brand ?? null,
     };
   }
 }

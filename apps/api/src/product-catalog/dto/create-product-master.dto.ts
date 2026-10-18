@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+
+export class CreateProductIdentifierDto {
+  @IsString() @IsNotEmpty() value!: string;
+  @IsIn(["UNIT", "INNER", "OUTER", "PALLET"]) packagingLevel!: string;
+  @IsOptional() @IsInt() @Min(1) unitsPerPack?: number;
+}
 
 /**
  * POST /product-catalog — adds a new entry to the shared, central
@@ -12,7 +19,7 @@ import { IsNotEmpty, IsOptional, IsString } from "class-validator";
  * claude/sop-driven-quality-roadmap.md Section B1.
  */
 export class CreateProductMasterDto {
-  @IsString() @IsNotEmpty() name!: string;
+  @IsOptional() @IsString() name?: string;
   @IsString() @IsNotEmpty() category!: string;
   @IsOptional() @IsString() hsCode?: string;
   @IsOptional() @IsString() unspscCode?: string;
@@ -20,4 +27,14 @@ export class CreateProductMasterDto {
   @IsOptional() @IsString() standardUnit?: string;
   @IsOptional() @IsString() canonicalManufacturerPartNumber?: string;
   @IsOptional() @IsString() expectedQualityDocumentation?: string;
+  @IsOptional() @IsString() familyId?: string;
+  @IsOptional() @IsString() variantLabel?: string;
+  @IsOptional() @IsString() newFamilyName?: string;
+  @IsOptional() @IsString() brand?: string;
+  @IsOptional() @IsString() inn?: string;
+  @IsOptional() @IsString() strength?: string;
+  @IsOptional() @IsString() dosageForm?: string;
+  @IsOptional() @IsString() packSize?: string;
+  @IsOptional() @IsString() regulatoryClass?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @ValidateNested({ each: true }) @Type(() => CreateProductIdentifierDto) identifiers?: CreateProductIdentifierDto[];
 }

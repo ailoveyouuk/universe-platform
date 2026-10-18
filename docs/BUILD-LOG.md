@@ -6,6 +6,15 @@ disaster.** An entry says what changed, where, how it was verified, and any manu
 
 ---
 
+## 2026-10-18 — Step 3b follow-up: family-aware add/select in Project Management, linked to Product Database (Lewis)
+
+**Why:** Project Management still created flat products ("name + category"), which would have reintroduced bundled names and duplicates. One catalogue, one way to add a product.
+**What:** `POST /product-catalog` now accepts `familyId` + `variantLabel` (name derived, category/brand/INN/class inherited), `newFamilyName` (platform staff only, resolved in the controller), brand/INN/strength/dosage form/pack size, and barcodes per packaging level. Duplicates are refused with the existing product named (same GTIN anywhere, same variant label in a family, same name for a standalone product); the API client passes `existingProductId` so the UI offers "Use the existing product". Search matches name, brand, INN, GTIN and family name and returns family/variant/pack size. UI (Project Management): shared `ProductCreateForm` used by the Add Product page and the project line "add product to catalogue" panel (variant of existing family / new family (staff) / standalone); the picker shows "Variant of <family> · pack size · brand"; a selected line product shows family, variant, regulatory status and a "View or edit in Product Database" link (`NEXT_PUBLIC_PRODUCT_DATABASE_URL`, from the `PRODUCT_DATABASE_URL` repo variable). Enrichment fixes: family document lookups chunked; 48 series names so the 30,000 simulated products form 2,853 families (avg 10.5 variants), 2,151 family registrations, 827 family documents, 10,864 identifiers given packaging levels.
+**Verified:** type-checks; `product-create-variants.test.ts` added; live check below.
+**Owed:** none new. Non-staff organisations cannot create a new family (they add a standalone product or a variant); staff group standalone products from the Product Database.
+
+---
+
 ## 2026-10-18 — Product Database step 3b: product families with variants (Lewis)
 
 **Why:** product names bundled pack size, box size and a "#N" counter. Standard practice is a generic product (family) with strengths and pack sizes as variants.

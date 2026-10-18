@@ -251,14 +251,17 @@ export class UniverseApiClient {
       // anything else so nothing silently disappears. Added 2026-10-08
       // alongside the evidence-gating UI, which needs this exact message.
       let message = body;
+      let existingProductId: string | undefined;
       try {
-        const parsed = JSON.parse(body) as { message?: string | string[] };
+        const parsed = JSON.parse(body) as { message?: string | string[]; existingProductId?: string };
         if (typeof parsed.message === "string") message = parsed.message;
         else if (Array.isArray(parsed.message)) message = parsed.message.join(" ");
+        if (typeof parsed.existingProductId === "string") existingProductId = parsed.existingProductId;
       } catch {
         // body wasn't JSON — use it as-is
       }
-      throw new Error(message || `API request failed: ${res.status} ${res.statusText}`);
+      // A duplicate refusal names the product that already exists so the UI can offer to select it instead.
+      throw Object.assign(new Error(message || `API request failed: ${res.status} ${res.statusText}`), existingProductId ? { existingProductId } : {});
     }
 
     return (await res.json()) as T;

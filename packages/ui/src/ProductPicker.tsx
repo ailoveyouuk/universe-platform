@@ -18,6 +18,12 @@ export interface ProductPickerOption {
    * with a pending amendment, it just needs a warning shown. See
    * ProductCatalogMatch.hasPendingAmendment in @universe/types. */
   hasPendingAmendment?: boolean | null;
+  /** Step 3b follow-up (2026-10-18): families and variants. Shown as "Family — variant · pack size". */
+  familyName?: string | null;
+  variantLabel?: string | null;
+  packSize?: string | null;
+  brand?: string | null;
+  lifecycleStatus?: string | null;
 }
 
 /**
@@ -247,8 +253,11 @@ export function ProductPicker({
                   )}
                 </span>
                 <span style={{ fontSize: 11, color: "var(--u-ink-secondary)" }}>
-                  {o.category}
-                  {o.addedByOrganizationName ? ` · added by ${o.addedByOrganizationName}` : ""}
+                  {o.familyName ? `Variant of ${o.familyName}` : "Standalone product"}
+                  {o.packSize ? ` · ${o.packSize}` : ""}
+                  {o.brand ? ` · ${o.brand}` : ""}
+                  {` · ${o.category}`}
+                  {o.lifecycleStatus && o.lifecycleStatus !== "ACTIVE" ? ` · ${o.lifecycleStatus.toLowerCase()}` : ""}
                 </span>
               </button>
             ))}

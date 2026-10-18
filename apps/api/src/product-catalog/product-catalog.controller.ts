@@ -292,7 +292,14 @@ export class ProductCatalogController {
   }
 
   @Post()
-  create(@CurrentUser() user: RequestUser, @Body() dto: CreateProductMasterDto) {
+  async create(@CurrentUser() user: RequestUser, @Body() dto: CreateProductMasterDto) {
+    // Only platform staff may create a new family; everyone else adds variants to existing families.
+    if (dto.newFamilyName?.trim() && !dto.familyId) {
+      const f = await this.families.create(user, {
+        name: dto.newFamilyName.trim(), category: dto.category, brand: dto.brand, inn: dto.inn, regulatoryClass: dto.regulatoryClass,
+      } as never);
+      dto = { ...dto, familyId: f.id };
+    }
     return this.productCatalogService.create(user, dto);
   }
 }

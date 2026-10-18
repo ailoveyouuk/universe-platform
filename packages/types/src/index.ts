@@ -1475,6 +1475,13 @@ export interface ProductCatalogMatch {
   hasPendingAmendment: boolean;
   /** Added 2026-10-18 — DRAFT | ACTIVE | RESTRICTED | DISCONTINUED | WITHDRAWN | RECALLED. */
   lifecycleStatus: string;
+  /** Step 3b follow-up (2026-10-18): family and variant details so every picker can show "Family — variant". */
+  familyId?: string | null;
+  familyName?: string | null;
+  variantLabel?: string | null;
+  packSize?: string | null;
+  strength?: string | null;
+  brand?: string | null;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see
@@ -1671,8 +1678,22 @@ export interface ProductUsageSummary {
  * See CreateProductMasterDto's doc comment in apps/api for the full
  * design. */
 export interface CreateProductMasterInput {
-  name: string;
+  /** Optional when a family is given: the name is then "<family name>, <variant label>". */
+  name?: string;
   category: string;
+  /** Add the product as a variant of an existing family (all organisations). */
+  familyId?: string;
+  variantLabel?: string;
+  /** Platform staff only: create a new family for this product. */
+  newFamilyName?: string;
+  brand?: string;
+  inn?: string;
+  strength?: string;
+  dosageForm?: string;
+  packSize?: string;
+  regulatoryClass?: string;
+  /** Barcodes per packaging level (UNIT | INNER | OUTER | PALLET). */
+  identifiers?: { value: string; packagingLevel: string; unitsPerPack?: number }[];
   hsCode?: string;
   unspscCode?: string;
   gtin?: string;

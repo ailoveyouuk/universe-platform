@@ -44,6 +44,7 @@ jobs:
           NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_SUBDOMAIN: ${{ vars.UNIVERSE_CIAM_TENANT_SUBDOMAIN }}
           NEXT_PUBLIC_UNIVERSE_CIAM_CLIENT_ID: ${{ vars.UNIVERSE_CIAM_CLIENT_ID }}
           NEXT_PUBLIC_REDIRECT_URI: ${{ vars.PROJECT_MANAGEMENT_URL }}
+          NEXT_PUBLIC_PRODUCT_DATABASE_URL: ${{ vars.PRODUCT_DATABASE_URL }}
       - uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_PROJECT_MANAGEMENT }}
