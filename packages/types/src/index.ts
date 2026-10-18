@@ -1479,9 +1479,9 @@ export interface ProductCatalogMatch {
   familyId?: string | null;
   familyName?: string | null;
   variantLabel?: string | null;
-  packSize?: string | null;
-  strength?: string | null;
-  brand?: string | null;
+  packSize: string | null;
+  strength: string | null;
+  brand: string | null;
 }
 
 /** One category-scoped dynamic field from ProductAttributeDefinition — see
