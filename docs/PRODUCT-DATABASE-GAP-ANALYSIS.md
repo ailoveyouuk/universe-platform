@@ -120,3 +120,9 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 
 
 **Export and hoarding restrictions (2026-10-18):** delivered. UK DHSC/MHRA list synced daily, matched to products by name/strength/form and applied to project lines by origin (supplier, manufacturer or manufacture country) and delivery country; other countries via staff-curated, source-linked entries. Remaining: verified entries for other SRA countries, licence-level matching.
+
+## Update 2026-10-18 — step 5 part 1 delivered (exports and dossier)
+
+- **Done:** catalogue CSV (follows browse filters), registrations CSV (with the organisation's own verification), and a printable/JSON product dossier; formula-safe cells, 50,000-row ceiling, every export audit-logged; CI and deploys green (see BUILD-LOG).
+- **Open decision:** whether bulk export should need its own permission (currently any signed-in user can export what they can see).
+- **Remaining in step 5:** demo-data completeness review, and live security and scale checks of the new screens (including a click-through once the Product Database tab is signed in).
