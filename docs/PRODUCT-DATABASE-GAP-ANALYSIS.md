@@ -1,0 +1,69 @@
+# Product Database — what exists, and what is needed for completion (2026-10-18)
+
+Goal (Lewis, 2026-10-18): a complete Product Database that is the single source of product truth and feeds the back end and every app, built to the platform's standards: GDP, QMS, Cyber Essentials Plus, audit/tracking/logging, WHO prequalification, US FDA, EU regulations. Decisions: recalls and safety alerts are in scope; registration facts are shared on the catalogue, each organisation's evidence and documents stay private to it.
+
+## 1. What exists today
+
+**Screens (apps/product-database)**
+- Catalogue list (`/`): search, category and missing-field filters, overview tiles, data-completeness tiles, sourcing-by-country ranked tile and map, paged table.
+- Side panel (opens from a row, not a page): edit name, category, HS, UNSPSC, GTIN, standard unit, manufacturer part number, expected quality documentation; read-only category attributes, price history (own organisation), own-organisation sourcing (manufacturer, supplier, status); archive/restore; "Propose amendment" for non-staff.
+- `/import`: CSV import. `/products/new`: add a product. `/notifications`. Global search.
+
+**Data (ProductMaster and related)**
+- Identity: name, category path, HS, UNSPSC, GTIN, unit, canonical part number, source standard, provenance (contributing organisation and type), simulated and archived flags.
+- `ProductAttributeDefinition` (per-category specification fields), `ProductPriceHistory` (insert-only, tenant), `ProductAmendment` (propose, ratify, reject; QA with `products.approve`), `ProductSourceApproval` (manufacturer plus supplier, status, review due), `ProductBatch` (batch, expiry, storage text, qualification pathway text, MA/PL number, status) and `BatchTemperatureLog`, `SupplierProduct` (supplier-published listing), `FieldChangeLog` (field-level audit), notifications.
+
+**API**: list, search, detail, create, update (direct for staff, amendment otherwise), import, completeness and dashboard stats, price history, amendments, ratify/reject. Fully paged and indexed; ring-fenced for simulated data.
+
+So the *identity* record, its change control and its sourcing are solid. What is thin is everything that makes a product *regulated* and *traceable*.
+
+## 2. Gaps
+
+**A. No full product page.** Everything lives in a side panel; no tabs, no shareable URL, no single place showing a product's whole picture.
+
+**B. Regulatory status is only free text.** Qualification pathway and MA/PL number exist per batch as strings. There is no structured registration record for: WHO PQ (reference, listing date, status), WHO EUL, SRA/ERP approval, US FDA (510(k), PMA, NDA/ANDA, NDC, UDI-DI), EU CE/MDR/IVDR (class, notified body, certificate, EUDAMED/UDI), national registrations by country, with issue and expiry dates, status and evidence link.
+
+**C. No product-level controlled documents.** No certificates, IFU/labelling, SDS, specifications, CoA templates, test reports or technical file with version, effective date, expiry and review cycle. (`ControlledDocument` is organisation-level.)
+
+**D. No lifecycle or safety state.** No Draft / Active / Restricted / Discontinued / Withdrawn / Recalled status with reason and effective date. No recall or field-safety-notice record, no notification to organisations using the product, no flag on affected lines and batches.
+
+**E. Storage and handling are unstructured.** Only a text `storageConditions` on batches. Needed per product: storage temperature class (e.g. 2–8 C, CRT, frozen), light and humidity limits, cold-chain flag, shelf life, hazard/dangerous-goods class (UN number), controlled-substance flag, shelf-life remaining rules on receipt.
+
+**F. Identity is too thin for global trade.** Missing: INN/generic name, strength, dosage form, route, pack size and pack hierarchy (unit/inner/outer/pallet), UDI-DI, ATC, WHO EML listing, GMDN, brand, multiple GTINs and manufacturer part numbers per product (today one of each), product images, regulatory class, intended use.
+
+**G. Change history is invisible.** `FieldChangeLog` records changes but nothing shows them on the product. No version number, no "as at date" view, no compare, no sign-off record shown.
+
+**H. No periodic review.** No review-due date and owner on a product, no re-verification schedule for registrations and documents, no expiry warnings (the pattern exists for partner evidence; not for products).
+
+**I. Sourcing view is shallow.** Own-organisation approvals only; no qualification evidence behind an approval, no link from approval to the manufacturer's registration or site GMP status, no batch list on the product, no usage (projects and lines) list.
+
+**J. Reporting and export.** No export of catalogue, registrations or the product dossier (CSV/PDF), no regulatory expiry report, no "what is on the market and in good standing" view.
+
+**K. Cross-app feed.** Other apps read name/category/identifiers only. Project lines, batches, quality approvals, supplier listings and tender/quotation features should read registration status, lifecycle, storage class and recall flags from the catalogue.
+
+**L. Assurance and security checks specific to this app.** Not yet verified live: Product Database sign-in flow and timing, write-permission matrix for new data, audit coverage of every new write, rate limiting on import, file-upload scanning and type limits for documents (Cyber Essentials Plus relevance), retention and archive-only rules (no hard deletes).
+
+## 3. Proposed design
+
+**Sharing model (Lewis's decision):** registration *facts* (what is registered, reference, class, status, dates) live on the shared catalogue so every organisation sees the same truth, contributed through the existing amendment/ratification route. Each organisation's own *evidence* (uploaded certificates, its verification, internal notes, review decisions) is tenant-scoped and RLS-protected, as `StakeholderEvidenceRecord` already is.
+
+New tables (all with migrations, indexes and tests):
+- `ProductRegulatoryRegistration` (shared): productMasterId, authority (WHO_PQ, WHO_EUL, FDA, EU_CE, EU_MDR, EU_IVDR, MHRA, SRA, NATIONAL), scheme/pathway, reference number, class, country, holder (partner), issue date, expiry date, status, source URL; ratified like amendments; field-level audit.
+- `ProductRegistrationVerification` (tenant): the organisation's own check against a registration (verified by, date, evidence, next re-verification), driving expiry warnings and gating.
+- `ProductDocument` (tenant): product-level controlled documents with type, version, effective and expiry dates, review cycle, status (draft/approved/superseded/archived), file reference, approver; supersede never delete.
+- `ProductSafetyNotice` (shared, ratified): recall / field safety notice / safety alert with severity, scope (batches, countries), authority reference, issue date, actions, status; creating or updating it notifies organisations that use the product and flags affected batches and lines.
+- Product columns: lifecycle status, lifecycle reason and date, storage class, cold-chain flag, shelf life months, hazard class, controlled-substance flag, INN, strength, dosage form, pack size and hierarchy, regulatory class, review owner and next review due. Multiple GTINs and part numbers via child tables.
+- Audit: every write through `recordFieldChanges`; read-only audit trail tab on the product; full-record JSON snapshot at each ratified version (version number).
+
+Screens: full product page `/products/detail?id=` with tabs — Overview, Specification, Regulatory, Documents, Safety, Sourcing and batches, Usage, History — plus completeness score for regulatory data, a regulatory dashboard (expiring, missing, recalled), export (CSV/PDF dossier), and a recall banner that follows the product across apps.
+
+Back-end and cross-app: shared `ProductComplianceStatus` computed per product (compliant / warning / blocked) from registrations, documents, lifecycle and safety notices, exposed to project lines (warn or block on blocked products), Quality approvals, batches and supplier listings.
+
+## 4. Build order
+1. Full product page and tabs on existing data; history tab; lifecycle status; storage and identity fields; completeness score.
+2. Regulatory registrations (shared, ratified) plus organisation verification; expiry dashboard and notifications.
+3. Product documents (controlled, versioned, file upload with type/size limits and scanning plan).
+4. Safety notices and recalls with notification and flagging; compliance status feeding project lines, batches, approvals.
+5. Exports, demo data for all of the above (realistic and populated), live verification, scale and security checks, docs.
+
+Each step: tests in CI, audit coverage, no hard deletes, British English, BUILD-LOG and project docs updated.
