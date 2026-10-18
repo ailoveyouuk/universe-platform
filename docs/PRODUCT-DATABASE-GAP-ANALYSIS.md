@@ -67,3 +67,29 @@ Back-end and cross-app: shared `ProductComplianceStatus` computed per product (c
 5. Exports, demo data for all of the above (realistic and populated), live verification, scale and security checks, docs.
 
 Each step: tests in CI, audit coverage, no hard deletes, British English, BUILD-LOG and project docs updated.
+
+## 5. Regulatory watch — daily cross-check against external regulators (added 2026-10-18)
+
+Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO etc. for recalls, regulatory blocks, export bans/hoarding and similar.
+
+**Sources (first pass; each confirmed to publish public data, exact endpoints/terms to be verified per source at build time)**
+| Source | What it gives | Access |
+|---|---|---|
+| openFDA (drug, device, food enforcement/recall endpoints) | US recalls and enforcement reports, device recalls | Public JSON API, key optional (rate limits) |
+| MHRA (GOV.UK drug and device alerts, Drug Safety Update) | UK drug alerts, recalls, medical device alerts, safety roundups | GOV.UK content API / feeds |
+| WHO Medical Product Alerts (substandard and falsified) | Global falsified/substandard alerts by product and batch | Web list, scrape/RSS-style fetch, no formal API found |
+| WHO prequalification lists (medicines, vaccines, IVDs, devices) | Listing status, delisting/suspension | Downloadable lists |
+| EMA (medicine data downloads, shortages, DHPCs) and EU shortages monitoring | EU authorisation changes, shortages, safety communications | Published datasets/downloads |
+| EUDAMED (EU device database) | Device vigilance and field safety notices | Partly public; no confirmed open API — treat as manual/partial until verified |
+| Sanctions and export-control lists (UK OFSI, EU consolidated list, OFAC) | Restricted parties/jurisdictions | Public downloadable lists |
+| National export-restriction/hoarding notices | Temporary export bans on medical goods | No single feed; curated entries by platform staff, with source links |
+
+**Design**
+- Scheduled job (Azure Container Apps job or GitHub Actions cron, daily) per connector: fetch, normalise, store raw payload hash, write `RegulatoryWatchItem` rows (shared): source, source reference, authority, type (RECALL, SAFETY_ALERT, FALSIFIED_ALERT, WITHDRAWAL/SUSPENSION, SHORTAGE, EXPORT_RESTRICTION, SANCTION), severity, issue date, summary, URL, affected product text, affected batches, countries, raw hash, fetchedAt. Idempotent upserts; never deletes (superseded/closed instead).
+- Matching: deterministic first (GTIN, UDI-DI, NDC, MA/PL or registration number, manufacturer name plus product name), then fuzzy candidates scored. High-confidence matches create a `ProductSafetyNotice` in PENDING-REVIEW; lower-confidence matches go to a QA triage queue. Nothing blocks a product or batch automatically on a fuzzy match; a human (QA/RP with `products.approve`) confirms, then lifecycle/compliance status updates and notifications fire. Sanctions and export restrictions are matched against manufacturers, suppliers, countries and shipping routes, and warn on project lines.
+- Run log: every run records start/end, source, items fetched/new/changed, errors, so the check is auditable (GDP/QMS evidence that monitoring happened daily). Failure of a source raises a platform-staff notification; stale-source banner in the UI.
+- UI: Regulatory watch tab on the product, a watch dashboard (new items, awaiting triage, sources healthy/stale), per-organisation subscription of which sources and categories alert them.
+- Security/compliance: outbound-only fetches from a restricted job, response size/type limits, no execution of fetched content, source allow-list, secrets in Key Vault/GitHub secrets, audit on every status change.
+- Limits to be honest about: public feeds differ in structure and can change without notice; some (WHO alerts, EUDAMED) have no stable API; matching is probabilistic so a human confirms; this supports, but does not replace, formal regulatory intelligence and legal advice.
+
+**Build slot:** after step 4 (safety notices) as step 4b — connectors first for openFDA, MHRA, WHO PQ/alerts and sanctions lists; EMA/EUDAMED and curated export-restriction entries next.
