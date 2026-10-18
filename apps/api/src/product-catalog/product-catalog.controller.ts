@@ -7,6 +7,8 @@ import { UpdateProductMasterDto } from "./dto/update-product-master.dto";
 import { ImportProductMasterDto } from "./dto/import-product-master.dto";
 import { RejectProductAmendmentDto } from "./dto/reject-product-amendment.dto";
 import { ProductRegistrationsService } from "./product-registrations.service";
+import { RegulatoryWatchService } from "./regulatory-watch.service";
+import { ConfirmWatchMatchDto, DismissWatchMatchDto } from "./dto/watch-match.dto";
 import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
@@ -42,6 +44,7 @@ export class ProductCatalogController {
     private readonly productCatalogService: ProductCatalogService,
     private readonly registrations: ProductRegistrationsService,
     private readonly safety: ProductSafetyNoticesService,
+    private readonly watch: RegulatoryWatchService,
     private readonly documents: ProductDocumentsService,
     private readonly families: ProductFamiliesService,
   ) {}
@@ -92,6 +95,29 @@ export class ProductCatalogController {
   @Get("regulatory/dashboard")
   regulatoryDashboard(@CurrentUser() user: RequestUser) {
     return this.registrations.dashboard(user);
+  }
+
+  /** GET /product-catalog/regulatory-watch/dashboard — source health, run log, pending advisory matches, recent items. */
+  @Get("regulatory-watch/dashboard")
+  watchDashboard(@CurrentUser() user: RequestUser) {
+    return this.watch.dashboard(user);
+  }
+
+  /** POST …/regulatory-watch/matches/:id/confirm — platform staff; records a safety notice and notifies affected organisations. */
+  @Post("regulatory-watch/matches/:matchId/confirm")
+  confirmWatchMatch(@CurrentUser() user: RequestUser, @Param("matchId") matchId: string, @Body() dto: ConfirmWatchMatchDto) {
+    return this.watch.confirm(user, matchId, dto.notes);
+  }
+
+  /** POST …/regulatory-watch/matches/:id/dismiss — platform staff; reason required; the match is kept. */
+  @Post("regulatory-watch/matches/:matchId/dismiss")
+  dismissWatchMatch(@CurrentUser() user: RequestUser, @Param("matchId") matchId: string, @Body() dto: DismissWatchMatchDto) {
+    return this.watch.dismiss(user, matchId, dto.notes);
+  }
+
+  @Get(":id/watch-matches")
+  productWatchMatches(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.watch.forProduct(user, id);
   }
 
   /** GET /product-catalog/safety-notices/dashboard — open notices plus the caller's organisation's review queue. */

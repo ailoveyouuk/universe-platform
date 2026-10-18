@@ -10,6 +10,7 @@ import type {
   ProductChangeEntry,
   ProductRegistrationSummary,
   ProductSafetyNoticeSummary,
+  WatchMatchSummary,
   ProductDocumentSummary,
   ProductPriceHistoryPoint,
   ProductSourceApprovalSummary,
@@ -461,6 +462,7 @@ const NOTICE_AUTHORITIES: [string, string][] = [...AUTHORITIES.filter(([k]) => k
 export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalogDetail; familyId?: string }) {
   const user = useCurrentUser();
   const [items, setItems] = useState<ProductSafetyNoticeSummary[] | null>(null);
+  const [watch, setWatch] = useState<WatchMatchSummary[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -476,6 +478,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
     (familyId ? apiClient.listFamilySafetyNotices(familyId, true) : apiClient.listProductSafetyNotices(detail!.id, true)).then(setItems).catch((e) => setErr(e instanceof Error ? e.message : "Could not load safety notices."));
   }, [detail, familyId]);
   useEffect(load, [load]);
+  useEffect(() => { if (detail && !familyId) apiClient.listProductWatchMatches(detail.id).then(setWatch).catch(() => setWatch([])); }, [detail, familyId]);
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true); setErr(null);
     try { await fn(); load(); setAdding(false); setReviewing(null); setClosing(null); setReason(""); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); }
@@ -491,9 +494,19 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
   return (
     <Card title="Safety notices and recalls" note="The notice is shared, so every organisation sees the same record. Your review below is private to your organisation. Saving a notice alerts the QA team of every organisation that uses the product.">
       {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {watch.filter((w) => w.status === "PENDING").length > 0 && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-warning, #b7791f)", fontSize: 13 }}>
+          <strong>Potential alert from the regulatory watch (advisory, awaiting platform review)</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {watch.filter((w) => w.status === "PENDING").map((w) => (
+              <li key={w.id}>{w.item.authority}: {w.item.title}{w.item.url ? <> — <a href={w.item.url} target="_blank" rel="noopener noreferrer">source</a></> : null} <span style={{ color: "var(--u-ink-secondary)" }}>({w.matchDetail})</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
       {items === null ? <p style={{ fontSize: 13 }}>Loading…</p> : items.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>
-          No safety notices or recalls recorded for this product. Automated monitoring of external regulators is not yet active, so an empty list is not a clearance.
+          No safety notices or recalls recorded for this product. The regulatory watch checks openFDA and MHRA daily, but it is advisory and covers only those sources, so an empty list is not a clearance.
         </p>
       ) : (
         <div style={{ display: "grid", gap: 10 }}>
@@ -635,7 +648,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
         <strong style={{ color: compColor }}>{comp.status === "OK" ? "Active registration on record" : comp.status === "WARNING" ? "Attention needed" : "Blocked pending review"}</strong>
         {comp.reasons.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{comp.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>
-          Based on recorded registrations, lifecycle and open safety notices. Automated monitoring of external regulators is not yet active, so this is not a clearance.
+          Based on recorded registrations, lifecycle and open safety notices. The daily regulatory watch covers openFDA and MHRA only and is advisory, so this is not a clearance.
         </p>
       </div>}
 

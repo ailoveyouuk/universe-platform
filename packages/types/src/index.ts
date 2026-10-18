@@ -1748,6 +1748,72 @@ export interface SafetyNoticeDashboard {
   items: ProductSafetyNoticeSummary[];
 }
 
+/** Regulatory watch (Product Database step 4b, 2026-10-18): public regulator items and advisory matches to catalogue products. */
+export interface WatchItemSummary {
+  id: string;
+  /** OPENFDA_DEVICE | OPENFDA_DRUG | MHRA_ALERTS */
+  source: string;
+  authority: string;
+  noticeType: string;
+  severity: string;
+  title: string;
+  summary: string;
+  firmName: string | null;
+  issueDate: string;
+  status: string;
+  url: string | null;
+  isSimulated: boolean;
+}
+
+export interface WatchMatchSummary {
+  id: string;
+  /** PENDING | CONFIRMED | DISMISSED */
+  status: string;
+  confidence: number;
+  /** IDENTIFIER | NAME */
+  matchBasis: string;
+  matchDetail: string | null;
+  productMasterId: string;
+  productName: string;
+  item: WatchItemSummary;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  /** The safety notice created when the match was confirmed. */
+  safetyNoticeId: string | null;
+}
+
+export interface WatchSourceHealth {
+  source: string;
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  lastSuccessAt: string | null;
+  lastError: string | null;
+  /** No successful run in the last 36 hours. */
+  stale: boolean;
+}
+
+export interface WatchRunSummary {
+  id: string;
+  source: string;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  fetched: number;
+  newItems: number;
+  changedItems: number;
+  newMatches: number;
+  error: string | null;
+}
+
+export interface RegulatoryWatchDashboard {
+  sources: WatchSourceHealth[];
+  totals: { itemsLast30Days: number; pendingMatches: number; confirmed: number; dismissed: number };
+  runs: WatchRunSummary[];
+  pending: WatchMatchSummary[];
+  recentItems: WatchItemSummary[];
+}
+
 /** Computed per product from lifecycle, registrations and open safety notices. */
 export interface ProductComplianceStatus {
   status: "OK" | "WARNING" | "BLOCKED";

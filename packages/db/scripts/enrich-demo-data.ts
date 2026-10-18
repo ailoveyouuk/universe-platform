@@ -600,6 +600,54 @@ async function enrichSafetyNotices(orgId: string) {
   return created.length;
 }
 
+/**
+ * Simulated regulatory-watch content for the demo organisation (Product Database step 4b): a week of run records per source,
+ * a dozen regulator-style items and advisory matches to simulated products (most pending, two dismissed). All flagged
+ * isSimulated, so real organisations never see them and the real daily job never matches against them. Idempotent.
+ */
+async function enrichRegulatoryWatch(orgId: string) {
+  const day = 86400000;
+  if ((await prisma.regulatoryWatchItem.count({ where: { isSimulated: true } })) > 0) { console.log("Regulatory watch: simulated content already present, skipped"); return 0; }
+  const used = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 3000 }));
+  const ids = used.map((u) => u.productMasterId as string).sort((a, b) => hash(a + "w") - hash(b + "w")).slice(0, 12);
+  const products = await prisma.productMaster.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, strength: true, gtin: true } });
+  const SRC = [
+    { source: "OPENFDA_DEVICE", authority: "FDA", severity: "HIGH", noticeType: "RECALL", title: (n: string) => `Class II recall: ${n}`, reason: "Packaging seal may be compromised on specific lots, which could affect sterility." },
+    { source: "OPENFDA_DRUG", authority: "FDA", severity: "CRITICAL", noticeType: "RECALL", title: (n: string) => `Class I recall: ${n}`, reason: "Contamination found during routine testing of the affected lots." },
+    { source: "MHRA_ALERTS", authority: "MHRA", severity: "MEDIUM", noticeType: "SAFETY_ALERT", title: (n: string) => `Medicines / device safety alert: ${n}`, reason: "Updated safety information and handling advice published by the MHRA." },
+  ];
+  const items: { id: string; productId: string }[] = [];
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
+    const t = SRC[i % SRC.length];
+    const created = await prisma.regulatoryWatchItem.create({
+      data: {
+        source: t.source, sourceReference: `SIM-${t.authority}-${2600 + i}`, authority: t.authority, noticeType: t.noticeType, severity: t.severity, title: t.title(p.name).slice(0, 280),
+        summary: t.reason, actionRequired: "Check stock against the affected lots and follow the notice instructions.", affectedText: `${p.name}${p.gtin ? ` GTIN ${p.gtin}` : ""} Lot L${3100 + i}`,
+        firmName: "Simulated manufacturer", countryCodes: t.authority === "MHRA" ? "GB" : null, issueDate: new Date(Date.now() - (2 + i * 3) * day), status: "OPEN", url: null,
+        rawHash: `sim-${i}`, isSimulated: true,
+      },
+    });
+    items.push({ id: created.id, productId: p.id });
+    await prisma.regulatoryWatchMatch.create({
+      data: {
+        itemId: created.id, productMasterId: p.id, confidence: p.gtin && i % 2 === 0 ? 0.95 : 0.6, matchBasis: p.gtin && i % 2 === 0 ? "IDENTIFIER" : "NAME",
+        matchDetail: p.gtin && i % 2 === 0 ? `Identifier ${p.gtin} appears in the notice` : `Name and strength ${p.strength ?? ""} appear in the notice`,
+        ...(i >= products.length - 2 ? { status: "DISMISSED", reviewedByName: "Platform admin", reviewedAt: new Date(Date.now() - day), reviewNotes: "Different manufacturer; lots not supplied to any project." } : {}),
+      },
+    });
+  }
+  for (const source of ["OPENFDA_DEVICE", "OPENFDA_DRUG", "MHRA_ALERTS"]) {
+    for (let d = 7; d >= 0; d--) {
+      const started = new Date(Date.now() - d * day - 3 * 3600000);
+      const failed = source === "MHRA_ALERTS" && d === 5;
+      await prisma.regulatoryWatchRun.create({ data: { source, startedAt: started, finishedAt: new Date(started.getTime() + 20000), status: failed ? "FAILED" : "SUCCESS", fetched: failed ? 0 : 20 + hash(source + d) % 60, newItems: failed ? 0 : hash(source + d + "n") % 6, changedItems: failed ? 0 : hash(source + d + "c") % 3, newMatches: failed ? 0 : hash(source + d + "m") % 2, error: failed ? "GOV.UK search returned HTTP 503 (simulated)" : null, isSimulated: true } });
+    }
+  }
+  console.log(`Regulatory watch: added ${items.length} simulated items with matches, and 24 run records`);
+  return items.length;
+}
+
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
@@ -816,6 +864,7 @@ async function main() {
   await enrichPackagingLevels();
   await enrichFamilyDocuments(orgId);
   await enrichSafetyNotices(orgId);
+  await enrichRegulatoryWatch(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);

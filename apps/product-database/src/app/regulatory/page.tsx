@@ -76,7 +76,7 @@ export default function RegulatoryPage() {
               ))}
             </div>
           )}
-          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations and notices only. Automated monitoring of external regulators is not yet active.</p>
+          <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations and notices only. The daily regulatory watch (openFDA, MHRA) is advisory; see Regulatory watch.</p>
         </>
       )}
     </main>

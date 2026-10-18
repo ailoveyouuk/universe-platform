@@ -22,3 +22,7 @@ export * from "./organizations";
 export * from "./enums";
 export * from "./tenant-context";
 export * from "./logistics-metrics";
+export * from "./regulatory-watch/types";
+export * from "./regulatory-watch/matching";
+export * from "./regulatory-watch/connectors";
+export * from "./regulatory-watch/run";

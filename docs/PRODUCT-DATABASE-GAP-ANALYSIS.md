@@ -111,3 +111,9 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 - **Step 4 done:** shared safety notices/recalls on a variant or family, each organisation's private "checked / not applicable / action taken / affected" review, compliance status (critical open notice = blocked), notifications to the QA of every organisation using the product, flags on Project Management lines, dashboard tiles, demo data and tests (see BUILD-LOG, "Product Database step 4").
 - **Deferred by Lewis:** Defender for Storage malware scanning is a go-live gate, not a pilot task. Documents show "Not scanned" until enabled; it must be on before any real organisation uploads real documents.
 - **Next:** step 4b (automated daily regulatory watch, advisory "potential" flags with human triage), then step 5 (exports, demo data completeness, live security and scale checks).
+
+## Update 2026-10-18 — step 4b delivered (first pass)
+
+- **Done:** daily watch of openFDA (devices, drugs) and MHRA / GOV.UK alerts, idempotent storage, deterministic advisory matching to real catalogue products, run log, platform-staff confirm/dismiss (confirm records a safety notice and notifies affected organisations), watch page and per-product strip, scheduled GitHub Actions workflow (see BUILD-LOG, "step 4b").
+- **Still to add to the watch:** WHO medical product alerts and prequalification lists, EMA and EU shortages, EUDAMED (manual/partial), sanctions lists (OFSI, EU, OFAC) matched to manufacturers/suppliers, curated export-restriction entries, automatic closure of a confirmed notice when the source closes it, and optional per-organisation source/category subscriptions.
+- **Next:** step 5 (exports of catalogue, registrations and product dossier; demo-data completeness; live security and scale checks).

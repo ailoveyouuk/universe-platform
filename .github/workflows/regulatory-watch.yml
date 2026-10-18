@@ -1,0 +1,39 @@
+name: Regulatory watch
+
+# Daily check of public regulator feeds (openFDA device and drug enforcement reports, MHRA / GOV.UK drug and device alerts)
+# for recalls and safety alerts (Product Database step 4b, 2026-10-18). Read-only fetches from a fixed host allow-list; results
+# are stored idempotently, matched to real catalogue products as ADVISORY flags for platform staff to confirm, and each run is
+# logged in regulatory_watch_runs (evidence that monitoring happened). A failing source fails the run, so GitHub notifies the
+# repository owner. Uses the same database secret as the demo load (the live Universe database).
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (fetch and count, write nothing)."
+        default: true
+        type: boolean
+      sources:
+        description: "Comma-separated sources (OPENFDA_DEVICE, OPENFDA_DRUG, MHRA_ALERTS). Blank = all."
+        default: ""
+        type: string
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - name: Run regulatory watch
+        run: npm run watch:regulatory --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          SOURCES: ${{ inputs.sources }}
+          OPENFDA_API_KEY: ${{ secrets.OPENFDA_API_KEY }}

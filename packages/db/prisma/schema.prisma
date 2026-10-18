@@ -1735,6 +1735,7 @@ model ProductMaster {
   /// ProductAmendment below).
   amendments             ProductAmendment[]
   safetyNotices          ProductSafetyNotice[]
+  watchMatches           RegulatoryWatchMatch[]
 
   @@index([category])
   @@index([hsCode])
@@ -3067,4 +3068,91 @@ model ProductSafetyNoticeReview {
 
   @@index([organizationId, noticeId, reviewedAt])
   @@map("product_safety_notice_reviews")
+}
+
+/// Regulatory watch (Product Database step 4b, 2026-10-18): one row per recall / alert published by an external regulator, fetched
+/// daily by the watch job and stored idempotently on (source, sourceReference). SHARED public data; never deleted (source status
+/// moves to CLOSED). Real items are matched only against real (non-simulated) catalogue products; simulated demo items are
+/// flagged isSimulated and stay inside the demo organisation.
+model RegulatoryWatchItem {
+  id              String   @id @default(uuid())
+  /// OPENFDA_DEVICE | OPENFDA_DRUG | MHRA_ALERTS — RegulatoryWatchSource.
+  source          String
+  /// The regulator's own identifier (e.g. recall number Z-0004-2027, or the GOV.UK path).
+  sourceReference String
+  /// FDA | MHRA ...
+  authority       String
+  /// RECALL | SAFETY_ALERT | FIELD_SAFETY_NOTICE | FALSIFIED_ALERT — same values as SafetyNoticeType.
+  noticeType      String
+  /// CRITICAL | HIGH | MEDIUM | LOW — SafetyNoticeSeverity.
+  severity        String
+  title           String
+  summary         String   @db.NVarChar(Max)
+  actionRequired  String?  @db.NVarChar(Max)
+  /// Product description and code/lot information as published, used for matching.
+  affectedText    String?  @db.NVarChar(Max)
+  firmName        String?
+  countryCodes    String?
+  issueDate       DateTime
+  /// OPEN | CLOSED as reported by the source.
+  status          String   @default("OPEN")
+  url             String?
+  rawHash         String
+  firstSeenAt     DateTime @default(now())
+  lastSeenAt      DateTime @default(now())
+  isSimulated     Boolean  @default(false)
+
+  matches RegulatoryWatchMatch[]
+
+  @@unique([source, sourceReference])
+  @@index([issueDate])
+  @@index([isSimulated, status])
+  @@map("regulatory_watch_items")
+}
+
+/// A potential match between a watch item and a catalogue variant. ADVISORY ONLY: nothing is blocked until platform staff confirm,
+/// which creates a ProductSafetyNotice (and so notifies the organisations that use the product). Dismissal keeps the row.
+model RegulatoryWatchMatch {
+  id              String              @id @default(uuid())
+  itemId          String
+  item            RegulatoryWatchItem @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId String
+  productMaster   ProductMaster       @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 0..1. Identifier matches score 0.9+, name-and-strength matches around 0.6.
+  confidence      Float
+  /// IDENTIFIER | NAME
+  matchBasis      String
+  matchDetail     String?
+  /// PENDING | CONFIRMED | DISMISSED
+  status          String              @default("PENDING")
+  reviewedById    String?
+  reviewedByName  String?
+  reviewedAt      DateTime?
+  reviewNotes     String?             @db.NVarChar(Max)
+  safetyNoticeId  String?
+  createdAt       DateTime            @default(now())
+
+  @@unique([itemId, productMasterId])
+  @@index([status, confidence])
+  @@index([productMasterId, status])
+  @@map("regulatory_watch_matches")
+}
+
+/// One execution of one watch connector: the auditable evidence that monitoring ran (GDP / QMS).
+model RegulatoryWatchRun {
+  id           String    @id @default(uuid())
+  source       String
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  /// RUNNING | SUCCESS | FAILED
+  status       String    @default("RUNNING")
+  fetched      Int       @default(0)
+  newItems     Int       @default(0)
+  changedItems Int       @default(0)
+  newMatches   Int       @default(0)
+  error        String?   @db.NVarChar(Max)
+  isSimulated  Boolean   @default(false)
+
+  @@index([source, startedAt])
+  @@map("regulatory_watch_runs")
 }

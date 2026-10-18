@@ -55,6 +55,8 @@ import type {
   UpdateSafetyNoticeInput,
   ReviewSafetyNoticeInput,
   ProductSafetyFlag,
+  RegulatoryWatchDashboard,
+  WatchMatchSummary,
   SafetyNoticeDashboard,
   CreateRegistrationInput,
   UpdateRegistrationInput,
@@ -653,6 +655,19 @@ export class UniverseApiClient {
   }
   getSafetyNoticeDashboard(): Promise<SafetyNoticeDashboard> {
     return this.request(`/product-catalog/safety-notices/dashboard`);
+  }
+  /** Regulatory watch (step 4b): advisory matches of public regulator recalls to catalogue products; platform staff confirm or dismiss. */
+  getRegulatoryWatchDashboard(): Promise<RegulatoryWatchDashboard> {
+    return this.request(`/product-catalog/regulatory-watch/dashboard`);
+  }
+  listProductWatchMatches(productMasterId: string): Promise<WatchMatchSummary[]> {
+    return this.request(`/product-catalog/${productMasterId}/watch-matches`);
+  }
+  confirmWatchMatch(matchId: string, notes?: string): Promise<WatchMatchSummary> {
+    return this.request(`/product-catalog/regulatory-watch/matches/${matchId}/confirm`, { method: "POST", body: JSON.stringify({ notes }) });
+  }
+  dismissWatchMatch(matchId: string, notes: string): Promise<WatchMatchSummary> {
+    return this.request(`/product-catalog/regulatory-watch/matches/${matchId}/dismiss`, { method: "POST", body: JSON.stringify({ notes }) });
   }
   getProductSafetyFlags(productMasterIds: string[]): Promise<ProductSafetyFlag[]> {
     return this.request(`/product-catalog/safety-notices/flags?ids=${encodeURIComponent(productMasterIds.join(","))}`);
