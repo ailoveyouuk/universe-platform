@@ -117,3 +117,6 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 - **Done:** daily watch of openFDA (devices, drugs) and MHRA / GOV.UK alerts, idempotent storage, deterministic advisory matching to real catalogue products, run log, platform-staff confirm/dismiss (confirm records a safety notice and notifies affected organisations), watch page and per-product strip, scheduled GitHub Actions workflow (see BUILD-LOG, "step 4b").
 - **Still to add to the watch:** WHO medical product alerts and prequalification lists, EMA and EU shortages, EUDAMED (manual/partial), sanctions lists (OFSI, EU, OFAC) matched to manufacturers/suppliers, curated export-restriction entries, automatic closure of a confirmed notice when the source closes it, and optional per-organisation source/category subscriptions.
 - **Next:** step 5 (exports of catalogue, registrations and product dossier; demo-data completeness; live security and scale checks).
+
+
+**Export and hoarding restrictions (2026-10-18):** delivered. UK DHSC/MHRA list synced daily, matched to products by name/strength/form and applied to project lines by origin (supplier, manufacturer or manufacture country) and delivery country; other countries via staff-curated, source-linked entries. Remaining: verified entries for other SRA countries, licence-level matching.
