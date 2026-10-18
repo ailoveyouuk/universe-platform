@@ -664,7 +664,8 @@ async function enrichExportRestrictions(orgId: string) {
   }));
   const route = lines.filter((l) => l.supplier?.countryCode && l.project.deliveryCountryCode && l.supplier.countryCode.toUpperCase() !== l.project.deliveryCountryCode.toUpperCase());
   const ids = [...new Set(route.map((l) => l.productMasterId as string))];
-  const pharma = await prisma.productMaster.findMany({ where: { id: { in: ids.slice(0, 3000) }, isSimulated: true, inn: { not: null }, category: { startsWith: "Pharmaceuticals" } }, select: { id: true, inn: true, strength: true, dosageForm: true } });
+  const pharma: { id: string; inn: string | null; strength: string | null; dosageForm: string | null }[] = [];
+  for (const group of chunks(ids.slice(0, 3000), 500)) pharma.push(...(await prisma.productMaster.findMany({ where: { id: { in: group }, isSimulated: true, inn: { not: null }, category: { startsWith: "Pharmaceuticals" } }, select: { id: true, inn: true, strength: true, dosageForm: true } })));
   const originOf = new Map<string, string>();
   for (const l of route) if (!originOf.has(l.productMasterId as string) || l.supplier?.countryCode?.toUpperCase() === "GB") originOf.set(l.productMasterId as string, (l.supplier?.countryCode as string).toUpperCase());
   const picks = pharma.sort((a, b) => (originOf.get(b.id) === "GB" ? 1 : 0) - (originOf.get(a.id) === "GB" ? 1 : 0) || hash(a.id + "x") - hash(b.id + "x")).slice(0, 6);
