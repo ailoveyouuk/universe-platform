@@ -54,7 +54,7 @@ describe("Product record, history and usage", () => {
     expect(detail?.coldChain).toBe(true);
     expect(detail?.lifecycleStatus).toBe("RESTRICTED");
     expect(detail?.lifecycleChangedAt).not.toBeNull();
-    const history = await service.getHistory(productId, true);
+    const history = await service.getHistory(productId, true, asUser(orgA, true));
     expect(history.filter((h) => h.version === 2).map((h) => h.fieldName).sort()).toEqual(["coldChain", "lifecycleReason", "lifecycleStatus", "shelfLifeMonths", "storageClass"]);
     expect(history[0].changedByName).toBe("Pat Record");
   });
@@ -82,7 +82,7 @@ describe("Product record, history and usage", () => {
     const detail = await service.getOne(productId, true);
     expect(detail?.brand).toBe("Acme Bio");
     expect(detail?.version).toBe(4);
-    const history = await service.getHistory(productId, true);
+    const history = await service.getHistory(productId, true, asUser(orgA, true));
     expect(history.some((h) => h.fieldName === "brand" && h.source === "AMENDMENT_RATIFIED")).toBe(true);
   });
 
