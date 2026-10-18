@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  DownloadIcon,
   Sidebar,
   Logo,
   OrgThemeProvider,
@@ -36,6 +37,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/families", label: "Families", icon: () => <GridIcon size={19} />, inNav: true },
   { href: "/regulatory", label: "Regulatory", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/watch", label: "Regulatory watch", icon: () => <AlertIcon size={19} />, inNav: true },
+  { href: "/exports", label: "Data exports", icon: () => <DownloadIcon size={19} />, inNav: true },
   { href: "/import", label: "Import", icon: () => <ShieldIcon size={19} />, inNav: true },
 ];
 

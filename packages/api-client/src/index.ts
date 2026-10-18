@@ -59,6 +59,10 @@ import type {
   ExportRestrictionSummary,
   ProductExportRestrictionMatch,
   ProductExportFile,
+  ExportCapabilities,
+  DataExportRequestSummary,
+  CreateDataExportRequestInput,
+  DecideDataExportRequestInput,
   ProductDossier,
   CreateExportRestrictionInput,
   UpdateExportRestrictionInput,
@@ -693,6 +697,25 @@ export class UniverseApiClient {
     if (filters.status) qs.set("status", filters.status);
     if (filters.includeArchived) qs.set("includeArchived", "true");
     return this.request(`/product-catalog/exports/registrations${qs.toString() ? `?${qs}` : ""}`);
+  }
+  getExportCapabilities(): Promise<ExportCapabilities> {
+    return this.request(`/product-catalog/exports/capabilities`);
+  }
+  listExportRequests(): Promise<DataExportRequestSummary[]> {
+    return this.request(`/product-catalog/exports/requests`);
+  }
+  createExportRequest(input: CreateDataExportRequestInput): Promise<DataExportRequestSummary> {
+    return this.request(`/product-catalog/exports/requests`, { method: "POST", body: JSON.stringify(input) });
+  }
+  decideExportRequest(id: string, input: DecideDataExportRequestInput): Promise<DataExportRequestSummary> {
+    return this.request(`/product-catalog/exports/requests/${id}/decision`, { method: "POST", body: JSON.stringify(input) });
+  }
+  downloadExportRequest(id: string): Promise<ProductExportFile> {
+    return this.request(`/product-catalog/exports/requests/${id}/download`);
+  }
+  /** CSV of the caller's own organisation's records: partners | projects | project-lines. */
+  exportOrganisationCsv(entity: "partners" | "projects" | "project-lines", includeArchived = false): Promise<ProductExportFile> {
+    return this.request(`/exports/organisation/${entity}${includeArchived ? "?includeArchived=true" : ""}`);
   }
   getProductDossier(productMasterId: string): Promise<ProductDossier> {
     return this.request(`/product-catalog/${productMasterId}/dossier`);

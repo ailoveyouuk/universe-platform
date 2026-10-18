@@ -242,6 +242,12 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_safety_notice_reviews AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_safety_notice_reviews AFTER UPDATE,
 
+    -- data_export_requests — an organisation's requests to export the shared catalogue, added 2026-10-18. Tenant-scoped;
+    -- platform staff read and decide them through the platform-staff context.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_export_requests,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_export_requests AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.data_export_requests AFTER UPDATE,
+
     -- product_documents — controlled product documents (certificates, IFU, SDS, specifications...), added
     -- 2026-10-18. Tenant-scoped: each organisation's documents are private to it.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.product_documents,

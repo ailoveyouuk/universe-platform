@@ -45,37 +45,42 @@ describe("Product exports", () => {
     expect(csvRow(["a", 2, null, "b,c"])).toBe('a,2,,"b,c"');
   });
 
-  it("exports the catalogue with the caller's filters, hides simulated rows outside the demo, anonymises other organisations and audits the export", async () => {
+  it("exports only what the organisation itself contributed unless the caller is a global admin; hides simulated rows; anonymises; audits", async () => {
     const byA = await exportsSvc.catalogueCsv(asUser(orgA, userA), { q: suffix });
     expect(byA.rowCount).toBe(1);
-    expect(byA.csv.startsWith("﻿")).toBe(true);
+    expect(byA.csv.startsWith("\ufeff")).toBe(true);
     expect(byA.csv).toContain(`'=Export device ${suffix}`);
     expect(byA.csv).toContain(`Ex A ${suffix}`);
     expect(byA.csv).not.toContain("Export simulated");
+    // Organisation B did not add this product, so its own-contribution export is empty.
     const byB = await exportsSvc.catalogueCsv(asUser(orgB, userB), { q: suffix });
-    expect(byB.csv).toContain("A Universe member");
-    expect(byB.csv).not.toContain(`Ex A ${suffix}`);
+    expect(byB.rowCount).toBe(0);
+    expect(byB.csv).not.toContain(`Export device ${suffix}`);
+    // The whole-catalogue path (global admin, or an approved request) still anonymises the contributor for a non-contributor.
+    const wide = await exportsSvc.catalogueCsv(asUser(orgB, userB), { q: suffix }, true);
+    expect(wide.csv).toContain("A Universe member");
+    expect(wide.csv).not.toContain(`Ex A ${suffix}`);
     const audit = await withTenantContext(orgA, (tx) => tx.fieldChangeLog.findMany({ where: { organizationId: orgA, tableName: "data_exports" } }));
     expect(audit.length).toBeGreaterThanOrEqual(1);
     expect(audit[0].changedById).toBe(userA);
-    expect(audit[0].newValue).toContain("1 rows");
+    expect(audit[0].newValue).toContain("Own contributions: 1 rows");
   });
 
-  it("exports registrations with only the caller's own verification, and expired reads as EXPIRED", async () => {
+  it("exports registrations with only the caller's own verification, own contributions by default, and expired reads as EXPIRED", async () => {
     const reg = await regs.create(asUser(orgA, userA), productTarget(productId), { authority: "EU_MDR", referenceNumber: `EXP-${suffix}`, expiryDate: "2020-01-01" });
     await regs.verify(asUser(orgA, userA), reg.id, { outcome: "VERIFIED", jurisdiction: "EU" });
     const a = await exportsSvc.registrationsCsv(asUser(orgA, userA), {});
     const rowA = a.csv.split("\r\n").find((l) => l.includes(`EXP-${suffix}`)) ?? "";
     expect(rowA).toContain("EXPIRED");
     expect(rowA).toContain(",VERIFIED,EU,");
-    const b = await exportsSvc.registrationsCsv(asUser(orgB, userB), {});
-    const rowB = b.csv.split("\r\n").find((l) => l.includes(`EXP-${suffix}`)) ?? "";
+    const bOwn = await exportsSvc.registrationsCsv(asUser(orgB, userB), {});
+    expect(bOwn.csv).not.toContain(`EXP-${suffix}`);
+    const bWide = await exportsSvc.registrationsCsv(asUser(orgB, userB), {}, true);
+    const rowB = bWide.csv.split("\r\n").find((l) => l.includes(`EXP-${suffix}`)) ?? "";
     expect(rowB).toContain("EXPIRED");
     expect(rowB).not.toContain(",VERIFIED,EU,");
-    const onlyExpired = await exportsSvc.registrationsCsv(asUser(orgA, userA), { status: "EXPIRED" });
-    expect(onlyExpired.csv).toContain(`EXP-${suffix}`);
-    const onlyActive = await exportsSvc.registrationsCsv(asUser(orgA, userA), { status: "ACTIVE" });
-    expect(onlyActive.csv).not.toContain(`EXP-${suffix}`);
+    expect((await exportsSvc.registrationsCsv(asUser(orgA, userA), { status: "EXPIRED" })).csv).toContain(`EXP-${suffix}`);
+    expect((await exportsSvc.registrationsCsv(asUser(orgA, userA), { status: "ACTIVE" })).csv).not.toContain(`EXP-${suffix}`);
   });
 
   it("builds a dossier from the caller's view, refuses simulated products outside the demo, and audits it", async () => {

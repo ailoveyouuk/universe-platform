@@ -333,6 +333,7 @@ model Organization {
   /// tendering bodies use us" without a new query shape.
   tenderingBodiesUsingAsAgent TenderingBodyProfile[]         @relation("TenderingBodyProcurementAgent")
   productSafetyNoticeReviews  ProductSafetyNoticeReview[]
+  dataExportRequests          DataExportRequest[]
 
   @@map("organizations")
 }
@@ -396,6 +397,8 @@ model User {
   notifications                    Notification[]                    @relation("NotificationRecipient")
   triggeredNotifications           Notification[]                    @relation("NotificationActor")
   safetyNoticeReviews              ProductSafetyNoticeReview[]       @relation("SafetyNoticeReviewer")
+  exportRequests                   DataExportRequest[]               @relation("DataExportRequester")
+  exportDecisions                  DataExportRequest[]               @relation("DataExportDecider")
 
   @@index([organizationId])
   @@index([organizationId, status, invitedAt])
@@ -3191,4 +3194,35 @@ model ExportRestriction {
   @@unique([source, restrictingCountryCode, sourceKey])
   @@index([restrictingCountryCode, status])
   @@map("export_restrictions")
+}
+
+/// Request to export the shared Universe catalogue (2026-10-18). The pooled catalogue is a platform asset: ordinary users can export
+/// only what their own organisation contributed; anything wider needs a global admin (platform staff) to approve a request. Tenant-scoped
+/// (the requesting organisation sees its own requests); platform staff read across organisations. Never deleted: decided requests stay as the record.
+model DataExportRequest {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requestedById  String
+  requestedBy    User         @relation("DataExportRequester", fields: [requestedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CATALOGUE | REGISTRATIONS
+  scope          String
+  /// JSON text of the filters the requester wants applied (search, category, status...).
+  filters        String?      @db.NVarChar(Max)
+  reason         String       @db.NVarChar(Max)
+  /// PENDING | APPROVED | REJECTED | DOWNLOADED | EXPIRED
+  status         String       @default("PENDING")
+  decidedById    String?
+  decidedBy      User?        @relation("DataExportDecider", fields: [decidedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  decidedAt      DateTime?
+  decisionNote   String?      @db.NVarChar(Max)
+  /// An approval is good for one download until this time.
+  approvedUntil  DateTime?
+  downloadedAt   DateTime?
+  rowCount       Int?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+  @@map("data_export_requests")
 }

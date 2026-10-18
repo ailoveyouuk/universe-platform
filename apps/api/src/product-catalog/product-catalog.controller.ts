@@ -15,7 +15,9 @@ import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 import { familyTarget, productTarget } from "./product-target";
-import { ProductExportsService } from "./product-exports.service";
+import { ExportRequestsService } from "./export-requests.service";
+import { CreateDataExportRequestDto, DecideDataExportRequestDto } from "./dto/data-export-request.dto";
+import { ProductExportsService, isGlobalAdmin } from "./product-exports.service";
 import { ProductFamiliesService } from "./product-families.service";
 import { AssignFamilyDto, CreateProductFamilyDto, UpdateProductFamilyDto } from "./dto/product-family.dto";
 import { ProductDocumentsService } from "./product-documents.service";
@@ -52,6 +54,7 @@ export class ProductCatalogController {
     private readonly documents: ProductDocumentsService,
     private readonly families: ProductFamiliesService,
     private readonly exportsService: ProductExportsService,
+    private readonly exportRequests: ExportRequestsService,
   ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
@@ -80,16 +83,44 @@ export class ProductCatalogController {
     });
   }
 
-  /** GET /product-catalog/exports/catalogue — CSV of the catalogue (same filters as the browse screen); audited. */
-  @Get("exports/catalogue")
-  exportCatalogue(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string) {
-    return this.exportsService.catalogueCsv(user, { q, category, sourceStandard, includeArchived: includeArchived === "true" });
+  /** GET /product-catalog/exports/capabilities — whether the caller may export the whole catalogue or only their own contributions. */
+  @Get("exports/capabilities")
+  exportCapabilities(@CurrentUser() user: RequestUser) {
+    return { wholeCatalogue: isGlobalAdmin(user) };
   }
 
-  /** GET /product-catalog/exports/registrations — CSV of shared registrations with the caller's own verification; audited. */
+  /** GET /product-catalog/exports/catalogue — CSV of the catalogue (same filters as the browse screen); audited.
+   * Global admins get everything; everyone else gets the products their own organisation contributed. */
+  @Get("exports/catalogue")
+  exportCatalogue(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string) {
+    return this.exportsService.catalogueCsv(user, { q, category, sourceStandard, includeArchived: includeArchived === "true" }, isGlobalAdmin(user));
+  }
+
+  /** GET /product-catalog/exports/registrations — CSV of registrations with the caller's own verification; own contributions unless a global admin. */
   @Get("exports/registrations")
   exportRegistrations(@CurrentUser() user: RequestUser, @Query("status") status?: string, @Query("includeArchived") includeArchived?: string) {
-    return this.exportsService.registrationsCsv(user, { status, includeArchived: includeArchived === "true" });
+    return this.exportsService.registrationsCsv(user, { status, includeArchived: includeArchived === "true" }, isGlobalAdmin(user));
+  }
+
+  /** Requests to export the whole shared catalogue: made by an organisation, decided by a global admin. */
+  @Get("exports/requests")
+  listExportRequests(@CurrentUser() user: RequestUser) {
+    return this.exportRequests.list(user);
+  }
+
+  @Post("exports/requests")
+  createExportRequest(@CurrentUser() user: RequestUser, @Body() dto: CreateDataExportRequestDto) {
+    return this.exportRequests.create(user, dto);
+  }
+
+  @Post("exports/requests/:requestId/decision")
+  decideExportRequest(@CurrentUser() user: RequestUser, @Param("requestId") requestId: string, @Body() dto: DecideDataExportRequestDto) {
+    return this.exportRequests.decide(user, requestId, dto);
+  }
+
+  @Get("exports/requests/:requestId/download")
+  downloadExportRequest(@CurrentUser() user: RequestUser, @Param("requestId") requestId: string) {
+    return this.exportRequests.download(user, requestId);
   }
 
   /** GET /product-catalog/completeness-stats — Stage 0 point 3 (data

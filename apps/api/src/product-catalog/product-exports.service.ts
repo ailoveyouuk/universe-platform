@@ -3,6 +3,7 @@ import { prisma, withTenantContext } from "@universe/db";
 import type { ProductDossier, ProductExportFile } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
+import { csvFile, csvRow, csvCell, EXPORT_PAGE, EXPORT_ROW_LIMIT, isoDate } from "../common/csv";
 import { attributionContext, maskContributor } from "./attribution";
 import { ExportRestrictionsService } from "./export-restrictions.service";
 import { ProductCatalogService } from "./product-catalog.service";
@@ -11,20 +12,12 @@ import { ProductRegistrationsService } from "./product-registrations.service";
 import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { productTarget } from "./product-target";
 
-/** Hard ceiling on one export, so a single request stays bounded; the file says when it was cut off. */
-export const EXPORT_ROW_LIMIT = 50000;
-const PAGE = 500;
+export { csvCell, csvRow, EXPORT_ROW_LIMIT };
+const PAGE = EXPORT_PAGE;
+const iso = isoDate;
 
-/** Spreadsheet-safe CSV cell: quotes where needed, and a leading apostrophe on anything a spreadsheet would run as a formula. */
-export function csvCell(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  let s = value instanceof Date ? value.toISOString() : String(value);
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-export const csvRow = (cells: unknown[]) => cells.map(csvCell).join(",");
-
-const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
+/** Global admins (platform super-admins) may export the whole shared catalogue; everyone else only what their own organisation contributed. */
+export const isGlobalAdmin = (u: Pick<RequestUser, "platformStaffRole">) => u.platformStaffRole === "SUPER_ADMIN";
 
 /**
  * Product Database exports (step 5, 2026-10-18). Every export respects what the caller may see: simulated records only inside a
@@ -48,16 +41,15 @@ export class ProductExportsService {
   }
 
   private file(prefix: string, header: string[], lines: string[], rows: number, truncated: boolean): ProductExportFile {
-    const stamp = new Date().toISOString().slice(0, 10);
-    const note = truncated ? [csvRow([`Export stopped at ${EXPORT_ROW_LIMIT} rows; narrow the filters to see the rest.`])] : [];
-    return { filename: `universe-${prefix}-${stamp}.csv`, csv: "﻿" + [csvRow(header), ...lines, ...note].join("\r\n") + "\r\n", rowCount: rows, truncated };
+    return csvFile(prefix, header, lines, truncated);
   }
 
   /** The catalogue (variants) matching the same filters as the browse screen. */
-  async catalogueCsv(user: RequestUser, f: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean }): Promise<ProductExportFile> {
+  async catalogueCsv(user: RequestUser, f: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean }, all = false): Promise<ProductExportFile> {
     const showSim = user.inDemoOrganization === true;
     const where = {
       ...(showSim ? {} : { isSimulated: false }),
+      ...(all ? {} : { addedByOrganizationId: user.organizationId }),
       ...(f.includeArchived ? {} : { isArchived: false }),
       ...(f.q && f.q.trim() ? { name: { contains: f.q.trim() } } : {}),
       ...(f.category ? { category: { startsWith: f.category } } : {}),
@@ -82,15 +74,15 @@ export class ProductExportsService {
       if (truncated || rows.length < PAGE) break;
       cursor = rows[rows.length - 1].id;
     }
-    await this.audit(user, "catalogue_export", "catalogue", `${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ q: f.q ?? null, category: f.category ?? null, sourceStandard: f.sourceStandard ?? null, includeArchived: !!f.includeArchived })}`);
+    await this.audit(user, "catalogue_export", "catalogue", `${all ? "Whole catalogue" : "Own contributions"}: ${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ q: f.q ?? null, category: f.category ?? null, sourceStandard: f.sourceStandard ?? null, includeArchived: !!f.includeArchived })}`);
     return this.file("catalogue", header, lines, lines.length, truncated);
   }
 
   /** Every shared regulatory registration the caller can see, with the caller's own organisation's latest verification. */
-  async registrationsCsv(user: RequestUser, f: { status?: string; includeArchived?: boolean }): Promise<ProductExportFile> {
+  async registrationsCsv(user: RequestUser, f: { status?: string; includeArchived?: boolean }, all = false): Promise<ProductExportFile> {
     const showSim = user.inDemoOrganization === true;
     const now = new Date();
-    const where = { ...(showSim ? {} : { isSimulated: false }), ...(f.includeArchived ? {} : { isArchived: false }) };
+    const where = { ...(showSim ? {} : { isSimulated: false }), ...(all ? {} : { contributedByOrganizationId: user.organizationId }), ...(f.includeArchived ? {} : { isArchived: false }) };
     const header = ["Registration ID", "Applies to", "Product or family", "GTIN", "Authority", "Scheme", "Reference", "Regulatory class", "Country", "Holder", "Issued", "Expires", "Days to expiry", "Status", "Verification level", "Source link", "Notes", "Contributed by", "Archived", "Your verification", "Your jurisdiction", "Verified by", "Verified on", "Next re-verification"];
     const lines: string[] = [];
     let cursor: string | undefined;
@@ -115,7 +107,7 @@ export class ProductExportsService {
       if (truncated || rows.length < PAGE) break;
       cursor = rows[rows.length - 1].id;
     }
-    await this.audit(user, "registrations_export", "registrations", `${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ status: f.status ?? null, includeArchived: !!f.includeArchived })}`);
+    await this.audit(user, "registrations_export", "registrations", `${all ? "All registrations" : "Own contributions"}: ${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ status: f.status ?? null, includeArchived: !!f.includeArchived })}`);
     return this.file("registrations", header, lines, lines.length, truncated);
   }
 

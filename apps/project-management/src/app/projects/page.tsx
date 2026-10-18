@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { PagedResult, ProjectOverview, ProjectSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 import {
   StatusBadge,
   Button,
@@ -212,6 +213,7 @@ export default function ProjectsPage() {
       {/* Filters + search */}
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={setSearch} placeholder="Search by reference, title, client…" />
+        <OwnDataExportButton entity="projects" label="Export CSV" />
         <Select
           value={statusFilter}
           onChange={(v) => { setStatusFilter(v); setPage(0); }}

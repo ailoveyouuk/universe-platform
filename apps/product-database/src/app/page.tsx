@@ -409,7 +409,9 @@ export default function ProductCatalogPage() {
           <DownloadIcon size={14} /> {exporting ? "Preparing…" : "Export CSV"}
         </Button>
       </div>
-      {exportNote && <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>{exportNote} The export follows your current filters and is recorded in your audit trail.</p>}
+      <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>
+        {exportNote ? `${exportNote} ` : ""}Export CSV covers the products your organisation added (global admins: the whole catalogue), follows your current filters and is recorded in your audit trail. <Link href="/exports">Need more? Request a wider export.</Link>
+      </p>
 
       {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
       {!items && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}

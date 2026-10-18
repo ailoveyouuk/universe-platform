@@ -36,6 +36,7 @@ export default function RegulatoryPage() {
           <DownloadIcon size={14} /> {exporting ? "Preparing…" : "Export registrations CSV"}
         </Button>
       </div>
+      <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "6px 0 0" }}>The export covers registrations your organisation added (global admins: all). <Link href="/exports">Request a wider export.</Link></p>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Registration health across the shared catalogue, and your organisation&rsquo;s verification queue.</p>
       {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
       {!d ? !err && <p>Loading…</p> : (

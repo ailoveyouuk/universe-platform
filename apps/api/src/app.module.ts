@@ -24,6 +24,7 @@ import { BrandingModule } from "./branding/branding.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { StakeholderAccessModule } from "./stakeholder-access/stakeholder-access.module";
 import { SearchModule } from "./search/search.module";
+import { DataExportsModule } from "./data-exports/data-exports.module";
 
 @Module({
   imports: [
@@ -49,7 +50,7 @@ import { SearchModule } from "./search/search.module";
     ContactsModule,
     BrandingModule,
     NotificationsModule,
-    SearchModule, StakeholderAccessModule,
+    SearchModule, StakeholderAccessModule, DataExportsModule,
   ],
   controllers: [MeController],
 })

@@ -2878,7 +2878,7 @@ export type NotificationKind =
   | "AMENDMENT_REVIEW"
   | "AMENDMENT_DECISION"
   | "STAKEHOLDER_APPROVAL";
-export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK";
+export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM";
 
 /** One notification or action addressed to the signed-in user. */
 export interface NotificationItem {
@@ -3086,4 +3086,44 @@ export interface ProductDossier {
   safetyNotices: ProductSafetyNoticeSummary[];
   exportRestrictions: ProductExportRestrictionMatch[];
   history: ProductChangeEntry[];
+}
+
+/** A request to export the shared catalogue; decided by a global admin (2026-10-18). */
+export interface DataExportRequestSummary {
+  id: string;
+  /** CATALOGUE | REGISTRATIONS */
+  scope: string;
+  filters: Record<string, string | boolean | null>;
+  reason: string;
+  /** PENDING | APPROVED | REJECTED | DOWNLOADED | EXPIRED (an approval past its time reads EXPIRED) */
+  status: string;
+  organizationName: string;
+  requestedByName: string;
+  requestedById: string;
+  createdAt: string;
+  decidedByName: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  approvedUntil: string | null;
+  downloadedAt: string | null;
+  rowCount: number | null;
+  /** True for the requester while an approval is unused and unexpired. */
+  canDownload: boolean;
+}
+
+export interface CreateDataExportRequestInput {
+  scope: "CATALOGUE" | "REGISTRATIONS";
+  reason: string;
+  filters?: { q?: string; category?: string; sourceStandard?: string; status?: string; includeArchived?: boolean };
+}
+
+export interface DecideDataExportRequestInput {
+  approve: boolean;
+  note?: string;
+}
+
+/** What the signed-in user may export directly. */
+export interface ExportCapabilities {
+  /** True for global admins: the catalogue and registrations exports cover everything. */
+  wholeCatalogue: boolean;
 }

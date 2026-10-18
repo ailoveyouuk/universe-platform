@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { PagedResult, PartnerListItem, PartnerOverview } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 import {
   AddMenu,
   TextLink,
@@ -202,6 +203,7 @@ export default function PartnersPage() {
       {/* Filters + search */}
       <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by name, country, website, role…" />
+        <OwnDataExportButton entity="partners" label="Export CSV" />
         <Select
           value={roleFilter}
           onChange={(v) => { setRoleFilter(v as any); setPage(0); }}
