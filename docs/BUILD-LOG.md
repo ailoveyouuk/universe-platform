@@ -396,3 +396,14 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Tests:** `export-restrictions.test.ts` (CSV parsing, matching, route logic, sync with history and removal, project check by supplier country and destination, staff-only curated entries).
 - **Verified live:** CI and deploys green; dry run and write run of the job fetched and stored 38 UK restrictions.
 - **Known limits:** matching is by name/strength/form, not licence number; origin is inferred from partner country; manufacturer and supplier countries must be recorded; no demo restriction data.
+
+## 2026-10-18 — Product Database step 5 (part 1): exports and product dossier
+- **Catalogue CSV:** `GET /product-catalog/exports/catalogue` follows the browse screen's filters (search, category, source standard, show archived). 25 columns: identifiers, family and variant, INN, strength, form, pack size, GTIN, HS, UNSPSC, lifecycle, storage, cold chain, shelf life, controlled flag, contributor, dates. Button "Export CSV" on the catalogue page.
+- **Registrations CSV:** `GET /product-catalog/exports/registrations` (optional status filter): every shared registration with authority, reference, holder, expiry, days to expiry, effective status (expired reads EXPIRED) and the calling organisation's own latest verification. Button on the Regulatory status page.
+- **Product dossier:** `GET /product-catalog/:id/dossier` and a new page `/products/dossier?id=`: compliance position and completeness, identity, registrations with your verification, controlled documents (metadata only), safety notices with your review, matching export restrictions, change history. "Print or save as PDF" and "Download data (JSON)". Linked from the product page ("Product dossier").
+- **Rules honoured:** simulated rows only inside a demo organisation; contributors anonymised under the pooled-database rule; verifications and reviews are only the caller's own organisation's; archived rows excluded unless asked for.
+- **Safeguards:** cells that start with `=`, `+`, `-`, `@` are prefixed so spreadsheets don't run them as formulas; UTF-8 with byte-order mark; ceiling of 50,000 rows per export, with a note in the file when it is hit; every export writes an audit entry (`data_exports` in the organisation's field change log: who, what, rows, filters).
+- **Decision to confirm:** any signed-in user can export what they can already see (no new permission yet). If bulk export of the pooled catalogue should need a permission (for example a new `products.export`), that is a small follow-up.
+- **New icons:** download and printer, in the Universe SVG set.
+- **Tests:** `product-exports.test.ts` (formula-safe cells, filters, simulated hidden, anonymised contributor, audit entry, expired status, private verification, dossier and its audit).
+- **Still to do in step 5:** demo-data completeness review and live security and scale checks of the new screens.
