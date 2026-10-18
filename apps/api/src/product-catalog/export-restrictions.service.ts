@@ -19,8 +19,9 @@ const toSummary = (r: Row): ExportRestrictionSummary => ({
  */
 @Injectable()
 export class ExportRestrictionsService {
-  async list(includeRemoved = false): Promise<ExportRestrictionSummary[]> {
-    const rows = await prisma.exportRestriction.findMany({ where: includeRemoved ? {} : { status: "ACTIVE" }, orderBy: [{ restrictingCountryCode: "asc" }, { medicineName: "asc" }], take: 1000 });
+  /** Simulated (demonstration) entries are visible only inside a demo organisation. */
+  async list(includeRemoved = false, showSimulated = false): Promise<ExportRestrictionSummary[]> {
+    const rows = await prisma.exportRestriction.findMany({ where: { ...(includeRemoved ? {} : { status: "ACTIVE" }), ...(showSimulated ? {} : { isSimulated: false }) }, orderBy: [{ restrictingCountryCode: "asc" }, { medicineName: "asc" }], take: 1000 });
     return rows.map(toSummary);
   }
 
@@ -37,7 +38,7 @@ export class ExportRestrictionsService {
     const date = dto.restrictionDate ? new Date(dto.restrictionDate) : null;
     if (date && Number.isNaN(date.getTime())) throw new BadRequestException("Invalid restriction date.");
     const row = await prisma.exportRestriction.create({
-      data: { restrictingCountryCode: country, source: "MANUAL", sourceKey: key, medicineName: dto.medicineName.trim(), strength, form, scope: dto.scope ?? "BOTH", restrictionDate: date, sourceUrl: dto.sourceUrl.trim(), notes: dto.notes?.trim() || null, addedByName: `${user.forename} ${user.surname}`.trim() },
+      data: { restrictingCountryCode: country, source: "MANUAL", sourceKey: key, medicineName: dto.medicineName.trim(), strength, form, scope: dto.scope ?? "BOTH", restrictionDate: date, sourceUrl: dto.sourceUrl.trim(), notes: dto.notes?.trim() || null, addedByName: `${user.forename} ${user.surname}`.trim(), isSimulated: user.inDemoOrganization === true },
     });
     return toSummary(row);
   }
@@ -58,7 +59,7 @@ export class ExportRestrictionsService {
   async forProduct(user: RequestUser, productId: string): Promise<ProductExportRestrictionMatch[]> {
     const p = await prisma.productMaster.findUnique({ where: { id: productId }, select: { name: true, inn: true, strength: true, dosageForm: true, isSimulated: true } });
     if (!p || (p.isSimulated && user.inDemoOrganization !== true)) throw new NotFoundException("Product not found.");
-    const active = await prisma.exportRestriction.findMany({ where: { status: "ACTIVE" } });
+    const active = await prisma.exportRestriction.findMany({ where: { status: "ACTIVE", ...(user.inDemoOrganization === true ? {} : { isSimulated: false }) } });
     const out: ProductExportRestrictionMatch[] = [];
     for (const r of active) {
       const m = matchRestriction(p, r);
@@ -86,7 +87,7 @@ export class ExportRestrictionsService {
       return { project, lines, partners };
     });
     if (!data) throw new NotFoundException("Project not found.");
-    const active = await prisma.exportRestriction.findMany({ where: { status: "ACTIVE" } });
+    const active = await prisma.exportRestriction.findMany({ where: { status: "ACTIVE", ...(user.inDemoOrganization === true ? {} : { isSimulated: false }) } });
     if (active.length === 0 || data.lines.length === 0) return [];
     const productIds = [...new Set(data.lines.map((l) => l.productMasterId as string))];
     const products = new Map<string, { name: string; inn: string | null; strength: string | null; dosageForm: string | null }>();

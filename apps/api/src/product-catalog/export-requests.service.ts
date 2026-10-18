@@ -51,7 +51,7 @@ export class ExportRequestsService {
   async list(user: RequestUser): Promise<DataExportRequestSummary[]> {
     const include = { organization: { select: { name: true } }, requestedBy: { select: { forename: true, surname: true } }, decidedBy: { select: { forename: true, surname: true } } };
     const rows = isGlobalAdmin(user)
-      ? await withPlatformStaffContext((tx) => tx.dataExportRequest.findMany({ include, orderBy: { createdAt: "desc" }, take: 200 }))
+      ? await withPlatformStaffContext((tx) => tx.dataExportRequest.findMany({ where: { organization: { isDemo: user.inDemoOrganization === true } }, include, orderBy: { createdAt: "desc" }, take: 200 }))
       : await withTenantContext(user.organizationId, (tx) => tx.dataExportRequest.findMany({ where: { organizationId: user.organizationId }, include, orderBy: { createdAt: "desc" }, take: 200 }));
     return rows.map((r) => this.toSummary(r, user.id));
   }
@@ -68,7 +68,8 @@ export class ExportRequestsService {
       await recordFieldChanges(tx, { organizationId: user.organizationId, tableName: "data_export_requests", recordId: row.id, changedById: user.id, changes: [{ field: "requested", oldValue: null, newValue: `${dto.scope}: ${dto.reason.trim().slice(0, 300)}` }] });
       return row;
     });
-    await this.notifyGlobalAdmins(user, created.id, created.organization?.name ?? "An organisation", dto.scope);
+    // Requests made inside the demo organisation never reach the real admins' queue; they are decided only by an admin acting inside the demo.
+    if (user.inDemoOrganization !== true) await this.notifyGlobalAdmins(user, created.id, created.organization?.name ?? "An organisation", dto.scope);
     return this.toSummary(created, user.id);
   }
 
@@ -90,6 +91,9 @@ export class ExportRequestsService {
   async decide(user: RequestUser, id: string, dto: DecideDataExportRequestDto): Promise<DataExportRequestSummary> {
     if (!isGlobalAdmin(user)) throw new ForbiddenException("Only a global admin can decide an export request.");
     const row = await this.load(user, id);
+    // Demo-organisation requests are decided only by an admin acting inside the demo, and real ones only outside it.
+    const requesterOrg = await prisma.organization.findUnique({ where: { id: row.organizationId }, select: { isDemo: true } });
+    if ((requesterOrg?.isDemo ?? false) !== (user.inDemoOrganization === true)) throw new NotFoundException("Export request not found.");
     if (row.status !== "PENDING") throw new BadRequestException("This request has already been decided.");
     if (!dto.approve && !(dto.note && dto.note.trim())) throw new BadRequestException("Please give a reason for rejecting the request.");
     const now = new Date();

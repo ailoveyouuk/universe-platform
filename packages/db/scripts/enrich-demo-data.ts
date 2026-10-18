@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NAMING } from "./_catalogue-naming";
-import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, type TransportMode } from "../src/index";
+import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, restrictionKey, type TransportMode } from "../src/index";
 
 /**
  * Enriches the SIMULATED demo data (2026-10-17, agreed with Lewis after the first review of the live demo):
@@ -649,6 +649,66 @@ async function enrichRegulatoryWatch(orgId: string) {
 }
 
 /** Renames scale-generated catalogue entries whose noun does not belong to their category. Keeps the "#N" suffix. Names only. */
+/**
+ * Export / hoarding restrictions (2026-10-18). The real UK list is loaded by the daily job and will not match simulated products,
+ * so the demo needs a few clearly labelled SIMULATED entries to show the origin-to-destination check on project lines. Each entry is
+ * for a pharmaceutical product that a demo project line sources from a supplier in the restricting country and delivers elsewhere
+ * (the UK where such lines exist, otherwise the supplier's own country). Visible only inside a demo organisation. Idempotent.
+ */
+async function enrichExportRestrictions(orgId: string) {
+  if ((await prisma.exportRestriction.count({ where: { isSimulated: true } })) > 0) { console.log("Export restrictions: simulated entries already present, skipped"); return 0; }
+  const lines = await withTenantContext(orgId, (tx) => tx.projectLine.findMany({
+    where: { archivedAt: null, productMasterId: { not: null }, supplierId: { not: null }, project: { deliveryCountryCode: { not: null } } },
+    select: { productMasterId: true, supplier: { select: { countryCode: true } }, project: { select: { deliveryCountryCode: true } } },
+    take: 6000,
+  }));
+  const route = lines.filter((l) => l.supplier?.countryCode && l.project.deliveryCountryCode && l.supplier.countryCode.toUpperCase() !== l.project.deliveryCountryCode.toUpperCase());
+  const ids = [...new Set(route.map((l) => l.productMasterId as string))];
+  const pharma = await prisma.productMaster.findMany({ where: { id: { in: ids.slice(0, 3000) }, isSimulated: true, inn: { not: null }, category: { startsWith: "Pharmaceuticals" } }, select: { id: true, inn: true, strength: true, dosageForm: true } });
+  const originOf = new Map<string, string>();
+  for (const l of route) if (!originOf.has(l.productMasterId as string) || l.supplier?.countryCode?.toUpperCase() === "GB") originOf.set(l.productMasterId as string, (l.supplier?.countryCode as string).toUpperCase());
+  const picks = pharma.sort((a, b) => (originOf.get(b.id) === "GB" ? 1 : 0) - (originOf.get(a.id) === "GB" ? 1 : 0) || hash(a.id + "x") - hash(b.id + "x")).slice(0, 6);
+  const seen = new Set<string>();
+  const rows: Record<string, unknown>[] = [];
+  for (const p of picks) {
+    const name = (p.inn as string).trim();
+    const key = restrictionKey(name, p.strength, p.dosageForm);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({
+      restrictingCountryCode: originOf.get(p.id) as string, source: "MANUAL", sourceKey: `sim|${key}`, medicineName: name, strength: p.strength, form: p.dosageForm, scope: "EXPORT",
+      restrictionDate: new Date(Date.now() - (10 + (hash(p.id) % 60)) * 86400000), status: "ACTIVE", sourceUrl: null,
+      notes: "Simulated demonstration entry; not a real restriction.", addedByName: "Demo data", isSimulated: true,
+    });
+  }
+  console.log(`Export restrictions: ${rows.length} simulated entries to add`);
+  if (dryRun || rows.length === 0) return rows.length;
+  await prisma.exportRestriction.createMany({ data: rows as never });
+  console.log(`Export restrictions: added ${rows.length}`);
+  return rows.length;
+}
+
+/** Sample export requests for the demo organisation (pending, approved, rejected, downloaded) so the Data exports page is populated. Idempotent. */
+async function enrichExportRequests(orgId: string) {
+  const existing = await withTenantContext(orgId, (tx) => tx.dataExportRequest.count({ where: { organizationId: orgId } }));
+  if (existing > 0) { console.log("Export requests: already present, skipped"); return 0; }
+  const users = await withPlatformStaffContext((tx) => tx.user.findMany({ where: { organizationId: orgId, isSimulated: false }, select: { id: true }, orderBy: { id: "asc" }, take: 3 }));
+  if (users.length === 0) { console.log("Export requests: no demo-organisation user, skipped"); return 0; }
+  const decider = users.find((u) => u.id !== users[0].id)?.id ?? users[0].id;
+  const day = 86400000;
+  const rows = [
+    { scope: "CATALOGUE", filters: JSON.stringify({ category: "Pharmaceuticals" }), reason: "Benchmarking our medicines range against the wider market ahead of a tender.", status: "PENDING", createdAt: new Date(Date.now() - 1 * day) },
+    { scope: "REGISTRATIONS", filters: null, reason: "Checking registration coverage across suppliers before renewing framework agreements.", status: "APPROVED", decidedById: decider, decidedAt: new Date(Date.now() - 2 * day), decisionNote: "Approved for the tender review.", approvedUntil: new Date(Date.now() + 5 * day), createdAt: new Date(Date.now() - 3 * day) },
+    { scope: "CATALOGUE", filters: null, reason: "Want a copy of the whole catalogue for our own analysis.", status: "REJECTED", decidedById: decider, decidedAt: new Date(Date.now() - 9 * day), decisionNote: "The whole catalogue is not released. Please request a filtered extract with a specific purpose.", createdAt: new Date(Date.now() - 10 * day) },
+    { scope: "CATALOGUE", filters: JSON.stringify({ q: "glove" }), reason: "Compare glove specifications for the new PPE procurement.", status: "DOWNLOADED", decidedById: decider, decidedAt: new Date(Date.now() - 19 * day), decisionNote: "OK.", approvedUntil: new Date(Date.now() - 12 * day), downloadedAt: new Date(Date.now() - 18 * day), rowCount: 1240, createdAt: new Date(Date.now() - 20 * day) },
+  ];
+  console.log(`Export requests: ${rows.length} to add`);
+  if (dryRun) return rows.length;
+  await withTenantContext(orgId, (tx) => tx.dataExportRequest.createMany({ data: rows.map((r, i) => ({ organizationId: orgId, requestedById: users[i % users.length].id, ...r })) as never }));
+  console.log(`Export requests: added ${rows.length}`);
+  return rows.length;
+}
+
 async function fixNames() {
   const rows = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE" }, select: { id: true, name: true, category: true }, orderBy: { id: "asc" } });
   const todo: { id: string; name: string }[] = [];
@@ -865,6 +925,8 @@ async function main() {
   await enrichFamilyDocuments(orgId);
   await enrichSafetyNotices(orgId);
   await enrichRegulatoryWatch(orgId);
+  await enrichExportRestrictions(orgId);
+  await enrichExportRequests(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);

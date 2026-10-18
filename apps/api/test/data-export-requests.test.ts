@@ -103,4 +103,23 @@ describe("Data export requests and own-organisation exports", () => {
     const audit = await withTenantContext(orgA, (tx) => tx.fieldChangeLog.findMany({ where: { tableName: "data_exports", recordId: "partners" } }));
     expect(audit.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("demonstration data stays in the demo: simulated restrictions and demo-organisation requests never reach real organisations or the real admin queue", async () => {
+    const demoOrg = (await createOrganizationWithDefaultRoles({ name: `Dx Demo ${suffix}`, slug: `dx-demo-${suffix}` })).id;
+    await prisma.organization.update({ where: { id: demoOrg }, data: { isDemo: true } });
+    const demoUser = (await withPlatformStaffContext((tx) => tx.user.create({ data: { organizationId: demoOrg, email: `dxdemo-${suffix}@example.com`, forename: "Demo", surname: "User", status: "ACTIVE" } }))).id;
+    const inDemo = (staff = false): RequestUser => ({ ...asUser(demoOrg, demoUser, staff), inDemoOrganization: true });
+    const restrictions = new ExportRestrictionsService();
+    await prisma.exportRestriction.create({ data: { restrictingCountryCode: "GB", source: "MANUAL", sourceKey: `sim|zz${suffix}||`, medicineName: `Simdrug${suffix}`, scope: "EXPORT", isSimulated: true, notes: "Simulated demonstration entry; not a real restriction." } });
+    expect((await restrictions.list(false, false)).some((r) => r.medicineName === `Simdrug${suffix}`)).toBe(false);
+    expect((await restrictions.list(false, true)).some((r) => r.medicineName === `Simdrug${suffix}`)).toBe(true);
+    // A request made in the demo does not notify real global admins and is invisible to them outside the demo.
+    const demoReq = await requests.create(inDemo(), { scope: "CATALOGUE", reason: "Demo request to show the approval flow" });
+    expect(await withTenantContext(orgA, (tx) => tx.notification.count({ where: { recipientUserId: admin, subjectId: demoReq.id } }))).toBe(0);
+    expect((await requests.list(asUser(orgA, admin, true))).some((r) => r.id === demoReq.id)).toBe(false);
+    await expect(requests.decide(asUser(orgA, admin, true), demoReq.id, { approve: true })).rejects.toThrow(/not found/i);
+    // An admin acting inside the demo organisation does see and decide it.
+    expect((await requests.list({ ...inDemo(true), id: admin })).some((r) => r.id === demoReq.id)).toBe(true);
+    expect((await requests.decide({ ...inDemo(true), id: admin }, demoReq.id, { approve: true })).status).toBe("APPROVED");
+  });
 });

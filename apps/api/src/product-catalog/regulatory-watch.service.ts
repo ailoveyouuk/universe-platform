@@ -63,7 +63,7 @@ export class RegulatoryWatchService {
       id: r.id, source: r.source, startedAt: r.startedAt.toISOString(), finishedAt: r.finishedAt ? r.finishedAt.toISOString() : null, status: r.status,
       fetched: r.fetched, newItems: r.newItems, changedItems: r.changedItems, newMatches: r.newMatches, error: r.error,
     }));
-    return { exportRestrictions: await this.restrictions.list(), sources, totals: { itemsLast30Days: itemsLast30, pendingMatches: pendingCount, confirmed, dismissed }, runs, pending: pendingRows.map((m) => toMatch(m as unknown as MatchRow)), recentItems: recentItems.map((i) => toItem(i as ItemRow)) };
+    return { exportRestrictions: await this.restrictions.list(false, user.inDemoOrganization === true), sources, totals: { itemsLast30Days: itemsLast30, pendingMatches: pendingCount, confirmed, dismissed }, runs, pending: pendingRows.map((m) => toMatch(m as unknown as MatchRow)), recentItems: recentItems.map((i) => toItem(i as ItemRow)) };
   }
 
   /** Pending and confirmed matches for one product (read-only for everyone who can see the product). */

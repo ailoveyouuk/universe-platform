@@ -147,8 +147,8 @@ export class ProductCatalogController {
 
   /** Export / hoarding restrictions: UK list fetched daily; other countries curated by platform staff. */
   @Get("export-restrictions")
-  listExportRestrictions(@Query("includeRemoved") includeRemoved?: string) {
-    return this.exportRestrictions.list(includeRemoved === "true");
+  listExportRestrictions(@CurrentUser() user: RequestUser, @Query("includeRemoved") includeRemoved?: string) {
+    return this.exportRestrictions.list(includeRemoved === "true", user.inDemoOrganization === true);
   }
 
   @Post("export-restrictions")
