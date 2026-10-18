@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CheckIcon } from "./icons";
 
 /**
  * The project lifecycle stage tracker — see project-stage-navigation-plan.md
@@ -115,8 +116,8 @@ function StageChevron({
       }}
     >
       {state === "done" && (
-        <span aria-hidden="true" style={{ fontSize: 12 }}>
-          ✓
+        <span aria-hidden="true" style={{ display: "inline-flex" }}>
+          <CheckIcon size={13} />
         </span>
       )}
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>

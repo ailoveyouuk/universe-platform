@@ -307,3 +307,102 @@ export function GlobeIcon(props: IconProps) {
     </svg>
   );
 }
+
+/* ---- Added 2026-10-18 (Product Database build): same 24x24 grid, 1.75 stroke, round caps, currentColor. Replaces emoji that had crept into stat tiles. ---- */
+
+export function ThermometerIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 14.2V5.5a2 2 0 0 1 4 0v8.7a4 4 0 1 1-4 0Z" />
+      <path d="M12 9v6.5" />
+    </svg>
+  );
+}
+
+export function HourglassIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M7 3.5h10M7 20.5h10" />
+      <path d="M8 3.5v3.2c0 1.6.9 2.6 2.2 3.5L12 12l-2.2 1.8C8.9 14.7 8 15.7 8 17.3v3.2M16 3.5v3.2c0 1.6-.9 2.6-2.2 3.5L12 12l2.2 1.8c1.3.9 2.2 1.9 2.2 3.5v3.2" />
+    </svg>
+  );
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+export function CalendarXIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4M10 13.5l4 4M14 13.5l-4 4" />
+    </svg>
+  );
+}
+
+export function BanIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M6 6l12 12" />
+    </svg>
+  );
+}
+
+export function HelpCircleIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.6 9.5a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2 1-1.2 1.8M12 16.8h.01" />
+    </svg>
+  );
+}
+
+export function ClipboardCheckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="5" y="4.5" width="14" height="16" rx="2" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5M9 13l2.2 2.2L15.5 11" />
+    </svg>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1" />
+      <path d="M17.5 3.5v3.6h-3.6M6.5 20.5v-3.6h3.6" />
+    </svg>
+  );
+}
+
+export function FileEditIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M13 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h4M13 3.5l5 5V10M13 3.5v4a1 1 0 0 0 1 1h4" />
+      <path d="M13.5 19.5l.6-2.4 5.2-5.2a1.4 1.4 0 0 1 2 2l-5.2 5.2-2.6.4Z" />
+    </svg>
+  );
+}
+
+export function ExternalLinkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M13.5 4.5h6v6M19.5 4.5 11 13M17 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}

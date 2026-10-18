@@ -14,7 +14,7 @@ import type {
   ProductUsageSummary,
   UpdateProductMasterInput,
 } from "@universe/types";
-import { Button, Pill, StatTile } from "@universe/ui";
+import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
@@ -210,9 +210,9 @@ export function ProductDetailView() {
       {/* Key tiles */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginTop: 18 }}>
         <CompletenessTile score={detail.completeness.score} filled={detail.completeness.filled} total={detail.completeness.total} />
-        <StatTile label="Storage" value={storageLabel(detail.storageClass)?.split(" (")[0] ?? "Not set"} icon={<span>🌡</span>} tone={detail.coldChain ? "brand" : "neutral"} />
-        <StatTile label="Shelf life" value={detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : "Not set"} icon={<span>⏳</span>} tone="neutral" />
-        <StatTile label="Next review" value={dateOnly(detail.nextReviewDue) ?? "Not scheduled"} icon={<span>🗓</span>} tone={detail.nextReviewDue && new Date(detail.nextReviewDue) < new Date() ? "warning" : "neutral"} />
+        <StatTile label="Storage" value={storageLabel(detail.storageClass)?.split(" (")[0] ?? "Not set"} icon={<ThermometerIcon size={20} />} tone={detail.coldChain ? "brand" : "neutral"} />
+        <StatTile label="Shelf life" value={detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : "Not set"} icon={<HourglassIcon size={20} />} tone="neutral" />
+        <StatTile label="Next review" value={dateOnly(detail.nextReviewDue) ?? "Not scheduled"} icon={<CalendarIcon size={20} />} tone={detail.nextReviewDue && new Date(detail.nextReviewDue) < new Date() ? "warning" : "neutral"} />
       </div>
 
       {/* Tabs */}
@@ -478,7 +478,7 @@ function RegulatoryTab({ detail }: { detail: ProductCatalogDetail }) {
                     {r.verificationLevel === "SOURCE_VERIFIED" && <Pill tone="brand">Source verified</Pill>}
                     {r.isArchived && <Pill tone="neutral">Archived</Pill>}
                   </div>
-                  {r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5 }}>View source ↗</a>}
+                  {r.sourceUrl && <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>View source <ExternalLinkIcon size={13} /></span></a>}
                 </div>
                 <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
                   {[r.scheme, r.regulatoryClass && `Class ${r.regulatoryClass}`, r.countryCode, r.holderName && `Holder: ${r.holderName}`].filter(Boolean).join(" · ") || "—"}

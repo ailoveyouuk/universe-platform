@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { RegulatoryDashboard } from "@universe/types";
-import { Pill, StatTile } from "@universe/ui";
+import { AlertIcon, BanIcon, CalendarXIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, FileEditIcon, HelpCircleIcon, Pill, RefreshIcon, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 
 /** Regulatory dashboard (Product Database step 2, 2026-10-18): registration health across the catalogue plus this organisation's own verification queue. */
@@ -23,21 +23,21 @@ export default function RegulatoryPage() {
         <>
           <h2 style={{ fontSize: 15, marginTop: 20 }}>Catalogue</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-            <StatTile label="Registrations" value={n(d.totals.registrations)} icon={<span>📋</span>} tone="brand" />
-            <StatTile label="Active" value={n(d.totals.active)} icon={<span>✅</span>} tone="good" />
-            <StatTile label="Expiring within 90 days" value={n(d.totals.expiringSoon)} icon={<span>⏳</span>} tone="warning" />
-            <StatTile label="Expired" value={n(d.totals.expired)} icon={<span>⌛</span>} tone="critical" />
-            <StatTile label="Suspended or withdrawn" value={n(d.totals.suspendedOrWithdrawn)} icon={<span>⛔</span>} tone="critical" />
-            <StatTile label="Products with no registration" value={n(d.totals.productsWithoutRegistration)} icon={<span>❓</span>} tone="warning" />
+            <StatTile label="Registrations" value={n(d.totals.registrations)} icon={<ShieldIcon size={20} />} tone="brand" />
+            <StatTile label="Active" value={n(d.totals.active)} icon={<CheckCircleIcon size={20} />} tone="good" />
+            <StatTile label="Expiring within 90 days" value={n(d.totals.expiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
+            <StatTile label="Expired" value={n(d.totals.expired)} icon={<CalendarXIcon size={20} />} tone="critical" />
+            <StatTile label="Suspended or withdrawn" value={n(d.totals.suspendedOrWithdrawn)} icon={<BanIcon size={20} />} tone="critical" />
+            <StatTile label="Products with no registration" value={n(d.totals.productsWithoutRegistration)} icon={<HelpCircleIcon size={20} />} tone="warning" />
           </div>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Your organisation</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-            <StatTile label="Registrations awaiting your verification" value={n(d.mine.unverified)} icon={<span>🔎</span>} tone="warning" />
-            <StatTile label="Re-verification overdue" value={n(d.mine.reverificationDue)} icon={<span>🔁</span>} tone="critical" />
-            <StatTile label="Documents awaiting approval" value={n(d.mine.documentsAwaitingApproval)} icon={<span>📝</span>} tone="warning" />
-            <StatTile label="Documents expiring within 90 days" value={n(d.mine.documentsExpiringSoon)} icon={<span>⏳</span>} tone="warning" />
-            <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<span>⌛</span>} tone="critical" />
-            <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<span>⚠️</span>} tone="critical" />
+            <StatTile label="Registrations awaiting your verification" value={n(d.mine.unverified)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
+            <StatTile label="Re-verification overdue" value={n(d.mine.reverificationDue)} icon={<RefreshIcon size={20} />} tone="critical" />
+            <StatTile label="Documents awaiting approval" value={n(d.mine.documentsAwaitingApproval)} icon={<FileEditIcon size={20} />} tone="warning" />
+            <StatTile label="Documents expiring within 90 days" value={n(d.mine.documentsExpiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
+            <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<CalendarXIcon size={20} />} tone="critical" />
+            <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<AlertIcon size={20} />} tone="critical" />
           </div>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Needs attention</h2>
           {d.attention.length === 0 ? <p style={{ fontSize: 13 }}>Nothing expiring soon or suspended.</p> : (

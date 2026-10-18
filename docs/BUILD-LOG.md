@@ -315,3 +315,9 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Demo data:** records (no stored files) for products the demo organisation uses; some expiring or expired.
 - **Tests:** `product-documents.test.ts`.
 - **Raised by Lewis:** product names carry pack size and a "#N" suffix. The suffix is a simulated-data artefact; the real gap is that the catalogue is flat (no product family with variants). Proposed step 3b: product family plus variants, GTINs per packaging level, regenerate clean names. Awaiting Lewis's agreement.
+
+## 2026-10-18 — Product Database fixes: layout, upload CORS, iconography
+- **Layout:** product page and `/regulatory` now use the catalogue page's padding, so content no longer touches the side nav; long product names wrap.
+- **Real upload test (live):** a PDF uploaded via the Documents tab was stored in Azure Storage, recorded as a draft ("Not scanned"), a download link was issued, and the test record archived. First attempt failed because storage CORS allowed only the Project Management origin; Lewis added the Product Database origin in the portal (Resource sharing, Blob service) and `infra/bicep` now lists both origins.
+- **Iconography:** emoji that had crept into stat tiles (storage, shelf life, next review, regulatory dashboard, an import warning) replaced with Universe SVG icons; ten new icons added in the brand style (thermometer, hourglass, calendar, calendar-x, ban, help-circle, clipboard-check, refresh, file-edit, external-link) plus a check icon used by the stage tracker. No emoji remain in the apps.
+- **Compliance banner:** says "Active registration on record" and lists expired registrations, rather than "good standing".

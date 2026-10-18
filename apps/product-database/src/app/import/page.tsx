@@ -3,7 +3,7 @@
 import { useState, type ChangeEvent } from "react";
 import type { ImportProductMasterResult, ProductSourceStandardForImport } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
-import { Button, Select } from "@universe/ui";
+import { AlertIcon, Button, Select } from "@universe/ui";
 
 /**
  * Product Database Management — reference-data importer. Added
@@ -168,7 +168,7 @@ export default function ImportPage() {
           ariaLabel="Source standard"
         />
         {selected?.blocked && (
-          <p style={{ color: "var(--u-status-warning)", fontSize: 12.5, margin: "4px 0 0" }}>⚠ {selected.blocked}</p>
+          <p style={{ color: "var(--u-status-warning)", fontSize: 12.5, margin: "4px 0 0", display: "flex", alignItems: "center", gap: 6 }}><AlertIcon size={14} /> {selected.blocked}</p>
         )}
       </div>
 
