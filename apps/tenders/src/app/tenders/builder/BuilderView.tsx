@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, Pill, PlusIcon, ProductPicker, Select, XIcon } from "@universe/ui";
+import { CURRENCY_OPTIONS, INCOTERMS, INCOTERM_NAMES } from "@universe/types";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
@@ -122,8 +123,8 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).filter(([k]) => k !== "FRAMEWORK").map(([value, label]) => ({ value, label }))} /></Field>
         <Field label="Who can see it" hint={VISIBILITY_LABEL[f.visibility]}><Select value={f.visibility} onChange={(v) => set("visibility", v as typeof f.visibility)} options={[{ value: "ELIGIBLE_ORGANISATIONS", label: "All registered, eligible bid" }, { value: "ALL_REGISTERED", label: "All registered, all can bid" }, { value: "INVITED_ONLY", label: "Invited organisations only" }]} /></Field>
         <Field label="Delivery countries" wide><CountryMultiSelect value={f.countries} onChange={(c) => set("countries", c)} options={countries} /></Field>
-        <Field label="Currency" hint="Three-letter code, e.g. USD"><input style={inputStyle} value={f.currency} onChange={(e) => set("currency", e.target.value)} maxLength={3} /></Field>
-        <Field label="Incoterm" hint="e.g. DAP, CIF"><input style={inputStyle} value={f.incoterm} onChange={(e) => set("incoterm", e.target.value)} /></Field>
+        <Field label="Currency"><CurrencySelect value={f.currency} onChange={(c) => set("currency", c)} options={CURRENCY_OPTIONS} ariaLabel="Currency" /></Field>
+        <Field label="Incoterm (2020)"><Select value={f.incoterm} onChange={(v) => set("incoterm", v)} allLabel="Not specified" options={INCOTERMS.map((i) => ({ value: i, label: `${i}: ${INCOTERM_NAMES[i]}` }))} /></Field>
         <Field label="Tendering for (client)" hint="Only if you tender on behalf of someone else"><input style={inputStyle} value={f.clientName} onChange={(e) => set("clientName", e.target.value)} /></Field>
         <Field label="Questions close"><input type="datetime-local" style={inputStyle} value={f.clarificationDeadline} onChange={(e) => set("clarificationDeadline", e.target.value)} /></Field>
         <Field label="Closing date" hint="Bids cannot be submitted after this."><input type="datetime-local" style={inputStyle} value={f.closingAt} onChange={(e) => set("closingAt", e.target.value)} /></Field>

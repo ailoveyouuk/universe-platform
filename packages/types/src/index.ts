@@ -760,6 +760,16 @@ export const CURRENCY_NAMES: Record<SupportedCurrencyCode, string> = {
   ZAR: "South African Rand",
 };
 
+/** Incoterms 2020 (ICC), the single shared list. Added 2026-10-19 for the
+ * Tender Issuance app; other apps/DTOs still carry their own copies of this
+ * list and should migrate to it. */
+export const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
+export type IncotermCode = (typeof INCOTERMS)[number];
+export const INCOTERM_NAMES: Record<IncotermCode, string> = {
+  EXW: "Ex Works", FCA: "Free Carrier", FAS: "Free Alongside Ship", FOB: "Free On Board", CPT: "Carriage Paid To", CIP: "Carriage and Insurance Paid To",
+  CFR: "Cost and Freight", CIF: "Cost, Insurance and Freight", DAP: "Delivered at Place", DPU: "Delivered at Place Unloaded", DDP: "Delivered Duty Paid",
+};
+
 /** One currency option for CurrencySelect — { code, name } pairs, same
  * shape convention as CountryOption below, built from SUPPORTED_CURRENCIES
  * + CURRENCY_NAMES rather than fetched, since it's a fixed, small list. */

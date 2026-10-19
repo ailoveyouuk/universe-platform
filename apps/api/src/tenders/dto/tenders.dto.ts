@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import { IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
+import { INCOTERMS } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
 export const TENDER_TYPES = ["RFQ", "RFP", "ITT", "OPEN_TENDER", "FRAMEWORK"] as const;
@@ -14,7 +15,7 @@ export class UpdateTenderDto {
   @IsOptional() @IsIn(VISIBILITIES as unknown as string[]) visibility?: string;
   @IsOptional() @IsString() deliveryCountryCodes?: string;
   @IsOptional() @IsString() @Length(3, 3) currency?: string;
-  @IsOptional() @IsString() incoterm?: string;
+  @IsOptional() @IsIn(INCOTERMS as unknown as string[]) incoterm?: string;
   @IsOptional() @IsString() clientName?: string;
   @IsOptional() @IsDateString() clarificationDeadline?: string;
   @IsOptional() @IsDateString() closingAt?: string;
