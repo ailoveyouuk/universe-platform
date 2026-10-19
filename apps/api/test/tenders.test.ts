@@ -353,7 +353,7 @@ describe("Tender service", () => {
   it("bid completeness lists exactly what is missing; cross rates go via USD", () => {
     const base = { allowTextSubmission: true, bidValidityDays: 90, bidCurrency: "EUR", validityConfirmed: true, lines: [{ noBid: false, unitPrice: 2, leadTimeDays: 5, countryOfOrigin: "IN" }], criteria: [{ title: "Reg", isMandatory: true, responseFormat: "UPLOAD", text: "words", fileCount: 0 }], addenda: [{ requiresAcknowledgement: true, acknowledged: false }] };
     const r = checkBid(base);
-    expect(r.filter((x) => !x.ok).map((x) => x.label.slice(0, 20))).toEqual(["Answer every required", "Acknowledge 1 addend"]);
+    expect(r.filter((x) => !x.ok).map((x) => x.label.slice(0, 20))).toEqual(["Answer every require", "Acknowledge 1 addend"]);
     expect(checkBid({ ...base, bidCurrency: null, lines: [{ noBid: true, unitPrice: null, leadTimeDays: null, countryOfOrigin: null }] }).filter((x) => !x.ok).length).toBeGreaterThanOrEqual(3);
     expect(crossRate({ EUR: 0.9, GBP: 0.8 }, "EUR", "GBP")).toBeCloseTo(0.8 / 0.9);
     expect(crossRate({ EUR: 0.9 }, "USD", "EUR")).toBe(0.9);
