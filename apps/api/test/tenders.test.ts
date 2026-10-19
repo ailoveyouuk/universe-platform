@@ -76,10 +76,10 @@ describe("Tender service", () => {
   const suffix = randomUUID().slice(0, 8);
   const svc = new TendersService();
   let issuer: string; let capable: string; let incapable: string; let invitee: string;
-  let inviteeUser: string;
+  let inviteeUser: string; let issuerUser: string; let capableUser: string; let incapableUser: string;
 
   const asUser = (organizationId: string, permissions: string[]): RequestUser => ({
-    id: organizationId === invitee ? inviteeUser : randomUUID(), organizationId, homeOrganizationId: organizationId, email: `t-${organizationId.slice(0, 6)}@example.com`, forename: "Tender", surname: "Tester",
+    id: ({ [issuer]: issuerUser, [capable]: capableUser, [incapable]: incapableUser, [invitee]: inviteeUser } as Record<string, string>)[organizationId], organizationId, homeOrganizationId: organizationId, email: `t-${organizationId.slice(0, 6)}@example.com`, forename: "Tender", surname: "Tester",
     organizationName: "Org", organizationLogoUrl: null, organizationLogoIconUrl: null, organizationPrimaryColor: null, organizationSecondaryColor: null, organizationWelcomeMessage: null,
     platformStaffRole: "NONE", permissions,
   });
@@ -93,6 +93,8 @@ describe("Tender service", () => {
     invitee = (await createOrganizationWithDefaultRoles({ name: `T Invitee ${suffix}`, slug: `t-inv-${suffix}`, type: "SUPPLIER" })).id;
     await withPlatformStaffContext(async (tx) => {
       await tx.country.upsert({ where: { code: "KE" }, update: {}, create: { code: "KE", name: "Kenya", regionCode: "AF" } }).catch(() => undefined);
+      const mk = async (organizationId: string, tag: string) => (await tx.user.create({ data: { organizationId, email: `${tag}-${suffix}@example.com`, forename: tag, surname: "T", status: "ACTIVE", entraObjectId: `oid-${tag}-${suffix}` } })).id;
+      issuerUser = await mk(issuer, "iss"); capableUser = await mk(capable, "cap"); incapableUser = await mk(incapable, "inc");
       inviteeUser = (await tx.user.create({ data: { organizationId: invitee, email: `inv-${suffix}@example.com`, forename: "In", surname: "Vitee", status: "ACTIVE", entraObjectId: `oid-inv-${suffix}` } })).id;
       const perm = await tx.permission.upsert({ where: { key: "tenders.view" }, update: {}, create: { key: "tenders.view", description: "Browse tenders" } });
       const role = await tx.role.create({ data: { organizationId: invitee, name: `Tender viewer ${suffix}`, appScope: "*" } });
@@ -143,7 +145,7 @@ describe("Tender service", () => {
     expect(row.chips).toContain("ALMOST_ELIGIBLE");
     expect(row.canBid).toBe(false);
     const detail = await svc.getForParticipant(asUser(incapable, BID), open.id);
-    expect(detail.eligibility.items[0]).toMatchObject({ status: "NOT_MET" });
+    expect(detail.eligibility.items[0].status).toBe("NEEDS_EVIDENCE"); // this supplier has no profile on record yet
     expect(detail.eligibility.items[0].action).toMatch(/profile/);
     await expect(svc.getForParticipant(asUser(incapable, BID), draft.id)).rejects.toThrow(/not found/i);
   });
