@@ -27,3 +27,4 @@ export * from "./regulatory-watch/matching";
 export * from "./regulatory-watch/connectors";
 export * from "./regulatory-watch/run";
 export * from "./regulatory-watch/export-restrictions";
+export * from "./regulatory-watch/restriction-lifted";

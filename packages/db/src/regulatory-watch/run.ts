@@ -4,6 +4,7 @@ import { CONNECTORS, defaultFetch } from "./connectors";
 import { buildProductIndex, matchItem, type MatchableProduct } from "./matching";
 import type { Connector, FetchLike, WatchItemInput } from "./types";
 import { fetchUkRestrictions, UK_RESTRICTION_PAGE } from "./export-restrictions";
+import { notifyRestrictionLifted } from "./restriction-lifted";
 
 const chunks = <T,>(a: T[], n: number): T[][] => { const o: T[][] = []; for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n)); return o; };
 const DAY = 86400000;
@@ -107,7 +108,7 @@ export async function syncUkExportRestrictions(opts: { fetchFn?: FetchLike; now?
       else if (prev.status === "REMOVED" || (prev.restrictionDate?.getTime() ?? 0) !== (it.restrictionDate?.getTime() ?? 0)) { res.changedItems++; if (!opts.dryRun) await prisma.exportRestriction.update({ where: { id: prev.id }, data: { ...data, status: "ACTIVE", removedAt: null } }); }
     }
     for (const prev of existing) {
-      if (!seen.has(prev.sourceKey) && prev.status === "ACTIVE") { res.changedItems++; if (!opts.dryRun) await prisma.exportRestriction.update({ where: { id: prev.id }, data: { status: "REMOVED", removedAt: now } }); }
+      if (!seen.has(prev.sourceKey) && prev.status === "ACTIVE") { res.changedItems++; if (!opts.dryRun) { await prisma.exportRestriction.update({ where: { id: prev.id }, data: { status: "REMOVED", removedAt: now } }); try { await notifyRestrictionLifted(prev); } catch (e) { console.warn("Restriction-lifted notification failed:", e instanceof Error ? e.message : e); } } }
     }
   } catch (e) {
     res.status = "FAILED";

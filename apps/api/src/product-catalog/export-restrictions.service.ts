@@ -1,6 +1,6 @@
 import { readDeliveryCountries } from "../projects/delivery-countries";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { appliesToRoute, matchRestriction, prisma, restrictionKey, withTenantContext } from "@universe/db";
+import { appliesToRoute, matchRestriction, notifyRestrictionLifted, prisma, restrictionKey, withTenantContext } from "@universe/db";
 import type { ExportRestrictionSummary, ProductExportRestrictionMatch, ProjectExportCheckItem } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateExportRestrictionDto, UpdateExportRestrictionDto } from "./dto/export-restriction.dto";
@@ -54,7 +54,9 @@ export class ExportRestrictionsService {
     if (dto.notes !== undefined) data.notes = dto.notes.trim() || null;
     if (dto.sourceUrl !== undefined) data.sourceUrl = dto.sourceUrl.trim() || null;
     if (dto.status !== undefined && dto.status !== r.status) { data.status = dto.status; data.removedAt = dto.status === "REMOVED" ? new Date() : null; }
-    return toSummary(Object.keys(data).length ? await prisma.exportRestriction.update({ where: { id }, data }) : r);
+    const saved = Object.keys(data).length ? await prisma.exportRestriction.update({ where: { id }, data }) : r;
+    if (data.status === "REMOVED") { try { await notifyRestrictionLifted(saved); } catch { /* the change is saved; notification is best-effort */ } }
+    return toSummary(saved);
   }
 
   async forProduct(user: RequestUser, productId: string): Promise<ProductExportRestrictionMatch[]> {
