@@ -1,6 +1,6 @@
 # Tender app: shared-infrastructure audit, standards landscape and gap analysis
 
-Written 2026-10-19. Status: for Lewis's review; nothing here is built except the quick wins in section 1.
+Written 2026-10-19. Status update (same day, later): Lewis decided sealed bids wait and donor-specific quality-policy logic is not needed now (issuers have their own). Built since: shared Incoterm/unit/qualification lists; published Q&A; addenda with acknowledgement; integrity pledge and exclusion declaration; issuer sanctions/debarment screening log; optional standstill (off by default); optional public notice (off by default); explicit time zones; hash-chained audit log; currency required to publish. Still to come with bids: structured bid form, FX at submission, evaluator conflict declarations, scoring and moderation, award notice and debrief (steps 3 and 4). OCDS export, ISO 27001 readiness, WCAG audit and multilingual remain later.
 
 Evidence key: **[S]** read from a source this session (linked in section 5); **[K]** general professional knowledge, not re-verified this session, to be confirmed with a procurement specialist before anything is claimed publicly.
 

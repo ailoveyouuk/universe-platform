@@ -44,6 +44,7 @@ export function readiness(d: TenderDetailForIssuer, now = new Date()): { ok: boo
   const closing = t.closingAt ? new Date(t.closingAt).getTime() : 0;
   return [
     { ok: !!t.title.trim(), label: "Title" },
+    { ok: !!t.currency, label: "Currency (bids are compared in it)" },
     { ok: d.lines.length > 0, label: "At least one line item" },
     { ok: closing > now.getTime() + 43_200_000, label: "Closing date at least 12 hours ahead" },
     { ok: !t.clarificationDeadline || !t.closingAt || new Date(t.clarificationDeadline) <= new Date(t.closingAt), label: "Question deadline before closing date" },

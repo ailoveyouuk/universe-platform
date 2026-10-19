@@ -1,5 +1,5 @@
 import type {
-  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption,
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -303,6 +303,14 @@ export class UniverseApiClient {
   inviteToTender(id: string, organizationIds: string[]): Promise<{ invited: number }> { return this.request(`/tenders/${id}/invitations`, { method: "POST", body: JSON.stringify({ organizationIds }) }); }
   publishTender(id: string): Promise<TenderRecord> { return this.request(`/tenders/${id}/publish`, { method: "POST" }); }
   cancelTender(id: string, reason: string): Promise<TenderRecord> { return this.request(`/tenders/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }); }
+  answerTenderQuestion(id: string, questionId: string, body: { answer: string; publishedQuestion?: string }): Promise<{ answered: boolean }> { return this.request(`/tenders/${id}/questions/${questionId}/answer`, { method: "POST", body: JSON.stringify(body) }); }
+  postTenderClarification(id: string, body: { question: string; answer: string }): Promise<{ published: boolean }> { return this.request(`/tenders/${id}/clarifications`, { method: "POST", body: JSON.stringify(body) }); }
+  createTenderAddendum(id: string, body: { title: string; body: string; requiresAcknowledgement?: boolean; newClosingAt?: string }): Promise<unknown> { return this.request(`/tenders/${id}/addenda`, { method: "POST", body: JSON.stringify(body) }); }
+  recordTenderScreening(id: string, body: { organisationId: string; lists: string[]; outcome: string; notes?: string; screenedOn: string }): Promise<unknown> { return this.request(`/tenders/${id}/screenings`, { method: "POST", body: JSON.stringify(body) }); }
+  verifyTenderTimeline(id: string): Promise<TenderChainCheck> { return this.request(`/tenders/${id}/timeline/verify`); }
+  /** Public notices need no sign-in, so this bypasses the token. */
+  async listPublicNotices(): Promise<PublicNoticeRecord[]> { const r = await fetch(`${this.baseUrl}/public/notices`); if (!r.ok) throw new Error("Could not load notices."); return r.json(); }
+  async getPublicNotice(id: string): Promise<PublicNoticeRecord | null> { const r = await fetch(`${this.baseUrl}/public/notices/${encodeURIComponent(id)}`); if (!r.ok) throw new Error("Could not load the notice."); const t = await r.text(); return t ? JSON.parse(t) : null; }
   searchTenderOrganisations(q: string): Promise<TenderOrganisationOption[]> { return this.request(`/tenders/organisations?q=${encodeURIComponent(q)}`); }
 
   me(): Promise<AuthenticatedUser> {

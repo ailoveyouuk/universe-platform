@@ -3,13 +3,15 @@ import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/d
 import type { Prisma } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
+import { appendTenderEvent } from "./tender-events";
 import { createNotifications, usersWithPermission } from "../notifications/notify";
 import {
   chipsFor, evaluateEligibility, matchesSavedSearch,
   type EligibilityResult, type OrgProfile, type RuleLike, type SavedCriteria,
 } from "./eligibility";
+import { EXCLUSION_GROUNDS } from "@universe/types";
 import type {
-  CreateTenderDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
+  CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 
 type Tx = Prisma.TransactionClient;
@@ -37,17 +39,22 @@ export function effectiveStatus(t: { status: string; closingAt: Date | null }, n
 export class TendersService {
   // ---------------------------------------------------------------- helpers
 
-  private async event(tx: Tx, t: { id: string; organizationId: string }, user: RequestUser, kind: string, summary: string, counterparty?: string | null, details?: unknown) {
-    await tx.tenderEvent.create({
-      data: {
-        organizationId: t.organizationId, counterpartyOrganizationId: counterparty ?? null, tenderId: t.id,
-        actorOrganizationId: user.organizationId, actorUserId: user.id, kind, summary: summary.slice(0, 500),
-        detailsJson: details ? JSON.stringify(details) : null,
-      },
-    });
+  private async event(_tx: Tx, t: { id: string; organizationId: string }, user: RequestUser, kind: string, summary: string, counterparty?: string | null, details?: unknown) {
+    await appendTenderEvent({ organizationId: t.organizationId, counterpartyOrganizationId: counterparty ?? null, tenderId: t.id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind, summary, details });
   }
 
-  private async ownTender(tx: Tx, user: RequestUser, id: string) {
+  /** The compliance options. A simulated tender can never be a public notice; standstill defaults to 8 working days (the UK Procurement Act period) when switched on. */
+  private complianceFields(dto: UpdateTenderDto, simulated: boolean) {
+    const standstill = dto.standstillEnabled;
+    return {
+      timeZone: dto.timeZone, standstillEnabled: dto.standstillEnabled,
+      standstillWorkingDays: standstill === false ? null : standstill ? dto.standstillWorkingDays ?? 8 : dto.standstillWorkingDays,
+      publicNotice: simulated ? false : dto.publicNotice,
+      requireIntegrityPledge: dto.requireIntegrityPledge, requireExclusionDeclaration: dto.requireExclusionDeclaration,
+    };
+  }
+
+  async ownTender(tx: Tx, user: RequestUser, id: string) {
     const t = await tx.tender.findUnique({ where: { id } });
     if (!t || t.organizationId !== user.organizationId || t.archivedAt) throw new NotFoundException("Tender not found.");
     return t;
@@ -86,7 +93,7 @@ export class TendersService {
     };
   }
 
-  private async notifyOrgs(orgIds: string[], build: (orgId: string) => { title: string; body: string; link: string; subjectId: string }, kind: string, actorUserId: string | null) {
+  async notifyOrgs(orgIds: string[], build: (orgId: string) => { title: string; body: string; link: string; subjectId: string }, kind: string, actorUserId: string | null) {
     if (orgIds.length === 0) return;
     await withPlatformStaffContext(async (tx) => {
       for (const orgId of [...new Set(orgIds)]) {
@@ -117,6 +124,7 @@ export class TendersService {
           awardDueAt: toDate(dto.awardDueAt), bidValidityDays: dto.bidValidityDays, contractStartDate: toDate(dto.contractStartDate),
           acceptedFileTypes: dto.acceptedFileTypes, maxFileSizeMb: dto.maxFileSizeMb, allowTextSubmission: dto.allowTextSubmission,
           termsAndConditions: dto.termsAndConditions, isSimulated: !!(org?.isDemo || org?.isSimulated), createdById: user.id,
+          ...this.complianceFields(dto, !!(org?.isDemo || org?.isSimulated)),
         },
       });
       await this.event(tx, t, user, "CREATED", `Draft ${t.referenceNumber} created`);
@@ -135,11 +143,12 @@ export class TendersService {
           currency: dto.currency?.toUpperCase(), incoterm: dto.incoterm, clientName: dto.clientName, bidValidityDays: dto.bidValidityDays,
           contractStartDate: toDate(dto.contractStartDate), acceptedFileTypes: dto.acceptedFileTypes, maxFileSizeMb: dto.maxFileSizeMb,
           allowTextSubmission: dto.allowTextSubmission, termsAndConditions: dto.termsAndConditions,
+          ...this.complianceFields(dto, t.isSimulated),
         });
         if (dto.visibility) { data.visibility = dto.visibility; data.visibleToAll = dto.visibility !== "INVITED_ONLY"; }
       } else if (t.status === "PUBLISHED") {
         // After publication only the timetable can move, and the closing date only later; everything else is what bidders relied on.
-        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate"] as const;
+        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate", "timeZone", "standstillEnabled", "standstillWorkingDays", "publicNotice", "requireIntegrityPledge", "requireExclusionDeclaration"] as const;
         if (locked.some((k) => dto[k] !== undefined)) throw new ConflictException("A published tender can only have its dates extended. Cancel and reissue to change anything else.");
       } else {
         throw new ConflictException(`A ${t.status.toLowerCase()} tender can no longer be edited.`);
@@ -264,6 +273,7 @@ export class TendersService {
       ]);
       const problems: string[] = [];
       if (!t.title.trim()) problems.push("Add a title.");
+      if (!t.currency) problems.push("Choose the tender currency; bids are compared in it.");
       if (lines === 0) problems.push("Add at least one line item.");
       if (!t.closingAt) problems.push("Set a closing date.");
       else if (t.closingAt.getTime() < Date.now() + DAY / 2) problems.push("The closing date must be at least 12 hours from now.");
@@ -374,11 +384,30 @@ export class TendersService {
         tx.tenderEvent.findMany({ where: { tenderId: id }, orderBy: { createdAt: "desc" }, take: 100 }),
       ]);
       const participants = await tx.tenderParticipation.findMany({ where: { tenderId: id, issuerOrganizationId: user.organizationId, withdrawnAt: null } });
-      const names = new Map((await tx.organization.findMany({ where: { id: { in: [...participants.map((p) => p.organizationId), ...invitations.map((i) => i.invitedOrganizationId)] } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
+      const [questionRows, clarifications, addenda, acks, screenings] = await Promise.all([
+        tx.tenderQuestion.findMany({ where: { tenderId: id, issuerOrganizationId: user.organizationId }, orderBy: { askedAt: "desc" } }),
+        tx.tenderClarification.findMany({ where: { tenderId: id }, orderBy: { answeredAt: "desc" } }),
+        tx.tenderAddendum.findMany({ where: { tenderId: id }, orderBy: { number: "asc" } }),
+        tx.tenderAddendumAck.findMany({ where: { tenderId: id, issuerOrganizationId: user.organizationId } }),
+        tx.tenderScreening.findMany({ where: { tenderId: id }, orderBy: { recordedAt: "desc" } }),
+      ]);
+      const names = new Map((await tx.organization.findMany({ where: { id: { in: [...new Set([...participants.map((p) => p.organizationId), ...invitations.map((i) => i.invitedOrganizationId), ...questionRows.map((q) => q.organizationId), ...screenings.map((x) => x.screenedOrganisationId)])] } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
+      const answeredIds = new Set(clarifications.map((c) => c.sourceQuestionId).filter((x): x is string => !!x));
       return {
         tender: { ...t, effectiveStatus: effectiveStatus(t) }, lines, criteria, rules, documents, events,
         invitations: invitations.map((i) => ({ ...i, organizationName: names.get(i.invitedOrganizationId) ?? null })),
-        participants: participants.map((p) => ({ organizationId: p.organizationId, organizationName: names.get(p.organizationId) ?? null, status: p.status, optedInAt: p.optedInAt })),
+        participants: participants.map((p) => ({
+          organizationId: p.organizationId, organizationName: names.get(p.organizationId) ?? null, status: p.status, optedInAt: p.optedInAt,
+          integrityPledgeAt: p.integrityPledgeAt, exclusionDeclaredAt: p.exclusionDeclaredAt, exclusionNoGrounds: p.exclusionNoGrounds,
+          exclusionGrounds: jsonArray(p.exclusionGroundsJson), exclusionExplanation: p.exclusionExplanation,
+        })),
+        questions: questionRows.map((q) => ({ id: q.id, question: q.question, askedAt: q.askedAt, askedByOrganisation: names.get(q.organizationId) ?? null, answered: answeredIds.has(q.id) })),
+        clarifications: clarifications.map(({ id: cid, question, answer, answeredAt }) => ({ id: cid, question, answer, answeredAt })),
+        addenda: addenda.map((a) => {
+          const acked = new Set(acks.filter((k) => k.addendumId === a.id).map((k) => k.organizationId));
+          return { id: a.id, number: a.number, title: a.title, body: a.body, requiresAcknowledgement: a.requiresAcknowledgement, newClosingAt: a.newClosingAt, createdAt: a.createdAt, acknowledgedBy: acked.size, outstanding: participants.filter((p) => !acked.has(p.organizationId)).map((p) => names.get(p.organizationId) ?? "Unknown organisation") };
+        }),
+        screenings: screenings.map((x) => ({ id: x.id, screenedOrganisationId: x.screenedOrganisationId, organisationName: names.get(x.screenedOrganisationId) ?? null, lists: jsonArray(x.listsJson), outcome: x.outcome, notes: x.notes, screenedOn: x.screenedOn, recordedAt: x.recordedAt })),
       };
     });
   }
@@ -450,6 +479,11 @@ export class TendersService {
     return withTenantContext(user.organizationId, async (tx) => {
       const t = await tx.tender.findUnique({ where: { id }, include: { organization: { select: { id: true, name: true } } } });
       if (!t || !t.isPublished || t.archivedAt) throw new NotFoundException("Tender not found.");
+      const [addendaRows, ackRows, myQuestions] = await Promise.all([
+        tx.tenderAddendum.findMany({ where: { tenderId: id }, orderBy: { number: "asc" } }),
+        tx.tenderAddendumAck.findMany({ where: { tenderId: id, organizationId: user.organizationId } }),
+        tx.tenderQuestion.findMany({ where: { tenderId: id, organizationId: user.organizationId }, orderBy: { askedAt: "desc" } }),
+      ]);
       const [lines, criteria, rules, documents, clarifications, part, short, invite, profile] = await Promise.all([
         tx.tenderLine.findMany({ where: { tenderId: id }, orderBy: { lineNumber: "asc" } }),
         tx.tenderCriterion.findMany({ where: { tenderId: id }, orderBy: { sortOrder: "asc" } }),
@@ -469,11 +503,13 @@ export class TendersService {
         eligibility: { ...result, chips: chipsFor({ result, participating: !!part && !part.withdrawnAt, shortlisted: !!short, closingAt: t.closingAt, status: t.status }), canBid: result.canBid && status === "PUBLISHED" },
         participation: part && !part.withdrawnAt ? { status: part.status, optedInAt: part.optedInAt } : null,
         shortlisted: !!short,
+        addenda: addendaRows.map((a) => ({ id: a.id, number: a.number, title: a.title, body: a.body, requiresAcknowledgement: a.requiresAcknowledgement, newClosingAt: a.newClosingAt, createdAt: a.createdAt, acknowledged: ackRows.some((k) => k.addendumId === a.id) })),
+        myQuestions: myQuestions.map((q) => ({ id: q.id, question: q.question, askedAt: q.askedAt })),
       };
     });
   }
 
-  async expressInterest(user: RequestUser, id: string) {
+  async expressInterest(user: RequestUser, id: string, dto: InterestDto = {}) {
     assertHasPermission(user, "tenders.bid");
     const out = await withTenantContext(user.organizationId, async (tx) => {
       const t = await tx.tender.findUnique({ where: { id } });
@@ -487,20 +523,43 @@ export class TendersService {
       const result = evaluateEligibility(this.ruleView(rules), profile, { invited: !!invite });
       if (!result.canBid) throw new ForbiddenException({ message: "Your organisation does not yet meet this tender's requirements.", checklist: result.items.filter((i) => i.status !== "MET") });
       const existing = await tx.tenderParticipation.findUnique({ where: { tenderId_organizationId: { tenderId: id, organizationId: user.organizationId } } });
-      if (existing && !existing.withdrawnAt) return { already: true, t };
-      if (existing) await tx.tenderParticipation.update({ where: { id: existing.id }, data: { status: "INTERESTED", withdrawnAt: null, optedInAt: new Date(), optedInById: user.id } });
-      else await tx.tenderParticipation.create({ data: { organizationId: user.organizationId, issuerOrganizationId: t.organizationId, tenderId: id, optedInById: user.id } });
+      if (existing && !existing.withdrawnAt) return { already: true, t, declaredGrounds: [] as string[] };
+      const declarations = this.checkDeclarations(t, dto);
+      const data = { status: "INTERESTED", withdrawnAt: null, optedInAt: new Date(), optedInById: user.id, ...declarations };
+      if (existing) await tx.tenderParticipation.update({ where: { id: existing.id }, data });
+      else await tx.tenderParticipation.create({ data: { organizationId: user.organizationId, issuerOrganizationId: t.organizationId, tenderId: id, ...data } });
       await tx.tenderEligibilityCheck.create({ data: { organizationId: user.organizationId, issuerOrganizationId: t.organizationId, tenderId: id, outcome: result.outcome, detailsJson: JSON.stringify(result.items) } });
-      await tx.tenderEvent.create({ data: { organizationId: t.organizationId, counterpartyOrganizationId: user.organizationId, tenderId: id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "INTEREST_EXPRESSED", summary: "An organisation expressed interest" } });
-      return { already: false, t };
+      await appendTenderEvent({ organizationId: t.organizationId, counterpartyOrganizationId: user.organizationId, tenderId: id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "INTEREST_EXPRESSED", summary: "An organisation expressed interest", details: { integrityPledge: !!declarations.integrityPledgeAt, exclusionDeclared: !!declarations.exclusionDeclaredAt, exclusionGrounds: jsonArray(declarations.exclusionGroundsJson) } });
+      return { already: false, t, declaredGrounds: jsonArray(declarations.exclusionGroundsJson) };
     });
     if (!out.already) {
-      await this.notifyIssuer(out.t, user, "TENDER_INTEREST", `New interest in ${out.t.referenceNumber}`, `An eligible organisation has expressed interest in ${out.t.title}.`);
+      const flagged = out.declaredGrounds.length > 0 ? " It declared grounds for exclusion, which need your review." : "";
+      await this.notifyIssuer(out.t, user, "TENDER_INTEREST", `New interest in ${out.t.referenceNumber}`, `An eligible organisation has expressed interest in ${out.t.title}.${flagged}`);
     }
     return { participating: true };
   }
 
-  private async notifyIssuer(t: { id: string; organizationId: string }, user: RequestUser, kind: string, title: string, body: string) {
+  /** Validates the integrity pledge and exclusion declaration a tender asks for, and returns what to record on the participation. */
+  private checkDeclarations(t: { requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean }, dto: InterestDto) {
+    const out: { integrityPledgeAt?: Date; exclusionDeclaredAt?: Date; exclusionNoGrounds?: boolean; exclusionGroundsJson?: string; exclusionExplanation?: string } = {};
+    if (t.requireIntegrityPledge) {
+      if (!dto.integrityPledge) throw new BadRequestException("Accept the integrity pledge to continue.");
+      out.integrityPledgeAt = new Date();
+    }
+    if (t.requireExclusionDeclaration) {
+      const d = dto.exclusion;
+      if (!d) throw new BadRequestException("Complete the exclusion declaration to continue.");
+      const valid = new Set<string>(EXCLUSION_GROUNDS.map((g) => g.value));
+      const grounds = (d.grounds ?? []).filter((g) => valid.has(g));
+      if (d.noGrounds && grounds.length > 0) throw new BadRequestException("Either declare that no grounds apply, or list the grounds that do.");
+      if (!d.noGrounds && grounds.length === 0) throw new BadRequestException("Declare that no grounds apply, or choose the grounds that do.");
+      if (!d.noGrounds && !d.explanation?.trim()) throw new BadRequestException("Explain the grounds you have declared.");
+      out.exclusionDeclaredAt = new Date(); out.exclusionNoGrounds = !!d.noGrounds; out.exclusionGroundsJson = JSON.stringify(grounds); out.exclusionExplanation = d.explanation?.trim() || undefined;
+    }
+    return out;
+  }
+
+  async notifyIssuer(t: { id: string; organizationId: string }, user: RequestUser, kind: string, title: string, body: string) {
     await withPlatformStaffContext(async (tx) => {
       const recipients = await usersWithPermission(tx, t.organizationId, "tenders.issue");
       await createNotifications(tx, recipients.map((r) => ({ organizationId: t.organizationId, recipientUserId: r, actorUserId: user.id, kind, category: "TENDER", title, body, link: `/tenders/manage?id=${t.id}`, subjectType: "TENDER", subjectId: t.id })));
@@ -513,7 +572,7 @@ export class TendersService {
       const p = await tx.tenderParticipation.findUnique({ where: { tenderId_organizationId: { tenderId: id, organizationId: user.organizationId } } });
       if (!p || p.withdrawnAt) throw new NotFoundException("You have not expressed interest in this tender.");
       await tx.tenderParticipation.update({ where: { id: p.id }, data: { status: "WITHDRAWN", withdrawnAt: new Date() } });
-      await tx.tenderEvent.create({ data: { organizationId: p.issuerOrganizationId, counterpartyOrganizationId: user.organizationId, tenderId: id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "INTEREST_WITHDRAWN", summary: "An organisation withdrew its interest" } });
+      await appendTenderEvent({ organizationId: p.issuerOrganizationId, counterpartyOrganizationId: user.organizationId, tenderId: id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "INTEREST_WITHDRAWN", summary: "An organisation withdrew its interest" });
       return { participating: false };
     });
   }

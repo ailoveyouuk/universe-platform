@@ -3287,6 +3287,16 @@ model Tender {
   allowTextSubmission   Boolean      @default(true)
   /// Reserved for the public teaser page (version 2).
   publicTeaser          Boolean      @default(false)
+  /// Compliance options added 2026-10-19. timeZone is an IANA zone the issuer's dates are expressed in. standstill* is the optional
+  /// pause between award decision and contract signature (off by default). publicNotice publishes a read-only notice to anyone
+  /// without sign-in (off by default; never for simulated tenders). The two require* flags make bidders accept the integrity pledge
+  /// and declare exclusion grounds when expressing interest (on by default).
+  timeZone              String?
+  standstillEnabled     Boolean      @default(false)
+  standstillWorkingDays Int?
+  publicNotice          Boolean      @default(false)
+  requireIntegrityPledge     Boolean @default(true)
+  requireExclusionDeclaration Boolean @default(true)
   termsAndConditions    String?      @db.NVarChar(Max)
   cancelledReason       String?      @db.NVarChar(1000)
   isSimulated           Boolean      @default(false)
@@ -3301,6 +3311,7 @@ model Tender {
   invitations   TenderInvitation[]
   documents     TenderDocument[]
   clarifications TenderClarification[]
+  addenda       TenderAddendum[]
 
   @@unique([organizationId, referenceNumber])
   @@index([organizationId, status])
@@ -3460,6 +3471,12 @@ model TenderParticipation {
   optedInById          String?
   withdrawnAt          DateTime?
   updatedAt            DateTime @updatedAt
+  /// Declarations made at opt-in (2026-10-19). exclusionGroundsJson is the declared grounds; exclusionNoGrounds true means "none apply".
+  integrityPledgeAt    DateTime?
+  exclusionDeclaredAt  DateTime?
+  exclusionNoGrounds   Boolean?
+  exclusionGroundsJson String?  @db.NVarChar(Max)
+  exclusionExplanation String?  @db.NVarChar(Max)
 
   @@unique([tenderId, organizationId])
   @@index([issuerOrganizationId, tenderId])
@@ -3524,9 +3541,64 @@ model TenderEvent {
   summary                  String   @db.NVarChar(500)
   detailsJson              String?  @db.NVarChar(Max)
   createdAt                DateTime @default(now())
+  /// Tamper-evidence (2026-10-19): hash = SHA-256 over prevHash + the event's content; each event links to the previous one for the tender.
+  prevHash                 String?  @db.Char(64)
+  hash                     String?  @db.Char(64)
 
   @@index([tenderId, createdAt])
   @@index([organizationId])
   @@index([counterpartyOrganizationId])
   @@map("tender_events")
+}
+
+/// A formal change notice to a published tender. Readable by anyone who can see the tender; optionally needs each participant's acknowledgement.
+model TenderAddendum {
+  id                      String   @id @default(uuid())
+  organizationId          String
+  tenderId                String
+  tender                  Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  number                  Int
+  title                   String   @db.NVarChar(300)
+  body                    String   @db.NVarChar(Max)
+  requiresAcknowledgement Boolean  @default(true)
+  newClosingAt            DateTime?
+  createdById             String?
+  createdAt               DateTime @default(now())
+
+  @@unique([tenderId, number])
+  @@index([organizationId])
+  @@map("tender_addenda")
+}
+
+/// A participant's acknowledgement of an addendum. Owned by the participant, readable by the issuer.
+model TenderAddendumAck {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  issuerOrganizationId String
+  tenderId             String
+  addendumId           String
+  acknowledgedById     String?
+  acknowledgedAt       DateTime @default(now())
+
+  @@unique([addendumId, organizationId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_addendum_acks")
+}
+
+/// The issuer's record that it screened a participant against sanctions/debarment lists. Private to the issuer; this is an audit entry, Universe does not run the check.
+model TenderScreening {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  tenderId              String
+  screenedOrganisationId String
+  listsJson             String   @db.NVarChar(Max)
+  outcome               String
+  notes                 String?  @db.NVarChar(Max)
+  screenedOn            DateTime
+  recordedById          String?
+  recordedAt            DateTime @default(now())
+
+  @@index([tenderId])
+  @@index([organizationId])
+  @@map("tender_screenings")
 }

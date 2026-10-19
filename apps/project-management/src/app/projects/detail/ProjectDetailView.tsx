@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
 import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
-import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS } from "@universe/types";
+import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, INCOTERMS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
@@ -23,9 +23,8 @@ const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] 
 /** Project-level freight fields (moved here from ProjectLineInput
  * 2026-10-03, per Lewis's request — freight is arranged once for the
  * whole project, not per line). Same lists as
- * apps/api/src/projects/dto/update-project.dto.ts's INCOTERMS/
- * FREIGHT_MODES. */
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
+ * apps/api/src/projects/dto/update-project.dto.ts's
+ * FREIGHT_MODES. INCOTERMS comes from @universe/types (shared since 2026-10-19). */
 const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
 
 /**

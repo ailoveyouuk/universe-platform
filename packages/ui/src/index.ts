@@ -18,6 +18,7 @@ export * from "./Select";
 export * from "./CountrySelect";
 export * from "./CountryMultiSelect";
 export * from "./CurrencySelect";
+export * from "./UnitSelect";
 export * from "./ProductPicker";
 export * from "./AppSwitcher";
 export * from "./StatTile";

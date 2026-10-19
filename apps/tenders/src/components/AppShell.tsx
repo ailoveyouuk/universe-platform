@@ -84,6 +84,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     active: r.href === "/" ? pathname === "/" : pathname.startsWith(r.href),
   }));
 
+  // Public notices are readable without signing in.
+  if (pathname.startsWith("/notices")) return <>{children}</>;
+
   if (status !== "signedIn" || !me) {
     return (
       <div

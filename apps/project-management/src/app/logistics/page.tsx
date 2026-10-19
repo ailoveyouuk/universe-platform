@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { LogisticsFilters, LogisticsLinesPage, LogisticsRouteSummary } from "@universe/types";
+import { INCOTERMS as SHARED_INCOTERMS } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import {
   GaugeIcon,
@@ -34,7 +35,7 @@ import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 const TOP_ROUTE_COUNT = 10;
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
-const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
+const INCOTERM_CHOICES = ["", ...SHARED_INCOTERMS] as const;
 const COMMODITY_GROUPS = ["", "CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
 const SCORE_BANDS = ["", "RED", "AMBER", "YELLOW", "GREEN"] as const;
 
@@ -326,7 +327,7 @@ export default function LogisticsPage() {
           ))}
         </select>
         <select className="u-native-select" style={filterInputStyle} value={filters.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value)}>
-          {INCOTERMS.map((i) => (
+          {INCOTERM_CHOICES.map((i) => (
             <option key={i} value={i}>
               {i || "All incoterms"}
             </option>

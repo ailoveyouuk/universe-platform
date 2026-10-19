@@ -4,12 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
-import { CURRENCY_OPTIONS, INCOTERMS, INCOTERM_NAMES } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, XIcon } from "@universe/ui";
+import { CURRENCY_OPTIONS, INCOTERMS, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, UnitSelect, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
-import { Card, ErrorNote, Field, Heading, ORG_TYPE_LABEL, Page, QUALIFICATIONS, RULE_LABEL, TYPE_LABEL, VISIBILITY_LABEL, fmtDateTime, fromLocalInput, inputStyle, toLocalInput } from "../../../lib/ui";
+import { Card, ErrorNote, Field, Heading, ORG_TYPE_LABEL, Page, QUALIFICATIONS, RULE_LABEL, TYPE_LABEL, VISIBILITY_LABEL, browserZone, fmtDateTime, fromLocalInput, inputStyle, toLocalInput, zoneList } from "../../../lib/ui";
 
 type Section = "overview" | "items" | "criteria" | "eligibility" | "invitations" | "review";
 const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Items"], ["criteria", "Criteria"], ["eligibility", "Who can bid"], ["invitations", "Invitations"], ["review", "Review and publish"]];
@@ -55,7 +55,7 @@ export function BuilderView() {
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {SECTIONS.map(([k, label], i) => {
           const locked = !created && k !== "overview";
-          const doneByKey: Record<string, boolean> = detail ? { overview: !!detail.tender.closingAt, items: detail.lines.length > 0, criteria: detail.criteria.length > 0, eligibility: detail.rules.length > 0 || detail.tender.visibility !== "ELIGIBLE_ORGANISATIONS", invitations: detail.invitations.length > 0 || detail.tender.visibility !== "INVITED_ONLY", review: ready.every((r) => r.ok) } : {};
+          const doneByKey: Record<string, boolean> = detail ? { overview: !!detail.tender.closingAt && !!detail.tender.currency, items: detail.lines.length > 0, criteria: detail.criteria.length > 0, eligibility: detail.rules.length > 0, invitations: detail.invitations.length > 0, review: ready.every((r) => r.ok) } : {};
           return (
             <button key={k} type="button" disabled={locked} onClick={() => setSection(k)} style={{ border: "none", background: "none", padding: 0, cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.5 : 1 }}>
               <Pill tone={section === k ? "brand" : doneByKey[k] ? "good" : "neutral"}>{i + 1}. {label}</Pill>
@@ -96,7 +96,10 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
   const [f, setF] = useState({
     title: t?.title ?? "", summary: t?.summary ?? "", tenderType: t?.tenderType ?? "RFQ", visibility: t?.visibility ?? "ELIGIBLE_ORGANISATIONS",
     countries: codes(t?.deliveryCountryCodes), currency: t?.currency ?? "", incoterm: t?.incoterm ?? "", clientName: t?.clientName ?? "",
-    clarificationDeadline: toLocalInput(t?.clarificationDeadline), closingAt: toLocalInput(t?.closingAt), evaluationDueAt: toLocalInput(t?.evaluationDueAt), awardDueAt: toLocalInput(t?.awardDueAt),
+    timeZone: t?.timeZone ?? browserZone(),
+    clarificationDeadline: toLocalInput(t?.clarificationDeadline, t?.timeZone), closingAt: toLocalInput(t?.closingAt, t?.timeZone), evaluationDueAt: toLocalInput(t?.evaluationDueAt, t?.timeZone), awardDueAt: toLocalInput(t?.awardDueAt, t?.timeZone),
+    standstillEnabled: t?.standstillEnabled ?? false, standstillWorkingDays: t?.standstillWorkingDays?.toString() ?? "8", publicNotice: t?.publicNotice ?? false,
+    requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
     bidValidityDays: t?.bidValidityDays?.toString() ?? "", acceptedFileTypes: t?.acceptedFileTypes ?? "pdf,docx,xlsx,csv", maxFileSizeMb: t?.maxFileSizeMb?.toString() ?? "25",
     allowTextSubmission: t?.allowTextSubmission ?? true, termsAndConditions: t?.termsAndConditions ?? "",
   });
@@ -107,7 +110,10 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     const body = {
       title: f.title.trim(), summary: f.summary || undefined, tenderType: f.tenderType as TenderRecord["tenderType"], visibility: f.visibility as TenderRecord["visibility"],
       deliveryCountryCodes: delimited(f.countries), currency: f.currency.trim() ? f.currency.trim().toUpperCase() : undefined, incoterm: f.incoterm || undefined, clientName: f.clientName || undefined,
-      clarificationDeadline: fromLocalInput(f.clarificationDeadline), closingAt: fromLocalInput(f.closingAt), evaluationDueAt: fromLocalInput(f.evaluationDueAt), awardDueAt: fromLocalInput(f.awardDueAt),
+      timeZone: f.timeZone,
+      clarificationDeadline: fromLocalInput(f.clarificationDeadline, f.timeZone), closingAt: fromLocalInput(f.closingAt, f.timeZone), evaluationDueAt: fromLocalInput(f.evaluationDueAt, f.timeZone), awardDueAt: fromLocalInput(f.awardDueAt, f.timeZone),
+      standstillEnabled: f.standstillEnabled, standstillWorkingDays: f.standstillEnabled ? num(f.standstillWorkingDays) ?? 8 : undefined, publicNotice: f.publicNotice,
+      requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
       bidValidityDays: num(f.bidValidityDays) ?? undefined, acceptedFileTypes: f.acceptedFileTypes || undefined, maxFileSizeMb: num(f.maxFileSizeMb) ?? undefined,
       allowTextSubmission: f.allowTextSubmission, termsAndConditions: f.termsAndConditions || undefined,
     };
@@ -126,6 +132,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         <Field label="Currency"><CurrencySelect value={f.currency} onChange={(c) => set("currency", c)} options={CURRENCY_OPTIONS} ariaLabel="Currency" /></Field>
         <Field label="Incoterm (2020)"><Select value={f.incoterm} onChange={(v) => set("incoterm", v)} allLabel="Not specified" options={INCOTERMS.map((i) => ({ value: i, label: `${i}: ${INCOTERM_NAMES[i]}` }))} /></Field>
         <Field label="Tendering for (client)" hint="Only if you tender on behalf of someone else"><input style={inputStyle} value={f.clientName} onChange={(e) => set("clientName", e.target.value)} /></Field>
+        <Field label="Time zone for these dates" hint="Bidders see every date in this zone and in UTC."><select style={inputStyle} value={f.timeZone} onChange={(e) => set("timeZone", e.target.value)}>{(zoneList().includes(f.timeZone) ? zoneList() : [f.timeZone, ...zoneList()]).map((z) => <option key={z} value={z}>{z}</option>)}</select></Field>
         <Field label="Questions close"><input type="datetime-local" style={inputStyle} value={f.clarificationDeadline} onChange={(e) => set("clarificationDeadline", e.target.value)} /></Field>
         <Field label="Closing date" hint="Bids cannot be submitted after this."><input type="datetime-local" style={inputStyle} value={f.closingAt} onChange={(e) => set("closingAt", e.target.value)} /></Field>
         <Field label="Evaluation due by"><input type="datetime-local" style={inputStyle} value={f.evaluationDueAt} onChange={(e) => set("evaluationDueAt", e.target.value)} /></Field>
@@ -135,6 +142,21 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         <Field label="Largest file (MB)"><input type="number" min={1} max={200} style={inputStyle} value={f.maxFileSizeMb} onChange={(e) => set("maxFileSizeMb", e.target.value)} /></Field>
         <Field label="Typed answers" hint="Let bidders paste or type answers instead of uploading a file.">
           <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.allowTextSubmission} onChange={(e) => set("allowTextSubmission", e.target.checked)} /> Allow copy and paste answers</label>
+        </Field>
+        <Field label="Bidder declarations" hint="Bidders must accept these before they can express interest.">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13.5 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={f.requireIntegrityPledge} onChange={(e) => set("requireIntegrityPledge", e.target.checked)} /> Integrity pledge (no bribery, collusion or conflicts of interest)</label>
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={f.requireExclusionDeclaration} onChange={(e) => set("requireExclusionDeclaration", e.target.checked)} /> Exclusion declaration (insolvency, fraud, sanctions and similar)</label>
+          </div>
+        </Field>
+        <Field label="Standstill period" hint="A pause between the award decision and signing, so unsuccessful bidders can ask questions or challenge. Off unless you need it.">
+          <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5 }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center" }}><input type="checkbox" checked={f.standstillEnabled} onChange={(e) => set("standstillEnabled", e.target.checked)} /> Use a standstill period</label>
+            {f.standstillEnabled && <><input type="number" min={1} max={30} style={{ ...inputStyle, width: 80 }} value={f.standstillWorkingDays} onChange={(e) => set("standstillWorkingDays", e.target.value)} aria-label="Working days" /> working days</>}
+          </div>
+        </Field>
+        <Field label="Public notice" hint="Publishes a read-only notice (title, items, criteria, closing date) that anyone can see without signing in. Never available for simulated tenders. Off by default.">
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.publicNotice} onChange={(e) => set("publicNotice", e.target.checked)} /> Publish a public notice</label>
         </Field>
         <Field label="Terms and conditions" wide><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.termsAndConditions} onChange={(e) => set("termsAndConditions", e.target.value)} /></Field>
       </div>
@@ -165,9 +187,9 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
           <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, position: "relative" }}>
             <Field label={`Item ${i + 1}${l.productMasterId ? " (catalogue)" : ""}`} wide><input style={inputStyle} value={l.description} onChange={(e) => upd(i, { description: e.target.value })} maxLength={500} /></Field>
             <Field label="Quantity"><input type="number" min={0} style={inputStyle} value={l.quantity ?? ""} onChange={(e) => upd(i, { quantity: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
-            <Field label="Unit"><input style={inputStyle} value={l.unit ?? ""} onChange={(e) => upd(i, { unit: e.target.value || null })} /></Field>
+            <Field label="Unit"><UnitSelect value={l.unit ?? ""} onChange={(u) => upd(i, { unit: u || null })} options={UNIT_OPTIONS} ariaLabel="Unit" /></Field>
             <Field label="Destination"><CountrySelect value={l.destinationCountryCode ?? ""} onChange={(c) => upd(i, { destinationCountryCode: c || null })} options={countries} /></Field>
-            <Field label="Required registration" hint="e.g. WHO PQ, national"><input style={inputStyle} value={l.requiredRegistration ?? ""} onChange={(e) => upd(i, { requiredRegistration: e.target.value || null })} /></Field>
+            <Field label="Required registration"><UnitSelect value={l.requiredRegistration ?? ""} onChange={(v) => upd(i, { requiredRegistration: v || null })} options={QUALIFICATION_OPTIONS} ariaLabel="Required registration" allLabel="None required" /></Field>
             <Field label="Minimum shelf life left (%)"><input type="number" min={0} max={100} style={inputStyle} value={l.minShelfLifePercent ?? ""} onChange={(e) => upd(i, { minShelfLifePercent: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Lot (optional)"><input type="number" min={1} style={inputStyle} value={l.lotNumber ?? ""} onChange={(e) => upd(i, { lotNumber: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Cold chain"><label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={l.coldChainRequired} onChange={(e) => upd(i, { coldChainRequired: e.target.checked })} /> Required</label></Field>
@@ -299,7 +321,7 @@ function Review({ detail, ready }: { detail: TenderDetailForIssuer; ready: { ok:
       </ul>
       <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "6px 16px", margin: "0 0 18px", fontSize: 13.5 }}>
         <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{VISIBILITY_LABEL[t.visibility]}</dd>
-        <dt style={{ color: "var(--u-ink-secondary)" }}>Closes</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.closingAt)}</dd>
+        <dt style={{ color: "var(--u-ink-secondary)" }}>Closes</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.closingAt, t.timeZone)}</dd>
         <dt style={{ color: "var(--u-ink-secondary)" }}>Items</dt><dd style={{ margin: 0 }}>{detail.lines.length}</dd>
         <dt style={{ color: "var(--u-ink-secondary)" }}>Criteria</dt><dd style={{ margin: 0 }}>{detail.criteria.filter((c) => c.kind === "GATE").length} gates, {detail.criteria.filter((c) => c.kind === "SCORED").length} weighted</dd>
         <dt style={{ color: "var(--u-ink-secondary)" }}>Eligibility rules</dt><dd style={{ margin: 0 }}>{detail.rules.length || "None (everyone eligible)"}</dd>

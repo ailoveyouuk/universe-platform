@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
-import { INCOTERMS } from "@universe/types";
+import { EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
 export const TENDER_TYPES = ["RFQ", "RFP", "ITT", "OPEN_TENDER", "FRAMEWORK"] as const;
@@ -27,6 +27,12 @@ export class UpdateTenderDto {
   @IsOptional() @IsInt() @Min(1) @Max(200) maxFileSizeMb?: number;
   @IsOptional() @IsBoolean() allowTextSubmission?: boolean;
   @IsOptional() @IsString() termsAndConditions?: string;
+  @IsOptional() @IsString() @Length(1, 64) timeZone?: string;
+  @IsOptional() @IsBoolean() standstillEnabled?: boolean;
+  @IsOptional() @IsInt() @Min(1) @Max(30) standstillWorkingDays?: number;
+  @IsOptional() @IsBoolean() publicNotice?: boolean;
+  @IsOptional() @IsBoolean() requireIntegrityPledge?: boolean;
+  @IsOptional() @IsBoolean() requireExclusionDeclaration?: boolean;
 }
 export class CreateTenderDto extends UpdateTenderDto {
   @IsString() @Length(1, 300) override title!: string;
@@ -78,4 +84,34 @@ export class SavedSearchDto {
   @IsOptional() @IsBoolean() onlyEligible?: boolean;
   @IsOptional() @IsString() keyword?: string;
   @IsOptional() @IsBoolean() alertsEnabled?: boolean;
+}
+
+export class ExclusionDeclarationDto {
+  @IsBoolean() noGrounds!: boolean;
+  @IsOptional() @IsArray() @IsIn(EXCLUSION_GROUNDS.map((g) => g.value), { each: true }) grounds?: string[];
+  @IsOptional() @IsString() @Length(0, 4000) explanation?: string;
+}
+export class InterestDto {
+  @IsOptional() @IsBoolean() integrityPledge?: boolean;
+  @IsOptional() @ValidateNested() @Type(() => ExclusionDeclarationDto) exclusion?: ExclusionDeclarationDto;
+}
+export class AskQuestionDto { @IsString() @Length(5, 4000) question!: string; }
+export class AnswerQuestionDto {
+  @IsString() @Length(1, 8000) answer!: string;
+  /** The question as published to everyone. Defaults to the asked text; edit it to remove anything that identifies the asker. */
+  @IsOptional() @IsString() @Length(5, 4000) publishedQuestion?: string;
+}
+export class ClarificationDto { @IsString() @Length(5, 4000) question!: string; @IsString() @Length(1, 8000) answer!: string; }
+export class AddendumDto {
+  @IsString() @Length(1, 300) title!: string;
+  @IsString() @Length(1, 20000) body!: string;
+  @IsOptional() @IsBoolean() requiresAcknowledgement?: boolean;
+  @IsOptional() @IsDateString() newClosingAt?: string;
+}
+export class ScreeningDto {
+  @IsString() organisationId!: string;
+  @IsArray() @IsIn(SCREENING_LISTS.map((l) => l.value), { each: true }) lists!: string[];
+  @IsIn(SCREENING_OUTCOMES.map((o) => o.value)) outcome!: string;
+  @IsOptional() @IsString() @Length(0, 4000) notes?: string;
+  @IsDateString() screenedOn!: string;
 }

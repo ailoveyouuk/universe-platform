@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import type { TenderStatus, TenderType } from "@universe/types";
+import { QUALIFICATION_OPTIONS } from "@universe/types";
 
 export const inputStyle: CSSProperties = { padding: "8px 10px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13.5, minWidth: 0, width: "100%", boxSizing: "border-box", backgroundColor: "var(--u-surface)", color: "var(--u-ink)" };
 
@@ -44,10 +45,33 @@ export const Heading = ({ title, sub, actions }: { title: string; sub?: ReactNod
 export const ErrorNote = ({ message }: { message: string | null }) => message ? <div role="alert" style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", color: "var(--u-status-critical)", fontSize: 13.5, backgroundColor: "rgba(208,59,59,0.06)" }}>{message}</div> : null;
 
 export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Not set");
-export const fmtDateTime = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Not set");
-/** `<input type="datetime-local">` value from an ISO string, in local time. */
-export const toLocalInput = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
-export const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : undefined);
+/** The viewer's own IANA zone, used as the default for a new tender. */
+export const browserZone = (): string => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; } };
+export const zoneList = (): string[] => { try { const l = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone"); return l && l.length ? ["UTC", ...l.filter((z) => z !== "UTC")] : ["UTC", "Europe/London"]; } catch { return ["UTC", "Europe/London"]; } };
+/** A date and time with its zone spelled out, e.g. "12 Nov 2026, 12:00 GMT" (UTC 12:00). Without a zone the viewer's own is used and named. */
+export const fmtDateTime = (iso: string | null | undefined, zone?: string | null) => {
+  if (!iso) return "Not set";
+  const d = new Date(iso);
+  const o: Intl.DateTimeFormatOptions = { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" };
+  try {
+    const main = d.toLocaleString("en-GB", { ...o, ...(zone ? { timeZone: zone } : {}) });
+    return zone && zone !== "UTC" ? `${main} (${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC)` : main;
+  } catch { return d.toLocaleString("en-GB", o); }
+};
+const zoneParts = (d: Date, tz: string) => { const f = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }); const o: Record<string, string> = {}; for (const p of f.formatToParts(d)) o[p.type] = p.value; return o; };
+const zoneOffsetMs = (d: Date, tz: string) => { const o = zoneParts(d, tz); return Date.UTC(+o.year!, +o.month! - 1, +o.day!, +o.hour!, +o.minute!, +o.second!) - Math.floor(d.getTime() / 1000) * 1000; };
+/** `<input type="datetime-local">` value for an instant, as the wall-clock time in the given zone. */
+export const toLocalInput = (iso: string | null | undefined, zone?: string | null) => { if (!iso) return ""; const z = zone || browserZone(); const o = zoneParts(new Date(iso), z); return `${o.year}-${o.month}-${o.day}T${o.hour}:${o.minute}`; };
+/** The instant (ISO) for a wall-clock `datetime-local` value typed in the given zone. */
+export const fromLocalInput = (v: string, zone?: string | null) => {
+  if (!v) return undefined;
+  const z = zone || browserZone();
+  const [d, t] = v.split("T"); const [y, m, da] = d!.split("-").map(Number); const [h, mi] = t!.split(":").map(Number);
+  const guess = Date.UTC(y!, m! - 1, da!, h!, mi!);
+  let utc = guess - zoneOffsetMs(new Date(guess), z);
+  utc = guess - zoneOffsetMs(new Date(utc), z);
+  return new Date(utc).toISOString();
+};
 export const daysUntil = (iso: string | null | undefined, now = new Date()) => (iso ? Math.ceil((new Date(iso).getTime() - now.getTime()) / 86_400_000) : null);
 
 export const STATUS_LABEL: Record<TenderStatus, string> = { DRAFT: "Draft", PUBLISHED: "Open", CLOSED: "Closed", EVALUATING: "Evaluating", AWARDED: "Awarded", CONTRACTED: "Contracted", CANCELLED: "Cancelled" };
@@ -59,6 +83,6 @@ export const VISIBILITY_LABEL: Record<string, string> = {
   INVITED_ONLY: "Only organisations you invite can see it",
 };
 export const ORG_TYPE_LABEL: Record<string, string> = { PROCUREMENT_SERVICE_AGENT: "Procurement agent", TENDERING_PURCHASING_BODY: "Tendering body", MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier", FUNDER_DONOR: "Funder or donor", DATA_INSIGHTS_USER: "Data and insights" };
-export const QUALIFICATIONS = [{ value: "WHO_PQ", label: "WHO prequalification" }, { value: "SRA", label: "Stringent Regulatory Authority approval" }, { value: "ISO_13485", label: "ISO 13485" }, { value: "ISO_9001", label: "ISO 9001" }, { value: "ERP", label: "Expert Review Panel (ERP) approval" }];
+export const QUALIFICATIONS = QUALIFICATION_OPTIONS;
 export const RULE_LABEL: Record<string, string> = { ORG_TYPE: "Organisation type", COUNTRY: "Country", CATEGORY: "Product category", QUALIFICATION: "Qualification", EXCLUDED_ORG: "Excluded organisation" };
-export const EVENT_LABEL: Record<string, string> = { CREATED: "Created", PUBLISHED: "Published", INVITED: "Invitation", DEADLINE_EXTENDED: "Deadline extended", CANCELLED: "Cancelled", INTEREST_EXPRESSED: "Interest", INTEREST_WITHDRAWN: "Interest withdrawn" };
+export const EVENT_LABEL: Record<string, string> = { CREATED: "Created", PUBLISHED: "Published", INVITED: "Invitation", DEADLINE_EXTENDED: "Deadline extended", CANCELLED: "Cancelled", INTEREST_EXPRESSED: "Interest", INTEREST_WITHDRAWN: "Interest withdrawn", QUESTION_ASKED: "Question received", CLARIFICATION_PUBLISHED: "Clarification published", ADDENDUM_ISSUED: "Addendum issued", ADDENDUM_ACKNOWLEDGED: "Addendum acknowledged", SCREENING_RECORDED: "Screening recorded" };

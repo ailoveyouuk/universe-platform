@@ -770,6 +770,72 @@ export const INCOTERM_NAMES: Record<IncotermCode, string> = {
   CFR: "Cost and Freight", CIF: "Cost, Insurance and Freight", DAP: "Delivered at Place", DPU: "Delivered at Place Unloaded", DDP: "Delivered Duty Paid",
 };
 
+/** Units of measure: the common metric and imperial units plus pack/count units used in health procurement. Anything not here is
+ * entered as free text via the "Other" choice (UnitSelect in @universe/ui). A stored unit is the label string, so values already in
+ * the database stay valid. Added 2026-10-19. */
+export const UNIT_OPTIONS = [
+  { value: "each", label: "each", group: "Count" }, { value: "tablet", label: "tablet", group: "Count" }, { value: "capsule", label: "capsule", group: "Count" },
+  { value: "dose", label: "dose", group: "Count" }, { value: "test", label: "test", group: "Count" }, { value: "pair", label: "pair", group: "Count" },
+  { value: "dozen", label: "dozen", group: "Count" },
+  { value: "blister pack", label: "blister pack", group: "Pack" }, { value: "vial", label: "vial", group: "Pack" }, { value: "ampoule", label: "ampoule", group: "Pack" },
+  { value: "bottle", label: "bottle", group: "Pack" }, { value: "box", label: "box", group: "Pack" }, { value: "carton", label: "carton", group: "Pack" },
+  { value: "pack", label: "pack", group: "Pack" }, { value: "kit", label: "kit", group: "Pack" }, { value: "sachet", label: "sachet", group: "Pack" },
+  { value: "tube", label: "tube", group: "Pack" }, { value: "strip", label: "strip", group: "Pack" }, { value: "roll", label: "roll", group: "Pack" },
+  { value: "set", label: "set", group: "Pack" }, { value: "pallet", label: "pallet", group: "Pack" },
+  { value: "mg", label: "mg (milligram)", group: "Metric" }, { value: "g", label: "g (gram)", group: "Metric" }, { value: "kg", label: "kg (kilogram)", group: "Metric" },
+  { value: "t", label: "t (tonne)", group: "Metric" }, { value: "mL", label: "mL (millilitre)", group: "Metric" }, { value: "L", label: "L (litre)", group: "Metric" },
+  { value: "mm", label: "mm (millimetre)", group: "Metric" }, { value: "cm", label: "cm (centimetre)", group: "Metric" }, { value: "m", label: "m (metre)", group: "Metric" },
+  { value: "km", label: "km (kilometre)", group: "Metric" }, { value: "m2", label: "m² (square metre)", group: "Metric" }, { value: "m3", label: "m³ (cubic metre)", group: "Metric" },
+  { value: "oz", label: "oz (ounce)", group: "Imperial" }, { value: "lb", label: "lb (pound)", group: "Imperial" }, { value: "fl oz", label: "fl oz (fluid ounce)", group: "Imperial" },
+  { value: "pt", label: "pt (pint)", group: "Imperial" }, { value: "gal", label: "gal (gallon)", group: "Imperial" }, { value: "in", label: "in (inch)", group: "Imperial" },
+  { value: "ft", label: "ft (foot)", group: "Imperial" }, { value: "yd", label: "yd (yard)", group: "Imperial" }, { value: "mi", label: "mi (mile)", group: "Imperial" },
+] as const;
+export const isKnownUnit = (u: string | null | undefined): boolean => !!u && UNIT_OPTIONS.some((o) => o.value === u);
+
+/** Qualifications a tender can require, used by eligibility rules and an item's required registration. The values are the codes the
+ * eligibility check matches against an organisation's registry evidence; "Other" is typed free text. Added 2026-10-19. */
+export const QUALIFICATION_OPTIONS = [
+  { value: "WHO_PQ", label: "WHO prequalification" },
+  { value: "SRA", label: "Stringent Regulatory Authority (SRA) approval" },
+  { value: "WLA", label: "WHO Listed Authority (WLA) authorisation" },
+  { value: "ERP", label: "Expert Review Panel (ERP) approval" },
+  { value: "PICS_GMP", label: "GMP inspection by a WHO PQ, SRA or PIC/S authority" },
+  { value: "NATIONAL_MA", label: "National marketing authorisation" },
+  { value: "WHO_GDP", label: "Good Distribution Practice (GDP) compliance" },
+  { value: "MQAS", label: "WHO Model Quality Assurance System (MQAS) compliance" },
+  { value: "ISO_13485", label: "ISO 13485 (medical devices quality)" },
+  { value: "ISO_9001", label: "ISO 9001 (quality management)" },
+  { value: "ISO_17025", label: "ISO/IEC 17025 (testing laboratories)" },
+] as const;
+export const qualificationLabel = (v: string): string => QUALIFICATION_OPTIONS.find((o) => o.value === v)?.label ?? v;
+
+/** Grounds a bidder declares against when expressing interest (exclusion declaration). */
+export const EXCLUSION_GROUNDS = [
+  { value: "INSOLVENCY", label: "Insolvency, bankruptcy or winding-up" },
+  { value: "FRAUD_CORRUPTION", label: "Fraud, bribery or corruption conviction or finding" },
+  { value: "TAX_ARREARS", label: "Unpaid taxes or social-security contributions" },
+  { value: "PROFESSIONAL_MISCONDUCT", label: "Grave professional misconduct" },
+  { value: "FORCED_LABOUR", label: "Forced labour, child labour or modern slavery" },
+  { value: "SANCTIONS_DEBARMENT", label: "Sanctions or debarment by a government or development bank" },
+  { value: "CONFLICT_OF_INTEREST", label: "Conflict of interest with the issuer" },
+] as const;
+
+/** Lists an issuer can record having screened a bidder against. */
+export const SCREENING_LISTS = [
+  { value: "UN_SECURITY_COUNCIL", label: "UN Security Council consolidated list" },
+  { value: "WORLD_BANK_DEBARMENT", label: "World Bank debarred firms" },
+  { value: "UK_DEBARMENT", label: "UK procurement debarment list" },
+  { value: "UK_OFSI", label: "UK financial sanctions (OFSI)" },
+  { value: "EU_SANCTIONS", label: "EU consolidated sanctions list" },
+  { value: "OFAC_SDN", label: "US OFAC SDN list" },
+  { value: "OTHER", label: "Other list (see notes)" },
+] as const;
+export const SCREENING_OUTCOMES = [
+  { value: "CLEAR", label: "No match" },
+  { value: "MATCH_CLEARED", label: "Possible match, reviewed and cleared" },
+  { value: "EXCLUDED", label: "Match confirmed, organisation excluded" },
+] as const;
+
 /** One currency option for CurrencySelect — { code, name } pairs, same
  * shape convention as CountryOption below, built from SUPPORTED_CURRENCIES
  * + CURRENCY_NAMES rather than fetched, since it's a fixed, small list. */
@@ -3179,6 +3245,8 @@ export interface TenderRecord {
   publishedAt: string | null; clarificationDeadline: string | null; closingAt: string | null; evaluationDueAt: string | null; awardDueAt: string | null;
   bidValidityDays: number | null; contractStartDate: string | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean;
   termsAndConditions: string | null; cancelledReason: string | null; isSimulated: boolean; createdAt: string; updatedAt: string;
+  timeZone: string | null; standstillEnabled: boolean; standstillWorkingDays: number | null; publicNotice: boolean;
+  requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean;
 }
 export interface TenderListItem extends TenderRecord { interestedOrganisations: number }
 export interface TenderLineRecord {
@@ -3191,7 +3259,25 @@ export interface TenderEventRecord { id: string; kind: string; summary: string; 
 export interface TenderDetailForIssuer {
   tender: TenderRecord; lines: TenderLineRecord[]; criteria: TenderCriterionRecord[]; rules: TenderRuleRecord[]; events: TenderEventRecord[];
   invitations: { id: string; invitedOrganizationId: string; organizationName: string | null; invitedAt: string }[];
-  participants: { organizationId: string; organizationName: string | null; status: string; optedInAt: string }[];
+  participants: TenderParticipantRecord[];
+  questions: TenderQuestionRecord[];
+  clarifications: TenderClarificationRecord[];
+  addenda: TenderAddendumRecord[];
+  screenings: TenderScreeningRecord[];
+}
+export interface TenderParticipantRecord {
+  organizationId: string; organizationName: string | null; status: string; optedInAt: string;
+  integrityPledgeAt: string | null; exclusionDeclaredAt: string | null; exclusionNoGrounds: boolean | null; exclusionGrounds: string[]; exclusionExplanation: string | null;
+}
+export interface TenderQuestionRecord { id: string; question: string; askedAt: string; askedByOrganisation: string | null; answered: boolean }
+export interface TenderClarificationRecord { id: string; question: string; answer: string; answeredAt: string }
+export interface TenderAddendumRecord { id: string; number: number; title: string; body: string; requiresAcknowledgement: boolean; newClosingAt: string | null; createdAt: string; acknowledgedBy?: number; outstanding?: string[] }
+export interface TenderScreeningRecord { id: string; screenedOrganisationId: string; organisationName: string | null; lists: string[]; outcome: string; notes: string | null; screenedOn: string; recordedAt: string }
+export interface TenderChainCheck { ok: boolean; events: number; brokenAt: string | null }
+export interface PublicNoticeRecord {
+  id: string; referenceNumber: string; title: string; summary: string | null; issuerName: string; tenderType: TenderType; status: TenderStatus; publishedAt: string | null; closingAt: string | null; timeZone: string | null;
+  deliveryCountryCodes: string | null; currency: string | null; incoterm: string | null;
+  lines: { description: string; quantity: string | number | null; unit: string | null }[]; criteria: { title: string; kind: string; weight: string | number | null }[];
 }
 export interface TenderDashboard {
   totals: { draft: number; open: number; closed: number; evaluating: number; awarded: number; cancelled: number };

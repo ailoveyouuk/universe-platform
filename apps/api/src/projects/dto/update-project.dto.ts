@@ -1,3 +1,4 @@
+import { INCOTERMS } from "@universe/types";
 import { ArrayMaxSize, IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 const STATUSES = [
@@ -19,7 +20,6 @@ const STATUSES = [
  * this control once a project is COMPLETED. */
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
 
-const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CPT", "CIP", "CFR", "CIF", "DAP", "DPU", "DDP"] as const;
 const FREIGHT_MODES = ["AIR", "SEA", "LAND"] as const;
 
 export class UpdateProjectDto {
@@ -40,7 +40,7 @@ export class UpdateProjectDto {
   // --- Freight & Logistics (moved here from ProjectLineDto 2026-10-03,
   // per Lewis's request — freight is arranged once for the whole
   // project, not per line. See ProjectsService.applyProjectFreightPricing. ---
-  @IsOptional() @IsIn(INCOTERMS) incoterm?: (typeof INCOTERMS)[number];
+  @IsOptional() @IsIn(INCOTERMS as unknown as string[]) incoterm?: (typeof INCOTERMS)[number];
   @IsOptional() @IsIn(FREIGHT_MODES) freightMode?: (typeof FREIGHT_MODES)[number];
   @IsOptional() @IsString() freightForwarderId?: string;
   @IsOptional() @IsNumber() freightCost?: number;

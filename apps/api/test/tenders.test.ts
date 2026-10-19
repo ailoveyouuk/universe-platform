@@ -3,6 +3,8 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext, w
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { chipsFor, evaluateEligibility, matchesSavedSearch, type OrgProfile } from "../src/tenders/eligibility";
+import { TenderComplianceService } from "../src/tenders/tender-compliance.service";
+import { eventHash, verifyChain } from "../src/tenders/tender-events";
 import { TendersService } from "../src/tenders/tenders.service";
 
 const profile = (over: Partial<OrgProfile> = {}): OrgProfile => ({ organizationId: "org-1", orgType: "MANUFACTURER", countries: ["KE", "GB"], categories: ["Pharmaceuticals.Antimalarials"], qualifications: ["WHO_PQ"], hasProfileEvidence: true, ...over });
@@ -75,6 +77,8 @@ describe("Tender eligibility logic", () => {
 describe("Tender service", () => {
   const suffix = randomUUID().slice(0, 8);
   const svc = new TendersService();
+  const comp = new TenderComplianceService(svc);
+  const DECL = { integrityPledge: true, exclusion: { noGrounds: true } };
   let issuer: string; let capable: string; let incapable: string; let invitee: string;
   let inviteeUser: string; let issuerUser: string; let capableUser: string; let incapableUser: string;
 
@@ -107,7 +111,7 @@ describe("Tender service", () => {
 
   const build = async (over: Record<string, unknown> = {}, rules: { ruleType: string; ruleValue: string; explanation?: string }[] = [], publish = true) => {
     const u = asUser(issuer, ISSUE);
-    const t = await svc.create(u, { title: `Antimalarials ${suffix}`, closingAt: future(30), tenderType: "RFQ", ...over } as never);
+    const t = await svc.create(u, { title: `Antimalarials ${suffix}`, closingAt: future(30), tenderType: "RFQ", currency: "USD", ...over } as never);
     await svc.setLines(u, t.id, { lines: [{ description: "Artemether/lumefantrine 20/120 mg", quantity: 1000, unit: "pack", destinationCountryCode: "KE" }] });
     await svc.setCriteria(u, t.id, { criteria: [{ title: "Price", kind: "SCORED", weight: 60 }, { title: "Quality", kind: "SCORED", weight: 40 }, { title: "Registered", kind: "GATE" }] });
     await svc.setRules(u, t.id, { rules });
@@ -125,6 +129,7 @@ describe("Tender service", () => {
     const u = asUser(issuer, ISSUE);
     const t = await svc.create(u, { title: `Weights ${suffix}`, closingAt: future(10) } as never);
     await svc.setLines(u, t.id, { lines: [{ description: "x" }] });
+    await svc.update(u, t.id, { currency: "USD" });
     await svc.setCriteria(u, t.id, { criteria: [{ title: "Price", kind: "SCORED", weight: 70 }] });
     await expect(svc.publish(u, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringContaining("total 100")]) } });
   });
@@ -152,9 +157,9 @@ describe("Tender service", () => {
 
   it("only an eligible organisation can express interest; the issuer sees it; withdrawing works", async () => {
     const t = await build({ title: `Interest ${suffix}` }, [{ ruleType: "QUALIFICATION", ruleValue: "WHO_PQ" }]);
-    await expect(svc.expressInterest(asUser(incapable, BID), t.id)).rejects.toMatchObject({ response: { checklist: expect.any(Array) } });
-    await svc.expressInterest(asUser(capable, BID), t.id);
-    await svc.expressInterest(asUser(capable, BID), t.id); // idempotent
+    await expect(svc.expressInterest(asUser(incapable, BID), t.id, DECL)).rejects.toMatchObject({ response: { checklist: expect.any(Array) } });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL); // idempotent
     const mine = await svc.getMine(asUser(issuer, ISSUE), t.id);
     expect(mine.participants.map((p) => p.organizationId)).toEqual([capable]);
     const check = await withTenantContext(capable, (tx) => tx.tenderEligibilityCheck.count({ where: { tenderId: t.id } }));
@@ -210,5 +215,117 @@ describe("Tender service", () => {
     expect(d.totals.open).toBeGreaterThan(0);
     expect(d.totals.draft).toBeGreaterThan(0);
     expect(d.closingSoon.some((t) => t.title.startsWith("Soon"))).toBe(true);
+  });
+
+  it("requires a currency to publish", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `No currency ${suffix}`, currency: undefined }, [], false);
+    await expect(svc.publish(u, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringContaining("currency")]) } });
+  });
+
+  it("interest needs the integrity pledge and an exclusion declaration; declared grounds are recorded for the issuer", async () => {
+    const t = await build({ title: `Declare ${suffix}` });
+    await expect(svc.expressInterest(asUser(capable, BID), t.id, {})).rejects.toThrow(/integrity pledge/);
+    await expect(svc.expressInterest(asUser(capable, BID), t.id, { integrityPledge: true })).rejects.toThrow(/exclusion declaration/);
+    await expect(svc.expressInterest(asUser(capable, BID), t.id, { integrityPledge: true, exclusion: { noGrounds: false, grounds: [] } })).rejects.toThrow(/no grounds apply/);
+    await expect(svc.expressInterest(asUser(capable, BID), t.id, { integrityPledge: true, exclusion: { noGrounds: false, grounds: ["INSOLVENCY"] } })).rejects.toThrow(/Explain/);
+    await svc.expressInterest(asUser(capable, BID), t.id, { integrityPledge: true, exclusion: { noGrounds: false, grounds: ["INSOLVENCY"], explanation: "Restructuring completed in 2025." } });
+    const p = (await svc.getMine(asUser(issuer, ISSUE), t.id)).participants[0];
+    expect(p.integrityPledgeAt).toBeTruthy();
+    expect(p.exclusionGrounds).toEqual(["INSOLVENCY"]);
+    expect(p.exclusionExplanation).toMatch(/Restructuring/);
+  });
+
+  it("a tender can switch the declarations off", async () => {
+    const t = await build({ title: `No declare ${suffix}`, requireIntegrityPledge: false, requireExclusionDeclaration: false });
+    await svc.expressInterest(asUser(capable, BID), t.id, {});
+    expect((await svc.getMine(asUser(issuer, ISSUE), t.id)).participants).toHaveLength(1);
+  });
+
+  it("questions are answered to everyone without naming the asker, and only before the question deadline", async () => {
+    const t = await build({ title: `Q and A ${suffix}` });
+    await comp.askQuestion(asUser(capable, BID), t.id, "Is the 20/120 mg dispersible strength mandatory?");
+    const mine = await svc.getMine(asUser(issuer, ISSUE), t.id);
+    expect(mine.questions).toHaveLength(1);
+    expect(mine.questions[0].askedByOrganisation).toMatch(/T Capable/);
+    await comp.answerQuestion(asUser(issuer, ISSUE), t.id, mine.questions[0].id, { answer: "Yes, dispersible is mandatory.", publishedQuestion: "Is the dispersible strength mandatory?" });
+    await expect(comp.answerQuestion(asUser(issuer, ISSUE), t.id, mine.questions[0].id, { answer: "again" })).rejects.toThrow(/already been answered/);
+    const view = await svc.getForParticipant(asUser(incapable, BID), t.id);
+    expect(view.clarifications).toHaveLength(1);
+    expect(JSON.stringify(view.clarifications)).not.toMatch(/T Capable/);
+    const closed = await build({ title: `Q late ${suffix}`, clarificationDeadline: future(0.6) });
+    await withTenantContext(issuer, (tx) => tx.tender.update({ where: { id: closed.id }, data: { clarificationDeadline: new Date(Date.now() - 1000) } }));
+    await expect(comp.askQuestion(asUser(capable, BID), closed.id, "Too late to ask this one?")).rejects.toThrow(/deadline/);
+  });
+
+  it("an addendum can extend the closing date, notifies participants and is acknowledged per organisation", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `Addendum ${suffix}` });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    const a = await comp.createAddendum(u, t.id, { title: "Pack size clarified", body: "Blister of 24, not 6.", newClosingAt: future(45) });
+    expect(a.number).toBe(1);
+    await expect(comp.createAddendum(u, t.id, { title: "Earlier", body: "x", newClosingAt: future(2) })).rejects.toThrow(/later/);
+    const before = (await svc.getMine(u, t.id)).addenda[0];
+    expect(before.acknowledgedBy).toBe(0);
+    expect(before.outstanding).toHaveLength(1);
+    await expect(comp.acknowledgeAddendum(asUser(incapable, BID), t.id, a.id)).rejects.toThrow(/expressed interest/);
+    await comp.acknowledgeAddendum(asUser(capable, BID), t.id, a.id);
+    const after = (await svc.getMine(u, t.id)).addenda[0];
+    expect(after.acknowledgedBy).toBe(1);
+    expect(after.outstanding).toHaveLength(0);
+    expect((await svc.getForParticipant(asUser(capable, BID), t.id)).addenda[0].acknowledged).toBe(true);
+    const notes = await withTenantContext(capable, (tx) => tx.notification.count({ where: { recipientUserId: capableUser, kind: "TENDER_ADDENDUM", subjectId: t.id } }));
+    expect(notes).toBe(0); // the capable test user holds no tenders.view role; notification delivery is covered for the invitee elsewhere
+  });
+
+  it("screening is recorded by the issuer for participants only, and is invisible to the screened organisation", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `Screen ${suffix}` });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    await expect(comp.recordScreening(u, t.id, { organisationId: incapable, lists: ["UN_SECURITY_COUNCIL"], outcome: "CLEAR", screenedOn: new Date().toISOString() })).rejects.toThrow(/participating or invited/);
+    await expect(comp.recordScreening(u, t.id, { organisationId: capable, lists: [], outcome: "CLEAR", screenedOn: new Date().toISOString() })).rejects.toThrow(/at least one list/);
+    await comp.recordScreening(u, t.id, { organisationId: capable, lists: ["UN_SECURITY_COUNCIL", "WORLD_BANK_DEBARMENT"], outcome: "CLEAR", notes: "Checked 19 Oct.", screenedOn: new Date().toISOString() });
+    const mine = await svc.getMine(u, t.id);
+    expect(mine.screenings).toHaveLength(1);
+    expect(mine.screenings[0].lists).toEqual(["UN_SECURITY_COUNCIL", "WORLD_BANK_DEBARMENT"]);
+    const seenByScreened = await withTenantContext(capable, (tx) => tx.tenderScreening.count({ where: { tenderId: t.id } }));
+    expect(seenByScreened).toBe(0);
+  });
+
+  it("the audit timeline is hash-chained and verification catches tampering", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `Chain ${suffix}` });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    await comp.createAddendum(u, t.id, { title: "Note", body: "A note." });
+    const ok = await comp.verifyTimeline(u, t.id);
+    expect(ok.ok).toBe(true);
+    expect(ok.events).toBeGreaterThanOrEqual(4);
+    const events = (await withPlatformStaffContext((tx) => tx.tenderEvent.findMany({ where: { tenderId: t.id } }))).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const tampered = events.map((e, i) => (i === 1 ? { ...e, summary: "Edited afterwards" } : e));
+    expect(verifyChain(events).ok).toBe(true);
+    expect(verifyChain(tampered).ok).toBe(false);
+    expect(verifyChain(events.filter((_, i) => i !== 1)).ok).toBe(false);
+    expect(events[0].prevHash).toBeNull();
+    expect(eventHash(events[0] as never)).toBe(events[0].hash);
+  });
+
+  it("public notices list only opted-in, non-simulated tenders and expose no bidder data", async () => {
+    const pub = await build({ title: `Public ${suffix}`, publicNotice: true });
+    const priv = await build({ title: `Private ${suffix}` });
+    const all = await comp.publicNotices();
+    expect(all.map((n) => n.id)).toContain(pub.id);
+    expect(all.map((n) => n.id)).not.toContain(priv.id);
+    const one = (await comp.publicNotices(pub.id))[0];
+    expect(Object.keys(one)).not.toContain("organizationId");
+    expect(one.issuerName).toMatch(/T Issuer/);
+    await withTenantContext(issuer, (tx) => tx.tender.update({ where: { id: priv.id }, data: { isSimulated: true, publicNotice: true } }));
+    expect((await comp.publicNotices()).map((n) => n.id)).not.toContain(priv.id);
+  });
+
+  it("standstill defaults to eight working days when switched on and is locked after publication", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `Standstill ${suffix}`, standstillEnabled: true });
+    expect((await svc.getMine(u, t.id)).tender.standstillWorkingDays).toBe(8);
+    await expect(svc.update(u, t.id, { standstillEnabled: false })).rejects.toThrow(/dates extended/);
   });
 });

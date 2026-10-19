@@ -105,6 +105,21 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_clarifications AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_clarifications AFTER UPDATE,
 
+    -- Addenda (2026-10-19): issuer writes; anyone who can see the tender reads.
+    ADD FILTER PREDICATE rls.fn_tenderChildReadPredicate(organizationId, tenderId) ON dbo.tender_addenda,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addenda AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addenda AFTER UPDATE,
+
+    -- Acknowledgements: the participant writes, the issuer reads.
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, issuerOrganizationId, NULL) ON dbo.tender_addendum_acks,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addendum_acks AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addendum_acks AFTER UPDATE,
+
+    -- Sanctions/debarment screening records: private to the issuer.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_screenings,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_screenings AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_screenings AFTER UPDATE,
+
     -- Two-party rows: owner reads and writes; the counterparty reads.
     ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, invitedOrganizationId, NULL) ON dbo.tender_invitations,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_invitations AFTER INSERT,

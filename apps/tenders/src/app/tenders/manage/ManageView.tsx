@@ -9,8 +9,9 @@ import { apiClient } from "../../../lib/apiClient";
 import { tenderTiles } from "../../../lib/stageTiles";
 import { Card, EVENT_LABEL, ErrorNote, Field, Heading, Page, STATUS_LABEL, STATUS_TONE, TYPE_LABEL, VISIBILITY_LABEL, fmtDate, fmtDateTime, fromLocalInput, inputStyle, toLocalInput } from "../../../lib/ui";
 import { Invitations, describeRule } from "../builder/BuilderView";
+import { AddendaPanel, ParticipantsPanel, QuestionsPanel, ScreeningPanel, VerifyTimeline } from "./ManagePanels";
 
-type Tab = "summary" | "participants" | "timeline";
+type Tab = "summary" | "participants" | "questions" | "addenda" | "screening" | "timeline";
 const ICONS: Record<string, React.ReactNode> = { closes: <CalendarIcon size={18} />, interest: <GridIcon size={18} />, invited: <CheckCircleIcon size={18} />, clar: <ClockIcon size={18} />, lines: <GridIcon size={18} />, eval: <ClockIcon size={18} />, award: <CalendarIcon size={18} />, criteria: <CheckCircleIcon size={18} /> };
 
 /** An issuer's page for a published tender (2026-10-19): stage tiles, details, who is interested, and the audit timeline. */
@@ -35,7 +36,7 @@ export function ManageView() {
     <Page>
       <Heading
         title={`${t.referenceNumber} ${t.title}`}
-        sub={<span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Pill tone={STATUS_TONE[st]}>{STATUS_LABEL[st]}</Pill>{TYPE_LABEL[t.tenderType]} · Closes {fmtDateTime(t.closingAt)}{t.isSimulated && <Pill>Simulated</Pill>}</span>}
+        sub={<span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Pill tone={STATUS_TONE[st]}>{STATUS_LABEL[st]}</Pill>{TYPE_LABEL[t.tenderType]} · Closes {fmtDateTime(t.closingAt, t.timeZone)}{t.isSimulated && <Pill>Simulated</Pill>}</span>}
         actions={<Link href="/tenders" style={{ textDecoration: "none" }}><Button variant="ghost">All tenders</Button></Link>}
       />
       <ErrorNote message={err} />
@@ -43,7 +44,7 @@ export function ManageView() {
       {tiles.length > 0 && <StatTileGrid>{tiles.map((x) => <StatTile key={x.key} label={x.label} value={x.value} icon={ICONS[x.key] ?? <AlertIcon size={18} />} tone={x.tone} note={x.note} indicator={x.indicator} />)}</StatTileGrid>}
 
       <div style={{ display: "flex", gap: 6 }}>
-        {([["summary", "Summary"], ["participants", `Participants (${d.participants.length})`], ["timeline", "Timeline"]] as [Tab, string][]).map(([k, label]) => (
+        {([["summary", "Summary"], ["participants", `Participants (${d.participants.length})`], ["questions", `Questions (${d.questions.filter((q) => !q.answered).length})`], ["addenda", `Addenda (${d.addenda.length})`], ["screening", "Screening"], ["timeline", "Timeline"]] as [Tab, string][]).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setTab(k)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}><Pill tone={tab === k ? "brand" : "neutral"}>{label}</Pill></button>
         ))}
       </div>
@@ -54,8 +55,12 @@ export function ManageView() {
           <Card title="Details">
             <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "6px 16px", margin: 0, fontSize: 13.5 }}>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{t.isSimulated ? "Simulated: only invited demonstration organisations can see it" : VISIBILITY_LABEL[t.visibility]}</dd>
-              <dt style={{ color: "var(--u-ink-secondary)" }}>Published</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.publishedAt)}</dd>
-              <dt style={{ color: "var(--u-ink-secondary)" }}>Questions close</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.clarificationDeadline)}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Published</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.publishedAt, t.timeZone)}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Questions close</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.clarificationDeadline, t.timeZone)}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Time zone</dt><dd style={{ margin: 0 }}>{t.timeZone ?? "Each viewer's own"}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Standstill</dt><dd style={{ margin: 0 }}>{t.standstillEnabled ? `${t.standstillWorkingDays ?? 8} working days after the award decision` : "Not used"}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Public notice</dt><dd style={{ margin: 0 }}>{t.publicNotice ? "Published for anyone to read" : "Off"}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Bidder declarations</dt><dd style={{ margin: 0 }}>{[t.requireIntegrityPledge && "integrity pledge", t.requireExclusionDeclaration && "exclusion declaration"].filter(Boolean).join(" and ") || "None required"}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Evaluation due</dt><dd style={{ margin: 0 }}>{fmtDate(t.evaluationDueAt)}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Award due</dt><dd style={{ margin: 0 }}>{fmtDate(t.awardDueAt)}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Delivery countries</dt><dd style={{ margin: 0 }}>{(t.deliveryCountryCodes ?? "").split(",").filter(Boolean).join(", ") || "Not set"}</dd>
@@ -76,17 +81,19 @@ export function ManageView() {
 
       {tab === "participants" && (
         <>
-          <Card title="Organisations that have expressed interest">
-            {d.participants.length === 0 ? <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>None yet. Eligible organisations see this tender in their list; invite more below.</p> : d.participants.map((p, i) => <div key={p.organizationId} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}><strong>{p.organizationName ?? "Organisation"}</strong><span style={{ color: "var(--u-ink-secondary)" }}>Interested {fmtDate(p.optedInAt)}</span></div>)}
-          </Card>
+          <ParticipantsPanel d={d} />
           {st === "PUBLISHED" && <Invitations detail={d} onSaved={load} />}
         </>
       )}
+      {tab === "questions" && <QuestionsPanel d={d} onChanged={load} />}
+      {tab === "addenda" && <AddendaPanel d={d} onChanged={load} />}
+      {tab === "screening" && <ScreeningPanel d={d} onChanged={load} />}
 
       {tab === "timeline" && (
         <Card title="Timeline">
-          <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5 }}>An append-only record of what happened on this tender. Entries cannot be edited or removed.</p>
-          {d.events.map((e, i) => <div key={e.id} style={{ display: "grid", gridTemplateColumns: "150px 150px 1fr", gap: 12, padding: "9px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 13.5 }}><span style={{ color: "var(--u-ink-secondary)" }}>{fmtDateTime(e.createdAt)}</span><span><Pill>{EVENT_LABEL[e.kind] ?? e.kind}</Pill></span><span>{e.summary}</span></div>)}
+          <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5 }}>An append-only record of what happened on this tender. Each entry is chained to the one before it, so an edited or removed entry is detected.</p>
+          <VerifyTimeline id={t.id} />
+          {d.events.map((e, i) => <div key={e.id} style={{ display: "grid", gridTemplateColumns: "150px 150px 1fr", gap: 12, padding: "9px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 13.5 }}><span style={{ color: "var(--u-ink-secondary)" }}>{fmtDateTime(e.createdAt, t.timeZone)}</span><span><Pill>{EVENT_LABEL[e.kind] ?? e.kind}</Pill></span><span>{e.summary}</span></div>)}
         </Card>
       )}
       
@@ -96,15 +103,16 @@ export function ManageView() {
 
 function Dates({ d, onSaved }: { d: TenderDetailForIssuer; onSaved: () => void }) {
   const t = d.tender;
-  const [v, setV] = useState({ closingAt: toLocalInput(t.closingAt), clarificationDeadline: toLocalInput(t.clarificationDeadline), evaluationDueAt: toLocalInput(t.evaluationDueAt), awardDueAt: toLocalInput(t.awardDueAt) });
+  const zone = t.timeZone;
+  const [v, setV] = useState({ closingAt: toLocalInput(t.closingAt, zone), clarificationDeadline: toLocalInput(t.clarificationDeadline, zone), evaluationDueAt: toLocalInput(t.evaluationDueAt, zone), awardDueAt: toLocalInput(t.awardDueAt, zone) });
   const [busy, setBusy] = useState(false); const [err, setErr] = useState<string | null>(null); const [note, setNote] = useState<string | null>(null);
   async function save() {
     setBusy(true); setErr(null); setNote(null);
-    try { await apiClient.updateTender(t.id, { closingAt: fromLocalInput(v.closingAt) ?? undefined, clarificationDeadline: fromLocalInput(v.clarificationDeadline) ?? undefined, evaluationDueAt: fromLocalInput(v.evaluationDueAt) ?? undefined, awardDueAt: fromLocalInput(v.awardDueAt) ?? undefined }); setNote("Dates updated. Interested organisations are told if the closing date moved."); onSaved(); }
+    try { await apiClient.updateTender(t.id, { closingAt: fromLocalInput(v.closingAt, zone) ?? undefined, clarificationDeadline: fromLocalInput(v.clarificationDeadline, zone) ?? undefined, evaluationDueAt: fromLocalInput(v.evaluationDueAt, zone) ?? undefined, awardDueAt: fromLocalInput(v.awardDueAt, zone) ?? undefined }); setNote("Dates updated. Interested organisations are told if the closing date moved."); onSaved(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Could not update."); } finally { setBusy(false); }
   }
   return (
-    <Card title="Dates">
+    <Card title={`Dates (${zone ?? "your time zone"})`}>
       <ErrorNote message={err} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
         <Field label="Closing date" hint="Can only be moved later."><input type="datetime-local" style={inputStyle} value={v.closingAt} onChange={(e) => setV({ ...v, closingAt: e.target.value })} /></Field>

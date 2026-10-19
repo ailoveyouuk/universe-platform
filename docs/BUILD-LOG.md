@@ -513,3 +513,16 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Walkthrough fixes:** create-draft redirect (stale closure), request normalisers so the API's strict validation does not reject extra fields or decimal strings, country clearing. Manage page now states that a simulated tender is visible only to invited demonstration organisations.
 - **Walkthrough result:** created, itemised, scored (Price 60 / Quality 40 plus a WHO PQ gate), rule-restricted, reviewed and published TND-2026-0001 in the demo organisation; test data, to be cancelled and cleared with the sandbox baseline.
 - **Known minor:** step pills for Invitations and Who can bid show "done" even when empty (optional steps); to tidy.
+
+## 2026-10-19: Tender compliance round (from the standards gap analysis)
+
+- **Shared lists consolidated** in `@universe/types`: `INCOTERMS` (+ names; Project Management logistics pages, project detail and the projects DTO now import it), `UNIT_OPTIONS` (common count, pack, metric and imperial units; "Other" lets a user type one), `QUALIFICATION_OPTIONS` (adds WHO Listed Authority, GMP inspection by PQ/SRA/PIC/S, national marketing authorisation, GDP, MQAS, ISO 17025), `EXCLUSION_GROUNDS`, `SCREENING_LISTS`/`SCREENING_OUTCOMES`. New `UnitSelect` in `@universe/ui`. Tender currency, Incoterm, unit and an item's required registration are now pickers, not free text.
+- **Clarifications:** bidders ask (API now, bidder screens in step 3), the issuer answers to everyone without naming the asker (editable published wording), or posts its own clarification; participants are notified.
+- **Addenda:** formal change notices with optional later closing date; participants notified and asked to acknowledge; issuer sees who has not.
+- **Bidder declarations:** integrity pledge and exclusion declaration recorded at opt-in (each switchable per tender, on by default); declared grounds flag the participant for the issuer.
+- **Screening log:** issuer records that it screened a participant against chosen sanctions/debarment lists (date, result, notes). Universe does not run the check. Private to the issuer.
+- **Standstill (off by default):** per tender, default 8 working days; enforced at award in step 4. **Public notice (off by default):** unauthenticated `/notices` page and `GET /public/notices`; never for simulated tenders; shows only title, items, criteria, dates, issuer name.
+- **Time zones:** each tender has an IANA zone; dates are entered and shown in it with the UTC time alongside.
+- **Audit chain:** every tender event is hash-chained (SHA-256 over previous hash + content), written in a platform-staff context so both parties' events join one chain; issuer can verify the timeline from the Timeline tab. Limitation: removing the most recent entries cannot be detected by the chain alone.
+- **Currency** is now required to publish (bids are compared in it). FX at submission (spot rate) and evaluator conflict declarations/scoring arrive with bids in steps 3 and 4.
+- **Prod steps for Lewis:** the API deploy applies migration `20261019210000_tender_compliance`; then re-run `infra/sql/tender-rls.sql` (idempotent) in the Azure SQL query editor so the three new tables get policies.
