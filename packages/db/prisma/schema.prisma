@@ -1211,6 +1211,8 @@ model ProjectLine {
   // manufactured date under Freight & Logistics — per Lewis's explicit
   // reorganisation request).
   countryOfManufactureCode String? // ISO 3166-1 alpha-2
+  /// Which of the project's delivery countries this line goes to (2026-10-19). Null = the project's primary country.
+  destinationCountryCode   String? @db.Char(2)
   goodsManufacturedDate    DateTime?
   manufacturerId           String?
   manufacturer             Partner?  @relation("LineManufacturer", fields: [manufacturerId], references: [id], onDelete: NoAction, onUpdate: NoAction)

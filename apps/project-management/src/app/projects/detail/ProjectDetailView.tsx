@@ -820,6 +820,8 @@ export function ProjectDetailView() {
       {addingLine && (
         <LineForm
               hideFinancials={project.financialsRedacted}
+          projectCountryCodes={project.deliveryCountryCodes}
+          previousLine={project.lines.length > 0 ? project.lines[project.lines.length - 1] : null}
           existing={null}
           isPharma={isPharma}
           projectStatus={project.status}
@@ -937,6 +939,7 @@ export function ProjectDetailView() {
           {editingLineId === line.id && (
             <LineForm
               hideFinancials={project.financialsRedacted}
+              projectCountryCodes={project.deliveryCountryCodes}
               existing={line}
               isPharma={isPharma}
               projectStatus={project.status}

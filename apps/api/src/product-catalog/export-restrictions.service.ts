@@ -80,7 +80,7 @@ export class ExportRestrictionsService {
       if (!project) return null;
       const lines = await tx.projectLine.findMany({
         where: { projectId, archivedAt: null, productMasterId: { not: null } },
-        select: { id: true, clientProductDescription: true, productMasterId: true, supplierId: true, manufacturerId: true, countryOfManufactureCode: true },
+        select: { id: true, clientProductDescription: true, productMasterId: true, supplierId: true, manufacturerId: true, countryOfManufactureCode: true, destinationCountryCode: true },
       });
       const partnerIds = [...new Set(lines.flatMap((l) => [l.supplierId, l.manufacturerId]).filter((v): v is string => !!v))];
       const partners = new Map<string, string | null>();
@@ -102,7 +102,8 @@ export class ExportRestrictionsService {
       const origin = supplierCountry ? { code: supplierCountry, basis: "supplier's country" } : manufacturerCountry ? { code: manufacturerCountry, basis: "manufacturer's country" } : l.countryOfManufactureCode ? { code: l.countryOfManufactureCode, basis: "country of manufacture" } : null;
       const p = products.get(l.productMasterId as string);
       if (!origin || !p) continue;
-      for (const dest of dests) for (const r of active) {
+      const lineDest = l.destinationCountryCode?.trim() || null;
+      for (const dest of lineDest ? [lineDest] : dests) for (const r of active) {
         const route = appliesToRoute(r.restrictingCountryCode, origin.code, dest);
         if (route === "NO") continue;
         const m = matchRestriction(p, r);

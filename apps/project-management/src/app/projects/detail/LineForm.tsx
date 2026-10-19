@@ -104,6 +104,40 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
   };
 }
 
+/** Details that rarely differ between the lines of one project: they are pre-filled from the previous line when adding another
+ * (2026-10-19). Product, quantity, prices, weight, batch and dates are deliberately not carried over. */
+const CARRY_OVER_FIELDS: { key: keyof ProjectLineInput; label: string }[] = [
+  { key: "destinationCountryCode", label: "Destination country" },
+  { key: "supplierId", label: "Supplier" },
+  { key: "manufacturerId", label: "Manufacturer" },
+  { key: "countryOfManufactureCode", label: "Country of manufacture" },
+  { key: "supplierPaymentCurrency", label: "Supplier currency" },
+  { key: "clientPaymentCurrency", label: "Client currency" },
+  { key: "productMarginPercent", label: "Product margin" },
+  { key: "clientPoNumber", label: "Client PO number" },
+  { key: "clientPoReceiptDate", label: "Client PO received" },
+  { key: "internalPoNumber", label: "Internal PO number" },
+  { key: "internalPoDatePlaced", label: "Internal PO placed" },
+  { key: "gad", label: "GAD" },
+  { key: "supplierGad", label: "Supplier GAD" },
+  { key: "warehouseReferenceNumber", label: "Warehouse reference" },
+  { key: "qualificationPathway", label: "Qualification pathway" },
+  { key: "qualificationPathwayExpiryDate", label: "Pathway expiry" },
+];
+
+function carryOverFrom(previous: ProjectLineSummary | null | undefined, projectCountryCodes: string[]): Partial<ProjectLineInput> {
+  if (!previous) return {};
+  const source = toLineInput(previous) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const { key } of CARRY_OVER_FIELDS) {
+    const v = source[key as string];
+    if (v === null || v === undefined || v === "") continue;
+    if (key === "destinationCountryCode" && !projectCountryCodes.includes(String(v))) continue;
+    out[key as string] = v;
+  }
+  return out as Partial<ProjectLineInput>;
+}
+
 /**
  * One line item's full editable form — procurement, freight & logistics,
  * financials, and (conditionally) the pharma batch block. Used both inline
@@ -119,10 +153,16 @@ export function LineForm({
   manufacturers,
   suppliers,
   hideFinancials = false,
+  projectCountryCodes = [],
+  previousLine = null,
   onSave,
   onCancel,
 }: {
   existing: ProjectLineSummary | null;
+  /** The project's delivery countries; a destination can be chosen per line when there is more than one. */
+  projectCountryCodes?: string[];
+  /** When adding a line: the project's latest line, whose steady details are pre-filled. */
+  previousLine?: ProjectLineSummary | null;
   isPharma: boolean;
   /** The parent Project's status — drives the 15-field stage gate below
    * (see AWARDED_OR_LATER_STATUSES). Freight forwarder is no longer a
@@ -138,7 +178,9 @@ export function LineForm({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : {}));
+  const [form, setForm] = useState<ProjectLineInput>(() => (existing ? toLineInput(existing) : carryOverFrom(previousLine, projectCountryCodes)));
+  /** Fields still holding a value copied from the previous line (removed as soon as the user edits them). */
+  const [carried, setCarried] = useState<string[]>(() => (existing ? [] : Object.keys(carryOverFrom(previousLine, projectCountryCodes))));
   const countries = useCountries();
 
   // Linked batch record (Gaps 5/6, compliance-standards-gap-analysis.md —
@@ -266,7 +308,8 @@ export function LineForm({
     const sources = option.approvedSources ?? [];
     setApprovedSources(sources);
     // One approved source and nothing chosen yet: suggest it straight away.
-    if (sources.length === 1 && !form.manufacturerId && !form.supplierId) applySource(sources[0]);
+    const sourcesUntouched = (!form.manufacturerId && !form.supplierId) || (carried.includes("manufacturerId") && carried.includes("supplierId"));
+    if (sources.length === 1 && sourcesUntouched) applySource(sources[0]);
     setProductLabel(option.name);
     setProductHasPendingAmendment(Boolean(option.hasPendingAmendment));
     setProductQuery("");
@@ -307,6 +350,16 @@ export function LineForm({
 
   function update<K extends keyof ProjectLineInput>(key: K, value: ProjectLineInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setCarried((prev) => (prev.includes(key as string) ? prev.filter((k) => k !== key) : prev));
+  }
+
+  function clearCarried() {
+    setForm((prev) => {
+      const next: Record<string, unknown> = { ...prev };
+      for (const k of carried) next[k] = null;
+      return next as ProjectLineInput;
+    });
+    setCarried([]);
   }
 
   function numOrNull(v: string): number | null {
@@ -481,7 +534,28 @@ export function LineForm({
         </Field>
       </Section>
 
+      {!existing && carried.length > 0 && (
+        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-accent-magenta-tint)", fontSize: 13, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <span>
+            Pre-filled from the previous line: {CARRY_OVER_FIELDS.filter((f) => carried.includes(f.key as string)).map((f) => f.label).join(", ")}. Change anything that differs on this line.
+          </span>
+          <Button type="button" variant="ghost" size="sm" onClick={clearCarried}>Clear pre-filled</Button>
+        </div>
+      )}
+
       <Section title="Procurement">
+        {(projectCountryCodes.length > 1 || form.destinationCountryCode) && (
+          <Field label="Destination country (this line)">
+            <CountrySelect
+              value={form.destinationCountryCode ?? ""}
+              onChange={(code) => update("destinationCountryCode", code || null)}
+              options={countries.filter((c) => projectCountryCodes.includes(c.code))}
+              ariaLabel="Destination country for this line"
+              placeholder="Project's primary country"
+            />
+            <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>Left blank, this line goes to the project's first delivery country.</span>
+          </Field>
+        )}
         <Field label="Country of Manufacture">
           <CountrySelect
             value={form.countryOfManufactureCode ?? ""}

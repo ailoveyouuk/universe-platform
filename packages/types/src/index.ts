@@ -439,6 +439,8 @@ export interface ProjectLineSummary {
    * it. */
   weightKg: string | null;
   countryOfManufactureCode: string | null;
+  /** One of the project's delivery countries; null means the project's primary country. */
+  destinationCountryCode: string | null;
   manufacturerId: string | null;
   manufacturerName: string | null;
   supplierId: string | null;
@@ -644,6 +646,7 @@ export interface ProjectLineInput {
   /** Added 2026-10-08 — see ProjectLineSummary's doc comment. */
   weightKg?: number | null;
   countryOfManufactureCode?: string | null;
+  destinationCountryCode?: string | null;
   manufacturerId?: string | null;
   supplierId?: string | null;
   clientPoNumber?: string | null;

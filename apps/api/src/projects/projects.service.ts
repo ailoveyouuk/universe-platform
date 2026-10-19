@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, prisma, withTenantContext, computeLogisticsMetric, type TransportMode } from "@universe/db";
 import type { PagedResult, ProjectCountryOverview, ProjectOverview, ProjectContactSummary, ProjectDetail, ProjectDocumentSummary, ProjectFinancialSummary, ProjectLeadSummary, ProjectLineSummary, ProjectStatusHistoryEntry, ProjectSummary, SupplierEnquirySummary, LogisticsMetricSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
@@ -258,6 +258,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     productCategory: l.productCategory,
     weightKg: decimalToString(l.weightKg),
     countryOfManufactureCode: l.countryOfManufactureCode,
+    destinationCountryCode: l.destinationCountryCode?.trim() || null,
     manufacturerId: l.manufacturerId,
     manufacturerName: l.manufacturer?.name ?? null,
     supplierId: l.supplierId,
@@ -963,6 +964,12 @@ export class ProjectsService {
         source: "API",
       });
 
+      // Delivery countries, freight mode or incoterm changed: drop line destinations that are no longer one of the project's
+      // countries and recompute every line's distance/CO2 (previously nothing recomputed when these changed).
+      if (countryColumns !== null || dto.freightMode !== undefined || dto.incoterm !== undefined) {
+        await this.reconcileLinesAfterProjectChange(tx, user.organizationId, updated);
+      }
+
       return updated;
     });
     if (!p) throw new NotFoundException(`Project ${id} not found`);
@@ -1332,6 +1339,34 @@ export class ProjectsService {
     return { internalOnTime, supplierOnTime, supplierInFull };
   }
 
+  /** A line's destination must be one of its project's delivery countries; blank clears it (= the project's primary). */
+  private lineDestination(project: { deliveryCountryCode: string | null; deliveryCountryCodes?: string | null }, requested: string | null | undefined): string | null | undefined {
+    if (requested === undefined) return undefined;
+    const code = (requested ?? "").trim().toUpperCase();
+    if (!code) return null;
+    const allowed = readDeliveryCountries(project);
+    if (allowed.length === 0) throw new BadRequestException("Set the project's delivery countries before choosing a destination for a line.");
+    if (!allowed.includes(code)) throw new BadRequestException(`${code} is not one of this project's delivery countries.`);
+    return code;
+  }
+
+  private async reconcileLinesAfterProjectChange(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    project: { id: string; deliveryCountryCode: string | null; deliveryCountryCodes?: string | null; freightMode: string | null; incoterm: string | null },
+  ): Promise<void> {
+    const allowed = readDeliveryCountries(project);
+    const lines = await tx.projectLine.findMany({ where: { projectId: project.id, archivedAt: null } });
+    for (const line of lines) {
+      let current = line;
+      const dest = line.destinationCountryCode?.trim() || null;
+      if (dest && (allowed.length === 0 || !allowed.includes(dest))) {
+        current = await tx.projectLine.update({ where: { id: line.id }, data: { destinationCountryCode: null } });
+      }
+      await this.recomputeLineLogisticsMetric(tx, organizationId, project.id, line.id, project, current);
+    }
+  }
+
   async addLine(user: RequestUser, projectId: string, dto: ProjectLineDto): Promise<ProjectDetail> {
     assertFieldLevelPermission(user, dto as unknown as Record<string, unknown>, PROJECT_LINE_FINANCIAL_FIELDS);
     await withTenantContext(user.organizationId, async (tx) => {
@@ -1340,6 +1375,8 @@ export class ProjectsService {
       await this.assertPartnersOwned(tx, user, dto);
 
       const data = lineDataFromDto(dto);
+      const destination = this.lineDestination(project, dto.destinationCountryCode);
+      if (destination !== undefined) data.destinationCountryCode = destination;
       await this.applyPricing(data, dto, null);
       Object.assign(
         data,
@@ -1374,6 +1411,8 @@ export class ProjectsService {
       await this.assertPartnersOwned(tx, user, dto);
 
       const data = lineDataFromDto(dto);
+      const destination = this.lineDestination(project, dto.destinationCountryCode);
+      if (destination !== undefined) data.destinationCountryCode = destination;
       await this.applyPricing(data, dto, line);
       // internalOnTime/supplierOnTime/supplierInFull are computed from
       // the merged (this request's changes + already-stored) state, not
@@ -1607,6 +1646,7 @@ export class ProjectsService {
     project: { deliveryCountryCode: string | null; freightMode: string | null; incoterm: string | null },
     line: {
       countryOfManufactureCode: string | null;
+      destinationCountryCode?: string | null;
       weightKg: Prisma.Decimal | number | null;
       productCategory: string | null;
       goodsCollectedDate: Date | null;
@@ -1614,7 +1654,7 @@ export class ProjectsService {
     },
   ): Promise<void> {
     const manufactureCountryCode = line.countryOfManufactureCode;
-    const destinationCountryCode = project.deliveryCountryCode;
+    const destinationCountryCode = line.destinationCountryCode?.trim() || project.deliveryCountryCode;
     const mode: TransportMode | null =
       project.freightMode === "AIR" || project.freightMode === "SEA" || project.freightMode === "LAND"
         ? project.freightMode

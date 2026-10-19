@@ -36,6 +36,8 @@ export class ProjectLineDto {
   /** Net cargo weight in kg — added 2026-10-08 for the supply-chain CO2/distance feature (see supply-chain-co2-efficiency.md). Optional; when absent LogisticsMetricsService substitutes a commodity-category default and flags the computed metric as estimated. */
   @IsOptional() @IsNumber() @Min(0) weightKg?: number;
   @IsOptional() @IsString() countryOfManufactureCode?: string;
+  /** Must be one of the project's delivery countries (checked in the service). */
+  @IsOptional() @IsString() destinationCountryCode?: string | null;
   @IsOptional() @IsString() manufacturerId?: string;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientPoNumber?: string;

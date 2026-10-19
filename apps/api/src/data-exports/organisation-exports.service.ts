@@ -51,7 +51,7 @@ export class OrganisationExportsService {
         }
         return csvFile("projects", header, lines, truncated);
       }
-      const header = ["Line ID", "Project reference", "Description", "Catalogue product", "Quantity", "Category", "Weight (kg)", "Country of manufacture", "Manufacturer", "Supplier", "Client PO", "Internal PO", "Internal PO placed", "Client PO received", "Goods manufactured", "Required delivery (GAD)", "Supplier GAD", "Warehouse reference", "Collected", "Delivered to client", "Archived"];
+      const header = ["Line ID", "Project reference", "Description", "Catalogue product", "Quantity", "Category", "Weight (kg)", "Country of manufacture", "Destination country", "Manufacturer", "Supplier", "Client PO", "Internal PO", "Internal PO placed", "Client PO received", "Goods manufactured", "Required delivery (GAD)", "Supplier GAD", "Warehouse reference", "Collected", "Delivered to client", "Archived"];
       for (;;) {
         const rows = await tx.projectLine.findMany({
           where: { organizationId: user.organizationId, ...(includeArchived ? {} : { archivedAt: null }) },
@@ -61,7 +61,7 @@ export class OrganisationExportsService {
         if (rows.length === 0) break;
         for (const r of rows) {
           if (lines.length >= EXPORT_ROW_LIMIT) { truncated = true; break; }
-          lines.push(csvRow([r.id, r.project.referenceNumber, r.clientProductDescription, r.productMaster?.name, r.quantity, r.productCategory, r.weightKg?.toString(), r.countryOfManufactureCode, r.manufacturer?.name, r.supplier?.name, r.clientPoNumber, r.internalPoNumber, isoDate(r.internalPoDatePlaced), isoDate(r.clientPoReceiptDate), isoDate(r.goodsManufacturedDate), isoDate(r.gad), isoDate(r.supplierGad), r.warehouseReferenceNumber, isoDate(r.goodsCollectedDate), isoDate(r.goodsDeliveredToClientDate), r.archivedAt ? "Yes" : "No"]));
+          lines.push(csvRow([r.id, r.project.referenceNumber, r.clientProductDescription, r.productMaster?.name, r.quantity, r.productCategory, r.weightKg?.toString(), r.countryOfManufactureCode, r.destinationCountryCode, r.manufacturer?.name, r.supplier?.name, r.clientPoNumber, r.internalPoNumber, isoDate(r.internalPoDatePlaced), isoDate(r.clientPoReceiptDate), isoDate(r.goodsManufacturedDate), isoDate(r.gad), isoDate(r.supplierGad), r.warehouseReferenceNumber, isoDate(r.goodsCollectedDate), isoDate(r.goodsDeliveredToClientDate), r.archivedAt ? "Yes" : "No"]));
         }
         if (truncated || rows.length < EXPORT_PAGE) break;
         cursor = rows[rows.length - 1].id;
