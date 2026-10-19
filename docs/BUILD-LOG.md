@@ -438,3 +438,7 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **How "recent/active" is ranked:** live projects (identified, in progress, submitted, awarded) first, then by most recent update, then finished ones to fill up to five. Archived projects are excluded. A project with several delivery countries appears under each.
 - **API:** `GET /projects/country-overview` (two queries: one light ranking scan, one fetch of at most five projects per country; tenant-scoped).
 - **Tests:** `project-country-overview.test.ts` (counts per destination, live first, five-project cap, archived excluded, no cross-organisation leakage).
+
+## 2026-10-19 — Fix: Logistics & CO2 stakeholder ratings stuck on "Loading…"
+- **Cause:** `getStakeholderRatingDistribution` loaded every logistics row (with its project line) of every contributing organisation into memory and averaged in code. In the demo that is thousands of rows, so the request ran past the gateway timeout and the section never left "Loading…". (The `universe-insights` `isSimulated` columns were also confirmed present: Lewis ran `infra/sql/insights-simulated-flag.sql` on 2026-10-19, and the routes data and map load.)
+- **Fix:** averages are now computed in the database per organisation (grouped by project, manufacturer and supplier, plus one overall figure), and merged in code. Same result (a band per entity, minimum cohort size still applies); `AVG` is cast to float so scores are not truncated.

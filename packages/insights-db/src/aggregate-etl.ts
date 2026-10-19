@@ -252,46 +252,37 @@ export async function getStakeholderRatingDistribution(showSimulated = false): P
     return rows.map((r) => r.organizationId);
   });
 
-  // entityType -> entityId -> running {sum, count}
-  const projectScores = new Map<string, { sum: number; count: number }>();
-  const manufacturerScores = new Map<string, { sum: number; count: number }>();
-  const supplierScores = new Map<string, { sum: number; count: number }>();
-  const organizationScores = new Map<string, { sum: number; count: number }>(); // "procuring organization" = the org itself
+  // entityId -> average efficiency score. Averaged inside the database per organisation (2026-10-19): this used to load
+  // every logistics row of every contributing organisation into memory, which for the demo timed the request out and left
+  // the Logistics & CO2 rating section on "Loading…". Entity ids are unique across organisations, so merging is a plain set.
+  const projectScores = new Map<string, number>();
+  const manufacturerScores = new Map<string, number>();
+  const supplierScores = new Map<string, number>();
+  const organizationScores = new Map<string, number>(); // "procuring organization" = the org itself
 
+  type Avg = { k: string; avgScore: number | null };
   for (const organizationId of consentedOrgIds) {
-    const rows = await withTenantContext(organizationId, async (tx) =>
-      tx.projectLineLogisticsMetric.findMany({
-        select: {
-          efficiencyScore: true,
-          projectId: true,
-          projectLine: { select: { manufacturerId: true, supplierId: true } },
-        },
-      }),
-    );
-
-    const acc = (map: Map<string, { sum: number; count: number }>, key: string | null | undefined, score: number) => {
-      if (!key) return;
-      const entry = map.get(key) ?? { sum: 0, count: 0 };
-      entry.sum += score;
-      entry.count += 1;
-      map.set(key, entry);
+    const [byProject, byManufacturer, bySupplier, overall] = await withTenantContext(organizationId, async (tx) => [
+      await tx.$queryRaw<Avg[]>`SELECT m.projectId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m GROUP BY m.projectId`,
+      await tx.$queryRaw<Avg[]>`SELECT l.manufacturerId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId WHERE l.manufacturerId IS NOT NULL GROUP BY l.manufacturerId`,
+      await tx.$queryRaw<Avg[]>`SELECT l.supplierId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId WHERE l.supplierId IS NOT NULL GROUP BY l.supplierId`,
+      await tx.$queryRaw<Avg[]>`SELECT CAST(NULL AS NVARCHAR(50)) AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m`,
+    ]);
+    const put = (map: Map<string, number>, rows: Avg[]) => {
+      for (const r of rows) if (r.k && r.avgScore !== null) map.set(r.k, Number(r.avgScore));
     };
-
-    for (const row of rows) {
-      acc(projectScores, row.projectId, row.efficiencyScore);
-      acc(manufacturerScores, row.projectLine?.manufacturerId, row.efficiencyScore);
-      acc(supplierScores, row.projectLine?.supplierId, row.efficiencyScore);
-      acc(organizationScores, organizationId, row.efficiencyScore);
-    }
+    put(projectScores, byProject);
+    put(manufacturerScores, byManufacturer);
+    put(supplierScores, bySupplier);
+    if (overall[0]?.avgScore != null) organizationScores.set(organizationId, Number(overall[0].avgScore));
   }
 
   function toBuckets(
     entityType: StakeholderRatingBucket["entityType"],
-    map: Map<string, { sum: number; count: number }>,
+    map: Map<string, number>,
   ): StakeholderRatingBucket[] {
     const bandCounts = new Map<string, number>();
-    for (const { sum, count } of map.values()) {
-      const avg = sum / count;
+    for (const avg of map.values()) {
       const band = bandFor(Math.round(avg));
       bandCounts.set(band, (bandCounts.get(band) ?? 0) + 1);
     }
