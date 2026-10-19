@@ -14,10 +14,10 @@ on:
         type: boolean
 
       only:
-        description: "Limit to: all | catalogue (skips the slow logistics pass)"
+        description: "Limit to: all | catalogue (skips the slow logistics pass) | pricing (prices, margins, freight and invoices only)"
         default: "all"
         type: choice
-        options: [all, catalogue]
+        options: [all, catalogue, pricing]
 
 jobs:
   enrich:

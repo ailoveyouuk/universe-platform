@@ -736,6 +736,130 @@ async function fixNames() {
   console.log(`Names: renamed ${todo.length}`);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Pricing completeness (2026-10-19): unit/total prices, margins, client invoices, supplier payments and project freight
+// for the demo organisation's projects. Uses the same rules as ProjectsService.applyPricing / applyProjectFreightPricing
+// so every figure is consistent (native and base currency, product margin, freight total + margin + insurance).
+// Fills blanks only; a line counts as "done" once its product margin is set, a project once its freight cost is set.
+// ---------------------------------------------------------------------------------------------------------------------
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+const FREIGHT_PER_KG: Record<string, number> = { AIR: 4.2, SEA: 0.9, LAND: 1.6 };
+
+async function enrichPricing(orgId: string) {
+  const snapshot = await prisma.exchangeRateSnapshot.findFirst({ orderBy: { date: "desc" } });
+  const rates: Record<string, number> = snapshot ? (JSON.parse(snapshot.ratesJson) as Record<string, number>) : {};
+  const rateOf = (ccy: string) => (ccy === "USD" ? 1 : rates[ccy] ?? null);
+  console.log(`Pricing: exchange snapshot ${snapshot ? `${snapshot.date.toISOString().slice(0, 10)} (${Object.keys(rates).length} currencies)` : "none - USD only"}`);
+
+  const projectIds = await withTenantContext(orgId, (tx) => tx.project.findMany({ select: { id: true }, orderBy: { id: "asc" } }));
+  const stats = { lines: 0, projects: 0 };
+  for (const group of chunks(projectIds, 40)) {
+    const work = await withTenantContext(orgId, async (tx) => {
+      const projects = await tx.project.findMany({ where: { id: { in: group.map((g) => g.id) } }, include: { lines: true } });
+      let lineCount = 0;
+      let projectCount = 0;
+      for (const p of projects) {
+        let productBaseTotal = 0;
+        let weight = 0;
+        for (const l of p.lines) {
+          weight += num(l.weightKg) ?? 0;
+          const unit = num(l.supplierUnitPrice);
+          const qty = l.quantity;
+          if (unit === null || qty === null || qty === undefined) continue;
+          const cur = (l.supplierPaymentCurrency ?? (hash(`${l.id}:scur`) % 10 === 0 ? "EUR" : "USD")).toUpperCase();
+          const rate = rateOf(cur) ?? 1;
+          const useCur = rateOf(cur) === null ? "USD" : cur;
+          const totalNative = round2(unit * qty);
+          const unitBase = round2(unit / rate);
+          const totalBase = round2(totalNative / rate);
+          productBaseTotal += totalBase;
+          if (l.productMarginPercent !== null && l.productMarginPercent !== undefined) continue; // already priced end to end
+          const pct = 8 + (hash(`${l.id}:margin`) % 11);
+          const invoiceBase = round2(totalBase * (1 + pct / 100));
+          const clientCur = (l.clientPaymentCurrency ?? pickBy(["USD", "USD", "EUR", "GBP"], `${l.id}:ccur`)).toUpperCase();
+          const clientRate = rateOf(clientCur);
+          const clientCcy = clientRate === null ? "USD" : clientCur;
+          const clientNative = clientCcy === "USD" ? invoiceBase : round2(invoiceBase * (clientRate ?? 1));
+          const anchor = l.actualDeliveryDate ?? p.dueDate ?? new Date();
+          const day = 24 * 3600 * 1000;
+          const status = p.status;
+          const paidShare = status === "COMPLETED" ? 1 : status === "AWARDED" ? 0.3 + (hash(`${l.id}:paid`) % 41) / 100 : 0;
+          const payStatus = status === "COMPLETED" ? "PAID" : status === "AWARDED" ? (hash(`${l.id}:od`) % 20 === 0 ? "OVERDUE" : "PARTIALLY_PAID") : "NOT_STARTED";
+          const ref = p.referenceNumber;
+          const fills: Record<string, unknown> = {
+            supplierPaymentCurrency: useCur,
+            supplierPaymentAmountTotal: totalNative,
+            reportingCurrencyCode: "USD",
+            supplierPriceLockedAt: l.createdAt,
+            supplierExchangeRateSnapshotId: snapshot?.id ?? null,
+            supplierUnitPriceReportingCcy: unitBase,
+            supplierTotalPriceReportingCcy: totalBase,
+            productMarginPercent: pct,
+            productMarginAmount: round2(totalNative * (pct / 100)),
+            salesTotalPriceReportingCcy: invoiceBase,
+            salesUnitPriceReportingCcy: qty ? round2(invoiceBase / qty) : null,
+            clientPaymentCurrency: clientCcy,
+            clientPaymentAmount: clientNative,
+            unitSalesPrice: qty ? round2(clientNative / qty) : null,
+            salesPriceLockedAt: l.createdAt,
+            salesExchangeRateSnapshotId: clientCcy === "USD" ? null : snapshot?.id ?? null,
+            supplierPaymentStatus: payStatus,
+            supplierAmountPaid: round2(totalNative * paidShare),
+            ...(paidShare > 0 ? { supplierPaymentDate: new Date(anchor.getTime() - 10 * day), supplierDocumentsReceivedDate: new Date(anchor.getTime() - 14 * day) } : {}),
+            ...(status === "AWARDED" || status === "COMPLETED"
+              ? { internalInvoiceNumber: `INV-${ref}-${String(hash(l.id) % 900 + 100)}`, internalInvoiceDate: anchor }
+              : {}),
+            ...(status === "COMPLETED" ? { clientPaymentDate: new Date(Math.min(anchor.getTime() + 20 * day, Date.now())) } : {}),
+          };
+          const data: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(fills)) if ((l as Record<string, unknown>)[k] === null || (l as Record<string, unknown>)[k] === undefined) data[k] = v;
+          if (Object.keys(data).length === 0) continue;
+          lineCount += 1;
+          if (!dryRun) await tx.projectLine.update({ where: { id: l.id }, data: { ...data, updatedAt: l.updatedAt } });
+        }
+
+        // Project freight: one contract per project, insured at 110% of the product value (CIP convention).
+        if (p.freightMode && p.freightCost === null && p.lines.length > 0) {
+          const perKg = FREIGHT_PER_KG[p.freightMode] ?? 1.5;
+          const jitter = 0.85 + (hash(`${p.id}:fr`) % 31) / 100;
+          const freightCost = round2(Math.max(800, weight * perKg) * jitter);
+          const insured = round2(productBaseTotal * 1.1);
+          const insurance = round2(insured * 0.0035);
+          const additional = hash(`${p.id}:add`) % 10 < 7 ? round2(freightCost * (0.02 + (hash(`${p.id}:addp`) % 5) / 100)) : null;
+          const total = round2(freightCost + insurance + (additional ?? 0));
+          const fpct = 6 + (hash(`${p.id}:fm`) % 9);
+          const fills: Record<string, unknown> = {
+            freightCost,
+            freightCurrency: "USD",
+            insuredValue: insured,
+            insuredCurrency: "USD",
+            freightInsuranceCost: insurance,
+            freightAdditionalCost: additional,
+            freightAdditionalCostDescription: additional === null ? null : "Customs clearance, documentation and handling fees",
+            freightTotalCost: total,
+            freightMarginPercent: fpct,
+            freightMarginAmount: round2(total * (fpct / 100)),
+            freightPriceLockedAt: p.createdAt,
+            freightExchangeRateSnapshotId: snapshot?.id ?? null,
+            reportingCurrencyCode: "USD",
+            freightTotalCostReportingCcy: total,
+            freightInvoiceAmountReportingCcy: round2(total * (1 + fpct / 100)),
+          };
+          const data: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(fills)) if (v !== null && (p as Record<string, unknown>)[k] === null) data[k] = v;
+          projectCount += 1;
+          if (!dryRun) await tx.project.update({ where: { id: p.id }, data: { ...data, updatedAt: p.updatedAt } });
+        }
+      }
+      return { lineCount, projectCount };
+    });
+    stats.lines += work.lineCount;
+    stats.projects += work.projectCount;
+  }
+  console.log(`Pricing ${dryRun ? "(would fill)" : "filled"}:`, JSON.stringify(stats));
+}
+
 async function demoOrgId(): Promise<string> {
   const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
@@ -910,6 +1034,10 @@ async function main() {
   // ONLY=catalogue limits the run to the catalogue steps (fill blanks + realistic gaps); the logistics pass takes ~45 minutes.
   const catalogueOnly = process.env.ONLY === "catalogue";
   const orgId = await demoOrgId();
+  if (process.env.ONLY === "pricing") {
+    await enrichPricing(orgId);
+    return;
+  }
   await summary(orgId);
   await enrichCatalogue();
   await applyGaps();
@@ -928,6 +1056,7 @@ async function main() {
   await enrichRegulatoryWatch(orgId);
   await enrichExportRestrictions(orgId);
   await enrichExportRequests(orgId);
+  await enrichPricing(orgId);
   if (!catalogueOnly) {
     await addApprovals(orgId);
     await enrichLogistics(orgId);
