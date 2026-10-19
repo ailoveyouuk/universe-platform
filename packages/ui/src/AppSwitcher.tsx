@@ -91,7 +91,14 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     href: appUrl("NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE", "https://delightful-stone-0f4d11d0f.1.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_PRODUCT_DATABASE",
   },
-  { key: "tender-issuance", label: "Tender Issuance", accent: "var(--u-module-tender-issuance)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE" },
+  {
+    key: "tender-issuance",
+    label: "Tender Issuance",
+    accent: "var(--u-module-tender-issuance)",
+    status: "available",
+    href: appUrl("NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE", "https://jolly-ground-0378d7b0f.4.azurestaticapps.net"),
+    envVar: "NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE",
+  },
   {
     key: "admin",
     label: "Admin",
