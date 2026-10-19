@@ -505,3 +505,11 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **API addition:** `GET /tenders/organisations?q=` (invitation search; a demo organisation only sees other demo organisations).
 - **Infra (needs Lewis):** Bicep module `tendersSwa` and a `tenders` job in deploy-static-web-apps.yml, skipped until the `TENDERS_URL` repository variable is set. Steps: run Deploy infra; set secret `SWA_TOKEN_TENDERS` and variable `TENDERS_URL`; add the new URL as a redirect URI on the CIAM app registration; then flip "tender-issuance" to available in `AppSwitcher.tsx` with the hostname.
 - **Not yet:** participant screens, discovery, sealed bids (step 3); clarification Q and A screens; document upload on a tender.
+
+## 2026-10-19: Tender step 2 follow-ups and walkthrough
+
+- **Tenders app live** at https://jolly-ground-0378d7b0f.4.azurestaticapps.net (SWA `universe-pilot-tenders`); infra deployed, secret, variable and redirect URI set by Lewis; AppSwitcher entry "tender-issuance" now available.
+- **Permissions backfill:** manual workflow `backfill-tender-permissions.yml` (`dry_run` defaults to true) grants tenders.* permissions to existing roles by role name. Dry run: 1,291 additive grants across 304 organisations. The real run is for Lewis to trigger with dry_run unticked.
+- **Walkthrough fixes:** create-draft redirect (stale closure), request normalisers so the API's strict validation does not reject extra fields or decimal strings, country clearing. Manage page now states that a simulated tender is visible only to invited demonstration organisations.
+- **Walkthrough result:** created, itemised, scored (Price 60 / Quality 40 plus a WHO PQ gate), rule-restricted, reviewed and published TND-2026-0001 in the demo organisation; test data, to be cancelled and cleared with the sandbox baseline.
+- **Known minor:** step pills for Invitations and Who can bid show "done" even when empty (optional steps); to tidy.

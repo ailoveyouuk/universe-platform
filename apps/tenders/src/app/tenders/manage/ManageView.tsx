@@ -53,7 +53,7 @@ export function ManageView() {
           {st === "PUBLISHED" && <Dates d={d} onSaved={load} />}
           <Card title="Details">
             <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "6px 16px", margin: 0, fontSize: 13.5 }}>
-              <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{VISIBILITY_LABEL[t.visibility]}</dd>
+              <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{t.isSimulated ? "Simulated: only invited demonstration organisations can see it" : VISIBILITY_LABEL[t.visibility]}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Published</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.publishedAt)}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Questions close</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.clarificationDeadline)}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Evaluation due</dt><dd style={{ margin: 0 }}>{fmtDate(t.evaluationDueAt)}</dd>
