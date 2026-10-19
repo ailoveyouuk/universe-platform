@@ -157,7 +157,7 @@ import type {
   OrgLogisticsLineSummary,
   LogisticsRouteSummary,
   ProductSourcingSummary,
-  StakeholderRatingBucket,
+  StakeholderRatingSummary,
   SupportContact,
   NotificationItem,
   SearchResponse,
@@ -1433,7 +1433,7 @@ export class UniverseApiClient {
     return this.request(`/logistics-insights/global/routes${this.logisticsQueryString(filters)}`);
   }
 
-  getGlobalStakeholderRatings(): Promise<StakeholderRatingBucket[]> {
+  getGlobalStakeholderRatings(): Promise<StakeholderRatingSummary[]> {
     return this.request("/logistics-insights/global/stakeholder-ratings");
   }
 

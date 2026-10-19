@@ -1,13 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import { getAggregatedLogisticsRoutes, getStakeholderRatingDistribution } from "@universe/insights-db";
+import { getAggregatedLogisticsRoutes, getStakeholderRatingSummary } from "@universe/insights-db";
 import type {
   LogisticsLinesPage,
   LogisticsFilters,
   LogisticsMetricSummary,
   LogisticsRouteSummary,
   OrgLogisticsLineSummary,
-  StakeholderRatingBucket,
+  StakeholderRatingSummary,
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 
@@ -175,7 +175,7 @@ export class LogisticsInsightsService {
     }));
   }
 
-  async getGlobalStakeholderRatings(showSimulated = false): Promise<StakeholderRatingBucket[]> {
-    return getStakeholderRatingDistribution(showSimulated);
+  async getGlobalStakeholderRatings(showSimulated = false): Promise<StakeholderRatingSummary[]> {
+    return getStakeholderRatingSummary(showSimulated);
   }
 }

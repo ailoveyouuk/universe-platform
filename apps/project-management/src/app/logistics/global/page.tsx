@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingBucket } from "@universe/types";
+import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import {
   GaugeIcon,
@@ -16,6 +16,9 @@ import {
   RankedTile,
   RankedTileGrid,
   GlobeIcon,
+  StatTile,
+  ProjectsIcon,
+  BuildingIcon,
   type RankedRow,
   type WorldMapPoint,
   type WorldMapArc,
@@ -62,7 +65,7 @@ export default function GlobalLogisticsPage() {
   const countries = useCountries();
   const searchParams = useSearchParams();
   const [routes, setRoutes] = useState<LogisticsRouteSummary[] | null>(null);
-  const [ratings, setRatings] = useState<StakeholderRatingBucket[] | null>(null);
+  const [ratings, setRatings] = useState<StakeholderRatingSummary[] | null>(null);
   // Deep-linkable from the embedded map on the org-private Logistics page
   // (clicking a manufacture/delivery pulse there navigates here with
   // ?manufactureCountryCode=XX / ?destinationCountryCode=XX), same
@@ -230,25 +233,25 @@ export default function GlobalLogisticsPage() {
         {ratings === null && <p style={{ color: "var(--u-ink-secondary)" }}>Loading…</p>}
         {ratings !== null && ratings.length === 0 && (
           <p style={{ color: "var(--u-ink-secondary)" }}>
-            Not enough contributing organisations/entities yet to show this anonymously (a minimum cohort size applies to every bucket).
+            Not enough contributing organisations/entities yet to show this anonymously (a minimum group size applies to every category).
           </p>
         )}
         {ratings && ratings.length > 0 && (
-          <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            {Object.keys(ENTITY_LABELS).map((entityType) => {
-              const buckets = ratings.filter((r) => r.entityType === entityType);
-              return (
-                <div key={entityType} style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: 14 }}>
-                  <p style={{ margin: "0 0 8px", fontWeight: 600, fontSize: 13, color: "var(--u-ink)" }}>{ENTITY_LABELS[entityType]}</p>
-                  {buckets.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>—</p>}
-                  {buckets.map((b) => (
-                    <p key={b.scoreBand} style={{ margin: "4px 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>
-                      {b.count} at ~{b.scoreBand === "RED" ? "1-3" : b.scoreBand === "AMBER" ? "4-5" : b.scoreBand === "YELLOW" ? "6-7" : "8-10"}/10
-                    </p>
-                  ))}
-                </div>
-              );
-            })}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16 }}>
+            {ratings.map((r) => (
+              <StatTile
+                key={r.entityType}
+                label={ENTITY_LABELS[r.entityType] ?? r.entityType}
+                value={`${r.averageScore.toFixed(1)}/10`}
+                icon={r.entityType === "PROJECT" ? <ProjectsIcon size={18} /> : r.entityType === "PROCURING_ORGANIZATION" ? <GlobeIcon size={18} /> : <BuildingIcon size={18} />}
+                tone="neutral"
+                indicator={{
+                  color: SCORE_BAND_COLORS[r.scoreBand],
+                  label: `${{ RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[r.scoreBand] ?? ""} · ${r.entityCount.toLocaleString("en-GB")} rated`,
+                  fraction: r.averageScore / 10,
+                }}
+              />
+            ))}
           </div>
         )}
       </section>

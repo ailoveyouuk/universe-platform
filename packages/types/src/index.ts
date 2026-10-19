@@ -2866,11 +2866,13 @@ export interface ProductSourcingSummary {
  * projects 6/10, 50 8/10, 10 manufacturers are 4/10..." request. Counts
  * only, never a named entity; a bucket below MINIMUM_COHORT_SIZE entities
  * is never returned. */
-export interface StakeholderRatingBucket {
+export interface StakeholderRatingSummary {
   entityType: "PROJECT" | "MANUFACTURER" | "SUPPLIER" | "PROCURING_ORGANIZATION";
+  /** Mean of the entities' own average scores (1-10), one decimal place. */
+  averageScore: number;
   scoreBand: string;
-  averageScoreFloor: number;
-  count: number;
+  /** Entities rated; a category below the minimum cohort size is not returned at all. */
+  entityCount: number;
 }
 
 /** Who to contact for help inside an organisation: the primary contact if one

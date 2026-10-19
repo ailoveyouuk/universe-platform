@@ -232,11 +232,13 @@ export async function runLogisticsAggregationPipeline(since: Date = new Date(Dat
  * returned, consistent with this package's disclosure-control convention
  * everywhere else.
  */
-export interface StakeholderRatingBucket {
+export interface StakeholderRatingSummary {
   entityType: "PROJECT" | "MANUFACTURER" | "SUPPLIER" | "PROCURING_ORGANIZATION";
+  /** Mean of the entities' own average scores (1-10), to one decimal place. */
+  averageScore: number;
   scoreBand: string;
-  averageScoreFloor: number; // the lower bound of the 1-10 scores rolled into this bucket (1,4,6,8)
-  count: number;
+  /** How many entities were rated (never below MINIMUM_COHORT_SIZE). */
+  entityCount: number;
 }
 
 function bandFor(score: number): string {
@@ -246,7 +248,7 @@ function bandFor(score: number): string {
   return "GREEN";
 }
 
-export async function getStakeholderRatingDistribution(showSimulated = false): Promise<StakeholderRatingBucket[]> {
+export async function getStakeholderRatingSummary(showSimulated = false): Promise<StakeholderRatingSummary[]> {
   const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
     const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, ...(showSimulated ? {} : { organization: { isDemo: false, isSimulated: false } }) }, select: { organizationId: true } });
     return rows.map((r) => r.organizationId);
@@ -277,26 +279,19 @@ export async function getStakeholderRatingDistribution(showSimulated = false): P
     if (overall[0]?.avgScore != null) organizationScores.set(organizationId, Number(overall[0].avgScore));
   }
 
-  function toBuckets(
-    entityType: StakeholderRatingBucket["entityType"],
-    map: Map<string, number>,
-  ): StakeholderRatingBucket[] {
-    const bandCounts = new Map<string, number>();
-    for (const avg of map.values()) {
-      const band = bandFor(Math.round(avg));
-      bandCounts.set(band, (bandCounts.get(band) ?? 0) + 1);
-    }
-    const floorFor: Record<string, number> = { RED: 1, AMBER: 4, YELLOW: 6, GREEN: 8 };
-    return Array.from(bandCounts.entries())
-      .filter(([, count]) => count >= MINIMUM_COHORT_SIZE)
-      .map(([scoreBand, count]) => ({ entityType, scoreBand, averageScoreFloor: floorFor[scoreBand], count }));
+  function summarise(entityType: StakeholderRatingSummary["entityType"], map: Map<string, number>): StakeholderRatingSummary[] {
+    if (map.size < MINIMUM_COHORT_SIZE) return [];
+    let sum = 0;
+    for (const avg of map.values()) sum += avg;
+    const averageScore = Math.round((sum / map.size) * 10) / 10;
+    return [{ entityType, averageScore, scoreBand: bandFor(Math.round(averageScore)), entityCount: map.size }];
   }
 
   return [
-    ...toBuckets("PROJECT", projectScores),
-    ...toBuckets("MANUFACTURER", manufacturerScores),
-    ...toBuckets("SUPPLIER", supplierScores),
-    ...toBuckets("PROCURING_ORGANIZATION", organizationScores),
+    ...summarise("PROJECT", projectScores),
+    ...summarise("MANUFACTURER", manufacturerScores),
+    ...summarise("SUPPLIER", supplierScores),
+    ...summarise("PROCURING_ORGANIZATION", organizationScores),
   ];
 }
 
