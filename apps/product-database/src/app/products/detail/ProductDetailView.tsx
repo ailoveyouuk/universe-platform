@@ -19,6 +19,7 @@ import type {
   UpdateProductMasterInput,
 } from "@universe/types";
 import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon } from "@universe/ui";
+import { assessBatches, summariseBatches, FLAG_TEXT } from "./batchLife";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
@@ -60,7 +61,7 @@ const FIELD_LABELS: Record<string, string> = {
   name: "Name", category: "Category", hsCode: "HS code", unspscCode: "UNSPSC code", gtin: "GTIN", standardUnit: "Standard unit",
   canonicalManufacturerPartNumber: "Manufacturer part number", expectedQualityDocumentation: "Expected quality documentation",
   isArchived: "Archived", lifecycleStatus: "Lifecycle status", lifecycleReason: "Lifecycle reason", storageClass: "Storage class",
-  coldChain: "Cold chain", shelfLifeMonths: "Shelf life (months)", hazardClass: "Hazard class", controlledSubstance: "Controlled substance",
+  coldChain: "Cold chain", shelfLifeMonths: "Standard shelf life (months)", hazardClass: "Hazard class", controlledSubstance: "Controlled substance",
   inn: "INN", strength: "Strength", dosageForm: "Dosage form", brand: "Brand", packSize: "Pack size", regulatoryClass: "Regulatory class",
   intendedUse: "Intended use", nextReviewDue: "Next review due", "(created)": "Created",
 };
@@ -150,6 +151,13 @@ export function ProductDetailView() {
     }
   }
 
+  // This organisation's batches of the product: they drive the shelf-life tile and the batch checks.
+  const [batchList, setBatchList] = useState<ProductBatchSummary[] | null>(null);
+  useEffect(() => {
+    if (!detail?.id) return;
+    apiClient.searchProductBatchesPage({ productMasterId: detail.id, page: 1, pageSize: 100 }).then((r) => setBatchList(r.items)).catch(() => setBatchList([]));
+  }, [detail?.id]);
+
   if (!id) return <main style={{ padding: 32 }}>No product selected.</main>;
   if (!detail) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>{error ?? "Loading…"}</main>;
 
@@ -231,7 +239,20 @@ export function ProductDetailView() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginTop: 18 }}>
         <CompletenessTile score={detail.completeness.score} filled={detail.completeness.filled} total={detail.completeness.total} />
         <StatTile label="Storage" value={storageLabel(detail.storageClass)?.split(" (")[0] ?? "Not set"} icon={<ThermometerIcon size={20} />} tone={detail.coldChain ? "brand" : "neutral"} />
-        <StatTile label="Shelf life" value={detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : "Not set"} icon={<HourglassIcon size={20} />} tone="neutral" />
+        {(() => {
+          const life = assessBatches(batchList ?? [], detail.shelfLifeMonths);
+          const sum = summariseBatches(life);
+          const std = detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months standard` : "Standard shelf life not set";
+          const tone = sum.expired > 0 ? "critical" : sum.flagged > 0 ? "warning" : "neutral";
+          const indicator = batchList === null || sum.total === 0
+            ? { color: "var(--u-ink-secondary)", label: "No batches recorded" }
+            : sum.flagged > 0
+              ? { color: sum.expired > 0 ? "var(--u-status-critical)" : "var(--u-status-warning)", label: `${sum.flagged} of ${sum.total} batches need attention` }
+              : sum.next
+                ? { color: sum.next.daysToExpiry! <= 90 ? "var(--u-status-warning)" : "var(--u-status-good)", label: `Next batch expiry ${dateOnly(sum.next.batch.expiryDate)} (${sum.total} batch${sum.total === 1 ? "" : "es"})` }
+                : { color: "var(--u-ink-secondary)", label: "No in-date batches" };
+          return <StatTile label="Standard shelf life" value={detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : "Not set"} note={undefined} icon={<HourglassIcon size={20} />} tone={tone} indicator={indicator} />;
+        })()}
         <StatTile label="Next review" value={dateOnly(detail.nextReviewDue) ?? "Not scheduled"} icon={<CalendarIcon size={20} />} tone={detail.nextReviewDue && new Date(detail.nextReviewDue) < new Date() ? "warning" : "neutral"} />
       </div>
 
@@ -262,7 +283,7 @@ export function ProductDetailView() {
         ))}
         {tab === "Regulatory" && <RegulatoryTab detail={detail} />}
         {tab === "Documents" && <DocumentsTab productId={detail.id} />}
-        {tab === "Sourcing & batches" && <SourcingTab productId={detail.id} />}
+        {tab === "Sourcing & batches" && <SourcingTab productId={detail.id} shelfLifeMonths={detail.shelfLifeMonths} />}
         {tab === "Usage" && <UsageTab productId={detail.id} />}
         {tab === "History" && <HistoryTab productId={detail.id} />}
       </div>
@@ -345,7 +366,7 @@ function RecordTab({ detail }: { detail: ProductCatalogDetail }) {
         </Card>
       )}
       <Card title="Storage and handling">
-        <Facts rows={[["Storage class", storageLabel(detail.storageClass)], ["Cold chain", detail.coldChain ? "Required" : "Not required"], ["Shelf life", detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : null], ["Hazard class", detail.hazardClass], ["Controlled substance", detail.controlledSubstance ? "Yes" : "No"]]} />
+        <Facts rows={[["Storage class", storageLabel(detail.storageClass)], ["Cold chain", detail.coldChain ? "Required" : "Not required"], ["Standard shelf life", detail.shelfLifeMonths ? `${detail.shelfLifeMonths} months` : null], ["Hazard class", detail.hazardClass], ["Controlled substance", detail.controlledSubstance ? "Yes" : "No"]]} />
       </Card>
       <Card title="Quality">
         <Facts rows={[["Expected quality documentation", detail.expectedQualityDocumentation]]} />
@@ -396,7 +417,7 @@ function EditForm({ form, setF, saving, isStaff, onSave, onCancel }: {
               <option value="">Not set</option>{STORAGE.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
-          <Field label="Shelf life (months)"><input type="number" min={1} max={600} style={inputStyle} value={form.shelfLifeMonths ?? ""} onChange={(e) => setF("shelfLifeMonths", e.target.value === "" ? undefined : Number(e.target.value))} /></Field>
+          <Field label="Standard shelf life (months)"><input type="number" min={1} max={600} style={inputStyle} value={form.shelfLifeMonths ?? ""} onChange={(e) => setF("shelfLifeMonths", e.target.value === "" ? undefined : Number(e.target.value))} /></Field>
           {text("hazardClass", "Hazard class (e.g. UN3373 Cat. B)")}
           <Check label="Cold chain required" checked={Boolean(form.coldChain)} onChange={(v) => setF("coldChain", v)} />
           <Check label="Controlled substance" checked={Boolean(form.controlledSubstance)} onChange={(v) => setF("controlledSubstance", v)} />
@@ -890,7 +911,7 @@ export function DocumentsTab({ productId, familyId }: { productId?: string; fami
 
 /* ---------- Sourcing & batches tab ---------- */
 
-function SourcingTab({ productId }: { productId: string }) {
+function SourcingTab({ productId, shelfLifeMonths }: { productId: string; shelfLifeMonths: number | null | undefined }) {
   const countries = useCountries();
   const [sourcing, setSourcing] = useState<ProductSourceApprovalSummary[] | null>(null);
   const [batches, setBatches] = useState<ProductBatchSummary[] | null>(null);
@@ -919,8 +940,17 @@ function SourcingTab({ productId }: { productId: string }) {
       <Card title="Your organisation's batches">
         <SimpleTable
           empty="No batches recorded for this product."
-          head={["Batch", "Manufacturer", "Expiry", "Status"]}
-          rows={(batches ?? []).map((b) => [b.batchNumber, b.manufacturerName ?? "—", dateOnly(b.expiryDate) ?? "—", b.status])}
+          head={["Batch", "Manufacturer", "Expiry", "Life left", "Status"]}
+          rows={assessBatches(batches ?? [], shelfLifeMonths).map((l) => [
+            l.batch.batchNumber, l.batch.manufacturerName ?? "—", dateOnly(l.batch.expiryDate) ?? "—",
+            l.remainingShare === null ? "—" : (
+              <span>
+                {Math.round(l.remainingShare * 100)}%
+                {l.flag && <span style={{ marginLeft: 6, color: l.flag === "EXPIRED" ? "var(--u-status-critical)" : "var(--u-status-warning)", fontWeight: 600 }}>{FLAG_TEXT[l.flag]}</span>}
+              </span>
+            ),
+            l.batch.status,
+          ])}
           loading={batches === null}
         />
       </Card>
