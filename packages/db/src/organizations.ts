@@ -56,6 +56,7 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "projects.create",
       "projects.edit",
       "projects.delete",
+      "tenders.view", "tenders.issue", "tenders.bid", "tenders.evaluate", "tenders.award",
       "projects.financials.view",
       "projects.financials.edit",
       // Added 2026-10-14 alongside PartnerFinancialDetail being wired up
@@ -77,6 +78,8 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     name: "Project Manager",
     appScope: "project-management",
     permissionKeys: [
+      "tenders.view",
+      "tenders.bid",
       "projects.view",
       "projects.create",
       "projects.edit",
@@ -147,6 +150,7 @@ export const STAKEHOLDER_DEMO_ROLE_NAME = "Stakeholder Demo";
 export const STAKEHOLDER_DEMO_PERMISSION_KEYS = [
   "projects.view", "projects.create", "projects.edit", "projects.delete",
   "projects.financials.view", "projects.financials.edit",
+  "tenders.view", "tenders.issue", "tenders.bid", "tenders.evaluate", "tenders.award",
   "supplier.profile.manage", "supplier.products.manage", "supplier.leads.view",
   "manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view",
   "funder.grants.view", "insights.aggregate.view",
@@ -187,7 +191,7 @@ export const DEFAULT_SUPPLIER_ROLE_TEMPLATE: { name: string; appScope: string; p
   {
     name: "Supplier Admin",
     appScope: "*",
-    permissionKeys: ["supplier.profile.manage", "supplier.products.manage", "supplier.leads.view", "org.users.manage", "org.roles.manage", "org.profile.manage"],
+    permissionKeys: ["supplier.profile.manage", "supplier.products.manage", "supplier.leads.view", "tenders.view", "tenders.bid", "org.users.manage", "org.roles.manage", "org.profile.manage"],
   },
 ];
 
@@ -211,7 +215,7 @@ export const DEFAULT_MANUFACTURER_ROLE_TEMPLATE: { name: string; appScope: strin
   {
     name: "Manufacturer Admin",
     appScope: "*",
-    permissionKeys: ["manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view", "org.users.manage", "org.roles.manage", "org.profile.manage"],
+    permissionKeys: ["manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view", "tenders.view", "tenders.bid", "org.users.manage", "org.roles.manage", "org.profile.manage"],
   },
 ];
 

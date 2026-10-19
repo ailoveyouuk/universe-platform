@@ -2900,7 +2900,7 @@ export type NotificationKind =
   | "AMENDMENT_REVIEW"
   | "AMENDMENT_DECISION"
   | "STAKEHOLDER_APPROVAL";
-export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM";
+export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM" | "TENDER";
 
 /** One notification or action addressed to the signed-in user. */
 export interface NotificationItem {
