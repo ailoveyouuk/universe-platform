@@ -90,6 +90,9 @@ describe("Product safety notices", () => {
     await expect(safety.review(asUser(orgB, userB), n.id, { outcome: "AFFECTED" })).rejects.toThrow(/note/i);
     await safety.review(asUser(orgB, userB), n.id, { outcome: "ACTION_TAKEN", notes: "Quarantined stock and informed the supplier." });
     expect((await safety.flags(asUser(orgB, userB), [productId]))[0].unreviewed).toBe(0);
+    // Recording the review completes the organisation's to-do for this notice.
+    const todo = await withTenantContext(orgB, (tx) => tx.notification.findMany({ where: { kind: "SAFETY_NOTICE", subjectId: n.id } }));
+    expect(todo.every((t) => t.actionStatus === "DONE")).toBe(true);
     expect((await safety.list(asUser(orgB, userB), productTarget(productId)))[0].myReview?.outcome).toBe("ACTION_TAKEN");
     // Organisation A has not reviewed it: its view is unaffected by B's review.
     expect((await safety.list(asUser(orgA, userA), productTarget(productId)))[0].myReview).toBeNull();

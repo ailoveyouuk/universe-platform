@@ -4,7 +4,7 @@ import type { ProductSafetyFlag, ProductSafetyNoticeSummary, SafetyNoticeDashboa
 import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertNotDemoUser } from "../common/authorization";
-import { createNotifications, usersWithPermission } from "../notifications/notify";
+import { completeActionsFor, createNotifications, usersWithPermission } from "../notifications/notify";
 import { ownerData, ownerFilter, resolveTarget, writeTargetChanges, type Target } from "./product-target";
 import type { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 
@@ -280,6 +280,10 @@ export class ProductSafetyNoticesService {
       return row;
     });
     if (n.status === "CLOSED" && updated.status === "OPEN") await this.notifyUsers(updated.id, user).catch(() => undefined);
+    // A closed notice needs no further action from anyone.
+    if (n.status !== "CLOSED" && updated.status === "CLOSED") {
+      await withPlatformStaffContext((tx) => tx.notification.updateMany({ where: { subjectType: "product_safety_notice", subjectId: updated.id, requiresAction: true, actionStatus: "OPEN" }, data: { actionStatus: "DONE", completedAt: new Date(), readAt: new Date() } })).catch(() => undefined);
+    }
     return this.toSummary(updated, (await this.myReviews(user, [updated.id])).get(updated.id), undefined, ctx);
   }
 
@@ -288,9 +292,11 @@ export class ProductSafetyNoticesService {
     if (user.platformStaffRole === "NONE" && !user.permissions.includes("products.approve")) throw new ForbiddenException("Missing permission: recording a review requires products.approve (QA).");
     const n = await this.loadForEdit(user, noticeId);
     if (dto.outcome !== "CHECKED_NO_IMPACT" && !dto.notes?.trim()) throw new BadRequestException("A note explaining the outcome is required.");
-    await withTenantContext(user.organizationId, (tx) =>
-      tx.productSafetyNoticeReview.create({ data: { organizationId: user.organizationId, noticeId, outcome: dto.outcome, notes: clean(dto.notes) ?? null, reviewedById: user.id } }),
-    );
+    await withTenantContext(user.organizationId, async (tx) => {
+      await tx.productSafetyNoticeReview.create({ data: { organizationId: user.organizationId, noticeId, outcome: dto.outcome, notes: clean(dto.notes) ?? null, reviewedById: user.id } });
+      // The organisation has confirmed its position, so the to-do for every reviewer in it is done.
+      await completeActionsFor(tx, user.organizationId, "product_safety_notice", noticeId);
+    });
     const ctx = await attributionContext(user, [n.contributedByOrganizationId]);
     return this.toSummary(n, (await this.myReviews(user, [noticeId])).get(noticeId), undefined, ctx);
   }
