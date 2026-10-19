@@ -882,7 +882,7 @@ export function ProjectDetailView() {
                 {line.supplierPaymentStatus && (
                   <>
                     Payment: {line.supplierPaymentStatus.replace(/_/g, " ")}
-                    {line.supplierRemainingBalance !== null && ` (${line.supplierRemainingBalance} remaining)`}
+                    {line.supplierRemainingBalance !== null && ` (${line.supplierRemainingBalance.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} remaining)`}
                     {" · "}
                   </>
                 )}
