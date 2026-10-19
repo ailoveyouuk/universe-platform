@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
+import { Prisma, prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { insightsPrisma } from "./index";
 import { MINIMUM_COHORT_SIZE } from "./query";
 
@@ -249,49 +249,41 @@ function bandFor(score: number): string {
 }
 
 export async function getStakeholderRatingSummary(showSimulated = false): Promise<StakeholderRatingSummary[]> {
-  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
-    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, ...(showSimulated ? {} : { organization: { isDemo: false, isSimulated: false } }) }, select: { organizationId: true } });
-    return rows.map((r) => r.organizationId);
-  });
+  // Four set-based queries across every consenting organisation in one platform-staff context (2026-10-19). The first
+  // version looped over organisations, opening a tenant transaction and loading rows for each; with hundreds of simulated
+  // organisations in the demo that never finished. Real organisations: consented, not demo, not simulated. Demo
+  // context: every consenting organisation.
+  const consented = showSimulated
+    ? Prisma.sql`SELECT c.organizationId FROM data_sharing_consents c WHERE c.revokedAt IS NULL`
+    : Prisma.sql`SELECT c.organizationId FROM data_sharing_consents c JOIN organizations o ON o.id = c.organizationId WHERE c.revokedAt IS NULL AND o.isDemo = 0 AND o.isSimulated = 0`;
 
-  // entityId -> average efficiency score. Averaged inside the database per organisation (2026-10-19): this used to load
-  // every logistics row of every contributing organisation into memory, which for the demo timed the request out and left
-  // the Logistics & CO2 rating section on "Loading…". Entity ids are unique across organisations, so merging is a plain set.
-  const projectScores = new Map<string, number>();
-  const manufacturerScores = new Map<string, number>();
-  const supplierScores = new Map<string, number>();
-  const organizationScores = new Map<string, number>(); // "procuring organization" = the org itself
+  type Row = { entityCount: number | bigint; averageScore: number | null };
+  const [projects, manufacturers, suppliers, orgs] = await withPlatformStaffContext(async (tx) => [
+    await tx.$queryRaw<Row[]>(Prisma.sql`SELECT COUNT(*) AS entityCount, AVG(a) AS averageScore FROM (
+      SELECT AVG(CAST(m.efficiencyScore AS FLOAT)) AS a FROM project_line_logistics_metrics m WHERE m.organizationId IN (${consented}) GROUP BY m.projectId) t`),
+    await tx.$queryRaw<Row[]>(Prisma.sql`SELECT COUNT(*) AS entityCount, AVG(a) AS averageScore FROM (
+      SELECT AVG(CAST(m.efficiencyScore AS FLOAT)) AS a FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId
+      WHERE m.organizationId IN (${consented}) AND l.manufacturerId IS NOT NULL GROUP BY l.manufacturerId) t`),
+    await tx.$queryRaw<Row[]>(Prisma.sql`SELECT COUNT(*) AS entityCount, AVG(a) AS averageScore FROM (
+      SELECT AVG(CAST(m.efficiencyScore AS FLOAT)) AS a FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId
+      WHERE m.organizationId IN (${consented}) AND l.supplierId IS NOT NULL GROUP BY l.supplierId) t`),
+    await tx.$queryRaw<Row[]>(Prisma.sql`SELECT COUNT(*) AS entityCount, AVG(a) AS averageScore FROM (
+      SELECT AVG(CAST(m.efficiencyScore AS FLOAT)) AS a FROM project_line_logistics_metrics m WHERE m.organizationId IN (${consented}) GROUP BY m.organizationId) t`),
+  ]);
 
-  type Avg = { k: string; avgScore: number | null };
-  for (const organizationId of consentedOrgIds) {
-    const [byProject, byManufacturer, bySupplier, overall] = await withTenantContext(organizationId, async (tx) => [
-      await tx.$queryRaw<Avg[]>`SELECT m.projectId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m GROUP BY m.projectId`,
-      await tx.$queryRaw<Avg[]>`SELECT l.manufacturerId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId WHERE l.manufacturerId IS NOT NULL GROUP BY l.manufacturerId`,
-      await tx.$queryRaw<Avg[]>`SELECT l.supplierId AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m JOIN project_lines l ON l.id = m.projectLineId WHERE l.supplierId IS NOT NULL GROUP BY l.supplierId`,
-      await tx.$queryRaw<Avg[]>`SELECT CAST(NULL AS NVARCHAR(50)) AS k, AVG(CAST(m.efficiencyScore AS FLOAT)) AS avgScore FROM project_line_logistics_metrics m`,
-    ]);
-    const put = (map: Map<string, number>, rows: Avg[]) => {
-      for (const r of rows) if (r.k && r.avgScore !== null) map.set(r.k, Number(r.avgScore));
-    };
-    put(projectScores, byProject);
-    put(manufacturerScores, byManufacturer);
-    put(supplierScores, bySupplier);
-    if (overall[0]?.avgScore != null) organizationScores.set(organizationId, Number(overall[0].avgScore));
-  }
-
-  function summarise(entityType: StakeholderRatingSummary["entityType"], map: Map<string, number>): StakeholderRatingSummary[] {
-    if (map.size < MINIMUM_COHORT_SIZE) return [];
-    let sum = 0;
-    for (const avg of map.values()) sum += avg;
-    const averageScore = Math.round((sum / map.size) * 10) / 10;
-    return [{ entityType, averageScore, scoreBand: bandFor(Math.round(averageScore)), entityCount: map.size }];
+  function summarise(entityType: StakeholderRatingSummary["entityType"], rows: Row[]): StakeholderRatingSummary[] {
+    const entityCount = Number(rows[0]?.entityCount ?? 0);
+    const avg = rows[0]?.averageScore;
+    if (entityCount < MINIMUM_COHORT_SIZE || avg === null || avg === undefined) return [];
+    const averageScore = Math.round(Number(avg) * 10) / 10;
+    return [{ entityType, averageScore, scoreBand: bandFor(Math.round(averageScore)), entityCount }];
   }
 
   return [
-    ...summarise("PROJECT", projectScores),
-    ...summarise("MANUFACTURER", manufacturerScores),
-    ...summarise("SUPPLIER", supplierScores),
-    ...summarise("PROCURING_ORGANIZATION", organizationScores),
+    ...summarise("PROJECT", projects),
+    ...summarise("MANUFACTURER", manufacturers),
+    ...summarise("SUPPLIER", suppliers),
+    ...summarise("PROCURING_ORGANIZATION", orgs),
   ];
 }
 
