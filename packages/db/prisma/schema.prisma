@@ -334,6 +334,7 @@ model Organization {
   tenderingBodiesUsingAsAgent TenderingBodyProfile[]         @relation("TenderingBodyProcurementAgent")
   productSafetyNoticeReviews  ProductSafetyNoticeReview[]
   dataExportRequests          DataExportRequest[]
+  tenders                     Tender[]
 
   @@map("organizations")
 }
@@ -3230,4 +3231,302 @@ model DataExportRequest {
   @@index([organizationId, createdAt])
   @@index([status, createdAt])
   @@map("data_export_requests")
+}
+
+
+// =============================================================================
+// TENDER ISSUANCE & MANAGEMENT (design: docs/TENDER-APP-DESIGN.md, 2026-10-19)
+// -----------------------------------------------------------------------------
+// Step 1a. A tender is owned by the ISSUER organisation (organizationId). Registered organisations can see a
+// published tender (and its lines, criteria, rules, documents and public clarifications) through database policies in
+// infra/sql/tender-rls.sql, never as raw writable rows. Participant-owned rows (participation, eligibility checks,
+// questions) name the issuer as counterparty so the issuer can read them. Only the owner writes a row, except
+// tender_events (append-only, either party). Organisation ids on child tables are plain columns (no Prisma relation)
+// to avoid a back-relation on Organization per table; the policies and services enforce them.
+// Tender.type        — RFQ | INVITED | OPEN | FRAMEWORK | RATE_CONTRACT | DIRECT_NEGOTIATION
+// Tender.visibility  — INVITED_ONLY | ELIGIBLE_ORGANISATIONS (every registered organisation can see it, eligibility explains the rest)
+// Tender.status      — DRAFT | PUBLISHED | CLOSED | EVALUATION | AWARDED | CANCELLED | NO_AWARD
+// TenderCriterion.kind — GATE (pass/fail) | SCORED (weighted)
+// TenderCriterion.responseFormat — UPLOAD | TEXT | EITHER | PRICE | NUMBER | YES_NO
+// TenderEligibilityRule.ruleType — ORG_TYPE | COUNTRY | PRODUCT_CATEGORY | QUALIFICATION | MIN_RATING | SANCTIONS_CLEAR
+// TenderParticipation.status — INTERESTED | WITHDRAWN | BID_STARTED | BID_SUBMITTED
+// TenderEligibilityCheck.outcome — ELIGIBLE | ALMOST | NOT_ELIGIBLE
+// =============================================================================
+
+model Tender {
+  id                    String       @id @default(uuid())
+  /// The issuing organisation.
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  referenceNumber       String
+  title                 String       @db.NVarChar(300)
+  summary               String?      @db.NVarChar(Max)
+  tenderType            String       @default("RFQ")
+  visibility            String       @default("ELIGIBLE_ORGANISATIONS")
+  /// Set true when published and never reset (the policies read it); status carries the lifecycle.
+  isPublished           Boolean      @default(false)
+  /// Denormalised from visibility so the database policy can read it: true when every registered organisation may see it.
+  visibleToAll          Boolean      @default(true)
+  status                String       @default("DRAFT")
+  /// Same delimited form as Project.deliveryCountryCodes (",KE,GB,").
+  deliveryCountryCodes  String?
+  currency              String?      @db.Char(3)
+  incoterm              String?
+  /// Optional client the issuer tenders for (procurement agents).
+  clientName            String?
+  publishedAt           DateTime?
+  clarificationDeadline DateTime?
+  closingAt             DateTime?
+  evaluationDueAt       DateTime?
+  awardDueAt            DateTime?
+  bidValidityDays       Int?
+  contractStartDate     DateTime?
+  /// Bid submission rules. Accepted upload formats are comma-separated extensions; paste-in text is the alternative route.
+  acceptedFileTypes     String?      @default("pdf,docx,xlsx,csv")
+  maxFileSizeMb         Int?         @default(25)
+  allowTextSubmission   Boolean      @default(true)
+  /// Reserved for the public teaser page (version 2).
+  publicTeaser          Boolean      @default(false)
+  termsAndConditions    String?      @db.NVarChar(Max)
+  cancelledReason       String?      @db.NVarChar(1000)
+  isSimulated           Boolean      @default(false)
+  archivedAt            DateTime?
+  createdById           String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  lines         TenderLine[]
+  criteria      TenderCriterion[]
+  rules         TenderEligibilityRule[]
+  invitations   TenderInvitation[]
+  documents     TenderDocument[]
+  clarifications TenderClarification[]
+
+  @@unique([organizationId, referenceNumber])
+  @@index([organizationId, status])
+  @@index([isPublished, status, closingAt])
+  @@map("tenders")
+}
+
+model TenderLine {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  tenderId           String
+  tender             Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Lots are modelled as a number and title on the line now; separate lot awards come later.
+  lotNumber          Int?
+  lotTitle           String?
+  lineNumber         Int
+  /// Catalogue product when known; free text otherwise.
+  productMasterId    String?
+  description        String   @db.NVarChar(500)
+  specification      String?  @db.NVarChar(Max)
+  quantity           Decimal? @db.Decimal(18, 3)
+  unit               String?
+  destinationCountryCode String? @db.Char(2)
+  requiredRegistration   String?
+  minShelfLifePercent    Int?
+  coldChainRequired      Boolean @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenderId, lineNumber])
+  @@index([organizationId])
+  @@index([productMasterId])
+  @@map("tender_lines")
+}
+
+model TenderCriterion {
+  id               String   @id @default(uuid())
+  organizationId   String
+  tenderId         String
+  tender           Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sortOrder        Int      @default(0)
+  title            String   @db.NVarChar(300)
+  description      String?  @db.NVarChar(Max)
+  kind             String   @default("SCORED")
+  /// Percentage weight for SCORED criteria (the scored weights should total 100).
+  weight           Decimal? @db.Decimal(5, 2)
+  isMandatory      Boolean  @default(true)
+  responseFormat   String   @default("EITHER")
+  /// Overrides the tender's accepted file types for this requirement.
+  acceptedFileTypes String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenderId, sortOrder])
+  @@index([organizationId])
+  @@map("tender_criteria")
+}
+
+model TenderEligibilityRule {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  tender         Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ruleType       String
+  /// Comma-separated values the rule accepts (organisation types, ISO country codes, categories, qualification codes, minimum rating).
+  ruleValue      String   @db.NVarChar(500)
+  /// Plain-language explanation shown to organisations that do not meet it.
+  explanation    String?  @db.NVarChar(500)
+  isRequired     Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([tenderId])
+  @@index([organizationId])
+  @@map("tender_eligibility_rules")
+}
+
+/// An explicit invitation. Row owner is the issuer; the invited organisation is the counterparty and can read its own.
+model TenderInvitation {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  tenderId              String
+  tender                Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invitedOrganizationId String
+  invitedAt             DateTime @default(now())
+  invitedById           String?
+  /// Invited organisations that are not eligible by the rules may still bid.
+  @@unique([tenderId, invitedOrganizationId])
+  @@index([invitedOrganizationId])
+  @@index([organizationId])
+  @@map("tender_invitations")
+}
+
+model TenderDocument {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  tender         Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title          String   @db.NVarChar(300)
+  docType        String   @default("SPECIFICATION")
+  blobName       String?
+  fileName       String?
+  fileSizeBytes  Int?
+  mimeType       String?
+  uploadedById   String?
+  uploadedAt     DateTime @default(now())
+  archivedAt     DateTime?
+
+  @@index([tenderId])
+  @@index([organizationId])
+  @@map("tender_documents")
+}
+
+/// An issuer's published answer, shared with every organisation that can see the tender; the asker is not named.
+model TenderClarification {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  tender         Tender   @relation(fields: [tenderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// The question as published (anonymised/edited by the issuer).
+  question       String   @db.NVarChar(Max)
+  answer         String   @db.NVarChar(Max)
+  /// The private question this answers, when there was one.
+  sourceQuestionId String?
+  answeredById   String?
+  answeredAt     DateTime @default(now())
+
+  @@index([tenderId, answeredAt])
+  @@index([organizationId])
+  @@map("tender_clarifications")
+}
+
+/// A participant's private question to the issuer. Owner: the asking organisation; counterparty: the issuer.
+model TenderQuestion {
+  id                   String    @id @default(uuid())
+  organizationId       String
+  issuerOrganizationId String
+  tenderId             String
+  question             String    @db.NVarChar(Max)
+  askedById            String?
+  askedAt              DateTime  @default(now())
+  /// Answered state is derived: a TenderClarification with sourceQuestionId = this id exists.
+
+  @@index([tenderId])
+  @@index([organizationId])
+  @@index([issuerOrganizationId])
+  @@map("tender_questions")
+}
+
+/// A participant's opt-in to a tender. Owner: the participant; counterparty: the issuer.
+model TenderParticipation {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  issuerOrganizationId String
+  tenderId             String
+  status               String   @default("INTERESTED")
+  optedInAt            DateTime @default(now())
+  optedInById          String?
+  withdrawnAt          DateTime?
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tenderId, organizationId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_participations")
+}
+
+/// The recorded eligibility result for an organisation against a tender (why it was or was not eligible at the time).
+model TenderEligibilityCheck {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  issuerOrganizationId String
+  tenderId             String
+  outcome              String
+  /// JSON array of {ruleId, ruleType, status: MET|NOT_MET|NEEDS_EVIDENCE, action}.
+  detailsJson          String   @db.NVarChar(Max)
+  checkedAt            DateTime @default(now())
+
+  @@index([tenderId, organizationId, checkedAt])
+  @@index([issuerOrganizationId])
+  @@map("tender_eligibility_checks")
+}
+
+/// A participant's shortlist of tenders (private to the organisation).
+model TenderShortlist {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  note           String?  @db.NVarChar(500)
+  addedById      String?
+  addedAt        DateTime @default(now())
+
+  @@unique([organizationId, tenderId])
+  @@map("tender_shortlists")
+}
+
+/// A participant's saved criteria, used for a standing "tenders that match you" view and alerts.
+model TenderSavedSearch {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String   @db.NVarChar(200)
+  /// JSON: {categories[], countries[], types[], onlyEligible, keyword}.
+  criteriaJson   String   @db.NVarChar(Max)
+  alertsEnabled  Boolean  @default(true)
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@map("tender_saved_searches")
+}
+
+/// The shared, append-only audit timeline of a tender (and later the whole engagement). Either party can append; rows are
+/// never updated or deleted. Owner: the issuer. Counterparty: the other party the event concerns, if any.
+model TenderEvent {
+  id                       String   @id @default(uuid())
+  organizationId           String
+  counterpartyOrganizationId String?
+  tenderId                 String
+  /// The organisation that did it.
+  actorOrganizationId      String
+  actorUserId              String?
+  kind                     String
+  summary                  String   @db.NVarChar(500)
+  detailsJson              String?  @db.NVarChar(Max)
+  createdAt                DateTime @default(now())
+
+  @@index([tenderId, createdAt])
+  @@index([organizationId])
+  @@index([counterpartyOrganizationId])
+  @@map("tender_events")
 }

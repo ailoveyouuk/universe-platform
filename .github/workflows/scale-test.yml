@@ -55,7 +55,7 @@ jobs:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
       - name: Apply Row-Level Security
         run: |
-          for f in row-level-security supplier-directory-rls test-filtered-unique-indexes; do
+          for f in row-level-security supplier-directory-rls tender-rls test-filtered-unique-indexes; do
             docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
               -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b < infra/sql/$f.sql
           done
