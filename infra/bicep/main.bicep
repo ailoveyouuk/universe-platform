@@ -259,6 +259,17 @@ module productDatabaseSwa 'modules/staticWebApp.bicep' = {
   }
 }
 
+// Tender Issuance & Management — added 2026-10-19. Same shape as the other Static Web Apps. After deploy-infra.yml creates it:
+// set SWA_TOKEN_TENDERS (secret) and TENDERS_URL (variable, its https hostname), register that URL as a redirect URI on the
+// CIAM app registration, then flip "tender-issuance" in packages/ui/src/AppSwitcher.tsx to status: "available".
+module tendersSwa 'modules/staticWebApp.bicep' = {
+  name: 'tendersSwa'
+  params: {
+    name: '${namePrefix}-tenders'
+    location: staticWebAppLocation
+  }
+}
+
 output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
@@ -268,3 +279,4 @@ output keyVaultName string = keyVault.outputs.vaultName
 output projectManagementUrl string = projectManagementSwa.outputs.defaultHostname
 output adminUrl string = adminSwa.outputs.defaultHostname
 output productDatabaseUrl string = productDatabaseSwa.outputs.defaultHostname
+output tendersUrl string = tendersSwa.outputs.defaultHostname

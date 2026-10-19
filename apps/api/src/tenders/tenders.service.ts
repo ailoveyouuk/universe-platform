@@ -206,6 +206,21 @@ export class TendersService {
     });
   }
 
+  /** Registered organisations an issuer can invite. A demo organisation only ever sees other demo organisations. */
+  async searchOrganisations(user: RequestUser, q: string) {
+    assertHasPermission(user, "tenders.issue");
+    const term = q.trim();
+    if (term.length < 2) return [];
+    const demo = user.isDemoUser || user.inDemoOrganization;
+    return withPlatformStaffContext(async (tx) => {
+      const rows = await tx.organization.findMany({
+        where: { id: { not: user.organizationId }, status: { not: "SUSPENDED" }, isSimulated: false, name: { contains: term }, ...(demo ? { isDemo: true } : { isDemo: false }) },
+        select: { id: true, name: true, type: true }, orderBy: { name: "asc" }, take: 20,
+      });
+      return rows;
+    });
+  }
+
   async invite(user: RequestUser, id: string, dto: InviteDto) {
     assertHasPermission(user, "tenders.issue");
     const ids = [...new Set(dto.organizationIds)].filter((o) => o !== user.organizationId);

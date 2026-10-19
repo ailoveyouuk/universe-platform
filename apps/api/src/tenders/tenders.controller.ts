@@ -14,6 +14,7 @@ export class TendersController {
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
+  @Get("organisations") organisations(@CurrentUser() u: RequestUser, @Query("q") q = "") { return this.tenders.searchOrganisations(u, q); }
   @Get("mine") listMine(@CurrentUser() u: RequestUser, @Query("status") status?: string) { return this.tenders.listMine(u, status); }
   @Get("dashboard") dashboard(@CurrentUser() u: RequestUser) { return this.tenders.dashboard(u); }
   @Get("mine/:id") getMine(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.getMine(u, id); }

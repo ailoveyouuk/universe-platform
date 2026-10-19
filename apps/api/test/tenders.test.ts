@@ -196,6 +196,14 @@ describe("Tender service", () => {
     expect((await svc.forYou(asUser(capable, BID))).tenders.map((x) => x.id)).toContain(t.id);
   });
 
+  it("organisation search for invitations finds registered organisations, never the issuer, and needs the issue permission", async () => {
+    const hits = await svc.searchOrganisations(asUser(issuer, ISSUE), `T Capable ${suffix}`);
+    expect(hits.map((h) => h.id)).toEqual([capable]);
+    expect((await svc.searchOrganisations(asUser(issuer, ISSUE), `T Issuer ${suffix}`)).map((h) => h.id)).not.toContain(issuer);
+    expect(await svc.searchOrganisations(asUser(issuer, ISSUE), "a")).toEqual([]);
+    await expect(svc.searchOrganisations(asUser(capable, BID), "T Capable")).rejects.toThrow(/Missing permission/);
+  });
+
   it("the issuer dashboard counts by status and flags tenders closing soon", async () => {
     await build({ title: `Soon ${suffix}`, closingAt: future(3) });
     const d = await svc.dashboard(asUser(issuer, ISSUE));

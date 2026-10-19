@@ -3153,3 +3153,42 @@ export interface ExportCapabilities {
   /** True for global admins: the catalogue and registrations exports cover everything. */
   wholeCatalogue: boolean;
 }
+
+
+// ---------------------------------------------------------------------------
+// Tender Issuance & Management (2026-10-19)
+// ---------------------------------------------------------------------------
+export type TenderStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "EVALUATING" | "AWARDED" | "CONTRACTED" | "CANCELLED";
+export type TenderType = "RFQ" | "RFP" | "ITT" | "OPEN_TENDER" | "FRAMEWORK";
+export type TenderVisibility = "ELIGIBLE_ORGANISATIONS" | "ALL_REGISTERED" | "INVITED_ONLY";
+export type TenderRuleType = "ORG_TYPE" | "COUNTRY" | "CATEGORY" | "QUALIFICATION" | "EXCLUDED_ORG";
+
+export interface TenderRecord {
+  id: string; organizationId: string; referenceNumber: string; title: string; summary: string | null; tenderType: TenderType; visibility: TenderVisibility;
+  isPublished: boolean; status: TenderStatus; effectiveStatus?: TenderStatus; deliveryCountryCodes: string | null; currency: string | null; incoterm: string | null; clientName: string | null;
+  publishedAt: string | null; clarificationDeadline: string | null; closingAt: string | null; evaluationDueAt: string | null; awardDueAt: string | null;
+  bidValidityDays: number | null; contractStartDate: string | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean;
+  termsAndConditions: string | null; cancelledReason: string | null; isSimulated: boolean; createdAt: string; updatedAt: string;
+}
+export interface TenderListItem extends TenderRecord { interestedOrganisations: number }
+export interface TenderLineRecord {
+  id?: string; lineNumber?: number; lotNumber: number | null; lotTitle: string | null; description: string; productMasterId: string | null; specification: string | null;
+  quantity: string | number | null; unit: string | null; destinationCountryCode: string | null; requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean;
+}
+export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; acceptedFileTypes: string | null }
+export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
+export interface TenderEventRecord { id: string; kind: string; summary: string; actorOrganizationId: string; createdAt: string }
+export interface TenderDetailForIssuer {
+  tender: TenderRecord; lines: TenderLineRecord[]; criteria: TenderCriterionRecord[]; rules: TenderRuleRecord[]; events: TenderEventRecord[];
+  invitations: { id: string; invitedOrganizationId: string; organizationName: string | null; invitedAt: string }[];
+  participants: { organizationId: string; organizationName: string | null; status: string; optedInAt: string }[];
+}
+export interface TenderDashboard {
+  totals: { draft: number; open: number; closed: number; evaluating: number; awarded: number; cancelled: number };
+  closingSoon: { id: string; referenceNumber: string; title: string; closingAt: string; interested: number }[];
+  interestPerOpenTender: { id: string; referenceNumber: string; title: string; interested: number }[];
+  totalInterested: number; openWithNoInterest: number;
+  attention: { overdueEvaluation: number; overdueAward: number; unansweredQuestions: number };
+  bidsReceived: number | null;
+}
+export interface TenderOrganisationOption { id: string; name: string; type: string }

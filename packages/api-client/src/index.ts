@@ -1,4 +1,5 @@
 import type {
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -289,6 +290,20 @@ export class UniverseApiClient {
 
     return (await res.json()) as T;
   }
+
+  // ---- Tender Issuance & Management (issuer side, 2026-10-19)
+  tenderDashboard(): Promise<TenderDashboard> { return this.request("/tenders/dashboard"); }
+  listMyTenders(status?: string): Promise<TenderListItem[]> { return this.request(`/tenders/mine${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
+  getMyTender(id: string): Promise<TenderDetailForIssuer> { return this.request(`/tenders/mine/${id}`); }
+  createTender(body: Partial<TenderRecord> & { title: string }): Promise<TenderRecord> { return this.request("/tenders", { method: "POST", body: JSON.stringify(body) }); }
+  updateTender(id: string, body: Partial<TenderRecord>): Promise<TenderRecord> { return this.request(`/tenders/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  setTenderLines(id: string, lines: TenderLineRecord[]): Promise<TenderLineRecord[]> { return this.request(`/tenders/${id}/lines`, { method: "PUT", body: JSON.stringify({ lines }) }); }
+  setTenderCriteria(id: string, criteria: TenderCriterionRecord[]): Promise<TenderCriterionRecord[]> { return this.request(`/tenders/${id}/criteria`, { method: "PUT", body: JSON.stringify({ criteria }) }); }
+  setTenderRules(id: string, rules: TenderRuleRecord[]): Promise<TenderRuleRecord[]> { return this.request(`/tenders/${id}/rules`, { method: "PUT", body: JSON.stringify({ rules }) }); }
+  inviteToTender(id: string, organizationIds: string[]): Promise<{ invited: number }> { return this.request(`/tenders/${id}/invitations`, { method: "POST", body: JSON.stringify({ organizationIds }) }); }
+  publishTender(id: string): Promise<TenderRecord> { return this.request(`/tenders/${id}/publish`, { method: "POST" }); }
+  cancelTender(id: string, reason: string): Promise<TenderRecord> { return this.request(`/tenders/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }); }
+  searchTenderOrganisations(q: string): Promise<TenderOrganisationOption[]> { return this.request(`/tenders/organisations?q=${encodeURIComponent(q)}`); }
 
   me(): Promise<AuthenticatedUser> {
     return this.request("/me");

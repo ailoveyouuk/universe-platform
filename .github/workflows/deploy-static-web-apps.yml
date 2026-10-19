@@ -21,6 +21,7 @@ on:
       - 'apps/project-management/**'
       - 'apps/admin/**'
       - 'apps/product-database/**'
+      - 'apps/tenders/**'
       - 'packages/ui/**'
       - 'packages/api-client/**'
       - 'packages/auth/**'
@@ -99,4 +100,30 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: apps/admin/out
+          skip_app_build: true
+
+  # Tender Issuance & Management. Skipped until its Static Web App exists and the TENDERS_URL repository variable is set.
+  tenders:
+    if: ${{ vars.TENDERS_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm install
+      - run: npm run db:generate
+      - name: Build
+        run: npx turbo run build --filter=@universe/tenders
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.API_BASE_URL }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_ID: ${{ vars.UNIVERSE_CIAM_TENANT_ID }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_TENANT_SUBDOMAIN: ${{ vars.UNIVERSE_CIAM_TENANT_SUBDOMAIN }}
+          NEXT_PUBLIC_UNIVERSE_CIAM_CLIENT_ID: ${{ vars.UNIVERSE_CIAM_CLIENT_ID }}
+          NEXT_PUBLIC_REDIRECT_URI: ${{ vars.TENDERS_URL }}
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.SWA_TOKEN_TENDERS }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: apps/tenders/out
           skip_app_build: true
