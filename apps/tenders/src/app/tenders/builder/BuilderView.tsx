@@ -14,6 +14,10 @@ type Section = "overview" | "items" | "criteria" | "eligibility" | "invitations"
 const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Items"], ["criteria", "Criteria"], ["eligibility", "Who can bid"], ["invitations", "Invitations"], ["review", "Review and publish"]];
 const codes = (s: string | null | undefined) => (s ?? "").split(",").filter(Boolean);
 const delimited = (a: string[]) => (a.length ? `,${a.join(",")},` : "");
+/** Only the fields the API accepts, with numeric strings (the API returns decimals as strings) turned into numbers. */
+const cleanLine = (l: TenderLineRecord): TenderLineRecord => ({ lotNumber: l.lotNumber ?? null, lotTitle: l.lotTitle ?? null, description: l.description.trim(), productMasterId: l.productMasterId ?? null, specification: l.specification ?? null, quantity: l.quantity === null || l.quantity === undefined || l.quantity === "" ? null : Number(l.quantity), unit: l.unit ?? null, destinationCountryCode: l.destinationCountryCode || null, requiredRegistration: l.requiredRegistration ?? null, minShelfLifePercent: l.minShelfLifePercent ?? null, coldChainRequired: !!l.coldChainRequired });
+const cleanCriterion = (c: TenderCriterionRecord): TenderCriterionRecord => ({ title: c.title.trim(), description: c.description ?? null, kind: c.kind, weight: c.kind === "SCORED" ? Number(c.weight ?? 0) : null, isMandatory: c.isMandatory ?? true, responseFormat: c.responseFormat, acceptedFileTypes: c.acceptedFileTypes ?? null });
+const cleanRule = (r: TenderRuleRecord): TenderRuleRecord => ({ ruleType: r.ruleType, ruleValue: r.ruleValue.trim(), explanation: r.explanation || null, isRequired: r.isRequired });
 const num = (v: string) => (v === "" ? null : Number(v));
 
 /**
@@ -73,13 +77,13 @@ function SaveBar({ onSave, saving, label = "Save", note }: { onSave: () => void;
   return <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}><Button variant="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : label}</Button>{note && <span style={{ fontSize: 13, color: "var(--u-status-good)" }}>{note}</span>}</div>;
 }
 
-function useSaver(onSaved: () => void) {
+function useSaver<T = unknown>(onSaved: (result: T) => void) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  async function run(fn: () => Promise<unknown>, okNote = "Saved") {
+  async function run(fn: () => Promise<T | void>, okNote = "Saved") {
     setSaving(true); setErr(null); setNote(null);
-    try { await fn(); setNote(okNote); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); } finally { setSaving(false); }
+    try { const r = await fn(); setNote(okNote); onSaved(r as T); } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); } finally { setSaving(false); }
   }
   return { saving, err, note, run };
 }
@@ -96,19 +100,17 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     allowTextSubmission: t?.allowTextSubmission ?? true, termsAndConditions: t?.termsAndConditions ?? "",
   });
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
-  const [result, setResult] = useState<TenderRecord | null>(null);
-  const s = useSaver(() => result && onSaved(result));
+  const s = useSaver<TenderRecord>((r) => onSaved(r));
 
   const save = () => s.run(async () => {
     const body = {
       title: f.title.trim(), summary: f.summary || undefined, tenderType: f.tenderType as TenderRecord["tenderType"], visibility: f.visibility as TenderRecord["visibility"],
-      deliveryCountryCodes: delimited(f.countries) || undefined, currency: f.currency.trim() ? f.currency.trim().toUpperCase() : undefined, incoterm: f.incoterm || undefined, clientName: f.clientName || undefined,
+      deliveryCountryCodes: delimited(f.countries), currency: f.currency.trim() ? f.currency.trim().toUpperCase() : undefined, incoterm: f.incoterm || undefined, clientName: f.clientName || undefined,
       clarificationDeadline: fromLocalInput(f.clarificationDeadline), closingAt: fromLocalInput(f.closingAt), evaluationDueAt: fromLocalInput(f.evaluationDueAt), awardDueAt: fromLocalInput(f.awardDueAt),
       bidValidityDays: num(f.bidValidityDays) ?? undefined, acceptedFileTypes: f.acceptedFileTypes || undefined, maxFileSizeMb: num(f.maxFileSizeMb) ?? undefined,
       allowTextSubmission: f.allowTextSubmission, termsAndConditions: f.termsAndConditions || undefined,
     };
-    const r = detail ? await apiClient.updateTender(detail.tender.id, body) : await apiClient.createTender(body);
-    setResult(r);
+    return detail ? await apiClient.updateTender(detail.tender.id, body) : await apiClient.createTender(body);
   }, detail ? "Saved" : "Draft created");
 
   return (
@@ -143,7 +145,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
 // --------------------------------------------------------------------- items
 function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
   const countries = useCountries();
-  const [lines, setLines] = useState<TenderLineRecord[]>(detail.lines);
+  const [lines, setLines] = useState<TenderLineRecord[]>(detail.lines.map(cleanLine));
   const [q, setQ] = useState(""); const [opts, setOpts] = useState<ProductCatalogMatch[]>([]);
   const s = useSaver(onSaved);
   useEffect(() => { if (q.trim().length < 2) { setOpts([]); return; } const h = setTimeout(() => apiClient.searchProductCatalog(q.trim()).then(setOpts).catch(() => setOpts([])), 250); return () => clearTimeout(h); }, [q]);
@@ -173,14 +175,14 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
           </div>
         ))}
       </div>
-      <SaveBar saving={s.saving} note={s.note} label="Save items" onSave={() => s.run(() => apiClient.setTenderLines(detail.tender.id, lines.filter((l) => l.description.trim()).map((l) => ({ ...l, description: l.description.trim() }))))} />
+      <SaveBar saving={s.saving} note={s.note} label="Save items" onSave={() => s.run(() => apiClient.setTenderLines(detail.tender.id, lines.filter((l) => l.description.trim()).map(cleanLine)))} />
     </Card>
   );
 }
 
 // ------------------------------------------------------------------ criteria
 function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
-  const [rows, setRows] = useState<TenderCriterionRecord[]>(detail.criteria);
+  const [rows, setRows] = useState<TenderCriterionRecord[]>(detail.criteria.map(cleanCriterion));
   const s = useSaver(onSaved);
   const upd = (i: number, p: Partial<TenderCriterionRecord>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
   const add = (kind: "GATE" | "SCORED") => setRows((r) => [...r, { title: "", description: null, kind, weight: kind === "SCORED" ? 0 : null, isMandatory: true, responseFormat: "EITHER", acceptedFileTypes: null }]);
@@ -204,7 +206,7 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
         ))}
       </div>
       {rows.some((r) => r.kind === "SCORED") && <div style={{ marginTop: 12 }}><Pill tone={okTotal ? "good" : "warning"}>Weights total {total} of 100</Pill></div>}
-      <SaveBar saving={s.saving} note={s.note} label="Save criteria" onSave={() => s.run(() => apiClient.setTenderCriteria(detail.tender.id, rows.filter((r) => r.title.trim()).map((r) => ({ ...r, title: r.title.trim() }))))} />
+      <SaveBar saving={s.saving} note={s.note} label="Save criteria" onSave={() => s.run(() => apiClient.setTenderCriteria(detail.tender.id, rows.filter((r) => r.title.trim()).map(cleanCriterion)))} />
     </Card>
   );
 }
@@ -223,7 +225,7 @@ export function describeRule(r: TenderRuleRecord): string {
 
 function Eligibility({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
   const countries = useCountries();
-  const [rules, setRules] = useState<TenderRuleRecord[]>(detail.rules);
+  const [rules, setRules] = useState<TenderRuleRecord[]>(detail.rules.map(cleanRule));
   const s = useSaver(onSaved);
   const upd = (i: number, p: Partial<TenderRuleRecord>) => setRules((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
   const add = (ruleType: TenderRuleType) => setRules((r) => [...r, { ruleType, ruleValue: "", explanation: null, isRequired: true }]);
@@ -249,7 +251,7 @@ function Eligibility({ detail, onSaved }: { detail: TenderDetailForIssuer; onSav
         ))}
         {rules.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No rules: every registered organisation is eligible.</p>}
       </div>
-      <SaveBar saving={s.saving} note={s.note} label="Save rules" onSave={() => s.run(() => apiClient.setTenderRules(detail.tender.id, rules.filter((r) => r.ruleValue.trim())))} />
+      <SaveBar saving={s.saving} note={s.note} label="Save rules" onSave={() => s.run(() => apiClient.setTenderRules(detail.tender.id, rules.filter((r) => r.ruleValue.trim()).map(cleanRule)))} />
     </Card>
   );
 }
