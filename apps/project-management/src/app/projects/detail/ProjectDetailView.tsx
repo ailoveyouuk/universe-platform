@@ -12,6 +12,7 @@ import { LineForm } from "./LineForm";
 import { PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
+import { StageDashboard } from "./StageDashboard";
 import { StatusHistoryTimeline } from "./StatusHistoryTimeline";
 import { ProjectTeam } from "./ProjectTeam";
 import { AuditHistory } from "../../../components/AuditHistory";
@@ -391,6 +392,8 @@ export function ProjectDetailView() {
           )}
         </div>
       </div>
+
+      <StageDashboard project={project} financialSummary={financialSummary} exportChecks={exportChecks} safetyFlags={safetyFlags} countryName={(c) => countries.find((x) => x.code === c)?.name ?? c} />
 
       {!editingHeader && (
         <>

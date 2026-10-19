@@ -75,7 +75,8 @@ function assertFieldLevelPermission(
 function daysRemaining(dueDate: Date | null): number | null {
   if (!dueDate) return null;
   const msPerDay = 1000 * 60 * 60 * 24;
-  return Math.ceil((dueDate.getTime() - Date.now()) / msPerDay);
+  // Stops at zero once the date is reached (2026-10-19): the counter never goes negative.
+  return Math.max(0, Math.ceil((dueDate.getTime() - Date.now()) / msPerDay));
 }
 
 function toSummary(p: {
