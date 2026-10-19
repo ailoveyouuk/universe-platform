@@ -1,4 +1,4 @@
-# Tender Issuance & Management — design v2 (2026-10-19)
+# Tender Issuance & Management — design v3 (2026-10-19)
 
 Status: decisions agreed by Lewis on 2026-10-19; nothing built yet. Demo content will be simulated like everything else.
 
@@ -23,16 +23,23 @@ This avoids rebuilding the schema later.
 - **Evaluators** (issuer side): conflict-of-interest declaration, independent scoring, then consensus.
 - **Platform staff:** moderation, oversight, dispute support (read-only by default, audited).
 
-## 5. Eligibility (who may see and bid)
-Each tender states rules; Universe checks them against the organisation's registry record, not self-declaration alone:
-- Organisation type (supplier, manufacturer, agent), countries of operation or registration, product categories.
-- Qualification and registration evidence (WHO PQ, SRA, ERP, ISO 13485, national registrations) held in the stakeholder registry and product catalogue, with expiry respected.
-- Performance floor (minimum supplier rating) and sanctions screening results where available.
-- Explicit invitation list (always allowed), or an exclusion list.
-Eligible organisations see the tender in a "Tenders for you" list and are notified. Ineligible organisations cannot see it, and the system records why (so issuers can defend decisions).
+## 5. Eligibility: visible, explained, never hidden (revised by Lewis)
+Every published tender is visible to every registered organisation. Eligibility does not hide a tender; it explains the position.
+- **Rules** (set by the issuer): organisation type, countries of registration or operation, product categories, qualification and registration evidence (WHO PQ, SRA, ERP, ISO 13485, national registrations, with expiry), minimum supplier rating (later, once performance ratings exist), sanctions screening, explicit invitations, exclusions.
+- **Checked against the registry**, not self-declaration, per organisation per tender, producing a requirement checklist: each rule shows Met, Not met or Needs evidence, with a plain statement of what the organisation must do to become eligible (for example "Upload your WHO PQ certificate in your profile", "Add Kenya to your countries of operation", "Your ISO 13485 expired on 3 Mar; renew it").
+- **Chips on every tender:** Eligible, Almost eligible (n things to do), Not eligible, Invited, Already participating, Closing soon. Filter and sort by them.
+- **Shortlist:** organisations can star tenders to a shortlist, and save criteria ("pharmaceuticals, East Africa, WHO PQ") to get a standing "tenders that match you" view and alerts when a new matching tender is published.
+- Bidding is allowed only when eligible (or invited); a not-yet-eligible organisation can see everything it needs to prepare, but cannot submit.
+- Evaluations are recorded (why an organisation was or was not eligible at the time) so issuers can defend decisions.
 
 ## 6. Core records
 Tender, TenderLot, TenderLine (catalogue product, quantity, destination country, required registration, shelf-life and cold-chain needs), TenderCriterion (weight, gate or scored), TenderEligibilityRule, TenderInvitation/Participation (interest, status), TenderDocument, Clarification (question, answer, shared to all participants anonymously), Bid (per participant, sealed, per-line prices, lead time, offered product and manufacturer, evidence, validity), BidScore (per evaluator per criterion), Award (per tender or per lot, reasons), Contract (parties, terms, value, dates, status, variations), ContractMilestone, Engagement (the thread) and EngagementEvent (the shared audit timeline), SupplierPerformanceRecord (from delivery and quality data), plus notifications and actions through the existing helpers.
+
+## 6a. Issuer build-out and dashboard (revised by Lewis)
+- **Tender builder parameters:** title, reference, type, visibility, lots, lines, destination countries, currency and incoterm, all key dates (publish, clarification deadline, closing, evaluation, award, bid validity, contract start), evaluation criteria and weights, gates, eligibility rules, required documents.
+- **Submission rules per requirement:** accepted upload formats and maximum size (for example PDF, DOCX, XLSX, CSV), whether copy-and-paste text answers are allowed as an alternative to uploads, whether each item is mandatory, and a bid-side **completion detection** (a live checklist showing which mandatory prices, documents and answers are missing; a bid cannot be submitted incomplete, and the participant sees exactly what is missing).
+- **Dashboard (issuer):** adapts to what the organisation has. Tiles: tenders published, in draft, closing soon (next 7 days), in evaluation, awarded this period; per-tender submissions received against invited/eligible; average bids per tender (competition level); unanswered clarifications; evaluations awaiting scores; awards pending contract; contracts active; average days from publish to award (cycle time); cancelled or re-tendered rate; value awarded; single-bidder tenders (a red-flag metric used by procurement oversight bodies). Per-tender view: submissions over time to the deadline, participants who opted in but have not bid, completeness of started bids. These follow common public-procurement benchmarks (competition, cycle time, single-bid rate, award concentration, cancellation rate).
+- **Participant dashboard:** tenders for you, shortlist, closing soon, bids in progress with completion %, awarded, contracts due for signature, deliveries due.
 
 ## 7. Cross-organisation data and security (the hardest part)
 Today every table belongs to one organisation. Tendering needs data two organisations both see, so:
@@ -59,8 +66,8 @@ Issuer: tenders list and tiles, tender builder, tender detail with stage tiles (
 7. Later: frameworks and call-offs, lots and partial awards, public viewing.
 Each step ships with tests (especially cross-organisation isolation), audit and demo data.
 
-## 11. Assumptions I am making (shout if wrong)
-- Contract signing in version 1 is recorded in-app (parties confirm, uploaded signed document), not a legal e-signature product.
-- The issuer can be any organisation type that tenders; the participant must be a registered Universe organisation, so public viewing of tenders is out for now.
-- Eligibility is rule-based on registry data, with manual invitation always allowed.
-- Performance ratings are computed from delivery data plus an issuer rating at closeout, and are visible to both parties and (anonymised) to the platform's insights.
+## 11. Decisions made
+- **Contract signing:** if a legal contract product cannot be built into the platform, a dedicated **Signature** section on each contract holds an externally executed agreement (Adobe Acrobat Sign, DocuSign or equivalent): the signed PDF, the signing certificate or audit trail document, signer names, roles and dates, status (awaiting signature, partly signed, executed), version history, download and export. Both parties see it. A native integration (envelope sent from Universe, status returned by webhook) is a later option.
+- **Public viewing:** not in version 1. Recommended for version 2 as a read-only teaser page per published tender (title, issuer, countries, categories, closing date, summary) with "Register on Universe to access this tender" in place of documents, eligibility and bidding. It is a good sign-up hook and is modest to build (one unauthenticated read route returning a whitelisted subset, search-engine friendly), but it adds an abuse and scraping surface, so it comes after the core is proven. The tender record gets a `publicTeaser` flag now so nothing has to change later.
+- **Performance ratings:** deferred to the next round of development. All the underlying data (on-time-in-full, quality, payment, CO2, issuer feedback) will be captured and attached to the Engagement timeline now; how to represent and weigh it is a separate design. The eligibility rule "minimum supplier rating" is added when ratings exist.
+- **Assumption:** participants must be registered Universe organisations to see anything beyond the teaser.
