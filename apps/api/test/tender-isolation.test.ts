@@ -59,9 +59,8 @@ describe("Tender row-level security", () => {
 
   it("a participant cannot create or change an issuer's tender", async () => {
     await expect(withTenantContext(partA, (tx) => tx.tender.create({ data: { organizationId: issuer, referenceNumber: `X-${suffix}`, title: "forged" } }))).rejects.toThrow();
-    const changed = await withTenantContext(partA, (tx) => tx.tender.updateMany({ where: { id: openId }, data: { title: "hijacked" } }));
-    // The row is readable but the block predicate refuses the write (error) or nothing changes.
-    expect(changed.count === 0 || changed.count === 1).toBe(true);
+    // The row is readable to the participant, but the database refuses the write.
+    await expect(withTenantContext(partA, (tx) => tx.tender.updateMany({ where: { id: openId }, data: { title: "hijacked" } }))).rejects.toThrow();
     const after = await withTenantContext(issuer, (tx) => tx.tender.findUnique({ where: { id: openId } }));
     expect(after?.title).toBe("Tender OPEN");
   });
