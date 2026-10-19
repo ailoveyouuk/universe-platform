@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { PartnerOption, ProductBatchSummary, ProductCatalogMatch } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { Button, Select, SearchInput, Pill, TextLink, GridIcon, PlusIcon, ProductPicker, Pagination, type PageSize, type ProductPickerOption } from "@universe/ui";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 const STATUS_OPTIONS = ["", "ACTIVE", "QUARANTINED", "EXPIRED", "WITHDRAWN"] as const;
 
@@ -75,9 +76,12 @@ export default function BatchesPage() {
             linkable from any project line.
           </p>
         </div>
-        <Button variant="primary" icon={<PlusIcon size={16} />} onClick={() => setShowForm((v) => !v)}>
-          New batch
-        </Button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <OwnDataExportButton entity="batches" label="Export CSV" />
+          <Button variant="primary" icon={<PlusIcon size={16} />} onClick={() => setShowForm((v) => !v)}>
+            New batch
+          </Button>
+        </div>
       </div>
 
       {showForm && (

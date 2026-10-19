@@ -3088,6 +3088,10 @@ export interface CreateProductFamilyInput {
 export type UpdateProductFamilyInput = Partial<CreateProductFamilyInput> & { isArchived?: boolean };
 
 /** Product Database exports (step 5, 2026-10-18). */
+/** Record types an organisation can always export for itself (its own additions only). */
+export const ORGANISATION_EXPORT_ENTITIES = ["partners", "projects", "project-lines", "contacts", "batches", "logistics", "certifications", "evidence", "risks"] as const;
+export type OrganisationExportEntity = (typeof ORGANISATION_EXPORT_ENTITIES)[number];
+
 export interface ProductExportFile {
   filename: string;
   /** UTF-8 CSV with a byte-order mark so spreadsheets open it correctly. */

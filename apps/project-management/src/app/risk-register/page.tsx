@@ -16,6 +16,7 @@ import {
   type PageSize,
 } from "@universe/ui";
 import { AuditHistory } from "../../components/AuditHistory";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 const SEVERITY_OPTIONS = [
   { value: "LOW", label: "Low" },
@@ -186,6 +187,9 @@ export default function RiskRegisterPage() {
             Every risk logged against a stakeholder, project or product batch, in one place. Click a row to edit it in
             full or review its audit history — logging a new risk still happens from the record itself.
           </p>
+          <div style={{ marginTop: 10 }}>
+            <OwnDataExportButton entity="risks" label="Export CSV" />
+          </div>
         </div>
       </div>
 

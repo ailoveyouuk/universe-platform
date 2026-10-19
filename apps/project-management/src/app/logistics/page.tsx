@@ -27,6 +27,7 @@ import {
   type WorldMapLegendEntry,
 } from "@universe/ui";
 import { useCountries } from "../../lib/useCountries";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 /** Same cap as the old /logistics/global page — top manufacture-
  * >destination country pairs (by total shipment count) drawn as arcs. */
@@ -239,6 +240,9 @@ export default function LogisticsPage() {
             efficiency/CO2-impact score per project line — this organisation&apos;s own data only.
             The map below is the anonymised, cross-platform benchmark against other organisations.
           </p>
+          <div style={{ marginTop: 8 }}>
+            <OwnDataExportButton entity="logistics" label="Export CSV" />
+          </div>
           <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             <StandardsReference
               label="GLEC Framework (ISO 14083-aligned)"

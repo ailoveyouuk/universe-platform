@@ -204,6 +204,8 @@ export default function PartnersPage() {
       <div style={{ display: "flex", gap: 10, marginTop: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
         <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by name, country, website, role…" />
         <OwnDataExportButton entity="partners" label="Export CSV" />
+        <OwnDataExportButton entity="contacts" label="Export contacts" />
+        <OwnDataExportButton entity="certifications" label="Export certifications" />
         <Select
           value={roleFilter}
           onChange={(v) => { setRoleFilter(v as any); setPage(0); }}

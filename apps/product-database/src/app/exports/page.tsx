@@ -15,6 +15,12 @@ const OWN: { key: string; label: string; help: string; run: () => ReturnType<typ
   { key: "registrations", label: "Registrations we added", help: "Regulatory registrations your organisation contributed, with your verification.", run: () => apiClient.exportRegistrationsCsv({ includeArchived: true }) },
   { key: "stakeholders", label: "Stakeholders", help: "Suppliers, manufacturers, forwarders, clients and others in your account (no financial details).", run: () => apiClient.exportOrganisationCsv("partners", true) },
   { key: "projects", label: "Projects", help: "Your projects (no cost figures; those stay in the app).", run: () => apiClient.exportOrganisationCsv("projects", true) },
+  { key: "contacts", label: "Contacts", help: "Named contacts at your stakeholders.", run: () => apiClient.exportOrganisationCsv("contacts", true) },
+  { key: "batches", label: "Batches", help: "Product batches you recorded: manufacturer, dates, storage and qualification.", run: () => apiClient.exportOrganisationCsv("batches", true) },
+  { key: "logistics", label: "Logistics and CO2", help: "Distance, CO2e and efficiency score for each of your project lines.", run: () => apiClient.exportOrganisationCsv("logistics", true) },
+  { key: "certifications", label: "Certifications", help: "Stakeholder certificates, with issuer, dates and status.", run: () => apiClient.exportOrganisationCsv("certifications", true) },
+  { key: "evidence", label: "Quality evidence", help: "Evidence records logged against your quality standards.", run: () => apiClient.exportOrganisationCsv("evidence", true) },
+  { key: "risks", label: "Risk register", help: "Risks logged against stakeholders, projects and batches.", run: () => apiClient.exportOrganisationCsv("risks", true) },
   { key: "lines", label: "Project lines", help: "Product lines on your projects with origin, supplier and delivery dates (no prices).", run: () => apiClient.exportOrganisationCsv("project-lines", true) },
 ];
 

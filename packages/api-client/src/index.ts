@@ -3,6 +3,7 @@ import type {
   PagedResult,
   RiskRegisterCounts,
   ProjectCountryOverview,
+  OrganisationExportEntity,
   ProjectOverview,
   UserCounts,
   UserOption,
@@ -718,8 +719,8 @@ export class UniverseApiClient {
   downloadExportRequest(id: string): Promise<ProductExportFile> {
     return this.request(`/product-catalog/exports/requests/${id}/download`);
   }
-  /** CSV of the caller's own organisation's records: partners | projects | project-lines. */
-  exportOrganisationCsv(entity: "partners" | "projects" | "project-lines", includeArchived = false): Promise<ProductExportFile> {
+  /** CSV of the caller's own organisation's records. */
+  exportOrganisationCsv(entity: OrganisationExportEntity, includeArchived = false): Promise<ProductExportFile> {
     return this.request(`/exports/organisation/${entity}${includeArchived ? "?includeArchived=true" : ""}`);
   }
   getProductDossier(productMasterId: string): Promise<ProductDossier> {

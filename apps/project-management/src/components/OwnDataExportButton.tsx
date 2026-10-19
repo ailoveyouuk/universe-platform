@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import type { OrganisationExportEntity } from "@universe/types";
 import { Button, DownloadIcon } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { saveExport } from "../lib/download";
 
 /** Downloads a CSV of the organisation's own records (2026-10-18). Cost figures and financial details are not in these files. */
-export function OwnDataExportButton({ entity, label }: { entity: "partners" | "projects" | "project-lines"; label: string }) {
+export function OwnDataExportButton({ entity, label }: { entity: OrganisationExportEntity; label: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (

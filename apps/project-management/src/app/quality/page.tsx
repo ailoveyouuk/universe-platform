@@ -30,6 +30,7 @@ import {
   StandardsReference,
   StatTile,
 } from "@universe/ui";
+import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING"] as const;
 const PERFORMANCE_ROLE_FILTERS = ["", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER"] as const;
@@ -149,7 +150,9 @@ export default function QualityPage() {
             performance scorecards.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <OwnDataExportButton entity="certifications" label="Export certifications" />
+          <OwnDataExportButton entity="evidence" label="Export evidence" />
           <Link href="/quality/evidence-standards" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Evidence Standards</Button>
           </Link>
