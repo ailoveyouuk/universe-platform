@@ -31,7 +31,7 @@ export interface EligibilityResult { outcome: EligibilityOutcome; canBid: boolea
 const list = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
 const norm = (s: string) => s.trim().toUpperCase().replace(/[\s-]+/g, "_");
 
-const QUAL_LABELS: Record<string, string> = { WHO_PQ: "WHO prequalification", SRA: "an SRA approval", ISO_13485: "ISO 13485", ISO_9001: "ISO 9001", ERP: "Expert Review Panel (ERP) approval" };
+const QUAL_LABELS: Record<string, string> = { WHO_PQ: "WHO prequalification", SRA: "an SRA approval", ISO_13485: "ISO 13485", ISO_9001: "ISO 9001", ERP: "Expert Review Panel (ERP) approval", WLA: "a WHO Listed Authority authorisation", PICS_GMP: "a GMP inspection by a WHO, SRA or PIC/S authority", NATIONAL_MA: "a national marketing authorisation", WHO_GDP: "Good Distribution Practice compliance", MQAS: "WHO MQAS compliance", ISO_17025: "ISO/IEC 17025 accreditation" };
 const qualLabel = (c: string) => QUAL_LABELS[norm(c)] ?? c;
 
 function evaluateRule(rule: RuleLike, p: OrgProfile): { status: CheckStatus; requirement: string; action: string | null } {

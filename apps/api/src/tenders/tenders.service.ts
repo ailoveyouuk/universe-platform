@@ -366,7 +366,8 @@ export class TendersService {
         totalInterested: open.reduce((s, t) => s + (counts.get(t.id) ?? 0), 0),
         openWithNoInterest: open.filter((t) => !counts.get(t.id)).length,
         attention: { overdueEvaluation: overdueEvaluation.length, overdueAward: overdueAward.length, unansweredQuestions: unanswered },
-        bidsReceived: null as number | null, // sealed bids arrive in step 3
+        // A count only: it says nothing about what a sealed bid contains.
+        bidsReceived: await tx.tenderBid.count({ where: { issuerOrganizationId: user.organizationId, status: "SUBMITTED" } }) as number | null,
       };
     });
   }
@@ -451,7 +452,7 @@ export class TendersService {
         const status = effectiveStatus(t, now);
         return {
           id: t.id, referenceNumber: t.referenceNumber, title: t.title, summary: t.summary, tenderType: t.tenderType, issuerName: t.organization.name,
-          deliveryCountryCodes: t.deliveryCountryCodes, currency: t.currency, publishedAt: t.publishedAt, closingAt: t.closingAt, status,
+          deliveryCountryCodes: t.deliveryCountryCodes, currency: t.currency, publishedAt: t.publishedAt, closingAt: t.closingAt, timeZone: t.timeZone, status,
           categories: [...(cats.get(t.id) ?? [])],
           chips: chipsFor({ result, participating: partSet.has(t.id), shortlisted: shortSet.has(t.id), closingAt: t.closingAt, status: t.status, now }),
           unmetRequired: result.unmetRequired, canBid: result.canBid && status === "PUBLISHED",

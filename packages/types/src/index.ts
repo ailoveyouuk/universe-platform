@@ -3288,3 +3288,72 @@ export interface TenderDashboard {
   bidsReceived: number | null;
 }
 export interface TenderOrganisationOption { id: string; name: string; type: string }
+
+// ---------------------------------------------------------------------------
+// Tender bids and the participant view (step 3, 2026-10-19)
+// ---------------------------------------------------------------------------
+export type TenderBidStatus = "NONE" | "DRAFT" | "SUBMITTED" | "WITHDRAWN";
+export interface TenderChecklistItem { ok: boolean; label: string }
+export interface TenderBidLineValue {
+  tenderLineId: string; noBid: boolean; unitPrice: string | null; leadTimeDays: number | null; countryOfOrigin: string | null; manufacturerName: string | null; remarks: string | null;
+}
+export interface TenderBidWorkspaceLine extends TenderBidLineValue {
+  lineNumber: number; description: string; quantity: string | null; unit: string | null; destinationCountryCode: string | null;
+  requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean; specification: string | null;
+}
+export interface TenderBidFileRecord { id: string; fileName: string; fileSizeBytes: number | null; criterionId: string | null }
+export interface TenderBidWorkspaceCriterion {
+  id: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | null; isMandatory: boolean;
+  responseFormat: "UPLOAD" | "TEXT" | "EITHER"; text: string | null; files: TenderBidFileRecord[];
+}
+export interface TenderBidWorkspace {
+  tender: {
+    id: string; referenceNumber: string; title: string; issuerName: string; status: TenderStatus; closingAt: string | null; timeZone: string | null; currency: string | null;
+    bidValidityDays: number | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean;
+  };
+  bid: {
+    id: string | null; status: TenderBidStatus; bidCurrency: string | null; validityConfirmed: boolean; notes: string | null; submittedAt: string | null;
+    fxRate: string | null; fxRateDate: string | null; totalBidCurrency: string | null; totalTenderCurrency: string | null;
+  };
+  lines: TenderBidWorkspaceLine[];
+  criteria: TenderBidWorkspaceCriterion[];
+  addenda: { id: string; number: number; title: string; requiresAcknowledgement: boolean; acknowledged: boolean }[];
+  checklist: TenderChecklistItem[];
+  /** The tender is still open for bids and this organisation may bid. */
+  open: boolean;
+  canSubmit: boolean;
+}
+export interface TenderBidSaveInput {
+  bidCurrency?: string | null; validityConfirmed?: boolean; notes?: string | null;
+  lines?: (Omit<TenderBidLineValue, "unitPrice"> & { unitPrice: string | number | null })[]; responses?: { criterionId: string; text: string | null }[];
+}
+export interface MyBidItem {
+  tenderId: string; referenceNumber: string; title: string; issuerName: string; closingAt: string | null; timeZone: string | null; tenderStatus: TenderStatus;
+  status: TenderBidStatus; submittedAt: string | null; bidCurrency: string | null; totalBidCurrency: string | null;
+}
+export interface IssuerBidRecord {
+  bidId: string; organizationId: string; organizationName: string | null; submittedAt: string | null; bidCurrency: string | null; fxRate: string | null; fxRateDate: string | null;
+  totalBidCurrency: string | null; totalTenderCurrency: string | null; validityDays: number | null; notes: string | null;
+  lines: (TenderBidLineValue & { lineNumber: number; description: string; quantity: string | null; unit: string | null })[];
+  responses: { criterionId: string; criterionTitle: string; text: string | null; files: TenderBidFileRecord[] }[];
+}
+export interface TenderParticipantView {
+  tender: TenderRecord & { issuerName: string };
+  lines: TenderLineRecord[]; criteria: TenderCriterionRecord[];
+  clarifications: { id: string; question: string; answer: string; answeredAt: string }[];
+  eligibility: {
+    outcome: "ELIGIBLE" | "ALMOST_ELIGIBLE" | "NOT_ELIGIBLE"; canBid: boolean; invited: boolean; unmetRequired: number; chips: string[];
+    items: { ruleId: string; ruleType: string; required: boolean; status: "MET" | "NOT_MET" | "NEEDS_EVIDENCE"; requirement: string; action: string | null }[];
+  };
+  participation: { status: string; optedInAt: string } | null;
+  shortlisted: boolean;
+  addenda: { id: string; number: number; title: string; body: string; requiresAcknowledgement: boolean; newClosingAt: string | null; createdAt: string; acknowledged: boolean }[];
+  myQuestions: { id: string; question: string; askedAt: string }[];
+}
+export interface TenderAvailableItem {
+  id: string; referenceNumber: string; title: string; summary: string | null; tenderType: TenderType; issuerName: string; deliveryCountryCodes: string | null; currency: string | null;
+  publishedAt: string | null; closingAt: string | null; timeZone: string | null; status: TenderStatus; categories: string[]; chips: string[]; unmetRequired: number; canBid: boolean;
+}
+export interface TenderAvailableResult { counts: Record<string, number>; tenders: TenderAvailableItem[] }
+export interface TenderSavedSearchCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }
+export interface TenderSavedSearchRecord { id: string; name: string; alertsEnabled: boolean; criteria: TenderSavedSearchCriteria; createdAt: string }

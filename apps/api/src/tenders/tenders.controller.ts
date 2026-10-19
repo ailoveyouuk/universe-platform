@@ -1,17 +1,18 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { TenderBidsService } from "./tender-bids.service";
 import { TenderComplianceService } from "./tender-compliance.service";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, CancelTenderDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, BidSaveDto, CancelTenderDto, ConfirmBidFileDto, RequestBidFileDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -40,6 +41,22 @@ export class TendersController {
   @Post(":id/interest") interest(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: InterestDto) { return this.tenders.expressInterest(u, id, dto); }
   @Post(":id/questions") ask(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AskQuestionDto) { return this.compliance.askQuestion(u, id, dto.question); }
   @Post(":id/addenda/:addendumId/acknowledge") acknowledge(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("addendumId") aid: string) { return this.compliance.acknowledgeAddendum(u, id, aid); }
+
+  // ---- bidder: the bid workspace (tenders.bid)
+  @Get("bids/mine") myBids(@CurrentUser() u: RequestUser) { return this.bids.myBids(u); }
+  @Get(":id/bid") bidWorkspace(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.getWorkspace(u, id); }
+  @Put(":id/bid") saveBid(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: BidSaveDto) { return this.bids.saveBid(u, id, dto); }
+  @Post(":id/bid/submit") submitBid(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.submitBid(u, id); }
+  @Post(":id/bid/withdraw") withdrawBid(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.withdrawBid(u, id); }
+  @Post(":id/bid/files/upload-url") bidUploadUrl(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: RequestBidFileDto) { return this.bids.requestFileUpload(u, id, dto); }
+  @Post(":id/bid/files") confirmBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ConfirmBidFileDto) { return this.bids.confirmFile(u, id, dto); }
+  @Delete(":id/bid/files/:fileId") removeBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("fileId") fid: string) { return this.bids.removeFile(u, id, fid); }
+  @Get(":id/bid/files/:fileId/download-url") myBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("fileId") fid: string) { return this.bids.myFileUrl(u, id, fid); }
+
+  // ---- issuer: sealed bids, opened after closing
+  @Get(":id/bids") listBids(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.listBids(u, id); }
+  @Get(":id/bids/count") bidCount(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.countSubmitted(u, id); }
+  @Get(":id/bids/files/:fileId/download-url") issuerBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("fileId") fid: string) { return this.bids.bidFileUrl(u, id, fid); }
 
   // ---- issuer: fairness and audit
   @Post(":id/questions/:questionId/answer") answer(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("questionId") qid: string, @Body() dto: AnswerQuestionDto) { return this.compliance.answerQuestion(u, id, qid, dto); }

@@ -115,3 +115,36 @@ export class ScreeningDto {
   @IsOptional() @IsString() @Length(0, 4000) notes?: string;
   @IsDateString() screenedOn!: string;
 }
+
+export class BidLineDto {
+  @IsString() tenderLineId!: string;
+  @IsBoolean() noBid!: boolean;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 4 }) @Min(0) unitPrice?: number | null;
+  @IsOptional() @IsInt() @Min(0) @Max(3650) leadTimeDays?: number | null;
+  @IsOptional() @IsString() @Length(2, 2) countryOfOrigin?: string | null;
+  @IsOptional() @IsString() @Length(0, 300) manufacturerName?: string | null;
+  @IsOptional() @IsString() @Length(0, 1000) remarks?: string | null;
+}
+export class BidResponseDto {
+  @IsString() criterionId!: string;
+  @IsOptional() @IsString() @Length(0, 20000) text?: string | null;
+}
+export class BidSaveDto {
+  @IsOptional() @IsString() @Length(3, 3) bidCurrency?: string | null;
+  @IsOptional() @IsBoolean() validityConfirmed?: boolean;
+  @IsOptional() @IsString() @Length(0, 4000) notes?: string | null;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => BidLineDto) lines?: BidLineDto[];
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => BidResponseDto) responses?: BidResponseDto[];
+}
+export class RequestBidFileDto {
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 200) contentType!: string;
+  @IsInt() @Min(1) fileSizeBytes!: number;
+}
+export class ConfirmBidFileDto {
+  @IsString() @Length(1, 500) blobName!: string;
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsOptional() @IsString() mimeType?: string;
+  @IsOptional() @IsInt() @Min(0) fileSizeBytes?: number;
+  @IsOptional() @IsString() criterionId?: string | null;
+}

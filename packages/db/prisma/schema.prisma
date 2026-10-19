@@ -3602,3 +3602,83 @@ model TenderScreening {
   @@index([organizationId])
   @@map("tender_screenings")
 }
+
+/// A participant's bid on a tender (step 3, 2026-10-19). Owned by the bidding organisation; the issuer reads it as the counterparty,
+/// and the service keeps it sealed until the tender's closing time. One bid per organisation per tender.
+model TenderBid {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  issuerOrganizationId  String
+  tenderId              String
+  status                String    @default("DRAFT")
+  bidCurrency           String?   @db.Char(3)
+  validityConfirmed     Boolean   @default(false)
+  validityDays          Int?
+  notes                 String?   @db.NVarChar(Max)
+  /// Set at submission: the rate used to express the bid in the tender's currency, and the date of that rate (the ECB daily reference rate in force that day).
+  fxRate                Decimal?  @db.Decimal(18, 8)
+  fxRateDate            DateTime?
+  totalBidCurrency      Decimal?  @db.Decimal(18, 2)
+  totalTenderCurrency   Decimal?  @db.Decimal(18, 2)
+  submittedAt           DateTime?
+  withdrawnAt           DateTime?
+  createdById           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([tenderId, organizationId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_bids")
+}
+
+model TenderBidLine {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  issuerOrganizationId  String
+  bidId                 String
+  tenderId              String
+  tenderLineId          String
+  noBid                 Boolean  @default(false)
+  unitPrice             Decimal? @db.Decimal(18, 4)
+  leadTimeDays          Int?
+  countryOfOrigin       String?  @db.Char(2)
+  manufacturerName      String?  @db.NVarChar(300)
+  remarks               String?  @db.NVarChar(1000)
+
+  @@unique([bidId, tenderLineId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_bid_lines")
+}
+
+model TenderBidResponse {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  issuerOrganizationId  String
+  bidId                 String
+  tenderId              String
+  criterionId           String
+  text                  String?  @db.NVarChar(Max)
+
+  @@unique([bidId, criterionId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_bid_responses")
+}
+
+model TenderBidFile {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  issuerOrganizationId  String
+  bidId                 String
+  tenderId              String
+  criterionId           String?
+  fileName              String   @db.NVarChar(300)
+  blobName              String   @db.NVarChar(500)
+  mimeType              String?
+  fileSizeBytes         Int?
+  uploadedById          String?
+  uploadedAt            DateTime @default(now())
+
+  @@index([bidId])
+  @@index([issuerOrganizationId, tenderId])
+  @@map("tender_bid_files")
+}

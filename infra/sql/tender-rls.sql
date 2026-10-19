@@ -115,6 +115,23 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addendum_acks AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_addendum_acks AFTER UPDATE,
 
+    -- Bids (step 3): owned by the bidder, readable by the issuer as counterparty. The service keeps them sealed until closing; no other bidder can read them.
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, issuerOrganizationId, NULL) ON dbo.tender_bids,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bids AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bids AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, issuerOrganizationId, NULL) ON dbo.tender_bid_lines,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_lines AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_lines AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, issuerOrganizationId, NULL) ON dbo.tender_bid_responses,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_responses AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_responses AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, issuerOrganizationId, NULL) ON dbo.tender_bid_files,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_files AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_bid_files AFTER UPDATE,
+
     -- Sanctions/debarment screening records: private to the issuer.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_screenings,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_screenings AFTER INSERT,

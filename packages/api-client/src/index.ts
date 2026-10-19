@@ -1,5 +1,5 @@
 import type {
-  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord,
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -307,6 +307,38 @@ export class UniverseApiClient {
   postTenderClarification(id: string, body: { question: string; answer: string }): Promise<{ published: boolean }> { return this.request(`/tenders/${id}/clarifications`, { method: "POST", body: JSON.stringify(body) }); }
   createTenderAddendum(id: string, body: { title: string; body: string; requiresAcknowledgement?: boolean; newClosingAt?: string }): Promise<unknown> { return this.request(`/tenders/${id}/addenda`, { method: "POST", body: JSON.stringify(body) }); }
   recordTenderScreening(id: string, body: { organisationId: string; lists: string[]; outcome: string; notes?: string; screenedOn: string }): Promise<unknown> { return this.request(`/tenders/${id}/screenings`, { method: "POST", body: JSON.stringify(body) }); }
+  // ---- participant side and bids (step 3, 2026-10-19)
+  listAvailableTenders(q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlisted?: boolean } = {}): Promise<TenderAvailableResult> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "" && v !== false) p.set(k, String(v));
+    return this.request(`/tenders/available${p.toString() ? `?${p}` : ""}`);
+  }
+  tendersForYou(): Promise<{ tenders: TenderAvailableItem[]; savedSearches: number }> { return this.request("/tenders/for-you"); }
+  listTenderSavedSearches(): Promise<TenderSavedSearchRecord[]> { return this.request("/tenders/saved-searches"); }
+  saveTenderSearch(body: TenderSavedSearchCriteria & { name: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request("/tenders/saved-searches", { method: "POST", body: JSON.stringify(body) }); }
+  deleteTenderSavedSearch(id: string): Promise<unknown> { return this.request(`/tenders/saved-searches/${id}`, { method: "DELETE" }); }
+  viewTender(id: string): Promise<TenderParticipantView> { return this.request(`/tenders/${id}/view`); }
+  expressTenderInterest(id: string, body: { integrityPledge?: boolean; exclusion?: { noGrounds: boolean; grounds?: string[]; explanation?: string } }): Promise<unknown> { return this.request(`/tenders/${id}/interest`, { method: "POST", body: JSON.stringify(body) }); }
+  withdrawTenderInterest(id: string): Promise<unknown> { return this.request(`/tenders/${id}/interest`, { method: "DELETE" }); }
+  shortlistTender(id: string, note?: string): Promise<unknown> { return this.request(`/tenders/${id}/shortlist`, { method: "PUT", body: JSON.stringify({ note }) }); }
+  unshortlistTender(id: string): Promise<unknown> { return this.request(`/tenders/${id}/shortlist`, { method: "DELETE" }); }
+  askTenderQuestion(id: string, question: string): Promise<unknown> { return this.request(`/tenders/${id}/questions`, { method: "POST", body: JSON.stringify({ question }) }); }
+  acknowledgeTenderAddendum(id: string, addendumId: string): Promise<unknown> { return this.request(`/tenders/${id}/addenda/${addendumId}/acknowledge`, { method: "POST" }); }
+  myTenderBids(): Promise<MyBidItem[]> { return this.request("/tenders/bids/mine"); }
+  getTenderBid(id: string): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid`); }
+  saveTenderBid(id: string, body: TenderBidSaveInput): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid`, { method: "PUT", body: JSON.stringify(body) }); }
+  submitTenderBid(id: string): Promise<{ submitted: boolean; totalTenderCurrency: string | null; fxRate: string | null; fxRateDate: string | null }> { return this.request(`/tenders/${id}/bid/submit`, { method: "POST" }); }
+  withdrawTenderBid(id: string): Promise<unknown> { return this.request(`/tenders/${id}/bid/withdraw`, { method: "POST" }); }
+  /** Uploads one file for a bid: asks for a write link, puts the file straight to storage, then records it. */
+  async uploadTenderBidFile(id: string, file: File, criterionId: string | null): Promise<TenderBidWorkspace> {
+    const up = await this.request<{ uploadUrl: string; blobName: string }>(`/tenders/${id}/bid/files/upload-url`, { method: "POST", body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSizeBytes: file.size }) });
+    await this.uploadDocumentFile(up.uploadUrl, file);
+    return this.request(`/tenders/${id}/bid/files`, { method: "POST", body: JSON.stringify({ blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined, fileSizeBytes: file.size, criterionId }) });
+  }
+  removeTenderBidFile(id: string, fileId: string): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid/files/${fileId}`, { method: "DELETE" }); }
+  tenderBidFileUrl(id: string, fileId: string): Promise<{ downloadUrl: string }> { return this.request(`/tenders/${id}/bid/files/${fileId}/download-url`); }
+  listTenderBids(id: string): Promise<IssuerBidRecord[]> { return this.request(`/tenders/${id}/bids`); }
+  tenderBidCount(id: string): Promise<number> { return this.request(`/tenders/${id}/bids/count`); }
+  issuerTenderBidFileUrl(id: string, fileId: string): Promise<{ downloadUrl: string }> { return this.request(`/tenders/${id}/bids/files/${fileId}/download-url`); }
   verifyTenderTimeline(id: string): Promise<TenderChainCheck> { return this.request(`/tenders/${id}/timeline/verify`); }
   /** Public notices need no sign-in, so this bypasses the token. */
   async listPublicNotices(): Promise<PublicNoticeRecord[]> { const r = await fetch(`${this.baseUrl}/public/notices`); if (!r.ok) throw new Error("Could not load notices."); return r.json(); }

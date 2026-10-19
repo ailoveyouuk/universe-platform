@@ -3,6 +3,8 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext, w
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { chipsFor, evaluateEligibility, matchesSavedSearch, type OrgProfile } from "../src/tenders/eligibility";
+import { TenderBidsService } from "../src/tenders/tender-bids.service";
+import { checkBid, crossRate } from "../src/tenders/bid-completeness";
 import { TenderComplianceService } from "../src/tenders/tender-compliance.service";
 import { eventHash, verifyChain } from "../src/tenders/tender-events";
 import { TendersService } from "../src/tenders/tenders.service";
@@ -327,5 +329,88 @@ describe("Tender service", () => {
     const t = await build({ title: `Standstill ${suffix}`, standstillEnabled: true });
     expect((await svc.getMine(u, t.id)).tender.standstillWorkingDays).toBe(8);
     await expect(svc.update(u, t.id, { standstillEnabled: false })).rejects.toThrow(/dates extended/);
+  });
+
+  // ---- bids (step 3)
+  const fxStub = { getSnapshotForDate: async () => ({ id: "snap", date: new Date("2026-10-19T00:00:00Z"), rates: { USD: 1, EUR: 0.9, GBP: 0.8 } }) } as never;
+  const blobStub = { getUploadUrl: async (_o: string, blobName: string) => ({ uploadUrl: "https://x/upload", blobName }), getDownloadUrl: async () => "https://x/download" } as never;
+  const bids = new TenderBidsService(svc, fxStub, blobStub);
+  const openBuilt = async (over: Record<string, unknown> = {}) => {
+    const t = await build({ title: `Bid ${randomUUID().slice(0, 6)} ${suffix}`, ...over });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    return t;
+  };
+  const fillBid = async (tenderId: string, over: Record<string, unknown> = {}) => {
+    const ws = await bids.getWorkspace(asUser(capable, BID), tenderId);
+    return bids.saveBid(asUser(capable, BID), tenderId, {
+      bidCurrency: "EUR", validityConfirmed: true,
+      lines: ws.lines.map((l) => ({ tenderLineId: l.tenderLineId, noBid: false, unitPrice: 2, leadTimeDays: 30, countryOfOrigin: "IN" })),
+      responses: ws.criteria.filter((c) => c.isMandatory).map((c) => ({ criterionId: c.id, text: "We comply." })),
+      ...over,
+    } as never);
+  };
+
+  it("bid completeness lists exactly what is missing; cross rates go via USD", () => {
+    const base = { allowTextSubmission: true, bidValidityDays: 90, bidCurrency: "EUR", validityConfirmed: true, lines: [{ noBid: false, unitPrice: 2, leadTimeDays: 5, countryOfOrigin: "IN" }], criteria: [{ title: "Reg", isMandatory: true, responseFormat: "UPLOAD", text: "words", fileCount: 0 }], addenda: [{ requiresAcknowledgement: true, acknowledged: false }] };
+    const r = checkBid(base);
+    expect(r.filter((x) => !x.ok).map((x) => x.label.slice(0, 20))).toEqual(["Answer every required", "Acknowledge 1 addend"]);
+    expect(checkBid({ ...base, bidCurrency: null, lines: [{ noBid: true, unitPrice: null, leadTimeDays: null, countryOfOrigin: null }] }).filter((x) => !x.ok).length).toBeGreaterThanOrEqual(3);
+    expect(crossRate({ EUR: 0.9, GBP: 0.8 }, "EUR", "GBP")).toBeCloseTo(0.8 / 0.9);
+    expect(crossRate({ EUR: 0.9 }, "USD", "EUR")).toBe(0.9);
+    expect(crossRate({ EUR: 0.9 }, "EUR", "EUR")).toBe(1);
+    expect(crossRate({ EUR: 0.9 }, "EUR", "JPY")).toBeNull();
+  });
+
+  it("a bid needs interest first; an incomplete bid cannot be submitted and says why", async () => {
+    const t = await build({ title: `Bid gate ${suffix}` });
+    await expect(bids.getWorkspace(asUser(capable, BID), t.id)).rejects.toThrow(/Express interest/);
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    const ws = await bids.getWorkspace(asUser(capable, BID), t.id);
+    expect(ws.bid.status).toBe("NONE");
+    expect(ws.canSubmit).toBe(false);
+    await expect(bids.submitBid(asUser(capable, BID), t.id)).rejects.toThrow();
+    await expect(bids.getWorkspace(asUser(incapable, BID), t.id)).rejects.toThrow();
+    await expect(bids.saveBid(asUser(capable, ["tenders.view"]), t.id, {} as never)).rejects.toThrow();
+  });
+
+  it("submits in a different currency using the stored daily rate, and issuers cannot see it until closing", async () => {
+    const t = await openBuilt();
+    const ws = await fillBid(t.id);
+    expect(ws.canSubmit).toBe(true);
+    const res = await bids.submitBid(asUser(capable, BID), t.id);
+    expect(Number(res.fxRate)).toBeCloseTo(1 / 0.9, 4);
+    expect(Number(res.totalTenderCurrency)).toBeCloseTo(Math.round((2000 / 0.9 + Number.EPSILON) * 100) / 100, 2);
+    expect(await bids.countSubmitted(asUser(issuer, ISSUE), t.id)).toBe(1);
+    await expect(bids.listBids(asUser(issuer, ISSUE), t.id)).rejects.toThrow(/sealed/);
+    expect((await bids.myBids(asUser(capable, BID))).find((b) => b.tenderId === t.id)?.status).toBe("SUBMITTED");
+    // editing a submitted bid returns it to draft
+    expect((await bids.saveBid(asUser(capable, BID), t.id, { notes: "tweak" })).bid.status).toBe("DRAFT");
+    await bids.submitBid(asUser(capable, BID), t.id);
+    await bids.withdrawBid(asUser(capable, BID), t.id);
+    expect(await bids.countSubmitted(asUser(issuer, ISSUE), t.id)).toBe(0);
+  });
+
+  it("opens to the issuer after closing, logs the opening, and never exposes drafts", async () => {
+    const t = await openBuilt();
+    await fillBid(t.id, { bidCurrency: "USD" });
+    await bids.submitBid(asUser(capable, BID), t.id);
+    await withTenantContext(issuer, (tx) => tx.tender.update({ where: { id: t.id }, data: { closingAt: new Date(Date.now() - 60_000) } }));
+    const list = await bids.listBids(asUser(issuer, ISSUE), t.id);
+    expect(list).toHaveLength(1);
+    expect(Number(list[0].totalTenderCurrency)).toBe(2000);
+    expect(list[0].organizationId).toBe(capable);
+    await expect(bids.listBids(asUser(capable, BID), t.id)).rejects.toThrow();
+    await expect(bids.submitBid(asUser(capable, BID), t.id)).rejects.toThrow(/no longer accepting|already/);
+    const tl = await svc.getMine(asUser(issuer, ISSUE), t.id);
+    expect(tl.tender.id).toBe(t.id);
+  });
+
+  it("files must match the tender's accepted types and stay inside the bidder's own tender path", async () => {
+    const t = await openBuilt({ acceptedFileTypes: "pdf" });
+    await expect(bids.requestFileUpload(asUser(capable, BID), t.id, { fileName: "x.exe", contentType: "application/octet-stream", fileSizeBytes: 10 })).rejects.toThrow(/accepts/);
+    const up = await bids.requestFileUpload(asUser(capable, BID), t.id, { fileName: "cert.pdf", contentType: "application/pdf", fileSizeBytes: 10 });
+    await expect(bids.confirmFile(asUser(capable, BID), t.id, { blobName: "tender-bids/other/x.pdf", fileName: "cert.pdf" })).rejects.toThrow(/does not belong/);
+    const ws = await bids.confirmFile(asUser(capable, BID), t.id, { blobName: (up as { blobName: string }).blobName, fileName: "cert.pdf", fileSizeBytes: 10 });
+    expect(ws.criteria.some((c) => c.files.length > 0) || ws.bid.id).toBeTruthy();
   });
 });

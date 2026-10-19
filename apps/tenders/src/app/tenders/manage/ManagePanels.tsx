@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EXCLUSION_GROUNDS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
-import type { TenderChainCheck, TenderDetailForIssuer } from "@universe/types";
+import type { IssuerBidRecord, TenderChainCheck, TenderDetailForIssuer } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { Card, ErrorNote, Field, fmtDate, fmtDateTime, fromLocalInput, inputStyle, toLocalInput } from "../../../lib/ui";
@@ -176,5 +176,45 @@ export function VerifyTimeline({ id }: { id: string }) {
       {res && (res.ok ? <Pill tone="good">{res.events} chained entries verified, none altered</Pill> : <Pill tone="critical">Integrity check failed{res.brokenAt ? ` at entry ${res.brokenAt}` : ""}</Pill>)}
       {err && <span style={{ fontSize: 13, color: "var(--u-status-critical)" }}>{err}</span>}
     </div>
+  );
+}
+
+/** Bids: only a count while the tender is open; the contents open at the closing time, and every opening is written to the timeline. */
+export function BidsPanel({ d }: { d: TenderDetailForIssuer }) {
+  const t = d.tender;
+  const closed = !!t.closingAt && new Date(t.closingAt).getTime() <= Date.now();
+  const [count, setCount] = useState<number | null>(null);
+  const [bids, setBids] = useState<IssuerBidRecord[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  useEffect(() => { apiClient.tenderBidCount(t.id).then(setCount).catch(() => undefined); }, [t.id]);
+  const open = async () => { setErr(null); try { setBids(await apiClient.listTenderBids(t.id)); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the bids."); } };
+  const file = async (fileId: string) => { try { const r = await apiClient.issuerTenderBidFileUrl(t.id, fileId); window.open(r.downloadUrl, "_blank", "noopener"); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the file."); } };
+  if (t.status === "DRAFT") return <Card title="Bids"><p style={{ margin: 0, ...muted }}>Bids arrive once the tender is published.</p></Card>;
+  return (
+    <Card title={`Bids${count !== null ? ` (${count} submitted)` : ""}`}>
+      <ErrorNote message={err} />
+      {!closed ? <p style={{ margin: 0, lineHeight: 1.5, ...muted }}>Bids are sealed. You can see how many have been submitted, but not who bid or what they offered, until {fmtDateTime(t.closingAt, t.timeZone)}.</p> : !bids ? (
+        <div><p style={{ marginTop: 0, ...muted }}>The tender has closed. Opening the bids is recorded on the tender timeline.</p><Button variant="primary" onClick={open} disabled={count === 0}>Open bids</Button></div>
+      ) : bids.length === 0 ? <p style={{ margin: 0, ...muted }}>No bids were submitted.</p> : bids.map((b, i) => (
+        <div key={b.bidId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <strong>{i + 1}. {b.organizationName}</strong>
+            <span>{t.currency} {Number(b.totalTenderCurrency ?? 0).toLocaleString()}{b.bidCurrency !== t.currency && b.bidCurrency ? <span style={muted}> ({b.bidCurrency} {Number(b.totalBidCurrency).toLocaleString()} at {Number(b.fxRate).toFixed(4)}, {b.fxRateDate?.slice(0, 10)})</span> : null}</span>
+          </div>
+          <button type="button" onClick={() => setOpenId(openId === b.bidId ? null : b.bidId)} style={{ border: "none", background: "none", padding: 0, color: "var(--u-accent)", cursor: "pointer", fontSize: 13 }}>{openId === b.bidId ? "Hide details" : "Show details"}</button>
+          {openId === b.bidId && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+              {b.lines.map((l) => <div key={l.tenderLineId} style={{ fontSize: 13.5 }}>{l.lineNumber}. {l.description}: {l.noBid ? <em>not bidding</em> : <>{b.bidCurrency} {l.unitPrice} per {l.unit} · {l.leadTimeDays} days · origin {l.countryOfOrigin}{l.manufacturerName ? ` · ${l.manufacturerName}` : ""}</>}</div>)}
+              {b.responses.map((r) => (
+                <div key={r.criterionId} style={{ fontSize: 13.5 }}><strong>{r.criterionTitle}</strong>{r.text && <div style={{ whiteSpace: "pre-wrap" }}>{r.text}</div>}{r.files.map((f) => <div key={f.id}><button type="button" onClick={() => file(f.id)} style={{ border: "none", background: "none", padding: 0, color: "var(--u-accent)", cursor: "pointer" }}>{f.fileName}</button></div>)}</div>
+              ))}
+              {b.notes && <div style={{ fontSize: 13.5 }}><strong>Notes:</strong> {b.notes}</div>}
+              <div style={muted}>Valid for {b.validityDays} days · submitted {fmtDateTime(b.submittedAt, t.timeZone)}</div>
+            </div>
+          )}
+        </div>
+      ))}
+    </Card>
   );
 }

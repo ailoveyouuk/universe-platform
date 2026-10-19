@@ -9,9 +9,9 @@ import { apiClient } from "../../../lib/apiClient";
 import { tenderTiles } from "../../../lib/stageTiles";
 import { Card, EVENT_LABEL, ErrorNote, Field, Heading, Page, STATUS_LABEL, STATUS_TONE, TYPE_LABEL, VISIBILITY_LABEL, fmtDate, fmtDateTime, fromLocalInput, inputStyle, toLocalInput } from "../../../lib/ui";
 import { Invitations, describeRule } from "../builder/BuilderView";
-import { AddendaPanel, ParticipantsPanel, QuestionsPanel, ScreeningPanel, VerifyTimeline } from "./ManagePanels";
+import { AddendaPanel, BidsPanel, ParticipantsPanel, QuestionsPanel, ScreeningPanel, VerifyTimeline } from "./ManagePanels";
 
-type Tab = "summary" | "participants" | "questions" | "addenda" | "screening" | "timeline";
+type Tab = "summary" | "participants" | "bids" | "questions" | "addenda" | "screening" | "timeline";
 const ICONS: Record<string, React.ReactNode> = { closes: <CalendarIcon size={18} />, interest: <GridIcon size={18} />, invited: <CheckCircleIcon size={18} />, clar: <ClockIcon size={18} />, lines: <GridIcon size={18} />, eval: <ClockIcon size={18} />, award: <CalendarIcon size={18} />, criteria: <CheckCircleIcon size={18} /> };
 
 /** An issuer's page for a published tender (2026-10-19): stage tiles, details, who is interested, and the audit timeline. */
@@ -44,7 +44,7 @@ export function ManageView() {
       {tiles.length > 0 && <StatTileGrid>{tiles.map((x) => <StatTile key={x.key} label={x.label} value={x.value} icon={ICONS[x.key] ?? <AlertIcon size={18} />} tone={x.tone} note={x.note} indicator={x.indicator} />)}</StatTileGrid>}
 
       <div style={{ display: "flex", gap: 6 }}>
-        {([["summary", "Summary"], ["participants", `Participants (${d.participants.length})`], ["questions", `Questions (${d.questions.filter((q) => !q.answered).length})`], ["addenda", `Addenda (${d.addenda.length})`], ["screening", "Screening"], ["timeline", "Timeline"]] as [Tab, string][]).map(([k, label]) => (
+        {([["summary", "Summary"], ["participants", `Participants (${d.participants.length})`], ["bids", "Bids"], ["questions", `Questions (${d.questions.filter((q) => !q.answered).length})`], ["addenda", `Addenda (${d.addenda.length})`], ["screening", "Screening"], ["timeline", "Timeline"]] as [Tab, string][]).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setTab(k)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}><Pill tone={tab === k ? "brand" : "neutral"}>{label}</Pill></button>
         ))}
       </div>
@@ -85,6 +85,7 @@ export function ManageView() {
           {st === "PUBLISHED" && <Invitations detail={d} onSaved={load} />}
         </>
       )}
+      {tab === "bids" && <BidsPanel d={d} />}
       {tab === "questions" && <QuestionsPanel d={d} onChanged={load} />}
       {tab === "addenda" && <AddendaPanel d={d} onChanged={load} />}
       {tab === "screening" && <ScreeningPanel d={d} onChanged={load} />}

@@ -22,6 +22,7 @@ import {
   LogoutIcon,
   UserIcon,
   GlobalSearch,
+  SearchIcon,
 } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
@@ -32,9 +33,13 @@ import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 
 /** Route → nav + breadcrumb metadata, in one place so adding a page means
  * adding one line here rather than touching the shell itself. */
-const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean }[] = [
+const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean; needs?: string }[] = [
   { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
-  { href: "/tenders", label: "My tenders", icon: () => <GridIcon size={19} />, inNav: true },
+  { href: "/tenders", label: "My tenders", icon: () => <GridIcon size={19} />, inNav: true, needs: "tenders.issue" },
+  { href: "/discover", label: "Find tenders", icon: () => <SearchIcon size={19} />, inNav: true, needs: "tenders.view" },
+  { href: "/discover/view", label: "Tender", icon: () => <GridIcon size={19} />, inNav: false },
+  { href: "/bids", label: "My bids", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.bid" },
+  { href: "/bids/edit", label: "Bid", icon: () => <ShieldIcon size={19} />, inNav: false },
   { href: "/tenders/builder", label: "Build a tender", icon: () => <ShieldIcon size={19} />, inNav: false },
   { href: "/tenders/manage", label: "Manage", icon: () => <GridIcon size={19} />, inNav: false },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },
@@ -77,7 +82,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav).map((r) => ({
+  const staff = (me?.platformStaffRole ?? "NONE") !== "NONE";
+  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (!r.needs || staff || !!me?.permissions.includes(r.needs))).map((r) => ({
     label: r.label,
     href: r.href,
     icon: r.icon(pathname === r.href),

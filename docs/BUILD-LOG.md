@@ -526,3 +526,14 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Audit chain:** every tender event is hash-chained (SHA-256 over previous hash + content), written in a platform-staff context so both parties' events join one chain; issuer can verify the timeline from the Timeline tab. Limitation: removing the most recent entries cannot be detected by the chain alone.
 - **Currency** is now required to publish (bids are compared in it). FX at submission (spot rate) and evaluator conflict declarations/scoring arrive with bids in steps 3 and 4.
 - **Prod steps for Lewis:** the API deploy applies migration `20261019210000_tender_compliance`; then re-run `infra/sql/tender-rls.sql` (idempotent) in the Azure SQL query editor so the three new tables get policies.
+
+## 2026-10-19: Tender bids and the participant screens (step 3)
+
+- **Bids:** one per organisation per tender, owned by the bidder, read by the issuer as counterparty (two-party RLS). Tables `TenderBid`, `TenderBidLine`, `TenderBidResponse`, `TenderBidFile` (migration `20261019230000_tender_bids`).
+- **Sealing:** the issuer sees only a count of submitted bids until the closing time; listing and file download are refused before it. Opening bids and opening a bid file are written to the hash-chained timeline. The seal is enforced in the API, not by the database.
+- **FX:** prices are in the bidder's currency; on submit the total is converted to the tender currency using the latest daily reference (ECB-based) rate, stored with the bid (rate, date, both totals). If no rate exists the bid is blocked with a message.
+- **Completeness checklist** (`bid-completeness.ts`): currency chosen, every item priced or marked not-bidding (at least one priced), lead time and country of origin, every required criterion answered in the format asked, addenda acknowledged, validity confirmed. Editing a submitted bid returns it to draft. Withdrawal allowed until closing.
+- **Files:** direct-to-storage upload through a short-lived write link, checked against the tender's accepted types and size; recorded after upload.
+- **Screens (tenders app):** Find tenders (chips, filters, tenders for you, saved searches, shortlist), tender view (eligibility checklist, items, criteria, Q&A, addenda acknowledge, interest with pledge and exclusion declaration), bid builder, My bids, issuer Bids tab and a Bids received dashboard tile. Navigation now depends on permissions.
+- **Prod steps for Lewis:** after the API deploy applies the migration, re-run the regenerated one-paste RLS SQL so the four bid tables get policies.
+- **Not yet:** evaluation, award, contracts (steps 4 to 7). Qualification evidence for newly added codes is still not tied to registry fields.
