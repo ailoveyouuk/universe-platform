@@ -51,6 +51,7 @@ export class TendersService {
       standstillWorkingDays: standstill === false ? null : standstill ? dto.standstillWorkingDays ?? 8 : dto.standstillWorkingDays,
       publicNotice: simulated ? false : dto.publicNotice,
       requireIntegrityPledge: dto.requireIntegrityPledge, requireExclusionDeclaration: dto.requireExclusionDeclaration,
+      allowTemplateSubmission: dto.allowTemplateSubmission,
     };
   }
 
@@ -148,7 +149,7 @@ export class TendersService {
         if (dto.visibility) { data.visibility = dto.visibility; data.visibleToAll = dto.visibility !== "INVITED_ONLY"; }
       } else if (t.status === "PUBLISHED") {
         // After publication only the timetable can move, and the closing date only later; everything else is what bidders relied on.
-        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate", "timeZone", "standstillEnabled", "standstillWorkingDays", "publicNotice", "requireIntegrityPledge", "requireExclusionDeclaration"] as const;
+        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate", "timeZone", "standstillEnabled", "standstillWorkingDays", "publicNotice", "requireIntegrityPledge", "requireExclusionDeclaration", "allowTemplateSubmission"] as const;
         if (locked.some((k) => dto[k] !== undefined)) throw new ConflictException("A published tender can only have its dates extended. Cancel and reissue to change anything else.");
       } else {
         throw new ConflictException(`A ${t.status.toLowerCase()} tender can no longer be edited.`);

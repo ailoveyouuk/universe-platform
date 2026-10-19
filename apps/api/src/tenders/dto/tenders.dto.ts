@@ -31,6 +31,7 @@ export class UpdateTenderDto {
   @IsOptional() @IsBoolean() standstillEnabled?: boolean;
   @IsOptional() @IsInt() @Min(1) @Max(30) standstillWorkingDays?: number;
   @IsOptional() @IsBoolean() publicNotice?: boolean;
+  @IsOptional() @IsBoolean() allowTemplateSubmission?: boolean;
   @IsOptional() @IsBoolean() requireIntegrityPledge?: boolean;
   @IsOptional() @IsBoolean() requireExclusionDeclaration?: boolean;
 }
@@ -114,6 +115,11 @@ export class ScreeningDto {
   @IsIn(SCREENING_OUTCOMES.map((o) => o.value)) outcome!: string;
   @IsOptional() @IsString() @Length(0, 4000) notes?: string;
   @IsDateString() screenedOn!: string;
+}
+
+export class TemplateUploadDto {
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 4_000_000) contentBase64!: string;
 }
 
 export class BidLineDto {

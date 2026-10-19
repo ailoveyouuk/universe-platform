@@ -7,8 +7,9 @@ import { assertHasPermission } from "../common/authorization";
 import { BlobStorageService } from "../documents/blob-storage.service";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { checkBid, crossRate, round2 } from "./bid-completeness";
+import { buildFinancialTemplate, buildTechnicalTemplate, parseFinancialTemplate, parseTechnicalTemplate, stampFor } from "./bid-template";
 import { evaluateEligibility } from "./eligibility";
-import type { BidSaveDto, ConfirmBidFileDto, RequestBidFileDto } from "./dto/tenders.dto";
+import type { BidSaveDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto } from "./dto/tenders.dto";
 import { appendTenderEvent } from "./tender-events";
 import { effectiveStatus, TendersService } from "./tenders.service";
 
@@ -106,7 +107,7 @@ export class TenderBidsService {
     const status = (bid?.status ?? "NONE") as "NONE" | "DRAFT" | "SUBMITTED" | "WITHDRAWN";
     const open = c.open && c.eligibility.canBid;
     return {
-      tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: issuer?.name ?? "", status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, currency: t.currency, bidValidityDays: t.bidValidityDays, acceptedFileTypes: t.acceptedFileTypes, maxFileSizeMb: t.maxFileSizeMb, allowTextSubmission: t.allowTextSubmission },
+      tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: issuer?.name ?? "", status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, currency: t.currency, bidValidityDays: t.bidValidityDays, acceptedFileTypes: t.acceptedFileTypes, maxFileSizeMb: t.maxFileSizeMb, allowTextSubmission: t.allowTextSubmission, allowTemplateSubmission: t.allowTemplateSubmission },
       bid: { id: bid?.id ?? null, status, bidCurrency: bid?.bidCurrency ?? null, validityConfirmed: bid?.validityConfirmed ?? false, notes: bid?.notes ?? null, submittedAt: bid?.submittedAt ?? null, fxRate: dec(bid?.fxRate), fxRateDate: bid?.fxRateDate ?? null, totalBidCurrency: dec(bid?.totalBidCurrency), totalTenderCurrency: dec(bid?.totalTenderCurrency) },
       lines: wsLines, criteria: wsCriteria, addenda: wsAddenda, checklist, open, canSubmit: open && status !== "SUBMITTED" && checklist.every((x) => x.ok),
     };
@@ -189,6 +190,69 @@ export class TenderBidsService {
     const f = await withTenantContext(user.organizationId, (tx) => tx.tenderBidFile.findFirst({ where: { id: fileId, tenderId, organizationId: user.organizationId } }));
     if (!f) throw new NotFoundException("File not found.");
     return { downloadUrl: await this.blob.getDownloadUrl(user.organizationId, f.blobName) };
+  }
+
+  // ------------------------------------------------- locked templates (alternative to the online form)
+
+  private async templateData(user: RequestUser, tenderId: string) {
+    return withTenantContext(user.organizationId, async (tx) => {
+      const c = await this.assertCanBid(tx, user, tenderId);
+      if (!c.t.allowTemplateSubmission) throw new ConflictException("This tender does not accept template submissions. Use the online form.");
+      if (!c.t.currency) throw new ConflictException("This tender has no currency set.");
+      const [issuer, lines, criteria, countries] = await Promise.all([
+        tx.organization.findUnique({ where: { id: c.t.organizationId }, select: { name: true } }),
+        tx.tenderLine.findMany({ where: { tenderId }, orderBy: { lineNumber: "asc" } }),
+        tx.tenderCriterion.findMany({ where: { tenderId }, orderBy: { sortOrder: "asc" } }),
+        tx.country.findMany({ orderBy: { name: "asc" }, select: { code: true, name: true } }),
+      ]);
+      const t = c.t;
+      const closingText = t.closingAt ? `${t.closingAt.toISOString().slice(0, 16).replace("T", " ")} UTC` : "the closing time";
+      return {
+        tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: issuer?.name ?? "", currency: t.currency!, bidValidityDays: t.bidValidityDays, closingText },
+        lines: lines.map((l) => ({ id: l.id, lineNumber: l.lineNumber, description: l.description, quantity: dec(l.quantity), unit: l.unit })),
+        criteria: criteria.map((x) => ({ id: x.id, title: x.title, description: x.description, kind: x.kind, weight: dec(x.weight), isMandatory: x.isMandatory, responseFormat: x.responseFormat })),
+        countries, allowTextSubmission: t.allowTextSubmission,
+      };
+    });
+  }
+
+  /** A locked template generated from this tender's own items and criteria: Excel for the financial offer, Word for the technical offer. */
+  async downloadTemplate(user: RequestUser, tenderId: string, kind: string) {
+    assertHasPermission(user, "tenders.bid");
+    if (kind !== "financial" && kind !== "technical") throw new BadRequestException("Unknown template.");
+    const d = await this.templateData(user, tenderId);
+    const ref = d.tender.referenceNumber.replace(/[^A-Za-z0-9-]+/g, "_");
+    if (kind === "financial") {
+      const buf = await buildFinancialTemplate(d.tender, d.lines, d.criteria, d.countries);
+      return { fileName: `${ref}-financial-offer.xlsx`, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64: buf.toString("base64") };
+    }
+    if (!d.allowTextSubmission) throw new ConflictException("This tender takes technical answers as uploaded files only.");
+    const buf = await buildTechnicalTemplate(d.tender, d.lines, d.criteria);
+    return { fileName: `${ref}-technical-offer.docx`, contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", contentBase64: buf.toString("base64") };
+  }
+
+  /**
+   * Reads a completed template into the draft bid. If anything is wrong the file is not accepted and nothing is changed:
+   * the bidder gets the reasons and can amend and try again, or use the online form instead.
+   */
+  async uploadTemplate(user: RequestUser, tenderId: string, kind: string, dto: TemplateUploadDto) {
+    assertHasPermission(user, "tenders.bid");
+    if (kind !== "financial" && kind !== "technical") throw new BadRequestException("Unknown template.");
+    const d = await this.templateData(user, tenderId);
+    const buf = Buffer.from(dto.contentBase64, "base64");
+    if (buf.length === 0 || buf.length > 3_000_000) return { accepted: false, problems: ["The file is empty or larger than 3 MB."], workspace: null };
+    const stamp = stampFor(tenderId, d.lines, d.criteria);
+    if (kind === "financial") {
+      const r = await parseFinancialTemplate(buf, tenderId, stamp, d.lines.map((l) => l.id), new Set(d.countries.map((c) => c.code)));
+      if (!r.data) return { accepted: false, problems: r.problems, workspace: null };
+      const workspace = await this.saveBid(user, tenderId, { bidCurrency: d.tender.currency, validityConfirmed: r.data.validityConfirmed, notes: r.data.notes, lines: r.data.lines });
+      return { accepted: true, problems: [], workspace };
+    }
+    const textIds = new Set(d.criteria.filter((c) => c.responseFormat !== "UPLOAD").map((c) => c.id));
+    const r = await parseTechnicalTemplate(buf, tenderId, stamp, textIds);
+    if (!r.data) return { accepted: false, problems: r.problems, workspace: null };
+    const workspace = await this.saveBid(user, tenderId, { responses: r.data });
+    return { accepted: true, problems: [], workspace };
   }
 
   async submitBid(user: RequestUser, tenderId: string) {

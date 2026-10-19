@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { chipsFor, evaluateEligibility, matchesSavedSearch, type OrgProfile } from "../src/tenders/eligibility";
 import { TenderBidsService } from "../src/tenders/tender-bids.service";
+import ExcelJS from "exceljs";
+import JSZip from "jszip";
 import { checkBid, crossRate } from "../src/tenders/bid-completeness";
 import { TenderComplianceService } from "../src/tenders/tender-compliance.service";
 import { eventHash, verifyChain } from "../src/tenders/tender-events";
@@ -412,5 +414,49 @@ describe("Tender service", () => {
     await expect(bids.confirmFile(asUser(capable, BID), t.id, { blobName: "tender-bids/other/x.pdf", fileName: "cert.pdf" })).rejects.toThrow(/does not belong/);
     const ws = await bids.confirmFile(asUser(capable, BID), t.id, { blobName: (up as { blobName: string }).blobName, fileName: "cert.pdf", fileSizeBytes: 10 });
     expect(ws.criteria.some((c) => c.files.length > 0) || ws.bid.id).toBeTruthy();
+  });
+
+  it("bid templates: a downloaded financial and technical pack is read back into the draft; bad files are refused with reasons and change nothing", async () => {
+    const t = await openBuilt();
+    const u = asUser(capable, BID);
+    await withPlatformStaffContext((tx) => tx.country.upsert({ where: { code: "IN" }, update: {}, create: { code: "IN", name: "India", regionCode: "AS" } }));
+    // financial
+    const fin = await bids.downloadTemplate(u, t.id, "financial");
+    expect(fin.fileName).toMatch(/\.xlsx$/);
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(Buffer.from(fin.contentBase64, "base64") as never);
+    const ws = wb.getWorksheet("Financial offer")!;
+    ws.getCell("C4").value = "Yes"; ws.getCell("G8").value = 2; ws.getCell("H8").value = 21; ws.getCell("I8").value = "IN - India";
+    const up = async () => Buffer.from(await wb.xlsx.writeBuffer()).toString("base64");
+    const ok = await bids.uploadTemplate(u, t.id, "financial", { fileName: "f.xlsx", contentBase64: await up() });
+    expect(ok.accepted).toBe(true);
+    expect(ok.workspace?.lines[0].unitPrice).toBe("2");
+    expect(ok.workspace?.lines[0].countryOfOrigin).toBe("IN");
+    expect(ok.workspace?.bid.validityConfirmed).toBe(true);
+    // a bad value is refused and the draft is untouched
+    ws.getCell("G8").value = "lots";
+    const bad = await bids.uploadTemplate(u, t.id, "financial", { fileName: "f.xlsx", contentBase64: await up() });
+    expect(bad.accepted).toBe(false);
+    expect(bad.problems[0]).toMatch(/unit price/);
+    expect((await bids.getWorkspace(u, t.id)).lines[0].unitPrice).toBe("2");
+    // a file that is not a template, and a pack from another tender
+    expect((await bids.uploadTemplate(u, t.id, "financial", { fileName: "x.xlsx", contentBase64: Buffer.from("nope").toString("base64") })).accepted).toBe(false);
+    const other = await openBuilt();
+    expect((await bids.uploadTemplate(u, other.id, "financial", { fileName: "f.xlsx", contentBase64: await up() })).problems[0]).toMatch(/different tender/);
+    // technical
+    const tech = await bids.downloadTemplate(u, t.id, "technical");
+    expect(tech.fileName).toMatch(/\.docx$/);
+    const zip = await JSZip.loadAsync(Buffer.from(tech.contentBase64, "base64"));
+    let xml = await zip.file("word/document.xml")!.async("string");
+    xml = xml.replace(/<w:t xml:space="preserve"><\/w:t>/g, "<w:t>Fully registered &amp; compliant.</w:t>");
+    zip.file("word/document.xml", xml);
+    const techUp = await bids.uploadTemplate(u, t.id, "technical", { fileName: "t.docx", contentBase64: (await zip.generateAsync({ type: "nodebuffer" })).toString("base64") });
+    expect(techUp.accepted).toBe(true);
+    expect(techUp.workspace?.criteria.find((c) => c.title === "Registered")?.text).toBe("Fully registered & compliant.");
+  });
+
+  it("template submission can be switched off per tender", async () => {
+    const t = await build({ title: `No templates ${suffix}`, allowTemplateSubmission: false });
+    await svc.expressInterest(asUser(capable, BID), t.id, DECL);
+    await expect(bids.downloadTemplate(asUser(capable, BID), t.id, "financial")).rejects.toThrow(/does not accept template/);
   });
 });

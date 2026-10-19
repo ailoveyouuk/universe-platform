@@ -1,5 +1,5 @@
 import type {
-  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, MyBidItem, IssuerBidRecord,
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -326,6 +326,8 @@ export class UniverseApiClient {
   myTenderBids(): Promise<MyBidItem[]> { return this.request("/tenders/bids/mine"); }
   getTenderBid(id: string): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid`); }
   saveTenderBid(id: string, body: TenderBidSaveInput): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid`, { method: "PUT", body: JSON.stringify(body) }); }
+  downloadTenderBidTemplate(id: string, kind: BidTemplateKind): Promise<BidTemplateFile> { return this.request(`/tenders/${id}/bid/template/${kind}`); }
+  uploadTenderBidTemplate(id: string, kind: BidTemplateKind, fileName: string, contentBase64: string): Promise<BidTemplateResult> { return this.request(`/tenders/${id}/bid/template/${kind}`, { method: "POST", body: JSON.stringify({ fileName, contentBase64 }) }); }
   submitTenderBid(id: string): Promise<{ submitted: boolean; totalTenderCurrency: string | null; fxRate: string | null; fxRateDate: string | null }> { return this.request(`/tenders/${id}/bid/submit`, { method: "POST" }); }
   withdrawTenderBid(id: string): Promise<unknown> { return this.request(`/tenders/${id}/bid/withdraw`, { method: "POST" }); }
   /** Uploads one file for a bid: asks for a write link, puts the file straight to storage, then records it. */

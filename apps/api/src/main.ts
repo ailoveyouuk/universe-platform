@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { AppModule } from "./app.module";
 
 // Local dev convenience only — loads apps/api/.env.local (gitignored) into
@@ -19,7 +20,8 @@ try {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useBodyParser("json", { limit: "6mb" }); // completed bid templates arrive as base64
   app.enableCors(); // tightened per-app in production via allowed origins config
   // Added 2026-09-24 alongside the schema rework: this was missing entirely,
   // so DTO decorators (@IsIn, @IsString, etc.) were never actually enforced.

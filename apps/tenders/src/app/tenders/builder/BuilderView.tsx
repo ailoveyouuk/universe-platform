@@ -99,7 +99,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     timeZone: t?.timeZone ?? browserZone(),
     clarificationDeadline: toLocalInput(t?.clarificationDeadline, t?.timeZone), closingAt: toLocalInput(t?.closingAt, t?.timeZone), evaluationDueAt: toLocalInput(t?.evaluationDueAt, t?.timeZone), awardDueAt: toLocalInput(t?.awardDueAt, t?.timeZone),
     standstillEnabled: t?.standstillEnabled ?? false, standstillWorkingDays: t?.standstillWorkingDays?.toString() ?? "8", publicNotice: t?.publicNotice ?? false,
-    requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
+    allowTemplateSubmission: t?.allowTemplateSubmission ?? true, requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
     bidValidityDays: t?.bidValidityDays?.toString() ?? "", acceptedFileTypes: t?.acceptedFileTypes ?? "pdf,docx,xlsx,csv", maxFileSizeMb: t?.maxFileSizeMb?.toString() ?? "25",
     allowTextSubmission: t?.allowTextSubmission ?? true, termsAndConditions: t?.termsAndConditions ?? "",
   });
@@ -113,7 +113,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
       timeZone: f.timeZone,
       clarificationDeadline: fromLocalInput(f.clarificationDeadline, f.timeZone), closingAt: fromLocalInput(f.closingAt, f.timeZone), evaluationDueAt: fromLocalInput(f.evaluationDueAt, f.timeZone), awardDueAt: fromLocalInput(f.awardDueAt, f.timeZone),
       standstillEnabled: f.standstillEnabled, standstillWorkingDays: f.standstillEnabled ? num(f.standstillWorkingDays) ?? 8 : undefined, publicNotice: f.publicNotice,
-      requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
+      allowTemplateSubmission: f.allowTemplateSubmission, requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
       bidValidityDays: num(f.bidValidityDays) ?? undefined, acceptedFileTypes: f.acceptedFileTypes || undefined, maxFileSizeMb: num(f.maxFileSizeMb) ?? undefined,
       allowTextSubmission: f.allowTextSubmission, termsAndConditions: f.termsAndConditions || undefined,
     };
@@ -157,6 +157,9 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         </Field>
         <Field label="Public notice" hint="Publishes a read-only notice (title, items, criteria, closing date) that anyone can see without signing in. Never available for simulated tenders. Off by default.">
           <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.publicNotice} onChange={(e) => set("publicNotice", e.target.checked)} /> Publish a public notice</label>
+        </Field>
+        <Field label="Template submission" hint="Bidders can also download a locked Excel financial offer and Word technical offer generated from your items and criteria, complete them offline and upload them. On by default alongside the online form.">
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.allowTemplateSubmission} onChange={(e) => set("allowTemplateSubmission", e.target.checked)} /> Allow template submission</label>
         </Field>
         <Field label="Terms and conditions" wide><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.termsAndConditions} onChange={(e) => set("termsAndConditions", e.target.value)} /></Field>
       </div>

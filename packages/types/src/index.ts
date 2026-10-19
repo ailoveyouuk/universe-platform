@@ -3246,7 +3246,7 @@ export interface TenderRecord {
   bidValidityDays: number | null; contractStartDate: string | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean;
   termsAndConditions: string | null; cancelledReason: string | null; isSimulated: boolean; createdAt: string; updatedAt: string;
   timeZone: string | null; standstillEnabled: boolean; standstillWorkingDays: number | null; publicNotice: boolean;
-  requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean;
+  requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean; allowTemplateSubmission: boolean;
 }
 export interface TenderListItem extends TenderRecord { interestedOrganisations: number }
 export interface TenderLineRecord {
@@ -3309,7 +3309,7 @@ export interface TenderBidWorkspaceCriterion {
 export interface TenderBidWorkspace {
   tender: {
     id: string; referenceNumber: string; title: string; issuerName: string; status: TenderStatus; closingAt: string | null; timeZone: string | null; currency: string | null;
-    bidValidityDays: number | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean;
+    bidValidityDays: number | null; acceptedFileTypes: string | null; maxFileSizeMb: number | null; allowTextSubmission: boolean; allowTemplateSubmission: boolean;
   };
   bid: {
     id: string | null; status: TenderBidStatus; bidCurrency: string | null; validityConfirmed: boolean; notes: string | null; submittedAt: string | null;
@@ -3357,3 +3357,8 @@ export interface TenderAvailableItem {
 export interface TenderAvailableResult { counts: Record<string, number>; tenders: TenderAvailableItem[] }
 export interface TenderSavedSearchCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }
 export interface TenderSavedSearchRecord { id: string; name: string; alertsEnabled: boolean; criteria: TenderSavedSearchCriteria; createdAt: string }
+
+export type BidTemplateKind = "financial" | "technical";
+export interface BidTemplateFile { fileName: string; contentType: string; contentBase64: string }
+/** The result of uploading a completed template. When not accepted nothing was changed and `problems` says why. */
+export interface BidTemplateResult { accepted: boolean; problems: string[]; workspace: TenderBidWorkspace | null }

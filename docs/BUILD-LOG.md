@@ -537,3 +537,9 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Screens (tenders app):** Find tenders (chips, filters, tenders for you, saved searches, shortlist), tender view (eligibility checklist, items, criteria, Q&A, addenda acknowledge, interest with pledge and exclusion declaration), bid builder, My bids, issuer Bids tab and a Bids received dashboard tile. Navigation now depends on permissions.
 - **Prod steps for Lewis:** after the API deploy applies the migration, re-run the regenerated one-paste RLS SQL so the four bid tables get policies.
 - **Not yet:** evaluation, award, contracts (steps 4 to 7). Qualification evidence for newly added codes is still not tied to registry fields.
+
+## 2026-10-20: Bid templates and tender-currency pricing
+
+- **Currency:** bids are priced in the tender's currency (shown fixed, with a note that any later conversion is an indicative daily reference rate). The conversion code remains but only applies to a tender with no currency.
+- **Locked templates (alternative to the online form):** the platform generates a financial offer workbook (.xlsx: items locked; unit price, lead time, country of origin dropdown, manufacturer, remarks, validity and notes open; totals computed) and a technical offer document (.docx: one answer box per criterion) from the tender's items and criteria. A hidden stamp ties each file to its tender. Upload reads the file into the same draft bid; if any value is invalid or the file is not this tender's template, nothing is changed and the bidder gets the reasons, with advice to amend and retry or use the online form. Blank cells are accepted (the checklist still shows what is missing). Toggle per tender (`allowTemplateSubmission`, on by default; locked after publication). Migration `20261020010000_tender_template_submission`.
+- Sheet protection is a convenience; everything is validated on upload. Certificates and other documents are still uploaded as files.

@@ -3297,6 +3297,8 @@ model Tender {
   publicNotice          Boolean      @default(false)
   requireIntegrityPledge     Boolean @default(true)
   requireExclusionDeclaration Boolean @default(true)
+  /// Bidders may also complete locked Excel/Word templates instead of the online form (on by default).
+  allowTemplateSubmission Boolean @default(true)
   termsAndConditions    String?      @db.NVarChar(Max)
   cancelledReason       String?      @db.NVarChar(1000)
   isSimulated           Boolean      @default(false)

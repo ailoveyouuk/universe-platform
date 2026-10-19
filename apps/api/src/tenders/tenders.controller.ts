@@ -5,7 +5,7 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, BidSaveDto, CancelTenderDto, ConfirmBidFileDto, RequestBidFileDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, BidSaveDto, CancelTenderDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
@@ -46,6 +46,8 @@ export class TendersController {
   @Get("bids/mine") myBids(@CurrentUser() u: RequestUser) { return this.bids.myBids(u); }
   @Get(":id/bid") bidWorkspace(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.getWorkspace(u, id); }
   @Put(":id/bid") saveBid(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: BidSaveDto) { return this.bids.saveBid(u, id, dto); }
+  @Get(":id/bid/template/:kind") bidTemplate(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("kind") kind: string) { return this.bids.downloadTemplate(u, id, kind); }
+  @Post(":id/bid/template/:kind") uploadBidTemplate(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("kind") kind: string, @Body() dto: TemplateUploadDto) { return this.bids.uploadTemplate(u, id, kind, dto); }
   @Post(":id/bid/submit") submitBid(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.submitBid(u, id); }
   @Post(":id/bid/withdraw") withdrawBid(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.withdrawBid(u, id); }
   @Post(":id/bid/files/upload-url") bidUploadUrl(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: RequestBidFileDto) { return this.bids.requestFileUpload(u, id, dto); }

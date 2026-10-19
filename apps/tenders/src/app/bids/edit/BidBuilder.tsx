@@ -8,6 +8,7 @@ import type { TenderBidWorkspace } from "@universe/types";
 import { Button, CountrySelect, CurrencySelect, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
+import { fileToBase64, saveBase64File } from "../../../lib/download";
 import { Card, ErrorNote, Field, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -24,6 +25,8 @@ export function BidBuilder() {
   const [ccy, setCcy] = useState(""); const [valid, setValid] = useState(false); const [notes, setNotes] = useState("");
   const [err, setErr] = useState<string | null>(null); const [msg, setMsg] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [problems, setProblems] = useState<string[]>([]);
+  const tplRef = useRef<HTMLInputElement>(null); const tplKind = useRef<"financial" | "technical">("financial");
   const fileRef = useRef<HTMLInputElement>(null); const fileFor = useRef<string | null>(null);
 
   const adopt = useCallback((w: TenderBidWorkspace) => {
@@ -50,6 +53,17 @@ export function BidBuilder() {
     catch (e) { setErr(e instanceof Error ? e.message : "Could not submit."); } finally { setBusy(false); }
   };
   const upd = (i: number, p: Partial<Line>) => { setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l))); setDirty(true); };
+  const getTemplate = async (kind: "financial" | "technical") => { setErr(null); try { saveBase64File(await apiClient.downloadTenderBidTemplate(id, kind)); } catch (e) { setErr(e instanceof Error ? e.message : "Could not create the template."); } };
+  const pickTemplate = (kind: "financial" | "technical") => { tplKind.current = kind; tplRef.current?.click(); };
+  const onTemplate = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true); setErr(null); setMsg(null); setProblems([]);
+    try {
+      const r = await apiClient.uploadTenderBidTemplate(id, tplKind.current, f.name, await fileToBase64(f));
+      if (r.accepted && r.workspace) { adopt(r.workspace); setMsg(`${tplKind.current === "financial" ? "Financial" : "Technical"} offer read into your draft. Check it below, then submit.`); }
+      else setProblems(r.problems);
+    } catch (e) { setErr(e instanceof Error ? e.message : "Could not read the file."); } finally { setBusy(false); if (tplRef.current) tplRef.current.value = ""; }
+  };
   const pick = (criterionId: string | null) => { fileFor.current = criterionId; fileRef.current?.click(); };
   const onFile = async (f: File | undefined) => { if (!f) return; await run(async () => { if (dirty) await apiClient.saveTenderBid(id, payload()); return apiClient.uploadTenderBidFile(id, f, fileFor.current); }, "File added."); if (fileRef.current) fileRef.current.value = ""; };
 
@@ -86,6 +100,24 @@ export function BidBuilder() {
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 14 }}><input type="checkbox" checked={valid} disabled={locked} onChange={(e) => { setValid(e.target.checked); setDirty(true); }} /> <span>My bid remains valid for {ws.tender.bidValidityDays ?? "the required number of"} days after the closing date.</span></label>
         </div>
       </Card>
+
+      {ws.tender.allowTemplateSubmission && !locked && (
+        <Card title="Prefer to work offline? Use the templates">
+          <input ref={tplRef} type="file" hidden accept=".xlsx,.docx" onChange={(e) => onTemplate(e.target.files?.[0])} />
+          <p style={{ marginTop: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>Download a locked template made from this tender's items and criteria, complete the shaded cells, and upload it. Your draft is filled in for you to check. Documents such as certificates are still uploaded below. You can mix the templates and the online form.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+            <div><strong style={{ fontSize: 14 }}>Financial offer (Excel)</strong><div style={{ display: "flex", gap: 8, marginTop: 6 }}><Button size="sm" variant="secondary" disabled={busy} onClick={() => getTemplate("financial")}>Download</Button><Button size="sm" variant="primary" disabled={busy} onClick={() => pickTemplate("financial")}>Upload completed</Button></div></div>
+            {ws.tender.allowTextSubmission && <div><strong style={{ fontSize: 14 }}>Technical offer (Word)</strong><div style={{ display: "flex", gap: 8, marginTop: 6 }}><Button size="sm" variant="secondary" disabled={busy} onClick={() => getTemplate("technical")}>Download</Button><Button size="sm" variant="primary" disabled={busy} onClick={() => pickTemplate("technical")}>Upload completed</Button></div></div>}
+          </div>
+          {problems.length > 0 && (
+            <div role="alert" style={{ marginTop: 14, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", fontSize: 13.5 }}>
+              <strong>This file was not accepted, and your draft has not been changed.</strong> Please amend the following and upload it again:
+              <ul style={{ margin: "6px 0" }}>{problems.map((p, i) => <li key={i}>{p}</li>)}</ul>
+              If the problem persists, please use the online form on this page instead.
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card title="Prices">
         {lines.map((l, i) => (
