@@ -1,0 +1,31 @@
+name: Backfill tender permissions
+
+# Manual run (2026-10-19). Adds the tender permissions (tenders.view, .issue, .bid, .evaluate, .award) to existing organisations'
+# roles, by role name (Organization Admin and Stakeholder Demo get all five; Project Manager, Supplier Admin and Manufacturer
+# Admin get view and bid). Idempotent. Adds permissions only: never removes or changes anything. DRY RUN by default.
+# Uses the same DEMO_LOAD_DATABASE_URL secret as the scale-data load and demo enrichment.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (writes nothing, lists what would be granted). Untick to apply."
+        default: true
+        type: boolean
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Backfill (or dry run)
+        run: npm run backfill:tender-permissions --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
