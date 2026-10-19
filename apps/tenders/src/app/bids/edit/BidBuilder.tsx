@@ -74,9 +74,15 @@ export function BidBuilder() {
 
       <Card title="Currency and validity">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-          <Field label="Currency of your prices" hint={tenderCcy && ccy && ccy !== tenderCcy ? `Your total is converted to ${tenderCcy} when you submit, using the latest daily reference rate. The rate used is recorded with your bid.` : tenderCcy ? `The tender is priced in ${tenderCcy}.` : undefined}>
-            <CurrencySelect value={ccy} onChange={(c) => { setCcy(c); setDirty(true); }} options={CURRENCY_OPTIONS} ariaLabel="Bid currency" />
-          </Field>
+          {tenderCcy ? (
+            <Field label="Currency of your prices" hint={`Prices must be given in ${tenderCcy}, the currency set by the tender owner. Any later conversion for reporting uses a daily reference rate and is indicative only, not a guaranteed or transaction rate.`}>
+              <div style={{ ...inputStyle, display: "flex", alignItems: "center" }}>{tenderCcy}</div>
+            </Field>
+          ) : (
+            <Field label="Currency of your prices" hint="This tender has no currency set. Pick the currency of your prices.">
+              <CurrencySelect value={ccy} onChange={(c) => { setCcy(c); setDirty(true); }} options={CURRENCY_OPTIONS} ariaLabel="Bid currency" />
+            </Field>
+          )}
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 14 }}><input type="checkbox" checked={valid} disabled={locked} onChange={(e) => { setValid(e.target.checked); setDirty(true); }} /> <span>My bid remains valid for {ws.tender.bidValidityDays ?? "the required number of"} days after the closing date.</span></label>
         </div>
       </Card>
