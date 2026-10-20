@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDownIcon } from "./icons";
 
 export interface SelectOption {
@@ -43,6 +43,22 @@ export function Select({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // On narrow screens a menu wider than the space to the right of its trigger is anchored to the trigger's right edge instead,
+  // so it never runs past the screen (and a closed menu never widens the page).
+  const [alignRight, setAlignRight] = useState(false);
+  useLayoutEffect(() => {
+    function measure() {
+      const trig = ref.current?.getBoundingClientRect();
+      const menu = menuRef.current;
+      if (!trig || !menu) return;
+      const w = Math.min(menu.scrollWidth, window.innerWidth - 32);
+      setAlignRight(trig.left + w > window.innerWidth - 8 && trig.right - w >= 8);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [options.length, open]);
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -92,11 +108,13 @@ export function Select({
 
       <div
         role="listbox"
+        ref={menuRef}
         style={{
           position: "absolute",
           top: "calc(100% + 6px)",
-          left: 0,
+          ...(alignRight ? { right: 0 } : { left: 0 }),
           minWidth: "100%",
+          maxWidth: "calc(100vw - 32px)",
           backgroundColor: "var(--u-surface-raised)",
           backgroundImage:
             "linear-gradient(color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 7%, transparent), color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 7%, transparent))",
