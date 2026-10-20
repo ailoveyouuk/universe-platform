@@ -170,7 +170,7 @@ export class QualityComplaintsService {
 
   async listPage(
     user: RequestUser,
-    opts: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; page?: number; pageSize?: number },
+    opts: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; triage?: boolean; actions?: boolean; page?: number; pageSize?: number },
   ): Promise<PagedResult<ComplaintListItem>> {
     assertHasPermission(user, VIEW);
     const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
@@ -186,7 +186,9 @@ export class QualityComplaintsService {
       ...(opts.category ? { category: opts.category } : {}),
       ...(opts.partnerId ? { partnerId: opts.partnerId } : {}),
       ...(opts.projectId ? { projectId: opts.projectId } : {}),
-      ...(opts.serious ? { isSerious: true } : {}),
+      ...(opts.serious ? { isSerious: true, status: { in: ACTIVE } } : {}),
+      ...(opts.triage ? { status: { in: ["LOGGED", "ACKNOWLEDGED"] } } : {}),
+      ...(opts.actions ? { actions: { some: { status: "OPEN" } } } : {}),
       ...(opts.overdue
         ? { status: { in: ["LOGGED", "ACKNOWLEDGED", "TRIAGED", "INVESTIGATING", "RESOLVED"] }, OR: [
             { acknowledgedAt: null, triagedAt: null, direction: "INBOUND_CLIENT", acknowledgeDueAt: { lt: now } },

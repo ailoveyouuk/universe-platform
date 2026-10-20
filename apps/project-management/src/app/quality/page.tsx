@@ -33,7 +33,7 @@ import {
 import { ScorecardSettingsPanel } from "../../components/ScorecardSettingsPanel";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
-const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING"] as const;
+const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING", "QUALIFIED"] as const;
 const PERFORMANCE_ROLE_FILTERS = ["", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER"] as const;
 const ROLE_LABELS: Record<string, string> = {
   MANUFACTURER: "Manufacturer",
@@ -182,10 +182,10 @@ export default function QualityPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 32 }}>
-        <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" />
-        <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" />
-        <StatTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" />
-        <StatTile label="Total sourcing approvals" value={dashboard?.totalProducts} icon={<ShieldIcon size={20} />} tone="brand" />
+        <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" active={statusFilter === "QUALIFIED"} onClick={() => { setStatusFilter(statusFilter === "QUALIFIED" ? "" : "QUALIFIED"); setApprovalsPage(0); }} />
+        <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" active={statusFilter === "WARNING"} onClick={() => { setStatusFilter(statusFilter === "WARNING" ? "" : "WARNING"); setApprovalsPage(0); }} />
+        <StatTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" active={statusFilter === "PENDING"} onClick={() => { setStatusFilter(statusFilter === "PENDING" ? "" : "PENDING"); setApprovalsPage(0); }} />
+        <StatTile label="Total sourcing approvals" value={dashboard?.totalProducts} icon={<ShieldIcon size={20} />} tone="brand" active={statusFilter === ""} onClick={() => { setStatusFilter(""); setApprovalsPage(0); }} />
       </div>
 
       {showNewForm && (

@@ -35,7 +35,7 @@ function ComplaintList() {
   const [direction, setDirection] = useState("");
   const [severity, setSeverity] = useState("");
   const [category, setCategory] = useState("");
-  const [quick, setQuick] = useState<"" | "open" | "overdue" | "serious">("");
+  const [quick, setQuick] = useState<"" | "open" | "overdue" | "serious" | "triage" | "actions">("");
   const [err, setErr] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -44,7 +44,7 @@ function ComplaintList() {
     apiClient.complaintDashboard().then(setDash).catch(() => setDash(null));
     apiClient
       .complaintsPage({ q: q.trim() || undefined, status: status || undefined, direction: direction || undefined, severity: severity || undefined, category: category || undefined,
-        open: quick === "open", overdue: quick === "overdue", serious: quick === "serious", page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize })
+        open: quick === "open", overdue: quick === "overdue", serious: quick === "serious", triage: quick === "triage", actions: quick === "actions", page: page + 1, pageSize: pageSize === "all" ? 100 : pageSize })
       .then((r) => { setRows(r.items); setTotal(r.total); setErr(null); })
       .catch(() => { setRows(null); setErr("Couldn't load complaints. This is usually temporary — try again in a moment."); });
   }, [canView, q, status, direction, severity, category, quick, page, pageSize]);
@@ -68,8 +68,8 @@ function ComplaintList() {
         <StatTile label="Open" value={dash?.open} icon={<ShieldIcon size={20} />} tone="brand" active={quick === "open"} onClick={() => { setQuick(quick === "open" ? "" : "open"); setPage(0); }} />
         <StatTile label="Overdue" value={dash?.overdue} icon={<ClockIcon size={20} />} tone="warning" active={quick === "overdue"} onClick={() => { setQuick(quick === "overdue" ? "" : "overdue"); setPage(0); }} />
         <StatTile label="Serious" value={dash?.serious} icon={<AlertIcon size={20} />} tone="critical" active={quick === "serious"} onClick={() => { setQuick(quick === "serious" ? "" : "serious"); setPage(0); }} />
-        <StatTile label="Awaiting triage" value={dash?.awaitingTriage} icon={<ClockIcon size={20} />} tone="neutral" />
-        <StatTile label="Open actions" value={dash ? `${dash.openActions}${dash.overdueActions ? ` (${dash.overdueActions} late)` : ""}` : undefined} icon={<CheckCircleIcon size={20} />} tone="neutral" />
+        <StatTile label="Awaiting triage" value={dash?.awaitingTriage} icon={<ClockIcon size={20} />} tone="neutral" active={quick === "triage"} onClick={() => { setQuick(quick === "triage" ? "" : "triage"); setPage(0); }} />
+        <StatTile label="Open actions" value={dash ? `${dash.openActions}${dash.overdueActions ? ` (${dash.overdueActions} late)` : ""}` : undefined} icon={<CheckCircleIcon size={20} />} tone="neutral" active={quick === "actions"} onClick={() => { setQuick(quick === "actions" ? "" : "actions"); setPage(0); }} />
         <StatTile label="Avg days to close (90d)" value={dash?.averageDaysToClose ?? "—"} icon={<CheckCircleIcon size={20} />} tone="good" />
       </div>
 

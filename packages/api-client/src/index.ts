@@ -340,7 +340,7 @@ export class UniverseApiClient {
   getPartnerScorecard(partnerId: string): Promise<PartnerScorecard> { return this.request(`/quality/partner-scorecard/${partnerId}`); }
   // ---- Quality complaints (2026-10-20) ----
   complaintDashboard(): Promise<ComplaintDashboard> { return this.request("/quality/complaints/dashboard"); }
-  complaintsPage(params: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; page?: number; pageSize?: number }): Promise<PagedResult<ComplaintListItem>> {
+  complaintsPage(params: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; triage?: boolean; actions?: boolean; page?: number; pageSize?: number }): Promise<PagedResult<ComplaintListItem>> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
     return this.request(`/quality/complaints/page?${qs.toString()}`);

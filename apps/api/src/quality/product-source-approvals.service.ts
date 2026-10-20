@@ -118,7 +118,7 @@ export class ProductSourceApprovalsService {
     const base = { ...tenantScope(user.organizationId), isArchived: false };
     const where = {
       ...base,
-      ...(opts.status === "WARNING" ? { status: "APPROVED", NOT: qualifiedWhere() } : opts.status ? { status: opts.status } : {}),
+      ...(opts.status === "QUALIFIED" ? { status: "APPROVED", ...qualifiedWhere() } : opts.status === "WARNING" ? { status: "APPROVED", NOT: qualifiedWhere() } : opts.status ? { status: opts.status } : {}),
       ...(term
         ? {
             OR: [

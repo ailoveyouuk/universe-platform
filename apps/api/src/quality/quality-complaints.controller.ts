@@ -22,10 +22,11 @@ export class QualityComplaintsController {
     @Query("q") q?: string, @Query("status") status?: string, @Query("direction") direction?: string, @Query("severity") severity?: string,
     @Query("category") category?: string, @Query("partnerId") partnerId?: string, @Query("projectId") projectId?: string,
     @Query("overdue") overdue?: string, @Query("serious") serious?: string, @Query("open") open?: string,
+    @Query("triage") triage?: string, @Query("actions") actions?: string,
     @Query("page") page?: string, @Query("pageSize") pageSize?: string,
   ) {
     return this.complaints.listPage(user, {
-      q, status, direction, severity, category, partnerId, projectId, overdue: overdue === "true", serious: serious === "true", open: open === "true",
+      q, status, direction, severity, category, partnerId, projectId, overdue: overdue === "true", serious: serious === "true", open: open === "true", triage: triage === "true", actions: actions === "true",
       page: Number(page) || 1, pageSize: Number(pageSize) || 25,
     });
   }
