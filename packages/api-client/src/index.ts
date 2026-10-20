@@ -1191,8 +1191,9 @@ export class UniverseApiClient {
   }
 
   /** Colleagues in your organisation (names only) for pickers; any member may call it. */
-  listUserOptions(q?: string): Promise<UserOption[]> {
-    return this.request(`/users/options${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+  listUserOptions(q?: string, activeOnly = false): Promise<UserOption[]> {
+    const qs = [q ? `q=${encodeURIComponent(q)}` : "", activeOnly ? "active=true" : ""].filter(Boolean).join("&");
+    return this.request(`/users/options${qs ? `?${qs}` : ""}`);
   }
 
   /** @deprecated Unpaged (capped at 500) — use listUsersPage / getUserCounts / listUserOptions. */

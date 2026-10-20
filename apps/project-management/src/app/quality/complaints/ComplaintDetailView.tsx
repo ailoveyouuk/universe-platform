@@ -28,7 +28,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
 
   const load = useCallback(() => { apiClient.getComplaint(id).then((d) => { setC(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the complaint.")); }, [id]);
   useEffect(load, [load]);
-  useEffect(() => { apiClient.listUserOptions().then(setUsers).catch(() => undefined); }, []);
+  useEffect(() => { apiClient.listUserOptions(undefined, true).then(setUsers).catch(() => undefined); }, []);
 
   /** Runs a stage call and shows the server's plain-English refusal when the rules say no. */
   const act = async (fn: () => Promise<ComplaintDetail>) => {

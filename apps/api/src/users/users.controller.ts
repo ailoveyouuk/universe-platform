@@ -32,8 +32,8 @@ export class UsersController {
   }
 
   @Get("options")
-  options(@CurrentUser() user: RequestUser, @Query("q") q?: string) {
-    return this.usersService.options(user, q);
+  options(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("active") active?: string) {
+    return this.usersService.options(user, q, active === "true");
   }
 
   @Get()

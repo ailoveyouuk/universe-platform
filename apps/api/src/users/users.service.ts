@@ -221,13 +221,13 @@ export class UsersService {
 
   /** Colleagues in the caller's own organisation, names only, for pickers. Open to every member
    * (findAll is admin-only, so pickers were showing non-admins just themselves). */
-  async options(caller: RequestUser, search?: string): Promise<UserOption[]> {
+  async options(caller: RequestUser, search?: string, activeOnly = false): Promise<UserOption[]> {
     const term = search?.trim();
     return runAs(caller, async (tx) => {
       const rows = await tx.user.findMany({
         where: {
           organizationId: caller.organizationId,
-          status: { not: "DEACTIVATED" },
+          status: activeOnly ? "ACTIVE" : { not: "DEACTIVATED" },
           ...(term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }] } : {}),
         },
         select: { id: true, forename: true, surname: true },
