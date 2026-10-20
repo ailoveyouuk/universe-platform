@@ -41,7 +41,7 @@ async function main() {
   const products = new Map((await prisma.productMaster.findMany({ where: { isSimulated: true, isArchived: false }, select: { id: true, category: true, name: true } })).map((p) => [p.id, { category: p.category.split(".")[0], name: p.name }]));
   const partners = new Map((await prisma.partner.findMany({ where: { organizationId: orgId }, select: { id: true, countryCode: true, roles: { select: { roleType: true } } } })).map((p) => [p.id, p]));
   const suppliers = [...partners.values()].filter((p) => p.roles.some((r) => r.roleType === "SUPPLIER")).map((p) => p.id).sort();
-  const existing = await prisma.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true } });
+  const existing = await withTenantContext(orgId, (tx) => tx.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true } }));
   const approved = new Set(existing.map((a) => `${a.productMasterId}|${a.manufacturerId}`));
 
   const projects = await withTenantContext(orgId, (tx) => tx.project.findMany({ where: { referenceNumber: { startsWith: "SIM-" } }, select: { id: true, referenceNumber: true, status: true, startDate: true, dueDate: true, createdAt: true }, orderBy: { id: "asc" } }));
