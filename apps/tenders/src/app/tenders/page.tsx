@@ -14,14 +14,27 @@ export default function TendersPage() {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  // Extra views reached from the home-page tiles: closing (published, closing within 7 days), interest (published with interest), attention (overdue evaluation or award).
+  const [view, setView] = useState("");
 
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get("status");
     if (s) setStatus(s);
+    const v = new URLSearchParams(window.location.search).get("view");
+    if (v) setView(v);
     apiClient.listMyTenders().then(setRows).catch((e) => setErr(e instanceof Error ? e.message : "Could not load tenders."));
   }, []);
 
-  const shown = useMemo(() => (rows ?? []).filter((t) => (!status || (t.effectiveStatus ?? t.status) === status) && (!q || `${t.referenceNumber} ${t.title}`.toLowerCase().includes(q.toLowerCase()))), [rows, status, q]);
+  const inView = (t: TenderListItem) => {
+    if (!view) return true;
+    const st = t.effectiveStatus ?? t.status;
+    const now = Date.now();
+    if (view === "closing") return st === "PUBLISHED" && !!t.closingAt && new Date(t.closingAt).getTime() - now <= 7 * 86400000;
+    if (view === "interest") return st === "PUBLISHED" && t.interestedOrganisations > 0;
+    if (view === "attention") return (st === "CLOSED" || st === "EVALUATING") && ((!!t.evaluationDueAt && new Date(t.evaluationDueAt).getTime() < now) || (!!t.awardDueAt && new Date(t.awardDueAt).getTime() < now));
+    return true;
+  };
+  const shown = useMemo(() => (rows ?? []).filter((t) => (!status || (t.effectiveStatus ?? t.status) === status) && inView(t) && (!q || `${t.referenceNumber} ${t.title}`.toLowerCase().includes(q.toLowerCase()))), [rows, status, q, view]);
   const count = (s: string) => (rows ?? []).filter((t) => !s || (t.effectiveStatus ?? t.status) === s).length;
 
   return (
@@ -30,7 +43,7 @@ export default function TendersPage() {
       <ErrorNote message={err} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         {FILTERS.map(([v, label]) => (
-          <button key={v} type="button" onClick={() => setStatus(v)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }} aria-pressed={status === v}>
+          <button key={v} type="button" onClick={() => { setStatus(v); setView(""); }} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }} aria-pressed={status === v}>
             <Pill tone={status === v ? "brand" : "neutral"}>{label} {count(v)}</Pill>
           </button>
         ))}

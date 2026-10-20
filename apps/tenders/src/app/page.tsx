@@ -44,10 +44,10 @@ export default function TenderDashboardPage() {
           <StatTileGrid>
             <Link href="/tenders?status=PUBLISHED" style={{ textDecoration: "none" }}><StatTile label="Open tenders" value={d.totals.open} icon={<CheckCircleIcon size={18} />} tone="good" /></Link>
             <Link href="/tenders?status=DRAFT" style={{ textDecoration: "none" }}><StatTile label="Drafts" value={d.totals.draft} icon={<FileEditIcon size={18} />} tone="neutral" /></Link>
-            <StatTile label="Closing within 7 days" value={d.closingSoon.length} icon={<CalendarIcon size={18} />} tone={d.closingSoon.length ? "warning" : "neutral"} />
+            <Link href="/tenders?status=PUBLISHED&view=closing" style={{ textDecoration: "none" }}><StatTile label="Closing within 7 days" value={d.closingSoon.length} icon={<CalendarIcon size={18} />} tone={d.closingSoon.length ? "warning" : "neutral"} /></Link>
             <StatTile label="Bids received" value={d.bidsReceived ?? 0} icon={<CheckCircleIcon size={18} />} tone="brand" note="Sealed until each tender closes" />
-            <StatTile label="Interested organisations" value={d.totalInterested} icon={<GridIcon size={18} />} tone="brand" note={d.openWithNoInterest ? `${d.openWithNoInterest} open with none yet` : undefined} />
-            {attention > 0 && <StatTile label="Needs attention" value={attention} icon={<AlertIcon size={18} />} tone="critical" note={[d.attention.overdueEvaluation && `${d.attention.overdueEvaluation} evaluation overdue`, d.attention.overdueAward && `${d.attention.overdueAward} award overdue`, d.attention.unansweredQuestions && `${d.attention.unansweredQuestions} questions`].filter(Boolean).join(", ")} />}
+            <Link href="/tenders?status=PUBLISHED&view=interest" style={{ textDecoration: "none" }}><StatTile label="Interested organisations" value={d.totalInterested} icon={<GridIcon size={18} />} tone="brand" note={d.openWithNoInterest ? `${d.openWithNoInterest} open with none yet` : undefined} /></Link>
+            {attention > 0 && <Link href="/tenders?view=attention" style={{ textDecoration: "none" }}><StatTile label="Needs attention" value={attention} icon={<AlertIcon size={18} />} tone="critical" note={[d.attention.overdueEvaluation && `${d.attention.overdueEvaluation} evaluation overdue`, d.attention.overdueAward && `${d.attention.overdueAward} award overdue`, d.attention.unansweredQuestions && `${d.attention.unansweredQuestions} questions`].filter(Boolean).join(", ")} /></Link>}
           </StatTileGrid>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
