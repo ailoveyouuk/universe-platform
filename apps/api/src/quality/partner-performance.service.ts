@@ -102,12 +102,15 @@ export class PartnerPerformanceService {
       lateN: number;
       lateSum: number | null;
       issues: number;
+      complaintsUpheld: number;
+      complaintsTotal: number;
       total: number;
     };
     const rows = await withTenantContext(org, (tx) =>
       tx.$queryRaw<Row[]>(Prisma.sql`
         SELECT a.partnerId, p.name AS partnerName, a.roleType, a.totalLines, a.onTimeFlags, a.onTimeCount, a.inFullFlags, a.inFullCount,
-               a.otifNum, a.otifDen, a.lateN, a.lateSum, ISNULL(e.issues, 0) AS issues, COUNT(*) OVER() AS total
+               a.otifNum, a.otifDen, a.lateN, a.lateSum, ISNULL(e.issues, 0) AS issues,
+               ISNULL(c.upheld, 0) AS complaintsUpheld, ISNULL(c.total, 0) AS complaintsTotal, COUNT(*) OVER() AS total
         FROM (${source}) a
         JOIN partners p ON p.id = a.partnerId AND p.organizationId = ${org} AND p.isArchived = 0
         JOIN partner_roles r ON r.partnerId = p.id AND r.roleType = a.roleType AND r.isActive = 1
@@ -115,6 +118,11 @@ export class PartnerPerformanceService {
           SELECT supplierId, COUNT(*) AS issues FROM supplier_enquiries
           WHERE organizationId = ${org} AND responseStatus IN ('DECLINED', 'NO_RESPONSE') GROUP BY supplierId
         ) e ON e.supplierId = a.partnerId AND a.roleType = 'SUPPLIER'
+        LEFT JOIN (
+          SELECT partnerId, COUNT(*) AS total, SUM(CASE WHEN outcome IN ('UPHELD', 'PARTLY_UPHELD') THEN 1 ELSE 0 END) AS upheld
+          FROM quality_complaints
+          WHERE organizationId = ${org} AND archivedAt IS NULL AND partnerId IS NOT NULL AND status <> 'WITHDRAWN' GROUP BY partnerId
+        ) c ON c.partnerId = a.partnerId
         WHERE 1 = 1 ${search}
         ORDER BY a.totalLines DESC, p.name ASC, a.partnerId ASC, a.roleType ASC
         OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`),
@@ -136,6 +144,8 @@ export class PartnerPerformanceService {
         // Roles with no separate in-full flag use on-time as the OTIF approximation (see class doc above).
         otifPercent: supplierRole ? pct(num(r.otifNum), num(r.otifDen)) : onTimePercent,
         issueCount: supplierRole ? num(r.issues) : 0,
+        complaintsUpheld: num(r.complaintsUpheld),
+        complaintsTotal: num(r.complaintsTotal),
         avgDaysLate: num(r.lateN) === 0 ? null : Math.round((num(r.lateSum) / num(r.lateN)) * 10) / 10,
       };
     });

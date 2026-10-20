@@ -411,7 +411,7 @@ export default function QualityPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: "var(--u-surface-alt)", textAlign: "left" }}>
-                  {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues"].map((h) => (
+                  {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues", "Complaints (upheld)"].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", fontWeight: 600, color: "var(--u-ink-secondary)", fontSize: 12 }}>
                       {h === "OTIF" ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -444,6 +444,11 @@ export default function QualityPage() {
                     <td style={{ padding: "10px 14px" }}>{p.avgDaysLate === null ? "—" : `${p.avgDaysLate}d`}</td>
                     <td style={{ padding: "10px 14px", color: p.issueCount > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
                       {p.issueCount}
+                    </td>
+                    <td style={{ padding: "10px 14px", color: p.complaintsUpheld > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                      {p.complaintsTotal === 0 ? "—" : (
+                        <Link href={`/quality/complaints`} style={{ textDecoration: "none", color: "inherit" }}>{p.complaintsTotal} ({p.complaintsUpheld})</Link>
+                      )}
                     </td>
                   </tr>
                 ))}

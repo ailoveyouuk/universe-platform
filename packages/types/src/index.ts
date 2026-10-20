@@ -2359,6 +2359,9 @@ export interface PartnerPerformanceMetric {
    * actualDeliveryDate set, floored at 0 (an early delivery counts as 0
    * days late, not negative). null when no line has both dates. */
   avgDaysLate: number | null;
+  /** Quality complaints about this stakeholder (any direction, withdrawn excluded) and how many were upheld or partly upheld. */
+  complaintsTotal: number;
+  complaintsUpheld: number;
 }
 
 // ---------------------------------------------------------------------------
