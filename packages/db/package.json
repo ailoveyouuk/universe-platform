@@ -15,6 +15,7 @@
     "test:db:reset": "tsx scripts/reset-test-db.ts",
     "load:demo-scale": "tsx scripts/load-demo-scale-data.ts",
     "enrich:demo": "tsx scripts/enrich-demo-data.ts",
+    "seed:demo-quality": "tsx scripts/seed-demo-quality.ts",
     "watch:regulatory": "tsx scripts/run-regulatory-watch.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
