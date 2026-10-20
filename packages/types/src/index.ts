@@ -3547,3 +3547,47 @@ export interface CreateComplaintInput {
   category?: string; severity?: string;
   flagPatientSafety?: boolean; flagSuspectedFalsified?: boolean; flagTemperatureExcursion?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Partner scorecard (2026-10-20): a dynamic score and benchmark per stakeholder, computed live from platform data.
+// ---------------------------------------------------------------------------
+export type ScorecardStatus = "good" | "warning" | "critical" | "neutral";
+export type ScorecardGroup = "DELIVERY" | "QUALITY" | "COMPLIANCE" | "RESPONSIVENESS" | "ACTIVITY";
+
+export interface ScorecardMetric {
+  key: string;
+  group: ScorecardGroup;
+  label: string;
+  /** Display value, e.g. "92%", "3 days", "2 of 5". */
+  display: string;
+  /** 0–100 contribution to the overall score; null when the measure is informational or has no data yet. */
+  score: number | null;
+  /** How much the measure counts towards the overall score (0 = informational). */
+  weight: number;
+  status: ScorecardStatus;
+  /** Plain-English explanation of what the number is built from. */
+  detail: string;
+  /** What the organisation's other stakeholders in the same role average on this measure, where comparable. */
+  benchmark: string | null;
+  /** Where to look in the platform for the underlying records. */
+  href: string | null;
+}
+
+export interface PartnerScorecard {
+  partnerId: string;
+  partnerName: string;
+  roles: string[];
+  /** 0–100, weighted over the measures that have data; null when there is nothing to score yet. */
+  overallScore: number | null;
+  band: "STRONG" | "SATISFACTORY" | "WATCH" | "AT_RISK" | "NOT_ENOUGH_DATA";
+  /** Share of the applicable weighting that has data behind it (0–100). */
+  coverage: number;
+  /** A measure in critical state stops the band reading better than WATCH; this says why. */
+  bandNote: string | null;
+  /** The four most important measures right now: critical first, then warnings, then by weight. */
+  headline: ScorecardMetric[];
+  metrics: ScorecardMetric[];
+  /** False when the caller may not see complaint data (it is ring-fenced to quality roles). */
+  includesComplaints: boolean;
+  generatedAt: string;
+}

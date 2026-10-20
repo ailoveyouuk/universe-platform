@@ -3,11 +3,13 @@ import { QualityController } from "./quality.controller";
 import { ProductSourceApprovalsService } from "./product-source-approvals.service";
 import { PartnerPerformanceService } from "./partner-performance.service";
 import { QaQueueService } from "./qa-queue.service";
+import { PartnerScorecardController } from "./partner-scorecard.controller";
+import { PartnerScorecardService } from "./partner-scorecard.service";
 import { QualityComplaintsController } from "./quality-complaints.controller";
 import { QualityComplaintsService } from "./quality-complaints.service";
 
 @Module({
-  controllers: [QualityController, QualityComplaintsController],
-  providers: [ProductSourceApprovalsService, PartnerPerformanceService, QaQueueService, QualityComplaintsService],
+  controllers: [QualityController, QualityComplaintsController, PartnerScorecardController],
+  providers: [ProductSourceApprovalsService, PartnerPerformanceService, QaQueueService, QualityComplaintsService, PartnerScorecardService],
 })
 export class QualityModule {}

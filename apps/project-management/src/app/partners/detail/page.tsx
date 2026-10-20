@@ -16,6 +16,7 @@ import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
+import { PartnerScorecardPanel } from "../../../components/PartnerScorecardPanel";
 import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -422,6 +423,8 @@ export default function PartnerDetailPage() {
         </InfoCard>
         <InfoCard label="Added">{new Date(partner.createdAt).toLocaleDateString()}</InfoCard>
       </div>
+
+      <PartnerScorecardPanel partnerId={partner.id} />
 
       <section style={{ marginTop: 28 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>

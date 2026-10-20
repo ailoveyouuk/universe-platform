@@ -1,5 +1,5 @@
 import type {
-  ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
+  PartnerScorecard, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
@@ -333,6 +333,7 @@ export class UniverseApiClient {
   openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
   tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
   evaluatorCandidates(id: string, q = ""): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates?q=${encodeURIComponent(q)}`); }
+  getPartnerScorecard(partnerId: string): Promise<PartnerScorecard> { return this.request(`/quality/partner-scorecard/${partnerId}`); }
   // ---- Quality complaints (2026-10-20) ----
   complaintDashboard(): Promise<ComplaintDashboard> { return this.request("/quality/complaints/dashboard"); }
   complaintsPage(params: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; page?: number; pageSize?: number }): Promise<PagedResult<ComplaintListItem>> {
