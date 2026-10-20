@@ -314,6 +314,11 @@ describe("Tender service", () => {
     expect(verifyChain(tampered).ok).toBe(false);
     expect(verifyChain(events.filter((_, i) => i !== 1)).ok).toBe(false);
     expect(events[0].prevHash).toBeNull();
+    const pub = events.find((e) => e.kind === "PUBLISHED");
+    const snap = JSON.parse(pub!.detailsJson!).snapshot;
+    expect(snap.title).toBe(`Chain ${suffix}`);
+    expect(snap.lines.length).toBeGreaterThan(0);
+    expect(snap.criteria.length).toBeGreaterThan(0);
     expect(eventHash(events[0] as never)).toBe(events[0].hash);
   });
 

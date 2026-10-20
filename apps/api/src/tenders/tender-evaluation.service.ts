@@ -5,6 +5,7 @@ import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import type { CoiDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto } from "./dto/tenders.dto";
 import { calculatedScores, mean, MODERATION_SPREAD, rankBids, spread, weightedTotal } from "./evaluation";
+import { createNotifications } from "../notifications/notify";
 import { appendTenderEvent } from "./tender-events";
 import { effectiveStatus, TendersService } from "./tenders.service";
 
@@ -201,6 +202,13 @@ export class TenderEvaluationService {
         if (had) await tx.tenderEvaluator.update({ where: { id: had.id }, data: { role: e.role } });
         else await tx.tenderEvaluator.create({ data: { organizationId: user.organizationId, tenderId, userId: e.userId, role: e.role } });
       }
+      const fresh = dto.evaluators.filter((e) => !existing.some((x) => x.userId === e.userId));
+      if (fresh.length) await createNotifications(tx, fresh.map((e) => ({
+        organizationId: user.organizationId, recipientUserId: e.userId, actorUserId: user.id, kind: "TENDER_EVALUATOR_ASSIGNED", category: "TENDER",
+        title: `You are an evaluator: ${t.referenceNumber}`.slice(0, 300),
+        body: `${e.role === "CHAIR" ? "You have been named chair of the evaluation" : "You have been assigned to evaluate"} ${t.title}. You must declare any conflict of interest before you can see the bids.`,
+        link: `/tenders/evaluate?id=${tenderId}`, subjectType: "TENDER", subjectId: tenderId,
+      })));
       return t;
     });
     await appendTenderEvent({ organizationId: t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "EVALUATORS_ASSIGNED", summary: `Evaluators assigned (${dto.evaluators.length})` });

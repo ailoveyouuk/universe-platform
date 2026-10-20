@@ -165,7 +165,10 @@ export class TendersService {
       Object.keys(data).forEach((k) => (data as Record<string, unknown>)[k] === undefined && delete (data as Record<string, unknown>)[k]);
       const updated = await tx.tender.update({ where: { id }, data });
       const extended = t.status === "PUBLISHED" && newClosing;
-      if (extended) await this.event(tx, t, user, "DEADLINE_EXTENDED", `Closing date moved to ${newClosing.toISOString().slice(0, 10)}`);
+      if (extended) await this.event(tx, t, user, "DEADLINE_EXTENDED", `Closing date moved to ${newClosing.toISOString().slice(0, 10)}`, null, { from: t.closingAt?.toISOString() ?? null, to: newClosing.toISOString() });
+      const timetable = { clarificationDeadline: [t.clarificationDeadline, updated.clarificationDeadline], evaluationDueAt: [t.evaluationDueAt, updated.evaluationDueAt], awardDueAt: [t.awardDueAt, updated.awardDueAt] } as const;
+      const changed = Object.entries(timetable).filter(([, [x, y]]) => (x?.getTime() ?? null) !== (y?.getTime() ?? null));
+      if (t.status === "PUBLISHED" && changed.length) await this.event(tx, t, user, "TIMETABLE_CHANGED", `Timetable changed: ${changed.map(([k]) => k).join(", ")}`, null, Object.fromEntries(changed.map(([k, [x, y]]) => [k, { from: x?.toISOString() ?? null, to: y?.toISOString() ?? null }])));
       return { tender: updated, extendedClosing: extended ? newClosing : null };
     }).then(async (r) => {
       if (r.extendedClosing) {
@@ -295,7 +298,9 @@ export class TendersService {
       // A demo organisation's tender must never reach real organisations: it is only ever visible to those it invites.
       const visibleToAll = demoIssuer ? false : t.visibility !== "INVITED_ONLY";
       const updated = await tx.tender.update({ where: { id }, data: { isPublished: true, visibleToAll, status: "PUBLISHED", publishedAt: new Date() } });
-      await this.event(tx, t, user, "PUBLISHED", `Published ${t.referenceNumber}`);
+      // Freeze exactly what bidders were shown. The snapshot sits inside the hash-chained event, so any later change to it is detectable.
+      const full = await tx.tender.findUnique({ where: { id }, include: { lines: true, criteria: true, rules: true, invitations: true } });
+      await this.event(tx, t, user, "PUBLISHED", `Published ${t.referenceNumber}`, null, { snapshot: full });
       const invited = (await tx.tenderInvitation.findMany({ where: { tenderId: id }, select: { invitedOrganizationId: true } })).map((i) => i.invitedOrganizationId);
       return { tender: updated, invited, demoIssuer };
     });
