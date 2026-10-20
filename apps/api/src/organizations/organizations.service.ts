@@ -68,7 +68,7 @@ export class OrganizationsService {
   async findAll(caller: RequestUser, includeSimulated = false): Promise<OrganizationSummary[]> {
     const orgs = await prisma.organization.findMany({
       // Simulated (scale-test) organisations are hidden unless platform staff ask for them.
-      where: caller.platformStaffRole !== "NONE" ? (includeSimulated ? undefined : { isSimulated: false }) : { id: caller.organizationId },
+      where: caller.platformStaffRole !== "NONE" ? (includeSimulated ? undefined : { OR: [{ isSimulated: false }, { isDemo: true }] }) : { id: caller.organizationId },
       orderBy: { name: "asc" },
     });
     return orgs.map((o) => ({
@@ -92,10 +92,13 @@ export class OrganizationsService {
     const rows = await withPlatformStaffContext(async (tx) => {
       const home = await tx.user.findUnique({ where: { id: caller.id }, select: { organizationId: true, organization: { select: { isDemo: true } } } });
       if (!home) return [];
-      const grants = home.organization.isDemo
+      // Platform staff may enter any demo organisation; demo users only those they hold a grant for.
+      const grants = caller.platformStaffRole !== "NONE"
+        ? (await tx.organization.findMany({ where: { isDemo: true, status: { not: "SUSPENDED" } }, select: { id: true } })).map((o) => ({ grantedOrganizationId: o.id }))
+        : home.organization.isDemo
         ? await tx.userOrganizationAccess.findMany({ where: { userId: caller.id, grantedOrganization: { isDemo: true, status: { not: "SUSPENDED" } } }, select: { grantedOrganizationId: true } })
         : [];
-      const ids = [home.organizationId, ...grants.map((g) => g.grantedOrganizationId)];
+      const ids = [...new Set([home.organizationId, ...grants.map((g) => g.grantedOrganizationId)])];
       return tx.organization.findMany({ where: { id: { in: ids } }, orderBy: { name: "asc" } });
     });
     return rows.map((o) => ({

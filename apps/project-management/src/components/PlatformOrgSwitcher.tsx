@@ -16,13 +16,16 @@ type Org = OrganizationSummary & { isDemo?: boolean };
  * only one organisation to pick). Switching reloads so every page refetches. */
 export function PlatformOrgSwitcher({ me }: { me: AuthenticatedUser }) {
   const [orgs, setOrgs] = useState<Org[]>([]);
+  const [accessible, setAccessible] = useState<Org[]>([]);
   const [picked, setPicked] = useState(true);
   const isStaff = me.platformStaffRole !== "NONE";
   const isDemoMember = !isStaff && !!me.isDemoUser;
 
   useEffect(() => {
     if (isStaff) apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
-    else if (isDemoMember) apiClient.listAccessibleOrganizations().then(setOrgs).catch(() => setOrgs([]));
+    if (isStaff || isDemoMember) {
+      apiClient.listAccessibleOrganizations().then((a) => { setAccessible(a); if (!isStaff) setOrgs(a); }).catch(() => setAccessible([]));
+    }
   }, [isStaff, isDemoMember]);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export function PlatformOrgSwitcher({ me }: { me: AuthenticatedUser }) {
 
   return (
     <>
-      {isDemoMember && !picked && <OrgPicker organizations={orgs} currentId={me.organizationId} userName={me.forename} onChoose={choose} />}
+      {!picked && accessible.length >= 2 && <OrgPicker organizations={accessible} currentId={me.organizationId} userName={me.forename} onChoose={choose} />}
       <OrgSwitcher organizations={orgs} value={me.organizationId} onChange={choose} />
     </>
   );
