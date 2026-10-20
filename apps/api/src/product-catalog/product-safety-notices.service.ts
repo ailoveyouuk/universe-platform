@@ -386,6 +386,19 @@ export class ProductSafetyNoticesService {
       date: r.issueDate.toISOString(),
       href: r.productMasterId ? `/products/detail?id=${r.productMasterId}` : `/families/detail?id=${r.productFamilyId}`,
     });
+    if (view === "lines") {
+      const usedIds = await withTenantContext(user.organizationId, async (tx) =>
+        (await tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 2000 })).map((l) => l.productMasterId as string),
+      );
+      const flagged: string[] = [];
+      for (const ids of chunk(usedIds, 500)) for (const f of await this.flags(user, ids)) if (f.openNotices > 0) flagged.push(f.productMasterId);
+      const families = new Set<string>();
+      for (const ids of chunk(flagged, 900)) for (const r of await prisma.productMaster.findMany({ where: { id: { in: ids }, productFamilyId: { not: null } }, select: { productFamilyId: true } })) families.add(r.productFamilyId as string);
+      const rowsAll = [];
+      for (const ids of chunk(flagged, 450)) rowsAll.push(...await prisma.productSafetyNotice.findMany({ where: { AND: [base, { status: "OPEN" }, { OR: [{ productMasterId: { in: ids } }, ...(families.size && families.size <= 450 ? [{ productFamilyId: { in: [...families] } }] : [])] }] }, include, orderBy: [{ issueDate: "desc" }, { id: "asc" }] }));
+      const uniq = [...new Map(rowsAll.map((r) => [r.id, r])).values()];
+      return { total: uniq.length, rows: uniq.slice(skip, skip + pageSize).map(row) };
+    }
     if (view === "review" || view === "affected") {
       const open = await prisma.productSafetyNotice.findMany({ where: { AND: [base, { status: "OPEN" }] }, include, orderBy: [{ issueDate: "desc" }, { id: "asc" }], take: 1000 });
       const mine = await this.myReviews(user, open.map((r) => r.id));

@@ -18,6 +18,23 @@ const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocal
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const num = (v: string | null | undefined) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
+/** Which project lines a stage tile stands for (platform standard: a tile filters the list it counts). */
+export const TILE_LINE_FILTER: Record<string, { id: string; label: string }> = {
+  priced: { id: "unpriced", label: "lines not yet priced" },
+  delivered: { id: "delivered", label: "delivered lines" },
+  next: { id: "undelivered", label: "lines still to deliver" },
+  otif: { id: "otiffail", label: "lines that were late or short" },
+  supplierpay: { id: "owing", label: "lines with a supplier balance owing" },
+};
+type L = ProjectDetail["lines"][number];
+export const LINE_FILTER_TEST: Record<string, (l: L) => boolean> = {
+  unpriced: (l) => num(l.supplierPaymentAmountTotal) === null,
+  delivered: (l) => !!l.actualDeliveryDate || !!l.goodsDeliveredToClientDate,
+  undelivered: (l) => !l.actualDeliveryDate && !l.goodsDeliveredToClientDate,
+  otiffail: (l) => l.otif === false,
+  owing: (l) => (num(l.supplierRemainingBalance) ?? 0) > 0.005,
+};
+
 export interface Tile { key: string; label: string; value: string | number; icon: ReactNode; tone?: StatTileTone; note?: string; indicator?: { color: string; label: string; fraction?: number } }
 
 const GREEN = "var(--u-status-good)";
@@ -138,12 +155,12 @@ export function buildStageTiles(p: ProjectDetail, fin: ProjectFinancialSummary |
   }
 }
 
-export function StageDashboard({ project, financialSummary, exportChecks, safetyFlags, countryName }: { project: ProjectDetail; financialSummary: ProjectFinancialSummary | null; exportChecks: ProjectExportCheckItem[]; safetyFlags: Record<string, ProductSafetyFlag>; countryName: (code: string) => string }) {
+export function StageDashboard({ project, financialSummary, exportChecks, safetyFlags, countryName, lineFilter, onLineFilter }: { lineFilter?: string; onLineFilter?: (id: string) => void; project: ProjectDetail; financialSummary: ProjectFinancialSummary | null; exportChecks: ProjectExportCheckItem[]; safetyFlags: Record<string, ProductSafetyFlag>; countryName: (code: string) => string }) {
   const tiles = buildStageTiles(project, financialSummary, exportChecks, safetyFlags, countryName);
   if (tiles.length === 0) return null;
   return (
     <StatTileGrid style={{ marginTop: 20 }}>
-      {tiles.map((t) => <StatTile key={t.key} label={t.label} value={t.value} icon={t.icon} tone={t.tone} note={t.note} indicator={t.indicator} />)}
+      {tiles.map((t) => { const f = TILE_LINE_FILTER[t.key]; return <StatTile key={t.key} label={t.label} value={t.value} icon={t.icon} tone={t.tone} note={t.note} indicator={t.indicator} active={!!f && lineFilter === f.id} onClick={f && onLineFilter ? () => onLineFilter(lineFilter === f.id ? "" : f.id) : undefined} />; })}
     </StatTileGrid>
   );
 }

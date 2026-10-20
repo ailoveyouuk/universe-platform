@@ -3265,7 +3265,7 @@ export interface TenderRecord {
   emergencyProcurement: boolean; emergencyReason: string | null; allowSingleEvaluator: boolean; singleEvaluatorReason: string | null;
   bidsOpenedAt: string | null; evaluationStartedAt: string | null; scoringFinalisedAt: string | null; awardedAt: string | null; standstillEndsAt: string | null;
 }
-export interface TenderListItem extends TenderRecord { interestedOrganisations: number }
+export interface TenderListItem extends TenderRecord { interestedOrganisations: number; /** Submitted bids: a count only, bids stay sealed until close. */ bidsReceived?: number }
 export interface TenderLineRecord {
   id?: string; lineNumber?: number; lotNumber: number | null; lotTitle: string | null; description: string; productMasterId: string | null; specification: string | null;
   quantity: string | number | null; unit: string | null; destinationCountryCode: string | null; requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean;

@@ -352,7 +352,10 @@ export class TendersService {
       const rows = await tx.tender.findMany({ where: { organizationId: user.organizationId, archivedAt: null, ...(status ? { status } : {}) }, orderBy: { updatedAt: "desc" }, take: 200 });
       const interest = await tx.tenderParticipation.groupBy({ by: ["tenderId"], where: { issuerOrganizationId: user.organizationId, withdrawnAt: null, tenderId: { in: rows.map((r) => r.id) } }, _count: { _all: true } });
       const counts = new Map(interest.map((g) => [g.tenderId, g._count._all]));
-      return rows.map((t) => ({ ...t, effectiveStatus: effectiveStatus(t), interestedOrganisations: counts.get(t.id) ?? 0 }));
+      // A count only: nothing about a sealed bid's contents leaves this method.
+      const bids = await tx.tenderBid.groupBy({ by: ["tenderId"], where: { issuerOrganizationId: user.organizationId, status: "SUBMITTED", tenderId: { in: rows.map((r) => r.id) } }, _count: { _all: true } });
+      const bidCounts = new Map(bids.map((g) => [g.tenderId, g._count._all]));
+      return rows.map((t) => ({ ...t, effectiveStatus: effectiveStatus(t), interestedOrganisations: counts.get(t.id) ?? 0, bidsReceived: bidCounts.get(t.id) ?? 0 }));
     });
   }
 

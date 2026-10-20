@@ -73,9 +73,9 @@ export default function RegulatoryPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
             <StatTile label="Registrations awaiting your verification" onClick={() => pick("reg", "unverified", "Registrations awaiting your verification")} active={on("reg", "unverified")} value={n(d.mine.unverified)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
             <StatTile label="Re-verification overdue" onClick={() => pick("reg", "reverification", "Re-verification overdue")} active={on("reg", "reverification")} value={n(d.mine.reverificationDue)} icon={<RefreshIcon size={20} />} tone="critical" />
-            <StatTile label="Documents awaiting approval" value={n(d.mine.documentsAwaitingApproval)} icon={<FileEditIcon size={20} />} tone="warning" />
-            <StatTile label="Documents expiring within 90 days" value={n(d.mine.documentsExpiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
-            <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<CalendarXIcon size={20} />} tone="critical" />
+            <StatTile label="Documents awaiting approval" onClick={() => pick("reg", "docs-awaiting", "Documents awaiting approval")} active={on("reg", "docs-awaiting")} value={n(d.mine.documentsAwaitingApproval)} icon={<FileEditIcon size={20} />} tone="warning" />
+            <StatTile label="Documents expiring within 90 days" onClick={() => pick("reg", "docs-expiring", "Documents expiring within 90 days")} active={on("reg", "docs-expiring")} value={n(d.mine.documentsExpiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
+            <StatTile label="Documents expired" onClick={() => pick("reg", "docs-expired", "Documents expired")} active={on("reg", "docs-expired")} value={n(d.mine.documentsExpired)} icon={<CalendarXIcon size={20} />} tone="critical" />
             <StatTile label="Issues found" onClick={() => pick("reg", "issues", "Issues found")} active={on("reg", "issues")} value={n(d.mine.issuesFound)} icon={<AlertIcon size={20} />} tone="critical" />
           </div>
           {sd && (<>
@@ -84,7 +84,7 @@ export default function RegulatoryPage() {
               <StatTile label="Open notices" onClick={() => pick("notice", "open", "Open notices")} active={on("notice", "open")} value={n(sd.totals.open)} icon={<AlertIcon size={20} />} tone="warning" />
               <StatTile label="Open critical (class I)" onClick={() => pick("notice", "critical", "Open critical (class I)")} active={on("notice", "critical")} value={n(sd.totals.critical)} icon={<BanIcon size={20} />} tone="critical" />
               <StatTile label="Awaiting your review" onClick={() => pick("notice", "review", "Awaiting your review")} active={on("notice", "review")} value={n(sd.mine.awaitingReview)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
-              <StatTile label="On your project lines" value={n(sd.mine.onMyProjectLines)} icon={<ShieldIcon size={20} />} tone="critical" />
+              <StatTile label="On your project lines" onClick={() => pick("notice", "lines", "On your project lines")} active={on("notice", "lines")} value={n(sd.mine.onMyProjectLines)} icon={<ShieldIcon size={20} />} tone="critical" />
               <StatTile label="We are affected" onClick={() => pick("notice", "affected", "We are affected")} active={on("notice", "affected")} value={n(sd.mine.affected)} icon={<AlertIcon size={20} />} tone="critical" />
               <StatTile label="Closed in last 90 days" onClick={() => pick("notice", "closed", "Closed in last 90 days")} active={on("notice", "closed")} value={n(sd.totals.closedLast90Days)} icon={<CheckCircleIcon size={20} />} tone="good" />
             </div>

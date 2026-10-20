@@ -256,7 +256,7 @@ export default function LogisticsPage() {
 
       {totals && (
         <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-          <StatTile label="Lines" value={totals.count} icon={<ProjectsIcon size={18} />} tone="neutral" />
+          <StatTile label="Lines" value={totals.count} icon={<ProjectsIcon size={18} />} tone="neutral" active={Object.values(filters).every((v) => v === undefined || v === "") && !search} onClick={() => { setFilters({}); setSearch(""); }} />
           <StatTile label="Total distance" note="approx." value={compactKm(totals.totalDistance)} icon={<TrendingUpIcon size={18} />} tone="neutral" />
           <StatTile label="Total CO2e" note="approx." value={compactCo2(totals.totalCo2)} icon={<AlertIcon size={18} />} tone="warning" />
           <StatTile
@@ -264,6 +264,9 @@ export default function LogisticsPage() {
             value={`${totals.avgScore.toFixed(1)}/10`}
             icon={<GaugeIcon size={18} />}
             tone="brand"
+            active={filters.scoreBand === "RED"}
+            onClick={() => setFilters((f) => ({ ...f, scoreBand: f.scoreBand === "RED" ? undefined : "RED" }))}
+            note={filters.scoreBand === "RED" ? "Showing poor-scoring lines" : "Click for poor-scoring lines"}
             indicator={{ color: SCORE_BAND_COLORS[bandForScore(totals.avgScore)], label: { RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[bandForScore(totals.avgScore)] ?? "", fraction: totals.avgScore / 10 }}
           />
         </div>

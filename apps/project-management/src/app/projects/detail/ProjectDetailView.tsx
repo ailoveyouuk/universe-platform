@@ -12,7 +12,7 @@ import { LineForm } from "./LineForm";
 import { PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { SupplierEnquiries } from "./SupplierEnquiries";
 import { ProjectDocuments } from "./ProjectDocuments";
-import { StageDashboard } from "./StageDashboard";
+import { StageDashboard, TILE_LINE_FILTER, LINE_FILTER_TEST } from "./StageDashboard";
 import { StatusHistoryTimeline } from "./StatusHistoryTimeline";
 import { ProjectTeam } from "./ProjectTeam";
 import { AuditHistory } from "../../../components/AuditHistory";
@@ -84,6 +84,7 @@ export function ProjectDetailView() {
   const countries = useCountries();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [lineFilter, setLineFilter] = useState("");
   const [clients, setClients] = useState<PartnerOption[]>([]);
   const [manufacturers, setManufacturers] = useState<PartnerOption[]>([]);
   const [suppliers, setSuppliers] = useState<PartnerOption[]>([]);
@@ -392,7 +393,7 @@ export function ProjectDetailView() {
         </div>
       </div>
 
-      <StageDashboard project={project} financialSummary={financialSummary} exportChecks={exportChecks} safetyFlags={safetyFlags} countryName={(c) => countries.find((x) => x.code === c)?.name ?? c} />
+      <StageDashboard project={project} financialSummary={financialSummary} exportChecks={exportChecks} safetyFlags={safetyFlags} countryName={(c) => countries.find((x) => x.code === c)?.name ?? c} lineFilter={lineFilter} onLineFilter={setLineFilter} />
 
       {!editingHeader && (
         <>
@@ -858,7 +859,13 @@ export function ProjectDetailView() {
         </div>
       )}
 
-      {project.lines.map((line) => (
+      {lineFilter && (
+        <p style={{ margin: "12px 0 0", fontSize: 13 }}>
+          Showing {Object.values(TILE_LINE_FILTER).find((f) => f.id === lineFilter)?.label}: {project.lines.filter(LINE_FILTER_TEST[lineFilter] ?? (() => true)).length} of {project.lines.length}.{" "}
+          <button type="button" onClick={() => setLineFilter("")} style={{ border: "none", background: "none", color: "var(--u-brand-violet)", cursor: "pointer", padding: 0, font: "inherit" }}>Show all lines</button>
+        </p>
+      )}
+      {project.lines.filter(lineFilter ? LINE_FILTER_TEST[lineFilter] ?? (() => true) : () => true).map((line) => (
         <div key={line.id} style={{ border: "1px solid var(--u-border)", borderRadius: 8, marginTop: 12, padding: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>

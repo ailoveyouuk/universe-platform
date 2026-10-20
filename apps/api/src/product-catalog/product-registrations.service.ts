@@ -374,6 +374,34 @@ export class ProductRegistrationsService {
     const skip = (Math.max(page, 1) - 1) * pageSize;
     const href = (r: { productMasterId: string | null; productFamilyId: string | null }) =>
       r.productMasterId ? `/products/detail?id=${r.productMasterId}` : `/families/detail?id=${r.productFamilyId}`;
+    if (view === "docs-awaiting" || view === "docs-expiring" || view === "docs-expired") {
+      const t = Date.now();
+      const docWhere = view === "docs-awaiting"
+        ? { status: "DRAFT" }
+        : view === "docs-expired"
+          ? { status: "APPROVED", expiryDate: { lt: new Date(t) } }
+          : { status: "APPROVED", expiryDate: { gte: new Date(t), lte: new Date(t + EXPIRING_SOON_DAYS * DAY) } };
+      const [total, docs] = await withTenantContext(user.organizationId, async (tx) => Promise.all([
+        tx.productDocument.count({ where: { organizationId: user.organizationId, archivedAt: null, ...docWhere } }),
+        tx.productDocument.findMany({
+          where: { organizationId: user.organizationId, archivedAt: null, ...docWhere },
+          include: { productMaster: { select: { name: true } }, productFamily: { select: { name: true } } },
+          orderBy: [{ expiryDate: "asc" }, { id: "asc" }], skip, take: pageSize,
+        }),
+      ]));
+      return {
+        total,
+        rows: docs.map((d) => ({
+          id: d.id,
+          name: d.productMaster?.name ?? d.productFamily?.name ?? "",
+          detail: `${d.docType.replace(/_/g, " ").toLowerCase()}: ${d.title} (v${d.version})`,
+          status: view === "docs-awaiting" ? "AWAITING APPROVAL" : view === "docs-expired" ? "EXPIRED" : "EXPIRING",
+          tone: (view === "docs-expired" ? "critical" : "warning") as "critical" | "warning",
+          date: d.expiryDate ? d.expiryDate.toISOString() : null,
+          href: d.productMasterId ? `/products/detail?id=${d.productMasterId}` : `/families/detail?id=${d.productFamilyId}`,
+        })),
+      };
+    }
     if (view === "none") {
       const where = {
         isArchived: false,

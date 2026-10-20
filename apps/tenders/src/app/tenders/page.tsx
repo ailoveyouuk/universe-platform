@@ -30,6 +30,7 @@ export default function TendersPage() {
     const st = t.effectiveStatus ?? t.status;
     const now = Date.now();
     if (view === "closing") return st === "PUBLISHED" && !!t.closingAt && new Date(t.closingAt).getTime() - now <= 7 * 86400000;
+    if (view === "bids") return (t.bidsReceived ?? 0) > 0;
     if (view === "interest") return st === "PUBLISHED" && t.interestedOrganisations > 0;
     if (view === "attention") return (st === "CLOSED" || st === "EVALUATING") && ((!!t.evaluationDueAt && new Date(t.evaluationDueAt).getTime() < now) || (!!t.awardDueAt && new Date(t.awardDueAt).getTime() < now));
     return true;
