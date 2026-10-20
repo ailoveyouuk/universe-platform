@@ -9,6 +9,11 @@ on:
         description: "Dry run (writes nothing). Untick to load."
         default: true
         type: boolean
+      only:
+        description: "all, or links (only re-point upheld supply-chain complaints at products with source approvals; fast)"
+        default: "all"
+        type: choice
+        options: [all, links]
 
 jobs:
   seed:
@@ -27,4 +32,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          ONLY: ${{ inputs.only }}
           PRISMA_TX_TIMEOUT_MS: "120000"

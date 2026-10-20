@@ -187,10 +187,32 @@ async function seedComplaints(orgId: string) {
   console.log(`Complaints: created ${made}, CAPA actions ${actions}, risks ${risks}`);
 }
 
+/** Upheld supply-chain complaints are pointed at a product and partner that have a real source approval, so the source-review links work. */
+async function linkSourceApprovals(orgId: string) {
+  await withTenantContext(orgId, async (tx) => {
+    const cs = await tx.qualityComplaint.findMany({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" }, direction: "OUTBOUND_SUPPLY_CHAIN", outcome: { in: ["UPHELD", "PARTLY_UPHELD"] } }, select: { id: true, partnerId: true, productMasterId: true }, orderBy: { referenceNumber: "asc" }, take: 14 });
+    const withApproval = new Set<string>();
+    let relinked = 0;
+    for (const c of cs) {
+      const has = c.partnerId && c.productMasterId ? await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, productMasterId: c.productMasterId, isArchived: false, OR: [{ manufacturerId: c.partnerId }, { supplierId: c.partnerId }] }, select: { id: true } }) : null;
+      if (has) { withApproval.add(c.id); continue; }
+      const skip = relinked * 7 + (hash(c.id) % 40);
+      const a = await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, isArchived: false, manufacturerId: { not: null } }, select: { productMasterId: true, manufacturerId: true }, orderBy: { id: "asc" }, skip });
+      if (!a?.manufacturerId) continue;
+      if (dryRun) { relinked++; continue; }
+      await tx.qualityComplaint.update({ where: { id: c.id }, data: { partnerId: a.manufacturerId, productMasterId: a.productMasterId } });
+      relinked++;
+    }
+    console.log(`Source links: ${cs.length} upheld supply-chain complaints, ${withApproval.size} already matched, ${dryRun ? "would relink" : "relinked"} ${relinked}`);
+  });
+}
+
 async function main() {
   console.log(`Mode: ${dryRun ? "DRY RUN (no writes)" : "LOAD"}`);
   const orgId = await demoOrgId();
+  if (process.env.ONLY === "links") { await linkSourceApprovals(orgId); return; }
   await seedOtif(orgId);
   await seedComplaints(orgId);
+  await linkSourceApprovals(orgId);
 }
 main().then(() => prisma.$disconnect()).catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });
