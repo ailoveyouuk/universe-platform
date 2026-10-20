@@ -36,17 +36,7 @@ export function rankBids<T extends { total: number | null; price: number | null 
   return rows.map((r) => ({ ...r, rank: pos.get(r) ?? null }));
 }
 
-/** Rescales weights to total exactly 100 (one decimal place), keeping their proportions. All-zero weights share equally. */
-export function normaliseWeights(weights: number[]): number[] {
-  if (weights.length === 0) return [];
-  const sum = weights.reduce((a, b) => a + b, 0);
-  const raw = sum > 0 ? weights.map((w) => (w / sum) * 100) : weights.map(() => 100 / weights.length);
-  const out = raw.map((w) => Math.floor(w * 10) / 10);
-  let rem = Math.round((100 - out.reduce((a, b) => a + b, 0)) * 10);
-  const order = raw.map((w, i) => ({ i, frac: w * 10 - Math.floor(w * 10) })).sort((a, b) => b.frac - a.frac);
-  for (let k = 0; rem > 0; k = (k + 1) % order.length, rem--) out[order[k]!.i] = Math.round((out[order[k]!.i]! + 0.1) * 10) / 10;
-  return out;
-}
+export { normaliseWeights } from "@universe/types";
 
 /** Adds working days (Monday to Friday; public holidays are not modelled) to a date. */
 export function addWorkingDays(from: Date, days: number): Date {

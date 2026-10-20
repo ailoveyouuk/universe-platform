@@ -1,5 +1,5 @@
 import type {
-  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, MyBidItem, IssuerBidRecord,
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -328,6 +328,23 @@ export class UniverseApiClient {
   saveTenderBid(id: string, body: TenderBidSaveInput): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid`, { method: "PUT", body: JSON.stringify(body) }); }
   downloadTenderBidTemplate(id: string, kind: BidTemplateKind): Promise<BidTemplateFile> { return this.request(`/tenders/${id}/bid/template/${kind}`); }
   uploadTenderBidTemplate(id: string, kind: BidTemplateKind, fileName: string, contentBase64: string): Promise<BidTemplateResult> { return this.request(`/tenders/${id}/bid/template/${kind}`, { method: "POST", body: JSON.stringify({ fileName, contentBase64 }) }); }
+  // ---- evaluation, award, status (step 4)
+  openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
+  tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
+  evaluatorCandidates(id: string): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates`); }
+  evaluationBidders(id: string): Promise<{ id: string; name: string }[]> { return this.request(`/tenders/${id}/evaluation/bidders`); }
+  setTenderEvaluators(id: string, evaluators: { userId: string; role: "CHAIR" | "EVALUATOR" }[]): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/evaluators`, { method: "PUT", body: JSON.stringify({ evaluators }) }); }
+  declareEvaluatorConflict(id: string, body: { noConflict: boolean; conflictedOrganisationIds?: string[]; notes?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/conflict`, { method: "PUT", body: JSON.stringify(body) }); }
+  startTenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/start`, { method: "POST" }); }
+  recordTenderGate(id: string, body: { bidId: string; criterionId: string; passed: boolean; notes?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/gates`, { method: "PUT", body: JSON.stringify(body) }); }
+  saveTenderScores(id: string, body: { bidId: string; scores: { criterionId: string; score: number; rationale?: string }[]; submit?: boolean }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/scores`, { method: "PUT", body: JSON.stringify(body) }); }
+  moderateTenderScore(id: string, body: { bidId: string; criterionId: string; score: number; rationale?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/moderation`, { method: "PUT", body: JSON.stringify(body) }); }
+  finaliseTenderScoring(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/finalise`, { method: "POST" }); }
+  awardTender(id: string, body: { awards: { bidId: string; reason: string; lines?: { tenderLineId: string; sharePercent: number }[] }[]; feedback?: { bidId: string; text: string }[]; waiveStandstill?: boolean }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/award`, { method: "POST", body: JSON.stringify(body) }); }
+  updateTenderDebrief(id: string, bidId: string, feedback: string): Promise<unknown> { return this.request(`/tenders/${id}/debriefs/${bidId}`, { method: "PUT", body: JSON.stringify({ feedback }) }); }
+  respondTenderComplaint(id: string, complaintId: string, body: { status: "UPHELD" | "REJECTED" | "RESOLVED"; response: string }): Promise<unknown> { return this.request(`/tenders/${id}/complaints/${complaintId}/respond`, { method: "POST", body: JSON.stringify(body) }); }
+  tenderStatus(id: string): Promise<TenderStatusView> { return this.request(`/tenders/${id}/status`); }
+  lodgeTenderComplaint(id: string, body: string): Promise<unknown> { return this.request(`/tenders/${id}/complaints`, { method: "POST", body: JSON.stringify({ body }) }); }
   submitTenderBid(id: string): Promise<{ submitted: boolean; totalTenderCurrency: string | null; fxRate: string | null; fxRateDate: string | null }> { return this.request(`/tenders/${id}/bid/submit`, { method: "POST" }); }
   withdrawTenderBid(id: string): Promise<unknown> { return this.request(`/tenders/${id}/bid/withdraw`, { method: "POST" }); }
   /** Uploads one file for a bid: asks for a write link, puts the file straight to storage, then records it. */

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
-import { CURRENCY_OPTIONS, INCOTERMS, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
+import { CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
 import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, UnitSelect, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
@@ -17,7 +17,7 @@ const codes = (s: string | null | undefined) => (s ?? "").split(",").filter(Bool
 const delimited = (a: string[]) => (a.length ? `,${a.join(",")},` : "");
 /** Only the fields the API accepts, with numeric strings (the API returns decimals as strings) turned into numbers. */
 const cleanLine = (l: TenderLineRecord): TenderLineRecord => ({ lotNumber: l.lotNumber ?? null, lotTitle: l.lotTitle ?? null, description: l.description.trim(), productMasterId: l.productMasterId ?? null, specification: l.specification ?? null, quantity: l.quantity === null || l.quantity === undefined || l.quantity === "" ? null : Number(l.quantity), unit: l.unit ?? null, destinationCountryCode: l.destinationCountryCode || null, requiredRegistration: l.requiredRegistration ?? null, minShelfLifePercent: l.minShelfLifePercent ?? null, coldChainRequired: !!l.coldChainRequired });
-const cleanCriterion = (c: TenderCriterionRecord): TenderCriterionRecord => ({ title: c.title.trim(), description: c.description ?? null, kind: c.kind, weight: c.kind === "SCORED" ? Number(c.weight ?? 0) : null, isMandatory: c.isMandatory ?? true, responseFormat: c.responseFormat, acceptedFileTypes: c.acceptedFileTypes ?? null });
+const cleanCriterion = (c: TenderCriterionRecord): TenderCriterionRecord => ({ title: c.title.trim(), description: c.description ?? null, kind: c.kind, weight: c.kind === "SCORED" ? Number(c.weight ?? 0) : null, isMandatory: c.isMandatory ?? true, responseFormat: c.responseFormat, acceptedFileTypes: c.acceptedFileTypes ?? null, metric: c.kind === "SCORED" ? c.metric ?? "MANUAL" : "MANUAL" });
 const cleanRule = (r: TenderRuleRecord): TenderRuleRecord => ({ ruleType: r.ruleType, ruleValue: r.ruleValue.trim(), explanation: r.explanation || null, isRequired: r.isRequired });
 const num = (v: string) => (v === "" ? null : Number(v));
 
@@ -99,7 +99,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     timeZone: t?.timeZone ?? browserZone(),
     clarificationDeadline: toLocalInput(t?.clarificationDeadline, t?.timeZone), closingAt: toLocalInput(t?.closingAt, t?.timeZone), evaluationDueAt: toLocalInput(t?.evaluationDueAt, t?.timeZone), awardDueAt: toLocalInput(t?.awardDueAt, t?.timeZone),
     standstillEnabled: t?.standstillEnabled ?? false, standstillWorkingDays: t?.standstillWorkingDays?.toString() ?? "8", publicNotice: t?.publicNotice ?? false,
-    allowTemplateSubmission: t?.allowTemplateSubmission ?? true, requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
+    allowTemplateSubmission: t?.allowTemplateSubmission ?? true, emergencyProcurement: t?.emergencyProcurement ?? false, emergencyReason: t?.emergencyReason ?? "", allowSingleEvaluator: t?.allowSingleEvaluator ?? false, singleEvaluatorReason: t?.singleEvaluatorReason ?? "", requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
     bidValidityDays: t?.bidValidityDays?.toString() ?? "", acceptedFileTypes: t?.acceptedFileTypes ?? "pdf,docx,xlsx,csv", maxFileSizeMb: t?.maxFileSizeMb?.toString() ?? "25",
     allowTextSubmission: t?.allowTextSubmission ?? true, termsAndConditions: t?.termsAndConditions ?? "",
   });
@@ -113,7 +113,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
       timeZone: f.timeZone,
       clarificationDeadline: fromLocalInput(f.clarificationDeadline, f.timeZone), closingAt: fromLocalInput(f.closingAt, f.timeZone), evaluationDueAt: fromLocalInput(f.evaluationDueAt, f.timeZone), awardDueAt: fromLocalInput(f.awardDueAt, f.timeZone),
       standstillEnabled: f.standstillEnabled, standstillWorkingDays: f.standstillEnabled ? num(f.standstillWorkingDays) ?? 8 : undefined, publicNotice: f.publicNotice,
-      allowTemplateSubmission: f.allowTemplateSubmission, requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
+      allowTemplateSubmission: f.allowTemplateSubmission, emergencyProcurement: f.emergencyProcurement, emergencyReason: f.emergencyProcurement ? f.emergencyReason : undefined, allowSingleEvaluator: f.allowSingleEvaluator, singleEvaluatorReason: f.allowSingleEvaluator ? f.singleEvaluatorReason : undefined, requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
       bidValidityDays: num(f.bidValidityDays) ?? undefined, acceptedFileTypes: f.acceptedFileTypes || undefined, maxFileSizeMb: num(f.maxFileSizeMb) ?? undefined,
       allowTextSubmission: f.allowTextSubmission, termsAndConditions: f.termsAndConditions || undefined,
     };
@@ -161,6 +161,14 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         <Field label="Template submission" hint="Bidders can also download a locked Excel financial offer and Word technical offer generated from your items and criteria, complete them offline and upload them. On by default alongside the online form.">
           <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.allowTemplateSubmission} onChange={(e) => set("allowTemplateSubmission", e.target.checked)} /> Allow template submission</label>
         </Field>
+        <Field label="Emergency procurement" hint="Tick only where urgency genuinely justifies it. The reason is recorded, shown to bidders, and lets you waive the standstill at award.">
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.emergencyProcurement} onChange={(e) => set("emergencyProcurement", e.target.checked)} /> This is an emergency procurement</label>
+          {f.emergencyProcurement && <input style={{ ...inputStyle, marginTop: 8 }} aria-label="Emergency reason" placeholder="Why is this an emergency?" value={f.emergencyReason} onChange={(e) => set("emergencyReason", e.target.value)} />}
+        </Field>
+        <Field label="Single evaluator" hint="Normally two or more evaluators are needed. Allow one only where your own rules permit it, for example below a financial threshold.">
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={f.allowSingleEvaluator} onChange={(e) => set("allowSingleEvaluator", e.target.checked)} /> Allow a single evaluator</label>
+          {f.allowSingleEvaluator && <input style={{ ...inputStyle, marginTop: 8 }} aria-label="Single evaluator reason" placeholder="Basis, e.g. below our EUR 10,000 threshold" value={f.singleEvaluatorReason} onChange={(e) => set("singleEvaluatorReason", e.target.value)} />}
+        </Field>
         <Field label="Terms and conditions" wide><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.termsAndConditions} onChange={(e) => set("termsAndConditions", e.target.value)} /></Field>
       </div>
       <SaveBar onSave={save} saving={s.saving} label={detail ? "Save overview" : "Create draft"} note={s.note} />
@@ -207,31 +215,58 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
 }
 
 // ------------------------------------------------------------------ criteria
+/** Setting one weight rescales the others so the scored criteria always total 100. */
+function withWeight(rows: TenderCriterionRecord[], i: number, v: number): TenderCriterionRecord[] {
+  const scoredIdx = rows.map((r, k) => (r.kind === "SCORED" ? k : -1)).filter((k) => k >= 0);
+  const others = scoredIdx.filter((k) => k !== i);
+  const value = Math.max(0, Math.min(100, Math.round(v * 10) / 10));
+  const fitted = others.length ? normaliseWeights(others.map((k) => Number(rows[k].weight ?? 0)), Math.round((100 - value) * 10) / 10) : [];
+  return rows.map((r, k) => (k === i ? { ...r, weight: others.length ? value : 100 } : others.includes(k) ? { ...r, weight: fitted[others.indexOf(k)] } : r));
+}
+function rebalanceEqually(rows: TenderCriterionRecord[]): TenderCriterionRecord[] {
+  const idx = rows.map((r, k) => (r.kind === "SCORED" ? k : -1)).filter((k) => k >= 0);
+  const w = normaliseWeights(idx.map(() => 1));
+  return rows.map((r, k) => (idx.includes(k) ? { ...r, weight: w[idx.indexOf(k)] } : r));
+}
+const PRESETS: { metric: "PRICE" | "LEAD_TIME" | "MANUAL"; title: string; label: string }[] = [
+  { metric: "PRICE", title: "Price", label: "Price" }, { metric: "LEAD_TIME", title: "Lead time", label: "Lead time" },
+  { metric: "MANUAL", title: "Quality", label: "Quality" }, { metric: "MANUAL", title: "", label: "Other criterion" },
+];
+
 function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
   const [rows, setRows] = useState<TenderCriterionRecord[]>(detail.criteria.map(cleanCriterion));
   const s = useSaver(onSaved);
   const upd = (i: number, p: Partial<TenderCriterionRecord>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
-  const add = (kind: "GATE" | "SCORED") => setRows((r) => [...r, { title: "", description: null, kind, weight: kind === "SCORED" ? 0 : null, isMandatory: true, responseFormat: "EITHER", acceptedFileTypes: null }]);
-  const total = rows.filter((r) => r.kind === "SCORED").reduce((a, r) => a + Number(r.weight ?? 0), 0);
-  const okTotal = Math.abs(total - 100) < 0.01;
+  const addGate = () => setRows((r) => [...r, { title: "", description: null, kind: "GATE", weight: null, isMandatory: true, responseFormat: "EITHER", metric: "MANUAL", acceptedFileTypes: null }]);
+  const addScored = (p: (typeof PRESETS)[number]) => setRows((r) => rebalanceEqually([...r, { title: p.title, description: null, kind: "SCORED", weight: 0, isMandatory: p.metric === "MANUAL", responseFormat: "EITHER", metric: p.metric, acceptedFileTypes: null }]));
+  const has = (m: string) => rows.some((r) => r.kind === "SCORED" && r.metric === m);
+  const remove = (i: number) => setRows((r) => rebalanceEqually(r.filter((_, j) => j !== i)).map((x, _k, all) => (all.every((y) => y.kind !== "SCORED") ? x : x)));
 
   return (
-    <Card title="Evaluation criteria" action={<div style={{ display: "flex", gap: 8 }}><Button size="sm" onClick={() => add("GATE")}>Pass/fail gate</Button><Button size="sm" icon={<PlusIcon size={14} />} onClick={() => add("SCORED")}>Weighted criterion</Button></div>}>
-      <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5, lineHeight: 1.5 }}>Gates are pass or fail: a bid that fails one cannot win. Weighted criteria are scored by evaluators; their weights must total 100.</p>
+    <Card title="Evaluation criteria" action={<Button size="sm" onClick={addGate}>Pass/fail gate</Button>}>
+      <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5, lineHeight: 1.5 }}>
+        Each bid is scored out of 100. Choose the criteria that matter and set their weights; the others rebalance automatically so the total is always 100. Price and lead time are calculated from the bids (the best scores 100); the rest are scored by your evaluators. Gates are pass or fail: a bid that fails one cannot win.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {PRESETS.map((p) => <Button key={p.label} size="sm" variant="secondary" icon={<PlusIcon size={14} />} disabled={p.metric !== "MANUAL" && has(p.metric)} onClick={() => addScored(p)}>{p.label}</Button>)}
+      </div>
       <ErrorNote message={s.err} />
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rows.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No criteria yet.</p>}
         {rows.map((r, i) => (
           <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, position: "relative" }}>
-            <Field label={r.kind === "GATE" ? "Gate" : "Weighted criterion"} wide><input style={inputStyle} value={r.title} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Price"} /></Field>
-            {r.kind === "SCORED" && <Field label="Weight (%)"><input type="number" min={0} max={100} style={inputStyle} value={r.weight ?? ""} onChange={(e) => upd(i, { weight: e.target.value === "" ? 0 : Number(e.target.value) })} /></Field>}
-            <Field label="Bidders respond by"><Select value={r.responseFormat} onChange={(v) => upd(i, { responseFormat: v as TenderCriterionRecord["responseFormat"] })} options={[{ value: "EITHER", label: "Upload or typed answer" }, { value: "UPLOAD", label: "Upload only" }, { value: "TEXT", label: "Typed answer only" }]} /></Field>
-            <Field label="Guidance for bidders" wide><textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={r.description ?? ""} onChange={(e) => upd(i, { description: e.target.value || null })} /></Field>
-            <button type="button" aria-label={`Remove criterion ${i + 1}`} onClick={() => setRows((x) => x.filter((_, j) => j !== i))} style={{ position: "absolute", top: 8, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}><XIcon size={16} /></button>
+            <Field label={r.kind === "GATE" ? "Gate" : r.metric === "MANUAL" ? "Criterion scored by evaluators" : r.metric === "PRICE" ? "Price (calculated)" : "Lead time (calculated)"} wide>
+              <input style={inputStyle} value={r.title} readOnly={r.metric !== "MANUAL"} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} />
+            </Field>
+            {r.kind === "SCORED" && <Field label="Weight (%)"><input type="number" min={0} max={100} step={0.5} style={inputStyle} value={r.weight ?? ""} onChange={(e) => setRows((x) => withWeight(x, i, e.target.value === "" ? 0 : Number(e.target.value)))} /></Field>}
+            {r.metric === "MANUAL" && <Field label="Bidders respond by"><Select value={r.responseFormat} onChange={(v) => upd(i, { responseFormat: v as TenderCriterionRecord["responseFormat"] })} options={[{ value: "EITHER", label: "Upload or typed answer" }, { value: "UPLOAD", label: "Upload only" }, { value: "TEXT", label: "Typed answer only" }]} /></Field>}
+            {r.metric === "MANUAL" && <Field label="Guidance for bidders" wide><textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={r.description ?? ""} onChange={(e) => upd(i, { description: e.target.value || null })} /></Field>}
+            {r.metric !== "MANUAL" && <div style={{ fontSize: 13, color: "var(--u-ink-secondary)", alignSelf: "center" }}>{r.metric === "PRICE" ? "Taken from the bid prices. Bidders answer nothing extra." : "Taken from the lead times in the bid. Bidders answer nothing extra."}</div>}
+            <button type="button" aria-label={`Remove criterion ${i + 1}`} onClick={() => remove(i)} style={{ position: "absolute", top: 8, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}><XIcon size={16} /></button>
           </div>
         ))}
       </div>
-      {rows.some((r) => r.kind === "SCORED") && <div style={{ marginTop: 12 }}><Pill tone={okTotal ? "good" : "warning"}>Weights total {total} of 100</Pill></div>}
+      {rows.some((r) => r.kind === "SCORED") && <div style={{ marginTop: 12 }}><Pill tone="good">Weights total 100</Pill></div>}
       <SaveBar saving={s.saving} note={s.note} label="Save criteria" onSave={() => s.run(() => apiClient.setTenderCriteria(detail.tender.id, rows.filter((r) => r.title.trim()).map(cleanCriterion)))} />
     </Card>
   );

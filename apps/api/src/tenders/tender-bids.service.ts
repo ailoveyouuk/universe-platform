@@ -71,7 +71,7 @@ export class TenderBidsService {
     const [issuer, lines, criteria, addenda, acks, bid] = await Promise.all([
       tx.organization.findUnique({ where: { id: t.organizationId }, select: { name: true } }),
       tx.tenderLine.findMany({ where: { tenderId: t.id }, orderBy: { lineNumber: "asc" } }),
-      tx.tenderCriterion.findMany({ where: { tenderId: t.id }, orderBy: { sortOrder: "asc" } }),
+      tx.tenderCriterion.findMany({ where: { tenderId: t.id, metric: "MANUAL" }, orderBy: { sortOrder: "asc" } }),
       tx.tenderAddendum.findMany({ where: { tenderId: t.id }, orderBy: { number: "asc" } }),
       tx.tenderAddendumAck.findMany({ where: { tenderId: t.id, organizationId: user.organizationId } }),
       tx.tenderBid.findUnique({ where: { tenderId_organizationId: { tenderId: t.id, organizationId: user.organizationId } } }),
@@ -202,7 +202,7 @@ export class TenderBidsService {
       const [issuer, lines, criteria, countries] = await Promise.all([
         tx.organization.findUnique({ where: { id: c.t.organizationId }, select: { name: true } }),
         tx.tenderLine.findMany({ where: { tenderId }, orderBy: { lineNumber: "asc" } }),
-        tx.tenderCriterion.findMany({ where: { tenderId }, orderBy: { sortOrder: "asc" } }),
+        tx.tenderCriterion.findMany({ where: { tenderId, metric: "MANUAL" }, orderBy: { sortOrder: "asc" } }),
         tx.country.findMany({ orderBy: { name: "asc" }, select: { code: true, name: true } }),
       ]);
       const t = c.t;
@@ -357,7 +357,7 @@ export class TenderBidsService {
         tx.tenderBidLine.findMany({ where: { bidId: { in: ids } } }),
         tx.tenderLine.findMany({ where: { tenderId }, orderBy: { lineNumber: "asc" } }),
         tx.tenderBidResponse.findMany({ where: { bidId: { in: ids } } }),
-        tx.tenderCriterion.findMany({ where: { tenderId }, orderBy: { sortOrder: "asc" } }),
+        tx.tenderCriterion.findMany({ where: { tenderId, metric: "MANUAL" }, orderBy: { sortOrder: "asc" } }),
         tx.tenderBidFile.findMany({ where: { bidId: { in: ids } } }),
         tx.organization.findMany({ where: { id: { in: bids.map((b) => b.organizationId) } }, select: { id: true, name: true } }),
       ]);

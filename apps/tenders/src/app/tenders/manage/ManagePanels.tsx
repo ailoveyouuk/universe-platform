@@ -188,14 +188,14 @@ export function BidsPanel({ d }: { d: TenderDetailForIssuer }) {
   const [err, setErr] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   useEffect(() => { apiClient.tenderBidCount(t.id).then(setCount).catch(() => undefined); }, [t.id]);
-  const open = async () => { setErr(null); try { setBids(await apiClient.listTenderBids(t.id)); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the bids."); } };
+  const open = async () => { setErr(null); try { await apiClient.openTenderBids(t.id); setBids(await apiClient.listTenderBids(t.id)); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the bids."); } };
   const file = async (fileId: string) => { try { const r = await apiClient.issuerTenderBidFileUrl(t.id, fileId); window.open(r.downloadUrl, "_blank", "noopener"); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the file."); } };
   if (t.status === "DRAFT") return <Card title="Bids"><p style={{ margin: 0, ...muted }}>Bids arrive once the tender is published.</p></Card>;
   return (
     <Card title={`Bids${count !== null ? ` (${count} submitted)` : ""}`}>
       <ErrorNote message={err} />
       {!closed ? <p style={{ margin: 0, lineHeight: 1.5, ...muted }}>Bids are sealed. You can see how many have been submitted, but not who bid or what they offered, until {fmtDateTime(t.closingAt, t.timeZone)}.</p> : !bids ? (
-        <div><p style={{ marginTop: 0, ...muted }}>The tender has closed. Opening the bids is recorded on the tender timeline.</p><Button variant="primary" onClick={open} disabled={count === 0}>Open bids</Button></div>
+        <div><p style={{ marginTop: 0, ...muted }}>The tender has closed. Opening the bids is recorded on the tender timeline.</p><div style={{ display: "flex", gap: 8 }}><Button variant="primary" onClick={open} disabled={count === 0}>Open bids</Button><a href={`/tenders/evaluate?id=${t.id}`} style={{ textDecoration: "none" }}><Button variant="secondary">Evaluation and award</Button></a></div></div>
       ) : bids.length === 0 ? <p style={{ margin: 0, ...muted }}>No bids were submitted.</p> : bids.map((b, i) => (
         <div key={b.bidId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

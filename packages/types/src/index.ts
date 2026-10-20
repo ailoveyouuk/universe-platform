@@ -3364,3 +3364,73 @@ export type BidTemplateKind = "financial" | "technical";
 export interface BidTemplateFile { fileName: string; contentType: string; contentBase64: string }
 /** The result of uploading a completed template. When not accepted nothing was changed and `problems` says why. */
 export interface BidTemplateResult { accepted: boolean; problems: string[]; workspace: TenderBidWorkspace | null }
+
+// ---------------------------------------------------------------------------
+// Tender evaluation, award and participant status (step 4, 2026-10-20)
+// ---------------------------------------------------------------------------
+export const CRITERION_METRICS = [
+  { value: "PRICE", label: "Price", hint: "Calculated: the lowest compliant price scores 100." },
+  { value: "LEAD_TIME", label: "Lead time", hint: "Calculated: the shortest average lead time scores 100." },
+  { value: "MANUAL", label: "Scored by evaluators", hint: "Quality, technical merit, sustainability or anything else you want judged." },
+] as const;
+export type EvalPhase = "OPEN" | "CLOSED" | "OPENED" | "EVALUATING" | "SCORED" | "AWARDED";
+export interface EvalCriterion { id: string; title: string; kind: "GATE" | "SCORED"; weight: number | null; metric: "MANUAL" | "PRICE" | "LEAD_TIME"; description: string | null }
+export interface EvalEvaluator { userId: string; name: string; role: "CHAIR" | "EVALUATOR"; coiDeclaredAt: string | null; coiNoConflict: boolean | null; conflictCount: number }
+export interface EvalBid {
+  bidId: string; organizationId: string; organizationName: string | null; submittedAt: string | null; total: number | null; avgLeadDays: number | null;
+  pricedLineIds: string[]; partial: boolean; gatesComplete: boolean; failedGate: boolean; compliant: boolean;
+  calculated: Record<string, number | null>; scores: Record<string, number | undefined>; totalScore: number | null; rank: number | null;
+  gates: Record<string, { passed: boolean; notes: string | null }>;
+  mine: Record<string, { score: number | null; rationale: string | null; submitted: boolean }>; mySubmitted: boolean;
+  others?: Record<string, { evaluator: string; score: number | null; rationale: string | null }[]>;
+  proposed: Record<string, number | null>; spreadFlag: Record<string, boolean>;
+  moderated: Record<string, { score: number | null; rationale: string | null }>;
+}
+export interface EvalAward { awardId: string; bidId: string; organizationId: string; organizationName: string | null; reason: string; awardedAt: string; lines: { tenderLineId: string; sharePercent: number | null }[] }
+export interface EvaluationOverview {
+  tender: {
+    id: string; referenceNumber: string; title: string; currency: string | null; status: string; closingAt: string | null; timeZone: string | null;
+    emergencyProcurement: boolean; emergencyReason: string | null; allowSingleEvaluator: boolean; singleEvaluatorReason: string | null;
+    standstillEnabled: boolean; standstillWorkingDays: number | null; bidsOpenedAt: string | null; evaluationStartedAt: string | null;
+    scoringFinalisedAt: string | null; awardedAt: string | null; standstillEndsAt: string | null;
+  };
+  phase: EvalPhase;
+  viewer: { isIssuer: boolean; isEvaluator: boolean; role: "CHAIR" | "EVALUATOR" | null; coiDeclared: boolean; coiRequired: boolean };
+  evaluators: EvalEvaluator[];
+  canStart: boolean; startProblems: string[];
+  criteria: EvalCriterion[];
+  lines: { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null }[];
+  bids: EvalBid[];
+  awards: EvalAward[];
+  complaints: { id: string; organizationId: string; body: string; status: string; response: string | null; lodgedAt: string; respondedAt: string | null }[];
+}
+export interface TenderStatusView {
+  tender: {
+    id: string; referenceNumber: string; title: string; issuerName: string; status: string; closingAt: string | null; timeZone: string | null; currency: string | null;
+    emergencyProcurement: boolean; emergencyReason: string | null; standstillEnabled: boolean; standstillEndsAt: string | null; cancelledReason: string | null;
+  };
+  milestones: { key: string; label: string; at: string | null; target: string | null; done: boolean }[];
+  next: { label: string; at: string | null } | null;
+  bidsSubmitted: number | null;
+  my: {
+    participating: boolean;
+    bid: { status: string; submittedAt: string | null; bidCurrency: string | null; totalTenderCurrency: number | null } | null;
+    debrief: { outcome: "AWARDED" | "NOT_AWARDED" | "NOT_COMPLIANT"; totalScore: number | null; rank: number | null; bidCount: number | null; feedback: string | null; releasedAt: string;
+      scores: { criterionId: string; title: string; kind: string; weight: number | null; metric: string; score: number | null; passed: boolean | null; comment: string | null }[] } | null;
+    awards: { reason: string; awardedAt: string; lines: { description: string; sharePercent: number | null }[] }[];
+    complaints: { id: string; body: string; status: string; response: string | null; lodgedAt: string; respondedAt: string | null }[];
+    canComplain: boolean;
+  };
+}
+
+/** Rescales weights so they total exactly `total` (default 100) to one decimal place, keeping their proportions. All-zero weights share equally. */
+export function normaliseWeights(weights: number[], total = 100): number[] {
+  if (weights.length === 0) return [];
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const raw = sum > 0 ? weights.map((w) => (w / sum) * total) : weights.map(() => total / weights.length);
+  const out = raw.map((w) => Math.floor(w * 10 + 1e-9) / 10);
+  let rem = Math.round((total - out.reduce((a, b) => a + b, 0)) * 10);
+  const order = raw.map((w, i) => ({ i, frac: w * 10 - Math.floor(w * 10 + 1e-9) })).sort((a, b) => b.frac - a.frac);
+  for (let k = 0; rem > 0; k = (k + 1) % order.length, rem--) out[order[k]!.i] = Math.round((out[order[k]!.i]! + 0.1) * 10) / 10;
+  return out;
+}

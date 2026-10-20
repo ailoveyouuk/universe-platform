@@ -24,7 +24,7 @@ export default function MyBidsPage() {
           <Link key={b.tenderId} href={`/bids/edit?id=${b.tenderId}`} style={{ display: "block", textDecoration: "none", color: "var(--u-ink)", padding: "14px 20px", borderTop: i ? "1px solid var(--u-border)" : "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div><strong>{b.referenceNumber}</strong> {b.title}<div style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>{b.issuerName} · {STATUS_LABEL[b.tenderStatus]} · closes {fmtDateTime(b.closingAt, b.timeZone)}</div></div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>{b.totalBidCurrency && <span style={{ fontSize: 13 }}>{b.bidCurrency} {Number(b.totalBidCurrency).toLocaleString()}</span>}<Pill tone={BID_TONE[b.status]}>{b.status === "DRAFT" ? "Draft" : b.status === "SUBMITTED" ? "Submitted" : "Withdrawn"}</Pill></div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>{b.status === "SUBMITTED" && <Link href={`/bids/status?id=${b.tenderId}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: 13 }}>Status</Link>}{b.totalBidCurrency && <span style={{ fontSize: 13 }}>{b.bidCurrency} {Number(b.totalBidCurrency).toLocaleString()}</span>}<Pill tone={BID_TONE[b.status]}>{b.status === "DRAFT" ? "Draft" : b.status === "SUBMITTED" ? "Submitted" : "Withdrawn"}</Pill></div>
             </div>
           </Link>
         ))}
