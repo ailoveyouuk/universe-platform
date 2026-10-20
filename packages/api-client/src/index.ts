@@ -331,7 +331,7 @@ export class UniverseApiClient {
   // ---- evaluation, award, status (step 4)
   openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
   tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
-  evaluatorCandidates(id: string): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates`); }
+  evaluatorCandidates(id: string, q = ""): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates?q=${encodeURIComponent(q)}`); }
   evaluationBidders(id: string): Promise<{ id: string; name: string }[]> { return this.request(`/tenders/${id}/evaluation/bidders`); }
   setTenderEvaluators(id: string, evaluators: { userId: string; role: "CHAIR" | "EVALUATOR" }[]): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/evaluators`, { method: "PUT", body: JSON.stringify({ evaluators }) }); }
   declareEvaluatorConflict(id: string, body: { noConflict: boolean; conflictedOrganisationIds?: string[]; notes?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/conflict`, { method: "PUT", body: JSON.stringify(body) }); }

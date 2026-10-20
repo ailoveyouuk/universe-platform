@@ -45,7 +45,7 @@ export function EvaluateView() {
       <ErrorNote message={err} />
       {problems.length > 0 && <Card><strong>Please resolve:</strong><ul style={{ margin: "6px 0 0" }}>{problems.map((p, i) => <li key={i} style={{ fontSize: 13.5 }}>{p}</li>)}</ul></Card>}
 
-      {o.phase === "OPEN" && <Card><p style={{ margin: 0, ...muted }}>The tender is still open for bids. Evaluation starts after the closing time.</p></Card>}
+      {o.phase === "OPEN" && <Card><p style={{ margin: 0, ...muted }}>{t.status === "DRAFT" ? "This tender is still a draft. Publish it first." : t.status === "CANCELLED" ? "This tender was cancelled." : "The tender is still open for bids. Evaluation starts after the closing time."}</p></Card>}
       {o.phase === "CLOSED" && v.isIssuer && (
         <Card title="Open the bids"><p style={{ marginTop: 0, ...muted }}>The tender has closed. Opening the bids is recorded on the timeline and bidders are told.</p>
           <Button variant="primary" disabled={busy || !closed} onClick={() => act(async () => { await apiClient.openTenderBids(id); return apiClient.tenderEvaluation(id); })}>Open bids</Button></Card>
@@ -76,13 +76,18 @@ export function EvaluateView() {
 type Act = (fn: () => Promise<unknown>) => Promise<boolean>;
 
 function Setup({ o, id, act, busy }: { o: EvaluationOverview; id: string; act: Act; busy: boolean }) {
-  const [cands, setCands] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [found, setFound] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [q, setQ] = useState("");
+  const [names, setNames] = useState<Record<string, { name: string; email: string }>>(Object.fromEntries(o.evaluators.map((e) => [e.userId, { name: e.name, email: "" }])));
   const [sel, setSel] = useState<Record<string, "CHAIR" | "EVALUATOR" | undefined>>(Object.fromEntries(o.evaluators.map((e) => [e.userId, e.role])));
-  useEffect(() => { apiClient.evaluatorCandidates(id).then(setCands).catch(() => undefined); }, [id]);
+  useEffect(() => { const h = setTimeout(() => apiClient.evaluatorCandidates(id, q).then((r) => { setFound(r); setNames((n) => ({ ...n, ...Object.fromEntries(r.map((c) => [c.id, { name: c.name, email: c.email }])) })); }).catch(() => undefined), 250); return () => clearTimeout(h); }, [id, q]);
+  const chosenIds = Object.entries(sel).filter(([, r]) => r).map(([k]) => k);
+  const cands = [...chosenIds.map((k) => ({ id: k, name: names[k]?.name ?? "Evaluator", email: names[k]?.email ?? "" })), ...found.filter((c) => !sel[c.id])];
   const chosen = Object.entries(sel).filter(([, r]) => r).map(([userId, role]) => ({ userId, role: role! }));
   return (
     <Card title="Evaluators">
       <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>{o.tender.allowSingleEvaluator ? `A single evaluator is allowed on this tender (${o.tender.singleEvaluatorReason}).` : "Assign at least two evaluators and one chair."} Each must declare any conflict of interest before seeing the bids.</p>
+      <input aria-label="Search your colleagues" style={{ ...inputStyle, maxWidth: 320, marginBottom: 8 }} placeholder="Search colleagues by name or email" value={q} onChange={(e) => setQ(e.target.value)} />
       {cands.map((c) => (
         <div key={c.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "4px 0", fontSize: 14 }}>
           <input type="checkbox" aria-label={`Assign ${c.name}`} checked={!!sel[c.id]} onChange={(e) => setSel((s) => ({ ...s, [c.id]: e.target.checked ? "EVALUATOR" : undefined }))} />

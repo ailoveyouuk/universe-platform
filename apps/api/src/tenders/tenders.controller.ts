@@ -65,7 +65,7 @@ export class TendersController {
 
   // ---- evaluation and award (step 4): evaluators and issuers
   @Get(":id/evaluation") evaluationOverview(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.overview(u, id); }
-  @Get(":id/evaluation/candidates") evaluatorCandidates(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.listCandidates(u, id); }
+  @Get(":id/evaluation/candidates") evaluatorCandidates(@CurrentUser() u: RequestUser, @Param("id") id: string, @Query("q") q = "") { return this.evaluation.listCandidates(u, id, q); }
   @Get(":id/evaluation/bidders") evaluationBidders(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.bidderOptions(u, id); }
   @Put(":id/evaluation/evaluators") setEvaluators(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: SetEvaluatorsDto) { return this.evaluation.setEvaluators(u, id, dto); }
   @Put(":id/evaluation/conflict") declareConflict(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: CoiDto) { return this.evaluation.declareConflict(u, id, dto); }

@@ -15,7 +15,7 @@ const fullName = (u: { forename: string | null; surname: string | null; email: s
 
 export type EvalPhase = "OPEN" | "CLOSED" | "OPENED" | "EVALUATING" | "SCORED" | "AWARDED";
 export const phaseOf = (t: { status: string; closingAt: Date | null; bidsOpenedAt: Date | null; evaluationStartedAt: Date | null; scoringFinalisedAt: Date | null; awardedAt: Date | null }): EvalPhase =>
-  t.awardedAt ? "AWARDED" : t.scoringFinalisedAt ? "SCORED" : t.evaluationStartedAt ? "EVALUATING" : t.bidsOpenedAt ? "OPENED" : effectiveStatus(t as never) === "PUBLISHED" ? "OPEN" : "CLOSED";
+  t.status === "DRAFT" || t.status === "CANCELLED" ? "OPEN" : t.awardedAt ? "AWARDED" : t.scoringFinalisedAt ? "SCORED" : t.evaluationStartedAt ? "EVALUATING" : t.bidsOpenedAt ? "OPENED" : effectiveStatus(t as never) === "PUBLISHED" ? "OPEN" : "CLOSED";
 
 /**
  * Evaluation (step 4, 2026-10-20). Bids are opened by the issuer after closing; named evaluators declare any conflict of interest,
@@ -175,11 +175,15 @@ export class TenderEvaluationService {
 
   // ----------------------------------------------------------- set-up
 
-  async listCandidates(user: RequestUser, tenderId: string) {
+  async listCandidates(user: RequestUser, tenderId: string, q = "") {
     assertHasPermission(user, "tenders.issue");
     return withTenantContext(user.organizationId, async (tx) => {
       await this.tenders.ownTender(tx, user, tenderId);
-      const users = await tx.user.findMany({ where: { organizationId: user.organizationId, status: "ACTIVE" }, select: { id: true, forename: true, surname: true, email: true }, orderBy: { forename: "asc" } });
+      const term = q.trim().slice(0, 80);
+      const users = await tx.user.findMany({
+        where: { organizationId: user.organizationId, status: "ACTIVE", ...(term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }, { email: { contains: term } }] } : {}) },
+        select: { id: true, forename: true, surname: true, email: true }, orderBy: [{ forename: "asc" }, { surname: "asc" }], take: 25,
+      });
       return users.map((u) => ({ id: u.id, name: fullName(u), email: u.email }));
     });
   }
