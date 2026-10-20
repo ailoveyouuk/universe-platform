@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
 import type { PagedResult, PartnerPerformanceMetric } from "@universe/types";
+import { lineTimeliness } from "./delivery-metrics";
+import { loadSettings } from "./scorecard-settings.service";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 
@@ -151,6 +153,40 @@ export class PartnerPerformanceService {
         avgDaysLate: num(r.lateN) === 0 ? null : Math.round((num(r.lateSum) / num(r.lateN)) * 10) / 10,
       };
     });
+    // Consistency with the partner page: on-time, in-full, OTIF and the on-time counts use the organisation's working-day window
+    // (see delivery-metrics.ts), computed here for just the stakeholders on this page.
+    if (items.length) {
+      const cfg = await withTenantContext(org, (tx) => loadSettings(tx, org));
+      const ids = [...new Set(items.map((i) => i.partnerId))];
+      const lines = await withTenantContext(org, (tx) =>
+        tx.projectLine.findMany({
+          where: { organizationId: org, archivedAt: null, OR: [{ manufacturerId: { in: ids } }, { supplierId: { in: ids } }, { project: { freightForwarderId: { in: ids } } }] },
+          select: {
+            manufacturerId: true, supplierId: true, supplierInFull: true, internalOnTime: true, supplierOnTime: true, projectedDeliveryDate: true,
+            actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true, project: { select: { freightForwarderId: true } },
+          },
+          take: 50000,
+        }),
+      );
+      for (const it of items) {
+        const mine = lines.filter((l) =>
+          it.roleType === "MANUFACTURER" ? l.manufacturerId === it.partnerId : it.roleType === "SUPPLIER" ? l.supplierId === it.partnerId : l.project.freightForwarderId === it.partnerId,
+        );
+        const role = it.roleType === "SUPPLIER" ? "SUPPLIER" : "OTHER";
+        let flags = 0, yes = 0, ifFlags = 0, ifYes = 0, ofN = 0, ofYes = 0;
+        for (const l of mine) {
+          const t = lineTimeliness(l, role, cfg);
+          if (t !== null) { flags++; if (t) yes++; }
+          if (role === "SUPPLIER" && l.supplierInFull !== null) {
+            ifFlags++; if (l.supplierInFull) ifYes++;
+            if (t !== null) { ofN++; if (t && l.supplierInFull) ofYes++; }
+          }
+        }
+        it.onTimeCount = yes;
+        it.onTimePercent = pct(yes, flags);
+        if (role === "SUPPLIER") { it.inFullCount = ifYes; it.inFullPercent = pct(ifYes, ifFlags); it.otifPercent = pct(ofYes, ofN); } else { it.otifPercent = it.onTimePercent; }
+      }
+    }
     return { items, total: rows.length ? num(rows[0].total) : 0, page, pageSize };
   }
 }

@@ -84,13 +84,14 @@ describe("Quality: performance scorecards and QA queue paging", () => {
     const r = await performance.getPerformancePage(asUser(orgA, []), { q: suffix });
     expect(r.total).toBe(2);
     const m = r.items.find((i) => i.partnerId === manufacturerId)!;
-    expect(m).toMatchObject({ roleType: "MANUFACTURER", totalLines: 3, onTimeCount: 1, onTimePercent: 50, otifPercent: 50, issueCount: 0, avgDaysLate: 2 });
+    expect(m).toMatchObject({ roleType: "MANUFACTURER", totalLines: 3, onTimeCount: 2, onTimePercent: 100, otifPercent: 100, issueCount: 0, avgDaysLate: 2 });
     const s = r.items.find((i) => i.partnerId === supplierId)!;
     expect(s).toMatchObject({ roleType: "SUPPLIER", totalLines: 2, onTimeCount: 1, onTimePercent: 50, inFullPercent: 100, otifPercent: 50, issueCount: 1, avgDaysLate: 2 });
     // most active first
     expect(r.items[0].partnerId).toBe(manufacturerId);
   });
 
+  // The organisation's working-day window (default 30 early to 5 late) decides on-time: the 4-day-late and 2-day-early lines both count.
   it("scorecards: role filter, paging and tenant isolation", async () => {
     expect((await performance.getPerformancePage(asUser(orgA, []), { roleType: "SUPPLIER", q: suffix })).items.map((i) => i.partnerId)).toEqual([supplierId]);
     expect((await performance.getPerformancePage(asUser(orgA, []), { roleType: "WAREHOUSING" })).total).toBe(0);

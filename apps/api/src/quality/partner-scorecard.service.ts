@@ -3,6 +3,7 @@ import { withTenantContext } from "@universe/db";
 import type { PartnerScorecard, ScorecardMetric } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { tenantScope } from "../common/tenant-scoped";
+import { lineTimeliness } from "./delivery-metrics";
 import { loadSettings } from "./scorecard-settings.service";
 import { linearScore, onTimeWithin, pctStatus, summarise } from "./scorecard-scoring";
 
@@ -43,11 +44,7 @@ export class PartnerScorecardService {
         take: 5000,
       });
       const early = cfg.earlyDays, lateDays = cfg.lateDays;
-      /** Window-based on-time per role: the client promise (projected date) for manufacturers and forwarders, the supplier's committed date for suppliers. */
-      const timely = (l: { projectedDeliveryDate: Date | null; actualDeliveryDate: Date | null; goodsCollectedDate: Date | null; supplierGad: Date | null }, role: "SUPPLIER" | "OTHER") =>
-        role === "SUPPLIER"
-          ? (l.goodsCollectedDate && l.supplierGad ? onTimeWithin(l.goodsCollectedDate, l.supplierGad, early, lateDays) : null)
-          : (l.actualDeliveryDate && l.projectedDeliveryDate ? onTimeWithin(l.actualDeliveryDate, l.projectedDeliveryDate, early, lateDays) : null);
+      const timely = (l: Parameters<typeof lineTimeliness>[0], role: "SUPPLIER" | "OTHER") => lineTimeliness(l, role, cfg);
       let otFlags = 0, otYes = 0, ifFlags = 0, ifYes = 0, lateN = 0, lateSum = 0, otifN = 0, otifYes = 0;
       for (const l of lines) {
         const flags: (boolean | null)[] = [];
@@ -68,7 +65,7 @@ export class PartnerScorecardService {
       const roleWhere = mainRole === "SUPPLIER" ? { supplierId: { not: null } } : mainRole === "MANUFACTURER" ? { manufacturerId: { not: null } } : { project: { freightForwarderId: { not: null } } };
       const orgLines = await tx.projectLine.findMany({
         where: { ...tenantScope(org), archivedAt: null, ...roleWhere },
-        select: { projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true, supplierInFull: true }, take: 20000,
+        select: { projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true, internalOnTime: true, supplierOnTime: true, supplierInFull: true }, take: 20000,
       });
       let orgOtAll = 0, orgOtYes = 0, orgIfAll = 0, orgIfYes = 0;
       for (const l of orgLines) {
