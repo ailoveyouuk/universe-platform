@@ -197,8 +197,8 @@ async function linkSourceApprovals(orgId: string) {
       const has = c.partnerId && c.productMasterId ? await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, productMasterId: c.productMasterId, isArchived: false, OR: [{ manufacturerId: c.partnerId }, { supplierId: c.partnerId }] }, select: { id: true } }) : null;
       if (has) { withApproval.add(c.id); continue; }
       const skip = relinked * 7 + (hash(c.id) % 40);
-      const a = await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, isArchived: false, manufacturerId: { not: null } }, select: { productMasterId: true, manufacturerId: true }, orderBy: { id: "asc" }, skip });
-      if (!a?.manufacturerId) continue;
+      const a = await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true }, orderBy: { id: "asc" }, skip });
+      if (!a) continue;
       if (dryRun) { relinked++; continue; }
       await tx.qualityComplaint.update({ where: { id: c.id }, data: { partnerId: a.manufacturerId, productMasterId: a.productMasterId } });
       relinked++;
