@@ -15,6 +15,9 @@ type Tab = "summary" | "participants" | "bids" | "questions" | "addenda" | "scre
 const ICONS: Record<string, React.ReactNode> = { closes: <CalendarIcon size={18} />, interest: <GridIcon size={18} />, invited: <CheckCircleIcon size={18} />, clar: <ClockIcon size={18} />, lines: <GridIcon size={18} />, eval: <ClockIcon size={18} />, award: <CalendarIcon size={18} />, criteria: <CheckCircleIcon size={18} /> };
 
 /** An issuer's page for a published tender (2026-10-19): stage tiles, details, who is interested, and the audit timeline. */
+// A tile opens the tab that lists what it counts (platform tile standard); the rest are timings with no list behind them.
+const TILE_TAB: Record<string, Tab> = { interest: "participants", invited: "participants", clar: "questions", award: "bids", eval: "bids", criteria: "summary", lines: "summary" };
+
 export function ManageView() {
   const id = useSearchParams()?.get("id") ?? "";
   const [d, setD] = useState<TenderDetailForIssuer | null>(null);
@@ -41,9 +44,9 @@ export function ManageView() {
       />
       <ErrorNote message={err} />
       {st === "CANCELLED" && t.cancelledReason && <Card><strong>Cancelled.</strong> {t.cancelledReason}</Card>}
-      {tiles.length > 0 && <StatTileGrid>{tiles.map((x) => <StatTile key={x.key} label={x.label} value={x.value} icon={ICONS[x.key] ?? <AlertIcon size={18} />} tone={x.tone} note={x.note} indicator={x.indicator} />)}</StatTileGrid>}
+      {tiles.length > 0 && <StatTileGrid>{tiles.map((x) => <StatTile key={x.key} onClick={TILE_TAB[x.key] ? () => setTab(TILE_TAB[x.key]) : undefined} active={!!TILE_TAB[x.key] && tab === TILE_TAB[x.key]} label={x.label} value={x.value} icon={ICONS[x.key] ?? <AlertIcon size={18} />} tone={x.tone} note={x.note} indicator={x.indicator} />)}</StatTileGrid>}
 
-      <div style={{ display: "flex", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {([["summary", "Summary"], ["participants", `Participants (${d.participants.length})`], ["bids", "Bids"], ["questions", `Questions (${d.questions.filter((q) => !q.answered).length})`], ["addenda", `Addenda (${d.addenda.length})`], ["screening", "Screening"], ["timeline", "Timeline"]] as [Tab, string][]).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setTab(k)} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}><Pill tone={tab === k ? "brand" : "neutral"}>{label}</Pill></button>
         ))}

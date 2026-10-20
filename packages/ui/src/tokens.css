@@ -488,3 +488,13 @@ input[type="checkbox"], input[type="radio"] {
     display: block;
   }
 }
+
+/* Wide data tables scroll inside their own box on tablets and phones instead of widening the page (2026-10-20 responsive pass). */
+@media (max-width: 900px) {
+  main table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
