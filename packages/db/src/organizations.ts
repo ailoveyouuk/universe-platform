@@ -91,9 +91,6 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       // and Organization Admin's call, not a PM's — same split as the
       // Finance role below not getting projects.financials.edit.
       "partners.financials.view",
-      // Complaints (2026-10-20): a PM can log and see complaints, but investigation and closure are QA's.
-      "quality.complaints.view",
-      "quality.complaints.log",
     ],
   },
   {

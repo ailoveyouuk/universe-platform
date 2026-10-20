@@ -66,6 +66,7 @@ export default function QualityPage() {
   // QA/procurement segregation of duties (Lewis, 2026-10-08) — purely
   // cosmetic (products.approve is enforced server-side regardless); keeps
   // a procurement-only user from hitting an always-403 status change.
+  const canSeeComplaints = me?.permissions.includes("quality.complaints.view") ?? false;
   const canApproveProducts = me?.permissions.includes("products.approve") ?? false;
   const [dashboard, setDashboard] = useState<QualityDashboardSummary | null>(null);
   const [approvals, setApprovals] = useState<ProductSourceApprovalSummary[] | null>(null);
@@ -165,9 +166,11 @@ export default function QualityPage() {
           <Link href="/quality/re-verification" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Re-verification Due</Button>
           </Link>
-          <Link href="/quality/complaints" style={{ textDecoration: "none" }}>
-            <Button variant="secondary">Complaints</Button>
-          </Link>
+          {canSeeComplaints && (
+            <Link href="/quality/complaints" style={{ textDecoration: "none" }}>
+              <Button variant="secondary">Complaints</Button>
+            </Link>
+          )}
           <Link href="/quality/controlled-documents" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Controlled Documents</Button>
           </Link>
@@ -411,7 +414,7 @@ export default function QualityPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: "var(--u-surface-alt)", textAlign: "left" }}>
-                  {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues", "Complaints (upheld)"].map((h) => (
+                  {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues", ...(canSeeComplaints ? ["Complaints (upheld)"] : [])].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", fontWeight: 600, color: "var(--u-ink-secondary)", fontSize: 12 }}>
                       {h === "OTIF" ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -445,11 +448,11 @@ export default function QualityPage() {
                     <td style={{ padding: "10px 14px", color: p.issueCount > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
                       {p.issueCount}
                     </td>
-                    <td style={{ padding: "10px 14px", color: p.complaintsUpheld > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                    {canSeeComplaints && <td style={{ padding: "10px 14px", color: p.complaintsUpheld > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
                       {p.complaintsTotal === 0 ? "—" : (
                         <Link href={`/quality/complaints`} style={{ textDecoration: "none", color: "inherit" }}>{p.complaintsTotal} ({p.complaintsUpheld})</Link>
                       )}
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>

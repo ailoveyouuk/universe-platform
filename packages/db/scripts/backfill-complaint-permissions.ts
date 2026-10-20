@@ -3,14 +3,13 @@
  *   cd packages/db && npm run backfill:complaint-permissions      (DRY_RUN=true to preview)
  *
  *   Organization Admin, Quality Assurance, Responsible Person, Stakeholder Demo -> view, log, investigate, approve
- *   Project Manager                                                               -> view, log
+ *   Everyone else (Project Manager etc.)                                          -> nothing: complaints are ring-fenced to quality roles
  */
 import { prisma, withTenantContext } from "../src/index";
 
 const ALL = ["quality.complaints.view", "quality.complaints.log", "quality.complaints.investigate", "quality.complaints.approve"];
 const GRANTS: Record<string, string[]> = {
   "Organization Admin": ALL, "Quality Assurance": ALL, "Responsible Person": ALL, "Stakeholder Demo": ALL,
-  "Project Manager": ["quality.complaints.view", "quality.complaints.log"],
 };
 const DESCRIPTIONS: Record<string, string> = {
   "quality.complaints.view": "View quality complaints, including complainant details",

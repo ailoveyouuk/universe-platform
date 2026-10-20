@@ -128,6 +128,7 @@ export class PartnerPerformanceService {
         OFFSET ${(page - 1) * pageSize} ROWS FETCH NEXT ${pageSize} ROWS ONLY`),
     );
 
+    const canSeeComplaints = user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view");
     const num = (v: unknown) => Number(v ?? 0);
     const items: PartnerPerformanceMetric[] = rows.map((r) => {
       const supplierRole = r.roleType === "SUPPLIER";
@@ -144,8 +145,9 @@ export class PartnerPerformanceService {
         // Roles with no separate in-full flag use on-time as the OTIF approximation (see class doc above).
         otifPercent: supplierRole ? pct(num(r.otifNum), num(r.otifDen)) : onTimePercent,
         issueCount: supplierRole ? num(r.issues) : 0,
-        complaintsUpheld: num(r.complaintsUpheld),
-        complaintsTotal: num(r.complaintsTotal),
+        // Complaints are ring-fenced to quality roles: everyone else sees zeros (and the column is hidden).
+        complaintsUpheld: canSeeComplaints ? num(r.complaintsUpheld) : 0,
+        complaintsTotal: canSeeComplaints ? num(r.complaintsTotal) : 0,
         avgDaysLate: num(r.lateN) === 0 ? null : Math.round((num(r.lateSum) / num(r.lateN)) * 10) / 10,
       };
     });
