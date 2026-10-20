@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import { SCORECARD_THRESHOLDS as T } from "@universe/types";
 import type { PartnerScorecard, ScorecardMetric } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { tenantScope } from "../common/tenant-scoped";
+import { loadSettings } from "./scorecard-settings.service";
 import { linearScore, onTimeWithin, pctStatus, summarise } from "./scorecard-scoring";
 
 const ROLE_LABEL: Record<string, string> = { MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier", FREIGHT_FORWARDER: "Freight forwarder" };
@@ -27,6 +27,7 @@ export class PartnerScorecardService {
     return withTenantContext(org, async (tx) => {
       const partner = await tx.partner.findFirst({ where: { id: partnerId, ...tenantScope(org) }, include: { roles: { where: { isActive: true } } } });
       if (!partner) throw new NotFoundException("Stakeholder not found.");
+      const cfg = await loadSettings(tx, org);
       const roles = partner.roles.map((r) => r.roleType);
       const isSupplier = roles.includes("SUPPLIER");
       const metrics: ScorecardMetric[] = [];
@@ -41,7 +42,7 @@ export class PartnerScorecardService {
         },
         take: 5000,
       });
-      const early = T.window.earlyBusinessDays, lateDays = T.window.lateBusinessDays;
+      const early = cfg.earlyDays, lateDays = cfg.lateDays;
       /** Window-based on-time per role: the client promise (projected date) for manufacturers and forwarders, the supplier's committed date for suppliers. */
       const timely = (l: { projectedDeliveryDate: Date | null; actualDeliveryDate: Date | null; goodsCollectedDate: Date | null; supplierGad: Date | null }, role: "SUPPLIER" | "OTHER") =>
         role === "SUPPLIER"
@@ -83,7 +84,7 @@ export class PartnerScorecardService {
       const otP = pct(otYes, otFlags);
       add({
         key: "on_time", group: "DELIVERY", label: "On-time delivery", weight: 20, href: null,
-        display: otP === null ? "No data" : `${otP}%`, score: otP, status: otP === null ? "neutral" : pctStatus(otP, T.onTime.good, T.onTime.warn),
+        display: otP === null ? "No data" : `${otP}%`, score: otP, status: otP === null ? "neutral" : pctStatus(otP, cfg.onTimeGood, cfg.onTimeWarn),
         detail: otP === null ? "No delivery has been marked on time or late yet." : `${otYes} of ${otFlags} deliveries on time. ${windowNote}`,
         benchmark: otBench === null ? null : `All your ${roleName}s: ${otBench}%`,
       });
@@ -91,15 +92,15 @@ export class PartnerScorecardService {
         const p = pct(ifYes, ifFlags);
         add({
           key: "in_full", group: "DELIVERY", label: "In-full delivery", weight: 15, href: null,
-          display: p === null ? "No data" : `${p}%`, score: p, status: p === null ? "neutral" : pctStatus(p, T.inFull.good, T.inFull.warn),
+          display: p === null ? "No data" : `${p}%`, score: p, status: p === null ? "neutral" : pctStatus(p, cfg.inFullGood, cfg.inFullWarn),
           detail: p === null ? "No delivery has been marked in full or short yet." : `${ifYes} of ${ifFlags} deliveries in full.`,
           benchmark: ifBench === null ? null : `All your suppliers: ${ifBench}%`,
         });
         const o = pct(otifYes, otifN);
         add({
           key: "otif", group: "DELIVERY", label: "On-time in-full (OTIF)", weight: 10, href: null,
-          display: o === null ? "No data" : `${o}%`, score: o, status: o === null ? "neutral" : pctStatus(o, T.otif.good, T.otif.warn),
-          detail: o === null ? "Needs deliveries with both on-time and in-full recorded." : `${otifYes} of ${otifN} deliveries both on time and in full. Target ${T.otif.good}% (USAID GHSC-PSM).`, benchmark: null,
+          display: o === null ? "No data" : `${o}%`, score: o, status: o === null ? "neutral" : pctStatus(o, cfg.otifGood, cfg.otifWarn),
+          detail: o === null ? "Needs deliveries with both on-time and in-full recorded." : `${otifYes} of ${otifN} deliveries both on time and in full. Your target is ${cfg.otifGood}%.`, benchmark: null,
         });
       }
       const avgLate = lateN ? Math.round((lateSum / lateN) * 10) / 10 : null;

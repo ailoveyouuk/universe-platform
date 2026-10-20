@@ -3605,3 +3605,14 @@ export const SCORECARD_THRESHOLDS = {
   window: { earlyBusinessDays: 30, lateBusinessDays: 5 },
   basis: "USAID GHSC-PSM (OTIF target 90%; on time = 30 business days early to 5 late) and Global Fund (84% OTIF in 2017; on time = due date + 14 days)",
 } as const;
+
+/** The delivery-scoring parameters in force for an organisation (its own settings, or the platform defaults). */
+export interface ScorecardSettings {
+  onTimeGood: number; onTimeWarn: number; inFullGood: number; inFullWarn: number; otifGood: number; otifWarn: number;
+  earlyDays: number; lateDays: number;
+  /** True when the organisation has saved its own values. */
+  isCustom: boolean;
+  canEdit: boolean;
+  updatedAt: string | null;
+}
+export type UpdateScorecardSettingsInput = Partial<Omit<ScorecardSettings, "isCustom" | "canEdit" | "updatedAt">> & { reason?: string };

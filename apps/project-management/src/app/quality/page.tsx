@@ -30,6 +30,7 @@ import {
   StandardsReference,
   StatTile,
 } from "@universe/ui";
+import { ScorecardSettingsPanel } from "../../components/ScorecardSettingsPanel";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING"] as const;
@@ -391,6 +392,8 @@ export default function QualityPage() {
             />
           </div>
         </div>
+
+        <ScorecardSettingsPanel />
 
         {!performance && <div style={{ padding: 24, color: "var(--u-ink-secondary)", fontSize: 14 }}>Loading…</div>}
         {performance && performance.length === 0 && (
