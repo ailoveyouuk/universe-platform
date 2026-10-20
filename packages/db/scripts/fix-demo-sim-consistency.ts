@@ -76,9 +76,9 @@ async function fixLines(orgId: string) {
 }
 
 async function fixComplaints(orgId: string, ctx: { prodCat: Map<string, string>; prodById: Map<string, { id: string; name: string; category: string }> }) {
-  let changed = 0, moved = 0;
+  let changed = 0, moved = 0, approvalsAdded = 0;
   await withTenantContext(orgId, async (tx) => {
-    const cs = await tx.qualityComplaint.findMany({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" } }, select: { id: true, referenceNumber: true, direction: true, category: true, isSerious: true, flagTemperatureExcursion: true, flagSuspectedFalsified: true, partnerId: true, projectLineId: true, projectId: true, project: { select: { freightForwarderId: true } } } });
+    const cs = await tx.qualityComplaint.findMany({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" } }, select: { id: true, referenceNumber: true, direction: true, category: true, outcome: true, isSerious: true, flagTemperatureExcursion: true, flagSuspectedFalsified: true, partnerId: true, projectLineId: true, projectId: true, project: { select: { freightForwarderId: true } } } });
     const candidates = await tx.projectLine.findMany({ where: { project: { referenceNumber: { startsWith: "SIM-" }, status: { in: ["COMPLETED", "AWARDED"] }, freightForwarderId: { not: null } }, productMasterId: { not: null } }, select: { id: true, projectId: true, productMasterId: true, manufacturerId: true, supplierId: true, project: { select: { clientId: true, freightForwarderId: true } } }, orderBy: { id: "asc" }, take: 2000 });
     for (const c of cs) {
       let line = c.projectLineId ? await tx.projectLine.findUnique({ where: { id: c.projectLineId }, select: { id: true, projectId: true, productMasterId: true, manufacturerId: true, supplierId: true, project: { select: { clientId: true, freightForwarderId: true } } } }) : null;
@@ -98,12 +98,19 @@ async function fixComplaints(orgId: string, ctx: { prodCat: Map<string, string>;
       const issue = c.flagSuspectedFalsified ? "Suspected counterfeit packaging" : pick(ISSUES[cat] ?? ISSUES.PRODUCT_QUALITY, c.id + "is");
       const title = `${issue}: ${shortName(prod.name)}`;
       void forwarder;
+      if (c.direction === "OUTBOUND_SUPPLY_CHAIN" && !isFwd && ["UPHELD", "PARTLY_UPHELD"].includes(c.outcome ?? "") && line.manufacturerId) {
+        const has = await tx.productSourceApproval.findFirst({ where: { organizationId: orgId, productMasterId: prod.id, manufacturerId: line.manufacturerId, isArchived: false }, select: { id: true } });
+        if (!has) {
+          approvalsAdded++;
+          if (!dryRun) await tx.productSourceApproval.create({ data: { organizationId: orgId, productMasterId: prod.id, manufacturerId: line.manufacturerId, supplierId: line.supplierId, status: "APPROVED", approvedAt: new Date(Date.now() - 200 * 86400000), nextReviewDue: new Date(Date.now() + 160 * 86400000), notes: "Simulated approval so that the complaint's source-review links can be shown." } });
+        }
+      }
       changed++;
       if (dryRun) continue;
       await tx.qualityComplaint.update({ where: { id: c.id }, data: { title: title.slice(0, 300), description: `Simulated complaint for the demonstration: ${issue.toLowerCase()} on ${prod.name}.`, projectId: line.projectId, projectLineId: line.id, productMasterId: prod.id, partnerId } });
     }
   });
-  console.log(`Complaints: ${dryRun ? "would update" : "updated"} ${changed} (${moved} moved to a more fitting line)`);
+  console.log(`Complaints: ${dryRun ? "would update" : "updated"} ${changed} (${moved} moved to a more fitting line); source approvals ${dryRun ? "to add" : "added"}: ${approvalsAdded}`);
 }
 
 async function main() {
