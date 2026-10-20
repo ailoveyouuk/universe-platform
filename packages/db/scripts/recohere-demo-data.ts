@@ -52,6 +52,7 @@ async function main() {
   for (const group of chunks(projects, 25)) {
     const batchRows: Record<string, unknown>[] = [];
     const tempLogs: Record<string, unknown>[] = [];
+    const lineUpdates: { id: string; data: Record<string, unknown> }[] = [];
     await withTenantContext(orgId, async (tx) => {
       const lines = await tx.projectLine.findMany({ where: { projectId: { in: group.map((g) => g.id) } }, orderBy: [{ projectId: "asc" }, { id: "asc" }] });
       const byProject = new Map<string, typeof lines>();
@@ -126,7 +127,7 @@ async function main() {
           }
           lineDelivery.set(l.id, { actual, productMasterId: l.productMasterId, batchId: (data.productBatchId as string) ?? l.productBatchId });
           for (const [k, v] of Object.entries(data)) { const cur = (l as Record<string, unknown>)[k]; if ((v instanceof Date && cur instanceof Date && v.getTime() === cur.getTime()) || v === cur) delete data[k]; }
-          if (Object.keys(data).length) { bump("lines changed"); if (!dryRun) await tx.projectLine.update({ where: { id: l.id }, data }); }
+          if (Object.keys(data).length) { bump("lines changed"); lineUpdates.push({ id: l.id, data }); }
         }
         // project dates bracket the lines
         const pdata: Record<string, unknown> = {};
@@ -140,6 +141,7 @@ async function main() {
       if (!dryRun) {
         if (batchRows.length) await tx.productBatch.createMany({ data: batchRows as never });
         if (tempLogs.length) await tx.batchTemperatureLog.createMany({ data: tempLogs as never });
+        for (const u of lineUpdates) await tx.projectLine.update({ where: { id: u.id }, data: u.data as never });
       }
     });
   }
