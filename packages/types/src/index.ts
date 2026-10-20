@@ -3434,3 +3434,113 @@ export function normaliseWeights(weights: number[], total = 100): number[] {
   for (let k = 0; rem > 0; k = (k + 1) % order.length, rem--) out[order[k]!.i] = Math.round((out[order[k]!.i]! + 0.1) * 10) / 10;
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Quality complaints (2026-10-20)
+// ---------------------------------------------------------------------------
+export const COMPLAINT_DIRECTIONS = ["INBOUND_CLIENT", "OUTBOUND_SUPPLY_CHAIN"] as const;
+export const COMPLAINT_STATUSES = ["LOGGED", "ACKNOWLEDGED", "TRIAGED", "INVESTIGATING", "RESOLVED", "CLOSED", "ON_HOLD", "WITHDRAWN"] as const;
+export const COMPLAINT_SEVERITIES = ["CRITICAL", "MAJOR", "MINOR"] as const;
+export const COMPLAINT_CATEGORIES = ["PRODUCT_QUALITY", "DELIVERY", "DOCUMENTATION", "COLD_CHAIN", "SERVICE", "SAFETY", "CONDUCT", "OTHER"] as const;
+export const COMPLAINT_CHANNELS = ["EMAIL", "PHONE", "MEETING", "PORTAL", "LETTER", "OTHER"] as const;
+export const COMPLAINT_ROOT_CAUSES = ["MATERIAL", "MANUFACTURING", "DOCUMENTATION", "TRANSPORT_COLD_CHAIN", "HANDLING_STORAGE", "PROCESS", "HUMAN_ERROR", "SUPPLIER", "NOT_DETERMINED", "OTHER"] as const;
+export const COMPLAINT_OUTCOMES = ["UPHELD", "PARTLY_UPHELD", "NOT_UPHELD"] as const;
+export const COMPLAINT_REMEDIES = ["REPLACEMENT", "CREDIT", "REDELIVERY", "CORRECTED_DOCUMENTS", "EXPLANATION", "NO_REMEDY", "OTHER"] as const;
+export const COMPLAINT_REACTIONS = ["SATISFIED", "NOT_SATISFIED", "NO_RESPONSE"] as const;
+export const COMPLAINT_REGULATOR_DECISIONS = ["UNDER_CONSIDERATION", "REPORTED", "NOT_REPORTABLE"] as const;
+export const COMPLAINT_ACTION_TYPES = ["CONTAINMENT", "CORRECTIVE", "PREVENTIVE"] as const;
+
+/** Default response clocks, in working days unless stated. Organisations will be able to override these. */
+export const COMPLAINT_CLOCKS = {
+  acknowledgeWorkingDays: 2,
+  triageWorkingDays: 5,
+  triageSeriousWorkingDays: 1,
+  resolveCalendarDays: { MINOR: 30, MAJOR: 15, CRITICAL: 5 } as Record<string, number>,
+  partnerResponseCalendarDays: 14,
+} as const;
+
+export interface ComplaintListItem {
+  id: string;
+  referenceNumber: string;
+  direction: string;
+  status: string;
+  title: string;
+  severity: string | null;
+  category: string | null;
+  isSerious: boolean;
+  receivedAt: string;
+  partnerId: string | null;
+  partnerName: string | null;
+  projectId: string | null;
+  projectLabel: string | null;
+  ownerName: string | null;
+  outcome: string | null;
+  /** The next unmet deadline (acknowledge, triage or resolve) and whether it has passed. */
+  nextDueAt: string | null;
+  nextDueLabel: string | null;
+  overdue: boolean;
+  openActions: number;
+}
+
+export interface ComplaintEventRecord { id: string; kind: string; summary: string; body: string | null; actorName: string | null; createdAt: string }
+export interface ComplaintActionRecord {
+  id: string; type: string; description: string; ownerId: string; ownerName: string | null; dueDate: string; status: string;
+  completedAt: string | null; completionNotes: string | null; overdue: boolean;
+}
+
+export interface ComplaintDetail extends ComplaintListItem {
+  description: string;
+  channel: string | null;
+  heldFromStatus: string | null;
+  holdReason: string | null;
+  flagPatientSafety: boolean;
+  flagSuspectedFalsified: boolean;
+  flagTemperatureExcursion: boolean;
+  contactId: string | null;
+  contactName: string | null;
+  /** Personal data: null unless the caller holds quality.complaints.view. */
+  complainantName: string | null;
+  complainantEmail: string | null;
+  complainantPhone: string | null;
+  projectLineId: string | null;
+  productBatchId: string | null;
+  batchNumber: string | null;
+  productMasterId: string | null;
+  productName: string | null;
+  ownerId: string | null;
+  investigatorId: string | null;
+  investigatorName: string | null;
+  loggedByName: string | null;
+  acknowledgeDueAt: string | null; acknowledgedAt: string | null;
+  triageDueAt: string | null; triagedAt: string | null;
+  resolveDueAt: string | null; resolvedAt: string | null; closedAt: string | null;
+  investigationStartedAt: string | null; investigationCompletedAt: string | null;
+  investigationScope: string | null; rootCauseCategory: string | null; rootCause: string | null; findings: string | null; impactSummary: string | null;
+  partnerResponseDueAt: string | null; partnerRespondedAt: string | null; partnerResponse: string | null;
+  remedyType: string | null; remedyNotes: string | null; responseSentAt: string | null; responseSummary: string | null; complainantReaction: string | null;
+  regulatorDecision: string | null; regulatorDecisionReason: string | null; regulatorReference: string | null; regulatorDecisionByName: string | null; regulatorDecisionAt: string | null;
+  closureSummary: string | null; lessonsLearned: string | null;
+  effectivenessCheckDueAt: string | null; effectivenessCheckedAt: string | null; effectivenessNotes: string | null;
+  closedByName: string | null; closureOverrideReason: string | null; reopenCount: number;
+  events: ComplaintEventRecord[];
+  actions: ComplaintActionRecord[];
+  /** Risk-register entries raised from this complaint. */
+  risks: { id: string; title: string; severity: string; status: string }[];
+  /** What the caller may do now. */
+  can: { edit: boolean; investigate: boolean; approve: boolean; seePersonal: boolean };
+}
+
+export interface ComplaintDashboard {
+  open: number; overdue: number; serious: number; awaitingAcknowledgement: number; awaitingTriage: number; investigating: number;
+  closedLast90Days: number; averageDaysToClose: number | null; openActions: number; overdueActions: number;
+  byCategory: { category: string; count: number }[];
+  byPartner: { partnerId: string; partnerName: string; count: number; upheld: number }[];
+}
+
+export interface CreateComplaintInput {
+  direction: string; title: string; description: string; receivedAt?: string; channel?: string;
+  partnerId?: string; contactId?: string; complainantName?: string; complainantEmail?: string; complainantPhone?: string;
+  projectId?: string; projectLineId?: string; productBatchId?: string; productMasterId?: string;
+  category?: string; severity?: string;
+  flagPatientSafety?: boolean; flagSuspectedFalsified?: boolean; flagTemperatureExcursion?: boolean;
+}

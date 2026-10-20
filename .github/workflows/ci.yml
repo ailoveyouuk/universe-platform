@@ -145,6 +145,13 @@ jobs:
             -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
             < infra/sql/tender-rls.sql
 
+      - name: Apply Quality Complaints RLS (sqlcmd, not Prisma)
+        # Tenant isolation for the complaint tables. Must run after row-level-security.sql. See infra/sql/quality-complaints-rls.sql.
+        run: |
+          docker exec -i ${{ job.services.mssql.id }} /opt/mssql-tools/bin/sqlcmd \
+            -S localhost -U sa -P 'UniverseTest!2026' -d universe_test -b \
+            < infra/sql/quality-complaints-rls.sql
+
       - name: Apply filtered unique indexes (test DB only)
         # prisma db push can't express SQL Server filtered unique indexes;
         # production gets them from migrations. See the SQL file's header.

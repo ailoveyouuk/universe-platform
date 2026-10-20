@@ -185,6 +185,9 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Organization {
+  qualityComplaints QualityComplaint[]
+  qualityComplaintEvents QualityComplaintEvent[]
+  qualityComplaintActions QualityComplaintAction[]
   id                        String   @id @default(uuid())
   name                      String
   slug                      String   @unique // used in URLs / subdomains
@@ -468,6 +471,7 @@ model UserRole {
 // ---------------------------------------------------------------------------
 
 model Partner {
+  qualityComplaints QualityComplaint[] @relation("ComplaintPartner")
   id                         String                    @id @default(uuid())
   organizationId             String
   organization               Organization              @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -951,6 +955,7 @@ model ProductSourceApproval {
 }
 
 model Contact {
+  qualityComplaints QualityComplaint[]
   id             String  @id @default(uuid())
   organizationId String // denormalized from Partner for direct RLS scoping
   partnerId      String
@@ -972,6 +977,7 @@ model Contact {
 // ---------------------------------------------------------------------------
 
 model Project {
+  qualityComplaints QualityComplaint[]
   id                       String       @id @default(uuid())
   organizationId           String
   organization             Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1170,6 +1176,7 @@ model ProjectContact {
 // ---------------------------------------------------------------------------
 
 model ProjectLine {
+  qualityComplaints QualityComplaint[]
   /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
   archivedAt     DateTime?
   archivedById   String?
@@ -1654,6 +1661,7 @@ model ProductLine {
 /// the WHO Essential Medicines List) plus a procurement agent's own owned GTIN data, and
 /// grown organically as tenants' real products get matched/added over time.
 model ProductMaster {
+  qualityComplaints QualityComplaint[]
   id                              String         @id @default(uuid())
   name                            String
   /// Hierarchical category path, e.g. "Laboratory Consumables.Cryovial" —
@@ -2675,6 +2683,7 @@ model StakeholderEvidenceRecord {
 /// See sop-driven-quality-roadmap.md "Full batch-level traceability for
 /// pharma projects".
 model ProductBatch {
+  qualityComplaints QualityComplaint[]
   id                             String         @id @default(uuid())
   organizationId                 String
   organization                   Organization   @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -3842,4 +3851,173 @@ model TenderComplaint {
   @@index([tenderId])
   @@index([issuerOrganizationId])
   @@map("tender_complaints")
+}
+
+
+// ---------------------------------------------------------------------------
+// Quality complaints (2026-10-20). One workflow for two directions: a client or other stakeholder complains to this
+// organisation (INBOUND_CLIENT), or this organisation complains about someone in its supply chain (OUTBOUND_SUPPLY_CHAIN).
+// Links use the platform's own records (partner, contact, project, line, batch, product) so nothing is re-keyed; every field
+// change goes to FieldChangeLog; actions use the shared notification/action mechanism; risks use RiskAssessment with
+// subjectType "COMPLAINT". Personal data of the complainant is kept in the few complainant* columns and the contact link
+// only, so it can be removed or masked in any anonymised or aggregate use without touching the structured quality data.
+// ---------------------------------------------------------------------------
+model QualityComplaint {
+  id                    String       @id @default(uuid())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CMP-YYYY-NNNN, per organisation per year.
+  referenceNumber       String
+  /// INBOUND_CLIENT | OUTBOUND_SUPPLY_CHAIN
+  direction             String
+  /// LOGGED | ACKNOWLEDGED | TRIAGED | INVESTIGATING | RESOLVED | CLOSED | ON_HOLD | WITHDRAWN
+  status                String       @default("LOGGED")
+  /// Where an ON_HOLD complaint returns to.
+  heldFromStatus        String?
+  holdReason            String?      @db.NVarChar(1000)
+  title                 String       @db.NVarChar(300)
+  description           String       @db.NVarChar(Max)
+  receivedAt            DateTime
+  /// EMAIL | PHONE | MEETING | PORTAL | LETTER | OTHER
+  channel               String?
+  /// CRITICAL | MAJOR | MINOR (set at triage; CRITICAL is forced by the serious flags).
+  severity              String?
+  /// PRODUCT_QUALITY | DELIVERY | DOCUMENTATION | COLD_CHAIN | SERVICE | SAFETY | CONDUCT | OTHER
+  category              String?
+  isSerious             Boolean      @default(false)
+  flagPatientSafety     Boolean      @default(false)
+  flagSuspectedFalsified Boolean     @default(false)
+  flagTemperatureExcursion Boolean   @default(false)
+
+  /// The other party: the client/funder/partner for INBOUND_CLIENT, the manufacturer/supplier/forwarder for OUTBOUND_SUPPLY_CHAIN.
+  partnerId             String?
+  partner               Partner?     @relation("ComplaintPartner", fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  contactId             String?
+  contact               Contact?     @relation(fields: [contactId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Personal data (kept apart so it can be masked): used when the person is not a stored contact.
+  complainantName       String?      @db.NVarChar(300)
+  complainantEmail      String?      @db.NVarChar(300)
+  complainantPhone      String?      @db.NVarChar(100)
+  projectId             String?
+  project               Project?     @relation(fields: [projectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  projectLineId         String?
+  projectLine           ProjectLine? @relation(fields: [projectLineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productBatchId        String?
+  productBatch          ProductBatch? @relation(fields: [productBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  productMasterId       String?
+  productMaster         ProductMaster? @relation(fields: [productMasterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  ownerId               String?
+  investigatorId        String?
+  loggedById            String?
+
+  acknowledgeDueAt      DateTime?
+  acknowledgedAt        DateTime?
+  triageDueAt           DateTime?
+  triagedAt             DateTime?
+  resolveDueAt          DateTime?
+  investigationStartedAt DateTime?
+  investigationCompletedAt DateTime?
+  resolvedAt            DateTime?
+  closedAt              DateTime?
+
+  investigationScope    String?      @db.NVarChar(Max)
+  /// MATERIAL | MANUFACTURING | DOCUMENTATION | TRANSPORT_COLD_CHAIN | HANDLING_STORAGE | PROCESS | HUMAN_ERROR | SUPPLIER | NOT_DETERMINED | OTHER
+  rootCauseCategory     String?
+  rootCause             String?      @db.NVarChar(Max)
+  findings              String?      @db.NVarChar(Max)
+  impactSummary         String?      @db.NVarChar(Max)
+  /// UPHELD | PARTLY_UPHELD | NOT_UPHELD
+  outcome               String?
+
+  /// Outbound: the partner's side of it.
+  partnerResponseDueAt  DateTime?
+  partnerRespondedAt    DateTime?
+  partnerResponse       String?      @db.NVarChar(Max)
+
+  /// REPLACEMENT | CREDIT | REDELIVERY | CORRECTED_DOCUMENTS | EXPLANATION | NO_REMEDY | OTHER
+  remedyType            String?
+  remedyNotes           String?      @db.NVarChar(Max)
+  responseSentAt        DateTime?
+  responseSummary       String?      @db.NVarChar(Max)
+  /// SATISFIED | NOT_SATISFIED | NO_RESPONSE
+  complainantReaction   String?
+
+  /// Regulator reporting is a person's decision; Universe records it. UNDER_CONSIDERATION | REPORTED | NOT_REPORTABLE
+  regulatorDecision     String?
+  regulatorDecisionReason String?    @db.NVarChar(1000)
+  regulatorReference    String?      @db.NVarChar(200)
+  regulatorDecisionById String?
+  regulatorDecisionAt   DateTime?
+
+  closureSummary        String?      @db.NVarChar(Max)
+  lessonsLearned        String?      @db.NVarChar(Max)
+  effectivenessCheckDueAt DateTime?
+  effectivenessCheckedAt DateTime?
+  effectivenessNotes    String?      @db.NVarChar(Max)
+  closedById            String?
+  /// Four-eyes: the investigator may close only with a recorded reason.
+  closureOverrideReason String?      @db.NVarChar(1000)
+  reopenCount           Int          @default(0)
+
+  archivedAt            DateTime?
+  archivedById          String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  events                QualityComplaintEvent[]
+  actions               QualityComplaintAction[]
+
+  @@unique([organizationId, referenceNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, direction, status])
+  @@index([partnerId])
+  @@index([projectId])
+  @@index([productBatchId])
+  @@index([productMasterId])
+  @@map("quality_complaints")
+}
+
+/// The complaint's timeline: stage changes, notes and communications with the complainant or partner. Append-only.
+model QualityComplaintEvent {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  complaintId    String
+  complaint      QualityComplaint @relation(fields: [complaintId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// STAGE | NOTE | COMMUNICATION_OUT | COMMUNICATION_IN | REGULATOR | LINK
+  kind           String
+  summary        String           @db.NVarChar(500)
+  body           String?          @db.NVarChar(Max)
+  actorUserId    String?
+  createdAt      DateTime         @default(now())
+
+  @@index([complaintId, createdAt])
+  @@index([organizationId])
+  @@map("quality_complaint_events")
+}
+
+/// Corrective, preventive and containment actions raised by a complaint. Each open action is also an action item for its owner.
+model QualityComplaintAction {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  complaintId    String
+  complaint      QualityComplaint @relation(fields: [complaintId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CONTAINMENT | CORRECTIVE | PREVENTIVE
+  type           String
+  description    String           @db.NVarChar(Max)
+  ownerId        String
+  dueDate        DateTime
+  /// OPEN | DONE | CANCELLED
+  status         String           @default("OPEN")
+  completedAt    DateTime?
+  completionNotes String?         @db.NVarChar(Max)
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([complaintId])
+  @@index([organizationId, status, dueDate])
+  @@map("quality_complaint_actions")
 }

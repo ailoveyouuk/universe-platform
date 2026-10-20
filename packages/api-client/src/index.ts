@@ -1,4 +1,5 @@
 import type {
+  ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
@@ -332,6 +333,19 @@ export class UniverseApiClient {
   openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
   tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
   evaluatorCandidates(id: string, q = ""): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates?q=${encodeURIComponent(q)}`); }
+  // ---- Quality complaints (2026-10-20) ----
+  complaintDashboard(): Promise<ComplaintDashboard> { return this.request("/quality/complaints/dashboard"); }
+  complaintsPage(params: { q?: string; status?: string; direction?: string; severity?: string; category?: string; partnerId?: string; projectId?: string; overdue?: boolean; serious?: boolean; open?: boolean; page?: number; pageSize?: number }): Promise<PagedResult<ComplaintListItem>> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
+    return this.request(`/quality/complaints/page?${qs.toString()}`);
+  }
+  getComplaint(id: string): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}`); }
+  createComplaint(body: CreateComplaintInput): Promise<ComplaintDetail> { return this.request("/quality/complaints", { method: "POST", body: JSON.stringify(body) }); }
+  updateComplaint(id: string, body: Partial<CreateComplaintInput>): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  /** One call for every stage action: acknowledge, triage, investigation, partner-response, resolve, regulator, close, effectiveness, hold, resume, withdraw, reopen, notes, actions, risk, source-review. */
+  complaintStage(id: string, stage: string, body?: object): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/${stage}`, { method: "POST", body: JSON.stringify(body ?? {}) }); }
+  updateComplaintAction(id: string, actionId: string, body: { status?: string; completionNotes?: string; dueDate?: string; ownerId?: string }): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/actions/${actionId}`, { method: "PATCH", body: JSON.stringify(body) }); }
   evaluationBidders(id: string): Promise<{ id: string; name: string }[]> { return this.request(`/tenders/${id}/evaluation/bidders`); }
   setTenderEvaluators(id: string, evaluators: { userId: string; role: "CHAIR" | "EVALUATOR" }[]): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/evaluators`, { method: "PUT", body: JSON.stringify({ evaluators }) }); }
   declareEvaluatorConflict(id: string, body: { noConflict: boolean; conflictedOrganisationIds?: string[]; notes?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/conflict`, { method: "PUT", body: JSON.stringify(body) }); }

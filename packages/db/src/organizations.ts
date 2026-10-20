@@ -45,7 +45,8 @@ export const DEFAULT_DATA_SHARING_SCOPE = ["pricing", "specifications", "quality
  * assign Project Manager alongside if a QA/RP user also needs project
  * access; these two are additive permission bundles, not full seats.
  */
-const QA_PERMISSION_KEYS = ["partners.approve", "evidence.verify", "products.approve", "qa.queue.view"];
+export const COMPLAINT_PERMISSION_KEYS = ["quality.complaints.view", "quality.complaints.log", "quality.complaints.investigate", "quality.complaints.approve"];
+const QA_PERMISSION_KEYS = ["partners.approve", "evidence.verify", "products.approve", "qa.queue.view", ...COMPLAINT_PERMISSION_KEYS];
 
 export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permissionKeys: string[] }[] = [
   {
@@ -90,6 +91,9 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       // and Organization Admin's call, not a PM's — same split as the
       // Finance role below not getting projects.financials.edit.
       "partners.financials.view",
+      // Complaints (2026-10-20): a PM can log and see complaints, but investigation and closure are QA's.
+      "quality.complaints.view",
+      "quality.complaints.log",
     ],
   },
   {
@@ -156,6 +160,7 @@ export const STAKEHOLDER_DEMO_PERMISSION_KEYS = [
   "funder.grants.view", "insights.aggregate.view",
   "partners.approve", "evidence.verify", "products.approve", "qa.queue.view",
   "partners.financials.view", "partners.financials.edit",
+  ...COMPLAINT_PERMISSION_KEYS,
 ];
 
 /** Finds or creates the Stakeholder Demo role in a demo organisation. Refuses a non-demo org. */

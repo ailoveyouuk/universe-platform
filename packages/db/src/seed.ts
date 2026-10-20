@@ -67,6 +67,12 @@ const PERMISSIONS = [
   { key: "products.approve", description: "Approve or reject a product source (manufacturer/supplier) qualification" },
   { key: "qa.queue.view", description: "View the QA queue — stakeholders, evidence, and product sources awaiting QA review" },
 
+  // Added 2026-10-20 — quality complaints (client and supply-chain). Complainant personal data is visible only to holders of view.
+  { key: "quality.complaints.view", description: "View quality complaints, including complainant details" },
+  { key: "quality.complaints.log", description: "Log, acknowledge and add notes to quality complaints" },
+  { key: "quality.complaints.investigate", description: "Triage, investigate, resolve and raise corrective/preventive actions on quality complaints" },
+  { key: "quality.complaints.approve", description: "Approve closure of quality complaints and record regulator-reporting decisions" },
+
   // Added 2026-10-14 — PartnerFinancialDetail (bank details for paying a
   // partner) was schema-only until now (see
   // backend-frontend-wiring-audit.md's dead-schema findings). Split into
