@@ -1,5 +1,5 @@
 import type {
-  ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
+  ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
@@ -333,6 +333,7 @@ export class UniverseApiClient {
   openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
   tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
   evaluatorCandidates(id: string, q = ""): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates?q=${encodeURIComponent(q)}`); }
+  getScorecardRecords(partnerId: string, key: string): Promise<ScorecardRecordSet> { return this.request(`/quality/partner-scorecard/${partnerId}/records/${key}`); }
   getScorecardSettings(): Promise<ScorecardSettings> { return this.request("/quality/partner-scorecard/settings"); }
   updateScorecardSettings(body: UpdateScorecardSettingsInput): Promise<ScorecardSettings> { return this.request("/quality/partner-scorecard/settings", { method: "PUT", body: JSON.stringify(body) }); }
   resetScorecardSettings(): Promise<ScorecardSettings> { return this.request("/quality/partner-scorecard/settings/reset", { method: "POST", body: "{}" }); }

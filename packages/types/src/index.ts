@@ -3554,6 +3554,10 @@ export interface CreateComplaintInput {
 export type ScorecardStatus = "good" | "warning" | "critical" | "neutral";
 export type ScorecardGroup = "DELIVERY" | "QUALITY" | "COMPLIANCE" | "RESPONSIVENESS" | "ACTIVITY";
 
+/** The records behind one scorecard measure (drill-down): a small generic table, each row optionally linking to its record. */
+export interface ScorecardRecordRow { id: string; cells: string[]; href: string | null; flag: "good" | "warning" | "critical" | null }
+export interface ScorecardRecordSet { key: string; title: string; columns: string[]; rows: ScorecardRecordRow[]; total: number; note: string | null }
+
 export interface ScorecardMetric {
   key: string;
   group: ScorecardGroup;

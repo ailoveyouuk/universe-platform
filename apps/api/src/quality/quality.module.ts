@@ -5,12 +5,13 @@ import { PartnerPerformanceService } from "./partner-performance.service";
 import { QaQueueService } from "./qa-queue.service";
 import { PartnerScorecardController } from "./partner-scorecard.controller";
 import { PartnerScorecardService } from "./partner-scorecard.service";
+import { ScorecardRecordsService } from "./scorecard-records.service";
 import { ScorecardSettingsService } from "./scorecard-settings.service";
 import { QualityComplaintsController } from "./quality-complaints.controller";
 import { QualityComplaintsService } from "./quality-complaints.service";
 
 @Module({
   controllers: [QualityController, QualityComplaintsController, PartnerScorecardController],
-  providers: [ProductSourceApprovalsService, PartnerPerformanceService, QaQueueService, QualityComplaintsService, PartnerScorecardService, ScorecardSettingsService],
+  providers: [ProductSourceApprovalsService, PartnerPerformanceService, QaQueueService, QualityComplaintsService, PartnerScorecardService, ScorecardSettingsService, ScorecardRecordsService],
 })
 export class QualityModule {}

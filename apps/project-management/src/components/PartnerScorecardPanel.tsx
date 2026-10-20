@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SCORECARD_THRESHOLDS } from "@universe/types";
-import type { PartnerScorecard, ScorecardGroup, ScorecardMetric, ScorecardStatus } from "@universe/types";
+import type { PartnerScorecard, ScorecardGroup, ScorecardMetric, ScorecardRecordSet, ScorecardStatus } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, GaugeIcon, Pill, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 
@@ -30,6 +30,15 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
   const [sc, setSc] = useState<PartnerScorecard | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => { apiClient.getPartnerScorecard(partnerId).then(setSc).catch(() => setFailed(true)); }, [partnerId]);
+  // Click a tile or a measure to see the records it is built from.
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [recs, setRecs] = useState<ScorecardRecordSet | null>(null);
+  const [recsErr, setRecsErr] = useState(false);
+  const pick = (m: ScorecardMetric) => {
+    if (openKey === m.key) { setOpenKey(null); setRecs(null); return; }
+    setOpenKey(m.key); setRecs(null); setRecsErr(false);
+    apiClient.getScorecardRecords(partnerId, m.key).then(setRecs).catch(() => setRecsErr(true));
+  };
 
   if (failed) return null;
   if (!sc) return <section style={{ marginTop: 28, color: "var(--u-ink-secondary)", fontSize: 13 }}>Loading performance…</section>;
@@ -61,10 +70,40 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
           </span>
         </div>
         {sc.headline.map((m) => (
-          <StatTile key={m.key} label={m.label} value={m.display} icon={iconFor(m)} tone={toneFor(m.status)}
+          <StatTile key={m.key} label={m.label} value={m.display} icon={iconFor(m)} tone={toneFor(m.status)} active={openKey === m.key} onClick={() => pick(m)}
             indicator={{ color: STATUS_COLOR[m.status], label: STATUS_LABEL[m.status], fraction: m.score === null ? undefined : m.score / 100 }} />
         ))}
       </div>
+
+      {openKey && (
+        <div role="region" aria-live="polite" aria-label="Records behind the selected measure" style={{ marginBottom: 16, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", backgroundColor: "var(--u-surface-alt)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--u-ink)" }}>{recs ? `${recs.title} (${recs.total})` : "Loading records…"}</span>
+            <button type="button" onClick={() => { setOpenKey(null); setRecs(null); }} style={{ border: 0, background: "none", color: "var(--u-ink-secondary)", cursor: "pointer", fontSize: 12.5, font: "inherit" }}>Close</button>
+          </div>
+          {recsErr && <div style={{ padding: 16, fontSize: 13, color: "var(--u-status-critical)" }}>Could not load the records.</div>}
+          {recs && recs.rows.length === 0 && <div style={{ padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>{recs.note ?? "No records for this measure yet."}</div>}
+          {recs && recs.rows.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr>{recs.columns.map((c) => <th key={c} style={{ textAlign: "left", padding: "8px 12px", fontSize: 11.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>{c}</th>)}</tr></thead>
+                <tbody>
+                  {recs.rows.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid var(--u-border)", backgroundColor: r.flag === "critical" ? "var(--u-status-critical-tint, transparent)" : undefined }}>
+                      {r.cells.map((c, i) => (
+                        <td key={i} style={{ padding: "8px 12px", color: i === r.cells.length - 1 && r.flag ? STATUS_COLOR[r.flag] : "var(--u-ink)", fontWeight: i === r.cells.length - 1 && r.flag ? 600 : 400 }}>
+                          {i === 0 && r.href ? <Link href={r.href} style={{ color: "inherit" }}>{c}</Link> : c}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(recs.total > recs.rows.length || recs.note) && <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--u-ink-secondary)" }}>{recs.total > recs.rows.length ? `Showing ${recs.rows.length} of ${recs.total}. ` : ""}{recs.note}</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(420px, 100%), 1fr))", gap: 16 }}>
         {GROUPS.map(([g, title]) => {
@@ -74,10 +113,10 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
             <div key={g} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", overflow: "hidden" }}>
               <div style={{ padding: "10px 16px", backgroundColor: "var(--u-surface-alt)", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>{title}</div>
               {rows.map((m) => (
-                <div key={m.key} style={{ padding: "12px 16px", borderTop: "1px solid var(--u-border)" }}>
+                <div key={m.key} role="button" tabIndex={0} aria-pressed={openKey === m.key} onClick={() => pick(m)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(m); } }} style={{ padding: "12px 16px", borderTop: "1px solid var(--u-border)", cursor: "pointer", backgroundColor: openKey === m.key ? "var(--u-accent-magenta-tint)" : undefined }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
                     <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)" }}>
-                      {m.href ? <Link href={m.href} style={{ color: "inherit", textDecoration: "none" }}>{m.label}</Link> : m.label}
+                      {m.label}
                       {m.weight > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: "var(--u-ink-secondary)" }}>weight {m.weight}</span>}
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: STATUS_COLOR[m.status] }}>{m.display}</span>
