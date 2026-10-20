@@ -6,7 +6,7 @@ async function step<T>(name: string, f: () => Promise<T>): Promise<T | undefined
   catch (e) { console.log(`FAIL ${name} (${Date.now() - t} ms): ${String((e as Error).message).slice(0, 600)}`); return undefined; }
 }
 async function main() {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } }));
   const orgId = demo[0].id;
   const soon = new Date(Date.now() + 90 * 86400000), now = new Date();
   const base = { isArchived: false };

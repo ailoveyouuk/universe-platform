@@ -9,7 +9,7 @@ const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const chunks = <T,>(a: T[], n: number): T[][] => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
 async function main() {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
   const orgId = demo[0].id;
   const rows = await withTenantContext(orgId, (tx) => tx.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { id: true, productMasterId: true, manufacturerId: true, status: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }));

@@ -31,7 +31,7 @@ const ISSUES: Record<string, string[]> = {
 };
 
 async function demoOrgId(): Promise<string> {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
   return demo[0].id;
 }

@@ -2,7 +2,7 @@ import { prisma, withPlatformStaffContext, withTenantContext } from "../src/inde
 
 /** Read-only audit (2026-10-20): counts cross-field inconsistencies in the simulated demo data. Writes nothing. */
 async function demoOrgId(): Promise<string> {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
   return demo[0].id;
 }

@@ -231,7 +231,7 @@ export class TendersService {
     const demo = user.isDemoUser || user.inDemoOrganization;
     return withPlatformStaffContext(async (tx) => {
       const rows = await tx.organization.findMany({
-        where: { id: { not: user.organizationId }, status: { not: "SUSPENDED" }, isSimulated: false, name: { contains: term }, ...(demo ? { isDemo: true } : { isDemo: false }) },
+        where: { id: { not: user.organizationId }, status: { not: "SUSPENDED" }, name: { contains: term }, ...(demo ? { isDemo: true } : { isDemo: false, isSimulated: false }) },
         select: { id: true, name: true, type: true }, orderBy: { name: "asc" }, take: 20,
       });
       return rows;

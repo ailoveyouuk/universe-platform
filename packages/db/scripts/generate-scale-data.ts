@@ -124,7 +124,7 @@ export async function generateScaleData(profileName = "small", seed = 1, log: (m
   // Demo mode: the portfolio lives in the existing demo organisation.
   let demoOrg: { id: string; slug: string } | null = null;
   if (p.demo) {
-    const found = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true, slug: true } }));
+    const found = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true, slug: true } }));
     if (found.length !== 1) throw new Error(`Demo profile needs exactly one organisation with isDemo=true, found ${found.length}`);
     demoOrg = found[0];
   }

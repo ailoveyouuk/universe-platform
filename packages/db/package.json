@@ -19,6 +19,7 @@
     "purge:demo-duplicate-approvals": "tsx scripts/purge-duplicate-approvals.ts",
     "seed:demo-bid": "tsx scripts/seed-demo-bid.ts",
     "seed:demo-tender-events": "tsx scripts/seed-demo-tender-events.ts",
+    "flag:demo-organisation": "tsx scripts/flag-demo-organisation.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",

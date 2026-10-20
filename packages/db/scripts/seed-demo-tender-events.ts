@@ -22,7 +22,7 @@ function eventHash(e: Fields): string {
 }
 
 async function main() {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true, name: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true, name: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
   const bidderId = demo[0].id;
   const tender = await withPlatformStaffContext((tx) => tx.tender.findFirst({ where: { referenceNumber: REF }, select: { id: true, organizationId: true, publishedAt: true, title: true } }));

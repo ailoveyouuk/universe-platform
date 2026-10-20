@@ -11,10 +11,10 @@ const DAY = 86400000;
 const REF = "SIM-TND-001";
 
 async function main() {
-  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true }, select: { id: true, name: true } }));
+  const demo = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true, name: true } }));
   if (demo.length !== 1) throw new Error(`Expected one demo organisation, found ${demo.length}`);
   const bidderId = demo[0].id;
-  const issuer = await withPlatformStaffContext((tx) => tx.organization.findFirst({ where: { isDemo: false, isSimulated: true, status: { not: "SUSPENDED" } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } }));
+  const issuer = await withPlatformStaffContext((tx) => tx.organization.findFirst({ where: { name: "Andean Care Alliance 106", isSimulated: true, status: { not: "SUSPENDED" } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } }));
   if (!issuer) throw new Error("No simulated organisation found to issue the tender.");
   console.log(`Issuer: ${issuer.name}; bidder: ${demo[0].name}`);
 

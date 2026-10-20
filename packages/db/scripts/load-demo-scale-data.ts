@@ -13,7 +13,7 @@ import { generateScaleData, PROFILES } from "./generate-scale-data";
  */
 async function counts() {
   return withPlatformStaffContext(async (tx) => {
-    const demo = await tx.organization.findMany({ where: { isDemo: true }, select: { id: true, name: true } });
+    const demo = await tx.organization.findMany({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true, name: true } });
     if (demo.length !== 1) throw new Error(`Expected exactly one demo organisation (isDemo=true), found ${demo.length}`);
     const orgId = demo[0].id;
     const simOrgs = await tx.organization.count({ where: { slug: { startsWith: "sim-" } } });

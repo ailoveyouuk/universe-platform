@@ -19,7 +19,7 @@ export class StakeholderAccessService {
   constructor(private readonly users: UsersService) {}
 
   private async demoOrganisation() {
-    const org = await withPlatformStaffContext((tx) => tx.organization.findFirst({ where: { isDemo: true }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }));
+    const org = await withPlatformStaffContext((tx) => tx.organization.findFirst({ where: { isDemo: true, name: "Universe Demo" }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }));
     if (!org) throw new NotFoundException("There is no demo organisation.");
     return org;
   }
