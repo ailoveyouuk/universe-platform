@@ -84,6 +84,26 @@ export class OrganizationsService {
     }));
   }
 
+  /**
+   * Organisations the caller may switch into (2026-10-20): their home organisation plus, for a demo user, every demo organisation they
+   * hold a grant for. Simulated demo organisations are included. Platform staff use the full list instead (findAll).
+   */
+  async findAccessible(caller: RequestUser): Promise<(OrganizationSummary & { isDemo: boolean })[]> {
+    const rows = await withPlatformStaffContext(async (tx) => {
+      const home = await tx.user.findUnique({ where: { id: caller.id }, select: { organizationId: true, organization: { select: { isDemo: true } } } });
+      if (!home) return [];
+      const grants = home.organization.isDemo
+        ? await tx.userOrganizationAccess.findMany({ where: { userId: caller.id, grantedOrganization: { isDemo: true, status: { not: "SUSPENDED" } } }, select: { grantedOrganizationId: true } })
+        : [];
+      const ids = [home.organizationId, ...grants.map((g) => g.grantedOrganizationId)];
+      return tx.organization.findMany({ where: { id: { in: ids } }, orderBy: { name: "asc" } });
+    });
+    return rows.map((o) => ({
+      id: o.id, name: o.name, slug: o.slug, status: o.status as OrganizationSummary["status"], type: o.type as OrganizationSummary["type"],
+      logoUrl: o.logoUrl, primaryColor: o.primaryColor, secondaryColor: o.secondaryColor, countryOfRegistrationCode: o.countryOfRegistrationCode, isDemo: o.isDemo,
+    }));
+  }
+
   /** Who a user in this organisation should contact for help. If the
    * organisation has set a primary contact with an email, that wins;
    * otherwise its active administrators (anyone holding org.users.manage —

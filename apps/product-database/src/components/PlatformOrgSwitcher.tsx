@@ -3,30 +3,45 @@
 import { useEffect, useState } from "react";
 import type { AuthenticatedUser, OrganizationSummary } from "@universe/types";
 import { setStoredActiveOrganizationId } from "@universe/api-client";
-import { OrgSwitcher } from "@universe/ui";
+import { OrgPicker, OrgSwitcher } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 
+const PICKED_KEY = "universe.orgPicked";
+type Org = OrganizationSummary & { isDemo?: boolean };
+
 /** Header dropdown letting platform staff choose which organisation the app
- * acts inside. Renders nothing for everyone else (and when there is only one
- * organisation to pick). Switching reloads so every page refetches. */
+ * acts inside. Demo users (2026-10-20) get the same dropdown over the demo
+ * organisations they have been granted, plus a chooser shown once per browser
+ * session after sign-in. Renders nothing for everyone else (and when there is
+ * only one organisation to pick). Switching reloads so every page refetches. */
 export function PlatformOrgSwitcher({ me }: { me: AuthenticatedUser }) {
-  const [orgs, setOrgs] = useState<OrganizationSummary[]>([]);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [picked, setPicked] = useState(true);
   const isStaff = me.platformStaffRole !== "NONE";
+  const isDemoMember = !isStaff && !!me.isDemoUser;
 
   useEffect(() => {
-    if (!isStaff) return;
-    apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
-  }, [isStaff]);
+    if (isStaff) apiClient.listOrganizations().then(setOrgs).catch(() => setOrgs([]));
+    else if (isDemoMember) apiClient.listAccessibleOrganizations().then(setOrgs).catch(() => setOrgs([]));
+  }, [isStaff, isDemoMember]);
 
-  if (!isStaff || orgs.length < 2) return null;
+  useEffect(() => {
+    try { setPicked(window.sessionStorage.getItem(PICKED_KEY) === "1"); } catch { setPicked(true); }
+  }, []);
+
+  if ((!isStaff && !isDemoMember) || orgs.length < 2) return null;
+
+  const choose = (id: string) => {
+    try { window.sessionStorage.setItem(PICKED_KEY, "1"); } catch { /* the chooser then simply shows again next load */ }
+    if (id === me.organizationId) { setPicked(true); return; }
+    setStoredActiveOrganizationId(id === me.homeOrganizationId ? null : id);
+    window.location.reload();
+  };
+
   return (
-    <OrgSwitcher
-      organizations={orgs}
-      value={me.organizationId}
-      onChange={(id) => {
-        setStoredActiveOrganizationId(id === me.homeOrganizationId ? null : id);
-        window.location.reload();
-      }}
-    />
+    <>
+      {isDemoMember && !picked && <OrgPicker organizations={orgs} currentId={me.organizationId} userName={me.forename} onChoose={choose} />}
+      <OrgSwitcher organizations={orgs} value={me.organizationId} onChange={choose} />
+    </>
   );
 }

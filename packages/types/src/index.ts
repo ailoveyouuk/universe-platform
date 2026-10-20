@@ -95,6 +95,8 @@ export interface AuthenticatedUser {
   organizationWelcomeMessage: string | null;
   platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
   permissions: string[];
+  /** True for non-staff users whose home organisation is a demo organisation (they may be offered the organisation picker). */
+  isDemoUser?: boolean;
 }
 
 export interface InviteUserInput {

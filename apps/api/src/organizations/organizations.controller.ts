@@ -19,6 +19,12 @@ import { OrganizationsService } from "./organizations.service";
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
+  /** The organisations the caller can act inside: their own, plus (demo users) the demo organisations they have been granted. */
+  @Get("accessible")
+  findAccessible(@CurrentUser() user: RequestUser) {
+    return this.organizationsService.findAccessible(user);
+  }
+
   @Get()
   findAll(@CurrentUser() user: RequestUser, @Query("includeSimulated") includeSimulated?: string) {
     return this.organizationsService.findAll(user, includeSimulated === "true");

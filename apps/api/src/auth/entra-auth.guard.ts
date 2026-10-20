@@ -205,7 +205,17 @@ export class EntraAuthGuard implements CanActivate {
     // silent fallback to the home org, so nobody edits the wrong tenant.
     const requested = req.headers["x-universe-organization"];
     const requestedId = Array.isArray(requested) ? requested[0] : requested;
-    if (requestedId && requestedId !== user.organizationId && user.platformStaffRole !== PlatformStaffRole.NONE) {
+    // Demo users (2026-10-20) may do the same between demo organisations they have been granted access to
+    // (user_organization_access), keeping their own permissions. Never beyond demo organisations: both the
+    // home and the target organisation must be demo ones, checked on every request.
+    let allowedSwitch = !!requestedId && requestedId !== user.organizationId && user.platformStaffRole !== PlatformStaffRole.NONE;
+    if (!allowedSwitch && requestedId && requestedId !== user.organizationId && user.organization.isDemo) {
+      const grant = await withPlatformStaffContext((tx) =>
+        tx.userOrganizationAccess.findFirst({ where: { userId: user.id, grantedOrganizationId: requestedId, grantedOrganization: { isDemo: true, status: { not: "SUSPENDED" } } }, select: { id: true } }),
+      );
+      allowedSwitch = !!grant;
+    }
+    if (requestedId && allowedSwitch) {
       const target = await withPlatformStaffContext((tx) =>
         tx.organization.findUnique({
           where: { id: requestedId },

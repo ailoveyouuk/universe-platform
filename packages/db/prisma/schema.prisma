@@ -185,6 +185,7 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Organization {
+  userAccessGrants UserOrganizationAccess[]
   qualityScorecardSettings QualityScorecardSettings?
   qualityComplaints QualityComplaint[]
   qualityComplaintEvents QualityComplaintEvent[]
@@ -356,6 +357,8 @@ model Organization {
 /// this row by matching email and flips status to ACTIVE. From that point on
 /// the person is recognized by entraObjectId, never by email lookup again.
 model User {
+  /// Demo organisations this user may switch into (2026-10-20), besides their own.
+  organizationAccess UserOrganizationAccess[]
   /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
   archivedAt        DateTime?
   archivedById      String?
@@ -4044,4 +4047,22 @@ model QualityScorecardSettings {
   updatedAt      DateTime     @updatedAt
 
   @@map("quality_scorecard_settings")
+}
+
+/// Lets a user whose home organisation is a demo organisation switch into other demo organisations (2026-10-20), keeping their own
+/// permissions. Identity-level, so deliberately has no organizationId and no row-level security; created by scripts or platform staff
+/// only. The guard re-checks on every request that both organisations are demo ones, so a grant can never reach a real organisation.
+model UserOrganizationAccess {
+  id                    String       @id @default(uuid())
+  userId                String
+  user                  User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  grantedOrganizationId String
+  grantedOrganization   Organization @relation(fields: [grantedOrganizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Who put the grant in place (an operator's email or a script name), for audit.
+  grantedBy             String?
+  createdAt             DateTime     @default(now())
+
+  @@unique([userId, grantedOrganizationId])
+  @@index([grantedOrganizationId])
+  @@map("user_organization_access")
 }

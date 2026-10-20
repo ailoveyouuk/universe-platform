@@ -25,6 +25,7 @@ export * from "./StatTile";
 export * from "./ScoreLegend";
 export * from "./WorldMap";
 export * from "./OrgSwitcher";
+export * from "./OrgPicker";
 export * from "./BrandMark";
 export { MobileBrand } from "./MobileBrand";
 export * from "./Notifications";

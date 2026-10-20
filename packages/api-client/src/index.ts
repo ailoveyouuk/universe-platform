@@ -1077,6 +1077,11 @@ export class UniverseApiClient {
     return this.request(`/organizations${includeSimulated ? "?includeSimulated=true" : ""}`);
   }
 
+  /** The organisations the caller may switch into: their own plus, for demo users, the demo organisations they have been granted (2026-10-20). */
+  listAccessibleOrganizations(): Promise<(OrganizationSummary & { isDemo: boolean })[]> {
+    return this.request("/organizations/accessible");
+  }
+
   getOrganization(organizationId: string): Promise<OrganizationDetail> {
     return this.request(`/organizations/${organizationId}`);
   }
