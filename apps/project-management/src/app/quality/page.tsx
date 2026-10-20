@@ -165,6 +165,9 @@ export default function QualityPage() {
           <Link href="/quality/re-verification" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Re-verification Due</Button>
           </Link>
+          <Link href="/quality/complaints" style={{ textDecoration: "none" }}>
+            <Button variant="secondary">Complaints</Button>
+          </Link>
           <Link href="/quality/controlled-documents" style={{ textDecoration: "none" }}>
             <Button variant="secondary">Controlled Documents</Button>
           </Link>

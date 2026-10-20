@@ -27,6 +27,13 @@ describe("Quality complaints", () => {
     await withPlatformStaffContext(async (tx) => {
       const mk = async (organizationId: string, tag: string) => (await tx.user.create({ data: { organizationId, email: `${tag}-${suffix}@example.com`, forename: tag, surname: "C", status: "ACTIVE", entraObjectId: `oid-c-${tag}-${suffix}` } })).id;
       logger = await mk(org, "log"); investigator = await mk(org, "inv"); approver = await mk(org, "app");
+      // The quality leads are found by role, so give the investigator and approver a role carrying the complaint permissions.
+      const role = await tx.role.create({ data: { organizationId: org, name: `Complaint leads ${suffix}`, appScope: "*" } });
+      for (const key of ALL) {
+        const perm = await tx.permission.upsert({ where: { key }, update: {}, create: { key, description: key } });
+        await tx.rolePermission.create({ data: { roleId: role.id, permissionId: perm.id } });
+      }
+      for (const uid of [investigator, approver]) await tx.userRole.create({ data: { userId: uid, roleId: role.id } });
     });
     await withTenantContext(org, async (tx) => {
       partnerId = (await tx.partner.create({ data: { organizationId: org, name: `Complained-about Ltd ${suffix}`, normalizedName: `complained-about ltd ${suffix}` } })).id;
