@@ -78,7 +78,7 @@ async function fixLines(orgId: string) {
 async function fixComplaints(orgId: string, ctx: { prodCat: Map<string, string>; prodById: Map<string, { id: string; name: string; category: string }> }) {
   let changed = 0, moved = 0, approvalsAdded = 0;
   await withTenantContext(orgId, async (tx) => {
-    const cs = await tx.qualityComplaint.findMany({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" } }, select: { id: true, referenceNumber: true, direction: true, category: true, outcome: true, isSerious: true, flagTemperatureExcursion: true, flagSuspectedFalsified: true, partnerId: true, projectLineId: true, projectId: true, project: { select: { freightForwarderId: true } } } });
+    const cs = await tx.qualityComplaint.findMany({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" } }, select: { id: true, referenceNumber: true, direction: true, category: true, outcome: true, isSerious: true, flagTemperatureExcursion: true, flagSuspectedFalsified: true, flagPatientSafety: true, partnerId: true, projectLineId: true, projectId: true, project: { select: { freightForwarderId: true } } } });
     const candidates = await tx.projectLine.findMany({ where: { project: { referenceNumber: { startsWith: "SIM-" }, status: { in: ["COMPLETED", "AWARDED"] }, freightForwarderId: { not: null } }, productMasterId: { not: null } }, select: { id: true, projectId: true, productMasterId: true, manufacturerId: true, supplierId: true, project: { select: { clientId: true, freightForwarderId: true } } }, orderBy: { id: "asc" }, take: 2000 });
     for (const c of cs) {
       let line = c.projectLineId ? await tx.projectLine.findUnique({ where: { id: c.projectLineId }, select: { id: true, projectId: true, productMasterId: true, manufacturerId: true, supplierId: true, project: { select: { clientId: true, freightForwarderId: true } } } }) : null;
@@ -95,7 +95,7 @@ async function fixComplaints(orgId: string, ctx: { prodCat: Map<string, string>;
       const isFwd = c.referenceNumber >= "SIM-CMP-061";
       const partnerId = c.direction === "INBOUND_CLIENT" ? line.project.clientId : isFwd ? line.project.freightForwarderId : (line.manufacturerId ?? line.supplierId);
       const cat = c.category ?? "PRODUCT_QUALITY";
-      const issue = c.flagSuspectedFalsified ? "Suspected counterfeit packaging" : pick(ISSUES[cat] ?? ISSUES.PRODUCT_QUALITY, c.id + "is");
+      const issue = c.flagSuspectedFalsified ? "Suspected counterfeit packaging" : c.flagPatientSafety ? "Adverse event reported with the product" : c.flagTemperatureExcursion ? "Temperature excursion recorded on receipt" : cat === "SAFETY" ? "Safety concern raised about the product" : pick(ISSUES[cat] ?? ISSUES.PRODUCT_QUALITY, c.id + "is");
       const title = `${issue}: ${shortName(prod.name)}`;
       void forwarder;
       if (c.direction === "OUTBOUND_SUPPLY_CHAIN" && !isFwd && ["UPHELD", "PARTLY_UPHELD"].includes(c.outcome ?? "") && line.manufacturerId) {
