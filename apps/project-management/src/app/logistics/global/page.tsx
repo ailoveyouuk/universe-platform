@@ -314,7 +314,7 @@ export default function GlobalLogisticsPage() {
           }}
         />
 
-        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 20, marginBottom: 16 }}>
+        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginTop: 20, marginBottom: 16 }}>
           <select className="u-native-select" style={filterInputStyle} value={filters.transportMode ?? ""} onChange={(e) => update("transportMode", e.target.value)}>
             {TRANSPORT_MODES.map((m) => (
               <option key={m} value={m}>

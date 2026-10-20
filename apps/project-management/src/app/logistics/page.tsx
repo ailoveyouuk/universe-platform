@@ -255,7 +255,7 @@ export default function LogisticsPage() {
       </div>
 
       {totals && (
-        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+        <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 12, marginBottom: 20 }}>
           <StatTile label="Lines" value={totals.count} icon={<ProjectsIcon size={18} />} tone="neutral" active={Object.values(filters).every((v) => v === undefined || v === "") && !search} onClick={() => { setFilters({}); setSearch(""); }} />
           <StatTile label="Total distance" note="approx." value={compactKm(totals.totalDistance)} icon={<TrendingUpIcon size={18} />} tone="neutral" />
           <StatTile label="Total CO2e" note="approx." value={compactCo2(totals.totalCo2)} icon={<AlertIcon size={18} />} tone="warning" />
@@ -315,7 +315,7 @@ export default function LogisticsPage() {
         </p>
       </section>
 
-      <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 18 }}>
+      <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginBottom: 18 }}>
         <input
           placeholder="Search project / description…"
           value={search}
