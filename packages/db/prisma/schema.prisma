@@ -3299,6 +3299,17 @@ model Tender {
   requireExclusionDeclaration Boolean @default(true)
   /// Bidders may also complete locked Excel/Word templates instead of the online form (on by default).
   allowTemplateSubmission Boolean @default(true)
+  /// Evaluation and award options (step 4, 2026-10-20). Emergency procurement and single-evaluator decisions must each carry a reason.
+  emergencyProcurement  Boolean      @default(false)
+  emergencyReason       String?      @db.NVarChar(1000)
+  allowSingleEvaluator  Boolean      @default(false)
+  singleEvaluatorReason String?      @db.NVarChar(1000)
+  /// Milestones, set by the issuer's actions and shown (without any bidder detail) to participants.
+  bidsOpenedAt          DateTime?
+  evaluationStartedAt   DateTime?
+  scoringFinalisedAt    DateTime?
+  awardedAt             DateTime?
+  standstillEndsAt      DateTime?
   termsAndConditions    String?      @db.NVarChar(Max)
   cancelledReason       String?      @db.NVarChar(1000)
   isSimulated           Boolean      @default(false)
@@ -3364,6 +3375,8 @@ model TenderCriterion {
   responseFormat   String   @default("EITHER")
   /// Overrides the tender's accepted file types for this requirement.
   acceptedFileTypes String?
+  /// MANUAL criteria are scored by evaluators; PRICE and LEAD_TIME are calculated from the bids (lowest = 100).
+  metric           String   @default("MANUAL")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -3683,4 +3696,150 @@ model TenderBidFile {
   @@index([bidId])
   @@index([issuerOrganizationId, tenderId])
   @@map("tender_bid_files")
+}
+
+// ---------------------------------------------------------------------------
+// Tender evaluation, award, debrief and complaints (step 4, 2026-10-20)
+// ---------------------------------------------------------------------------
+
+/// A person assigned to evaluate a tender, with their conflict-of-interest declaration. Private to the issuer.
+model TenderEvaluator {
+  id                String    @id @default(uuid())
+  organizationId    String
+  tenderId          String
+  userId            String
+  role              String    @default("EVALUATOR")
+  coiDeclaredAt     DateTime?
+  coiNoConflict     Boolean?
+  /// Comma-separated organisation ids the evaluator declares a conflict with; those bids are hidden from them.
+  coiBidderIds      String?   @db.NVarChar(Max)
+  coiNotes          String?   @db.NVarChar(Max)
+  createdAt         DateTime  @default(now())
+
+  @@unique([tenderId, userId])
+  @@index([organizationId])
+  @@map("tender_evaluators")
+}
+
+/// Pass or fail on a gate criterion for one bid.
+model TenderBidGate {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  bidId          String
+  criterionId    String
+  passed         Boolean
+  notes          String?  @db.NVarChar(Max)
+  recordedById   String?
+  recordedAt     DateTime @default(now())
+
+  @@unique([bidId, criterionId])
+  @@index([tenderId])
+  @@map("tender_bid_gates")
+}
+
+/// One evaluator's score for one bid on one manual criterion. Locked once submittedAt is set.
+model TenderBidScore {
+  id              String    @id @default(uuid())
+  organizationId  String
+  tenderId        String
+  bidId           String
+  criterionId     String
+  evaluatorUserId String
+  score           Decimal   @db.Decimal(5, 2)
+  rationale       String?   @db.NVarChar(Max)
+  submittedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([bidId, criterionId, evaluatorUserId])
+  @@index([tenderId])
+  @@map("tender_bid_scores")
+}
+
+/// The agreed score after moderation (or the calculated score for price and lead time).
+model TenderModeratedScore {
+  id             String   @id @default(uuid())
+  organizationId String
+  tenderId       String
+  bidId          String
+  criterionId    String
+  score          Decimal  @db.Decimal(5, 2)
+  rationale      String?  @db.NVarChar(Max)
+  isCalculated   Boolean  @default(false)
+  recordedById   String?
+  recordedAt     DateTime @default(now())
+
+  @@unique([bidId, criterionId])
+  @@index([tenderId])
+  @@map("tender_moderated_scores")
+}
+
+/// An award to one bidder. A tender may have several (for example a framework with more than one supplier); each covers some lines.
+model TenderAward {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  tenderId              String
+  bidId                 String
+  awardedOrganizationId String
+  reason                String   @db.NVarChar(Max)
+  awardedAt             DateTime @default(now())
+  awardedById           String?
+
+  @@unique([tenderId, bidId])
+  @@index([tenderId])
+  @@index([awardedOrganizationId])
+  @@map("tender_awards")
+}
+
+model TenderAwardLine {
+  id                    String  @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  awardId               String
+  tenderLineId          String
+  /// Share of the line's quantity given to this supplier (100 when a single supplier takes the whole line).
+  sharePercent          Decimal @db.Decimal(5, 2)
+
+  @@unique([awardId, tenderLineId])
+  @@index([tenderId])
+  @@map("tender_award_lines")
+}
+
+/// The outcome and feedback released to each bidder at award. The scores are a snapshot so bidders never read evaluator tables.
+model TenderDebrief {
+  id                   String   @id @default(uuid())
+  organizationId       String
+  tenderId             String
+  bidId                String
+  bidderOrganizationId String
+  outcome              String
+  totalScore           Decimal? @db.Decimal(6, 2)
+  rank                 Int?
+  bidCount             Int?
+  scoresJson           String   @db.NVarChar(Max)
+  feedback             String?  @db.NVarChar(Max)
+  releasedAt           DateTime @default(now())
+
+  @@unique([tenderId, bidId])
+  @@index([bidderOrganizationId])
+  @@map("tender_debriefs")
+}
+
+/// A bidder's complaint or request for review during the standstill. Owned by the bidder; the issuer reads and responds.
+model TenderComplaint {
+  id                   String    @id @default(uuid())
+  organizationId       String
+  issuerOrganizationId String
+  tenderId             String
+  body                 String    @db.NVarChar(Max)
+  status               String    @default("OPEN")
+  response             String?   @db.NVarChar(Max)
+  lodgedById           String?
+  lodgedAt             DateTime  @default(now())
+  respondedAt          DateTime?
+
+  @@index([tenderId])
+  @@index([issuerOrganizationId])
+  @@map("tender_complaints")
 }

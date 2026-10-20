@@ -52,6 +52,8 @@ export class TendersService {
       publicNotice: simulated ? false : dto.publicNotice,
       requireIntegrityPledge: dto.requireIntegrityPledge, requireExclusionDeclaration: dto.requireExclusionDeclaration,
       allowTemplateSubmission: dto.allowTemplateSubmission,
+      emergencyProcurement: dto.emergencyProcurement, emergencyReason: dto.emergencyProcurement === false ? null : dto.emergencyReason,
+      allowSingleEvaluator: dto.allowSingleEvaluator, singleEvaluatorReason: dto.allowSingleEvaluator === false ? null : dto.singleEvaluatorReason,
     };
   }
 
@@ -149,7 +151,7 @@ export class TendersService {
         if (dto.visibility) { data.visibility = dto.visibility; data.visibleToAll = dto.visibility !== "INVITED_ONLY"; }
       } else if (t.status === "PUBLISHED") {
         // After publication only the timetable can move, and the closing date only later; everything else is what bidders relied on.
-        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate", "timeZone", "standstillEnabled", "standstillWorkingDays", "publicNotice", "requireIntegrityPledge", "requireExclusionDeclaration", "allowTemplateSubmission"] as const;
+        const locked = ["title", "summary", "tenderType", "visibility", "deliveryCountryCodes", "currency", "incoterm", "clientName", "bidValidityDays", "acceptedFileTypes", "maxFileSizeMb", "allowTextSubmission", "termsAndConditions", "contractStartDate", "timeZone", "standstillEnabled", "standstillWorkingDays", "publicNotice", "requireIntegrityPledge", "requireExclusionDeclaration", "allowTemplateSubmission", "emergencyProcurement", "emergencyReason", "allowSingleEvaluator", "singleEvaluatorReason"] as const;
         if (locked.some((k) => dto[k] !== undefined)) throw new ConflictException("A published tender can only have its dates extended. Cancel and reissue to change anything else.");
       } else {
         throw new ConflictException(`A ${t.status.toLowerCase()} tender can no longer be edited.`);
@@ -283,6 +285,8 @@ export class TendersService {
       const scored = criteria.filter((c) => c.kind === "SCORED");
       const total = scored.reduce((s, c) => s + Number(c.weight ?? 0), 0);
       if (scored.length > 0 && Math.abs(total - 100) > 0.01) problems.push(`Scored criteria weights must total 100 (currently ${total}).`);
+      if (t.emergencyProcurement && !t.emergencyReason?.trim()) problems.push("Emergency procurement needs a recorded reason.");
+      if (t.allowSingleEvaluator && !t.singleEvaluatorReason?.trim()) problems.push("A single-evaluator decision needs a recorded reason (for example, below your financial threshold).");
       if (t.visibility === "INVITED_ONLY" && invites === 0) problems.push("An invited-only tender needs at least one invited organisation.");
       if (problems.length) throw new BadRequestException({ message: "This tender is not ready to publish.", problems });
       const demoIssuer = user.isDemoUser || user.inDemoOrganization;

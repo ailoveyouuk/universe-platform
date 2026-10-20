@@ -323,6 +323,20 @@ export class TenderBidsService {
     });
   }
 
+  /** The issuer opens the bids at or after the closing time. Recorded once on the timeline and shown to participants as a milestone. */
+  async openBids(user: RequestUser, tenderId: string) {
+    const t = await this.assertOpenedForIssuer(user, tenderId);
+    if (t.bidsOpenedAt) return { openedAt: t.bidsOpenedAt, alreadyOpen: true };
+    const count = await withTenantContext(user.organizationId, async (tx) => {
+      await tx.tender.update({ where: { id: tenderId }, data: { bidsOpenedAt: new Date() } });
+      return tx.tenderBid.count({ where: { tenderId, issuerOrganizationId: user.organizationId, status: "SUBMITTED" } });
+    });
+    await appendTenderEvent({ organizationId: t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "BIDS_OPENED", summary: `Bids opened (${count} submitted)`, details: { count } });
+    const orgs = await withTenantContext(user.organizationId, (tx) => tx.tenderBid.findMany({ where: { tenderId, status: "SUBMITTED" }, select: { organizationId: true } }));
+    await this.tenders.notifyOrgs(orgs.map((o) => o.organizationId), () => ({ title: `Bids opened: ${t.referenceNumber}`, body: `The bids for ${t.title} have been opened and evaluation will follow.`, link: `/bids/status?id=${tenderId}`, subjectId: tenderId }), "TENDER_BIDS_OPENED", user.id);
+    return { openedAt: new Date(), alreadyOpen: false };
+  }
+
   /** Number of submitted bids. Allowed before closing: it reveals nothing about their content. */
   async countSubmitted(user: RequestUser, tenderId: string) {
     assertHasPermission(user, "tenders.issue");
@@ -335,6 +349,7 @@ export class TenderBidsService {
   /** Opens the submitted bids once the closing time has passed. Every opening is written to the tender's timeline. */
   async listBids(user: RequestUser, tenderId: string) {
     const t = await this.assertOpenedForIssuer(user, tenderId);
+    if (!t.bidsOpenedAt) throw new ConflictException("Open the bids first.");
     const result = await withTenantContext(user.organizationId, async (tx) => {
       const bids = await tx.tenderBid.findMany({ where: { tenderId, issuerOrganizationId: user.organizationId, status: "SUBMITTED" }, orderBy: { totalTenderCurrency: "asc" } });
       const ids = bids.map((b) => b.id);
@@ -353,12 +368,13 @@ export class TenderBidsService {
         responses: criteria.map((c) => ({ criterionId: c.id, criterionTitle: c.title, text: responses.find((r) => r.bidId === b.id && r.criterionId === c.id)?.text ?? null, files: files.filter((f) => f.bidId === b.id && f.criterionId === c.id).map((f) => ({ id: f.id, fileName: f.fileName, fileSizeBytes: f.fileSizeBytes, criterionId: f.criterionId })) })),
       }));
     });
-    await appendTenderEvent({ organizationId: t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "BIDS_OPENED", summary: `Bids opened and viewed (${result.length} submitted)`, details: { count: result.length } });
+    await appendTenderEvent({ organizationId: t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "BIDS_VIEWED", summary: `Submitted bids viewed (${result.length})`, details: { count: result.length } });
     return result;
   }
 
   async bidFileUrl(user: RequestUser, tenderId: string, fileId: string) {
     const t = await this.assertOpenedForIssuer(user, tenderId);
+    if (!t.bidsOpenedAt) throw new ConflictException("Open the bids first.");
     const f = await withTenantContext(user.organizationId, async (tx) => {
       const file = await tx.tenderBidFile.findFirst({ where: { id: fileId, tenderId, issuerOrganizationId: user.organizationId } });
       if (!file) return null;

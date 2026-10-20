@@ -3247,13 +3247,15 @@ export interface TenderRecord {
   termsAndConditions: string | null; cancelledReason: string | null; isSimulated: boolean; createdAt: string; updatedAt: string;
   timeZone: string | null; standstillEnabled: boolean; standstillWorkingDays: number | null; publicNotice: boolean;
   requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean; allowTemplateSubmission: boolean;
+  emergencyProcurement: boolean; emergencyReason: string | null; allowSingleEvaluator: boolean; singleEvaluatorReason: string | null;
+  bidsOpenedAt: string | null; evaluationStartedAt: string | null; scoringFinalisedAt: string | null; awardedAt: string | null; standstillEndsAt: string | null;
 }
 export interface TenderListItem extends TenderRecord { interestedOrganisations: number }
 export interface TenderLineRecord {
   id?: string; lineNumber?: number; lotNumber: number | null; lotTitle: string | null; description: string; productMasterId: string | null; specification: string | null;
   quantity: string | number | null; unit: string | null; destinationCountryCode: string | null; requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean;
 }
-export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; acceptedFileTypes: string | null }
+export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME"; acceptedFileTypes: string | null }
 export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
 export interface TenderEventRecord { id: string; kind: string; summary: string; actorOrganizationId: string; createdAt: string }
 export interface TenderDetailForIssuer {

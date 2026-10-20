@@ -3,6 +3,10 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext, w
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { chipsFor, evaluateEligibility, matchesSavedSearch, type OrgProfile } from "../src/tenders/eligibility";
+import { TenderAwardService } from "../src/tenders/tender-award.service";
+import { TenderEvaluationService } from "../src/tenders/tender-evaluation.service";
+import { addWorkingDays, calculatedScores, normaliseWeights, overAllocatedLines, rankBids, weightedTotal } from "../src/tenders/evaluation";
+import { SCREENING_LISTS } from "@universe/types";
 import { TenderBidsService } from "../src/tenders/tender-bids.service";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
@@ -397,6 +401,8 @@ describe("Tender service", () => {
     await fillBid(t.id, { bidCurrency: "USD" });
     await bids.submitBid(asUser(capable, BID), t.id);
     await withTenantContext(issuer, (tx) => tx.tender.update({ where: { id: t.id }, data: { closingAt: new Date(Date.now() - 60_000) } }));
+    await expect(bids.listBids(asUser(issuer, ISSUE), t.id)).rejects.toThrow(/Open the bids first/);
+    await bids.openBids(asUser(issuer, ISSUE), t.id);
     const list = await bids.listBids(asUser(issuer, ISSUE), t.id);
     expect(list).toHaveLength(1);
     expect(Number(list[0].totalTenderCurrency)).toBe(2000);
@@ -458,5 +464,135 @@ describe("Tender service", () => {
     const t = await build({ title: `No templates ${suffix}`, allowTemplateSubmission: false });
     await svc.expressInterest(asUser(capable, BID), t.id, DECL);
     await expect(bids.downloadTemplate(asUser(capable, BID), t.id, "financial")).rejects.toThrow(/does not accept template/);
+  });
+
+  // ---- evaluation and award (step 4)
+  it("scoring arithmetic: calculated scores, weighted totals, ranking, weights, working days, allocations", () => {
+    const c = calculatedScores([{ bidId: "a", totalTenderCurrency: 2000, avgLeadDays: 30 }, { bidId: "b", totalTenderCurrency: 4000, avgLeadDays: 60 }]);
+    expect(c.get("a")).toEqual({ price: 100, leadTime: 100 });
+    expect(c.get("b")).toEqual({ price: 50, leadTime: 50 });
+    expect(weightedTotal([{ id: "p", weight: 50 }, { id: "q", weight: 50 }], { p: 100, q: 80 })).toBe(90);
+    expect(weightedTotal([{ id: "p", weight: 50 }, { id: "q", weight: 50 }], { p: 100 })).toBeNull();
+    const r = rankBids([{ total: 90, price: 5 }, { total: 90, price: 3 }, { total: null, price: 1 }, { total: 95, price: 9 }]);
+    expect(r.map((x) => x.rank)).toEqual([3, 2, null, 1]);
+    expect(normaliseWeights([1, 1, 1]).reduce((a, b) => a + b, 0)).toBeCloseTo(100, 5);
+    expect(normaliseWeights([50, 30, 30]).reduce((a, b) => a + b, 0)).toBeCloseTo(100, 5);
+    expect(normaliseWeights([0, 0])).toEqual([50, 50]);
+    expect(addWorkingDays(new Date("2026-10-16T12:00:00Z"), 2).toISOString().slice(0, 10)).toBe("2026-10-20"); // Fri + 2 working days = Tue
+    expect(overAllocatedLines([{ tenderLineId: "x", sharePercent: 70 }, { tenderLineId: "x", sharePercent: 40 }, { tenderLineId: "y", sharePercent: 100 }])).toEqual(["x"]);
+  });
+
+  it("emergency procurement and single-evaluator decisions each need a recorded reason before publishing", async () => {
+    const u = asUser(issuer, ISSUE);
+    const t = await build({ title: `Emerg ${suffix}`, emergencyProcurement: true }, [], false);
+    await expect(svc.publish(u, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining(["Emergency procurement needs a recorded reason."]) } });
+    await svc.update(u, t.id, { emergencyReason: "Stock-out of artemether in KE", allowSingleEvaluator: true } as never);
+    await expect(svc.publish(u, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/single-evaluator/)]) } });
+    await svc.update(u, t.id, { singleEvaluatorReason: "Below our EUR 10,000 threshold" } as never);
+    await svc.publish(u, t.id);
+  });
+
+  it("evaluation to multi-award: conflicts hide bids, scores are private, price and lead time are calculated, one line can be split between suppliers, debriefs and the status page are anonymised", async () => {
+    const evaluation = new TenderEvaluationService(svc);
+    const awards = new TenderAwardService(svc, evaluation);
+    const iss = asUser(issuer, ISSUE);
+    const mkEv = async (tag: string) => {
+      const id = await withPlatformStaffContext(async (tx) => (await tx.user.create({ data: { organizationId: issuer, email: `${tag}-${suffix}@example.com`, forename: tag, surname: "Eval", status: "ACTIVE", entraObjectId: `oid-${tag}-${suffix}` } })).id);
+      return { ...asUser(issuer, ["tenders.view"]), id };
+    };
+    const ev1 = await mkEv("ev1"); const ev2 = await mkEv("ev2");
+
+    const t = await svc.create(iss, { title: `Eval ${suffix}`, closingAt: future(30), tenderType: "RFQ", currency: "USD", standstillEnabled: true } as never);
+    await svc.setLines(iss, t.id, { lines: [{ description: "Artemether", quantity: 1000, unit: "pack", destinationCountryCode: "KE" }] });
+    await svc.setCriteria(iss, t.id, { criteria: [
+      { title: "Price", kind: "SCORED", weight: 50, metric: "PRICE" }, { title: "Lead time", kind: "SCORED", weight: 20, metric: "LEAD_TIME" },
+      { title: "Quality", kind: "SCORED", weight: 30, responseFormat: "TEXT" }, { title: "Registered", kind: "GATE", responseFormat: "TEXT" },
+    ] as never });
+    await svc.setRules(iss, t.id, { rules: [] });
+    await svc.publish(iss, t.id);
+
+    const bidAs = async (org: string, price: number, lead: number) => {
+      const u = asUser(org, BID);
+      await svc.expressInterest(u, t.id, DECL);
+      const ws = await bids.getWorkspace(u, t.id);
+      await bids.saveBid(u, t.id, { bidCurrency: "USD", validityConfirmed: true,
+        lines: ws.lines.map((l) => ({ tenderLineId: l.tenderLineId, noBid: false, unitPrice: price, leadTimeDays: lead, countryOfOrigin: "IN" })),
+        responses: ws.criteria.filter((c) => c.isMandatory).map((c) => ({ criterionId: c.id, text: "Compliant." })) } as never);
+      await bids.submitBid(u, t.id);
+    };
+    await withPlatformStaffContext((tx) => tx.country.upsert({ where: { code: "IN" }, update: {}, create: { code: "IN", name: "India", regionCode: "AS" } }));
+    await bidAs(capable, 2, 30); await bidAs(invitee, 4, 60);
+
+    // cannot evaluate before closing/opening
+    await expect(evaluation.start(iss, t.id)).rejects.toThrow();
+    await withTenantContext(issuer, (tx) => tx.tender.update({ where: { id: t.id }, data: { closingAt: new Date(Date.now() - 60_000) } }));
+    await bids.openBids(iss, t.id);
+    // exactly one chair and two evaluators (single evaluator not allowed on this tender)
+    await expect(evaluation.setEvaluators(iss, t.id, { evaluators: [{ userId: ev1.id, role: "CHAIR" }] })).resolves.toBeTruthy();
+    await expect(evaluation.start(iss, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/at least two/)]) } });
+    await evaluation.setEvaluators(iss, t.id, { evaluators: [{ userId: ev1.id, role: "CHAIR" }, { userId: ev2.id, role: "EVALUATOR" }] });
+    await evaluation.start(iss, t.id);
+
+    // no bids visible until the conflict declaration; a conflicted bid stays hidden and cannot be scored
+    expect((await evaluation.overview(ev2, t.id)).bids).toHaveLength(0);
+    await expect(evaluation.declareConflict(ev2, t.id, { noConflict: false, conflictedOrganisationIds: [capable] })).rejects.toThrow(/briefly/);
+    await evaluation.declareConflict(ev2, t.id, { noConflict: false, conflictedOrganisationIds: [capable], notes: "Former employer" });
+    await evaluation.declareConflict(ev1, t.id, { noConflict: true });
+    const o2 = await evaluation.overview(ev2, t.id);
+    expect(o2.bids).toHaveLength(1);
+    expect((o2.bids[0] as { organizationId: string }).organizationId).toBe(invitee);
+    const full = await evaluation.overview(ev1, t.id);
+    const bidOf = (org: string) => (full.bids as { bidId: string; organizationId: string }[]).find((b) => b.organizationId === org)!;
+    const crit = (title: string) => full.criteria.find((c) => c.title === title)!.id;
+
+    for (const org of [capable, invitee]) await evaluation.recordGate(ev1, t.id, { bidId: bidOf(org).bidId, criterionId: crit("Registered"), passed: true });
+    await expect(evaluation.saveScores(ev2, t.id, { bidId: bidOf(capable).bidId, scores: [] })).rejects.toThrow(/conflict/);
+    await expect(evaluation.saveScores(ev1, t.id, { bidId: bidOf(capable).bidId, scores: [{ criterionId: crit("Price"), score: 50 }] })).rejects.toThrow(/automatically/);
+    // submitting needs a reason; submitted scores are locked
+    await expect(evaluation.saveScores(ev1, t.id, { bidId: bidOf(capable).bidId, scores: [{ criterionId: crit("Quality"), score: 80 }], submit: true })).rejects.toBeTruthy();
+    await evaluation.saveScores(ev1, t.id, { bidId: bidOf(capable).bidId, scores: [{ criterionId: crit("Quality"), score: 80, rationale: "Strong dossier" }], submit: true });
+    await expect(evaluation.saveScores(ev1, t.id, { bidId: bidOf(capable).bidId, scores: [{ criterionId: crit("Quality"), score: 10, rationale: "x" }] })).rejects.toThrow(/locked/);
+    await evaluation.saveScores(ev1, t.id, { bidId: bidOf(invitee).bidId, scores: [{ criterionId: crit("Quality"), score: 60, rationale: "Adequate" }], submit: true });
+    // not finalisable until ev2 has scored the bid they are not conflicted with
+    await expect(evaluation.finalise(ev1, t.id)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/has not submitted/)]) } });
+    await expect(evaluation.finalise(ev2, t.id)).rejects.toThrow(/chair/);
+    await evaluation.saveScores(ev2, t.id, { bidId: bidOf(invitee).bidId, scores: [{ criterionId: crit("Quality"), score: 70, rationale: "Good" }], submit: true });
+    // ev2 cannot see ev1's scores; the chair can see both
+    expect(Object.keys((o2.bids[0] as { others?: object }).others ?? {})).toHaveLength(0);
+    const fin = await evaluation.finalise(ev1, t.id);
+    const rows = fin.bids as { organizationId: string; totalScore: number | null; rank: number | null }[];
+    expect(rows.find((r) => r.organizationId === capable)).toMatchObject({ totalScore: 94, rank: 1 });
+    expect(rows.find((r) => r.organizationId === invitee)).toMatchObject({ totalScore: 54.5, rank: 2 });
+
+    // award: a screening is required; one line split 60/40 across two suppliers (never over 100)
+    const award = { awards: [{ bidId: bidOf(capable).bidId, reason: "Best value", lines: [{ tenderLineId: full.lines[0].id, sharePercent: 60 }] }, { bidId: bidOf(invitee).bidId, reason: "Second source", lines: [{ tenderLineId: full.lines[0].id, sharePercent: 40 }] }], feedback: [{ bidId: bidOf(invitee).bidId, text: "Competitive on quality; price and lead time were higher." }] };
+    await expect(awards.award(iss, t.id, award)).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/screening/)]) } });
+    for (const org of [capable, invitee]) await comp.recordScreening(iss, t.id, { organisationId: org, lists: [SCREENING_LISTS[0].value], outcome: "CLEAR", screenedOn: new Date().toISOString() } as never);
+    await expect(awards.award(iss, t.id, { ...award, awards: award.awards.map((a) => ({ ...a, lines: [{ tenderLineId: full.lines[0].id, sharePercent: 70 }] })) })).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/more than 100/)]) } });
+    await expect(awards.award(iss, t.id, { ...award, waiveStandstill: true })).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/emergency/)]) } });
+    const done = await awards.award(iss, t.id, award);
+    expect(done.awards).toHaveLength(2);
+    expect(done.tender.awardedAt).toBeTruthy();
+    expect(done.tender.standstillEndsAt).toBeTruthy();
+    await expect(awards.award(iss, t.id, award)).rejects.toThrow(/already/);
+
+    // participant status page: milestones and a count, own debrief and award only
+    const st = await awards.participantStatus(asUser(invitee, BID), t.id);
+    expect(st.bidsSubmitted).toBe(2);
+    expect(st.my.debrief).toMatchObject({ outcome: "AWARDED", rank: 2, bidCount: 2 });
+    expect(st.my.debrief?.feedback).toMatch(/Competitive/);
+    expect(st.my.awards[0].lines[0].sharePercent).toBe(40);
+    expect(JSON.stringify(st)).not.toContain(capable);
+    expect(st.milestones.find((m) => m.key === "STANDSTILL")).toBeTruthy();
+    await expect(awards.participantStatus(asUser(incapable, BID), t.id)).rejects.toThrow(/taking part/);
+
+    // complaint during the standstill, answered by the issuer
+    expect(st.my.canComplain).toBe(true);
+    await awards.lodgeComplaint(asUser(invitee, BID), t.id, "We believe the price score was calculated incorrectly.");
+    const open = (await evaluation.overview(iss, t.id)).complaints;
+    expect(open).toHaveLength(1);
+    await awards.respondComplaint(iss, t.id, open[0].id, "REJECTED", "The calculation follows the published method.");
+    expect((await awards.participantStatus(asUser(invitee, BID), t.id)).my.complaints[0]).toMatchObject({ status: "REJECTED" });
+    await expect(awards.lodgeComplaint(asUser(incapable, BID), t.id, "No bid was submitted by us at all.")).rejects.toThrow();
   });
 });

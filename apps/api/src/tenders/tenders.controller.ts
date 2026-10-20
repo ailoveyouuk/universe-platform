@@ -1,18 +1,20 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
+import { TenderEvaluationService } from "./tender-evaluation.service";
 import { TenderComplianceService } from "./tender-compliance.service";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, BidSaveDto, CancelTenderDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -56,9 +58,29 @@ export class TendersController {
   @Get(":id/bid/files/:fileId/download-url") myBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("fileId") fid: string) { return this.bids.myFileUrl(u, id, fid); }
 
   // ---- issuer: sealed bids, opened after closing
+  @Post(":id/bids/open") openBids(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.openBids(u, id); }
   @Get(":id/bids") listBids(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.listBids(u, id); }
   @Get(":id/bids/count") bidCount(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bids.countSubmitted(u, id); }
   @Get(":id/bids/files/:fileId/download-url") issuerBidFile(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("fileId") fid: string) { return this.bids.bidFileUrl(u, id, fid); }
+
+  // ---- evaluation and award (step 4): evaluators and issuers
+  @Get(":id/evaluation") evaluationOverview(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.overview(u, id); }
+  @Get(":id/evaluation/candidates") evaluatorCandidates(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.listCandidates(u, id); }
+  @Get(":id/evaluation/bidders") evaluationBidders(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.bidderOptions(u, id); }
+  @Put(":id/evaluation/evaluators") setEvaluators(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: SetEvaluatorsDto) { return this.evaluation.setEvaluators(u, id, dto); }
+  @Put(":id/evaluation/conflict") declareConflict(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: CoiDto) { return this.evaluation.declareConflict(u, id, dto); }
+  @Post(":id/evaluation/start") startEvaluation(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.start(u, id); }
+  @Put(":id/evaluation/gates") recordGate(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: GateDto) { return this.evaluation.recordGate(u, id, dto); }
+  @Put(":id/evaluation/scores") saveScores(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: SaveScoresDto) { return this.evaluation.saveScores(u, id, dto); }
+  @Put(":id/evaluation/moderation") moderate(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ModerationDto) { return this.evaluation.moderate(u, id, dto); }
+  @Post(":id/evaluation/finalise") finaliseScoring(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.finalise(u, id); }
+  @Post(":id/award") award(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AwardDto) { return this.awards.award(u, id, dto); }
+  @Put(":id/debriefs/:bidId") debriefFeedback(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("bidId") bidId: string, @Body() dto: DebriefFeedbackDto) { return this.awards.updateFeedback(u, id, bidId, dto.feedback); }
+  @Post(":id/complaints/:complaintId/respond") respondComplaint(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("complaintId") cid: string, @Body() dto: ComplaintResponseDto) { return this.awards.respondComplaint(u, id, cid, dto.status, dto.response); }
+
+  // ---- participants: status page and complaints
+  @Get(":id/status") participantStatus(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.awards.participantStatus(u, id); }
+  @Post(":id/complaints") lodgeComplaint(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ComplaintDto) { return this.awards.lodgeComplaint(u, id, dto.body); }
 
   // ---- issuer: fairness and audit
   @Post(":id/questions/:questionId/answer") answer(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("questionId") qid: string, @Body() dto: AnswerQuestionDto) { return this.compliance.answerQuestion(u, id, qid, dto); }

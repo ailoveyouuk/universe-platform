@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
 import { EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
@@ -32,6 +32,10 @@ export class UpdateTenderDto {
   @IsOptional() @IsInt() @Min(1) @Max(30) standstillWorkingDays?: number;
   @IsOptional() @IsBoolean() publicNotice?: boolean;
   @IsOptional() @IsBoolean() allowTemplateSubmission?: boolean;
+  @IsOptional() @IsBoolean() emergencyProcurement?: boolean;
+  @IsOptional() @IsString() @Length(0, 1000) emergencyReason?: string;
+  @IsOptional() @IsBoolean() allowSingleEvaluator?: boolean;
+  @IsOptional() @IsString() @Length(0, 1000) singleEvaluatorReason?: string;
   @IsOptional() @IsBoolean() requireIntegrityPledge?: boolean;
   @IsOptional() @IsBoolean() requireExclusionDeclaration?: boolean;
 }
@@ -62,6 +66,7 @@ export class TenderCriterionDto {
   @IsOptional() @IsBoolean() isMandatory?: boolean;
   @IsOptional() @IsIn(RESPONSE_FORMATS as unknown as string[]) responseFormat?: string;
   @IsOptional() @IsString() acceptedFileTypes?: string;
+  @IsOptional() @IsIn(["MANUAL", "PRICE", "LEAD_TIME"]) metric?: string;
 }
 export class SetCriteriaDto { @IsArray() @ValidateNested({ each: true }) @Type(() => TenderCriterionDto) criteria!: TenderCriterionDto[] }
 
@@ -154,3 +159,35 @@ export class ConfirmBidFileDto {
   @IsOptional() @IsInt() @Min(0) fileSizeBytes?: number;
   @IsOptional() @IsString() criterionId?: string | null;
 }
+
+// ---- evaluation and award (step 4)
+export class EvaluatorInputDto { @IsString() userId!: string; @IsIn(["CHAIR", "EVALUATOR"]) role!: string }
+export class SetEvaluatorsDto { @IsArray() @ValidateNested({ each: true }) @Type(() => EvaluatorInputDto) evaluators!: EvaluatorInputDto[] }
+export class CoiDto {
+  @IsBoolean() noConflict!: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) conflictedOrganisationIds?: string[];
+  @IsOptional() @IsString() @Length(0, 4000) notes?: string;
+}
+export class GateDto { @IsString() bidId!: string; @IsString() criterionId!: string; @IsBoolean() passed!: boolean; @IsOptional() @IsString() @Length(0, 4000) notes?: string }
+export class ScoreItemDto { @IsString() criterionId!: string; @IsNumber() @Min(0) @Max(100) score!: number; @IsOptional() @IsString() @Length(0, 8000) rationale?: string }
+export class SaveScoresDto {
+  @IsString() bidId!: string;
+  @IsArray() @ValidateNested({ each: true }) @Type(() => ScoreItemDto) scores!: ScoreItemDto[];
+  @IsOptional() @IsBoolean() submit?: boolean;
+}
+export class ModerationDto { @IsString() bidId!: string; @IsString() criterionId!: string; @IsNumber() @Min(0) @Max(100) score!: number; @IsOptional() @IsString() @Length(0, 8000) rationale?: string }
+export class AwardLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.01) @Max(100) sharePercent!: number }
+export class AwardItemDto {
+  @IsString() bidId!: string;
+  @IsString() @Length(1, 8000) reason!: string;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => AwardLineDto) lines?: AwardLineDto[];
+}
+export class FeedbackItemDto { @IsString() bidId!: string; @IsString() @Length(0, 8000) text!: string }
+export class AwardDto {
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => AwardItemDto) awards!: AwardItemDto[];
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => FeedbackItemDto) feedback?: FeedbackItemDto[];
+  @IsOptional() @IsBoolean() waiveStandstill?: boolean;
+}
+export class DebriefFeedbackDto { @IsString() @Length(0, 8000) feedback!: string }
+export class ComplaintDto { @IsString() @Length(10, 8000) body!: string }
+export class ComplaintResponseDto { @IsIn(["UPHELD", "REJECTED", "RESOLVED"]) status!: string; @IsString() @Length(1, 8000) response!: string }
