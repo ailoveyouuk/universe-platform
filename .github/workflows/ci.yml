@@ -41,6 +41,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check the API's module wiring (starts the Nest graph without a database)
+        # Mirrors the Dockerfile: workspace packages are consumed as compiled output.
+        run: |
+          for pkg in auth db types insights-db; do
+            npm pkg set main=dist/index.js types=dist/index.d.ts -w packages/$pkg
+          done
+          node apps/api/scripts/check-wiring.cjs
+
   test:
     runs-on: ubuntu-latest
     # Real SQL Server, not a substitute — Row-Level Security

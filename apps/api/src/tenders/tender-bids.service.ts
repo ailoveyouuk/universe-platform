@@ -27,8 +27,8 @@ const safeName = (n: string) => n.replace(/[^A-Za-z0-9._-]+/g, "_").slice(-120);
 export class TenderBidsService {
   constructor(
     private readonly tenders: TendersService,
-    private readonly fx: Pick<ExchangeRatesService, "getSnapshotForDate">,
-    private readonly blob: Pick<BlobStorageService, "getUploadUrl" | "getDownloadUrl">,
+    private readonly fx: ExchangeRatesService,
+    private readonly blob: BlobStorageService,
   ) {}
 
   // ----------------------------------------------------------- bidder side
