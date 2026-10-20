@@ -17,6 +17,7 @@
     "enrich:demo": "tsx scripts/enrich-demo-data.ts",
     "seed:demo-quality": "tsx scripts/seed-demo-quality.ts",
     "purge:demo-duplicate-approvals": "tsx scripts/purge-duplicate-approvals.ts",
+    "seed:demo-bid": "tsx scripts/seed-demo-bid.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",
