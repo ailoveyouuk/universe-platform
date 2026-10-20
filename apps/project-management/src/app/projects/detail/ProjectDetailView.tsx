@@ -368,7 +368,7 @@ export function ProjectDetailView() {
       <div style={{ marginTop: 20 }}>
         <StageTracker status={project.status} statusHistory={project.statusHistory} reasonForCancellation={project.reasonForCancellation} />
         <StatusHistoryTimeline history={project.statusHistory} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink-secondary)" }}>
             Change status
             <Select
