@@ -74,7 +74,7 @@ function ComplaintList() {
       </div>
 
       {dash && (dash.byCategory.length > 0 || dash.byPartner.length > 0) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: 16, marginBottom: 24 }}>
           <div style={cardStyle}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>By category</div>
             {dash.byCategory.map((c) => <div key={c.category} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0" }}><span>{label(c.category)}</span><strong>{c.count}</strong></div>)}
@@ -179,7 +179,7 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
   return (
     <div style={cardStyle}>
       <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>Log a complaint</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Direction">
           <Select value={direction} onChange={setDirection} options={COMPLAINT_DIRECTIONS.map((d) => ({ value: d, label: DIRECTION_LABEL[d] }))} ariaLabel="Direction" />
         </Field>
@@ -194,7 +194,7 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
       </div>
       <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} maxLength={300} /></Field>
       <Field label="What was reported"><textarea value={description} onChange={(e) => setDescription(e.target.value)} style={{ ...inputStyle, minHeight: 96 }} /></Field>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Received" hint="Leave blank for now"><input type="datetime-local" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} style={inputStyle} /></Field>
         <Field label="Channel"><Select value={channel} onChange={setChannel} options={toOptions(COMPLAINT_CHANNELS)} allLabel="Not recorded" ariaLabel="Channel" /></Field>
         <Field label="Complainant name" hint="Personal data — visible only to people who can view complaints"><input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} /></Field>

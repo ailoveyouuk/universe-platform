@@ -123,7 +123,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
   return (
     <Card title="Overview">
       <ErrorNote message={s.err} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: s.err ? 12 : 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 16, marginTop: s.err ? 12 : 0 }}>
         <Field label="Title" wide><input style={inputStyle} value={f.title} onChange={(e) => set("title", e.target.value)} maxLength={300} placeholder="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" /></Field>
         <Field label="Summary" wide hint="What you are buying and why. Organisations read this before opting in."><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
         <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).filter(([k]) => k !== "FRAMEWORK").map(([value, label]) => ({ value, label }))} /></Field>
@@ -254,7 +254,7 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {rows.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No criteria yet.</p>}
         {rows.map((r, i) => (
-          <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, position: "relative" }}>
+          <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12, position: "relative" }}>
             <Field label={r.kind === "GATE" ? "Gate" : r.metric === "MANUAL" ? "Criterion scored by evaluators" : r.metric === "PRICE" ? "Price (calculated)" : "Lead time (calculated)"} wide>
               <input style={inputStyle} value={r.title} readOnly={r.metric !== "MANUAL"} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} />
             </Field>

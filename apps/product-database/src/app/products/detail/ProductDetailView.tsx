@@ -305,7 +305,7 @@ export function Card({ title, children, note }: { title: string; children: React
 
 export function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
-    <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "12px 20px" }}>
+    <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(210px, 100%), 1fr))", gap: "12px 20px" }}>
       {rows.map(([k, v]) => (
         <div key={k} style={{ minWidth: 0 }}>
           <dt style={{ fontSize: 11.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{k}</dt>
@@ -589,7 +589,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
                 {isStaff && <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateSafetyNotice(n.id, { isArchived: !n.isArchived }))}>{n.isArchived ? "Restore" : "Archive"}</Button>}
               </div>
               {reviewing === n.id && (
-                <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))" }}>
                   <label style={{ fontSize: 12 }}>Outcome
                     <select style={input} value={rform.outcome} onChange={(e) => setRform({ ...rform, outcome: e.target.value })}>
                       {Object.entries(REVIEW_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -621,7 +621,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
       )}
       {canManage && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Record safety notice</Button></div>}
       {adding && (
-        <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
           <label style={{ fontSize: 12 }}>Type
             <select style={input} value={form.noticeType} onChange={(e) => setForm({ ...form, noticeType: e.target.value })}>{NOTICE_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           </label>
@@ -738,7 +738,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
                   )}
                 </div>
                 {verifying === r.id && (
-                  <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+                  <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
                     <label style={{ fontSize: 12 }}>Outcome
                       <select style={input} value={vform.outcome} onChange={(e) => setVform({ ...vform, outcome: e.target.value })}>
                         <option value="VERIFIED">Checked and verified</option>
@@ -767,7 +767,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
         )}
         {canAdd && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add registration</Button></div>}
         {adding && (
-          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
             <label style={{ fontSize: 12 }}>Authority
               <select style={input} value={form.authority} onChange={(e) => setForm({ ...form, authority: e.target.value })}>
                 {AUTHORITIES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -888,7 +888,7 @@ export function DocumentsTab({ productId, familyId }: { productId?: string; fami
         )}
         {canWrite && !adding && <div style={{ marginTop: 12 }}><Button variant="primary" size="sm" onClick={() => setAdding(true)}>Add document</Button></div>}
         {adding && (
-          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <div style={{ marginTop: 12, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
             <label style={{ fontSize: 12 }}>Type
               <select style={input} value={form.docType} onChange={(e) => setForm({ ...form, docType: e.target.value })}>
                 {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}

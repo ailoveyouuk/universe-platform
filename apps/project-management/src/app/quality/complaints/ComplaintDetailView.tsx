@@ -215,7 +215,7 @@ function TriageForm({ c, busy, userOpts, onSave }: { c: ComplaintDetail; busy: b
   const [category, setCategory] = useState(c.category ?? ""); const [severity, setSeverity] = useState(c.severity ?? ""); const [owner, setOwner] = useState(c.ownerId ?? ""); const [inv, setInv] = useState(c.investigatorId ?? "");
   return (
     <Card title="Next: triage" right={<span style={muted}>Due {fmtDate(c.triageDueAt)}</span>}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Category"><Select value={category} onChange={setCategory} options={toOptions(COMPLAINT_CATEGORIES)} allLabel="Choose…" ariaLabel="Category" /></Field>
         <Field label="Severity" hint={c.isSerious ? "Serious cases are always critical" : undefined}><Select value={c.isSerious ? "CRITICAL" : severity} onChange={setSeverity} options={toOptions(COMPLAINT_SEVERITIES)} allLabel="Choose…" ariaLabel="Severity" /></Field>
         <Field label="Owner"><Select value={owner} onChange={setOwner} options={userOpts} allLabel="Choose…" ariaLabel="Owner" /></Field>
@@ -234,7 +234,7 @@ function InvestigationForm({ c, busy, userOpts, onSave }: { c: ComplaintDetail; 
     <Card title={done ? "Investigation (completed — edit if needed)" : "Next: investigate"}>
       <Field label="Investigator"><Select value={s.investigatorId} onChange={set("investigatorId")} options={userOpts} allLabel="Me" ariaLabel="Investigator" /></Field>
       <Field label="Scope — what is being examined"><textarea value={s.investigationScope} onChange={(e) => set("investigationScope")(e.target.value)} style={{ ...inputStyle, minHeight: 60 }} /></Field>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Root-cause category"><Select value={s.rootCauseCategory} onChange={set("rootCauseCategory")} options={toOptions(COMPLAINT_ROOT_CAUSES)} allLabel="Choose…" ariaLabel="Root cause" /></Field>
         <Field label="Outcome"><Select value={s.outcome} onChange={set("outcome")} options={toOptions(COMPLAINT_OUTCOMES)} allLabel="Choose…" ariaLabel="Outcome" /></Field>
       </div>
@@ -254,7 +254,7 @@ function ResolveForm({ busy, onSave }: { busy: boolean; onSave: (b: object) => v
   const [remedy, setRemedy] = useState(""); const [notes, setNotes] = useState(""); const [sent, setSent] = useState(""); const [summary, setSummary] = useState(""); const [reaction, setReaction] = useState("");
   return (
     <Card title="Next: resolve">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Remedy"><Select value={remedy} onChange={setRemedy} options={toOptions(COMPLAINT_REMEDIES)} allLabel="Choose…" ariaLabel="Remedy" /></Field>
         <Field label="Response sent on"><input type="date" value={sent} onChange={(e) => setSent(e.target.value)} style={inputStyle} /></Field>
         <Field label="Their reaction"><Select value={reaction} onChange={setReaction} options={toOptions(COMPLAINT_REACTIONS)} allLabel="Not known yet" ariaLabel="Reaction" /></Field>
@@ -286,7 +286,7 @@ function RegulatorForm({ busy, onSave }: { busy: boolean; onSave: (b: object) =>
   if (!open) return <div style={{ marginTop: 8 }}><Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Record reporting decision</Button></div>;
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Decision"><Select value={d} onChange={setD} options={toOptions(COMPLAINT_REGULATOR_DECISIONS)} ariaLabel="Decision" /></Field>
         <Field label="Regulator's reference (if reported)"><input value={ref} onChange={(e) => setRef(e.target.value)} style={inputStyle} /></Field>
       </div>
@@ -310,7 +310,7 @@ function ActionForm({ busy, userOpts, onSave }: { busy: boolean; userOpts: { val
   const [type, setType] = useState<string>("CORRECTIVE"); const [d, setD] = useState(""); const [owner, setOwner] = useState(""); const [due, setDue] = useState("");
   return (
     <div style={{ borderTop: "1px solid var(--u-border, #eee)", paddingTop: 12, marginTop: 8 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Type"><Select value={type} onChange={setType} options={toOptions(COMPLAINT_ACTION_TYPES)} ariaLabel="Action type" /></Field>
         <Field label="Owner"><Select value={owner} onChange={setOwner} options={userOpts} allLabel="Choose…" ariaLabel="Owner" /></Field>
         <Field label="Due"><input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={inputStyle} /></Field>

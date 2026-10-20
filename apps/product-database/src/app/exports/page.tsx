@@ -60,7 +60,7 @@ export default function ExportsPage() {
       {msg && <p style={{ color: "var(--u-status-good)", fontWeight: 600, fontSize: 13 }}>{msg}</p>}
 
       <h2 style={{ fontFamily: "var(--u-font-display)", fontSize: 17, marginTop: 24 }}>{admin ? "Export directly (global admin)" : "Your organisation’s data"}</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))", gap: 12 }}>
         {OWN.map((o) => (
           <div key={o.key} style={card}>
             <strong style={{ fontSize: 14 }}>{admin && (o.key === "products" || o.key === "registrations") ? (o.key === "products" ? "Whole catalogue" : "All registrations") : o.label}</strong>

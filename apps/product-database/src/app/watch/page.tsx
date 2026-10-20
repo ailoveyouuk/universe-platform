@@ -86,7 +86,7 @@ export default function WatchPage() {
       {!d ? !err && <p>Loading…</p> : (
         <>
           <h2 style={{ fontSize: 15, marginTop: 20 }}>Sources</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 12 }}>
             {d.sources.map((s) => (
               <div key={s.source} style={{ border: `1px solid ${s.stale || s.lastStatus === "FAILED" ? "var(--u-status-critical)" : "var(--u-border)"}`, borderRadius: "var(--u-radius-md)", padding: 12, fontSize: 13 }}>
                 <strong>{SOURCE_LABEL[s.source] ?? s.source}</strong>{" "}
@@ -146,7 +146,7 @@ export default function WatchPage() {
           )}
           {isStaff && !adding && <div style={{ marginTop: 10 }}><Button variant="secondary" size="sm" onClick={() => setAdding(true)}>Add a restriction for another country</Button></div>}
           {isStaff && adding && (
-            <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <div style={{ marginTop: 10, display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
               {[["restrictingCountryCode", "Country (2-letter code)"], ["medicineName", "Medicine (generic name)"], ["strength", "Strength (blank = all)"], ["form", "Form (blank = all)"], ["restrictionDate", "Date in force"], ["sourceUrl", "Source link (required)"]].map(([k, l]) => (
                 <label key={k} style={{ fontSize: 12 }}>{l}
                   <input type={k === "restrictionDate" ? "date" : "text"} style={{ padding: "6px 8px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-sm)", fontSize: 13, width: "100%", boxSizing: "border-box" }} value={rf[k] ?? ""} onChange={(e) => setRf({ ...rf, [k]: e.target.value })} />

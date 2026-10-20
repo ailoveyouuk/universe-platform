@@ -50,7 +50,7 @@ export default function TenderDashboardPage() {
             {attention > 0 && <Link href="/tenders?view=attention" style={{ textDecoration: "none" }}><StatTile label="Needs attention" value={attention} icon={<AlertIcon size={18} />} tone="critical" note={[d.attention.overdueEvaluation && `${d.attention.overdueEvaluation} evaluation overdue`, d.attention.overdueAward && `${d.attention.overdueAward} award overdue`, d.attention.unansweredQuestions && `${d.attention.unansweredQuestions} questions`].filter(Boolean).join(", ")} /></Link>}
           </StatTileGrid>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))", gap: 20 }}>
             <Card title="Closing soon">
               {d.closingSoon.length === 0 ? <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Nothing closes in the next seven days.</p> : (
                 <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 10 }}>

@@ -118,7 +118,7 @@ function Dates({ d, onSaved }: { d: TenderDetailForIssuer; onSaved: () => void }
   return (
     <Card title={`Dates (${zone ?? "your time zone"})`}>
       <ErrorNote message={err} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 14 }}>
         <Field label="Closing date" hint="Can only be moved later."><input type="datetime-local" style={inputStyle} value={v.closingAt} onChange={(e) => setV({ ...v, closingAt: e.target.value })} /></Field>
         <Field label="Questions close"><input type="datetime-local" style={inputStyle} value={v.clarificationDeadline} onChange={(e) => setV({ ...v, clarificationDeadline: e.target.value })} /></Field>
         <Field label="Evaluation due"><input type="datetime-local" style={inputStyle} value={v.evaluationDueAt} onChange={(e) => setV({ ...v, evaluationDueAt: e.target.value })} /></Field>

@@ -46,7 +46,7 @@ export default function FamiliesPage() {
       </div>
 
       {creating && (
-        <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
           <input style={input} placeholder="Family name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input style={input} placeholder="Category *" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           <input style={input} placeholder="Brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />

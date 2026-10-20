@@ -84,7 +84,7 @@ export function FamilyDetailView() {
       </div>
 
       {editing ? (
-        <div style={{ marginTop: 16, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <div style={{ marginTop: 16, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))" }}>
           {(["name", "category", "brand", "inn", "regulatoryClass", "intendedUse", "description"] as const).map((k) => (
             <label key={k} style={{ fontSize: 12.5, display: "grid", gap: 4 }}>
               {({ name: "Name", category: "Category", brand: "Brand", inn: "INN (generic name)", regulatoryClass: "Regulatory class", intendedUse: "Intended use", description: "Description" })[k]}

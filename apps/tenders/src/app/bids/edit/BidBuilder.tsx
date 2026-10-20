@@ -87,7 +87,7 @@ export function BidBuilder() {
       {submitted && !locked && <p style={{ margin: 0, fontSize: 13.5, ...muted }}>Your bid is sealed. Changing anything puts it back to draft, and you will need to submit again before the closing time.</p>}
 
       <Card title="Currency and validity">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 14 }}>
           {tenderCcy ? (
             <Field label="Currency of your prices" hint={`Prices must be given in ${tenderCcy}, the currency set by the tender owner. Any later conversion for reporting uses a daily reference rate and is indicative only, not a guaranteed or transaction rate.`}>
               <div style={{ ...inputStyle, display: "flex", alignItems: "center" }}>{tenderCcy}</div>
@@ -105,7 +105,7 @@ export function BidBuilder() {
         <Card title="Prefer to work offline? Use the templates">
           <input ref={tplRef} type="file" hidden accept=".xlsx,.docx" onChange={(e) => onTemplate(e.target.files?.[0])} />
           <p style={{ marginTop: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>Download a locked template made from this tender's items and criteria, complete the shaded cells, and upload it. Your draft is filled in for you to check. Documents such as certificates are still uploaded below. You can mix the templates and the online form.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 14 }}>
             <div><strong style={{ fontSize: 14 }}>Financial offer (Excel)</strong><div style={{ display: "flex", gap: 8, marginTop: 6 }}><Button size="sm" variant="secondary" disabled={busy} onClick={() => getTemplate("financial")}>Download</Button><Button size="sm" variant="primary" disabled={busy} onClick={() => pickTemplate("financial")}>Upload completed</Button></div></div>
             {ws.tender.allowTextSubmission && <div><strong style={{ fontSize: 14 }}>Technical offer (Word)</strong><div style={{ display: "flex", gap: 8, marginTop: 6 }}><Button size="sm" variant="secondary" disabled={busy} onClick={() => getTemplate("technical")}>Download</Button><Button size="sm" variant="primary" disabled={busy} onClick={() => pickTemplate("technical")}>Upload completed</Button></div></div>}
           </div>
