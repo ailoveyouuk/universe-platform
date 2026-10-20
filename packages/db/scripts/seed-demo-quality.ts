@@ -66,6 +66,8 @@ async function seedOtif(orgId: string) {
 }
 
 const STAGES: [string, number][] = [["LOGGED", 6], ["ACKNOWLEDGED", 6], ["TRIAGED", 8], ["INVESTIGATING", 14], ["RESOLVED", 8], ["CLOSED", 14], ["ON_HOLD", 2], ["WITHDRAWN", 2]];
+// 61-72: complaints against freight forwarders, so every partner role shows complaints in the reporting.
+const FORWARDER_STAGES = ["INVESTIGATING", "INVESTIGATING", "INVESTIGATING", "RESOLVED", "RESOLVED", "RESOLVED", "CLOSED", "CLOSED", "CLOSED", "CLOSED", "TRIAGED", "TRIAGED"];
 const TITLES: Record<string, string[]> = {
   PRODUCT_QUALITY: ["Damaged packaging on arrival", "Test kits failing control line", "Gloves torn on opening", "Syringes with loose plungers", "Labels illegible on outer cartons"],
   DELIVERY: ["Delivery arrived after agreed date", "Short shipment against packing list", "Wrong item delivered", "Pallet left at wrong depot"],
@@ -83,12 +85,13 @@ async function seedComplaints(orgId: string) {
     const users = await tx.user.findMany({ where: { organizationId: orgId, archivedAt: null, status: "ACTIVE" }, select: { id: true }, orderBy: { email: "asc" }, take: 6 });
     const existing = await tx.qualityComplaint.count({ where: { organizationId: orgId, referenceNumber: { startsWith: "SIM-CMP-" } } });
     const lines = await tx.projectLine.findMany({ where: { project: { status: { in: ["COMPLETED", "AWARDED"] } }, productMasterId: { not: null }, OR: [{ supplierId: { not: null } }, { manufacturerId: { not: null } }] }, select: { id: true, projectId: true, supplierId: true, manufacturerId: true, productMasterId: true, project: { select: { clientId: true } } }, orderBy: { id: "asc" }, take: 400 });
-    return { users, existing, lines };
+    const fwdLines = await tx.projectLine.findMany({ where: { project: { status: { in: ["COMPLETED", "AWARDED"] }, freightForwarderId: { not: null } }, productMasterId: { not: null } }, select: { id: true, projectId: true, supplierId: true, manufacturerId: true, productMasterId: true, project: { select: { clientId: true, freightForwarderId: true } } }, orderBy: { id: "asc" }, take: 300 });
+    return { users, existing, lines, fwdLines };
   });
   console.log(`Complaints: ${ctx.users.length} users, ${ctx.lines.length} candidate lines, ${ctx.existing} SIM complaints already present`);
   if (!ctx.users.length || ctx.lines.length < 30) throw new Error("Not enough users or lines to seed from");
-  const stageList = STAGES.flatMap(([s, n]) => Array(n).fill(s) as string[]);
-  const serious = new Set([3, 17, 24, 31, 38, 45]); // spread across stages
+  const stageList = [...STAGES.flatMap(([s, n]) => Array(n).fill(s) as string[]), ...FORWARDER_STAGES];
+  const serious = new Set([3, 17, 24, 31, 38, 45, 64]); // spread across stages
   const overdue = new Set([1, 8, 15, 20, 28]);
   const now = Date.now();
   if (dryRun) { console.log(`Would create up to ${stageList.length} complaints`); return; }
@@ -99,10 +102,11 @@ async function seedComplaints(orgId: string) {
       if (await tx.qualityComplaint.findFirst({ where: { organizationId: orgId, referenceNumber: ref }, select: { id: true } })) continue;
       const stage = stageList[i];
       const key = `cmp${i}`;
-      const line = ctx.lines[hash(key) % ctx.lines.length];
-      const inbound = i % 5 < 2;
+      const fwd = i >= 60 && ctx.fwdLines.length > 0;
+      const line = fwd ? ctx.fwdLines[hash(key) % ctx.fwdLines.length] : ctx.lines[hash(key) % ctx.lines.length];
+      const inbound = fwd ? false : i % 5 < 2;
       const isSerious = serious.has(i);
-      const cat = isSerious ? pick(["SAFETY", "COLD_CHAIN"], key) : pick(Object.keys(TITLES), key);
+      const cat = isSerious ? pick(["SAFETY", "COLD_CHAIN"], key) : fwd ? pick(["DELIVERY", "COLD_CHAIN", "DOCUMENTATION"], key) : pick(Object.keys(TITLES), key);
       const sev = isSerious ? "CRITICAL" : pick(["MINOR", "MINOR", "MAJOR", "MAJOR", "CRITICAL"], key + "s");
       const flags = isSerious ? { flagPatientSafety: i % 3 === 0, flagSuspectedFalsified: i % 3 === 1, flagTemperatureExcursion: i % 3 === 2 } : {};
       const ageDays = overdue.has(i) ? 45 + (hash(key + "a") % 40) : stage === "CLOSED" || stage === "RESOLVED" ? 40 + (hash(key + "a") % 80) : 1 + (hash(key + "a") % 12);
@@ -125,7 +129,7 @@ async function seedComplaints(orgId: string) {
           title, description: `Simulated complaint for the demonstration: ${title.toLowerCase()}. Raised against a delivered project line.`,
           receivedAt: received, channel: pick(["EMAIL", "PHONE", "PORTAL", "MEETING"], key + "ch"), severity: rank >= 2 || stage === "ON_HOLD" ? sev : null, category: rank >= 2 ? cat : null,
           isSerious, ...flags,
-          partnerId: inbound ? line.project.clientId : (line.supplierId ?? line.manufacturerId),
+          partnerId: inbound ? line.project.clientId : fwd ? (line as { project: { freightForwarderId?: string | null } }).project.freightForwarderId ?? null : (line.supplierId ?? line.manufacturerId),
           projectId: line.projectId, projectLineId: line.id, productMasterId: line.productMasterId,
           complainantName: inbound ? `${pick(FIRST, key + "f")} ${pick(LAST, key + "l")}` : null, complainantEmail: inbound ? `sim.${i + 1}@example.invalid` : null,
           ownerId: owner, investigatorId: rank >= 3 ? investigator : null, loggedById: owner,
