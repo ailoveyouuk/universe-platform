@@ -39,3 +39,17 @@ export function summarise(metrics: ScorecardMetric[]): Pick<PartnerScorecard, "o
   }
   return { overallScore: overall, band, coverage, bandNote, headline };
 }
+
+/** Moves a date by whole working days (Monday to Friday; public holidays are not modelled). Negative goes back. */
+export function shiftWorkingDays(from: Date, days: number): Date {
+  const d = new Date(from.getTime());
+  const step = days < 0 ? -1 : 1;
+  let left = Math.abs(days);
+  while (left > 0) { d.setUTCDate(d.getUTCDate() + step); const wd = d.getUTCDay(); if (wd !== 0 && wd !== 6) left--; }
+  return d;
+}
+
+/** On time = arrived from `earlyDays` working days before the agreed date to `lateDays` working days after it. */
+export function onTimeWithin(actual: Date, due: Date, earlyDays: number, lateDays: number): boolean {
+  return actual.getTime() >= shiftWorkingDays(due, -earlyDays).getTime() && actual.getTime() <= shiftWorkingDays(due, lateDays).getTime();
+}

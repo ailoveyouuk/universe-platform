@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import type { PartnerScorecard, ScorecardMetric, ScorecardStatus } from "@universe/types";
+import { SCORECARD_THRESHOLDS as T } from "@universe/types";
+import type { PartnerScorecard, ScorecardMetric } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { tenantScope } from "../common/tenant-scoped";
-import { linearScore, pctStatus, summarise } from "./scorecard-scoring";
+import { linearScore, onTimeWithin, pctStatus, summarise } from "./scorecard-scoring";
 
 const ROLE_LABEL: Record<string, string> = { MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier", FREIGHT_FORWARDER: "Freight forwarder" };
 const DAY = 86_400_000;
@@ -36,57 +37,69 @@ export class PartnerScorecardService {
         where: { ...tenantScope(org), archivedAt: null, OR: [{ manufacturerId: partnerId }, { supplierId: partnerId }, { project: { freightForwarderId: partnerId } }] },
         select: {
           id: true, manufacturerId: true, supplierId: true, internalOnTime: true, supplierOnTime: true, supplierInFull: true,
-          projectedDeliveryDate: true, actualDeliveryDate: true, project: { select: { freightForwarderId: true } },
+          projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true, project: { select: { freightForwarderId: true } },
         },
         take: 5000,
       });
-      let otFlags = 0, otYes = 0, ifFlags = 0, ifYes = 0, lateN = 0, lateSum = 0;
+      const early = T.window.earlyBusinessDays, lateDays = T.window.lateBusinessDays;
+      /** Window-based on-time per role: the client promise (projected date) for manufacturers and forwarders, the supplier's committed date for suppliers. */
+      const timely = (l: { projectedDeliveryDate: Date | null; actualDeliveryDate: Date | null; goodsCollectedDate: Date | null; supplierGad: Date | null }, role: "SUPPLIER" | "OTHER") =>
+        role === "SUPPLIER"
+          ? (l.goodsCollectedDate && l.supplierGad ? onTimeWithin(l.goodsCollectedDate, l.supplierGad, early, lateDays) : null)
+          : (l.actualDeliveryDate && l.projectedDeliveryDate ? onTimeWithin(l.actualDeliveryDate, l.projectedDeliveryDate, early, lateDays) : null);
+      let otFlags = 0, otYes = 0, ifFlags = 0, ifYes = 0, lateN = 0, lateSum = 0, otifN = 0, otifYes = 0;
       for (const l of lines) {
         const flags: (boolean | null)[] = [];
-        if (l.manufacturerId === partnerId) flags.push(l.internalOnTime);
-        if (l.supplierId === partnerId) flags.push(l.supplierOnTime);
-        if (l.project.freightForwarderId === partnerId) flags.push(l.internalOnTime);
+        if (l.manufacturerId === partnerId) flags.push(timely(l, "OTHER"));
+        if (l.supplierId === partnerId) flags.push(timely(l, "SUPPLIER"));
+        if (l.project.freightForwarderId === partnerId) flags.push(timely(l, "OTHER"));
         for (const f of flags) if (f !== null) { otFlags++; if (f) otYes++; }
         if (l.supplierId === partnerId && l.supplierInFull !== null) { ifFlags++; if (l.supplierInFull) ifYes++; }
+        if (l.supplierId === partnerId && l.supplierInFull !== null) {
+          const t = timely(l, "SUPPLIER");
+          if (t !== null) { otifN++; if (t && l.supplierInFull) otifYes++; }
+        }
         if (l.projectedDeliveryDate && l.actualDeliveryDate) { lateN++; lateSum += Math.max(0, Math.round((l.actualDeliveryDate.getTime() - l.projectedDeliveryDate.getTime()) / DAY)); }
       }
 
-      // Benchmark: the organisation's own average across all stakeholders in the same role.
+      // Benchmark: the organisation's own average across all stakeholders in the same role, measured the same way.
       const mainRole = isSupplier ? "SUPPLIER" : roles.includes("MANUFACTURER") ? "MANUFACTURER" : "FREIGHT_FORWARDER";
-      const otField = mainRole === "SUPPLIER" ? "supplierOnTime" : "internalOnTime";
       const roleWhere = mainRole === "SUPPLIER" ? { supplierId: { not: null } } : mainRole === "MANUFACTURER" ? { manufacturerId: { not: null } } : { project: { freightForwarderId: { not: null } } };
-      const [orgOtAll, orgOtYes, orgIfAll, orgIfYes] = await Promise.all([
-        tx.projectLine.count({ where: { ...tenantScope(org), archivedAt: null, ...roleWhere, [otField]: { not: null } } }),
-        tx.projectLine.count({ where: { ...tenantScope(org), archivedAt: null, ...roleWhere, [otField]: true } }),
-        isSupplier ? tx.projectLine.count({ where: { ...tenantScope(org), archivedAt: null, supplierId: { not: null }, supplierInFull: { not: null } } }) : Promise.resolve(0),
-        isSupplier ? tx.projectLine.count({ where: { ...tenantScope(org), archivedAt: null, supplierId: { not: null }, supplierInFull: true } }) : Promise.resolve(0),
-      ]);
+      const orgLines = await tx.projectLine.findMany({
+        where: { ...tenantScope(org), archivedAt: null, ...roleWhere },
+        select: { projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true, supplierInFull: true }, take: 20000,
+      });
+      let orgOtAll = 0, orgOtYes = 0, orgIfAll = 0, orgIfYes = 0;
+      for (const l of orgLines) {
+        const t = timely(l, mainRole === "SUPPLIER" ? "SUPPLIER" : "OTHER");
+        if (t !== null) { orgOtAll++; if (t) orgOtYes++; }
+        if (mainRole === "SUPPLIER" && l.supplierInFull !== null) { orgIfAll++; if (l.supplierInFull) orgIfYes++; }
+      }
       const roleName = (ROLE_LABEL[mainRole] ?? "stakeholder").toLowerCase();
       const otBench = pct(orgOtYes, orgOtAll);
       const ifBench = pct(orgIfYes, orgIfAll);
+      const windowNote = `On time = from ${early} working days early to ${lateDays} late.`;
 
       const otP = pct(otYes, otFlags);
       add({
         key: "on_time", group: "DELIVERY", label: "On-time delivery", weight: 20, href: null,
-        display: otP === null ? "No data" : `${otP}%`, score: otP, status: otP === null ? "neutral" : pctStatus(otP, 95, 85),
-        detail: otP === null ? "No delivery has been marked on time or late yet." : `${otYes} of ${otFlags} deliveries on time.`,
+        display: otP === null ? "No data" : `${otP}%`, score: otP, status: otP === null ? "neutral" : pctStatus(otP, T.onTime.good, T.onTime.warn),
+        detail: otP === null ? "No delivery has been marked on time or late yet." : `${otYes} of ${otFlags} deliveries on time. ${windowNote}`,
         benchmark: otBench === null ? null : `All your ${roleName}s: ${otBench}%`,
       });
       if (isSupplier) {
         const p = pct(ifYes, ifFlags);
         add({
           key: "in_full", group: "DELIVERY", label: "In-full delivery", weight: 15, href: null,
-          display: p === null ? "No data" : `${p}%`, score: p, status: p === null ? "neutral" : pctStatus(p, 98, 90),
+          display: p === null ? "No data" : `${p}%`, score: p, status: p === null ? "neutral" : pctStatus(p, T.inFull.good, T.inFull.warn),
           detail: p === null ? "No delivery has been marked in full or short yet." : `${ifYes} of ${ifFlags} deliveries in full.`,
           benchmark: ifBench === null ? null : `All your suppliers: ${ifBench}%`,
         });
-        const otif = lines.filter((l) => l.supplierId === partnerId && l.supplierOnTime !== null && l.supplierInFull !== null);
-        const good = otif.filter((l) => l.supplierOnTime && l.supplierInFull).length;
-        const o = pct(good, otif.length);
+        const o = pct(otifYes, otifN);
         add({
           key: "otif", group: "DELIVERY", label: "On-time in-full (OTIF)", weight: 10, href: null,
-          display: o === null ? "No data" : `${o}%`, score: o, status: o === null ? "neutral" : pctStatus(o, 90, 75),
-          detail: o === null ? "Needs deliveries with both on-time and in-full recorded." : `${good} of ${otif.length} deliveries both on time and in full.`, benchmark: null,
+          display: o === null ? "No data" : `${o}%`, score: o, status: o === null ? "neutral" : pctStatus(o, T.otif.good, T.otif.warn),
+          detail: o === null ? "Needs deliveries with both on-time and in-full recorded." : `${otifYes} of ${otifN} deliveries both on time and in full. Target ${T.otif.good}% (USAID GHSC-PSM).`, benchmark: null,
         });
       }
       const avgLate = lateN ? Math.round((lateSum / lateN) * 10) / 10 : null;

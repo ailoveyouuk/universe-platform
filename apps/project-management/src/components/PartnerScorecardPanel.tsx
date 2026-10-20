@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { SCORECARD_THRESHOLDS } from "@universe/types";
 import type { PartnerScorecard, ScorecardGroup, ScorecardMetric, ScorecardStatus } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, GaugeIcon, Pill, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
@@ -94,6 +95,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
           );
         })}
       </div>
+      <div style={{ marginTop: 10, fontSize: 12, color: "var(--u-ink-secondary)" }}>Delivery targets follow published global-health practice: {SCORECARD_THRESHOLDS.basis}.</div>
       {!sc.includesComplaints && <div style={{ marginTop: 10, fontSize: 12, color: "var(--u-ink-secondary)" }}>Complaint measures are shown only to quality roles.</div>}
     </section>
   );

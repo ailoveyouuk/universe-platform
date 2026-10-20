@@ -3591,3 +3591,17 @@ export interface PartnerScorecard {
   includesComplaints: boolean;
   generatedAt: string;
 }
+
+/**
+ * Delivery-performance parameters for the partner scorecard, based on published global-health procurement practice:
+ * USAID GHSC-PSM (2016 quarterly report: OTIF target 90%; a shipment is on time if delivered from 30 business days before to
+ * 5 business days after the agreed date) and the Global Fund (end-2017 KPI report: 84% of orders on time and in full, above its
+ * target; "on time" = due date + 14 days). Single source of truth; to become editable per organisation.
+ */
+export const SCORECARD_THRESHOLDS = {
+  onTime: { good: 95, warn: 85 },
+  inFull: { good: 95, warn: 85 },
+  otif: { good: 90, warn: 80 },
+  window: { earlyBusinessDays: 30, lateBusinessDays: 5 },
+  basis: "USAID GHSC-PSM (OTIF target 90%; on time = 30 business days early to 5 late) and Global Fund (84% OTIF in 2017; on time = due date + 14 days)",
+} as const;

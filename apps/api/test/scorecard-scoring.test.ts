@@ -35,3 +35,20 @@ describe("Partner scorecard scoring", () => {
     expect(pctStatus(70, 95, 85)).toBe("critical");
   });
 });
+
+import { onTimeWithin, shiftWorkingDays } from "../src/quality/scorecard-scoring";
+describe("On-time window (USAID GHSC-PSM: 30 working days early to 5 late)", () => {
+  const due = new Date("2026-03-18T00:00:00Z"); // Wednesday
+  it("counts a delivery up to 5 working days late as on time, 6 as late", () => {
+    expect(onTimeWithin(new Date("2026-03-25T00:00:00Z"), due, 30, 5)).toBe(true);
+    expect(onTimeWithin(new Date("2026-03-26T00:00:00Z"), due, 30, 5)).toBe(false);
+  });
+  it("counts early deliveries within 30 working days as on time", () => {
+    expect(onTimeWithin(new Date("2026-02-04T00:00:00Z"), due, 30, 5)).toBe(true);
+    expect(onTimeWithin(new Date("2026-02-01T00:00:00Z"), due, 30, 5)).toBe(false);
+  });
+  it("skips weekends when shifting", () => {
+    expect(shiftWorkingDays(new Date("2026-03-20T00:00:00Z"), 1).toISOString().slice(0, 10)).toBe("2026-03-23");
+    expect(shiftWorkingDays(new Date("2026-03-23T00:00:00Z"), -1).toISOString().slice(0, 10)).toBe("2026-03-20");
+  });
+});
