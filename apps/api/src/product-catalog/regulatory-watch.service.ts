@@ -110,4 +110,17 @@ export class RegulatoryWatchService {
     });
     return toMatch(updated as unknown as MatchRow);
   }
+
+  /** Matches by outcome (CONFIRMED | DISMISSED | PENDING), newest first, for the watch tiles. */
+  async matchesByStatus(user: RequestUser, status: string): Promise<WatchMatchSummary[]> {
+    const isSimulated = this.sim(user);
+    const st = status === "CONFIRMED" || status === "DISMISSED" ? status : "PENDING";
+    const rows = await prisma.regulatoryWatchMatch.findMany({
+      where: { status: st, item: { isSimulated } },
+      include: { item: true, productMaster: { select: { name: true } } },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: 100,
+    });
+    return rows.map((m) => toMatch(m as unknown as MatchRow));
+  }
 }

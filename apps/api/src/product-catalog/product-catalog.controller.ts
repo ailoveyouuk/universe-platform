@@ -69,8 +69,10 @@ export class ProductCatalogController {
     @Query("pageSize") pageSize?: string,
     @Query("includeArchived") includeArchived?: string,
     @Query("missingField") missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit",
+    @Query("recent") recent?: string,
   ) {
     return this.productCatalogService.list({
+      recent: recent === "true",
       viewer: user,
       q,
       category,
@@ -172,6 +174,12 @@ export class ProductCatalogController {
     return this.exportRestrictions.forProduct(user, id);
   }
 
+  /** GET /product-catalog/regulatory-watch/matches?status= — the matches behind a watch tile. */
+  @Get("regulatory-watch/matches")
+  watchMatches(@CurrentUser() user: RequestUser, @Query("status") status?: string) {
+    return this.watch.matchesByStatus(user, status ?? "PENDING");
+  }
+
   /** GET /product-catalog/regulatory-watch/dashboard — source health, run log, pending advisory matches, recent items. */
   @Get("regulatory-watch/dashboard")
   watchDashboard(@CurrentUser() user: RequestUser) {
@@ -193,6 +201,18 @@ export class ProductCatalogController {
   @Get(":id/watch-matches")
   productWatchMatches(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.watch.forProduct(user, id);
+  }
+
+  /** GET /product-catalog/regulatory/register?view= — the rows behind a Regulatory dashboard tile. */
+  @Get("regulatory/register")
+  regulatoryRegister(@CurrentUser() user: RequestUser, @Query("view") view?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+    return this.registrations.register(user, view ?? "registrations", Number(page) || 1, Math.min(Number(pageSize) || 25, 100));
+  }
+
+  /** GET /product-catalog/safety-notices/register?view= — the rows behind a safety-notice tile. */
+  @Get("safety-notices/register")
+  safetyRegister(@CurrentUser() user: RequestUser, @Query("view") view?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+    return this.safety.register(user, view ?? "open", Number(page) || 1, Math.min(Number(pageSize) || 25, 100));
   }
 
   /** GET /product-catalog/safety-notices/dashboard — open notices plus the caller's organisation's review queue. */

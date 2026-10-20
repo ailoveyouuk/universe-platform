@@ -77,6 +77,7 @@ import type {
   UpdateRegistrationInput,
   VerifyRegistrationInput,
   RegulatoryDashboard,
+  RegulatoryRegisterPage,
   ProductDocumentSummary,
   ProductFamilyDetail,
   ProductSearchResult,
@@ -822,6 +823,9 @@ export class UniverseApiClient {
   getRegulatoryWatchDashboard(): Promise<RegulatoryWatchDashboard> {
     return this.request(`/product-catalog/regulatory-watch/dashboard`);
   }
+  getWatchMatches(status: string): Promise<WatchMatchSummary[]> {
+    return this.request(`/product-catalog/regulatory-watch/matches?status=${encodeURIComponent(status)}`);
+  }
   listProductWatchMatches(productMasterId: string): Promise<WatchMatchSummary[]> {
     return this.request(`/product-catalog/${productMasterId}/watch-matches`);
   }
@@ -836,6 +840,12 @@ export class UniverseApiClient {
   }
   verifyProductRegistration(registrationId: string, input: VerifyRegistrationInput): Promise<ProductRegistrationSummary> {
     return this.request(`/product-catalog/registrations/${registrationId}/verify`, { method: "POST", body: JSON.stringify(input) });
+  }
+  getRegulatoryRegister(view: string, page = 1, pageSize = 25): Promise<RegulatoryRegisterPage> {
+    return this.request(`/product-catalog/regulatory/register?view=${encodeURIComponent(view)}&page=${page}&pageSize=${pageSize}`);
+  }
+  getSafetyNoticeRegister(view: string, page = 1, pageSize = 25): Promise<RegulatoryRegisterPage> {
+    return this.request(`/product-catalog/safety-notices/register?view=${encodeURIComponent(view)}&page=${page}&pageSize=${pageSize}`);
   }
   getRegulatoryDashboard(): Promise<RegulatoryDashboard> {
     return this.request("/product-catalog/regulatory/dashboard");
@@ -917,6 +927,7 @@ export class UniverseApiClient {
     includeArchived?: boolean;
     /** Added 2026-10-09 — Stage 0 point 3 (data completeness pass). */
     missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
+    recent?: boolean;
   }): Promise<ProductCatalogListResult> {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
@@ -926,6 +937,7 @@ export class UniverseApiClient {
     if (params?.pageSize) qs.set("pageSize", String(params.pageSize));
     if (params?.includeArchived) qs.set("includeArchived", "true");
     if (params?.missingField) qs.set("missingField", params.missingField);
+    if (params?.recent) qs.set("recent", "true");
     const query = qs.toString() ? `?${qs.toString()}` : "";
     return this.request(`/product-catalog${query}`);
   }
@@ -1439,9 +1451,9 @@ export class UniverseApiClient {
    * Risk Register page), with each row's subject display name already
    * resolved server-side. */
   /** Server-paged risk register. */
-  listRiskRegisterPage(params: { q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number }): Promise<PagedResult<RiskAssessmentListItem>> {
+  listRiskRegisterPage(params: { overdue?: boolean; highCritical?: boolean; q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number }): Promise<PagedResult<RiskAssessmentListItem>> {
     const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
     return this.request(`/risk-assessments/all/page?${qs.toString()}`);
   }
 

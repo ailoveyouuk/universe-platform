@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
-import type { ProductSafetyFlag, ProductSafetyNoticeSummary, SafetyNoticeDashboard, SafetyNoticeReviewSummary } from "@universe/types";
+import type { ProductSafetyFlag, ProductSafetyNoticeSummary, RegulatoryRegisterPage, SafetyNoticeDashboard, SafetyNoticeReviewSummary } from "@universe/types";
 import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertNotDemoUser } from "../common/authorization";
@@ -368,5 +368,36 @@ export class ProductSafetyNoticesService {
       },
       items,
     };
+  }
+
+  /** The rows behind a safety-notice tile: open | critical | closed | review (awaiting my review) | affected (I recorded AFFECTED). */
+  async register(user: RequestUser, view: string, page = 1, pageSize = 25): Promise<RegulatoryRegisterPage> {
+    const showSim = user.inDemoOrganization === true;
+    const simWhere = showSim ? {} : { OR: [{ productMaster: { isSimulated: false } }, { productFamily: { isSimulated: false } }] };
+    const base = { isArchived: false, ...simWhere };
+    const skip = (Math.max(page, 1) - 1) * pageSize;
+    const include = { productMaster: { select: { name: true } }, productFamily: { select: { name: true } } };
+    const row = (r: { id: string; title: string; noticeType: string; severity: string; status: string; issueDate: Date; productMasterId: string | null; productFamilyId: string | null; productMaster: { name: string } | null; productFamily: { name: string } | null }) => ({
+      id: r.id,
+      name: r.productMaster?.name ?? r.productFamily?.name ?? "",
+      detail: `${r.title} (${r.noticeType.replace(/_/g, " ").toLowerCase()}, ${r.severity.toLowerCase()})`,
+      status: r.status,
+      tone: (r.status === "CLOSED" ? "good" : r.severity === "CRITICAL" ? "critical" : "warning") as "good" | "warning" | "critical",
+      date: r.issueDate.toISOString(),
+      href: r.productMasterId ? `/products/detail?id=${r.productMasterId}` : `/families/detail?id=${r.productFamilyId}`,
+    });
+    if (view === "review" || view === "affected") {
+      const open = await prisma.productSafetyNotice.findMany({ where: { AND: [base, { status: "OPEN" }] }, include, orderBy: [{ issueDate: "desc" }, { id: "asc" }], take: 1000 });
+      const mine = await this.myReviews(user, open.map((r) => r.id));
+      const picked = open.filter((r) => (view === "review" ? !mine.has(r.id) : mine.get(r.id)?.outcome === "AFFECTED"));
+      return { total: picked.length, rows: picked.slice(skip, skip + pageSize).map(row) };
+    }
+    const since = new Date(Date.now() - 90 * DAY);
+    const where = view === "critical" ? { AND: [base, { status: "OPEN", severity: "CRITICAL" }] } : view === "closed" ? { AND: [base, { status: "CLOSED", closedDate: { gte: since } }] } : { AND: [base, { status: "OPEN" }] };
+    const [total, rows] = await Promise.all([
+      prisma.productSafetyNotice.count({ where }),
+      prisma.productSafetyNotice.findMany({ where, include, orderBy: [{ issueDate: "desc" }, { id: "asc" }], skip, take: pageSize }),
+    ]);
+    return { total, rows: rows.map(row) };
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { RegulatoryDashboard, SafetyNoticeDashboard } from "@universe/types";
+import type { RegulatoryDashboard, RegulatoryRegisterPage, SafetyNoticeDashboard } from "@universe/types";
 import { AlertIcon, BanIcon, Button, DownloadIcon, CalendarXIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, FileEditIcon, HelpCircleIcon, Pill, RefreshIcon, ShieldIcon, StatTile } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { saveExport } from "../../lib/download";
@@ -15,6 +15,25 @@ export default function RegulatoryPage() {
   const [sd, setSd] = useState<SafetyNoticeDashboard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // Every tile that counts a list of records filters that list in place (platform standard); null = nothing selected.
+  const [sel, setSel] = useState<{ kind: "reg" | "notice"; view: string; label: string } | null>(null);
+  const [selPage, setSelPage] = useState(1);
+  const [reg, setReg] = useState<RegulatoryRegisterPage | null>(null);
+  const [regErr, setRegErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sel) { setReg(null); return; }
+    let live = true;
+    setReg(null); setRegErr(null);
+    (sel.kind === "reg" ? apiClient.getRegulatoryRegister(sel.view, selPage, 25) : apiClient.getSafetyNoticeRegister(sel.view, selPage, 25))
+      .then((r) => { if (live) setReg(r); })
+      .catch((e) => { if (live) setRegErr(e instanceof Error ? e.message : "Could not load the list."); });
+    return () => { live = false; };
+  }, [sel, selPage]);
+  const pick = (kind: "reg" | "notice", view: string, label: string) => {
+    setSelPage(1);
+    setSel((c) => (c && c.kind === kind && c.view === view ? null : { kind, view, label }));
+  };
+  const on = (kind: "reg" | "notice", view: string) => !!sel && sel.kind === kind && sel.view === view;
   useEffect(() => { apiClient.getSafetyNoticeDashboard().then(setSd).catch(() => undefined); }, []);
   useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   const n = (v: number) => v.toLocaleString("en-GB");
@@ -43,31 +62,31 @@ export default function RegulatoryPage() {
         <>
           <h2 style={{ fontSize: 15, marginTop: 20 }}>Catalogue</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-            <StatTile label="Registrations" value={n(d.totals.registrations)} icon={<ShieldIcon size={20} />} tone="brand" />
-            <StatTile label="Active" value={n(d.totals.active)} icon={<CheckCircleIcon size={20} />} tone="good" />
-            <StatTile label="Expiring within 90 days" value={n(d.totals.expiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
-            <StatTile label="Expired" value={n(d.totals.expired)} icon={<CalendarXIcon size={20} />} tone="critical" />
-            <StatTile label="Suspended or withdrawn" value={n(d.totals.suspendedOrWithdrawn)} icon={<BanIcon size={20} />} tone="critical" />
-            <StatTile label="Products with no registration" value={n(d.totals.productsWithoutRegistration)} icon={<HelpCircleIcon size={20} />} tone="warning" />
+            <StatTile label="Registrations" onClick={() => pick("reg", "registrations", "Registrations")} active={on("reg", "registrations")} value={n(d.totals.registrations)} icon={<ShieldIcon size={20} />} tone="brand" />
+            <StatTile label="Active" onClick={() => pick("reg", "active", "Active")} active={on("reg", "active")} value={n(d.totals.active)} icon={<CheckCircleIcon size={20} />} tone="good" />
+            <StatTile label="Expiring within 90 days" onClick={() => pick("reg", "expiring", "Expiring within 90 days")} active={on("reg", "expiring")} value={n(d.totals.expiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
+            <StatTile label="Expired" onClick={() => pick("reg", "expired", "Expired")} active={on("reg", "expired")} value={n(d.totals.expired)} icon={<CalendarXIcon size={20} />} tone="critical" />
+            <StatTile label="Suspended or withdrawn" onClick={() => pick("reg", "suspended", "Suspended or withdrawn")} active={on("reg", "suspended")} value={n(d.totals.suspendedOrWithdrawn)} icon={<BanIcon size={20} />} tone="critical" />
+            <StatTile label="Products with no registration" onClick={() => pick("reg", "none", "Products with no registration")} active={on("reg", "none")} value={n(d.totals.productsWithoutRegistration)} icon={<HelpCircleIcon size={20} />} tone="warning" />
           </div>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Your organisation</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-            <StatTile label="Registrations awaiting your verification" value={n(d.mine.unverified)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
-            <StatTile label="Re-verification overdue" value={n(d.mine.reverificationDue)} icon={<RefreshIcon size={20} />} tone="critical" />
+            <StatTile label="Registrations awaiting your verification" onClick={() => pick("reg", "unverified", "Registrations awaiting your verification")} active={on("reg", "unverified")} value={n(d.mine.unverified)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
+            <StatTile label="Re-verification overdue" onClick={() => pick("reg", "reverification", "Re-verification overdue")} active={on("reg", "reverification")} value={n(d.mine.reverificationDue)} icon={<RefreshIcon size={20} />} tone="critical" />
             <StatTile label="Documents awaiting approval" value={n(d.mine.documentsAwaitingApproval)} icon={<FileEditIcon size={20} />} tone="warning" />
             <StatTile label="Documents expiring within 90 days" value={n(d.mine.documentsExpiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
             <StatTile label="Documents expired" value={n(d.mine.documentsExpired)} icon={<CalendarXIcon size={20} />} tone="critical" />
-            <StatTile label="Issues found" value={n(d.mine.issuesFound)} icon={<AlertIcon size={20} />} tone="critical" />
+            <StatTile label="Issues found" onClick={() => pick("reg", "issues", "Issues found")} active={on("reg", "issues")} value={n(d.mine.issuesFound)} icon={<AlertIcon size={20} />} tone="critical" />
           </div>
           {sd && (<>
             <h2 style={{ fontSize: 15, marginTop: 24 }}>Safety notices and recalls</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-              <StatTile label="Open notices" value={n(sd.totals.open)} icon={<AlertIcon size={20} />} tone="warning" />
-              <StatTile label="Open critical (class I)" value={n(sd.totals.critical)} icon={<BanIcon size={20} />} tone="critical" />
-              <StatTile label="Awaiting your review" value={n(sd.mine.awaitingReview)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
+              <StatTile label="Open notices" onClick={() => pick("notice", "open", "Open notices")} active={on("notice", "open")} value={n(sd.totals.open)} icon={<AlertIcon size={20} />} tone="warning" />
+              <StatTile label="Open critical (class I)" onClick={() => pick("notice", "critical", "Open critical (class I)")} active={on("notice", "critical")} value={n(sd.totals.critical)} icon={<BanIcon size={20} />} tone="critical" />
+              <StatTile label="Awaiting your review" onClick={() => pick("notice", "review", "Awaiting your review")} active={on("notice", "review")} value={n(sd.mine.awaitingReview)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
               <StatTile label="On your project lines" value={n(sd.mine.onMyProjectLines)} icon={<ShieldIcon size={20} />} tone="critical" />
-              <StatTile label="We are affected" value={n(sd.mine.affected)} icon={<AlertIcon size={20} />} tone="critical" />
-              <StatTile label="Closed in last 90 days" value={n(sd.totals.closedLast90Days)} icon={<CheckCircleIcon size={20} />} tone="good" />
+              <StatTile label="We are affected" onClick={() => pick("notice", "affected", "We are affected")} active={on("notice", "affected")} value={n(sd.mine.affected)} icon={<AlertIcon size={20} />} tone="critical" />
+              <StatTile label="Closed in last 90 days" onClick={() => pick("notice", "closed", "Closed in last 90 days")} active={on("notice", "closed")} value={n(sd.totals.closedLast90Days)} icon={<CheckCircleIcon size={20} />} tone="good" />
             </div>
             {sd.items.length > 0 && (
               <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
@@ -82,6 +101,36 @@ export default function RegulatoryPage() {
               </div>
             )}
           </>)}
+          {sel && (
+            <section style={{ marginTop: 20, border: "1px solid var(--u-border)", borderRadius: 8, padding: 14 }} aria-live="polite">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                <strong>{sel.label}{reg ? ` · ${reg.total.toLocaleString("en-GB")}` : ""}</strong>
+                <Button variant="secondary" size="sm" onClick={() => setSel(null)}>Clear filter</Button>
+              </div>
+              {regErr && <p style={{ color: "var(--u-status-critical)" }}>{regErr}</p>}
+              {!reg && !regErr && <p>Loading…</p>}
+              {reg && reg.rows.length === 0 && <p style={{ fontSize: 13 }}>Nothing in this list.</p>}
+              {reg && reg.rows.length > 0 && (
+                <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
+                  {reg.rows.map((x) => (
+                    <Link key={x.id} href={x.href} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", textDecoration: "none", color: "inherit" }}>
+                      <strong>{x.name}</strong>
+                      <span>{x.detail}</span>
+                      <Pill tone={x.tone}>{x.status.toLowerCase()}</Pill>
+                      {x.date && <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{new Date(x.date).toLocaleDateString("en-GB")}</span>}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {reg && reg.total > 25 && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                  <Button variant="secondary" size="sm" disabled={selPage <= 1} onClick={() => setSelPage((p) => p - 1)}>Previous</Button>
+                  <span style={{ fontSize: 12 }}>Page {selPage} of {Math.ceil(reg.total / 25)}</span>
+                  <Button variant="secondary" size="sm" disabled={selPage >= Math.ceil(reg.total / 25)} onClick={() => setSelPage((p) => p + 1)}>Next</Button>
+                </div>
+              )}
+            </section>
+          )}
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Needs attention</h2>
           {d.attention.length === 0 ? <p style={{ fontSize: 13 }}>Nothing expiring soon or suspended.</p> : (
             <div style={{ display: "grid", gap: 6 }}>

@@ -4,6 +4,7 @@ import type {
   ProductComplianceStatus,
   ProductRegistrationSummary,
   RegulatoryDashboard,
+  RegulatoryRegisterPage,
   RegistrationVerificationSummary,
 } from "@universe/types";
 import { attributionContext, maskContributor, type AttributionContext } from "./attribution";
@@ -361,5 +362,83 @@ export class ProductRegistrationsService {
         daysToExpiry: daysToExpiry(r.expiryDate),
       })),
     };
+  }
+
+  /** The rows behind a Regulatory dashboard tile. `view` is the tile: registrations | active | expiring | expired | suspended | none | unverified | reverification | issues. */
+  async register(user: RequestUser, view: string, page = 1, pageSize = 25): Promise<RegulatoryRegisterPage> {
+    const showSim = user.inDemoOrganization === true;
+    const simWhere = showSim ? {} : { OR: [{ productMaster: { isSimulated: false } }, { productFamily: { isSimulated: false } }] };
+    const now = new Date();
+    const soon = new Date(now.getTime() + EXPIRING_SOON_DAYS * DAY);
+    const base = { isArchived: false, ...simWhere };
+    const skip = (Math.max(page, 1) - 1) * pageSize;
+    const href = (r: { productMasterId: string | null; productFamilyId: string | null }) =>
+      r.productMasterId ? `/products/detail?id=${r.productMasterId}` : `/families/detail?id=${r.productFamilyId}`;
+    if (view === "none") {
+      const where = {
+        isArchived: false,
+        ...(showSim ? {} : { isSimulated: false }),
+        registrations: { none: { isArchived: false } },
+        OR: [{ productFamilyId: null }, { productFamily: { registrations: { none: { isArchived: false } } } }],
+      };
+      const [total, rows] = await Promise.all([
+        prisma.productMaster.count({ where }),
+        prisma.productMaster.findMany({ where, select: { id: true, name: true, category: true }, orderBy: [{ name: "asc" }, { id: "asc" }], skip, take: pageSize }),
+      ]);
+      return { total, rows: rows.map((r) => ({ id: r.id, name: r.name, detail: r.category ?? "", status: "NO REGISTRATION", tone: "warning" as const, date: null, href: `/products/detail?id=${r.id}` })) };
+    }
+    let where: object;
+    if (view === "active") where = { AND: [base, { status: "ACTIVE", OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] }] };
+    else if (view === "expiring") where = { AND: [base, { status: "ACTIVE", expiryDate: { gte: now, lte: soon } }] };
+    else if (view === "expired") where = { AND: [base, { OR: [{ status: "EXPIRED" }, { status: "ACTIVE", expiryDate: { lt: now } }] }] };
+    else if (view === "suspended") where = { AND: [base, { status: { in: ["SUSPENDED", "WITHDRAWN"] } }] };
+    else if (view === "unverified" || view === "reverification" || view === "issues") {
+      const mine = await withTenantContext(user.organizationId, async (tx) => {
+        const verifs = await tx.productRegistrationVerification.findMany({
+          where: { organizationId: user.organizationId },
+          select: { registrationId: true, outcome: true, nextReverificationDue: true },
+          orderBy: { verifiedAt: "desc" },
+        });
+        const latest = new Map<string, (typeof verifs)[number]>();
+        for (const v of verifs) if (!latest.has(v.registrationId)) latest.set(v.registrationId, v);
+        const used = await tx.projectLine.findMany({ where: { archivedAt: null, productMasterId: { not: null } }, distinct: ["productMasterId"], select: { productMasterId: true }, take: 2000 });
+        return { latest, usedIds: used.map((u) => u.productMasterId as string) };
+      });
+      let ids: string[];
+      if (view === "unverified") {
+        const usedRegIds = new Set<string>();
+        const fam = new Set<string>();
+        for (let i = 0; i < mine.usedIds.length; i += 900) {
+          const slice = mine.usedIds.slice(i, i + 900);
+          for (const r of await prisma.productMaster.findMany({ where: { id: { in: slice }, productFamilyId: { not: null } }, select: { productFamilyId: true } })) fam.add(r.productFamilyId as string);
+          for (const r of await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productMasterId: { in: slice } }, select: { id: true } })) usedRegIds.add(r.id);
+        }
+        const famIds = [...fam];
+        for (let i = 0; i < famIds.length; i += 900) {
+          for (const r of await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productFamilyId: { in: famIds.slice(i, i + 900) } }, select: { id: true } })) usedRegIds.add(r.id);
+        }
+        ids = [...usedRegIds].filter((id) => !mine.latest.has(id));
+      } else if (view === "reverification") {
+        ids = [...mine.latest.values()].filter((v) => v.nextReverificationDue && v.nextReverificationDue.getTime() < now.getTime()).map((v) => v.registrationId);
+      } else {
+        ids = [...mine.latest.values()].filter((v) => v.outcome === "ISSUE_FOUND").map((v) => v.registrationId);
+      }
+      const total = ids.length;
+      const pageIds = ids.sort().slice(skip, skip + pageSize);
+      const rows = pageIds.length ? await prisma.productRegulatoryRegistration.findMany({ where: { id: { in: pageIds } }, include: { productMaster: { select: { name: true } }, productFamily: { select: { name: true } } } }) : [];
+      return { total, rows: rows.map((r) => this.registerRow(r, href(r))) };
+    } else where = base;
+    const [total, rows] = await Promise.all([
+      prisma.productRegulatoryRegistration.count({ where }),
+      prisma.productRegulatoryRegistration.findMany({ where, include: { productMaster: { select: { name: true } }, productFamily: { select: { name: true } } }, orderBy: [{ expiryDate: "asc" }, { id: "asc" }], skip, take: pageSize }),
+    ]);
+    return { total, rows: rows.map((r) => this.registerRow(r, href(r))) };
+  }
+
+  private registerRow(r: { id: string; authority: string; referenceNumber: string; status: string; expiryDate: Date | null; productMaster: { name: string } | null; productFamily: { name: string } | null }, href: string) {
+    const st = effectiveStatus(r.status, r.expiryDate);
+    const days = daysToExpiry(r.expiryDate);
+    const tone: "good" | "warning" | "critical" | "neutral" = st === "ACTIVE" ? (days !== null && days <= EXPIRING_SOON_DAYS ? "warning" : "good") : st === "EXPIRED" || st === "SUSPENDED" || st === "WITHDRAWN" ? "critical" : "neutral";
+    return { id: r.id, name: r.productMaster?.name ?? r.productFamily?.name ?? "", detail: `${r.authority} ${r.referenceNumber}`, status: st, tone, date: r.expiryDate ? r.expiryDate.toISOString() : null, href };
   }
 }

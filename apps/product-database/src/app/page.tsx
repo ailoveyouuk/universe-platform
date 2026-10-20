@@ -100,6 +100,7 @@ export default function ProductCatalogPage() {
   // the four tracked fields, or "" for none; wired into listProductCatalog
   // the same way category/sourceStandard already are. Clicking the same
   // completeness tile again clears it (see the tile's onClick below).
+  const [recentOnly, setRecentOnly] = useState(false);
   const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">("");
 
 
@@ -199,6 +200,7 @@ export default function ProductCatalogPage() {
         sourceStandard: sourceStandard || undefined,
         includeArchived,
         missingField: missingField || undefined,
+        recent: recentOnly || undefined,
         page: page + 1,
         pageSize: pageSize === "all" ? 200 : pageSize,
       })
@@ -209,7 +211,7 @@ export default function ProductCatalogPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load the product catalogue"))
       .finally(() => setLoading(false));
-  }, [search, category, sourceStandard, includeArchived, missingField, page, pageSize]);
+  }, [search, category, sourceStandard, includeArchived, missingField, recentOnly, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -258,12 +260,14 @@ export default function ProductCatalogPage() {
           shared StatTile/StatTileGrid pattern in Product Database. */}
       <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Overview</h2>
       <StatTileGrid>
-        <StatTile label="Total products" value={dashboardStats ? dashboardStats.total : undefined} icon={<GridIcon size={18} />} tone="brand" />
+        <StatTile label="Total products" value={dashboardStats ? dashboardStats.total : undefined} icon={<GridIcon size={18} />} tone="brand" active={!recentOnly && !missingField && !category} onClick={() => { setRecentOnly(false); setMissingField(""); setCategory(""); setPage(0); }} />
         <StatTile
           label="Added in last 30 days"
           value={dashboardStats ? dashboardStats.addedLast30Days : undefined}
           icon={<TrendingUpIcon size={18} />}
           tone="good"
+          active={recentOnly}
+          onClick={() => { setRecentOnly((v) => !v); setPage(0); }}
         />
       </StatTileGrid>
       {dashboardStats && dashboardStats.byCategory.length > 0 && (

@@ -22,6 +22,16 @@ export default function WatchPage() {
   const [d, setD] = useState<RegulatoryWatchDashboard | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Tiles filter the lists below (platform standard): "" shows the default view.
+  const [view, setView] = useState<"" | "items" | "pending" | "confirmed" | "dismissed">("");
+  const [byStatus, setByStatus] = useState<WatchMatchSummary[] | null>(null);
+  useEffect(() => {
+    if (view !== "confirmed" && view !== "dismissed") { setByStatus(null); return; }
+    let live = true; setByStatus(null);
+    apiClient.getWatchMatches(view.toUpperCase()).then((r) => { if (live) setByStatus(r); }).catch(() => { if (live) setByStatus([]); });
+    return () => { live = false; };
+  }, [view]);
+  const toggle = (v: "items" | "pending" | "confirmed" | "dismissed") => setView((c) => (c === v ? "" : v));
   const [dismissing, setDismissing] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [adding, setAdding] = useState(false);
@@ -87,17 +97,24 @@ export default function WatchPage() {
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginTop: 16 }}>
-            <StatTile label="Items in last 30 days" value={n(d.totals.itemsLast30Days)} icon={<ClockIcon size={20} />} tone="brand" />
-            <StatTile label="Matches awaiting review" value={n(d.totals.pendingMatches)} icon={<AlertIcon size={20} />} tone="warning" />
-            <StatTile label="Confirmed" value={n(d.totals.confirmed)} icon={<CheckCircleIcon size={20} />} tone="critical" />
-            <StatTile label="Dismissed" value={n(d.totals.dismissed)} icon={<ClipboardCheckIcon size={20} />} tone="good" />
+            <StatTile label="Items in last 30 days" onClick={() => toggle("items")} active={view === "items"} value={n(d.totals.itemsLast30Days)} icon={<ClockIcon size={20} />} tone="brand" />
+            <StatTile label="Matches awaiting review" onClick={() => toggle("pending")} active={view === "pending"} value={n(d.totals.pendingMatches)} icon={<AlertIcon size={20} />} tone="warning" />
+            <StatTile label="Confirmed" onClick={() => toggle("confirmed")} active={view === "confirmed"} value={n(d.totals.confirmed)} icon={<CheckCircleIcon size={20} />} tone="critical" />
+            <StatTile label="Dismissed" onClick={() => toggle("dismissed")} active={view === "dismissed"} value={n(d.totals.dismissed)} icon={<ClipboardCheckIcon size={20} />} tone="good" />
           </div>
+          {(view === "confirmed" || view === "dismissed") && (<>
+            <h2 style={{ fontSize: 15, marginTop: 24 }}>{view === "confirmed" ? "Confirmed matches" : "Dismissed matches"}</h2>
+            {!byStatus ? <p>Loading…</p> : byStatus.length === 0 ? <p style={{ fontSize: 13 }}>None.</p> : <div style={{ display: "grid", gap: 10 }}>{byStatus.map(card)}</div>}
+          </>)}
+          {(view === "" || view === "pending") && (<>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Potential matches awaiting review</h2>
           {d.pending.length === 0 ? <p style={{ fontSize: 13 }}>No matches awaiting review.</p> : <div style={{ display: "grid", gap: 10 }}>{d.pending.map(card)}</div>}
-          <h2 style={{ fontSize: 15, marginTop: 24 }}>Recent items from the regulators</h2>
+          </>)}
+          {(view === "" || view === "items") && (<>
+          <h2 style={{ fontSize: 15, marginTop: 24 }}>Recent items from the regulators{view === "items" ? " (last 30 days)" : ""}</h2>
           {d.recentItems.length === 0 ? <p style={{ fontSize: 13 }}>No items fetched yet. The first daily run will populate this.</p> : (
             <div style={{ display: "grid", gap: 6 }}>
-              {d.recentItems.map((i) => (
+              {d.recentItems.filter((i) => view !== "items" || new Date(i.issueDate).getTime() >= Date.now() - 30 * 86400000).map((i) => (
                 <div key={i.id} style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "8px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", fontSize: 13 }}>
                   <Pill tone={tone(i.severity)}>{i.severity.toLowerCase()}</Pill><Pill tone="neutral">{i.authority}</Pill>
                   <span style={{ flex: 1, minWidth: 220 }}>{i.url ? <a href={i.url} target="_blank" rel="noopener noreferrer">{i.title}</a> : i.title}</span>
@@ -106,6 +123,7 @@ export default function WatchPage() {
               ))}
             </div>
           )}
+          </>)}
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Export and hoarding restrictions</h2>
           <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 8px" }}>
             The UK list of medicines that cannot be exported or hoarded is fetched daily. Other countries publish no single feed, so platform staff add their restrictions here with a source link. A project line is flagged when its goods originate in a restricting country and are delivered elsewhere. An initial check only; the legal duty stays with the licence holder.

@@ -37,6 +37,7 @@ export default function OrganizationsPage() {
 
   const isPlatformStaff = me?.platformStaffRole !== "NONE";
   const [includeSimulated, setIncludeSimulated] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"" | "ACTIVE" | "PILOT" | "SUSPENDED">("");
 
   useEffect(() => {
     apiClient
@@ -65,10 +66,10 @@ export default function OrganizationsPage() {
       </div>
 
       <StatTileGrid style={{ margin: "20px 0" }}>
-        <StatTile label="Total organisations" value={organizations ? counts.total : undefined} icon={<BuildingIcon size={18} />} tone="brand" />
-        <StatTile label="Active" value={organizations ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
-        <StatTile label="Pilot" value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
-        <StatTile label="Suspended" value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
+        <StatTile label="Total organisations" active={statusFilter === ""} onClick={() => setStatusFilter("")} value={organizations ? counts.total : undefined} icon={<BuildingIcon size={18} />} tone="brand" />
+        <StatTile label="Active" active={statusFilter === "ACTIVE"} onClick={() => setStatusFilter(statusFilter === "ACTIVE" ? "" : "ACTIVE")} value={organizations ? counts.active : undefined} icon={<CheckCircleIcon size={18} />} tone="good" />
+        <StatTile label="Pilot" active={statusFilter === "PILOT"} onClick={() => setStatusFilter(statusFilter === "PILOT" ? "" : "PILOT")} value={organizations ? counts.pilot : undefined} icon={<ClockIcon size={18} />} tone="warning" />
+        <StatTile label="Suspended" active={statusFilter === "SUSPENDED"} onClick={() => setStatusFilter(statusFilter === "SUSPENDED" ? "" : "SUSPENDED")} value={organizations ? counts.suspended : undefined} icon={<LockIcon size={18} />} tone="neutral" />
       </StatTileGrid>
 
       {isPlatformStaff && (
@@ -100,7 +101,7 @@ export default function OrganizationsPage() {
             </tr>
           </thead>
           <tbody>
-            {organizations.map((o) => (
+            {organizations.filter((o) => !statusFilter || o.status === statusFilter).map((o) => (
               <tr key={o.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
                 <td style={{ padding: 8 }}>
                   <Link href={`/organizations/detail?id=${o.id}`} style={{ fontWeight: 600 }}>{o.name}</Link>
@@ -128,7 +129,7 @@ export default function OrganizationsPage() {
                 </td>
               </tr>
             ))}
-            {organizations.length === 0 && (
+            {organizations.filter((o) => !statusFilter || o.status === statusFilter).length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   No organisations yet.

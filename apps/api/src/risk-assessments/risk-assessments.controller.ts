@@ -37,8 +37,10 @@ export class RiskAssessmentsController {
     @Query("dir") dir?: string,
     @Query("page") page?: string,
     @Query("pageSize") pageSize?: string,
+    @Query("overdue") overdue?: string,
+    @Query("highCritical") highCritical?: string,
   ) {
-    return this.riskAssessmentsService.listPage(user, { q, status, severity, subjectType, sort, dir, page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
+    return this.riskAssessmentsService.listPage(user, { q, status, severity, subjectType, sort, dir, overdue: overdue === "true", highCritical: highCritical === "true", page: Number(page) || 1, pageSize: Number(pageSize) || 25 });
   }
 
   @Get("all/counts")

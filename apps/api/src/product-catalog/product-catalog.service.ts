@@ -337,6 +337,8 @@ export class ProductCatalogService {
      * one. One field at a time (not a combined "missing anything" mode)
      * since each field is its own work queue for whoever's filling it in. */
     missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
+    /** Only entries added in the last 30 days (the "Added in last 30 days" tile). */
+    recent?: boolean;
     /** Simulated (scale-test) entries are visible only inside a demo organisation. */
     showSimulated?: boolean;
   }): Promise<ProductCatalogListResult> {
@@ -363,6 +365,7 @@ export class ProductCatalogService {
       ...(params.category ? { category: { startsWith: params.category } } : {}),
       ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
       ...missingFieldWhere,
+      ...(params.recent ? { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } : {}),
     };
     const [rows, total] = await Promise.all([
       prisma.productMaster.findMany({

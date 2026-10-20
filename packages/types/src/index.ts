@@ -1981,6 +1981,18 @@ export interface RegulatoryDashboard {
   attention: { registrationId: string; productMasterId: string | null; productFamilyId: string | null; productName: string; authority: string; referenceNumber: string; expiryDate: string | null; effectiveStatus: string; daysToExpiry: number | null }[];
 }
 
+/** One row of the regulatory registers behind the dashboard tiles (registrations, products with none, safety notices). */
+export interface RegulatoryRegisterRow {
+  id: string;
+  name: string;
+  detail: string;
+  status: string;
+  tone: "good" | "warning" | "critical" | "neutral";
+  date: string | null;
+  href: string;
+}
+export interface RegulatoryRegisterPage { rows: RegulatoryRegisterRow[]; total: number }
+
 /** GET /product-catalog/:id/usage — the caller's own organisation's use of a product. */
 export interface ProductUsageSummary {
   lineCount: number;

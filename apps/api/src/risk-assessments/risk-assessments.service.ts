@@ -134,7 +134,7 @@ export class RiskAssessmentsService {
    */
   async listPage(
     user: RequestUser,
-    opts: { q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number },
+    opts: { overdue?: boolean; highCritical?: boolean; q?: string; status?: string; severity?: string; subjectType?: string; sort?: string; dir?: string; page?: number; pageSize?: number },
   ): Promise<PagedResult<RiskAssessmentListItem>> {
     const pageSize = Math.min(Math.max(Math.floor(opts.pageSize ?? 25), 5), 100);
     const page = Math.max(Math.floor(opts.page ?? 1), 1);
@@ -159,6 +159,9 @@ export class RiskAssessmentsService {
         ...tenantScope(org),
         ...(opts.status ? { status: opts.status } : {}),
         ...(opts.severity ? { severity: opts.severity } : {}),
+        ...(opts.overdue || opts.highCritical ? { status: { in: ["OPEN", "MITIGATED"] } } : {}),
+        ...(opts.overdue ? { reviewDate: { lt: new Date() } } : {}),
+        ...(opts.highCritical ? { severity: { in: ["HIGH", "CRITICAL"] } } : {}),
         ...(opts.subjectType ? { subjectType: opts.subjectType } : {}),
         ...(term
           ? {

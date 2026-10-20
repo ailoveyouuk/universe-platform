@@ -97,6 +97,8 @@ export default function RiskRegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+  const [highCritOnly, setHighCritOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [severityFilter, setSeverityFilter] = useState("");
   const [subjectTypeFilter, setSubjectTypeFilter] = useState("");
@@ -132,6 +134,8 @@ export default function RiskRegisterPage() {
     apiClient
       .listRiskRegisterPage({
         q: debouncedSearch,
+        overdue: overdueOnly,
+        highCritical: highCritOnly,
         status: statusFilter,
         severity: severityFilter,
         subjectType: subjectTypeFilter,
@@ -152,7 +156,7 @@ export default function RiskRegisterPage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch, statusFilter, severityFilter, subjectTypeFilter, sortKey, sortDir, page, pageSize, reloadKey]);
+  }, [debouncedSearch, overdueOnly, highCritOnly, statusFilter, severityFilter, subjectTypeFilter, sortKey, sortDir, page, pageSize, reloadKey]);
 
   function onSort(key: string) {
     if (key === sortKey) {
@@ -173,6 +177,8 @@ export default function RiskRegisterPage() {
     setStatusFilter("");
     setSeverityFilter("");
     setSubjectTypeFilter("");
+    setOverdueOnly(false);
+    setHighCritOnly(false);
     setPage(0);
   }
 
@@ -195,10 +201,10 @@ export default function RiskRegisterPage() {
 
       {/* Section dashboard — key counts at a glance, each a working filter shortcut. */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 12, marginTop: 24 }}>
-        <StatTile label="Total risks" value={counts.total} icon={<ShieldIcon size={18} />} onClick={clearFilters} active={!statusFilter && !severityFilter && !subjectTypeFilter} />
-        <StatTile label="Open" value={counts.open} icon={<AlertIcon size={18} />} tone="warning" onClick={() => { setStatusFilter("OPEN"); setPage(0); }} active={statusFilter === "OPEN"} />
-        <StatTile label="High / critical, unresolved" value={counts.highOrCritical} icon={<AlertIcon size={18} />} tone="critical" onClick={() => { setSeverityFilter("HIGH"); setStatusFilter(""); setPage(0); }} active={severityFilter === "HIGH" || severityFilter === "CRITICAL"} />
-        <StatTile label="Review overdue" value={counts.overdue} icon={<ClockIcon size={18} />} tone="neutral" />
+        <StatTile label="Total risks" value={counts.total} icon={<ShieldIcon size={18} />} onClick={clearFilters} active={!statusFilter && !severityFilter && !subjectTypeFilter && !overdueOnly && !highCritOnly} />
+        <StatTile label="Open" value={counts.open} icon={<AlertIcon size={18} />} tone="warning" onClick={() => { clearFilters(); setStatusFilter("OPEN"); setPage(0); }} active={statusFilter === "OPEN"} />
+        <StatTile label="High / critical, unresolved" value={counts.highOrCritical} icon={<AlertIcon size={18} />} tone="critical" onClick={() => { const on = !highCritOnly; clearFilters(); setHighCritOnly(on); setPage(0); }} active={highCritOnly} />
+        <StatTile label="Review overdue" value={counts.overdue} icon={<ClockIcon size={18} />} tone="neutral" onClick={() => { const on = !overdueOnly; clearFilters(); setOverdueOnly(on); setPage(0); }} active={overdueOnly} />
       </div>
 
       {editing && (
