@@ -13,10 +13,10 @@ async function main() {
   const orgId = await demoOrgId();
   const c: Record<string, number> = {};
   const bump = (k: string, n = 1) => { c[k] = (c[k] ?? 0) + n; };
-  const approvals = await prisma.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true, supplierId: true } });
+  const approvals = await withTenantContext(orgId, (tx) => tx.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true, supplierId: true } }));
   const approvedPair = new Set(approvals.map((a) => `${a.productMasterId}|${a.manufacturerId}`));
   const partners = new Map((await prisma.partner.findMany({ where: { organizationId: orgId }, select: { id: true, countryCode: true, roles: { select: { roleType: true } } } })).map((p) => [p.id, p]));
-  const batches = new Map((await prisma.productBatch.findMany({ where: { organizationId: orgId }, select: { id: true, productMasterId: true, manufacturerId: true, manufacturedDate: true, expiryDate: true } })).map((b) => [b.id, b]));
+  const batches = new Map((await withTenantContext(orgId, (tx) => tx.productBatch.findMany({ where: { organizationId: orgId }, select: { id: true, productMasterId: true, manufacturerId: true, manufacturedDate: true, expiryDate: true } }))).map((b) => [b.id, b]));
   const projects = await withTenantContext(orgId, (tx) => tx.project.findMany({ where: { referenceNumber: { startsWith: "SIM-" } }, select: { id: true, referenceNumber: true, status: true, startDate: true, dueDate: true, submissionDate: true, deliveryCountryCode: true, freightMode: true, incoterm: true, freightForwarderId: true, clientId: true }, orderBy: { id: "asc" } }));
   bump("projects", projects.length);
   for (const p of projects) {
@@ -49,8 +49,8 @@ async function main() {
         if (!l.internalPoNumber) bump("line: no internal PO number");
         if (!l.clientPoNumber) bump("line: no client PO number");
         if (!l.warehouseReferenceNumber) bump("line: no warehouse reference");
-        if (!l.internalInvoiceNumber) bump("line: no invoice number");
-        if (!l.productBatchId) bump("line: no batch link");
+        if (l.actualDeliveryDate && !l.internalInvoiceNumber) bump("line: no invoice number");
+        if (l.actualDeliveryDate && !l.productBatchId) bump("line: no batch link");
         else {
           const b = batches.get(l.productBatchId);
           if (b && b.productMasterId !== l.productMasterId) bump("line: batch is of a different product");

@@ -107,6 +107,7 @@ async function main() {
             const invNo = l.internalInvoiceNumber ?? `INV-${n}-${kk}`;
             let inv = l.internalInvoiceDate ?? addDays(actual, 1 + hash(l.id + "inv") % 5);
             if (inv < actual) inv = addDays(actual, 1);
+            if (inv.getTime() > now) inv = new Date(Math.max(actual.getTime(), now - DAY));
             if (!l.internalInvoiceNumber) data.internalInvoiceNumber = invNo;
             if (!l.internalInvoiceDate || inv.getTime() !== l.internalInvoiceDate.getTime()) data.internalInvoiceDate = inv;
             if (l.clientPaymentDate && l.clientPaymentDate < inv) { data.clientPaymentDate = new Date(Math.min(addDays(inv, 10 + hash(l.id + "pay") % 20).getTime(), now)); bump("payment moved after the invoice"); }
@@ -136,6 +137,10 @@ async function main() {
           if (!p.startDate || p.startDate.getTime() > wantStart.getTime()) { pdata.startDate = wantStart; bump("project start dates fixed"); }
         }
         if (p.status === "COMPLETED" && maxActual && (!p.dueDate || p.dueDate.getTime() > now || p.dueDate.getTime() < maxActual)) { pdata.dueDate = new Date(Math.min(maxActual + (1 + hash(p.id + "d") % 10) * DAY, now - DAY)); bump("project due dates fixed"); }
+        // an open project must not start after it is due
+        const startNow = (pdata.startDate as Date | undefined) ?? p.startDate;
+        const dueNow = (pdata.dueDate as Date | undefined) ?? p.dueDate;
+        if (startNow && dueNow && startNow.getTime() > dueNow.getTime()) { pdata.dueDate = new Date(startNow.getTime() + (45 + hash(p.id + "due2") % 75) * DAY); bump("project due dates after start"); }
         if (Object.keys(pdata).length && !dryRun) await tx.project.update({ where: { id: p.id }, data: pdata });
       }
       if (!dryRun) {
