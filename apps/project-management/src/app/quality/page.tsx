@@ -67,7 +67,7 @@ export default function QualityPage() {
   // QA/procurement segregation of duties (Lewis, 2026-10-08) — purely
   // cosmetic (products.approve is enforced server-side regardless); keeps
   // a procurement-only user from hitting an always-403 status change.
-  const canSeeComplaints = me?.permissions.includes("quality.complaints.view") ?? false;
+  const canSeeComplaints = (me?.platformStaffRole ?? "NONE") !== "NONE" || (me?.permissions.includes("quality.complaints.view") ?? false);
   const canApproveProducts = me?.permissions.includes("products.approve") ?? false;
   const [dashboard, setDashboard] = useState<QualityDashboardSummary | null>(null);
   const [approvals, setApprovals] = useState<ProductSourceApprovalSummary[] | null>(null);

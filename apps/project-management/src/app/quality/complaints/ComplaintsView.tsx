@@ -22,8 +22,9 @@ export function ComplaintsView() {
 
 function ComplaintList() {
   const me = useCurrentUser();
-  const canLog = me?.permissions.includes("quality.complaints.log") ?? false;
-  const canView = me?.permissions.includes("quality.complaints.view") ?? false;
+  const isStaff = (me?.platformStaffRole ?? "NONE") !== "NONE";
+  const canLog = isStaff || (me?.permissions.includes("quality.complaints.log") ?? false);
+  const canView = isStaff || (me?.permissions.includes("quality.complaints.view") ?? false);
   const [dash, setDash] = useState<ComplaintDashboard | null>(null);
   const [rows, setRows] = useState<ComplaintListItem[] | null>(null);
   const [total, setTotal] = useState(0);
