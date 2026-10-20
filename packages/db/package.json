@@ -17,6 +17,7 @@
     "enrich:demo": "tsx scripts/enrich-demo-data.ts",
     "seed:demo-quality": "tsx scripts/seed-demo-quality.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
+    "recohere:demo": "tsx scripts/recohere-demo-data.ts",
     "fix:demo-consistency": "tsx scripts/fix-demo-sim-consistency.ts",
     "watch:regulatory": "tsx scripts/run-regulatory-watch.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
