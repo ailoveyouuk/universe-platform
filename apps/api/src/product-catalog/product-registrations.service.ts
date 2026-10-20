@@ -325,15 +325,23 @@ export class ProductRegistrationsService {
       const documentsAwaitingApproval = docs.filter((d) => d.status === "DRAFT").length;
       return { latest, usedIds: used.map((u) => u.productMasterId as string), documentsExpired, documentsExpiringSoon, documentsAwaitingApproval };
     });
-    const usedFamilies = mine.usedIds.length
-      ? (await prisma.productMaster.findMany({ where: { id: { in: mine.usedIds }, productFamilyId: { not: null } }, select: { productFamilyId: true } })).map((p) => p.productFamilyId as string)
-      : [];
-    const usedRegs = mine.usedIds.length
-      ? await prisma.productRegulatoryRegistration.findMany({
-          where: { isArchived: false, OR: [{ productMasterId: { in: mine.usedIds } }, ...(usedFamilies.length ? [{ productFamilyId: { in: [...new Set(usedFamilies)] } }] : [])] },
-          select: { id: true },
-        })
-      : [];
+    const usedFamilies: string[] = [];
+    for (let i = 0; i < mine.usedIds.length; i += 900) {
+      const rows = await prisma.productMaster.findMany({ where: { id: { in: mine.usedIds.slice(i, i + 900) }, productFamilyId: { not: null } }, select: { productFamilyId: true } });
+      for (const r of rows) usedFamilies.push(r.productFamilyId as string);
+    }
+    // SQL Server allows about 2,100 parameters per statement, so the two id lists are queried in chunks and merged.
+    const usedRegIds = new Set<string>();
+    const familyIds = [...new Set(usedFamilies)];
+    for (let i = 0; i < mine.usedIds.length; i += 900) {
+      const rows = await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productMasterId: { in: mine.usedIds.slice(i, i + 900) } }, select: { id: true } });
+      for (const r of rows) usedRegIds.add(r.id);
+    }
+    for (let i = 0; i < familyIds.length; i += 900) {
+      const rows = await prisma.productRegulatoryRegistration.findMany({ where: { isArchived: false, productFamilyId: { in: familyIds.slice(i, i + 900) } }, select: { id: true } });
+      for (const r of rows) usedRegIds.add(r.id);
+    }
+    const usedRegs = [...usedRegIds].map((id) => ({ id }));
     const unverified = usedRegs.filter((r) => !mine.latest.has(r.id)).length;
     const nowMs = now.getTime();
     const reverificationDue = [...mine.latest.values()].filter((v) => v.nextReverificationDue && v.nextReverificationDue.getTime() < nowMs).length;
