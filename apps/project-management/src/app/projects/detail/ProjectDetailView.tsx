@@ -458,7 +458,7 @@ export function ProjectDetailView() {
                 <dd>{project.reasonForCancellation ?? "—"}</dd>
               </div>
             )}
-            <div style={{ gridColumn: "span 2" }}>
+            <div style={{ gridColumn: "1 / -1" }}>
               <dt style={{ fontWeight: 600 }}>Notes</dt>
               <dd style={{ whiteSpace: "pre-wrap" }}>{project.projectNotes ?? "—"}</dd>
             </div>
@@ -555,7 +555,7 @@ export function ProjectDetailView() {
               />
             </label>
             {headerForm.status === "CANCELLED" && (
-              <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+              <label style={{ fontSize: 13, gridColumn: "1 / -1" }}>
                 Reason for Cancellation
                 <input
                   style={fieldInputStyle}
@@ -565,7 +565,7 @@ export function ProjectDetailView() {
               </label>
             )}
             {headerForm.status === "COMPLETED" && (
-              <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+              <label style={{ fontSize: 13, gridColumn: "1 / -1" }}>
                 Completion Stage
                 <select className="u-native-select"
                   style={fieldInputStyle}
@@ -581,7 +581,7 @@ export function ProjectDetailView() {
                 </select>
               </label>
             )}
-            <label style={{ fontSize: 13, gridColumn: "span 2" }}>
+            <label style={{ fontSize: 13, gridColumn: "1 / -1" }}>
               Notes
               <textarea
                 style={{ ...fieldInputStyle, minHeight: 80 }}

@@ -46,14 +46,15 @@ export function Select({
   const menuRef = useRef<HTMLDivElement>(null);
   // On narrow screens a menu wider than the space to the right of its trigger is anchored to the trigger's right edge instead,
   // so it never runs past the screen (and a closed menu never widens the page).
-  const [alignRight, setAlignRight] = useState(false);
+  const [shift, setShift] = useState(0);
   useLayoutEffect(() => {
     function measure() {
       const trig = ref.current?.getBoundingClientRect();
       const menu = menuRef.current;
       if (!trig || !menu) return;
       const w = Math.min(menu.scrollWidth, window.innerWidth - 32);
-      setAlignRight(trig.left + w > window.innerWidth - 8 && trig.right - w >= 8);
+      const overflow = trig.left + w - (window.innerWidth - 16);
+      setShift(overflow > 0 ? -Math.min(overflow, Math.max(trig.left - 16, 0)) : 0);
     }
     measure();
     window.addEventListener("resize", measure);
@@ -112,7 +113,7 @@ export function Select({
         style={{
           position: "absolute",
           top: "calc(100% + 6px)",
-          ...(alignRight ? { right: 0 } : { left: 0 }),
+          left: shift,
           minWidth: "100%",
           maxWidth: "calc(100vw - 32px)",
           backgroundColor: "var(--u-surface-raised)",

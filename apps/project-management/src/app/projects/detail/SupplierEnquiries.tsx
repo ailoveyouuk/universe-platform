@@ -232,7 +232,7 @@ export function SupplierEnquiries({
               onChange={(e) => setNewDateContacted(e.target.value)}
             />
           </label>
-          <label style={{ fontSize: 12, gridColumn: "span 2" }}>
+          <label style={{ fontSize: 12, gridColumn: "1 / -1" }}>
             Notes
             <input
               style={{ ...inputStyle, display: "block", width: "100%", marginTop: 2 }}
@@ -240,7 +240,7 @@ export function SupplierEnquiries({
               onChange={(e) => setNewNotes(e.target.value)}
             />
           </label>
-          <div style={{ gridColumn: "span 2", display: "flex", gap: 8 }}>
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
             <Button variant="primary" size="sm" onClick={addEnquiry} disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </Button>
