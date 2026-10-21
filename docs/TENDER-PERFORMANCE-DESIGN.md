@@ -66,3 +66,13 @@ Five-point scale on: quality of goods, communication, documentation, flexibility
 6. Documents, backup, live walkthrough as for every step.
 
 Estimated at roughly the same size as step 5.
+
+## 10. Enhancement option: reconcile payments from accounting systems (not built; asked by Lewis, 2026-10-21)
+Feasible, and best done in two stages. Facts about each provider's API, pricing and app-review rules change often and are to be confirmed against current documentation before any commitment [K].
+1. **Stage 1, CSV import (small).** Either party uploads an invoice export (reference, amount, due date, paid date). Rows are matched to the payment log by invoice reference and fill or confirm entries. Works with every system, needs no credentials.
+2. **Stage 2, live connections (medium to large).** Per-organisation OAuth 2.0 connection from the organisation settings to **Xero** first (Accounting API: invoices, payments, due and fully-paid dates; webhooks for changes), then **QuickBooks Online**, **Sage** or **Zoho Books** as demand shows. Read-only scopes only; tokens held in Key Vault; the organisation can disconnect at any time.
+   - **Sides:** a supplier reads its sales invoices (accounts receivable); an owner reads its supplier bills (accounts payable). Each side matches an invoice to a contract by reference, once, then updates flow in.
+   - **Reconciliation:** each log entry gets a source (Manual, CSV, Xero) and a "last synced" time; a synced entry cannot be edited by hand, differences between the two parties' entries are shown rather than overwritten, and the aggregate prefers the owner's payables data when both exist.
+   - **Data minimisation:** only the matched invoice's reference, amount, currency, due date and paid date are stored; nothing else from the accounting system is read into Universe.
+   - **Prerequisites:** a registered app with each provider, a data-processing note covering the connection, and a decision on who pays any provider API fees.
+Recommended order: stage 1 when payment practice becomes a feature organisations rely on, then Xero.
