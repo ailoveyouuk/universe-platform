@@ -29,7 +29,7 @@ async function main() {
     const users = await tx.user.findMany({ where: { organizationId: t.organizationId, status: "ACTIVE", isSimulated: true }, orderBy: [{ email: "asc" }], select: { id: true, forename: true, surname: true }, take: 2 });
     if (users.length < 2) throw new Error("The issuing organisation needs two active simulated users to act as evaluators.");
     const [chair, evaluator] = users;
-    const bids = await tx.tenderBid.findMany({ where: { tenderId: t.id, status: "SUBMITTED" }, select: { id: true, organizationId: true } });
+    const bids = await tx.tenderBid.findMany({ where: { tenderId: t.id, status: "SUBMITTED" }, select: { id: true, organizationId: true, notes: true, totalTenderCurrency: true } });
     const criteria = await tx.tenderCriterion.findMany({ where: { tenderId: t.id }, orderBy: { sortOrder: "asc" } });
     const gates = criteria.filter((c) => c.kind === "GATE");
     const manual = criteria.filter((c) => c.kind === "SCORED" && c.metric === "MANUAL");
@@ -61,18 +61,33 @@ async function main() {
     await tx.tender.update({ where: { id: t.id }, data: { status: "EVALUATING", evaluationStartedAt: at() } });
     await emit("EVALUATION_STARTED", "Evaluation started", null);
 
-    const sets: Record<string, [number, string][]> = { chair: [[82, "Meets the specification on all three lines; registration evidence supplied."], [78, "Credible delivery plan with independent pre-shipment inspection."]], eval: [[80, "Specification met; minor gaps in stability data."], [74, "Sound plan; contingency for delays could be firmer."]] };
+    // Scoring profiles, chosen by a SIM-PROFILE:<tag> marker in the bid notes (SIM-TND-002); a bid without one gets the default profile.
+    // [technical, delivery] for the chair and the evaluator; FAIL means the bid fails the licence gate and is not scored.
+    const PROFILES: Record<string, { chair: [number, string][]; ev: [number, string][] } | "FAIL"> = {
+      DEFAULT: { chair: [[82, "Meets the specification on all three lines; registration evidence supplied."], [78, "Credible delivery plan with independent pre-shipment inspection."]], ev: [[80, "Specification met; minor gaps in stability data."], [74, "Sound plan; contingency for delays could be firmer."]] },
+      A: { chair: [[90, "Fully compliant with strong registration and batch evidence."], [85, "Detailed, well-controlled delivery plan with tracking."]], ev: [[88, "Excellent specification response."], [83, "Very good plan; clear escalation route."]] },
+      UD: { chair: [[82, "Meets the specification on all three lines."], [78, "Credible plan with independent inspection."]], ev: [[78, "Specification met; some evidence summarised only."], [74, "Sound plan; contingency could be firmer."]] },
+      B: { chair: [[72, "Meets the core specification; two registrations pending."], [66, "Plan lacks detail on batch documentation."]], ev: [[68, "Acceptable but evidence is thin."], [64, "Longer lead times and limited quality controls described."]] },
+      C: "FAIL",
+    };
+    const tagOf = (n: string | null) => /SIM-PROFILE:([A-Z]+)/.exec(n ?? "")?.[1] ?? "DEFAULT";
+    const profileOf = (b: { notes: string | null }) => PROFILES[tagOf(b.notes)] ?? PROFILES.DEFAULT;
+    const compliant = bids.filter((b) => profileOf(b) !== "FAIL");
+    const best = Math.min(...compliant.map((b) => Number(b.totalTenderCurrency)));
     for (const b of bids) {
-      for (const g of gates) await tx.tenderBidGate.create({ data: { organizationId: t.organizationId, tenderId: t.id, bidId: b.id, criterionId: g.id, passed: true, notes: "Licence verified (simulated).", recordedById: chair.id, recordedAt: at() } });
+      const prof = profileOf(b);
+      for (const g of gates) await tx.tenderBidGate.create({ data: { organizationId: t.organizationId, tenderId: t.id, bidId: b.id, criterionId: g.id, passed: prof !== "FAIL", notes: prof === "FAIL" ? "Licence expired before the closing date (simulated); not valid." : "Licence verified (simulated).", recordedById: chair.id, recordedAt: at() } });
+      if (prof === "FAIL") continue;
       const moderated: { criterionId: string; score: number; rationale: string; isCalculated: boolean }[] = [];
       for (let i = 0; i < manual.length; i++) {
-        const a = sets.chair[i % 2], e = sets.eval[i % 2];
+        const a = prof.chair[i % 2], e = prof.ev[i % 2];
         for (const [u, s] of [[chair, a], [evaluator, e]] as const) {
           await tx.tenderBidScore.create({ data: { organizationId: t.organizationId, tenderId: t.id, bidId: b.id, criterionId: manual[i].id, evaluatorUserId: u.id, score: s[0], rationale: s[1], submittedAt: at() } });
         }
         moderated.push({ criterionId: manual[i].id, score: (a[0] + e[0]) / 2, rationale: "Average of the evaluators' scores.", isCalculated: false });
       }
-      for (const p of price) moderated.push({ criterionId: p.id, score: 100, rationale: "Calculated: lowest compliant price scores 100.", isCalculated: true });
+      const priceScore = Math.round((100 * best / Number(b.totalTenderCurrency)) * 100) / 100;
+      for (const p of price) moderated.push({ criterionId: p.id, score: priceScore, rationale: "Calculated: lowest compliant price scores 100.", isCalculated: true });
       for (const m of moderated) await tx.tenderModeratedScore.create({ data: { organizationId: t.organizationId, tenderId: t.id, bidId: b.id, ...m, recordedById: chair.id, recordedAt: at() } });
     }
     await tx.tender.update({ where: { id: t.id }, data: { scoringFinalisedAt: at() } });

@@ -4,6 +4,10 @@ name: Advance demo tender
 on:
   workflow_dispatch:
     inputs:
+      tender_ref:
+        description: "Simulated tender reference"
+        default: "SIM-TND-001"
+        type: string
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -26,4 +30,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          TENDER_REF: ${{ inputs.tender_ref }}
           PRISMA_TX_TIMEOUT_MS: "120000"
