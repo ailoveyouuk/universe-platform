@@ -4072,3 +4072,102 @@ model UserOrganizationAccess {
   @@index([grantedOrganizationId])
   @@map("user_organization_access")
 }
+
+
+// ---------------------------------------------------------------------------
+// Tender contracts (step 5, 2026-10-21): one contract per award, shared by the issuer and the awarded supplier.
+// organizationId is the issuer, awardedOrganizationId the supplier; either may write (service enforces who may do what).
+// ---------------------------------------------------------------------------
+
+model TenderContract {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  awardId               String    @unique
+  reference             String    @db.NVarChar(100)
+  title                 String    @db.NVarChar(300)
+  /// DRAFT, AWAITING_SIGNATURE, ACTIVE, COMPLETED, TERMINATED
+  status                String    @default("DRAFT")
+  currency              String?   @db.Char(3)
+  totalValue            Decimal?  @db.Decimal(18, 2)
+  startDate             DateTime?
+  endDate               DateTime?
+  terms                 String?   @db.NVarChar(Max)
+  sentAt                DateTime?
+  executedAt            DateTime?
+  closedAt              DateTime?
+  closeNote             String?   @db.NVarChar(2000)
+  /// The supplier's Project Management project created from this contract (handover).
+  supplierProjectId     String?
+  createdById           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([tenderId])
+  @@index([awardedOrganizationId])
+  @@index([organizationId])
+  @@map("tender_contracts")
+}
+
+model TenderContractMilestone {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  contractId            String
+  title                 String    @db.NVarChar(300)
+  dueDate               DateTime?
+  /// PENDING, DONE, MISSED
+  status                String    @default("PENDING")
+  completedAt           DateTime?
+  notes                 String?   @db.NVarChar(1000)
+  sortOrder             Int       @default(0)
+
+  @@index([contractId])
+  @@map("tender_contract_milestones")
+}
+
+/// Signature section: the externally executed agreement, its certificate or audit trail, variations; each file kept with its version.
+model TenderContractFile {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  awardedOrganizationId  String
+  tenderId               String
+  contractId             String
+  /// DRAFT, SIGNED, CERTIFICATE, VARIATION, OTHER
+  kind                   String
+  version                Int      @default(1)
+  title                  String   @db.NVarChar(300)
+  fileName               String   @db.NVarChar(300)
+  blobName               String   @db.NVarChar(500)
+  mimeType               String?
+  fileSizeBytes          Int?
+  /// The file sits in this organisation's own storage container.
+  uploadedByOrganizationId String
+  uploadedById           String?
+  uploadedAt             DateTime @default(now())
+  note                   String?  @db.NVarChar(1000)
+
+  @@index([contractId])
+  @@map("tender_contract_files")
+}
+
+model TenderContractSignatory {
+  id                     String   @id @default(uuid())
+  organizationId         String
+  awardedOrganizationId  String
+  tenderId               String
+  contractId             String
+  /// ISSUER or SUPPLIER
+  party                  String
+  signerName             String   @db.NVarChar(200)
+  signerRole             String?  @db.NVarChar(200)
+  signedOn               DateTime
+  recordedByOrganizationId String
+  recordedById           String?
+  recordedAt             DateTime @default(now())
+
+  @@index([contractId])
+  @@map("tender_contract_signatories")
+}

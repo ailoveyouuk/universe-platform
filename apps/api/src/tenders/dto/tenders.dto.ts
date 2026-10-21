@@ -210,3 +210,44 @@ export class ConfirmTenderDocumentDto {
   /** Id of the current version this upload replaces; omit to add a new document. */
   @IsOptional() @IsString() replacesDocumentId?: string;
 }
+
+// ---- contracts (step 5, 2026-10-21)
+export const CONTRACT_FILE_KINDS = ["DRAFT", "SIGNED", "CERTIFICATE", "VARIATION", "OTHER"] as const;
+export class UpdateContractDto {
+  @IsOptional() @IsString() @Length(1, 300) title?: string;
+  @IsOptional() @IsNumber() @Min(0) totalValue?: number;
+  @IsOptional() @IsDateString() startDate?: string;
+  @IsOptional() @IsDateString() endDate?: string;
+  @IsOptional() @IsString() @Length(0, 20000) terms?: string;
+}
+export class ContractMilestoneDto {
+  @IsString() @Length(1, 300) title!: string;
+  @IsOptional() @IsDateString() dueDate?: string;
+}
+export class ContractMilestoneUpdateDto {
+  @IsOptional() @IsIn(["PENDING", "DONE", "MISSED"]) status?: string;
+  @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+}
+export class RequestContractFileDto {
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 200) contentType!: string;
+  @IsInt() @Min(1) fileSizeBytes!: number;
+}
+export class ConfirmContractFileDto {
+  @IsString() @Length(1, 500) blobName!: string;
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 300) title!: string;
+  @IsIn(CONTRACT_FILE_KINDS as unknown as string[]) kind!: string;
+  @IsOptional() @IsString() @Length(0, 1000) note?: string;
+  @IsOptional() @IsString() mimeType?: string;
+  @IsOptional() @IsInt() @Min(0) fileSizeBytes?: number;
+}
+export class ContractSignatoryDto {
+  @IsString() @Length(1, 200) signerName!: string;
+  @IsOptional() @IsString() @Length(0, 200) signerRole?: string;
+  @IsDateString() signedOn!: string;
+}
+export class CloseContractDto {
+  @IsIn(["COMPLETED", "TERMINATED"]) outcome!: string;
+  @IsString() @Length(1, 2000) note!: string;
+}

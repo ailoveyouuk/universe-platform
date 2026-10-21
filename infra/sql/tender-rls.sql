@@ -194,6 +194,23 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, counterpartyOrganizationId) ON dbo.tender_events AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, counterpartyOrganizationId) ON dbo.tender_events AFTER UPDATE,
 
+    -- Contracts (step 5, 2026-10-21): shared by the issuer and the awarded supplier, either may write (the service decides who may do what); nobody else sees them.
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_contracts,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contracts AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contracts AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_contract_milestones,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_milestones AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_milestones AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_contract_files,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_files AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_files AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_contract_signatories,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_signatories AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_signatories AFTER UPDATE,
+
     -- Private to the owning organisation.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists AFTER INSERT,

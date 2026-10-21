@@ -3287,6 +3287,23 @@ export interface TenderLineRecord {
 export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME"; acceptedFileTypes: string | null }
 export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
 export interface TenderEventRecord { id: string; kind: string; summary: string; actorOrganizationId: string; createdAt: string }
+/** Tender contracts (step 5, 2026-10-21). */
+export type ContractStatus = "DRAFT" | "AWAITING_SIGNATURE" | "ACTIVE" | "COMPLETED" | "TERMINATED";
+export const CONTRACT_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", AWAITING_SIGNATURE: "Awaiting signature", ACTIVE: "Active", COMPLETED: "Completed", TERMINATED: "Terminated" };
+export const CONTRACT_FILE_KIND_LABELS: Record<string, string> = { DRAFT: "Draft contract", SIGNED: "Signed copy", CERTIFICATE: "Signing certificate or audit trail", VARIATION: "Variation", OTHER: "Other" };
+export interface TenderContractView {
+  id: string; awardId: string; reference: string; title: string; status: ContractStatus; currency: string | null; totalValue: number | null;
+  startDate: string | null; endDate: string | null; terms: string | null; sentAt: string | null; executedAt: string | null; closedAt: string | null; closeNote: string | null;
+  supplierProjectId: string | null; issuerName: string | null; supplierName: string | null; createdAt: string;
+  milestones: { id: string; title: string; dueDate: string | null; status: string; completedAt: string | null; notes: string | null }[];
+  files: { id: string; kind: string; version: number; title: string; fileName: string; fileSizeBytes: number | null; uploadedBy: string | null; uploadedAt: string; note: string | null }[];
+  signatories: { id: string; party: "ISSUER" | "SUPPLIER"; signerName: string; signerRole: string | null; signedOn: string; own: boolean }[];
+  signature: { status: "NOT_STARTED" | "AWAITING" | "PARTLY_SIGNED" | "EXECUTED"; missing: string[] };
+}
+export interface TenderContractsForTender {
+  role: "ISSUER" | "SUPPLIER"; standstillEndsAt: string | null; openComplaints: number;
+  contracts: TenderContractView[]; awardsWithoutContract: { awardId: string; supplierName: string | null }[];
+}
 /** A tender document version (2026-10-21). Every version of one document shares a documentKey; superseded ones remain as history. */
 export interface TenderDocumentRecord { id: string; title: string; docType: string; description: string | null; fileName: string | null; fileSizeBytes: number | null; version: number; documentKey: string | null; supersededAt: string | null; uploadedAt: string }
 export const TENDER_DOC_TYPE_LABELS: Record<string, string> = { SPECIFICATION: "Specification", TERMS: "Terms and conditions", DRAWING: "Drawing", TEMPLATE: "Template", OTHER: "Other" };

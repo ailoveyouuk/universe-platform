@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
+import { TenderContractsService } from "./tender-contracts.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { TenderComplianceService } from "./tender-compliance.service";
@@ -8,14 +9,14 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -90,6 +91,20 @@ export class TendersController {
   @Post(":id/documents") confirmDoc(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ConfirmTenderDocumentDto) { return this.docs.confirm(u, id, dto); }
   @Delete(":id/documents/:docId") removeDoc(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("docId") docId: string) { return this.docs.remove(u, id, docId); }
   @Get(":id/documents/:docId/download-url") docUrl(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("docId") docId: string) { return this.docs.downloadUrl(u, id, docId); }
+  // ---- contracts (step 5): one per award, shared by the issuer and the awarded supplier
+  @Get(":id/contracts") contractsFor(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.contracts.forTender(u, id); }
+  @Post(":id/contracts/:awardId") createContract(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("awardId") awardId: string) { return this.contracts.create(u, id, awardId); }
+  @Patch("contracts/:cid") updateContract(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: UpdateContractDto) { return this.contracts.update(u, cid, dto); }
+  @Post("contracts/:cid/milestones") addMilestone(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ContractMilestoneDto) { return this.contracts.addMilestone(u, cid, dto); }
+  @Patch("contracts/:cid/milestones/:mid") updateMilestone(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("mid") mid: string, @Body() dto: ContractMilestoneUpdateDto) { return this.contracts.updateMilestone(u, cid, mid, dto); }
+  @Post("contracts/:cid/send") sendContract(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.contracts.send(u, cid); }
+  @Post("contracts/:cid/close") closeContract(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: CloseContractDto) { return this.contracts.close(u, cid, dto); }
+  @Post("contracts/:cid/files/upload-url") contractUploadUrl(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: RequestContractFileDto) { return this.contracts.requestFileUpload(u, cid, dto); }
+  @Post("contracts/:cid/files") contractFile(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ConfirmContractFileDto) { return this.contracts.confirmFile(u, cid, dto); }
+  @Get("contracts/:cid/files/:fid/download-url") contractFileUrl(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("fid") fid: string) { return this.contracts.fileUrl(u, cid, fid); }
+  @Post("contracts/:cid/signatories") addSignatory(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ContractSignatoryDto) { return this.contracts.recordSignatory(u, cid, dto); }
+  @Delete("contracts/:cid/signatories/:sid") removeSignatory(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("sid") sid: string) { return this.contracts.removeSignatory(u, cid, sid); }
+  @Post("contracts/:cid/project") contractProject(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.contracts.createProject(u, cid); }
   @Post(":id/addenda") addendum(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AddendumDto) { return this.compliance.createAddendum(u, id, dto); }
   @Post(":id/screenings") screening(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ScreeningDto) { return this.compliance.recordScreening(u, id, dto); }
   @Get(":id/timeline/verify") verify(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.compliance.verifyTimeline(u, id); }

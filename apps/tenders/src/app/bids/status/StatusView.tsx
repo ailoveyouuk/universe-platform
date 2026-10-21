@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { TenderStatusView } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
+import { ContractsPanel } from "../../../components/ContractPanel";
 import { Card, ErrorNote, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -72,6 +73,7 @@ export function StatusView() {
         <div style={{ fontSize: 14 }}>{a.reason}</div>
         {a.lines.map((l, j) => <div key={j} style={{ fontSize: 13.5, ...muted }}>{l.description}{l.sharePercent !== null ? `: ${l.sharePercent}% of the requirement` : ""}</div>)}
       </Card>)}
+      {my.awards.length > 0 && <ContractsPanel tenderId={id} />}
       {(my.canComplain || my.complaints.length > 0) && (
         <Card title="Complaints">
           {t.standstillEndsAt && <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>The standstill period ends {fmtDateTime(t.standstillEndsAt, t.timeZone)}. A complaint must be lodged before then.</p>}

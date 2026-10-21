@@ -103,4 +103,17 @@ describe("Tender row-level security", () => {
     expect(await withTenantContext(partB, (tx) => tx.tenderEvent.count({ where: { tenderId: openId } }))).toBe(0);
     await expect(withTenantContext(partB, (tx) => tx.tenderEvent.create({ data: { organizationId: issuer, counterpartyOrganizationId: partA, tenderId: openId, actorOrganizationId: partB, kind: "FORGED", summary: "no" } }))).rejects.toThrow();
   });
+  it("a contract is shared by the issuer and the awarded supplier only; the supplier may write to it, a third party may not read or write", async () => {
+    const awardId = randomUUID();
+    const c = await withTenantContext(issuer, (tx) => tx.tenderContract.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, awardId, reference: `CON-${suffix}`, title: "Contract" } }));
+    await withTenantContext(issuer, (tx) => tx.tenderContractSignatory.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, party: "ISSUER", signerName: "A", signedOn: new Date(), recordedByOrganizationId: issuer } }));
+    expect(await withTenantContext(issuer, (tx) => tx.tenderContract.count({ where: { id: c.id } }))).toBe(1);
+    expect(await withTenantContext(partA, (tx) => tx.tenderContract.count({ where: { id: c.id } }))).toBe(1);
+    expect(await withTenantContext(partA, (tx) => tx.tenderContractSignatory.count({ where: { contractId: c.id } }))).toBe(1);
+    expect(await withTenantContext(partB, (tx) => tx.tenderContract.count({ where: { id: c.id } }))).toBe(0);
+    expect(await withTenantContext(partB, (tx) => tx.tenderContractSignatory.count({ where: { contractId: c.id } }))).toBe(0);
+    await withTenantContext(partA, (tx) => tx.tenderContractSignatory.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, party: "SUPPLIER", signerName: "B", signedOn: new Date(), recordedByOrganizationId: partA } }));
+    expect(await withTenantContext(issuer, (tx) => tx.tenderContractSignatory.count({ where: { contractId: c.id } }))).toBe(2);
+    await expect(withTenantContext(partB, (tx) => tx.tenderContractSignatory.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, party: "SUPPLIER", signerName: "X", signedOn: new Date(), recordedByOrganizationId: partB } }))).rejects.toThrow();
+  });
 });
