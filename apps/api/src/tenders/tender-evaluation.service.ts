@@ -112,7 +112,9 @@ export class TenderEvaluationService {
     }
     const orgNames = await this.orgNames(tx, awards.map((x) => x.awardedOrganizationId));
     const submittedPerEval = new Map<string, number>();
-    const startProblems = this.startProblems(t, evaluators, bidRows.length);
+    // The real number of submitted bids, not the rows this viewer may see: before a conflict declaration an evaluator sees no bids, which must not read as "no bids".
+    const submittedCount = await tx.tenderBid.count({ where: { tenderId: t.id, status: "SUBMITTED" } });
+    const startProblems = this.startProblems(t, evaluators, submittedCount);
     return {
       tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, currency: t.currency, status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, emergencyProcurement: t.emergencyProcurement, emergencyReason: t.emergencyReason, allowSingleEvaluator: t.allowSingleEvaluator, singleEvaluatorReason: t.singleEvaluatorReason, standstillEnabled: t.standstillEnabled, standstillWorkingDays: t.standstillWorkingDays, bidsOpenedAt: t.bidsOpenedAt, evaluationStartedAt: t.evaluationStartedAt, scoringFinalisedAt: t.scoringFinalisedAt, awardedAt: t.awardedAt, standstillEndsAt: t.standstillEndsAt },
       phase,
