@@ -12,17 +12,35 @@ import {
   UpsertDataInsightsUserProfileDto,
   AddManufacturerSiteDto,
 } from "./dto/org-type-profiles.dto";
+import { OrganizationAccessService } from "./organization-access.service";
+import { AddOrganizationAccessDto } from "./dto/organization-access.dto";
 import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
 @UseGuards(EntraAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(private readonly organizationsService: OrganizationsService, private readonly access: OrganizationAccessService) {}
 
   /** The organisations the caller can act inside: their own, plus (demo users) the demo organisations they have been granted. */
   @Get("accessible")
   findAccessible(@CurrentUser() user: RequestUser) {
     return this.organizationsService.findAccessible(user);
+  }
+
+  /** Cross-organisation access for demo organisations (2026-10-21). */
+  @Get(":id/access")
+  listAccess(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.access.list(user, id);
+  }
+
+  @Post(":id/access")
+  addAccess(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AddOrganizationAccessDto) {
+    return this.access.add(user, id, dto.email);
+  }
+
+  @Delete(":id/access/:grantId")
+  removeAccess(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("grantId") grantId: string) {
+    return this.access.remove(user, id, grantId);
   }
 
   @Get()

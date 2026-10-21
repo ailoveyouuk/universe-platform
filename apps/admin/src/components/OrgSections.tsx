@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type {
+  OrganizationAccessList,
   DataInsightsUserProfileSummary,
   DataSharingConsentSummary,
   FunderProfileSummary,
@@ -635,6 +636,64 @@ export function ContributorVisibilitySection({ org, onChanged }: { org: Organiza
         Currently: {org.shareIdentityWithUniverse ? "identifiable to other organisations." : "anonymous (\u201cA Universe member\u201d). Platform staff and your own users always see the real name."} Individual products can override this when added.
       </p>
       {error && <Notice tone="error">{error}</Notice>}
+    </Section>
+  );
+}
+
+/**
+ * Demo organisations only (2026-10-21): lets an administrator of this organisation add an existing user's email so that person can pick this
+ * organisation after signing in. The server re-checks every rule (manage-users permission, both organisations are demo, active user).
+ */
+export function DemoAccessSection({ organizationId }: { organizationId: string }) {
+  const [list, setList] = useState<OrganizationAccessList | null>(null);
+  const [email, setEmail] = useState("");
+  const { saving, error, run } = useSaveState();
+
+  useEffect(() => {
+    apiClient.listOrganizationAccess(organizationId).then(setList).catch(() => setList({ isDemo: false, items: [] }));
+  }, [organizationId]);
+
+  if (!list || !list.isDemo) return null;
+
+  return (
+    <Section
+      title="People from other demo organisations"
+      hint="Add the email of an existing demo user. After they sign in they can choose this organisation from the picker and work in it with their own permissions. Demo organisations only."
+    >
+      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ minWidth: 280 }}>
+          <Field label="Email address">
+            <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" />
+          </Field>
+        </div>
+        <Button
+          disabled={saving || !email.trim()}
+          onClick={() => run(async () => { setList(await apiClient.addOrganizationAccess(organizationId, email.trim())); setEmail(""); }, "Could not add that email.")}
+        >
+          Add access
+        </Button>
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+      {list.items.length === 0 ? (
+        <span style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>No one from other demo organisations has been added.</span>
+      ) : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+          {list.items.map((g) => (
+            <li key={g.grantId} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", fontSize: 14 }}>
+              <span>
+                <strong>{g.name}</strong> · {g.email} <span style={{ color: "var(--u-ink-secondary)" }}>(from {g.homeOrganizationName}{g.grantedBy ? `, added by ${g.grantedBy}` : ""})</span>
+              </span>
+              <Button
+                variant="secondary"
+                disabled={saving}
+                onClick={() => run(async () => setList(await apiClient.removeOrganizationAccess(organizationId, g.grantId)), "Could not remove access.")}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Section>
   );
 }

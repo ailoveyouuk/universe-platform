@@ -252,6 +252,18 @@ export type OrganizationOnboardingSource =
 /** Full organisation record for the Admin app's detail/edit page (added
  * 2026-10-16). Superset of OrganizationSummary — the list endpoint stays
  * lean, this is fetched one org at a time. */
+/** Cross-organisation access list for a demo organisation (2026-10-21). */
+export interface OrganizationAccessItem {
+  grantId: string;
+  userId: string;
+  name: string;
+  email: string;
+  homeOrganizationName: string;
+  grantedBy: string | null;
+  createdAt: string;
+}
+export interface OrganizationAccessList { isDemo: boolean; items: OrganizationAccessItem[] }
+
 export interface OrganizationDetail extends OrganizationSummary {
   /** Identifiable to other organisations as a contributor ("share with Universe database"). Default false = anonymous. */
   shareIdentityWithUniverse: boolean;

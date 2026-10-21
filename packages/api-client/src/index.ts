@@ -38,6 +38,7 @@ import type {
   CreateSupplierProductInput,
   InviteUserInput,
   OrganizationSummary,
+  OrganizationAccessList,
   OrganizationDetail,
   FieldChangeFeedPage,
   PermissionSummary,
@@ -1080,6 +1081,16 @@ export class UniverseApiClient {
   /** The organisations the caller may switch into: their own plus, for demo users, the demo organisations they have been granted (2026-10-20). */
   listAccessibleOrganizations(): Promise<(OrganizationSummary & { isDemo: boolean })[]> {
     return this.request("/organizations/accessible");
+  }
+
+  listOrganizationAccess(organizationId: string): Promise<OrganizationAccessList> {
+    return this.request(`/organizations/${organizationId}/access`);
+  }
+  addOrganizationAccess(organizationId: string, email: string): Promise<OrganizationAccessList> {
+    return this.request(`/organizations/${organizationId}/access`, { method: "POST", body: JSON.stringify({ email }) });
+  }
+  removeOrganizationAccess(organizationId: string, grantId: string): Promise<OrganizationAccessList> {
+    return this.request(`/organizations/${organizationId}/access/${grantId}`, { method: "DELETE" });
   }
 
   getOrganization(organizationId: string): Promise<OrganizationDetail> {
