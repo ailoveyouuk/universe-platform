@@ -4,6 +4,26 @@ name: Seed demo competitive tender
 on:
   workflow_dispatch:
     inputs:
+      tender_ref:
+        description: "Reference for the new simulated tender"
+        default: "SIM-TND-002"
+        type: string
+      tender_title:
+        description: "Title"
+        default: "Supply of antimalarial and diagnostic supplies (simulated RFQ)"
+        type: string
+      product_offset:
+        description: "Shifts which simulated products are used (0 for the first tender)"
+        default: "0"
+        type: string
+      single_evaluator:
+        description: "Allow a single evaluator (for walkthroughs)"
+        default: false
+        type: boolean
+      submit_demo:
+        description: "Also submit Universe Demo's bid"
+        default: false
+        type: boolean
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -26,4 +46,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          TENDER_REF: ${{ inputs.tender_ref }}
+          TENDER_TITLE: ${{ inputs.tender_title }}
+          PRODUCT_OFFSET: ${{ inputs.product_offset }}
+          SINGLE_EVALUATOR: ${{ inputs.single_evaluator }}
+          SUBMIT_DEMO: ${{ inputs.submit_demo }}
           PRISMA_TX_TIMEOUT_MS: "120000"

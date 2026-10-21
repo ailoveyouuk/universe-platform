@@ -10,7 +10,11 @@ import { prisma, withPlatformStaffContext } from "../src/index";
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const DAY = 86400000, HOUR = 3600000;
-const REF = "SIM-TND-002";
+const REF = process.env.TENDER_REF || "SIM-TND-002";
+const OFFSET = Number(process.env.PRODUCT_OFFSET || 0);           // picks different products for further tenders
+const TITLE = process.env.TENDER_TITLE || "Supply of antimalarial and diagnostic supplies (simulated RFQ)";
+const SINGLE_EVALUATOR = (process.env.SINGLE_EVALUATOR ?? "false") === "true"; // allow one evaluator (chair only), for walkthroughs
+const SUBMIT_DEMO = (process.env.SUBMIT_DEMO ?? "false") === "true";           // also submit Universe Demo's bid
 const QTY = [9000, 6000, 1500];
 // profile tag (read by the evaluation seed from the bid notes), unit prices per line, lead times, origin, manufacturer
 const COMPETITORS = [
@@ -42,7 +46,7 @@ async function main() {
     const existing = await tx.tender.findFirst({ where: { organizationId: issuer.id, referenceNumber: REF }, select: { id: true } });
     if (existing) { console.log(`${REF} already exists (${existing.id}); nothing to do.`); return; }
     const products = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 40, select: { id: true, name: true } });
-    const chosen = [products[6], products[22], products[35]].filter(Boolean);
+    const chosen = [products[6 + OFFSET], products[22 + OFFSET], products[35 - OFFSET]].filter(Boolean);
     if (chosen.length < 3) throw new Error("Not enough simulated products.");
     console.log(`Issuer ${issuer.name}; bidders: Universe Demo (draft), ${rivals.map((r, i) => `${r.name} (${COMPETITORS[i].tag}${COMPETITORS[i].tag === "C" ? ", will fail the gate" : ""})`).join(", ")}.`);
     if (dryRun) { console.log(`DRY RUN: would create ${REF} with 4 invitations, 3 submitted competing bids and a draft bid for Universe Demo.`); return; }
@@ -50,13 +54,14 @@ async function main() {
     const now = new Date();
     const pub = new Date(now.getTime() - DAY);
     const t = await tx.tender.create({ data: {
-      organizationId: issuer.id, referenceNumber: REF, title: "Supply of antimalarial and diagnostic supplies (simulated RFQ)",
+      organizationId: issuer.id, referenceNumber: REF, title: TITLE,
       summary: "Simulated competitive request for quotation for three items delivered to Nairobi, with a standstill period before contract award. Several organisations have bid.",
       tenderType: "RFQ", visibility: "INVITED_ONLY", visibleToAll: false, isPublished: true, status: "PUBLISHED", publishedAt: pub,
       deliveryCountryCodes: "KE", currency: "USD", incoterm: "DAP", clientName: "Simulated client",
       clarificationDeadline: new Date(now.getTime() + 2 * DAY), closingAt: new Date(now.getTime() + 5 * DAY), evaluationDueAt: new Date(now.getTime() + 12 * DAY), awardDueAt: new Date(now.getTime() + 18 * DAY),
       bidValidityDays: 90, timeZone: "Europe/London", isSimulated: true,
       standstillEnabled: true, standstillWorkingDays: 8, requireIntegrityPledge: true, requireExclusionDeclaration: true,
+      ...(SINGLE_EVALUATOR ? { allowSingleEvaluator: true, singleEvaluatorReason: "Below the organisation's financial threshold (simulated)." } : {}),
     } });
     for (let i = 0; i < 3; i++) await tx.tenderLine.create({ data: { organizationId: issuer.id, tenderId: t.id, lineNumber: i + 1, productMasterId: chosen[i].id, description: chosen[i].name, quantity: QTY[i], unit: "pack", destinationCountryCode: "KE", minShelfLifePercent: 75, coldChainRequired: false } });
     const crit = [
@@ -81,7 +86,7 @@ async function main() {
       const optedInAt = new Date(pub.getTime() + 3 * HOUR);
       await tx.tenderInvitation.create({ data: { organizationId: issuer.id, tenderId: t.id, invitedOrganizationId: b.id } });
       await tx.tenderParticipation.create({ data: { organizationId: b.id, issuerOrganizationId: issuer.id, tenderId: t.id, status: "INTERESTED", optedInAt, integrityPledgeAt: optedInAt, exclusionDeclaredAt: optedInAt, exclusionNoGrounds: true } });
-      const submitted = b.tag !== "UD";
+      const submitted = b.tag !== "UD" || SUBMIT_DEMO;
       const total = r2(b.prices.reduce((s, p, i) => s + p * QTY[i], 0));
       const submittedAt = new Date(pub.getTime() + (10 + bidders.indexOf(b) * 4) * HOUR);
       const bid = await tx.tenderBid.create({ data: {

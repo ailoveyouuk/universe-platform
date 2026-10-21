@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { withTenantContext } from "@universe/db";
+import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
@@ -12,6 +12,22 @@ import { effectiveStatus, TendersService } from "./tenders.service";
 type Tx = Prisma.TransactionClient;
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
 const fullName = (u: { forename: string | null; surname: string | null; email: string }) => [u.forename, u.surname].filter(Boolean).join(" ") || u.email;
+
+/**
+ * People who may evaluate in a DEMO organisation besides its own users (2026-10-20): platform staff and users holding an access grant to it
+ * (the demo picker). Lets a demo walkthrough use a real login as chair or evaluator. Always empty for a non-demo organisation.
+ */
+async function demoVisitors(orgId: string, term = "", ids?: string[]) {
+  return withPlatformStaffContext(async (tx) => {
+    const org = await tx.organization.findUnique({ where: { id: orgId }, select: { isDemo: true } });
+    if (!org?.isDemo) return [] as { id: string; forename: string; surname: string; email: string }[];
+    const match = term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }, { email: { contains: term } }] } : {};
+    return tx.user.findMany({
+      where: { status: "ACTIVE", ...(ids ? { id: { in: ids } } : {}), ...match, OR: [{ platformStaffRole: { not: "NONE" } }, { organizationAccess: { some: { grantedOrganizationId: orgId } } }] },
+      select: { id: true, forename: true, surname: true, email: true }, take: 25,
+    });
+  });
+}
 
 export type EvalPhase = "OPEN" | "CLOSED" | "OPENED" | "EVALUATING" | "SCORED" | "AWARDED";
 export const phaseOf = (t: { status: string; closingAt: Date | null; bidsOpenedAt: Date | null; evaluationStartedAt: Date | null; scoringFinalisedAt: Date | null; awardedAt: Date | null }): EvalPhase =>
@@ -57,7 +73,9 @@ export class TenderEvaluationService {
       tx.tenderAwardLine.findMany({ where: { tenderId: t.id } }),
       isIssuer ? tx.tenderComplaint.findMany({ where: { tenderId: t.id }, orderBy: { lodgedAt: "desc" } }) : Promise.resolve([]),
     ]);
-    const users = await tx.user.findMany({ where: { id: { in: evaluators.map((e) => e.userId) } }, select: { id: true, forename: true, surname: true, email: true } });
+    const inOrg = await tx.user.findMany({ where: { id: { in: evaluators.map((e) => e.userId) } }, select: { id: true, forename: true, surname: true, email: true } });
+    const missing = evaluators.map((e) => e.userId).filter((id) => !inOrg.some((u) => u.id === id));
+    const users = missing.length ? [...inOrg, ...(await demoVisitors(t.organizationId, "", missing))] : inOrg;
     const uName = new Map(users.map((u) => [u.id, fullName(u)]));
     const canSeeAll = isIssuer || me?.role === "CHAIR";
     const coiOk = !me || !!me.coiDeclaredAt;           // an evaluator sees no bids until the declaration is made
@@ -184,7 +202,9 @@ export class TenderEvaluationService {
         where: { organizationId: user.organizationId, status: "ACTIVE", ...(term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }, { email: { contains: term } }] } : {}) },
         select: { id: true, forename: true, surname: true, email: true }, orderBy: [{ forename: "asc" }, { surname: "asc" }], take: 25,
       });
-      return users.map((u) => ({ id: u.id, name: fullName(u), email: u.email }));
+      const visitors = await demoVisitors(user.organizationId, term);
+      const all = [...users, ...visitors.filter((v) => !users.some((u) => u.id === v.id))];
+      return all.map((u) => ({ id: u.id, name: fullName(u), email: u.email }));
     });
   }
 
@@ -197,7 +217,12 @@ export class TenderEvaluationService {
       if (new Set(dto.evaluators.map((e) => e.userId)).size !== dto.evaluators.length) throw new BadRequestException("Each person can be assigned once.");
       if (dto.evaluators.filter((e) => e.role === "CHAIR").length > 1) throw new BadRequestException("Only one chair.");
       const valid = await tx.user.findMany({ where: { organizationId: user.organizationId, id: { in: dto.evaluators.map((e) => e.userId) }, status: "ACTIVE" }, select: { id: true } });
-      if (valid.length !== dto.evaluators.length) throw new BadRequestException("Evaluators must be active users of your organisation.");
+      let validCount = valid.length;
+      if (validCount !== dto.evaluators.length) {
+        const rest = dto.evaluators.map((e) => e.userId).filter((id) => !valid.some((v) => v.id === id));
+        validCount += (await demoVisitors(user.organizationId, "", rest)).length;
+      }
+      if (validCount !== dto.evaluators.length) throw new BadRequestException("Evaluators must be active users of your organisation.");
       const existing = await tx.tenderEvaluator.findMany({ where: { tenderId } });
       const keep = new Set(dto.evaluators.map((e) => e.userId));
       await tx.tenderEvaluator.deleteMany({ where: { tenderId, userId: { notIn: [...keep] } } });
