@@ -1,10 +1,12 @@
+import { parseRatingRule, ratingRuleMet, type SupplierAggregate } from "./tender-performance";
+
 /**
  * Tender eligibility (design section 5). Pure logic: given an issuer's rules and a registered organisation's recorded profile,
  * produce a requirement checklist (Met / Not met / Needs evidence, each with a plain statement of what to do), an overall
  * chip, and a list of fix actions. A tender is never hidden because of this; it only decides whether the organisation may bid.
  */
 
-export const RULE_TYPES = ["ORG_TYPE", "COUNTRY", "CATEGORY", "QUALIFICATION", "EXCLUDED_ORG"] as const;
+export const RULE_TYPES = ["ORG_TYPE", "COUNTRY", "CATEGORY", "QUALIFICATION", "EXCLUDED_ORG", "MIN_SUPPLIER_RATING"] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 
 export type CheckStatus = "MET" | "NOT_MET" | "NEEDS_EVIDENCE";
@@ -23,6 +25,8 @@ export interface OrgProfile {
   qualifications: string[];
   /** Whether the organisation has any manufacturer/supplier profile at all (decides Not met vs Needs evidence). */
   hasProfileEvidence: boolean;
+  /** The organisation's anonymised performance aggregate on the platform (step 6); absent when not loaded. */
+  performance?: SupplierAggregate;
 }
 
 export interface CheckItem { ruleId: string; ruleType: string; required: boolean; status: CheckStatus; requirement: string; action: string | null }
@@ -63,13 +67,21 @@ function evaluateRule(rule: RuleLike, p: OrgProfile): { status: CheckStatus; req
       const excluded = values.includes(p.organizationId);
       return { status: excluded ? "NOT_MET" : "MET", requirement: "Not excluded by the issuer", action: excluded ? custom ?? "The issuer has excluded your organisation from this tender." : null };
     }
+    case "MIN_SUPPLIER_RATING": {
+      const r = parseRatingRule(rule.ruleValue);
+      const allow = r.allowInsufficient ? " Organisations with no history yet are welcome to bid." : "";
+      const requirement = `Platform performance rating of ${r.min === "STRONG" ? "Strong" : "Good or better"}.${allow}`;
+      if (!p.performance) return { status: "NEEDS_EVIDENCE", requirement, action: custom };
+      const res = ratingRuleMet(rule.ruleValue, p.performance);
+      return { status: res.met ? "MET" : "NOT_MET", requirement, action: res.met ? null : custom ?? `Your platform record is currently ${res.reason}. It improves as you complete contracts on time and in full.` };
+    }
     default:
       return { status: "NEEDS_EVIDENCE", requirement: `${rule.ruleType}: ${rule.ruleValue}`, action: custom };
   }
 }
 
 /** Rules that can never be fixed by the organisation, so a failure means Not eligible rather than Almost eligible. */
-const UNFIXABLE: ReadonlySet<string> = new Set(["ORG_TYPE", "EXCLUDED_ORG"]);
+const UNFIXABLE: ReadonlySet<string> = new Set(["ORG_TYPE", "EXCLUDED_ORG", "MIN_SUPPLIER_RATING"]);
 
 export function evaluateEligibility(rules: RuleLike[], profile: OrgProfile, opts: { invited?: boolean } = {}): EligibilityResult {
   const items: CheckItem[] = rules.map((r) => ({ ruleId: r.id, ruleType: r.ruleType, required: r.isRequired, ...evaluateRule(r, profile) }));

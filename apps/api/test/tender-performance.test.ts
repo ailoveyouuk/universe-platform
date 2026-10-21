@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import { SCORECARD_THRESHOLDS } from "@universe/types";
+import { evaluateEligibility, type OrgProfile } from "../src/tenders/eligibility";
+import { aggregateRecords, bandFromScore, buildMeasures, feedbackProblem, paymentPractice, parseRatingRule, ratingRuleMet, type AggRow } from "../src/tenders/tender-performance";
+
+const cfg = { onTimeGood: SCORECARD_THRESHOLDS.onTime.good, onTimeWarn: SCORECARD_THRESHOLDS.onTime.warn, inFullGood: SCORECARD_THRESHOLDS.inFull.good, inFullWarn: SCORECARD_THRESHOLDS.inFull.warn, otifGood: SCORECARD_THRESHOLDS.otif.good, otifWarn: SCORECARD_THRESHOLDS.otif.warn };
+const fb = { quality: 5, communication: 4, documentation: 4, flexibility: 3, wouldUseAgain: 5 };
+const row = (o: string, score: number | null = 90): AggRow => ({ organizationId: o, overallScore: score, milestonesTotal: 4, milestonesOnTime: 3, onTimePercent: 100, inFullPercent: 90 });
+
+describe("performance record measures", () => {
+  it("scores with the weighted mean of measures that have data, and says not measured otherwise", () => {
+    const r = buildMeasures({ onTimeYes: 9, onTimeFlags: 10, inFullYes: 10, inFullFlags: 10, otifYes: 9, otifN: 10 }, { total: 4, done: 4, onTime: 4, late: 0, missed: 0 }, fb, cfg);
+    expect(r.overallScore).not.toBeNull();
+    expect(r.measures.find((m) => m.key === "on_time")?.display).toBe("90%");
+    const none = buildMeasures(null, { total: 0, done: 0, onTime: 0, late: 0, missed: 0 }, null, cfg);
+    expect(none.overallScore).toBeNull();
+    expect(none.band).toBe("NOT_ENOUGH_DATA");
+    expect(none.measures.find((m) => m.key === "on_time")?.display).toBe("Not measured");
+  });
+  it("uses the owner's thresholds for status", () => {
+    const strict = buildMeasures({ onTimeYes: 9, onTimeFlags: 10, inFullYes: 10, inFullFlags: 10, otifYes: 10, otifN: 10 }, { total: 0, done: 0, onTime: 0, late: 0, missed: 0 }, null, cfg);
+    expect(strict.measures.find((m) => m.key === "on_time")?.status).toBe("warning");
+    const lenient = buildMeasures({ onTimeYes: 9, onTimeFlags: 10, inFullYes: 10, inFullFlags: 10, otifYes: 10, otifN: 10 }, { total: 0, done: 0, onTime: 0, late: 0, missed: 0 }, null, { ...cfg, onTimeGood: 85 });
+    expect(lenient.measures.find((m) => m.key === "on_time")?.status).toBe("good");
+  });
+  it("requires a reason for a rating of 1 or 2 only", () => {
+    expect(feedbackProblem(fb)).toBeNull();
+    expect(feedbackProblem({ ...fb, quality: 2 })).toMatch(/Quality of goods/);
+    expect(feedbackProblem({ ...fb, quality: 1, reasons: { quality: "Damaged cartons" } })).toBeNull();
+  });
+});
+
+describe("anonymised supplier aggregate", () => {
+  it("shows nothing below three contracts or from a single owner", () => {
+    expect(aggregateRecords([row("a"), row("b")]).sufficient).toBe(false);
+    expect(aggregateRecords([row("a"), row("a"), row("a")]).sufficient).toBe(false);
+    const thin = aggregateRecords([row("a"), row("b")]);
+    expect(thin.band).toBe("INSUFFICIENT_HISTORY");
+    expect(thin.contracts).toBeNull();
+    expect(thin.averageScore).toBeNull();
+  });
+  it("shows a band and averages from three contracts and two owners", () => {
+    const a = aggregateRecords([row("a", 90), row("a", 88), row("b", 92)]);
+    expect(a.sufficient).toBe(true);
+    expect(a.band).toBe("STRONG");
+    expect(a.contracts).toBe(3);
+    expect(a.owners).toBe(2);
+    expect(a.milestonesMetPercent).toBe(75);
+    expect(bandFromScore(75)).toBe("GOOD");
+    expect(bandFromScore(60)).toBe("WATCH");
+  });
+});
+
+describe("minimum supplier rating rule", () => {
+  const profile = (performance: ReturnType<typeof aggregateRecords>): OrgProfile => ({ organizationId: "x", orgType: "SUPPLIER", countries: [], categories: [], qualifications: [], hasProfileEvidence: true, performance });
+  const rules = (v: string) => [{ id: "r", ruleType: "MIN_SUPPLIER_RATING", ruleValue: v, isRequired: true }];
+  const none = aggregateRecords([]);
+  const strong = aggregateRecords([row("a", 90), row("b", 90), row("c", 90)]);
+  const watch = aggregateRecords([row("a", 50), row("b", 50), row("c", 50)]);
+  it("lets newcomers bid unless the owner chose strict", () => {
+    expect(parseRatingRule("GOOD")).toEqual({ min: "GOOD", allowInsufficient: true });
+    expect(parseRatingRule("STRONG:STRICT")).toEqual({ min: "STRONG", allowInsufficient: false });
+    expect(evaluateEligibility(rules("GOOD"), profile(none)).canBid).toBe(true);
+    expect(evaluateEligibility(rules("GOOD:STRICT"), profile(none)).canBid).toBe(false);
+  });
+  it("blocks a low band and passes a strong one", () => {
+    expect(evaluateEligibility(rules("GOOD"), profile(watch)).canBid).toBe(false);
+    expect(evaluateEligibility(rules("STRONG"), profile(strong)).canBid).toBe(true);
+    expect(ratingRuleMet("GOOD", watch).met).toBe(false);
+  });
+});
+
+describe("owner payment practice", () => {
+  const d = (s: string) => new Date(s);
+  it("needs three paid invoices from two suppliers", () => {
+    expect(paymentPractice([{ awardedOrganizationId: "s1", dueDate: d("2026-01-10"), paidDate: d("2026-01-09") }]).sufficient).toBe(false);
+    expect(paymentPractice(["a", "a", "a"].map((s) => ({ awardedOrganizationId: s, dueDate: d("2026-01-10"), paidDate: d("2026-01-09") }))).sufficient).toBe(false);
+  });
+  it("reports share paid by the due date and average days late", () => {
+    const p = paymentPractice([
+      { awardedOrganizationId: "s1", dueDate: d("2026-01-10"), paidDate: d("2026-01-10") },
+      { awardedOrganizationId: "s2", dueDate: d("2026-01-10"), paidDate: d("2026-01-20") },
+      { awardedOrganizationId: "s2", dueDate: d("2026-01-10"), paidDate: d("2026-01-05") },
+      { awardedOrganizationId: "s2", dueDate: d("2026-01-10"), paidDate: null },
+    ]);
+    expect(p.sufficient).toBe(true);
+    expect(p.payments).toBe(3);
+    expect(p.paidOnTimePercent).toBe(67);
+    expect(p.averageDaysLate).toBe(3);
+  });
+});

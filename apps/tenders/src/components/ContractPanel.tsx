@@ -5,6 +5,7 @@ import { CONTRACT_FILE_KIND_LABELS, CONTRACT_STATUS_LABELS } from "@universe/typ
 import type { TenderContractView, TenderContractsForTender } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
+import { CloseContractForm, PaymentLog, PerformanceCard } from "./PerformancePanel";
 import { Card, ErrorNote, Field, fmtDate, fmtDateTime, inputStyle } from "../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -56,7 +57,6 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
   const [ms, setMs] = useState({ title: "", dueDate: "" });
   const [sg, setSg] = useState({ signerName: "", signerRole: "", signedOn: new Date().toISOString().slice(0, 10) });
   const [fileMeta, setFileMeta] = useState({ kind: awaiting || active ? "SIGNED" : "DRAFT", title: "", note: "" });
-  const [close, setClose] = useState({ outcome: "COMPLETED", note: "" });
   const fileRef = useRef<HTMLInputElement>(null);
   // The sensible default file type follows the contract stage: a draft first, then the signed copy.
   useEffect(() => { setFileMeta((m) => ({ ...m, kind: c.status === "DRAFT" ? "DRAFT" : m.kind === "DRAFT" ? "SIGNED" : m.kind })); }, [c.status]);
@@ -170,17 +170,10 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
             : <><Button disabled={busy} onClick={() => act(async () => { const r = await apiClient.createContractProject(c.id); window.open(`${PM_URL}/projects/detail?id=${r.projectId}`, "_blank", "noopener"); return undefined; })}>Create my delivery project</Button><span style={{ marginLeft: 10, fontSize: 13, ...muted }}>Creates a Project Management project with a line for each item awarded to you.</span></>}
         </div>
       )}
-      {active && issuer && (
-        <div style={{ marginTop: 18, display: "grid", gap: 8, maxWidth: 640 }}>
-          <h4 style={{ margin: 0, fontSize: 14 }}>Close the contract</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, 220px) 1fr", gap: 8 }}>
-            <Select ariaLabel="Outcome" value={close.outcome} onChange={(v) => setClose({ ...close, outcome: v })} options={[{ value: "COMPLETED", label: "Completed" }, { value: "TERMINATED", label: "Terminated early" }]} />
-            <input style={inputStyle} aria-label="Closing note" placeholder="Closing note (required)" value={close.note} onChange={(e) => setClose({ ...close, note: e.target.value })} />
-          </div>
-          <div><Button variant="secondary" disabled={busy || !close.note.trim()} onClick={() => { if (window.confirm("Close this contract? This cannot be undone.")) void act(() => apiClient.closeTenderContract(c.id, close)); }}>Close contract</Button></div>
-        </div>
-      )}
+      {active && issuer && <CloseContractForm c={c} busy={busy} act={act} />}
       {closed && <p style={{ marginBottom: 0, fontSize: 14 }}>Closed {c.closedAt ? fmtDate(c.closedAt) : ""}{c.closeNote ? `: ${c.closeNote}` : ""}</p>}
+      {c.performance && <PerformanceCard p={c.performance} issuer={issuer} busy={busy} act={act} />}
+      {(active || closed) && <PaymentLog c={c} busy={busy} act={act} />}
     </Card>
   );
 }

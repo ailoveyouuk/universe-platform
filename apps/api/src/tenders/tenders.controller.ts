@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuard
 import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
 import { TenderContractsService } from "./tender-contracts.service";
+import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { TenderComplianceService } from "./tender-compliance.service";
@@ -9,14 +10,14 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -105,6 +106,16 @@ export class TendersController {
   @Post("contracts/:cid/signatories") addSignatory(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ContractSignatoryDto) { return this.contracts.recordSignatory(u, cid, dto); }
   @Delete("contracts/:cid/signatories/:sid") removeSignatory(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("sid") sid: string) { return this.contracts.removeSignatory(u, cid, sid); }
   @Post("contracts/:cid/project") contractProject(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.contracts.createProject(u, cid); }
+
+  // ---- performance records (step 6) and the manual payment log
+  @Get("performance/mine") myPerformance(@CurrentUser() u: RequestUser) { return this.performance.mine(u); }
+  @Get("performance/supplier/:orgId") supplierPerformance(@CurrentUser() u: RequestUser, @Param("orgId") orgId: string) { return this.performance.supplierSummary(u, orgId); }
+  @Get("performance/owner/:orgId/payments") ownerPayments(@CurrentUser() u: RequestUser, @Param("orgId") orgId: string) { return this.performance.ownerPractice(u, orgId); }
+  @Post("performance/:rid/respond") respondPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceResponseDto) { return this.performance.respond(u, rid, dto); }
+  @Post("performance/:rid/answer") answerPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceAnswerDto) { return this.performance.answer(u, rid, dto); }
+  @Post("performance/:rid/withdraw") withdrawPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceAnswerDto) { return this.performance.withdraw(u, rid, dto.body); }
+  @Post("contracts/:cid/payments") addPayment(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ContractPaymentDto) { return this.performance.addPayment(u, cid, dto); }
+  @Patch("contracts/:cid/payments/:pid") updatePayment(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("pid") pid: string, @Body() dto: ContractPaymentUpdateDto) { return this.performance.updatePayment(u, cid, pid, dto); }
   @Post(":id/addenda") addendum(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AddendumDto) { return this.compliance.createAddendum(u, id, dto); }
   @Post(":id/screenings") screening(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ScreeningDto) { return this.compliance.recordScreening(u, id, dto); }
   @Get(":id/timeline/verify") verify(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.compliance.verifyTimeline(u, id); }

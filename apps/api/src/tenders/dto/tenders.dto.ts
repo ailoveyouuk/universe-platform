@@ -247,7 +247,38 @@ export class ContractSignatoryDto {
   @IsOptional() @IsString() @Length(0, 200) signerRole?: string;
   @IsDateString() signedOn!: string;
 }
+export class OwnerFeedbackDto {
+  @IsInt() @Min(1) @Max(5) quality!: number;
+  @IsInt() @Min(1) @Max(5) communication!: number;
+  @IsInt() @Min(1) @Max(5) documentation!: number;
+  @IsInt() @Min(1) @Max(5) flexibility!: number;
+  @IsInt() @Min(1) @Max(5) wouldUseAgain!: number;
+  /** A one-line reason for each rating of 1 or 2, keyed by the rating name. */
+  @IsOptional() reasons?: Record<string, string>;
+  @IsOptional() @IsString() @Length(0, 1000) comment?: string;
+}
 export class CloseContractDto {
   @IsIn(["COMPLETED", "TERMINATED"]) outcome!: string;
   @IsString() @Length(1, 2000) note!: string;
+  @IsOptional() @ValidateNested() @Type(() => OwnerFeedbackDto) feedback?: OwnerFeedbackDto;
+}
+export class PerformanceResponseDto {
+  @IsIn(["REPLY", "DISPUTE"]) kind!: string;
+  @IsOptional() @IsString() @Length(1, 50) measureKey?: string;
+  @IsString() @Length(1, 2000) body!: string;
+}
+export class PerformanceAnswerDto { @IsString() @Length(1, 2000) body!: string }
+export class ContractPaymentDto {
+  @IsString() @Length(1, 100) reference!: string;
+  @IsOptional() @IsString() @Length(0, 300) description?: string;
+  @IsNumber() @Min(0) amount!: number;
+  @IsOptional() @IsString() @Length(3, 3) currency?: string;
+  @IsOptional() @IsDateString() invoiceDate?: string;
+  @IsDateString() dueDate!: string;
+  @IsOptional() @IsDateString() paidDate?: string | null;
+}
+export class ContractPaymentUpdateDto {
+  @IsOptional() @IsDateString() dueDate?: string;
+  @IsOptional() @IsDateString() paidDate?: string | null;
+  @IsOptional() @IsString() @Length(0, 300) description?: string;
 }

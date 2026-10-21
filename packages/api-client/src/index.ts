@@ -39,7 +39,7 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationAccessList,
-  TenderContractsForTender,
+  TenderContractsForTender, MyPerformanceItem, SupplierPerformanceSummary, PaymentPracticeSummary,
   OrganizationDetail,
   FieldChangeFeedPage,
   PermissionSummary,
@@ -388,7 +388,14 @@ export class UniverseApiClient {
   addContractMilestone(cid: string, body: { title: string; dueDate?: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/milestones`, { method: "POST", body: JSON.stringify(body) }); }
   updateContractMilestone(cid: string, mid: string, body: { status?: string; notes?: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/milestones/${mid}`, { method: "PATCH", body: JSON.stringify(body) }); }
   sendTenderContract(cid: string): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/send`, { method: "POST" }); }
-  closeTenderContract(cid: string, body: { outcome: string; note: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/close`, { method: "POST", body: JSON.stringify(body) }); }
+  closeTenderContract(cid: string, body: { outcome: string; note: string; feedback?: { quality: number; communication: number; documentation: number; flexibility: number; wouldUseAgain: number; reasons?: Record<string, string>; comment?: string } }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/close`, { method: "POST", body: JSON.stringify(body) }); }
+  myPerformance(): Promise<MyPerformanceItem[]> { return this.request(`/tenders/performance/mine`); }
+  supplierPerformance(orgId: string): Promise<SupplierPerformanceSummary> { return this.request(`/tenders/performance/supplier/${orgId}`); }
+  ownerPaymentPractice(orgId: string): Promise<PaymentPracticeSummary> { return this.request(`/tenders/performance/owner/${orgId}/payments`); }
+  respondToPerformance(rid: string, body: { kind: "REPLY" | "DISPUTE"; measureKey?: string; body: string }): Promise<{ ok: boolean; tenderId: string }> { return this.request(`/tenders/performance/${rid}/respond`, { method: "POST", body: JSON.stringify(body) }); }
+  answerPerformanceDispute(rid: string, body: string): Promise<{ ok: boolean; tenderId: string }> { return this.request(`/tenders/performance/${rid}/answer`, { method: "POST", body: JSON.stringify({ body }) }); }
+  addContractPayment(cid: string, body: { reference: string; description?: string; amount: number; currency?: string; invoiceDate?: string; dueDate: string; paidDate?: string }): Promise<{ tenderId: string }> { return this.request(`/tenders/contracts/${cid}/payments`, { method: "POST", body: JSON.stringify(body) }); }
+  updateContractPayment(cid: string, pid: string, body: { dueDate?: string; paidDate?: string | null; description?: string }): Promise<{ tenderId: string }> { return this.request(`/tenders/contracts/${cid}/payments/${pid}`, { method: "PATCH", body: JSON.stringify(body) }); }
   async uploadContractFile(cid: string, file: File, meta: { kind: string; title: string; note?: string }): Promise<TenderContractsForTender> {
     const up = await this.request<{ uploadUrl: string; blobName: string }>(`/tenders/contracts/${cid}/files/upload-url`, { method: "POST", body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSizeBytes: file.size }) });
     await this.uploadDocumentFile(up.uploadUrl, file);

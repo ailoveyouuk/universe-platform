@@ -103,6 +103,23 @@ describe("Tender row-level security", () => {
     expect(await withTenantContext(partB, (tx) => tx.tenderEvent.count({ where: { tenderId: openId } }))).toBe(0);
     await expect(withTenantContext(partB, (tx) => tx.tenderEvent.create({ data: { organizationId: issuer, counterpartyOrganizationId: partA, tenderId: openId, actorOrganizationId: partB, kind: "FORGED", summary: "no" } }))).rejects.toThrow();
   });
+  it("a performance record, its responses and the payment log are shared by the issuer and the awarded supplier only", async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const c = await withTenantContext(issuer, (tx) => tx.tenderContract.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, awardId: randomUUID(), reference: `CON-P-${suffix}`, title: "Contract", status: "COMPLETED" } }));
+    const rec = await withTenantContext(issuer, (tx) => tx.tenderPerformanceRecord.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, outcome: "COMPLETED", closedAt: new Date(), measuresJson: "[]", band: "NOT_ENOUGH_DATA", replyDeadline: new Date() } }));
+    await withTenantContext(partA, (tx) => tx.tenderPerformanceResponse.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, recordId: rec.id, kind: "REPLY", body: "Noted", byOrganizationId: partA } }));
+    await withTenantContext(partA, (tx) => tx.tenderContractPayment.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, reference: "INV-1", amount: 10, dueDate: new Date(), recordedByOrganizationId: partA } }));
+    for (const org of [issuer, partA]) {
+      expect(await withTenantContext(org, (tx) => tx.tenderPerformanceRecord.count({ where: { id: rec.id } }))).toBe(1);
+      expect(await withTenantContext(org, (tx) => tx.tenderPerformanceResponse.count({ where: { recordId: rec.id } }))).toBe(1);
+      expect(await withTenantContext(org, (tx) => tx.tenderContractPayment.count({ where: { contractId: c.id } }))).toBe(1);
+    }
+    expect(await withTenantContext(partB, (tx) => tx.tenderPerformanceRecord.count({ where: { id: rec.id } }))).toBe(0);
+    expect(await withTenantContext(partB, (tx) => tx.tenderPerformanceResponse.count({ where: { recordId: rec.id } }))).toBe(0);
+    expect(await withTenantContext(partB, (tx) => tx.tenderContractPayment.count({ where: { contractId: c.id } }))).toBe(0);
+    await expect(withTenantContext(partB, (tx) => tx.tenderContractPayment.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, reference: "X", amount: 1, dueDate: new Date(), recordedByOrganizationId: partB } }))).rejects.toThrow();
+  });
+
   it("a contract is shared by the issuer and the awarded supplier only; the supplier may write to it, a third party may not read or write", async () => {
     const awardId = randomUUID();
     const c = await withTenantContext(issuer, (tx) => tx.tenderContract.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, awardId, reference: `CON-${suffix}`, title: "Contract" } }));

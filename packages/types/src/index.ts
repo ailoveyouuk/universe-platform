@@ -3266,7 +3266,7 @@ export interface ExportCapabilities {
 export type TenderStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "EVALUATING" | "AWARDED" | "CONTRACTED" | "CANCELLED";
 export type TenderType = "RFQ" | "RFP" | "ITT" | "OPEN_TENDER" | "FRAMEWORK";
 export type TenderVisibility = "ELIGIBLE_ORGANISATIONS" | "ALL_REGISTERED" | "INVITED_ONLY";
-export type TenderRuleType = "ORG_TYPE" | "COUNTRY" | "CATEGORY" | "QUALIFICATION" | "EXCLUDED_ORG";
+export type TenderRuleType = "ORG_TYPE" | "COUNTRY" | "CATEGORY" | "QUALIFICATION" | "EXCLUDED_ORG" | "MIN_SUPPLIER_RATING";
 
 export interface TenderRecord {
   id: string; organizationId: string; referenceNumber: string; title: string; summary: string | null; tenderType: TenderType; visibility: TenderVisibility;
@@ -3299,7 +3299,26 @@ export interface TenderContractView {
   files: { id: string; kind: string; version: number; title: string; fileName: string; fileSizeBytes: number | null; uploadedBy: string | null; uploadedAt: string; note: string | null }[];
   signatories: { id: string; party: "ISSUER" | "SUPPLIER"; signerName: string; signerRole: string | null; signedOn: string; own: boolean }[];
   signature: { status: "NOT_STARTED" | "AWAITING" | "PARTLY_SIGNED" | "EXECUTED"; missing: string[] };
+  performance: PerformanceRecordView | null;
+  payments: ContractPaymentView[];
 }
+/** Step 6 (2026-10-21): the frozen performance record for a closed contract, and the manual payment log. */
+export interface OwnerFeedback { quality: number; communication: number; documentation: number; flexibility: number; wouldUseAgain: number; reasons: Record<string, string>; comment: string | null }
+export const FEEDBACK_LABELS: Record<string, string> = { quality: "Quality of goods", communication: "Communication", documentation: "Documentation", flexibility: "Flexibility", wouldUseAgain: "Would use again" };
+export interface PerformanceRecordView {
+  id: string; contractId: string; outcome: string; closedAt: string; overallScore: number | null; band: string; coverage: number;
+  measures: ScorecardMetric[]; feedback: OwnerFeedback | null; feedbackAverage: number | null;
+  replyDeadline: string; canRespond: boolean; withdrawn: boolean; withdrawnReason: string | null; openDisputes: number;
+  responses: { id: string; kind: "REPLY" | "DISPUTE" | "ANSWER"; measureKey: string | null; body: string; own: boolean; createdAt: string }[];
+}
+export interface ContractPaymentView {
+  id: string; contractId: string; reference: string; description: string | null; amount: number | null; currency: string | null; invoiceDate: string | null; dueDate: string; paidDate: string | null;
+  status: "PAID_ON_TIME" | "PAID_LATE" | "OVERDUE" | "OPEN"; recordedBy: "you" | "the other party";
+}
+export interface MyPerformanceItem { id: string; contractId: string; tenderId: string; contractReference: string | null; title: string | null; role: "SUPPLIER" | "ISSUER"; counterpartyName: string | null; outcome: string; closedAt: string; overallScore: number | null; band: string; coverage: number; feedbackAverage: number | null; replyDeadline: string }
+export type SupplierBandName = "STRONG" | "GOOD" | "WATCH" | "INSUFFICIENT_HISTORY";
+export interface SupplierPerformanceSummary { sufficient: boolean; band: SupplierBandName; contracts: number | null; owners: number | null; milestonesMetPercent: number | null; onTimePercent: number | null; inFullPercent: number | null; averageScore: number | null }
+export interface PaymentPracticeSummary { sufficient: boolean; payments: number | null; paidOnTimePercent: number | null; averageDaysLate: number | null }
 export interface TenderContractsForTender {
   role: "ISSUER" | "SUPPLIER"; standstillEndsAt: string | null; openComplaints: number;
   contracts: TenderContractView[]; awardsWithoutContract: { awardId: string; supplierName: string | null }[];

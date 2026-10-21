@@ -1,5 +1,6 @@
 "use client";
 
+import { OwnerPaymentPractice } from "../../../components/PerformancePanel";
 import { DocumentList } from "../../../components/TenderDocuments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -50,6 +51,7 @@ export function TenderView() {
           {participating && <Link href={`/bids/edit?id=${id}`} style={{ textDecoration: "none" }}><Button variant="primary">{open ? "Open my bid" : "View my bid"}</Button></Link>}
         </>} />
       <ErrorNote message={err} />
+      <div><OwnerPaymentPractice ownerId={t.organizationId} /></div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{v.eligibility.chips.map((c) => <Pill key={c} tone={CHIP_TONE[c] ?? "neutral"}>{CHIP_LABEL[c] ?? c}</Pill>)}</div>
 
       {t.summary && <Card><p style={{ margin: 0, lineHeight: 1.6 }}>{t.summary}</p></Card>}

@@ -282,6 +282,7 @@ export function describeRule(r: TenderRuleRecord): string {
     case "COUNTRY": return `You must be registered, operating or distributing in ${v.join(" or ")}.`;
     case "CATEGORY": return `You must supply or manufacture products in ${v.join(" or ")}.`;
     case "QUALIFICATION": return `You must hold ${v.map((x) => QUALIFICATIONS.find((q) => q.value === x)?.label ?? x).join(" and ")}.`;
+    case "MIN_SUPPLIER_RATING": return `Your platform performance rating must be ${r.ruleValue.startsWith("STRONG") ? "Strong" : "Good or better"}${r.ruleValue.endsWith(":STRICT") ? "." : ", or you have no history yet."}`;
     default: return "This organisation is excluded from the tender.";
   }
 }
@@ -291,11 +292,11 @@ function Eligibility({ detail, onSaved }: { detail: TenderDetailForIssuer; onSav
   const [rules, setRules] = useState<TenderRuleRecord[]>(detail.rules.map(cleanRule));
   const s = useSaver(onSaved);
   const upd = (i: number, p: Partial<TenderRuleRecord>) => setRules((r) => r.map((x, j) => (j === i ? { ...x, ...p } : x)));
-  const add = (ruleType: TenderRuleType) => setRules((r) => [...r, { ruleType, ruleValue: "", explanation: null, isRequired: true }]);
+  const add = (ruleType: TenderRuleType) => setRules((r) => [...r, { ruleType, ruleValue: ruleType === "MIN_SUPPLIER_RATING" ? "GOOD" : "", explanation: null, isRequired: true }]);
   const toggle = (i: number, v: string) => { const cur = new Set(rules[i].ruleValue.split(",").filter(Boolean)); cur.has(v) ? cur.delete(v) : cur.add(v); upd(i, { ruleValue: [...cur].join(",") }); };
 
   return (
-    <Card title="Who can bid" action={<div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{(["ORG_TYPE", "COUNTRY", "CATEGORY", "QUALIFICATION"] as TenderRuleType[]).map((t) => <Button key={t} size="sm" onClick={() => add(t)}>+ {RULE_LABEL[t]}</Button>)}</div>}>
+    <Card title="Who can bid" action={<div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{(["ORG_TYPE", "COUNTRY", "CATEGORY", "QUALIFICATION", "MIN_SUPPLIER_RATING"] as TenderRuleType[]).map((t) => <Button key={t} size="sm" onClick={() => add(t)}>+ {RULE_LABEL[t]}</Button>)}</div>}>
       <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5, lineHeight: 1.5 }}>Every registered organisation can see your tender. These rules decide who may bid and are checked against each organisation's Universe profile, never self-declared. Organisations that do not yet qualify see exactly what to do to qualify. Invited organisations may always bid. With no rules, every organisation is eligible.</p>
       <ErrorNote message={s.err} />
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -306,6 +307,13 @@ function Eligibility({ detail, onSaved }: { detail: TenderDetailForIssuer; onSav
             {r.ruleType === "COUNTRY" && <CountryMultiSelect value={r.ruleValue.split(",").filter(Boolean)} onChange={(c) => upd(i, { ruleValue: c.join(",") })} options={countries} />}
             {r.ruleType === "CATEGORY" && <input style={inputStyle} value={r.ruleValue} onChange={(e) => upd(i, { ruleValue: e.target.value })} placeholder="e.g. Pharmaceuticals or Pharmaceuticals.Antimalarials (comma separated)" />}
             {r.ruleType === "QUALIFICATION" && <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{QUALIFICATIONS.map((q) => <label key={q.value} style={{ display: "flex", gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={r.ruleValue.split(",").includes(q.value)} onChange={() => toggle(i, q.value)} />{q.label}</label>)}</div>}
+            {r.ruleType === "MIN_SUPPLIER_RATING" && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{[["GOOD", "Good or better"], ["STRONG", "Strong"]].map(([v, l]) => <label key={v} style={{ display: "flex", gap: 6, fontSize: 13.5 }}><input type="radio" name={`rating-${i}`} checked={r.ruleValue.split(":")[0] === v} onChange={() => upd(i, { ruleValue: `${v}${r.ruleValue.endsWith(":STRICT") ? ":STRICT" : ""}` })} />{l}</label>)}</div>
+                <label style={{ display: "flex", gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={!r.ruleValue.endsWith(":STRICT")} onChange={(e) => upd(i, { ruleValue: `${r.ruleValue.split(":")[0]}${e.target.checked ? "" : ":STRICT"}` })} />Allow organisations with no history yet (recommended: otherwise newcomers and small local suppliers are locked out)</label>
+                <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Based on closed contracts on Universe, shown only once there are at least 3 from 2 tender owners.</span>
+              </div>
+            )}
             <label style={{ display: "flex", gap: 8, fontSize: 13.5 }}><input type="checkbox" checked={r.isRequired} onChange={(e) => upd(i, { isRequired: e.target.checked })} /> Required to bid (untick for advisory)</label>
             <Field label="Message to organisations that do not meet it (optional)"><input style={inputStyle} value={r.explanation ?? ""} onChange={(e) => upd(i, { explanation: e.target.value || null })} maxLength={500} /></Field>
             {r.ruleValue && <div style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Bidders see: <em>{describeRule(r)}</em></div>}

@@ -211,6 +211,19 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_signatories AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_signatories AFTER UPDATE,
 
+    -- Performance records (step 6, 2026-10-21): shared by the issuer and the awarded supplier; the anonymised aggregate is computed server-side only.
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_performance_records,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_performance_records AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_performance_records AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_performance_responses,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_performance_responses AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_performance_responses AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_contract_payments,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_payments AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_payments AFTER UPDATE,
+
     -- Private to the owning organisation.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists AFTER INSERT,

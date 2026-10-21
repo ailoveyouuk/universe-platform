@@ -4171,3 +4171,88 @@ model TenderContractSignatory {
   @@index([contractId])
   @@map("tender_contract_signatories")
 }
+
+/// Step 6 (2026-10-21): the frozen performance record for one closed contract. Shared by the issuer and the awarded supplier (two-party RLS).
+/// Measures are a snapshot taken at close; the flat columns exist so the anonymised supplier aggregate can be computed without parsing JSON.
+model TenderPerformanceRecord {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  contractId            String    @unique
+  /// COMPLETED or TERMINATED
+  outcome               String    @db.NVarChar(20)
+  closedAt              DateTime
+  /// JSON array of ScorecardMetric-shaped measures (key, label, display, score, status, weight, detail, coverage).
+  measuresJson          String    @db.NVarChar(Max)
+  overallScore          Int?
+  /// STRONG, SATISFACTORY, WATCH, AT_RISK, NOT_ENOUGH_DATA
+  band                  String    @db.NVarChar(30)
+  coverage              Int       @default(0)
+  milestonesTotal       Int       @default(0)
+  milestonesOnTime      Int       @default(0)
+  /// Null when the delivery project was not created or has no marked deliveries.
+  onTimePercent         Int?
+  inFullPercent         Int?
+  otifPercent           Int?
+  /// Owner feedback, 1 to 5 each; JSON object of {quality, communication, documentation, flexibility, wouldUseAgain} plus reasons, and a comment.
+  feedbackJson          String?   @db.NVarChar(Max)
+  feedbackAverage       Decimal?  @db.Decimal(4, 2)
+  /// The supplier may reply or dispute until this date; feedback is locked once a reply exists.
+  replyDeadline         DateTime
+  /// Set by platform staff only, for evident error or abuse.
+  withdrawnAt           DateTime?
+  withdrawnReason       String?   @db.NVarChar(1000)
+  createdById           String?
+  createdAt             DateTime  @default(now())
+
+  @@index([tenderId])
+  @@index([awardedOrganizationId])
+  @@index([organizationId])
+  @@map("tender_performance_records")
+}
+
+/// Supplier reply or dispute on a record, and the owner's answer to a dispute.
+model TenderPerformanceResponse {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  recordId              String
+  /// REPLY, DISPUTE (supplier); ANSWER (owner)
+  kind                  String   @db.NVarChar(20)
+  /// For a dispute, the measure disputed (for example "milestones").
+  measureKey            String?  @db.NVarChar(50)
+  body                  String   @db.NVarChar(2000)
+  byOrganizationId      String
+  byUserId              String?
+  createdAt             DateTime @default(now())
+
+  @@index([recordId])
+  @@map("tender_performance_responses")
+}
+
+/// Manual payment log on a contract. Organisations run their own finance systems, so either party records invoices and when they were paid;
+/// nothing is read from, or written to, a finance system. Used for the anonymised owner payment-practice aggregate.
+model TenderContractPayment {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  contractId            String
+  reference             String    @db.NVarChar(100)
+  description           String?   @db.NVarChar(300)
+  amount                Decimal   @db.Decimal(18, 2)
+  currency              String?   @db.Char(3)
+  invoiceDate           DateTime?
+  dueDate               DateTime
+  paidDate              DateTime?
+  recordedByOrganizationId String
+  recordedById          String?
+  recordedAt            DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([contractId])
+  @@index([organizationId])
+  @@map("tender_contract_payments")
+}

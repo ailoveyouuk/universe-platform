@@ -6,6 +6,7 @@ import { assertHasPermission } from "../common/authorization";
 import { BlobStorageService } from "../documents/blob-storage.service";
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
+import { TenderPerformanceService } from "./tender-performance.service";
 import type { CloseContractDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto } from "./dto/tenders.dto";
 
 type Party = "ISSUER" | "SUPPLIER";
@@ -24,7 +25,7 @@ const num = (v: unknown) => (v == null ? null : Number(v));
  */
 @Injectable()
 export class TenderContractsService {
-  constructor(private readonly tenders: TendersService, private readonly blob: BlobStorageService) {}
+  constructor(private readonly tenders: TendersService, private readonly blob: BlobStorageService, private readonly performance: TenderPerformanceService) {}
 
   // ------------------------------------------------------------------ helpers
 
@@ -58,6 +59,7 @@ export class TenderContractsService {
       const contracts = await tx.tenderContract.findMany({ where: { tenderId, ...(issuerSide ? {} : { awardedOrganizationId: user.organizationId }) }, orderBy: { createdAt: "asc" } });
       const awards = issuerSide ? await tx.tenderAward.findMany({ where: { tenderId } }) : [];
       const ids = contracts.map((c) => c.id);
+      const [perf, payments] = await Promise.all([this.performance.shape(tx, ids, user.organizationId), this.performance.payments(tx, ids, user.organizationId)]);
       const [milestones, files, signatories] = await Promise.all([
         tx.tenderContractMilestone.findMany({ where: { contractId: { in: ids } }, orderBy: [{ sortOrder: "asc" }, { dueDate: "asc" }] }),
         tx.tenderContractFile.findMany({ where: { contractId: { in: ids } }, orderBy: { uploadedAt: "asc" } }),
@@ -84,6 +86,7 @@ export class TenderContractsService {
             milestones: milestones.filter((m) => m.contractId === c.id).map((m) => ({ id: m.id, title: m.title, dueDate: m.dueDate, status: m.status, completedAt: m.completedAt, notes: m.notes })),
             files: f.map((x) => ({ id: x.id, kind: x.kind, version: x.version, title: x.title, fileName: x.fileName, fileSizeBytes: x.fileSizeBytes, uploadedBy: names.get(x.uploadedByOrganizationId) ?? null, uploadedAt: x.uploadedAt, note: x.note })),
             signatories: s.map((x) => ({ id: x.id, party: x.party, signerName: x.signerName, signerRole: x.signerRole, signedOn: x.signedOn, own: x.recordedByOrganizationId === user.organizationId })),
+            performance: perf.get(c.id) ?? null, payments: payments.filter((p) => p.contractId === c.id),
             signature: { status: c.status === "DRAFT" ? "NOT_STARTED" : missing.length === 0 ? "EXECUTED" : missing.length === 3 ? "AWAITING" : "PARTLY_SIGNED", missing },
           };
         }),
@@ -184,16 +187,26 @@ export class TenderContractsService {
   }
 
   async close(user: RequestUser, contractId: string, dto: CloseContractDto) {
-    const c = await withTenantContext(user.organizationId, async (tx) => {
+    this.performance.checkFeedback(dto.feedback);
+    // Read first (owner's settings, milestones, the supplier's delivery facts), then write the contract and its frozen performance record together.
+    const prep = await withTenantContext(user.organizationId, async (tx) => {
       const { c, party } = await this.load(tx, user, contractId);
       if (party !== "ISSUER") throw new ForbiddenException("Only the tender owner closes the contract.");
       this.need(user, party);
       if (c.status !== "ACTIVE") throw new ConflictException("Only an active contract can be closed.");
-      await tx.tenderContract.update({ where: { id: c.id }, data: { status: dto.outcome, closedAt: new Date(), closeNote: dto.note.trim() } });
+      return this.performance.prepare(tx, user.organizationId, c);
+    });
+    const c = await withTenantContext(user.organizationId, async (tx) => {
+      const { c } = await this.load(tx, user, contractId);
+      if (c.status !== "ACTIVE") throw new ConflictException("Only an active contract can be closed.");
+      const closedAt = new Date();
+      await tx.tenderContract.update({ where: { id: c.id }, data: { status: dto.outcome, closedAt, closeNote: dto.note.trim() } });
+      await this.performance.createRecord(tx, user, c, dto.outcome, closedAt, prep, dto.feedback);
       return c;
     });
     await this.event(c, user, "CONTRACT_CLOSED", `Contract ${c.reference} ${dto.outcome === "COMPLETED" ? "completed" : "terminated"}`, { note: dto.note.trim() });
-    await this.tell(c, [c.awardedOrganizationId], `Contract ${dto.outcome === "COMPLETED" ? "completed" : "terminated"}: ${c.reference}`, dto.note.trim(), user.id);
+    await this.event(c, user, "PERFORMANCE_RECORDED", `Performance record created for contract ${c.reference}; the supplier has 14 days to reply`);
+    await this.tell(c, [c.awardedOrganizationId], `Contract ${dto.outcome === "COMPLETED" ? "completed" : "terminated"}: ${c.reference}`, `${dto.note.trim()} A performance record is ready for you to review; you have 14 days to reply or dispute a measure.`, user.id);
     return this.forTender(user, c.tenderId);
   }
 

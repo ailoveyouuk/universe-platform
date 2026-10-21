@@ -1,3 +1,4 @@
+import { supplierAggregate } from "./tender-performance";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
@@ -93,6 +94,7 @@ export class TendersService {
     return {
       organizationId, orgType: org?.type ?? "", countries: [...countries], categories: [...categories],
       qualifications: [...qualifications], hasProfileEvidence: !!mfr || products.length > 0,
+      performance: await supplierAggregate(organizationId),
     };
   }
 

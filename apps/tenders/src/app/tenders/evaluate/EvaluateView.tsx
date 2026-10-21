@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import type { EvalBid, EvalCriterion, EvaluationOverview } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
+import { PastPerformance } from "../../../components/PerformancePanel";
 import { Card, ErrorNote, Field, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -67,6 +68,7 @@ export function EvaluateView() {
       )}
 
       {(o.phase === "SCORED" || o.phase === "AWARDED") && <Results o={o} />}
+      {(o.phase === "SCORED" || o.phase === "AWARDED") && o.bids.length > 0 && <PastPerformanceCard o={o} />}
       {o.phase === "SCORED" && v.isIssuer && <AwardForm o={o} id={id} act={act} busy={busy} />}
       {o.phase === "AWARDED" && <Awarded o={o} id={id} act={act} busy={busy} />}
     </Page>
@@ -178,6 +180,10 @@ function BidScoring({ b, o, id, act, busy }: { b: EvalBid; o: EvaluationOverview
       </div>}
     </Card>
   );
+}
+
+function PastPerformanceCard({ o }: { o: EvaluationOverview }) {
+  return <Card title="Past performance on Universe"><PastPerformance bidders={o.bids.map((b) => ({ organizationId: b.organizationId, organizationName: b.organizationName }))} /></Card>;
 }
 
 function Results({ o }: { o: EvaluationOverview }) {
