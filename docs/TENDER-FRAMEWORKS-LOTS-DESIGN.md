@@ -36,6 +36,25 @@ New: `TenderLot` (tender, number, title, rules), lot id on lines and bid lines, 
 6. **Framework ceiling:** is a maximum value needed in version 1, and should it be enforced (block a call-off above the remaining ceiling) or only warned?
 7. **Call-off approvals:** any user with the award permission raises a call-off, or add a second-person approval above a value you set?
 
+## 5a. Lewis's decisions (2026-10-21)
+1. **Order:** lots first, then frameworks.
+2. **Lot bidding:** bid on any lots. No maximum-lots rule and no per-supplier award cap.
+3. **Award:** several suppliers can win in one lot, but each item goes to exactly one supplier (100%). Split shares are blocked on tenders with lots.
+4. **Standstill:** one award event, one standstill after it (Claude's recommendation).
+5. **Call-off methods v1:** direct award to first-ranked, and rotation; mini-competition added afterwards (Claude's recommendation).
+6. **Framework pricing:** taken from the supplier's submitted bid, with a price-hold period (for example 90 days) after which a line-level price review can be negotiated. The ceiling stays warn-only.
+7. **Call-off approval:** thresholds with a second authoriser above them. No single published "accepted insurer practice" exists, so tiers are configurable per organisation with flagged defaults for Lewis to confirm.
+
+Contracts for a multi-lot award: one per supplier with a milestone per lot (Claude's recommendation, not contradicted).
+
+## 5b. Lots: what was built (2026-10-21)
+- Builder: lot number plus one shared lot title per lot; once any item has a lot, all must (server-enforced).
+- Bid: items grouped by lot with "Not bidding for this lot". A lot must be priced in full or not bid at all (checklist rule).
+- Evaluation: "Results by lot". Price and lead time are scored on the lot's own items; gates, evaluator scores and past performance stay tender-wide. Only bidders who priced the whole lot are listed.
+- Award: "Award by item", defaulting each item to the lot's rank 1; change per item to split a lot. One award decision, one standstill.
+- Debrief: each bidder sees its own rank, score and items won per lot (`tender_debriefs.lotsJson`, migration 20261021180000).
+- Not yet: automatic milestone per lot at contract creation, and the Excel bid template has no lot column (lots are enforced when the draft is checked).
+
 ## 6. Build plan once approved
 1. Lots: schema and builder; bid form and completeness per lot; evaluation and results per lot; award, debriefs and contracts; tests; demo lots on a new simulated tender.
 2. Framework terms and agreement (reusing the contract card); call-off model with direct award and rotation; supplier accept/decline and project handover; ceiling tracking; tests; demo framework.

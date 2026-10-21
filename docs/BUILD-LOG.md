@@ -697,3 +697,10 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Prod step for Lewis:** the regenerated one-paste RLS SQL now also covers `tender_contract_quality_links`.
 - **Note:** the stray Andean draft (TND-2026-0001) now carries a Strong rating rule and a past-performance criterion from this test.
 
+
+## 2026-10-21 (late): step 7 part 1, lots
+- **Decisions:** recorded in `TENDER-FRAMEWORKS-LOTS-DESIGN.md` section 5a.
+- **Built:** lot titles and all-or-nothing lot rule in the builder; bid form grouped by lot with "Not bidding for this lot"; `checkBid` lot rule; per-lot results in `results()` and the Evaluate page; per-item "Award by item" form with server rule that shares are 100% on lots tenders; per-lot debrief (`lotsJson`, migration `20261021180000_tender_debrief_lots`, RLS unchanged); status page shows by-lot outcome.
+- **Demo:** `seed-demo-lots` workflow (dry run default) split SIM-TND-003 into Lot 1 (items 1-2) and Lot 2 (item 3). SIM-TND-003 was left unawarded.
+- **Verified live:** Evaluate page for SIM-TND-003 shows Results by lot (different scores per lot) and Award by item defaulting. The award itself was not submitted so the demo tender stays open for walkthroughs. Unit tests: `test/tender-lots.test.ts` (3).
+- **Not done:** auto milestone per lot at contract creation; lot column in the Excel template; DB isolation test for lotsJson.
