@@ -1,6 +1,6 @@
 # Tender step 6: performance records and ratings (design for approval)
 
-Written 2026-10-21. Nothing here is built. It follows the decision recorded in `TENDER-APP-DESIGN.md`: the data is captured on the contract thread, and how it is represented and weighed is a separate design. Items marked [K] are general professional knowledge, to be confirmed with a procurement specialist before any public claim.
+Written 2026-10-21. **Built the same day** with Lewis's six decisions (section 8): see BUILD-LOG.md for what exists and what differs (quality, cold chain and the scored criterion are deferred; payments are a manual log). It follows the decision recorded in `TENDER-APP-DESIGN.md`: the data is captured on the contract thread, and how it is represented and weighed is a separate design. Items marked [K] are general professional knowledge, to be confirmed with a procurement specialist before any public claim.
 
 ## 1. Purpose
 Close the loop of the platform's one-thread promise (tender, award, contract, delivery, closure, performance): when a contract closes, both sides can see how it went, and that history informs later tenders. It must be fair to suppliers, hard to game, and never a black box.
