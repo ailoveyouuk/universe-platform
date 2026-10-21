@@ -191,3 +191,22 @@ export class AwardDto {
 export class DebriefFeedbackDto { @IsString() @Length(0, 8000) feedback!: string }
 export class ComplaintDto { @IsString() @Length(10, 8000) body!: string }
 export class ComplaintResponseDto { @IsIn(["UPHELD", "REJECTED", "RESOLVED"]) status!: string; @IsString() @Length(1, 8000) response!: string }
+
+// ---- tender documents with versions (2026-10-21)
+export const TENDER_DOC_TYPES = ["SPECIFICATION", "TERMS", "DRAWING", "TEMPLATE", "OTHER"] as const;
+export class RequestTenderDocumentDto {
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 200) contentType!: string;
+  @IsInt() @Min(1) fileSizeBytes!: number;
+}
+export class ConfirmTenderDocumentDto {
+  @IsString() @Length(1, 500) blobName!: string;
+  @IsString() @Length(1, 300) fileName!: string;
+  @IsString() @Length(1, 300) title!: string;
+  @IsIn(TENDER_DOC_TYPES as unknown as string[]) docType!: string;
+  @IsOptional() @IsString() @Length(0, 1000) description?: string;
+  @IsOptional() @IsString() mimeType?: string;
+  @IsOptional() @IsInt() @Min(0) fileSizeBytes?: number;
+  /** Id of the current version this upload replaces; omit to add a new document. */
+  @IsOptional() @IsString() replacesDocumentId?: string;
+}

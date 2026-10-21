@@ -1,5 +1,6 @@
 "use client";
 
+import { DocumentList } from "../../../components/TenderDocuments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -99,6 +100,8 @@ export function TenderView() {
           {outstanding.length > 0 && participating && <p style={{ marginBottom: 0, fontSize: 13, ...muted }}>You must acknowledge these before you can submit a bid.</p>}
         </Card>
       )}
+
+      {v.documents.length > 0 && <Card title="Tender documents"><DocumentList tenderId={id} documents={v.documents} /></Card>}
 
       <Card title="Questions and clarifications">
         {v.clarifications.length === 0 ? <p style={{ marginTop: 0, ...muted }}>No clarifications have been published.</p> : v.clarifications.map((c) => (

@@ -396,7 +396,7 @@ export class TendersService {
         tx.tenderCriterion.findMany({ where: { tenderId: id }, orderBy: { sortOrder: "asc" } }),
         tx.tenderEligibilityRule.findMany({ where: { tenderId: id }, orderBy: { createdAt: "asc" } }),
         tx.tenderInvitation.findMany({ where: { tenderId: id } }),
-        tx.tenderDocument.findMany({ where: { tenderId: id, archivedAt: null } }),
+        tx.tenderDocument.findMany({ where: { tenderId: id, archivedAt: null }, orderBy: [{ uploadedAt: "asc" }], select: { id: true, title: true, docType: true, description: true, fileName: true, fileSizeBytes: true, version: true, documentKey: true, supersededAt: true, uploadedAt: true } }),
         tx.tenderEvent.findMany({ where: { tenderId: id }, orderBy: { createdAt: "desc" }, take: 100 }),
       ]);
       const participants = await tx.tenderParticipation.findMany({ where: { tenderId: id, issuerOrganizationId: user.organizationId, withdrawnAt: null } });
@@ -504,7 +504,7 @@ export class TendersService {
         tx.tenderLine.findMany({ where: { tenderId: id }, orderBy: { lineNumber: "asc" } }),
         tx.tenderCriterion.findMany({ where: { tenderId: id }, orderBy: { sortOrder: "asc" } }),
         tx.tenderEligibilityRule.findMany({ where: { tenderId: id } }),
-        tx.tenderDocument.findMany({ where: { tenderId: id, archivedAt: null } }),
+        tx.tenderDocument.findMany({ where: { tenderId: id, archivedAt: null }, orderBy: [{ uploadedAt: "asc" }], select: { id: true, title: true, docType: true, description: true, fileName: true, fileSizeBytes: true, version: true, documentKey: true, supersededAt: true, uploadedAt: true } }),
         tx.tenderClarification.findMany({ where: { tenderId: id }, orderBy: { answeredAt: "desc" } }),
         tx.tenderParticipation.findUnique({ where: { tenderId_organizationId: { tenderId: id, organizationId: user.organizationId } } }),
         tx.tenderShortlist.findUnique({ where: { organizationId_tenderId: { organizationId: user.organizationId, tenderId: id } } }),

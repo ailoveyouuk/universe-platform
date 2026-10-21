@@ -3287,7 +3287,11 @@ export interface TenderLineRecord {
 export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME"; acceptedFileTypes: string | null }
 export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
 export interface TenderEventRecord { id: string; kind: string; summary: string; actorOrganizationId: string; createdAt: string }
+/** A tender document version (2026-10-21). Every version of one document shares a documentKey; superseded ones remain as history. */
+export interface TenderDocumentRecord { id: string; title: string; docType: string; description: string | null; fileName: string | null; fileSizeBytes: number | null; version: number; documentKey: string | null; supersededAt: string | null; uploadedAt: string }
+export const TENDER_DOC_TYPE_LABELS: Record<string, string> = { SPECIFICATION: "Specification", TERMS: "Terms and conditions", DRAWING: "Drawing", TEMPLATE: "Template", OTHER: "Other" };
 export interface TenderDetailForIssuer {
+  documents: TenderDocumentRecord[];
   tender: TenderRecord; lines: TenderLineRecord[]; criteria: TenderCriterionRecord[]; rules: TenderRuleRecord[]; events: TenderEventRecord[];
   invitations: { id: string; invitedOrganizationId: string; organizationName: string | null; invitedAt: string }[];
   participants: TenderParticipantRecord[];
@@ -3370,6 +3374,7 @@ export interface IssuerBidRecord {
 }
 export interface TenderParticipantView {
   tender: TenderRecord & { issuerName: string };
+  documents: TenderDocumentRecord[];
   lines: TenderLineRecord[]; criteria: TenderCriterionRecord[];
   clarifications: { id: string; question: string; answer: string; answeredAt: string }[];
   eligibility: {

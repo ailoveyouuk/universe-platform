@@ -3446,6 +3446,12 @@ model TenderDocument {
   uploadedById   String?
   uploadedAt     DateTime @default(now())
   archivedAt     DateTime?
+  /// Versioning (2026-10-21): every version of one document shares a documentKey (the first version's id; null on older rows means the row is its own key).
+  documentKey    String?
+  version        Int      @default(1)
+  /// Set when a newer version replaces this one. Superseded versions stay visible as history and downloadable.
+  supersededAt   DateTime?
+  description    String?  @db.NVarChar(1000)
 
   @@index([tenderId])
   @@index([organizationId])

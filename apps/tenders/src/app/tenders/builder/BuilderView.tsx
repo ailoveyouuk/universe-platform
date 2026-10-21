@@ -1,5 +1,6 @@
 "use client";
 
+import { DocumentsPanel } from "../../../components/TenderDocuments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -11,8 +12,8 @@ import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
 import { Card, ErrorNote, Field, Heading, ORG_TYPE_LABEL, Page, QUALIFICATIONS, RULE_LABEL, TYPE_LABEL, VISIBILITY_LABEL, browserZone, fmtDateTime, fromLocalInput, inputStyle, toLocalInput, zoneList } from "../../../lib/ui";
 
-type Section = "overview" | "items" | "criteria" | "eligibility" | "invitations" | "review";
-const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Items"], ["criteria", "Criteria"], ["eligibility", "Who can bid"], ["invitations", "Invitations"], ["review", "Review and publish"]];
+type Section = "overview" | "items" | "criteria" | "eligibility" | "documents" | "invitations" | "review";
+const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Items"], ["criteria", "Criteria"], ["eligibility", "Who can bid"], ["documents", "Documents"], ["invitations", "Invitations"], ["review", "Review and publish"]];
 const codes = (s: string | null | undefined) => (s ?? "").split(",").filter(Boolean);
 const delimited = (a: string[]) => (a.length ? `,${a.join(",")},` : "");
 /** Only the fields the API accepts, with numeric strings (the API returns decimals as strings) turned into numbers. */
@@ -68,6 +69,7 @@ export function BuilderView() {
       {detail && section === "items" && <Items detail={detail} onSaved={load} />}
       {detail && section === "criteria" && <Criteria detail={detail} onSaved={load} />}
       {detail && section === "eligibility" && <Eligibility detail={detail} onSaved={load} />}
+      {detail && section === "documents" && <DocumentsPanel tenderId={detail.tender.id} documents={detail.documents} published={false} onChanged={load} />}
       {detail && section === "invitations" && <Invitations detail={detail} onSaved={load} />}
       {detail && section === "review" && <Review detail={detail} ready={ready} />}
     </Page>

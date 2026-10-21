@@ -1,20 +1,21 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
+import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { TenderComplianceService } from "./tender-compliance.service";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -85,6 +86,10 @@ export class TendersController {
   // ---- issuer: fairness and audit
   @Post(":id/questions/:questionId/answer") answer(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("questionId") qid: string, @Body() dto: AnswerQuestionDto) { return this.compliance.answerQuestion(u, id, qid, dto); }
   @Post(":id/clarifications") clarify(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ClarificationDto) { return this.compliance.postClarification(u, id, dto); }
+  @Post(":id/documents/upload-url") docUploadUrl(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: RequestTenderDocumentDto) { return this.docs.requestUpload(u, id, dto); }
+  @Post(":id/documents") confirmDoc(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ConfirmTenderDocumentDto) { return this.docs.confirm(u, id, dto); }
+  @Delete(":id/documents/:docId") removeDoc(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("docId") docId: string) { return this.docs.remove(u, id, docId); }
+  @Get(":id/documents/:docId/download-url") docUrl(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("docId") docId: string) { return this.docs.downloadUrl(u, id, docId); }
   @Post(":id/addenda") addendum(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AddendumDto) { return this.compliance.createAddendum(u, id, dto); }
   @Post(":id/screenings") screening(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ScreeningDto) { return this.compliance.recordScreening(u, id, dto); }
   @Get(":id/timeline/verify") verify(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.compliance.verifyTimeline(u, id); }

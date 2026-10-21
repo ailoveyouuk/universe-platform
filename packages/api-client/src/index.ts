@@ -374,6 +374,13 @@ export class UniverseApiClient {
     await this.uploadDocumentFile(up.uploadUrl, file);
     return this.request(`/tenders/${id}/bid/files`, { method: "POST", body: JSON.stringify({ blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined, fileSizeBytes: file.size, criterionId }) });
   }
+  async uploadTenderDocument(id: string, file: File, meta: { title: string; docType: string; description?: string; replacesDocumentId?: string }): Promise<{ id: string; version: number }> {
+    const up = await this.request<{ uploadUrl: string; blobName: string }>(`/tenders/${id}/documents/upload-url`, { method: "POST", body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSizeBytes: file.size }) });
+    await this.uploadDocumentFile(up.uploadUrl, file);
+    return this.request(`/tenders/${id}/documents`, { method: "POST", body: JSON.stringify({ blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined, fileSizeBytes: file.size, ...meta }) });
+  }
+  removeTenderDocument(id: string, docId: string): Promise<{ removed: boolean }> { return this.request(`/tenders/${id}/documents/${docId}`, { method: "DELETE" }); }
+  tenderDocumentUrl(id: string, docId: string): Promise<{ downloadUrl: string; fileName: string | null }> { return this.request(`/tenders/${id}/documents/${docId}/download-url`); }
   removeTenderBidFile(id: string, fileId: string): Promise<TenderBidWorkspace> { return this.request(`/tenders/${id}/bid/files/${fileId}`, { method: "DELETE" }); }
   tenderBidFileUrl(id: string, fileId: string): Promise<{ downloadUrl: string }> { return this.request(`/tenders/${id}/bid/files/${fileId}/download-url`); }
   listTenderBids(id: string): Promise<IssuerBidRecord[]> { return this.request(`/tenders/${id}/bids`); }
