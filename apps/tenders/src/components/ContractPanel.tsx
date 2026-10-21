@@ -58,6 +58,8 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
   const [fileMeta, setFileMeta] = useState({ kind: awaiting || active ? "SIGNED" : "DRAFT", title: "", note: "" });
   const [close, setClose] = useState({ outcome: "COMPLETED", note: "" });
   const fileRef = useRef<HTMLInputElement>(null);
+  // The sensible default file type follows the contract stage: a draft first, then the signed copy.
+  useEffect(() => { setFileMeta((m) => ({ ...m, kind: c.status === "DRAFT" ? "DRAFT" : m.kind === "DRAFT" ? "SIGNED" : m.kind })); }, [c.status]);
   const open = async (fid: string) => { try { const r = await apiClient.contractFileUrl(c.id, fid); window.open(r.downloadUrl, "_blank", "noopener"); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the file."); } };
   const kinds = Object.entries(CONTRACT_FILE_KIND_LABELS).filter(([k]) => (k === "SIGNED" || k === "CERTIFICATE" ? !draft : k === "VARIATION" ? active : true));
   const sigTone = c.signature.status === "EXECUTED" ? "good" : c.signature.status === "NOT_STARTED" ? "neutral" : "warning";
