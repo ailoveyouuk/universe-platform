@@ -653,3 +653,8 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Observed, not changed:** until the chair declares a conflict position, the Start button shows "There are no submitted bids to evaluate" (bid counts are hidden before the declaration). It reads like an error; wording could be softened.
 
 - **Fix (2026-10-21):** the evaluation page no longer says "There are no submitted bids to evaluate" before the chair has made the conflict declaration. The start check now uses the real count of submitted bids rather than the bids the viewer is allowed to see (none, until the declaration). A genuine zero-bid tender still shows the message. Not re-checked live because every simulated tender with bids is past that stage; covered by the type check only.
+
+## 2026-10-21 — Admin: add an existing email to a demo organisation
+- New API: `GET/POST /organizations/:id/access`, `DELETE /organizations/:id/access/:grantId` (`organization-access.service.ts`). Caller needs `org.users.manage` in that organisation (staff bypass); the target organisation must be demo; the person must be an active, non-simulated user of a demo organisation; one neutral error for any non-addable email; each add/remove audited (`user_organization_access`).
+- New Admin section "People from other demo organisations" on the organisation page (demo organisations only). The sign-in guard still enforces the grants on every request.
+- Verified live on Andean Care Alliance 106: unknown email rejected neutrally; Lewis added then removed. Commit 29dd61e.
