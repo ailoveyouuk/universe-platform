@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { prisma, withPlatformStaffContext } from "../src/index";
 
 /** Read-only: walks the hash chain of one tender's timeline (REF, default SIM-TND-001) exactly as the timeline verify page does and prints the result. */
-const REF = process.env.TENDER_REF ?? "SIM-TND-001";
+const REF = process.env.TENDER_REF || "SIM-TND-001";
 async function main() {
   const t = await withPlatformStaffContext((tx) => tx.tender.findFirst({ where: { referenceNumber: REF }, select: { id: true } }));
   if (!t) throw new Error(`${REF} not found`);
