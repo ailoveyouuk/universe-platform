@@ -23,15 +23,18 @@ async function main() {
     if (!t) throw new Error(`${REF} not found`);
     if (!t.isSimulated) throw new Error(`${REF} is not a simulated tender; refusing to change its timetable.`);
     const now = new Date();
-    if (t.closingAt && t.closingAt.getTime() <= now.getTime()) { console.log(`${REF} has already closed (${t.closingAt.toISOString()}); nothing to do.`); return; }
-    const closing = new Date(now.getTime() - 1 * HOUR);
+    // The closing time must come after the last submitted bid, or the record would show a bid arriving after the tender closed.
+    const last = await tx.tenderBid.findFirst({ where: { tenderId: t.id, submittedAt: { not: null } }, orderBy: { submittedAt: "desc" }, select: { submittedAt: true } });
+    const afterLastBid = last?.submittedAt ? new Date(last.submittedAt.getTime() + 60000) : null;
+    if (t.closingAt && t.closingAt.getTime() <= now.getTime() && !(afterLastBid && t.closingAt.getTime() < afterLastBid.getTime())) { console.log(`${REF} has already closed (${t.closingAt.toISOString()}); nothing to do.`); return; }
+    const closing = afterLastBid && afterLastBid.getTime() < now.getTime() ? afterLastBid : new Date(now.getTime() - 1 * HOUR);
     const before = (d: Date | null) => (d && d.getTime() > closing.getTime() - HOUR ? new Date(closing.getTime() - HOUR) : d);
     const data = { closingAt: closing, clarificationDeadline: before(t.clarificationDeadline) };
     console.log(`${REF}: closing ${t.closingAt?.toISOString()} -> ${closing.toISOString()}; clarification deadline ${t.clarificationDeadline?.toISOString()} -> ${data.clarificationDeadline?.toISOString()}`);
     if (dryRun) { console.log("DRY RUN: nothing written."); return; }
     await tx.tender.update({ where: { id: t.id }, data });
     const tail = await tx.$queryRaw<{ hash: string | null }[]>`SELECT TOP 1 [hash] FROM [dbo].[tender_events] WHERE [tenderId] = ${t.id} AND [hash] IS NOT NULL ORDER BY [createdAt] DESC, [id] DESC`;
-    const row: Fields = { prevHash: tail[0]?.hash ?? null, id: randomUUID(), tenderId: t.id, organizationId: t.organizationId, counterpartyOrganizationId: null, actorOrganizationId: t.organizationId, actorUserId: null, kind: "TIMETABLE_CHANGED", summary: "Timetable changed: closing time brought forward (simulated passage of time)", detailsJson: JSON.stringify({ simulated: true, closingAt: closing.toISOString() }), createdAt: now };
+    const row: Fields = { prevHash: tail[0]?.hash ?? null, id: randomUUID(), tenderId: t.id, organizationId: t.organizationId, counterpartyOrganizationId: null, actorOrganizationId: t.organizationId, actorUserId: null, kind: "TIMETABLE_CHANGED", summary: "Timetable changed: closing time set after the last bid (simulated passage of time)", detailsJson: JSON.stringify({ simulated: true, closingAt: closing.toISOString() }), createdAt: now };
     await tx.tenderEvent.create({ data: { ...row, hash: eventHash(row) } });
     console.log("Closing time moved and recorded on the timeline.");
   });
