@@ -3284,7 +3284,7 @@ export interface TenderLineRecord {
   id?: string; lineNumber?: number; lotNumber: number | null; lotTitle: string | null; description: string; productMasterId: string | null; specification: string | null;
   quantity: string | number | null; unit: string | null; destinationCountryCode: string | null; requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean;
 }
-export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME"; acceptedFileTypes: string | null }
+export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME" | "PAST_PERFORMANCE"; acceptedFileTypes: string | null }
 export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
 export interface TenderEventRecord { id: string; kind: string; summary: string; actorOrganizationId: string; createdAt: string }
 /** Tender contracts (step 5, 2026-10-21). */
@@ -3310,6 +3310,12 @@ export interface PerformanceRecordView {
   measures: ScorecardMetric[]; feedback: OwnerFeedback | null; feedbackAverage: number | null;
   replyDeadline: string; canRespond: boolean; withdrawn: boolean; withdrawnReason: string | null; openDisputes: number;
   responses: { id: string; kind: "REPLY" | "DISPUTE" | "ANSWER"; measureKey: string | null; body: string; own: boolean; createdAt: string }[];
+}
+export interface StaffPerformanceRow { id: string; contractReference: string | null; ownerName: string | null; supplierName: string | null; outcome: string; closedAt: string; overallScore: number | null; band: string; disputes: number; withdrawn: boolean; withdrawnReason: string | null }
+export interface QualityEvidence {
+  canComplaints: boolean; locked: boolean;
+  complaints: { id: string; reference: string; title: string; status: string; outcome: string | null; serious: boolean; receivedAt: string; linked: boolean }[];
+  logs: { id: string; batchNumber: string; summary: string | null; excursion: boolean; recordedAt: string; linked: boolean }[];
 }
 export interface ContractPaymentView {
   id: string; contractId: string; reference: string; description: string | null; amount: number | null; currency: string | null; invoiceDate: string | null; dueDate: string; paidDate: string | null;
@@ -3441,10 +3447,11 @@ export interface BidTemplateResult { accepted: boolean; problems: string[]; work
 export const CRITERION_METRICS = [
   { value: "PRICE", label: "Price", hint: "Calculated: the lowest compliant price scores 100." },
   { value: "LEAD_TIME", label: "Lead time", hint: "Calculated: the shortest average lead time scores 100." },
+  { value: "PAST_PERFORMANCE", label: "Past performance on Universe", hint: "Calculated: the supplier's average score on closed Universe contracts (3 contracts from 2 owners needed). No history scores 70." },
   { value: "MANUAL", label: "Scored by evaluators", hint: "Quality, technical merit, sustainability or anything else you want judged." },
 ] as const;
 export type EvalPhase = "OPEN" | "CLOSED" | "OPENED" | "EVALUATING" | "SCORED" | "AWARDED";
-export interface EvalCriterion { id: string; title: string; kind: "GATE" | "SCORED"; weight: number | null; metric: "MANUAL" | "PRICE" | "LEAD_TIME"; description: string | null }
+export interface EvalCriterion { id: string; title: string; kind: "GATE" | "SCORED"; weight: number | null; metric: "MANUAL" | "PRICE" | "LEAD_TIME" | "PAST_PERFORMANCE"; description: string | null }
 export interface EvalEvaluator { userId: string; name: string; role: "CHAIR" | "EVALUATOR"; coiDeclaredAt: string | null; coiNoConflict: boolean | null; conflictCount: number }
 export interface EvalBid {
   bidId: string; organizationId: string; organizationName: string | null; submittedAt: string | null; total: number | null; avgLeadDays: number | null;

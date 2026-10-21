@@ -7,14 +7,14 @@ import { loadSettings } from "../quality/scorecard-settings.service";
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
 import type { ContractPaymentDto, ContractPaymentUpdateDto, OwnerFeedbackDto, PerformanceAnswerDto, PerformanceResponseDto } from "./dto/tenders.dto";
-import { REPLY_WINDOW_DAYS, buildMeasures, feedbackAverage, feedbackProblem, ownerPaymentPractice, supplierAggregate, type DeliveryFacts, type FeedbackInput, type MilestoneFacts, type ScoringConfig } from "./tender-performance";
+import { REPLY_WINDOW_DAYS, buildMeasures, feedbackAverage, feedbackProblem, ownerPaymentPractice, supplierAggregate, type DeliveryFacts, type FeedbackInput, type QualityFacts, type MilestoneFacts, type ScoringConfig } from "./tender-performance";
 
 type Tx = Parameters<Parameters<typeof withTenantContext>[1]>[0];
 const DAY = 86_400_000;
 const num = (v: unknown) => (v == null ? null : Number(v));
 
 /** What the owner's close step needs: facts read from both parties' data, then frozen into the record. */
-export interface ClosePrep { cfg: ScoringConfig & { earlyDays: number; lateDays: number }; milestones: MilestoneFacts; delivery: DeliveryFacts | null }
+export interface ClosePrep { cfg: ScoringConfig & { earlyDays: number; lateDays: number }; milestones: MilestoneFacts; delivery: DeliveryFacts | null; quality: QualityFacts }
 
 /**
  * Tender performance records (step 6, 2026-10-21). One frozen record per closed contract, shared by the owner and the supplier (database
@@ -29,7 +29,7 @@ export class TenderPerformanceService {
   // ------------------------------------------------------------------ close-out (called from the contract close step)
 
   /** Reads the owner's scoring settings and the contract's milestones (owner session), then the supplier's delivery lines (staff read, facts only). */
-  async prepare(tx: Tx, ownerOrgId: string, c: { id: string; supplierProjectId: string | null }): Promise<ClosePrep> {
+  async prepare(tx: Tx, ownerOrgId: string, c: { id: string; supplierProjectId: string | null }, qualityChecked = false): Promise<ClosePrep> {
     const cfg = await loadSettings(tx, ownerOrgId);
     const ms = await tx.tenderContractMilestone.findMany({ where: { contractId: c.id } });
     const milestones: MilestoneFacts = { total: 0, pending: 0, done: 0, onTime: 0, late: 0, missed: 0 };
@@ -56,7 +56,17 @@ export class TenderPerformanceService {
       }
       delivery = d.onTimeFlags + d.inFullFlags > 0 ? d : null;
     }
-    return { cfg, milestones, delivery };
+    // The owner's own complaints and temperature logs that it linked to this contract: counts only.
+    const links = await tx.tenderContractQualityLink.findMany({ where: { contractId: c.id } });
+    const cs = await tx.qualityComplaint.findMany({ where: { id: { in: links.filter((l) => l.kind === "COMPLAINT").map((l) => l.refId) }, archivedAt: null, status: { not: "WITHDRAWN" } }, select: { outcome: true, isSerious: true } });
+    const logs = await tx.batchTemperatureLog.findMany({ where: { id: { in: links.filter((l) => l.kind === "TEMPERATURE_LOG").map((l) => l.refId) } }, select: { hasExcursion: true } });
+    const upheld = cs.filter((x) => x.outcome === "UPHELD" || x.outcome === "PARTLY_UPHELD");
+    const quality: QualityFacts = {
+      checked: qualityChecked, complaints: cs.length, concluded: cs.filter((x) => x.outcome).length,
+      upheldEq: upheld.reduce((a, x) => a + (x.outcome === "UPHELD" ? 1 : 0.5), 0), seriousUpheld: upheld.filter((x) => x.isSerious).length,
+      open: cs.filter((x) => !x.outcome).length, logs: logs.length, excursions: logs.filter((x) => x.hasExcursion).length,
+    };
+    return { cfg, milestones, delivery, quality };
   }
 
   /** Validates owner feedback before anything is written. */
@@ -68,7 +78,7 @@ export class TenderPerformanceService {
 
   /** Writes the frozen record inside the close transaction. */
   async createRecord(tx: Tx, user: RequestUser, c: { id: string; organizationId: string; awardedOrganizationId: string; tenderId: string }, outcome: string, closedAt: Date, prep: ClosePrep, feedback: OwnerFeedbackDto | undefined) {
-    const built = buildMeasures(prep.delivery, prep.milestones, (feedback as FeedbackInput | undefined) ?? null, prep.cfg);
+    const built = buildMeasures(prep.delivery, prep.milestones, (feedback as FeedbackInput | undefined) ?? null, prep.cfg, prep.quality);
     const pctOf = (k: string) => built.measures.find((m) => m.key === k)?.score ?? null;
     const clean = feedback ? { quality: feedback.quality, communication: feedback.communication, documentation: feedback.documentation, flexibility: feedback.flexibility, wouldUseAgain: feedback.wouldUseAgain, reasons: feedback.reasons ?? {}, comment: feedback.comment?.trim() || null } : null;
     return tx.tenderPerformanceRecord.create({ data: {
@@ -79,6 +89,45 @@ export class TenderPerformanceService {
       feedbackJson: clean ? JSON.stringify(clean) : null, feedbackAverage: feedback ? feedbackAverage(feedback as FeedbackInput) : null,
       replyDeadline: new Date(closedAt.getTime() + REPLY_WINDOW_DAYS * DAY), createdById: user.id,
     } });
+  }
+
+  // ------------------------------------------------------------------ quality links (owner only)
+
+  /** The owner's complaints and temperature logs it may tie to a contract, with the current links. */
+  async qualityEvidence(user: RequestUser, contractId: string) {
+    assertHasPermission(user, "tenders.award");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderContract.findUnique({ where: { id: contractId } });
+      if (!c || c.organizationId !== user.organizationId) throw new NotFoundException("Contract not found.");
+      const links = await tx.tenderContractQualityLink.findMany({ where: { contractId } });
+      const canComplaints = user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view");
+      const complaints = canComplaints ? await tx.qualityComplaint.findMany({ where: { archivedAt: null, status: { not: "WITHDRAWN" } }, orderBy: { receivedAt: "desc" }, take: 150, select: { id: true, referenceNumber: true, title: true, status: true, outcome: true, isSerious: true, receivedAt: true } }) : [];
+      const logs = await tx.batchTemperatureLog.findMany({ orderBy: { recordedAt: "desc" }, take: 150, select: { id: true, hasExcursion: true, readingSummary: true, recordedAt: true, productBatch: { select: { batchNumber: true } } } });
+      const set = (k: string) => new Set(links.filter((l) => l.kind === k).map((l) => l.refId));
+      const lc = set("COMPLAINT"), ll = set("TEMPERATURE_LOG");
+      return {
+        canComplaints, locked: c.status !== "ACTIVE",
+        complaints: complaints.map((x) => ({ id: x.id, reference: x.referenceNumber, title: x.title, status: x.status, outcome: x.outcome, serious: x.isSerious, receivedAt: x.receivedAt, linked: lc.has(x.id) })),
+        logs: logs.map((x) => ({ id: x.id, batchNumber: x.productBatch.batchNumber, summary: x.readingSummary, excursion: x.hasExcursion, recordedAt: x.recordedAt, linked: ll.has(x.id) })),
+      };
+    });
+  }
+
+  /** Replaces the links for a contract that is still active. */
+  async setQualityLinks(user: RequestUser, contractId: string, complaintIds: string[], logIds: string[]) {
+    assertHasPermission(user, "tenders.award");
+    await withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderContract.findUnique({ where: { id: contractId } });
+      if (!c || c.organizationId !== user.organizationId) throw new NotFoundException("Contract not found.");
+      if (c.status !== "ACTIVE") throw new ConflictException("Links can only be changed while the contract is active.");
+      // Only the owner's own rows are visible here (row-level security), so unknown ids simply find nothing.
+      const okC = (await tx.qualityComplaint.findMany({ where: { id: { in: complaintIds } }, select: { id: true } })).map((x) => x.id);
+      const okL = (await tx.batchTemperatureLog.findMany({ where: { id: { in: logIds } }, select: { id: true } })).map((x) => x.id);
+      await tx.tenderContractQualityLink.deleteMany({ where: { contractId } });
+      for (const id of okC) await tx.tenderContractQualityLink.create({ data: { organizationId: c.organizationId, contractId, kind: "COMPLAINT", refId: id, createdById: user.id } });
+      for (const id of okL) await tx.tenderContractQualityLink.create({ data: { organizationId: c.organizationId, contractId, kind: "TEMPERATURE_LOG", refId: id, createdById: user.id } });
+    });
+    return this.qualityEvidence(user, contractId);
   }
 
   // ------------------------------------------------------------------ reading
@@ -194,6 +243,33 @@ export class TenderPerformanceService {
       return rec;
     });
     await appendTenderEvent({ organizationId: r.organizationId, counterpartyOrganizationId: r.awardedOrganizationId, tenderId: r.tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "PERFORMANCE_WITHDRAWN", summary: "Platform staff withdrew the performance record", details: { reason: reason.trim() } });
+    return { ok: true };
+  }
+
+  /** Platform staff: every performance record with the organisations named, for review. */
+  async listForStaff(user: RequestUser) {
+    if (user.platformStaffRole === "NONE") throw new ForbiddenException("Platform staff only.");
+    return withPlatformStaffContext(async (tx) => {
+      const recs = await tx.tenderPerformanceRecord.findMany({ orderBy: { closedAt: "desc" }, take: 300 });
+      const orgIds = [...new Set(recs.flatMap((r) => [r.organizationId, r.awardedOrganizationId]))];
+      const names = new Map((await tx.organization.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
+      const cons = new Map((await tx.tenderContract.findMany({ where: { id: { in: recs.map((r) => r.contractId) } }, select: { id: true, reference: true } })).map((c) => [c.id, c.reference]));
+      const disputes = await tx.tenderPerformanceResponse.groupBy({ by: ["recordId"], where: { recordId: { in: recs.map((r) => r.id) }, kind: "DISPUTE" }, _count: { _all: true } });
+      const dc = new Map(disputes.map((d) => [d.recordId, d._count._all]));
+      return recs.map((r) => ({ id: r.id, contractReference: cons.get(r.contractId) ?? null, ownerName: names.get(r.organizationId) ?? null, supplierName: names.get(r.awardedOrganizationId) ?? null, outcome: r.outcome, closedAt: r.closedAt, overallScore: r.overallScore, band: r.band, disputes: dc.get(r.id) ?? 0, withdrawn: !!r.withdrawnAt, withdrawnReason: r.withdrawnReason }));
+    });
+  }
+
+  /** Platform staff only: put a withdrawn record back. */
+  async restore(user: RequestUser, recordId: string) {
+    if (user.platformStaffRole === "NONE") throw new ForbiddenException("Only platform staff can restore a performance record.");
+    const r = await withPlatformStaffContext(async (tx) => {
+      const rec = await tx.tenderPerformanceRecord.findUnique({ where: { id: recordId } });
+      if (!rec) throw new NotFoundException("Record not found.");
+      await tx.tenderPerformanceRecord.update({ where: { id: recordId }, data: { withdrawnAt: null, withdrawnReason: null } });
+      return rec;
+    });
+    await appendTenderEvent({ organizationId: r.organizationId, counterpartyOrganizationId: r.awardedOrganizationId, tenderId: r.tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "PERFORMANCE_RESTORED", summary: "Platform staff restored the performance record" });
     return { ok: true };
   }
 

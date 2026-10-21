@@ -66,7 +66,7 @@ export class TenderCriterionDto {
   @IsOptional() @IsBoolean() isMandatory?: boolean;
   @IsOptional() @IsIn(RESPONSE_FORMATS as unknown as string[]) responseFormat?: string;
   @IsOptional() @IsString() acceptedFileTypes?: string;
-  @IsOptional() @IsIn(["MANUAL", "PRICE", "LEAD_TIME"]) metric?: string;
+  @IsOptional() @IsIn(["MANUAL", "PRICE", "LEAD_TIME", "PAST_PERFORMANCE"]) metric?: string;
 }
 export class SetCriteriaDto { @IsArray() @ValidateNested({ each: true }) @Type(() => TenderCriterionDto) criteria!: TenderCriterionDto[] }
 
@@ -261,6 +261,12 @@ export class CloseContractDto {
   @IsIn(["COMPLETED", "TERMINATED"]) outcome!: string;
   @IsString() @Length(1, 2000) note!: string;
   @IsOptional() @ValidateNested() @Type(() => OwnerFeedbackDto) feedback?: OwnerFeedbackDto;
+  /** The owner confirms it has reviewed quality and cold chain for this contract (so "no complaints" is a result, not missing data). */
+  @IsOptional() @IsBoolean() qualityChecked?: boolean;
+}
+export class QualityLinksDto {
+  @IsArray() @IsString({ each: true }) complaintIds!: string[];
+  @IsArray() @IsString({ each: true }) temperatureLogIds!: string[];
 }
 export class PerformanceResponseDto {
   @IsIn(["REPLY", "DISPUTE"]) kind!: string;

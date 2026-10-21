@@ -10,7 +10,7 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
@@ -108,12 +108,16 @@ export class TendersController {
   @Post("contracts/:cid/project") contractProject(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.contracts.createProject(u, cid); }
 
   // ---- performance records (step 6) and the manual payment log
+  @Get("performance/staff") staffPerformance(@CurrentUser() u: RequestUser) { return this.performance.listForStaff(u); }
+  @Post("performance/:rid/restore") restorePerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string) { return this.performance.restore(u, rid); }
   @Get("performance/mine") myPerformance(@CurrentUser() u: RequestUser) { return this.performance.mine(u); }
   @Get("performance/supplier/:orgId") supplierPerformance(@CurrentUser() u: RequestUser, @Param("orgId") orgId: string) { return this.performance.supplierSummary(u, orgId); }
   @Get("performance/owner/:orgId/payments") ownerPayments(@CurrentUser() u: RequestUser, @Param("orgId") orgId: string) { return this.performance.ownerPractice(u, orgId); }
   @Post("performance/:rid/respond") respondPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceResponseDto) { return this.performance.respond(u, rid, dto); }
   @Post("performance/:rid/answer") answerPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceAnswerDto) { return this.performance.answer(u, rid, dto); }
   @Post("performance/:rid/withdraw") withdrawPerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PerformanceAnswerDto) { return this.performance.withdraw(u, rid, dto.body); }
+  @Get("contracts/:cid/quality") qualityEvidence(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.performance.qualityEvidence(u, cid); }
+  @Put("contracts/:cid/quality") setQuality(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: QualityLinksDto) { return this.performance.setQualityLinks(u, cid, dto.complaintIds, dto.temperatureLogIds); }
   @Post("contracts/:cid/payments") addPayment(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ContractPaymentDto) { return this.performance.addPayment(u, cid, dto); }
   @Patch("contracts/:cid/payments/:pid") updatePayment(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Param("pid") pid: string, @Body() dto: ContractPaymentUpdateDto) { return this.performance.updatePayment(u, cid, pid, dto); }
   @Post(":id/addenda") addendum(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AddendumDto) { return this.compliance.createAddendum(u, id, dto); }

@@ -4256,3 +4256,20 @@ model TenderContractPayment {
   @@index([organizationId])
   @@map("tender_contract_payments")
 }
+
+/// Step 6 follow-up (2026-10-21): the tender owner's own quality complaints and temperature logs that it ties to a contract, so the
+/// performance record can measure quality and cold chain. Private to the owner (the supplier only ever sees counts in the frozen measures).
+model TenderContractQualityLink {
+  id             String   @id @default(uuid())
+  organizationId String
+  contractId     String
+  /// COMPLAINT or TEMPERATURE_LOG
+  kind           String   @db.NVarChar(20)
+  refId          String
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@unique([contractId, kind, refId])
+  @@index([contractId])
+  @@map("tender_contract_quality_links")
+}

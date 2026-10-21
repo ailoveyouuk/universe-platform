@@ -1,6 +1,6 @@
 import { withPlatformStaffContext } from "@universe/db";
 import type { ScorecardMetric } from "@universe/types";
-import { pctStatus, summarise } from "../quality/scorecard-scoring";
+import { linearScore, pctStatus, summarise } from "../quality/scorecard-scoring";
 
 /** Pure rules for the step 6 performance record and the anonymised aggregates (2026-10-21). */
 
@@ -36,12 +36,14 @@ export const feedbackAverage = (f: FeedbackInput) => Math.round((FEEDBACK_KEYS.r
 
 export interface DeliveryFacts { onTimeYes: number; onTimeFlags: number; inFullYes: number; inFullFlags: number; otifYes: number; otifN: number }
 export interface MilestoneFacts { total: number; pending?: number; done: number; onTime: number; late: number; missed: number }
+/** Facts from the owner's linked complaints and temperature logs. Counts only: nothing here identifies a complaint. */
+export interface QualityFacts { checked: boolean; complaints: number; concluded: number; upheldEq: number; seriousUpheld: number; open: number; logs: number; excursions: number }
 export interface ScoringConfig { onTimeGood: number; onTimeWarn: number; inFullGood: number; inFullWarn: number; otifGood: number; otifWarn: number }
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : null);
 
 /** Builds the record's measures with the owner's own thresholds and the partner scorecard's weighted mean. No data means "not measured", never zero. */
-export function buildMeasures(delivery: DeliveryFacts | null, ms: MilestoneFacts, feedback: FeedbackInput | null, cfg: ScoringConfig) {
+export function buildMeasures(delivery: DeliveryFacts | null, ms: MilestoneFacts, feedback: FeedbackInput | null, cfg: ScoringConfig, q: QualityFacts | null = null) {
   const m: ScorecardMetric[] = [];
   const add = (x: Omit<ScorecardMetric, "group" | "benchmark" | "href">) => m.push({ ...x, group: "DELIVERY", benchmark: null, href: null });
   const ot = delivery ? pct(delivery.onTimeYes, delivery.onTimeFlags) : null;
@@ -60,8 +62,16 @@ export function buildMeasures(delivery: DeliveryFacts | null, ms: MilestoneFacts
   const fs = fa === null ? null : Math.round(((fa - 1) / 4) * 100);
   add({ key: "owner_feedback", label: "Tender owner's feedback", weight: 20, display: fa === null ? "Not given" : `${fa.toFixed(1)} of 5`, score: fs, status: fs === null ? "neutral" : pctStatus(fs, 75, 50),
     detail: fa === null ? "The tender owner did not give feedback." : "Average of five ratings given by the tender owner at close." });
-  add({ key: "quality", label: "Quality complaints", weight: 0, display: "Not measured", score: null, status: "neutral", detail: "Not yet linked to contracts. Quality complaints stay in the quality module." });
-  add({ key: "cold_chain", label: "Cold chain", weight: 0, display: "Not measured", score: null, status: "neutral", detail: "Not yet linked to contracts." });
+  const qMeasured = !!q && (q.complaints > 0 || q.checked);
+  const qScore = qMeasured ? Math.max(0, Math.round(100 - 30 * q!.upheldEq - 20 * q!.seriousUpheld)) : null;
+  m.push({ key: "quality", group: "QUALITY", label: "Quality complaints", weight: 15, benchmark: null, href: null,
+    display: !qMeasured ? "Not measured" : q!.complaints === 0 ? "No complaints" : `${q!.upheldEq} upheld of ${q!.complaints}`, score: qScore, status: qScore === null ? "neutral" : pctStatus(qScore, 85, 60),
+    detail: !qMeasured ? "The tender owner did not link complaints or confirm that there were none." : q!.complaints === 0 ? "The tender owner confirmed there were no quality complaints on this contract." : `${q!.complaints} complaint${q!.complaints === 1 ? "" : "s"} linked: ${q!.concluded} concluded, ${q!.upheldEq} upheld${q!.seriousUpheld ? ` (${q!.seriousUpheld} serious)` : ""}${q!.open ? `; ${q!.open} still open and not counted` : ""}.` });
+  const cMeasured = !!q && q.logs > 0;
+  const cRate = cMeasured ? (q!.excursions / q!.logs) * 100 : null;
+  m.push({ key: "cold_chain", group: "QUALITY", label: "Cold chain", weight: 10, benchmark: null, href: null,
+    display: !cMeasured ? "Not measured" : `${q!.excursions} of ${q!.logs} logs`, score: cRate === null ? null : linearScore(cRate, 0, 20), status: cRate === null ? "neutral" : q!.excursions === 0 ? "good" : cRate <= 5 ? "warning" : "critical",
+    detail: !cMeasured ? "No temperature logs were linked to this contract." : `${q!.excursions} temperature excursion${q!.excursions === 1 ? "" : "s"} across ${q!.logs} linked log${q!.logs === 1 ? "" : "s"}.` });
   return { measures: m, ...summarise(m) };
 }
 
@@ -115,3 +125,7 @@ export async function ownerPaymentPractice(ownerOrgId: string): Promise<PaymentP
   const rows = await withPlatformStaffContext((tx) => tx.tenderContractPayment.findMany({ where: { organizationId: ownerOrgId }, select: { awardedOrganizationId: true, dueDate: true, paidDate: true } }));
   return paymentPractice(rows);
 }
+
+/** Score for the optional "past performance" criterion. No sufficient history scores the Good line (70), so newcomers are neither rewarded nor penalised. */
+export const NEUTRAL_PAST_PERFORMANCE = 70;
+export function pastPerformanceScore(agg: SupplierAggregate): number { return agg.sufficient && agg.averageScore !== null ? agg.averageScore : NEUTRAL_PAST_PERFORMANCE; }

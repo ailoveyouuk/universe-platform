@@ -5,7 +5,7 @@ import { CONTRACT_FILE_KIND_LABELS, CONTRACT_STATUS_LABELS } from "@universe/typ
 import type { TenderContractView, TenderContractsForTender } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
-import { CloseContractForm, PaymentLog, PerformanceCard } from "./PerformancePanel";
+import { CloseContractForm, PaymentLog, PerformanceCard, QualityLinks } from "./PerformancePanel";
 import { Card, ErrorNote, Field, fmtDate, fmtDateTime, inputStyle } from "../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -170,6 +170,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
             : <><Button disabled={busy} onClick={() => act(async () => { const r = await apiClient.createContractProject(c.id); window.open(`${PM_URL}/projects/detail?id=${r.projectId}`, "_blank", "noopener"); return undefined; })}>Create my delivery project</Button><span style={{ marginLeft: 10, fontSize: 13, ...muted }}>Creates a Project Management project with a line for each item awarded to you.</span></>}
         </div>
       )}
+      {active && issuer && <QualityLinks c={c} busy={busy} act={act} />}
       {active && issuer && <CloseContractForm c={c} busy={busy} act={act} />}
       {closed && <p style={{ marginBottom: 0, fontSize: 14 }}>Closed {c.closedAt ? fmtDate(c.closedAt) : ""}{c.closeNote ? `: ${c.closeNote}` : ""}</p>}
       {c.performance && <PerformanceCard p={c.performance} issuer={issuer} busy={busy} act={act} />}

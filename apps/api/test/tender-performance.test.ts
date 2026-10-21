@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SCORECARD_THRESHOLDS } from "@universe/types";
 import { evaluateEligibility, type OrgProfile } from "../src/tenders/eligibility";
-import { aggregateRecords, bandFromScore, buildMeasures, feedbackProblem, paymentPractice, parseRatingRule, ratingRuleMet, type AggRow } from "../src/tenders/tender-performance";
+import { pastPerformanceScore, aggregateRecords, bandFromScore, buildMeasures, feedbackProblem, paymentPractice, parseRatingRule, ratingRuleMet, type AggRow } from "../src/tenders/tender-performance";
 
 const cfg = { onTimeGood: SCORECARD_THRESHOLDS.onTime.good, onTimeWarn: SCORECARD_THRESHOLDS.onTime.warn, inFullGood: SCORECARD_THRESHOLDS.inFull.good, inFullWarn: SCORECARD_THRESHOLDS.inFull.warn, otifGood: SCORECARD_THRESHOLDS.otif.good, otifWarn: SCORECARD_THRESHOLDS.otif.warn };
 const fb = { quality: 5, communication: 4, documentation: 4, flexibility: 3, wouldUseAgain: 5 };
@@ -27,6 +27,33 @@ describe("performance record measures", () => {
     expect(feedbackProblem(fb)).toBeNull();
     expect(feedbackProblem({ ...fb, quality: 2 })).toMatch(/Quality of goods/);
     expect(feedbackProblem({ ...fb, quality: 1, reasons: { quality: "Damaged cartons" } })).toBeNull();
+  });
+});
+
+describe("quality and cold chain measures", () => {
+  const none = { total: 0, done: 0, onTime: 0, late: 0, missed: 0 };
+  const q = (o: Partial<{ checked: boolean; complaints: number; concluded: number; upheldEq: number; seriousUpheld: number; open: number; logs: number; excursions: number }>) => ({ checked: false, complaints: 0, concluded: 0, upheldEq: 0, seriousUpheld: 0, open: 0, logs: 0, excursions: 0, ...o });
+  const get = (r: ReturnType<typeof buildMeasures>, k: string) => r.measures.find((m) => m.key === k)!;
+  it("is not measured unless complaints are linked or the owner confirmed there were none", () => {
+    expect(get(buildMeasures(null, none, null, cfg, q({})), "quality").display).toBe("Not measured");
+    expect(get(buildMeasures(null, none, null, cfg, q({ checked: true })), "quality").score).toBe(100);
+    expect(get(buildMeasures(null, none, null, cfg, null), "cold_chain").display).toBe("Not measured");
+  });
+  it("counts upheld and serious complaints and leaves open ones out", () => {
+    const m = get(buildMeasures(null, none, null, cfg, q({ complaints: 3, concluded: 2, upheldEq: 1.5, seriousUpheld: 1, open: 1 })), "quality");
+    expect(m.score).toBe(35);
+    expect(m.detail).toMatch(/1 still open and not counted/);
+  });
+  it("scores temperature excursions against linked logs", () => {
+    expect(get(buildMeasures(null, none, null, cfg, q({ logs: 10, excursions: 0 })), "cold_chain").status).toBe("good");
+    expect(get(buildMeasures(null, none, null, cfg, q({ logs: 10, excursions: 4 })), "cold_chain").status).toBe("critical");
+  });
+});
+
+describe("past performance criterion score", () => {
+  it("uses the average score, and 70 for newcomers", () => {
+    expect(pastPerformanceScore(aggregateRecords([row("a", 90), row("b", 80), row("c", 85)]))).toBe(85);
+    expect(pastPerformanceScore(aggregateRecords([row("a", 90)]))).toBe(70);
   });
 });
 

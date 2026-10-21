@@ -204,7 +204,7 @@ export class TendersService {
     return withTenantContext(user.organizationId, async (tx) => {
       await this.assertDraft(tx, user, id);
       const metrics = dto.criteria.filter((c) => c.kind === "SCORED" && c.metric && c.metric !== "MANUAL").map((c) => c.metric);
-      if (new Set(metrics).size !== metrics.length) throw new BadRequestException("Price and lead time can each be used once.");
+      if (new Set(metrics).size !== metrics.length) throw new BadRequestException("Price, lead time and past performance can each be used once.");
       await tx.tenderCriterion.deleteMany({ where: { tenderId: id } });
       for (const [i, c] of dto.criteria.entries()) {
         await tx.tenderCriterion.create({ data: { organizationId: user.organizationId, tenderId: id, sortOrder: i, ...c, metric: c.kind === "SCORED" ? c.metric ?? "MANUAL" : "MANUAL", isMandatory: c.kind === "SCORED" && c.metric && c.metric !== "MANUAL" ? false : c.isMandatory, weight: c.kind === "SCORED" ? c.weight ?? 0 : null } });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FEEDBACK_LABELS } from "@universe/types";
-import type { ContractPaymentView, PaymentPracticeSummary, PerformanceRecordView, SupplierPerformanceSummary, TenderContractView } from "@universe/types";
+import type { ContractPaymentView, QualityEvidence, PaymentPracticeSummary, PerformanceRecordView, SupplierPerformanceSummary, TenderContractView } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { Field, fmtDate, inputStyle } from "../lib/ui";
@@ -23,6 +23,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
   const [r, setR] = useState<Record<string, number>>({ quality: 4, communication: 4, documentation: 4, flexibility: 4, wouldUseAgain: 4 });
   const [why, setWhy] = useState<Record<string, string>>({});
   const [comment, setComment] = useState("");
+  const [qChecked, setQChecked] = useState(false);
   const missing = give && KEYS.some((k) => r[k] <= 2 && !(why[k] ?? "").trim());
   return (
     <div style={{ marginTop: 18, display: "grid", gap: 10, maxWidth: 720 }}>
@@ -32,6 +33,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
         <Select ariaLabel="Outcome" value={close.outcome} onChange={(v) => setClose({ ...close, outcome: v })} options={[{ value: "COMPLETED", label: "Completed" }, { value: "TERMINATED", label: "Terminated early" }]} />
         <input style={inputStyle} aria-label="Closing note" placeholder="Closing note (required)" value={close.note} onChange={(e) => setClose({ ...close, note: e.target.value })} />
       </div>
+      <label style={{ display: "flex", gap: 8, fontSize: 14 }}><input type="checkbox" checked={qChecked} onChange={(e) => setQChecked(e.target.checked)} /> I have reviewed quality and cold chain for this contract (with none linked above, this records "no complaints" rather than "not measured")</label>
       <label style={{ display: "flex", gap: 8, fontSize: 14 }}><input type="checkbox" checked={give} onChange={(e) => setGive(e.target.checked)} /> Give feedback on the supplier (counts towards the record)</label>
       {give && (
         <div style={{ display: "grid", gap: 8, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 12 }}>
@@ -48,7 +50,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
       <div><Button variant="secondary" disabled={busy || !close.note.trim() || missing} onClick={() => {
         if (!window.confirm("Close this contract? This cannot be undone and creates the performance record.")) return;
         const reasons = Object.fromEntries(KEYS.filter((k) => r[k] <= 2).map((k) => [k, (why[k] ?? "").trim()]));
-        void act(() => apiClient.closeTenderContract(c.id, { ...close, ...(give ? { feedback: { quality: r.quality, communication: r.communication, documentation: r.documentation, flexibility: r.flexibility, wouldUseAgain: r.wouldUseAgain, reasons, comment: comment.trim() || undefined } } : {}) }));
+        void act(() => apiClient.closeTenderContract(c.id, { ...close, qualityChecked: qChecked, ...(give ? { feedback: { quality: r.quality, communication: r.communication, documentation: r.documentation, flexibility: r.flexibility, wouldUseAgain: r.wouldUseAgain, reasons, comment: comment.trim() || undefined } } : {}) }));
       }}>Close contract</Button>{missing && <span style={{ marginLeft: 10, fontSize: 13, ...muted }}>Add a reason for each rating of 1 or 2.</span>}</div>
     </div>
   );
@@ -170,4 +172,41 @@ export function OwnerPaymentPractice({ ownerId }: { ownerId: string }) {
   useEffect(() => { apiClient.ownerPaymentPractice(ownerId).then(setS).catch(() => setS(null)); }, [ownerId]);
   if (!s) return null;
   return <span style={{ fontSize: 13.5, ...muted }}>{s.sufficient ? `Payment practice: ${s.paidOnTimePercent}% of ${s.payments} logged invoices paid by the due date (average ${s.averageDaysLate} days late).` : "Payment practice: not enough logged invoices yet to show."}</span>;
+}
+
+/** Owner: tie your own quality complaints and temperature logs to this contract so the performance record can measure them. */
+export function QualityLinks({ c, busy, act }: { c: TenderContractView; busy: boolean; act: Act }) {
+  const [ev, setEv] = useState<QualityEvidence | null>(null);
+  const [cs, setCs] = useState<Set<string>>(new Set());
+  const [ls, setLs] = useState<Set<string>>(new Set());
+  const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const apply = (e: QualityEvidence) => { setEv(e); setCs(new Set(e.complaints.filter((x) => x.linked).map((x) => x.id))); setLs(new Set(e.logs.filter((x) => x.linked).map((x) => x.id))); };
+  useEffect(() => { if (open && !ev) apiClient.contractQualityEvidence(c.id).then(apply).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, [open, ev, c.id]);
+  const toggle = (set: Set<string>, id: string, fn: (s: Set<string>) => void) => { const n = new Set(set); n.has(id) ? n.delete(id) : n.add(id); fn(n); };
+  return (
+    <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <h4 style={{ margin: 0, fontSize: 15 }}>Quality and cold-chain evidence</h4>
+        <Button size="sm" variant="secondary" onClick={() => setOpen(!open)}>{open ? "Hide" : "Link complaints and temperature logs"}</Button>
+      </div>
+      <p style={{ margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Tie your own complaints and temperature logs to this contract. At close only counts go into the record (how many, upheld, serious, excursions); the supplier never sees your complaint text. Only you can see these links.</p>
+      {open && (
+        <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
+          {err && <span style={{ color: "var(--u-critical, #b3261e)", fontSize: 13.5 }}>{err}</span>}
+          {!ev ? <span style={muted}>Loading…</span> : (
+            <>
+              <strong style={{ fontSize: 14 }}>Complaints</strong>
+              {!ev.canComplaints ? <span style={{ fontSize: 13.5, ...muted }}>You need the quality complaints permission to link complaints.</span> : ev.complaints.length === 0 ? <span style={{ fontSize: 13.5, ...muted }}>No complaints to link.</span> : ev.complaints.map((x) => (
+                <label key={x.id} style={{ display: "flex", gap: 8, fontSize: 14 }}><input type="checkbox" checked={cs.has(x.id)} onChange={() => toggle(cs, x.id, setCs)} /><span><strong>{x.reference}</strong> {x.title} <span style={muted}>· {x.outcome ? x.outcome.replace("_", " ").toLowerCase() : x.status.toLowerCase()}{x.serious ? " · serious" : ""}</span></span></label>))}
+              <strong style={{ fontSize: 14 }}>Temperature logs</strong>
+              {ev.logs.length === 0 ? <span style={{ fontSize: 13.5, ...muted }}>No temperature logs to link.</span> : ev.logs.map((x) => (
+                <label key={x.id} style={{ display: "flex", gap: 8, fontSize: 14 }}><input type="checkbox" checked={ls.has(x.id)} onChange={() => toggle(ls, x.id, setLs)} /><span>Batch <strong>{x.batchNumber}</strong> · {fmtDate(x.recordedAt)} <span style={muted}>· {x.excursion ? "excursion" : "no excursion"}{x.summary ? ` · ${x.summary.slice(0, 80)}` : ""}</span></span></label>))}
+              <div><Button variant="secondary" disabled={busy || ev.locked} onClick={async () => { try { apply(await apiClient.setContractQualityLinks(c.id, { complaintIds: [...cs], temperatureLogIds: [...ls] })); setErr(null); } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); } }}>Save links</Button></div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

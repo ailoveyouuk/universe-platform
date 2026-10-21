@@ -35,6 +35,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/users", label: "Users", icon: () => <UserIcon size={19} />, inNav: true },
   { href: "/roles", label: "Roles", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/stakeholders", label: "Stakeholder access", icon: () => <UserIcon size={19} />, inNav: true },
+  { href: "/performance", label: "Performance records", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/activity", label: "Activity", icon: () => <ClockIcon size={19} />, inNav: true },
 ];
 

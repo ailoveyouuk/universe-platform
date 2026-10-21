@@ -4,6 +4,7 @@ import type { Prisma } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import type { CoiDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto } from "./dto/tenders.dto";
+import { pastPerformanceScore, supplierAggregate } from "./tender-performance";
 import { calculatedScores, mean, MODERATION_SPREAD, rankBids, spread, weightedTotal } from "./evaluation";
 import { createNotifications } from "../notifications/notify";
 import { appendTenderEvent } from "./tender-events";
@@ -178,12 +179,23 @@ export class TenderEvaluationService {
     });
     const calc = calculatedScores(base.filter((b) => b.compliant).map((b) => ({ bidId: b.bidId, totalTenderCurrency: b.total, avgLeadDays: b.avgLeadDays })));
     const weighted = scored.map((c) => ({ id: c.id, weight: num(c.weight) ?? 0 }));
+    // Past performance on the platform (step 6 follow-up): the supplier's anonymised aggregate average score; no history scores the neutral line.
+    // Once scoring is finalised the stored score is used, so later records cannot reorder a finished evaluation.
+    const past = new Map<string, number>();
+    if (scored.some((c) => c.metric === "PAST_PERFORMANCE")) {
+      for (const b of base.filter((x) => x.compliant)) past.set(b.bidId, pastPerformanceScore(await supplierAggregate(b.organizationId)));
+    }
     const rows = base.map((b) => {
       const c = calc.get(b.bidId);
       const calculated: Record<string, number | null> = {};
       const scores: Record<string, number | undefined> = {};
       for (const cr of scored) {
         if (cr.metric === "PRICE") { calculated[cr.id] = c?.price ?? null; if (c?.price != null) scores[cr.id] = c.price; }
+        else if (cr.metric === "PAST_PERFORMANCE") {
+          const stored = moderated.find((x) => x.bidId === b.bidId && x.criterionId === cr.id && x.isCalculated);
+          const v = stored ? num(stored.score) : past.get(b.bidId) ?? null;
+          calculated[cr.id] = v; if (v != null) scores[cr.id] = v;
+        }
         else if (cr.metric === "LEAD_TIME") { calculated[cr.id] = c?.leadTime ?? null; if (c?.leadTime != null) scores[cr.id] = c.leadTime; }
         else { const m = moderated.find((x) => x.bidId === b.bidId && x.criterionId === cr.id && !x.isCalculated); if (m) scores[cr.id] = num(m.score)!; }
       }
@@ -399,7 +411,7 @@ export class TenderEvaluationService {
         }
         for (const c of res.criteria.filter((x) => x.kind === "SCORED" && x.metric !== "MANUAL")) {
           const v = r.calculated[c.id];
-          if (v != null) writes.push({ bidId: r.bidId, criterionId: c.id, score: v, rationale: c.metric === "PRICE" ? "Calculated: lowest compliant price scores 100." : "Calculated: shortest lead time scores 100.", isCalculated: true });
+          if (v != null) writes.push({ bidId: r.bidId, criterionId: c.id, score: v, rationale: c.metric === "PRICE" ? "Calculated: lowest compliant price scores 100." : c.metric === "PAST_PERFORMANCE" ? "Calculated: average performance score on closed Universe contracts; no history scores 70." : "Calculated: shortest lead time scores 100.", isCalculated: true });
           else problems.push(`${r.organizationName} · ${c.title}: cannot be calculated (missing prices or lead times).`);
         }
       }

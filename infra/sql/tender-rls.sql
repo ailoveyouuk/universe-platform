@@ -224,6 +224,11 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_payments AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_contract_payments AFTER UPDATE,
 
+    -- Quality links (step 6 follow-up): the owner's own tie between a contract and its complaints and temperature logs. Private to the owner.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_contract_quality_links,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_contract_quality_links AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_contract_quality_links AFTER UPDATE,
+
     -- Private to the owning organisation.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists AFTER INSERT,

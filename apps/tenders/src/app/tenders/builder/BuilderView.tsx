@@ -230,8 +230,8 @@ function rebalanceEqually(rows: TenderCriterionRecord[]): TenderCriterionRecord[
   const w = normaliseWeights(idx.map(() => 1));
   return rows.map((r, k) => (idx.includes(k) ? { ...r, weight: w[idx.indexOf(k)] } : r));
 }
-const PRESETS: { metric: "PRICE" | "LEAD_TIME" | "MANUAL"; title: string; label: string }[] = [
-  { metric: "PRICE", title: "Price", label: "Price" }, { metric: "LEAD_TIME", title: "Lead time", label: "Lead time" },
+const PRESETS: { metric: "PRICE" | "LEAD_TIME" | "PAST_PERFORMANCE" | "MANUAL"; title: string; label: string }[] = [
+  { metric: "PRICE", title: "Price", label: "Price" }, { metric: "LEAD_TIME", title: "Lead time", label: "Lead time" }, { metric: "PAST_PERFORMANCE", title: "Past performance", label: "Past performance" },
   { metric: "MANUAL", title: "Quality", label: "Quality" }, { metric: "MANUAL", title: "", label: "Other criterion" },
 ];
 
@@ -257,13 +257,13 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
         {rows.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No criteria yet.</p>}
         {rows.map((r, i) => (
           <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12, position: "relative" }}>
-            <Field label={r.kind === "GATE" ? "Gate" : r.metric === "MANUAL" ? "Criterion scored by evaluators" : r.metric === "PRICE" ? "Price (calculated)" : "Lead time (calculated)"} wide>
+            <Field label={r.kind === "GATE" ? "Gate" : r.metric === "MANUAL" ? "Criterion scored by evaluators" : r.metric === "PRICE" ? "Price (calculated)" : r.metric === "PAST_PERFORMANCE" ? "Past performance (calculated)" : "Lead time (calculated)"} wide>
               <input style={inputStyle} value={r.title} readOnly={r.metric !== "MANUAL"} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} />
             </Field>
             {r.kind === "SCORED" && <Field label="Weight (%)"><input type="number" min={0} max={100} step={0.5} style={inputStyle} value={r.weight ?? ""} onChange={(e) => setRows((x) => withWeight(x, i, e.target.value === "" ? 0 : Number(e.target.value)))} /></Field>}
             {r.metric === "MANUAL" && <Field label="Bidders respond by"><Select value={r.responseFormat} onChange={(v) => upd(i, { responseFormat: v as TenderCriterionRecord["responseFormat"] })} options={[{ value: "EITHER", label: "Upload or typed answer" }, { value: "UPLOAD", label: "Upload only" }, { value: "TEXT", label: "Typed answer only" }]} /></Field>}
             {r.metric === "MANUAL" && <Field label="Guidance for bidders" wide><textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={r.description ?? ""} onChange={(e) => upd(i, { description: e.target.value || null })} /></Field>}
-            {r.metric !== "MANUAL" && <div style={{ fontSize: 13, color: "var(--u-ink-secondary)", alignSelf: "center" }}>{r.metric === "PRICE" ? "Taken from the bid prices. Bidders answer nothing extra." : "Taken from the lead times in the bid. Bidders answer nothing extra."}</div>}
+            {r.metric !== "MANUAL" && <div style={{ fontSize: 13, color: "var(--u-ink-secondary)", alignSelf: "center" }}>{r.metric === "PRICE" ? "Taken from the bid prices. Bidders answer nothing extra." : r.metric === "PAST_PERFORMANCE" ? "Taken from closed Universe contracts (average performance score, at least 3 contracts from 2 owners). Bidders with no history score 70 so newcomers are not penalised. Bidders answer nothing extra." : "Taken from the lead times in the bid. Bidders answer nothing extra."}</div>}
             <button type="button" aria-label={`Remove criterion ${i + 1}`} onClick={() => remove(i)} style={{ position: "absolute", top: 8, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}><XIcon size={16} /></button>
           </div>
         ))}

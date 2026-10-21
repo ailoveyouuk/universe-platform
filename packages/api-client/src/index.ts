@@ -39,7 +39,7 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationAccessList,
-  TenderContractsForTender, MyPerformanceItem, SupplierPerformanceSummary, PaymentPracticeSummary,
+  TenderContractsForTender, MyPerformanceItem, QualityEvidence, StaffPerformanceRow, SupplierPerformanceSummary, PaymentPracticeSummary,
   OrganizationDetail,
   FieldChangeFeedPage,
   PermissionSummary,
@@ -388,7 +388,12 @@ export class UniverseApiClient {
   addContractMilestone(cid: string, body: { title: string; dueDate?: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/milestones`, { method: "POST", body: JSON.stringify(body) }); }
   updateContractMilestone(cid: string, mid: string, body: { status?: string; notes?: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/milestones/${mid}`, { method: "PATCH", body: JSON.stringify(body) }); }
   sendTenderContract(cid: string): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/send`, { method: "POST" }); }
-  closeTenderContract(cid: string, body: { outcome: string; note: string; feedback?: { quality: number; communication: number; documentation: number; flexibility: number; wouldUseAgain: number; reasons?: Record<string, string>; comment?: string } }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/close`, { method: "POST", body: JSON.stringify(body) }); }
+  closeTenderContract(cid: string, body: { outcome: string; note: string; qualityChecked?: boolean; feedback?: { quality: number; communication: number; documentation: number; flexibility: number; wouldUseAgain: number; reasons?: Record<string, string>; comment?: string } }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/close`, { method: "POST", body: JSON.stringify(body) }); }
+  contractQualityEvidence(cid: string): Promise<QualityEvidence> { return this.request(`/tenders/contracts/${cid}/quality`); }
+  setContractQualityLinks(cid: string, body: { complaintIds: string[]; temperatureLogIds: string[] }): Promise<QualityEvidence> { return this.request(`/tenders/contracts/${cid}/quality`, { method: "PUT", body: JSON.stringify(body) }); }
+  staffPerformanceRecords(): Promise<StaffPerformanceRow[]> { return this.request(`/tenders/performance/staff`); }
+  withdrawPerformanceRecord(rid: string, reason: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/withdraw`, { method: "POST", body: JSON.stringify({ body: reason }) }); }
+  restorePerformanceRecord(rid: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/restore`, { method: "POST" }); }
   myPerformance(): Promise<MyPerformanceItem[]> { return this.request(`/tenders/performance/mine`); }
   supplierPerformance(orgId: string): Promise<SupplierPerformanceSummary> { return this.request(`/tenders/performance/supplier/${orgId}`); }
   ownerPaymentPractice(orgId: string): Promise<PaymentPracticeSummary> { return this.request(`/tenders/performance/owner/${orgId}/payments`); }

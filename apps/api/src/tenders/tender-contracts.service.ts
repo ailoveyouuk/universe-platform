@@ -194,7 +194,7 @@ export class TenderContractsService {
       if (party !== "ISSUER") throw new ForbiddenException("Only the tender owner closes the contract.");
       this.need(user, party);
       if (c.status !== "ACTIVE") throw new ConflictException("Only an active contract can be closed.");
-      return this.performance.prepare(tx, user.organizationId, c);
+      return this.performance.prepare(tx, user.organizationId, c, !!dto.qualityChecked);
     });
     const c = await withTenantContext(user.organizationId, async (tx) => {
       const { c } = await this.load(tx, user, contractId);

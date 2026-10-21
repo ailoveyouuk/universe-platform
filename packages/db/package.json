@@ -24,6 +24,7 @@
     "grant:demo-access": "tsx scripts/grant-demo-organisation-access.ts",
     "advance:demo-tender": "tsx scripts/advance-demo-tender.ts",
     "seed:demo-evaluation": "tsx scripts/seed-demo-evaluation.ts",
+    "seed:demo-performance-history": "tsx scripts/seed-demo-performance-history.ts",
     "seed:demo-competitive-tender": "tsx scripts/seed-demo-competitive-tender.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
