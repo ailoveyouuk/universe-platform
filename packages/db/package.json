@@ -22,6 +22,7 @@
     "flag:demo-organisation": "tsx scripts/flag-demo-organisation.ts",
     "verify:tender-chain": "tsx scripts/verify-tender-chain.ts",
     "grant:demo-access": "tsx scripts/grant-demo-organisation-access.ts",
+    "advance:demo-tender": "tsx scripts/advance-demo-tender.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",
