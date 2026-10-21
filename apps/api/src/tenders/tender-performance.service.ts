@@ -32,12 +32,14 @@ export class TenderPerformanceService {
   async prepare(tx: Tx, ownerOrgId: string, c: { id: string; supplierProjectId: string | null }): Promise<ClosePrep> {
     const cfg = await loadSettings(tx, ownerOrgId);
     const ms = await tx.tenderContractMilestone.findMany({ where: { contractId: c.id } });
-    const milestones: MilestoneFacts = { total: ms.length, done: 0, onTime: 0, late: 0, missed: 0 };
+    const milestones: MilestoneFacts = { total: 0, pending: 0, done: 0, onTime: 0, late: 0, missed: 0 };
     for (const m of ms) {
+      if (m.status !== "PENDING") milestones.total++;
       if (m.status === "DONE") {
         milestones.done++;
         if (!m.dueDate || !m.completedAt || m.completedAt.getTime() <= m.dueDate.getTime() + DAY - 1) milestones.onTime++; else milestones.late++;
-      } else milestones.missed++; // missed, or still pending when the contract closed
+      } else if (m.status === "MISSED") milestones.missed++;
+      else milestones.pending = (milestones.pending ?? 0) + 1; // never recorded either way: not measured, not held against the supplier
     }
     let delivery: DeliveryFacts | null = null;
     if (c.supplierProjectId) {

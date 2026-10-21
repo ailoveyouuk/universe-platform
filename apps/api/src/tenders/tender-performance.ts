@@ -35,7 +35,7 @@ export function feedbackProblem(f: FeedbackInput): string | null {
 export const feedbackAverage = (f: FeedbackInput) => Math.round((FEEDBACK_KEYS.reduce((a, k) => a + f[k], 0) / FEEDBACK_KEYS.length) * 100) / 100;
 
 export interface DeliveryFacts { onTimeYes: number; onTimeFlags: number; inFullYes: number; inFullFlags: number; otifYes: number; otifN: number }
-export interface MilestoneFacts { total: number; done: number; onTime: number; late: number; missed: number }
+export interface MilestoneFacts { total: number; pending?: number; done: number; onTime: number; late: number; missed: number }
 export interface ScoringConfig { onTimeGood: number; onTimeWarn: number; inFullGood: number; inFullWarn: number; otifGood: number; otifWarn: number }
 
 const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : null);
@@ -55,7 +55,7 @@ export function buildMeasures(delivery: DeliveryFacts | null, ms: MilestoneFacts
     detail: ot2 === null ? "Needs deliveries with both on-time and in-full recorded." : `${delivery!.otifYes} of ${delivery!.otifN} deliveries both on time and in full.` });
   const mp = pct(ms.onTime, ms.total);
   add({ key: "milestones", label: "Contract milestones met", weight: 20, display: mp === null ? "Not measured" : `${mp}%`, score: mp, status: mp === null ? "neutral" : pctStatus(mp, 90, 75),
-    detail: ms.total === 0 ? "The contract had no milestones." : `${ms.onTime} of ${ms.total} milestones done on or before the due date (${ms.late} late, ${ms.missed} missed).` });
+    detail: ms.total === 0 ? `No milestone was recorded as done or missed${ms.pending ? ` (${ms.pending} left pending at close, not counted)` : ""}.` : `${ms.onTime} of ${ms.total} milestones done on or before the due date (${ms.late} late, ${ms.missed} missed${ms.pending ? `; ${ms.pending} left pending at close, not counted` : ""}).` });
   const fa = feedback ? feedbackAverage(feedback) : null;
   const fs = fa === null ? null : Math.round(((fa - 1) / 4) * 100);
   add({ key: "owner_feedback", label: "Tender owner's feedback", weight: 20, display: fa === null ? "Not given" : `${fa.toFixed(1)} of 5`, score: fs, status: fs === null ? "neutral" : pctStatus(fs, 75, 50),
