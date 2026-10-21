@@ -4,7 +4,7 @@ export interface BidCheckInput {
   bidValidityDays: number | null;
   bidCurrency: string | null;
   validityConfirmed: boolean;
-  lines: { noBid: boolean; unitPrice: number | null; leadTimeDays: number | null; countryOfOrigin: string | null }[];
+  lines: { lotNumber?: number | null; noBid: boolean; unitPrice: number | null; leadTimeDays: number | null; countryOfOrigin: string | null }[];
   criteria: { title: string; isMandatory: boolean; responseFormat: string; text: string | null; fileCount: number }[];
   addenda: { requiresAcknowledgement: boolean; acknowledged: boolean }[];
 }
@@ -17,6 +17,13 @@ export function checkBid(i: BidCheckInput): ChecklistItem[] {
   const priced = i.lines.filter((l) => !l.noBid);
   const unpriced = priced.filter((l) => !(l.unitPrice !== null && l.unitPrice > 0)).length;
   out.push({ ok: i.lines.length > 0 && priced.length > 0 && unpriced === 0, label: unpriced > 0 ? `Price every item you are bidding for (${unpriced} still need a price), or mark it "not bidding"` : priced.length === 0 ? "Bid for at least one item" : "Every item priced" });
+
+  // Lots: a bidder may bid on any lots, but within a lot they price every item or mark the whole lot "not bidding".
+  const lotNos = [...new Set(i.lines.map((l) => l.lotNumber).filter((n): n is number => typeof n === "number"))];
+  if (lotNos.length > 0) {
+    const partial = lotNos.filter((n) => { const ls = i.lines.filter((l) => l.lotNumber === n); const nb = ls.filter((l) => l.noBid).length; return nb > 0 && nb < ls.length; });
+    out.push({ ok: partial.length === 0, label: partial.length > 0 ? `A lot must be bid in full: price every item in lot ${partial.join(", ")} or mark the whole lot "not bidding"` : "Each lot is either bid in full or not bid" });
+  }
 
   const incomplete = priced.filter((l) => l.unitPrice !== null && l.unitPrice > 0 && (l.leadTimeDays === null || !l.countryOfOrigin)).length;
   out.push({ ok: incomplete === 0, label: incomplete > 0 ? `Give a lead time and country of origin for each priced item (${incomplete} missing)` : "Lead time and country of origin given" });

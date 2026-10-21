@@ -83,8 +83,10 @@ export class TenderEvaluationService {
     const myConflicts = this.conflicts(me);
 
     let bidRows: unknown[] = [];
+    let lotRows: unknown[] = [];
     if (t.bidsOpenedAt && coiOk) {
       const res = await this.results(tx, t.id);
+      lotRows = res.lots.map((lot) => ({ ...lot, rows: lot.rows.filter((r) => !myConflicts.has(r.organizationId)) }));
       const ids = res.rows.map((r) => r.bidId);
       const [scores, gates, moderated] = await Promise.all([
         tx.tenderBidScore.findMany({ where: { bidId: { in: ids } } }),
@@ -123,8 +125,9 @@ export class TenderEvaluationService {
       evaluators: isIssuer || me?.role === "CHAIR" ? evaluators.map((e) => ({ userId: e.userId, name: uName.get(e.userId) ?? "Evaluator", role: e.role, coiDeclaredAt: e.coiDeclaredAt, coiNoConflict: e.coiNoConflict, conflictCount: this.conflicts(e).size, submitted: submittedPerEval.get(e.userId) ?? 0 })) : evaluators.filter((e) => e.userId === user.id).map((e) => ({ userId: e.userId, name: uName.get(e.userId) ?? "You", role: e.role, coiDeclaredAt: e.coiDeclaredAt, coiNoConflict: e.coiNoConflict, conflictCount: this.conflicts(e).size, submitted: 0 })),
       canStart: phase === "OPENED" && startProblems.length === 0, startProblems,
       criteria: criteria.map((c) => ({ id: c.id, title: c.title, kind: c.kind, weight: num(c.weight), metric: c.metric, description: c.description })),
-      lines: lines.map((l) => ({ id: l.id, lineNumber: l.lineNumber, description: l.description, quantity: l.quantity?.toString() ?? null, unit: l.unit })),
+      lines: lines.map((l) => ({ id: l.id, lineNumber: l.lineNumber, lotNumber: l.lotNumber, lotTitle: l.lotTitle, description: l.description, quantity: l.quantity?.toString() ?? null, unit: l.unit })),
       bids: bidRows,
+      lots: lotRows,
       awards: awards.map((x) => ({ awardId: x.id, bidId: x.bidId, organizationId: x.awardedOrganizationId, organizationName: orgNames.get(x.awardedOrganizationId) ?? null, reason: x.reason, awardedAt: x.awardedAt, lines: awardLines.filter((l) => l.awardId === x.id).map((l) => ({ tenderLineId: l.tenderLineId, sharePercent: num(l.sharePercent) })) })),
       complaints: complaints.map((c) => ({ id: c.id, organizationId: c.organizationId, body: c.body, status: c.status, response: c.response, lodgedAt: c.lodgedAt, respondedAt: c.respondedAt })),
     };
@@ -202,7 +205,36 @@ export class TenderEvaluationService {
       return { ...b, calculated, scores, totalScore: b.compliant ? weightedTotal(weighted, scores) : null };
     });
     const ranked = rankBids(rows.map((r) => ({ ...r, total: r.totalScore, price: r.total })));
-    return { criteria, rows: ranked.map(({ total: _t, price: _p, ...r }) => ({ ...r, total: _p, totalScore: _t })) };
+    // Lots (step 7): where lines carry lot numbers, each lot is also scored and ranked on its own. A bidder is in a lot only if it priced every line in it.
+    // Price and lead time are worked out on the lot's lines; gates, manual scores and past performance are tender-wide and carry over unchanged.
+    const lotNos = [...new Set(tenderLines.map((l) => l.lotNumber).filter((n): n is number => n !== null))].sort((a, b) => a - b);
+    const lots = lotNos.map((n) => {
+      const ls = tenderLines.filter((l) => l.lotNumber === n);
+      const entries = base.filter((b) => b.compliant).flatMap((b) => {
+        const bl = ls.map((l) => bidLines.find((x) => x.bidId === b.bidId && x.tenderLineId === l.id));
+        if (bl.some((x) => !x || x.noBid || x.unitPrice === null)) return [];
+        const rate = num(bids.find((x) => x.id === b.bidId)?.fxRate) ?? 1;
+        const total = Math.round(bl.reduce((s, x, i) => s + num(x!.unitPrice)! * (num(ls[i].quantity) ?? 1), 0) * rate * 100) / 100;
+        const lw = bl.filter((x) => x!.leadTimeDays !== null);
+        const q = (i: number) => num(ls[bl.indexOf(lw[i])].quantity) ?? 1;
+        const wsum = lw.reduce((s, _x, i) => s + q(i), 0);
+        const avgLeadDays = wsum > 0 ? Math.round((lw.reduce((s, x, i) => s + x!.leadTimeDays! * q(i), 0) / wsum) * 10) / 10 : null;
+        return [{ bidId: b.bidId, organizationId: b.organizationId, organizationName: b.organizationName, total, avgLeadDays }];
+      });
+      const lc = calculatedScores(entries.map((e) => ({ bidId: e.bidId, totalTenderCurrency: e.total, avgLeadDays: e.avgLeadDays })));
+      const lrows = entries.map((e) => {
+        const c = lc.get(e.bidId); const sc: Record<string, number | undefined> = {};
+        for (const cr of scored) {
+          if (cr.metric === "PRICE") { if (c?.price != null) sc[cr.id] = c.price; }
+          else if (cr.metric === "LEAD_TIME") { if (c?.leadTime != null) sc[cr.id] = c.leadTime; }
+          else sc[cr.id] = rows.find((r) => r.bidId === e.bidId)?.scores[cr.id];
+        }
+        return { ...e, totalScore: weightedTotal(weighted, sc), price: e.total };
+      });
+      const lr = rankBids(lrows.map((r) => ({ ...r, total: r.totalScore }))).map(({ total: _t, ...r }) => ({ bidId: r.bidId, organizationId: r.organizationId, organizationName: r.organizationName, lotTotal: r.price, avgLeadDays: r.avgLeadDays, totalScore: r.totalScore, rank: r.rank }));
+      return { lotNumber: n, lotTitle: ls.find((l) => l.lotTitle)?.lotTitle ?? null, lineIds: ls.map((l) => l.id), rows: lr.sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)) };
+    });
+    return { criteria, lots, rows: ranked.map(({ total: _t, price: _p, ...r }) => ({ ...r, total: _p, totalScore: _t })) };
   }
 
   // ----------------------------------------------------------- set-up

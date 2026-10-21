@@ -86,7 +86,7 @@ export class TenderBidsService {
     const wsLines = lines.map((l) => {
       const b = bidLines.find((x) => x.tenderLineId === l.id);
       return {
-        tenderLineId: l.id, lineNumber: l.lineNumber, description: l.description, quantity: dec(l.quantity), unit: l.unit, destinationCountryCode: l.destinationCountryCode,
+        tenderLineId: l.id, lineNumber: l.lineNumber, lotNumber: l.lotNumber, lotTitle: l.lotTitle, description: l.description, quantity: dec(l.quantity), unit: l.unit, destinationCountryCode: l.destinationCountryCode,
         requiredRegistration: l.requiredRegistration, minShelfLifePercent: l.minShelfLifePercent, coldChainRequired: l.coldChainRequired, specification: l.specification,
         noBid: b?.noBid ?? false, unitPrice: dec(b?.unitPrice), leadTimeDays: b?.leadTimeDays ?? null, countryOfOrigin: b?.countryOfOrigin ?? null, manufacturerName: b?.manufacturerName ?? null, remarks: b?.remarks ?? null,
       };
@@ -100,7 +100,7 @@ export class TenderBidsService {
     const wsAddenda = addenda.map((a) => ({ id: a.id, number: a.number, title: a.title, requiresAcknowledgement: a.requiresAcknowledgement, acknowledged: ackSet.has(a.id) }));
     const checklist = checkBid({
       allowTextSubmission: t.allowTextSubmission, bidValidityDays: t.bidValidityDays, bidCurrency: bid?.bidCurrency ?? null, validityConfirmed: bid?.validityConfirmed ?? false,
-      lines: wsLines.map((l) => ({ noBid: l.noBid, unitPrice: l.unitPrice === null ? null : Number(l.unitPrice), leadTimeDays: l.leadTimeDays, countryOfOrigin: l.countryOfOrigin })),
+      lines: wsLines.map((l) => ({ lotNumber: l.lotNumber, noBid: l.noBid, unitPrice: l.unitPrice === null ? null : Number(l.unitPrice), leadTimeDays: l.leadTimeDays, countryOfOrigin: l.countryOfOrigin })),
       criteria: wsCriteria.map((x) => ({ title: x.title, isMandatory: x.isMandatory, responseFormat: x.responseFormat, text: x.text, fileCount: x.files.length })),
       addenda: wsAddenda,
     });

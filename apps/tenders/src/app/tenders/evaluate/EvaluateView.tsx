@@ -68,8 +68,9 @@ export function EvaluateView() {
       )}
 
       {(o.phase === "SCORED" || o.phase === "AWARDED") && <Results o={o} />}
+      {(o.phase === "SCORED" || o.phase === "AWARDED") && o.lots.length > 0 && <LotResults o={o} />}
       {(o.phase === "SCORED" || o.phase === "AWARDED") && o.bids.length > 0 && <PastPerformanceCard o={o} />}
-      {o.phase === "SCORED" && v.isIssuer && <AwardForm o={o} id={id} act={act} busy={busy} />}
+      {o.phase === "SCORED" && v.isIssuer && (o.lots.length > 0 ? <LotAwardForm o={o} id={id} act={act} busy={busy} /> : <AwardForm o={o} id={id} act={act} busy={busy} />)}
       {o.phase === "AWARDED" && <Awarded o={o} id={id} act={act} busy={busy} />}
     </Page>
   );
@@ -257,5 +258,65 @@ function Awarded({ o, id, act, busy }: { o: EvaluationOverview; id: string; act:
           </div>))}
       </Card>}
     </>
+  );
+}
+
+
+function LotResults({ o }: { o: EvaluationOverview }) {
+  return (
+    <Card title="Results by lot" style={{ overflowX: "auto" }}>
+      <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>Price and lead time are scored on each lot's own items. Pass or fail checks, evaluator scores and past performance apply to the whole bid. A bidder is listed only if it priced every item in the lot.</p>
+      {o.lots.map((lot) => (
+        <div key={lot.lotNumber} style={{ marginTop: 12 }}>
+          <strong style={{ fontSize: 14 }}>Lot {lot.lotNumber}{lot.lotTitle ? ` · ${lot.lotTitle}` : ""}</strong>
+          {lot.rows.length === 0 ? <p style={{ margin: "4px 0 0", fontSize: 13.5, ...muted }}>No compliant bidder priced this whole lot.</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, marginTop: 4 }}>
+              <thead><tr style={{ textAlign: "left", ...muted }}><th>Rank</th><th>Bidder</th><th>Lot price ({o.tender.currency})</th><th>Avg lead time (days)</th><th>Total score</th></tr></thead>
+              <tbody>{lot.rows.map((r) => <tr key={r.bidId} style={{ borderTop: "1px solid var(--u-border)" }}><td>{r.rank ?? "–"}</td><td>{r.organizationName}</td><td>{r.lotTotal.toLocaleString()}</td><td>{r.avgLeadDays ?? "–"}</td><td><strong>{r.totalScore ?? "–"}</strong></td></tr>)}</tbody>
+            </table>
+          )}
+        </div>
+      ))}
+    </Card>
+  );
+}
+
+/** Award on a tender with lots: pick one supplier for each item. Several suppliers may win items in the same lot; each item has one supplier (100%). */
+function LotAwardForm({ o, id, act, busy }: { o: EvaluationOverview; id: string; act: Act; busy: boolean }) {
+  const initial = () => Object.fromEntries(o.lines.map((l) => { const lot = o.lots.find((x) => x.lotNumber === l.lotNumber); return [l.id, lot?.rows.find((r) => r.rank === 1)?.bidId ?? ""]; }));
+  const [pick, setPick] = useState<Record<string, string>>(initial);
+  const [reason, setReason] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [waive, setWaive] = useState(false);
+  const bidIds = [...new Set(Object.values(pick).filter(Boolean))];
+  const name = (bidId: string) => o.bids.find((b) => b.bidId === bidId)?.organizationName ?? "Supplier";
+  const body = () => ({
+    awards: bidIds.map((bidId) => ({ bidId, reason: reason[bidId] ?? "", lines: Object.entries(pick).filter(([, b]) => b === bidId).map(([tenderLineId]) => ({ tenderLineId, sharePercent: 100 })) })),
+    feedback: o.bids.filter((b) => feedback[b.bidId]).map((b) => ({ bidId: b.bidId, text: feedback[b.bidId]! })), waiveStandstill: waive || undefined,
+  });
+  return (
+    <Card title="Award by item">
+      <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>Each item goes to one supplier. The best-ranked supplier for the lot is chosen to start with; change any item to split a lot between suppliers. There is one award decision and one standstill for the whole tender. A sanctions and debarment screening must be recorded for each awarded supplier first.</p>
+      {o.lots.map((lot) => (
+        <div key={lot.lotNumber} style={{ marginTop: 12 }}>
+          <strong style={{ fontSize: 14 }}>Lot {lot.lotNumber}{lot.lotTitle ? ` · ${lot.lotTitle}` : ""}</strong>
+          {o.lines.filter((l) => l.lotNumber === lot.lotNumber).map((l) => (
+            <div key={l.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5, flexWrap: "wrap" }}>
+              <span style={{ flex: 1, minWidth: 200 }}>{l.lineNumber}. {l.description} <span style={muted}>{l.quantity} {l.unit}</span></span>
+              <select aria-label={`Supplier for item ${l.lineNumber}`} style={{ ...inputStyle, width: 260 }} value={pick[l.id] ?? ""} onChange={(e) => setPick((p) => ({ ...p, [l.id]: e.target.value }))}>
+                <option value="">No award for this item</option>
+                {lot.rows.map((r) => <option key={r.bidId} value={r.bidId}>#{r.rank} {r.organizationName}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      ))}
+      {bidIds.length > 0 && <div style={{ marginTop: 14, fontWeight: 600, fontSize: 14 }}>Reason for each award (recorded)</div>}
+      {bidIds.map((b) => <input key={b} aria-label={`Reason for award to ${name(b)}`} style={{ ...inputStyle, marginTop: 6 }} placeholder={`Reason: ${name(b)} (${Object.values(pick).filter((x) => x === b).length} item${Object.values(pick).filter((x) => x === b).length === 1 ? "" : "s"})`} value={reason[b] ?? ""} onChange={(e) => setReason((r) => ({ ...r, [b]: e.target.value }))} />)}
+      <div style={{ marginTop: 12, fontWeight: 600, fontSize: 14 }}>Feedback for the debriefs (optional)</div>
+      {o.bids.map((b) => <input key={b.bidId} aria-label={`Feedback for ${b.organizationName}`} style={{ ...inputStyle, marginTop: 6 }} placeholder={`Feedback for ${b.organizationName}`} value={feedback[b.bidId] ?? ""} onChange={(e) => setFeedback((f) => ({ ...f, [b.bidId]: e.target.value }))} />)}
+      {o.tender.standstillEnabled && o.tender.emergencyProcurement && <label style={{ display: "flex", gap: 8, fontSize: 13.5, marginTop: 12 }}><input type="checkbox" checked={waive} onChange={(e) => setWaive(e.target.checked)} /> Waive the standstill period (emergency procurement)</label>}
+      <div style={{ marginTop: 14 }}><Button variant="primary" disabled={busy || bidIds.length === 0 || bidIds.some((b) => !(reason[b] ?? "").trim())} onClick={() => act(() => apiClient.awardTender(id, body()))}>Record award and release outcomes</Button></div>
+    </Card>
   );
 }

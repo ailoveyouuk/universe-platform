@@ -194,6 +194,7 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
         <ProductPicker query={q} onQueryChange={setQ} options={opts} selectedId={null} onSelect={(p) => { const m = opts.find((o) => o.id === p.id); setLines((l) => [...l, blank({ description: p.name, productMasterId: p.id, unit: m?.standardUnit ?? null })]); setQ(""); setOpts([]); }} onClear={() => setQ("")} ariaLabel="Add a catalogue product" />
       </Field>
       <ErrorNote message={s.err} />
+      <p style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--u-ink-secondary)" }}>Lots are optional. If you use them, give every item a lot number. Bidders may bid for any lots, but must price every item in a lot they bid for. You can award each item to one supplier, so different suppliers can win different items in the same lot.</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
         {lines.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No items yet. Add at least one to publish.</p>}
         {lines.map((l, i) => (
@@ -205,6 +206,7 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
             <Field label="Required registration"><UnitSelect value={l.requiredRegistration ?? ""} onChange={(v) => upd(i, { requiredRegistration: v || null })} options={QUALIFICATION_OPTIONS} ariaLabel="Required registration" allLabel="None required" /></Field>
             <Field label="Minimum shelf life left (%)"><input type="number" min={0} max={100} style={inputStyle} value={l.minShelfLifePercent ?? ""} onChange={(e) => upd(i, { minShelfLifePercent: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Lot (optional)"><input type="number" min={1} style={inputStyle} value={l.lotNumber ?? ""} onChange={(e) => upd(i, { lotNumber: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
+            {l.lotNumber ? <Field label={`Title of lot ${l.lotNumber}`} hint="Items with the same lot number share this title."><input style={inputStyle} value={l.lotTitle ?? ""} maxLength={200} onChange={(e) => { const v = e.target.value || null; const n = l.lotNumber; setLines((ls) => ls.map((x, j) => (j === i || x.lotNumber === n ? { ...x, lotTitle: v } : x))); }} /></Field> : null}
             <Field label="Cold chain"><label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={l.coldChainRequired} onChange={(e) => upd(i, { coldChainRequired: e.target.checked })} /> Required</label></Field>
             <Field label="Specification" wide><textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={l.specification ?? ""} onChange={(e) => upd(i, { specification: e.target.value || null })} /></Field>
             <button type="button" aria-label={`Remove item ${i + 1}`} onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} style={{ position: "absolute", top: 8, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}><XIcon size={16} /></button>

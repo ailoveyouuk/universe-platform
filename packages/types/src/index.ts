@@ -3375,7 +3375,7 @@ export interface TenderBidLineValue {
   tenderLineId: string; noBid: boolean; unitPrice: string | null; leadTimeDays: number | null; countryOfOrigin: string | null; manufacturerName: string | null; remarks: string | null;
 }
 export interface TenderBidWorkspaceLine extends TenderBidLineValue {
-  lineNumber: number; description: string; quantity: string | null; unit: string | null; destinationCountryCode: string | null;
+  lineNumber: number; lotNumber: number | null; lotTitle: string | null; description: string; quantity: string | null; unit: string | null; destinationCountryCode: string | null;
   requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean; specification: string | null;
 }
 export interface TenderBidFileRecord { id: string; fileName: string; fileSizeBytes: number | null; criterionId: string | null }
@@ -3463,6 +3463,9 @@ export interface EvalBid {
   proposed: Record<string, number | null>; spreadFlag: Record<string, boolean>;
   moderated: Record<string, { score: number | null; rationale: string | null }>;
 }
+/** Per-lot ranking (step 7). A bidder appears only if it priced every item in the lot. */
+export interface EvalLot { lotNumber: number; lotTitle: string | null; lineIds: string[]; rows: { bidId: string; organizationId: string; organizationName: string | null; lotTotal: number; avgLeadDays: number | null; totalScore: number | null; rank: number | null }[] }
+export interface DebriefLot { lotNumber: number; lotTitle: string | null; bid: boolean; rank?: number | null; of?: number; totalScore?: number | null; itemsAwarded?: number; itemsInLot?: number }
 export interface EvalAward { awardId: string; bidId: string; organizationId: string; organizationName: string | null; reason: string; awardedAt: string; lines: { tenderLineId: string; sharePercent: number | null }[] }
 export interface EvaluationOverview {
   tender: {
@@ -3476,8 +3479,9 @@ export interface EvaluationOverview {
   evaluators: EvalEvaluator[];
   canStart: boolean; startProblems: string[];
   criteria: EvalCriterion[];
-  lines: { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null }[];
+  lines: { id: string; lineNumber: number; lotNumber: number | null; lotTitle: string | null; description: string; quantity: string | null; unit: string | null }[];
   bids: EvalBid[];
+  lots: EvalLot[];
   awards: EvalAward[];
   complaints: { id: string; organizationId: string; body: string; status: string; response: string | null; lodgedAt: string; respondedAt: string | null }[];
 }
@@ -3492,7 +3496,7 @@ export interface TenderStatusView {
   my: {
     participating: boolean;
     bid: { status: string; submittedAt: string | null; bidCurrency: string | null; totalTenderCurrency: number | null } | null;
-    debrief: { outcome: "AWARDED" | "NOT_AWARDED" | "NOT_COMPLIANT"; totalScore: number | null; rank: number | null; bidCount: number | null; feedback: string | null; releasedAt: string;
+    debrief: { lots: DebriefLot[]; outcome: "AWARDED" | "NOT_AWARDED" | "NOT_COMPLIANT"; totalScore: number | null; rank: number | null; bidCount: number | null; feedback: string | null; releasedAt: string;
       scores: { criterionId: string; title: string; kind: string; weight: number | null; metric: string; score: number | null; passed: boolean | null; comment: string | null }[] } | null;
     awards: { reason: string; awardedAt: string; lines: { description: string; sharePercent: number | null }[] }[];
     complaints: { id: string; body: string; status: string; response: string | null; lodgedAt: string; respondedAt: string | null }[];

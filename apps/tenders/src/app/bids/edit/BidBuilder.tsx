@@ -120,8 +120,17 @@ export function BidBuilder() {
       )}
 
       <Card title="Prices">
-        {lines.map((l, i) => (
-          <div key={l.tenderLineId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none" }}>
+        {lines.map((l, i) => ({ l, i })).sort((a, b) => (a.l.lotNumber ?? 0) - (b.l.lotNumber ?? 0) || a.l.lineNumber - b.l.lineNumber).map(({ l, i }, pos, arr) => (
+          <div key={l.tenderLineId} style={{ padding: "12px 0", borderTop: pos ? "1px solid var(--u-border)" : "none" }}>
+            {l.lotNumber !== null && arr[pos - 1]?.l.lotNumber !== l.lotNumber && (() => {
+              const inLot = lines.filter((x) => x.lotNumber === l.lotNumber); const allOut = inLot.every((x) => x.noBid);
+              return (
+                <div style={{ background: "var(--u-surface-sunken, rgba(127,127,127,0.08))", borderRadius: "var(--u-radius-md)", padding: "8px 12px", margin: "0 0 10px", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <strong style={{ fontSize: 14 }}>Lot {l.lotNumber}{l.lotTitle ? ` · ${l.lotTitle}` : ""} <span style={{ fontWeight: 400, ...muted }}>({inLot.length} item{inLot.length === 1 ? "" : "s"}; price all of them to bid for this lot)</span></strong>
+                  <label style={{ display: "flex", gap: 6, fontSize: 13 }}><input type="checkbox" disabled={locked} checked={allOut} onChange={(e) => { setLines((ls) => ls.map((x) => (x.lotNumber === l.lotNumber ? { ...x, noBid: e.target.checked } : x))); setDirty(true); }} /> Not bidding for this lot</label>
+                </div>
+              );
+            })()}
             <div style={{ fontSize: 14 }}><strong>{l.lineNumber}. {l.description}</strong> <span style={muted}>{l.quantity} {l.unit}{l.destinationCountryCode ? ` · to ${l.destinationCountryCode}` : ""}</span></div>
             <label style={{ display: "flex", gap: 6, fontSize: 13, margin: "6px 0" }}><input type="checkbox" disabled={locked} checked={l.noBid} onChange={(e) => upd(i, { noBid: e.target.checked })} /> I am not bidding for this item</label>
             {!l.noBid && (

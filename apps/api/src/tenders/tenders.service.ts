@@ -191,9 +191,18 @@ export class TendersService {
     assertHasPermission(user, "tenders.issue");
     return withTenantContext(user.organizationId, async (tx) => {
       await this.assertDraft(tx, user, id);
+      // Lots (step 7): once any item has a lot, every item must, and one lot has one title.
+      const lotted = dto.lines.filter((l) => l.lotNumber !== undefined && l.lotNumber !== null);
+      const titles = new Map<number, string>();
+      if (lotted.length > 0) {
+        if (lotted.length !== dto.lines.length) throw new BadRequestException("Once one item is in a lot, every item must be in a lot.");
+        for (const l of lotted) { const t = l.lotTitle?.trim(); if (t && !titles.has(l.lotNumber!)) titles.set(l.lotNumber!, t); }
+        const untitled = [...new Set(lotted.map((l) => l.lotNumber!))].filter((n) => !titles.has(n));
+        if (untitled.length) throw new BadRequestException(`Give lot ${untitled.join(", ")} a title.`);
+      }
       await tx.tenderLine.deleteMany({ where: { tenderId: id } });
       for (const [i, l] of dto.lines.entries()) {
-        await tx.tenderLine.create({ data: { organizationId: user.organizationId, tenderId: id, lineNumber: i + 1, ...l, destinationCountryCode: l.destinationCountryCode?.toUpperCase() } });
+        await tx.tenderLine.create({ data: { organizationId: user.organizationId, tenderId: id, lineNumber: i + 1, ...l, lotTitle: l.lotNumber ? titles.get(l.lotNumber) ?? null : null, destinationCountryCode: l.destinationCountryCode?.toUpperCase() } });
       }
       return tx.tenderLine.findMany({ where: { tenderId: id }, orderBy: { lineNumber: "asc" } });
     });

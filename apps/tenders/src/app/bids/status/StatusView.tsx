@@ -61,6 +61,8 @@ export function StatusView() {
             {my.debrief.totalScore !== null && <Pill tone="brand">Total {my.debrief.totalScore} of 100</Pill>}
             {my.debrief.rank !== null && my.debrief.bidCount !== null && <Pill>Ranked {my.debrief.rank} of {my.debrief.bidCount}</Pill>}
           </div>
+          {my.debrief.lots.length > 0 && <div style={{ margin: "8px 0", fontSize: 13.5 }}><strong>By lot</strong>
+            {my.debrief.lots.map((l) => <div key={l.lotNumber} style={{ padding: "4px 0" }}>Lot {l.lotNumber}{l.lotTitle ? ` · ${l.lotTitle}` : ""}: {l.bid ? `ranked ${l.rank ?? "–"} of ${l.of}${l.totalScore != null ? `, score ${l.totalScore}` : ""}; ${l.itemsAwarded} of ${l.itemsInLot} items awarded to you` : "you did not bid for this lot"}</div>)}</div>}
           {my.debrief.scores.map((c) => (
             <div key={c.criterionId} style={{ padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
               <strong>{c.title}</strong> {c.kind === "GATE" ? <Pill tone={c.passed ? "good" : "critical"}>{c.passed ? "Passed" : "Failed"}</Pill> : <span style={muted}>{c.weight}% · score {c.score ?? "n/a"}</span>}

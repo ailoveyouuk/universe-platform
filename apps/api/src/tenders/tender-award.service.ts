@@ -43,6 +43,8 @@ export class TenderAwardService {
         for (const l of lines) if (!row.pricedLineIds.includes(l.tenderLineId)) problems.push(`${label} did not price one of the items selected for them.`);
         planned.push({ bidId: a.bidId, orgId: row.organizationId, reason: a.reason, lines });
       }
+      const hasLots = res.lots.length > 0;
+      if (hasLots && planned.some((p) => p.lines.some((l) => l.sharePercent !== 100))) problems.push("On a tender with lots, each item goes to one supplier in full (100%). Split shares are not used.");
       const over = overAllocatedLines(planned.flatMap((p) => p.lines));
       if (over.length) problems.push("An item has been allocated more than 100% across suppliers.");
       if (dto.waiveStandstill && !(t.standstillEnabled && t.emergencyProcurement)) problems.push("The standstill can only be waived on an emergency procurement that has a standstill.");
@@ -66,7 +68,14 @@ export class TenderAwardService {
           const m = moderated.find((x) => x.bidId === r.bidId && x.criterionId === c.id);
           return { criterionId: c.id, title: c.title, kind: c.kind, weight: num(c.weight), metric: c.metric, score: m ? num(m.score) : null, passed: g ? g.passed : null, comment: c.kind === "GATE" ? g?.notes ?? null : m?.rationale ?? null };
         });
+        const lotsOut = res.lots.map((lot) => {
+          const mine = lot.rows.find((x) => x.bidId === r.bidId);
+          if (!mine) return { lotNumber: lot.lotNumber, lotTitle: lot.lotTitle, bid: false };
+          const won = planned.find((p) => p.bidId === r.bidId)?.lines.filter((l) => lot.lineIds.includes(l.tenderLineId)).length ?? 0;
+          return { lotNumber: lot.lotNumber, lotTitle: lot.lotTitle, bid: true, rank: mine.rank, of: lot.rows.filter((x) => x.rank !== null).length, totalScore: mine.totalScore, itemsAwarded: won, itemsInLot: lot.lineIds.length };
+        });
         await tx.tenderDebrief.create({ data: {
+          lotsJson: lotsOut.length ? JSON.stringify(lotsOut) : null,
           organizationId: user.organizationId, tenderId, bidId: r.bidId, bidderOrganizationId: r.organizationId, outcome: awarded ? "AWARDED" : r.compliant ? "NOT_AWARDED" : "NOT_COMPLIANT",
           totalScore: r.totalScore, rank: r.compliant ? (r as { rank: number | null }).rank : null, bidCount: compliantCount, scoresJson: JSON.stringify(scores),
           feedback: dto.feedback?.find((f) => f.bidId === r.bidId)?.text || null,
@@ -171,7 +180,7 @@ export class TenderAwardService {
       my: {
         participating: !!own.part && !own.part.withdrawnAt,
         bid: own.bid ? { status: own.bid.status, submittedAt: own.bid.submittedAt, bidCurrency: own.bid.bidCurrency, totalTenderCurrency: num(own.bid.totalTenderCurrency) } : null,
-        debrief: own.debrief ? { outcome: own.debrief.outcome, totalScore: num(own.debrief.totalScore), rank: own.debrief.rank, bidCount: own.debrief.bidCount, scores: JSON.parse(own.debrief.scoresJson) as unknown[], feedback: own.debrief.feedback, releasedAt: own.debrief.releasedAt } : null,
+        debrief: own.debrief ? { lots: own.debrief.lotsJson ? JSON.parse(own.debrief.lotsJson) as unknown[] : [], outcome: own.debrief.outcome, totalScore: num(own.debrief.totalScore), rank: own.debrief.rank, bidCount: own.debrief.bidCount, scores: JSON.parse(own.debrief.scoresJson) as unknown[], feedback: own.debrief.feedback, releasedAt: own.debrief.releasedAt } : null,
         awards: own.awards.map((a) => ({ reason: a.reason, awardedAt: a.awardedAt, lines: own.awardLines.filter((l) => l.awardId === a.id).map((l) => ({ description: own.lines.find((x) => x.id === l.tenderLineId)?.description ?? "", sharePercent: num(l.sharePercent) })) })),
         complaints: own.complaints.map((c) => ({ id: c.id, body: c.body, status: c.status, response: c.response, lodgedAt: c.lodgedAt, respondedAt: c.respondedAt })),
         canComplain: !!own.bid && own.bid.status === "SUBMITTED" && !!t.standstillEndsAt && t.standstillEndsAt.getTime() > now,

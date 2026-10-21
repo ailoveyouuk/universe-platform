@@ -3837,6 +3837,7 @@ model TenderDebrief {
   rank                 Int?
   bidCount             Int?
   scoresJson           String   @db.NVarChar(Max)
+  lotsJson             String?  @db.NVarChar(Max)
   feedback             String?  @db.NVarChar(Max)
   releasedAt           DateTime @default(now())
 
