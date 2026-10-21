@@ -134,6 +134,8 @@ module storage 'modules/storage.bicep' = {
     allowedOrigins: [
       'https://${projectManagementSwa.outputs.defaultHostname}'
       'https://${productDatabaseSwa.outputs.defaultHostname}'
+      // Tender Issuance added 2026-10-21 (tender documents and bid files upload directly to blob storage).
+      'https://${tendersSwa.outputs.defaultHostname}'
     ]
   }
 }
