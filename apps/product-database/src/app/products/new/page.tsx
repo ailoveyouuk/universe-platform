@@ -2,8 +2,8 @@
 
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { CreateProductMasterInput } from "@universe/types";
-import { Button, Select } from "@universe/ui";
+import { UNIT_OPTIONS, type CreateProductMasterInput } from "@universe/types";
+import { Button, Select, UnitSelect } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 
 const NON_PHARMA_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "LABORATORY"] as const;
@@ -176,12 +176,7 @@ export default function AddProductPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12 }}>
           <label>
             Standard Unit
-            <input
-              style={inputStyle}
-              value={standardUnit}
-              onChange={(e) => setStandardUnit(e.target.value)}
-              placeholder="e.g. box of 100, 1L bottle"
-            />
+            <UnitSelect value={standardUnit} onChange={setStandardUnit} options={UNIT_OPTIONS} ariaLabel="Standard unit" allLabel="Not specified" />
           </label>
           <label>
             Canonical Manufacturer Part Number <span style={{ color: "var(--u-ink-secondary)", fontWeight: 400 }}>(optional)</span>

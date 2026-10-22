@@ -34,21 +34,7 @@ export const ProjectStatus = {
 } as const;
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 
-export const Incoterm = {
-  EXW: "EXW",
-  FCA: "FCA",
-  FAS: "FAS",
-  FOB: "FOB",
-  CPT: "CPT",
-  CIP: "CIP",
-  CFR: "CFR",
-  CIF: "CIF",
-  DAP: "DAP",
-  DPU: "DPU",
-  DDP: "DDP",
-} as const;
-export type Incoterm = (typeof Incoterm)[keyof typeof Incoterm];
-
+// Incoterms live in one place: INCOTERMS in @universe/types (the unused copy here was removed 2026-10-22).
 export const FreightMode = {
   AIR: "AIR",
   SEA: "SEA",

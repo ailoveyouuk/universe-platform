@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { TenderListItem } from "@universe/types";
 import { Button, Pill, PlusIcon, SearchInput } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { downloadCsv, stamp } from "../../lib/csv";
 import { Card, ErrorNote, Heading, Page, STATUS_LABEL, STATUS_TONE, TYPE_LABEL, fmtDate } from "../../lib/ui";
 
 const FILTERS = [["", "All"], ["DRAFT", "Drafts"], ["PUBLISHED", "Open"], ["CLOSED", "Closed"], ["EVALUATING", "Evaluating"], ["AWARDED", "Awarded"], ["CONTRACTED", "Contracted"], ["CANCELLED", "Cancelled"]] as const;
@@ -40,7 +41,7 @@ export default function TendersPage() {
 
   return (
     <Page>
-      <Heading title="My tenders" actions={<Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link>} />
+      <Heading title="My tenders" actions={<div style={{ display: "flex", gap: 8 }}><Button variant="secondary" disabled={!shown.length} onClick={() => downloadCsv(`tenders-${stamp()}.csv`, ["Reference", "Title", "Type", "Status", "Currency", "Incoterm", "Published", "Closing", "Bids received", "Interested organisations", "Simulated"], shown.map((t) => [t.referenceNumber, t.title, TYPE_LABEL[t.tenderType], STATUS_LABEL[t.effectiveStatus ?? t.status] ?? (t.effectiveStatus ?? t.status), t.currency, t.incoterm, t.publishedAt, t.closingAt, t.bidsReceived ?? "", t.interestedOrganisations, t.isSimulated ? "Yes" : "No"]))}>Export CSV</Button><Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link></div>} />
       <ErrorNote message={err} />
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         {FILTERS.map(([v, label]) => (

@@ -8,6 +8,7 @@ import { TenderContractsService } from "./tender-contracts.service";
 import { TenderFrameworkService } from "./tender-framework.service";
 import { TenderVariationsService } from "./tender-variations.service";
 import { TenderEvidenceService } from "./tender-evidence.service";
+import { TenderOcdsService } from "./tender-ocds.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
@@ -17,6 +18,6 @@ import { TendersService } from "./tenders.service";
 @Module({
   imports: [ExchangeRatesModule],
   controllers: [TendersController, PublicNoticesController],
-  providers: [TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderVariationsService, TenderEvidenceService, BlobStorageService],
+  providers: [TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderVariationsService, TenderEvidenceService, TenderOcdsService, BlobStorageService],
 })
 export class TendersModule {}

@@ -18,7 +18,8 @@ import type {
   ProductUsageSummary,
   UpdateProductMasterInput,
 } from "@universe/types";
-import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon } from "@universe/ui";
+import { UNIT_OPTIONS } from "@universe/types";
+import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon, UnitSelect } from "@universe/ui";
 import { assessBatches, summariseBatches, FLAG_TEXT } from "./batchLife";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -403,7 +404,7 @@ function EditForm({ form, setF, saving, isStaff, onSave, onCancel }: {
       </p>
       <Card title="Identity">
         <FieldGrid>
-          {text("name", "Name")}{text("category", "Category")}{text("brand", "Brand")}{text("inn", "INN (generic name)")}{text("strength", "Strength")}{text("dosageForm", "Dosage form")}{text("packSize", "Pack size")}{text("standardUnit", "Standard unit")}
+          {text("name", "Name")}{text("category", "Category")}{text("brand", "Brand")}{text("inn", "INN (generic name)")}{text("strength", "Strength")}{text("dosageForm", "Dosage form")}{text("packSize", "Pack size")}<Field label="Standard unit"><UnitSelect value={form.standardUnit ?? ""} onChange={(u) => setF("standardUnit", u)} options={UNIT_OPTIONS} ariaLabel="Standard unit" allLabel="Not specified" /></Field>
           <Field label="Intended use" span><textarea style={{ ...inputStyle, minHeight: 60 }} value={form.intendedUse ?? ""} onChange={(e) => setF("intendedUse", e.target.value)} /></Field>
         </FieldGrid>
       </Card>

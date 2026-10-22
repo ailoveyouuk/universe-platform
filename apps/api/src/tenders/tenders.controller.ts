@@ -5,6 +5,7 @@ import { TenderContractsService } from "./tender-contracts.service";
 import { TenderFrameworkService } from "./tender-framework.service";
 import { TenderVariationsService } from "./tender-variations.service";
 import { TenderEvidenceService } from "./tender-evidence.service";
+import { TenderOcdsService } from "./tender-ocds.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
@@ -21,7 +22,10 @@ import { TendersService } from "./tenders.service";
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService, private readonly ocds: TenderOcdsService) {}
+
+  // ---- open data export (tenders.view, owner only)
+  @Get(":id/ocds") ocdsPackage(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.ocds.exportPackage(u, id); }
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }

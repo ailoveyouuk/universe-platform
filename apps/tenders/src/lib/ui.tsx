@@ -42,7 +42,8 @@ export const Heading = ({ title, sub, actions }: { title: string; sub?: ReactNod
   </div>
 );
 
-export const ErrorNote = ({ message }: { message: string | null }) => message ? <div role="alert" style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", color: "var(--u-status-critical)", fontSize: 13.5, backgroundColor: "rgba(208,59,59,0.06)" }}>{message}</div> : null;
+/** Sticky so an error stays in view even when the action that caused it is far down a long panel. */
+export const ErrorNote = ({ message }: { message: string | null }) => message ? <div role="alert" style={{ position: "sticky", top: 8, zIndex: 20, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", color: "var(--u-status-critical)", fontSize: 13.5, backgroundColor: "var(--u-surface)", boxShadow: "0 2px 10px rgba(0,0,0,0.12)" }}>{message}</div> : null;
 
 export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Not set");
 /** The viewer's own IANA zone, used as the default for a new tender. */

@@ -336,6 +336,8 @@ export class UniverseApiClient {
   // ---- evaluation, award, status (step 4)
   openTenderBids(id: string): Promise<{ openedAt: string }> { return this.request(`/tenders/${id}/bids/open`, { method: "POST" }); }
   tenderEvaluation(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation`); }
+  /** OCDS 1.1 release package for a tender the caller owns. */
+  tenderOcds(id: string): Promise<Record<string, unknown>> { return this.request(`/tenders/${id}/ocds`); }
   evaluatorCandidates(id: string, q = ""): Promise<{ id: string; name: string; email: string }[]> { return this.request(`/tenders/${id}/evaluation/candidates?q=${encodeURIComponent(q)}`); }
   getScorecardRecords(partnerId: string, key: string): Promise<ScorecardRecordSet> { return this.request(`/quality/partner-scorecard/${partnerId}/records/${key}`); }
   getScorecardSettings(): Promise<ScorecardSettings> { return this.request("/quality/partner-scorecard/settings"); }

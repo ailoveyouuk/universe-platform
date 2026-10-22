@@ -42,7 +42,7 @@ export function ManageView() {
       <Heading
         title={`${t.referenceNumber} ${t.title}`}
         sub={<span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><Pill tone={STATUS_TONE[st]}>{STATUS_LABEL[st]}</Pill>{TYPE_LABEL[t.tenderType]} · Closes {fmtDateTime(t.closingAt, t.timeZone)}{t.isSimulated && <Pill>Simulated</Pill>}</span>}
-        actions={<Link href="/tenders" style={{ textDecoration: "none" }}><Button variant="ghost">All tenders</Button></Link>}
+        actions={<div style={{ display: "flex", gap: 8 }}><Button variant="secondary" onClick={async () => { try { const pkg = await apiClient.tenderOcds(id); const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `ocds-${t?.referenceNumber ?? id}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); } catch (e) { setErr(e instanceof Error ? e.message : "Could not export."); } }}>Export OCDS (JSON)</Button><Link href="/tenders" style={{ textDecoration: "none" }}><Button variant="ghost">All tenders</Button></Link></div>}
       />
       <ErrorNote message={err} />
       {st === "CANCELLED" && t.cancelledReason && <Card><strong>Cancelled.</strong> {t.cancelledReason}</Card>}

@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CONTRACT_STATUS_LABELS, type ContractListItem } from "@universe/types";
-import { AlertIcon, CalendarIcon, CheckCircleIcon, ClockIcon, FileEditIcon, GridIcon, Pill, SearchInput, StatTile, StatTileGrid } from "@universe/ui";
+import { AlertIcon, Button, CalendarIcon, CheckCircleIcon, ClockIcon, FileEditIcon, GridIcon, Pill, SearchInput, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { downloadCsv, stamp } from "../../lib/csv";
 import { Card, ErrorNote, Heading, Page, fmtDate } from "../../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -41,7 +42,7 @@ export default function ContractsPage() {
   const cur = base.find((c) => c.currency)?.currency ?? null;
   return (
     <Page>
-      <Heading title="Contracts" sub="Every contract your organisation is party to, as tender owner or as supplier." />
+      <Heading title="Contracts" sub="Every contract your organisation is party to, as tender owner or as supplier." actions={<Button variant="secondary" disabled={!shown.length} onClick={() => downloadCsv(`contracts-${stamp()}.csv`, ["Contract", "Title", "Tender", "Status", "My role", "Counterparty", "Currency", "Value", "Start", "End", "Days to end", "Milestones done", "Milestones total", "Overdue milestones", "Overdue payments", "Unpaid payments", "Variations waiting", "Open call-offs", "Framework"], shown.map((c) => [c.reference, c.title, c.tenderReference, CONTRACT_STATUS_LABELS[c.status] ?? c.status, c.role === "OWNER" ? "Tender owner" : "Supplier", c.counterparty, c.currency, c.totalValue, c.startDate, c.endDate, c.daysToEnd, c.milestonesDone, c.milestonesTotal, c.overdueMilestones, c.overduePayments, c.unpaidPayments, c.variationsWaiting, c.openCallOffs, c.isFramework ? "Yes" : "No"]))}>Export CSV</Button>} />
       <ErrorNote message={err} />
       <StatTileGrid>
         <StatTile label="Active contracts" value={n("active")} icon={<CheckCircleIcon size={18} />} tone="good" active={view === "active"} onClick={() => pick("active")} note={activeValue ? `${money(activeValue, cur)} in force` : undefined} />
