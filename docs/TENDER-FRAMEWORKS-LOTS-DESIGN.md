@@ -70,3 +70,6 @@ Contracts for a multi-lot award: one per supplier with a milestone per lot (Clau
 2. Framework terms and agreement (reusing the contract card); call-off model with direct award and rotation; supplier accept/decline and project handover; ceiling tracking; tests; demo framework.
 3. Mini-competition (built, 5d), framework performance, documents, backup and live walkthrough as for every step.
 Estimated at roughly two to three times the size of step 6, so delivered in the two parts above.
+
+## 5e. Contract list, rollup, variations and evidence: what was built (2026-10-22)
+See BUILD-LOG "contracts list, framework rollup, variations, evidence". Summary: a Contracts page with drill-down tiles; framework call-off performance on the agreement card; two-party contract variations (propose, counterparty accepts or rejects, audit-chained); structured, append-only evidence records with SHA-256 fingerprints and counterparty acknowledgement. Not built: second authoriser within a party for variations; accounting reconciliation (parked by Lewis).
