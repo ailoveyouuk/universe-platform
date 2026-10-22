@@ -14,7 +14,7 @@ const keyword: [RegExp, string][] = [
   [/cryovial|pipette|specimen|centrifuge|collection tube|sample/i, "Laboratory Consumables"],
   [/test kit|rapid test|elisa|diagnostic/i, "Diagnostics"],
   [/reagent|culture|stain|buffer|master mix/i, "Reagents"],
-  [/swab|bandage|dressing|antiseptic|wound/i, "Wound Care"],
+  [/swab|cotton|gauze|bandage|dressing|antiseptic|wound/i, "Wound Care"],
   [/syringe|needle|catheter|infusion|iv /i, "Medical Devices"],
   [/vaccine|tablet|injection|antibiotic|paracetamol|ibuprofen/i, "Pharmaceuticals"],
   [/cold|fridge|freezer|cooler|ice pack/i, "Cold Chain"],
