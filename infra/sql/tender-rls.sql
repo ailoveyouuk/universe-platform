@@ -242,6 +242,19 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_price_reviews AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_price_reviews AFTER UPDATE,
 
+    -- Mini-competitions (step 7 part 2b): the competition is private to the owner; each quote is shared by the owner and that one supplier.
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_mini_competitions,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_mini_competitions AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_mini_competitions AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_call_off_quotes,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_quotes AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_quotes AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_call_off_quote_lines,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_quote_lines AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_quote_lines AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER UPDATE,

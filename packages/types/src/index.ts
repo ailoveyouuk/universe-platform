@@ -3724,4 +3724,18 @@ export interface FrameworkView {
   contracts: FrameworkContractView[];
   callOffs: CallOffView[];
   priceReviews: PriceReviewView[];
+  miniCompetitions: MiniCompetitionView[];
+  invitations: MiniInvitationView[];
+}
+export type MiniQuoteStatus = "INVITED" | "QUOTED" | "DECLINED" | "WON" | "LOST" | "CANCELLED";
+export interface MiniQuoteLineView { tenderLineId: string; description: string; quantity: number; frameworkPrice: number; quotedPrice: number | null; leadTimeDays: number | null }
+/** Owner's view of one competition. While quoting is open the quotes are sealed: only the count is shown. */
+export interface MiniCompetitionView {
+  id: string; reference: string; status: "OPEN" | "AWARDED" | "CANCELLED"; closesAt: string; sealed: boolean; notes: string | null; requiredBy: string | null; deliveryCountryCode: string | null;
+  lines: { tenderLineId: string; description: string; quantity: number }[]; invited: number; quotesReceived: number; awardedQuoteId: string | null; awardReason: string | null; cancelReason: string | null; canAward: boolean;
+  quotes: { id: string; supplierName: string | null; status: MiniQuoteStatus; totalValue: number | null; quotedAt: string | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[] }[];
+}
+/** A supplier's own invitation. It never shows other suppliers or their prices. */
+export interface MiniInvitationView {
+  id: string; reference: string; status: MiniQuoteStatus; closesAt: string; open: boolean; requestNotes: string | null; deliveryCountryCode: string | null; requiredBy: string | null; quotedAt: string | null; totalValue: number | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[];
 }

@@ -168,4 +168,19 @@ describe("Tender row-level security", () => {
     expect(await withTenantContext(issuer, (tx) => tx.tenderApprovalSettings.count({ where: { organizationId: issuer } }))).toBe(1);
     expect(await withTenantContext(partA, (tx) => tx.tenderApprovalSettings.count({ where: { organizationId: issuer } }))).toBe(0);
   });
+  it("mini-competitions are private to the owner; each quote and its lines are shared by the owner and that one supplier, so rival suppliers never see each other", async () => {
+    const mc = await withTenantContext(issuer, (tx) => tx.tenderMiniCompetition.create({ data: { organizationId: issuer, tenderId: openId, reference: `MC-${randomUUID().slice(0, 6)}`, closesAt: new Date(Date.now() + 86_400_000), linesJson: "[]", createdById: randomUUID() } }));
+    const quote = (supplier: string) => withTenantContext(issuer, (tx) => tx.tenderCallOffQuote.create({ data: { organizationId: issuer, awardedOrganizationId: supplier, tenderId: openId, competitionId: mc.id, contractId: randomUUID(), reference: "MC", closesAt: new Date(Date.now() + 86_400_000) } }));
+    const qA = await quote(partA); const qB = await quote(partB);
+    await withTenantContext(issuer, (tx) => tx.tenderCallOffQuoteLine.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, quoteId: qA.id, tenderLineId: randomUUID(), quantity: 1, frameworkPrice: 10 } }));
+    expect(await withTenantContext(issuer, (tx) => tx.tenderMiniCompetition.count({ where: { id: mc.id } }))).toBe(1);
+    for (const org of [partA, partB, outsider]) expect(await withTenantContext(org, (tx) => tx.tenderMiniCompetition.count({ where: { id: mc.id } }))).toBe(0);
+    expect(await withTenantContext(partA, (tx) => tx.tenderCallOffQuote.count({ where: { id: { in: [qA.id, qB.id] } } }))).toBe(1);
+    expect(await withTenantContext(partB, (tx) => tx.tenderCallOffQuote.count({ where: { id: { in: [qA.id, qB.id] } } }))).toBe(1);
+    expect(await withTenantContext(issuer, (tx) => tx.tenderCallOffQuote.count({ where: { id: { in: [qA.id, qB.id] } } }))).toBe(2);
+    expect(await withTenantContext(partB, (tx) => tx.tenderCallOffQuoteLine.count({ where: { quoteId: qA.id } }))).toBe(0);
+    expect(await withTenantContext(partA, (tx) => tx.tenderCallOffQuoteLine.count({ where: { quoteId: qA.id } }))).toBe(1);
+    expect(await withTenantContext(outsider, (tx) => tx.tenderCallOffQuote.count({ where: { id: { in: [qA.id, qB.id] } } }))).toBe(0);
+    await expect(withTenantContext(partB, (tx) => tx.tenderCallOffQuote.update({ where: { id: qA.id }, data: { status: "QUOTED" } }))).rejects.toThrow();
+  });
 });

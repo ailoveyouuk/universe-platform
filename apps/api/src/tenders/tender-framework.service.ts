@@ -2,8 +2,8 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { withTenantContext } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
-import type { ApprovalSettingsDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto } from "./dto/tenders.dto";
-import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT_INDIVIDUAL_LIMIT, DEFAULT_SPLIT_WINDOW_DAYS, effectivePrice, holdActive, holdEndsAt, requiresSecondApproval } from "./tender-framework";
+import type { ApprovalSettingsDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto } from "./dto/tenders.dto";
+import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT_INDIVIDUAL_LIMIT, DEFAULT_SPLIT_WINDOW_DAYS, competitionOpen, effectivePrice, holdActive, holdEndsAt, MIN_COMPETITORS, quoteProblems, requiresSecondApproval } from "./tender-framework";
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
 
@@ -92,8 +92,10 @@ export class TenderFrameworkService {
         };
       }));
       const raisers = owner ? new Map((await tx.user.findMany({ where: { id: { in: callOffs.map((c) => c.raisedById) } }, select: { id: true, forename: true, surname: true } })).map((u) => [u.id, `${u.forename} ${u.surname}`.trim()])) : new Map<string, string>();
+      const mini = await this.miniView(tx, user, tenderId, owner, lines, names, now);
       return {
         viewer: { party: owner ? "OWNER" : "SUPPLIER" as "OWNER" | "SUPPLIER" },
+        miniCompetitions: mini.competitions, invitations: mini.invitations,
         tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, currency: t.currency, termMonths: t.frameworkTermMonths, method: t.frameworkCallOffMethod as "DIRECT" | "ROTATION" | null, priceHoldDays: hold },
         ceiling: owner ? { value: ceiling, committed, remaining: ceiling === null ? null : r2(ceiling - committed) } : null,
         committedToYou: owner ? null : r2(callOffs.filter((c) => OPEN_STATUSES.includes(c.status)).reduce((s, c) => s + Number(c.totalValue), 0)),
@@ -146,20 +148,31 @@ export class TenderFrameworkService {
         const price = effectivePrice(bidPrice, reviews.filter((x) => x.tenderLineId === l.tenderLineId).map((x) => ({ status: x.status, proposedPrice: Number(x.proposedPrice), respondedAt: x.respondedAt })));
         return { tenderLineId: l.tenderLineId, quantity: l.quantity, unitPrice: Math.round(price * 10000) / 10000, lineTotal: r2(price * l.quantity) };
       });
-      const total = r2(priced.reduce((s, l) => s + l.lineTotal, 0));
+      const stale = !holdActive(now, contract.executedAt, t.frameworkPriceHoldDays) ? priced.filter((p) => !reviews.some((x) => x.tenderLineId === p.tenderLineId && x.status === "ACCEPTED")).map((p) => tlines.find((x) => x.id === p.tenderLineId)?.lineNumber) : [];
+      return this.place(tx, user, { t, contract, priced, method, existing, now, stale, deliveryCountryCode: dto.deliveryCountryCode, requiredBy: dto.requiredBy, notes: dto.notes });
+    });
+    await this.event(out.t, out.co.awardedOrganizationId, user, "CALL_OFF_RAISED", `Call-off ${out.co.reference} raised (${out.co.method === "ROTATION" ? "rotation" : "direct award"}), ${out.co.status === "PENDING_APPROVAL" ? "awaiting second authorisation" : "sent to the supplier"}`, { callOffId: out.co.id, totalValue: Number(out.co.totalValue), ceilingExceeded: out.co.ceilingExceeded });
+    if (out.co.status === "AWAITING_SUPPLIER") await this.tellSupplier(out.t, out.co, user);
+    return { id: out.co.id, status: out.co.status, warnings: out.warnings };
+  }
+
+
+  /** Creates the call-off record for a chosen supplier at the given prices, applying the approval limit and ceiling. Shared by direct/rotation and mini-competition. */
+  private async place(tx: Tx, user: RequestUser, o: { t: Awaited<ReturnType<TendersService["ownTender"]>>; contract: { id: string; awardedOrganizationId: string }; priced: { tenderLineId: string; quantity: number; unitPrice: number; lineTotal: number }[]; method: string; existing: { awardedOrganizationId: string; createdAt: Date; totalValue: unknown }[]; now: Date; stale: (number | undefined)[]; deliveryCountryCode?: string; requiredBy?: string | Date | null; notes?: string | null; quoteId?: string }) {
+    const { t, contract, priced, method, existing, now, stale } = o; const tenderId = t.id;
+    const total = r2(priced.reduce((s, l) => s + l.lineTotal, 0));
       const cfg = await this.settings(tx, user.organizationId);
       const since = new Date(now.getTime() - cfg.splitWindowDays * 86_400_000);
       const recent = existing.filter((x) => x.awardedOrganizationId === contract.awardedOrganizationId && x.createdAt >= since).reduce((s, x) => s + Number(x.totalValue), 0);
       const need = requiresSecondApproval(total, recent, cfg.individualLimit);
       const committed = existing.reduce((s, x) => s + Number(x.totalValue), 0);
       const cc = ceilingCheck(num(t.frameworkCeiling), committed, total);
-      const stale = !holdActive(now, contract.executedAt, t.frameworkPriceHoldDays) ? priced.filter((p) => !reviews.some((x) => x.tenderLineId === p.tenderLineId && x.status === "ACCEPTED")).map((p) => tlines.find((x) => x.id === p.tenderLineId)?.lineNumber) : [];
       const n = (await tx.tenderCallOff.count({ where: { tenderId } })) + 1;
       const status = need.second ? "PENDING_APPROVAL" : "AWAITING_SUPPLIER";
       const co = await tx.tenderCallOff.create({ data: {
         organizationId: user.organizationId, awardedOrganizationId: contract.awardedOrganizationId, tenderId, contractId: contract.id, reference: `CO-${t.referenceNumber}-${n}`, method, status,
         currency: t.currency, totalValue: total, testedValue: need.tested, requiresSecondApproval: need.second, ceilingExceeded: cc.exceeded,
-        deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null, notes: dto.notes, raisedById: user.id, firstApprovedById: user.id, firstApprovedAt: now,
+        deliveryCountryCode: o.deliveryCountryCode?.toUpperCase(), requiredBy: o.requiredBy ? new Date(o.requiredBy) : null, notes: o.notes, raisedById: user.id, firstApprovedById: user.id, firstApprovedAt: now, quoteId: o.quoteId,
       } });
       for (const l of priced) await tx.tenderCallOffLine.create({ data: { organizationId: user.organizationId, awardedOrganizationId: contract.awardedOrganizationId, tenderId, callOffId: co.id, tenderLineId: l.tenderLineId, quantity: l.quantity, unitPrice: l.unitPrice, lineTotal: l.lineTotal } });
       return { t, co, warnings: [
@@ -167,10 +180,6 @@ export class TenderFrameworkService {
         ...(stale.length ? [`The price-hold period has ended and item${stale.length > 1 ? "s" : ""} ${stale.join(", ")} ${stale.length > 1 ? "have" : "has"} not had a price review. The supplier's original bid price was used.`] : []),
         ...(need.second ? [`The value, with recent orders to this supplier (${need.tested.toLocaleString()}), is above your approval limit of ${cfg.individualLimit.toLocaleString()}. A second, different authoriser must approve it before it goes to the supplier.`] : []),
       ] };
-    });
-    await this.event(out.t, out.co.awardedOrganizationId, user, "CALL_OFF_RAISED", `Call-off ${out.co.reference} raised (${out.co.method === "ROTATION" ? "rotation" : "direct award"}), ${out.co.status === "PENDING_APPROVAL" ? "awaiting second authorisation" : "sent to the supplier"}`, { callOffId: out.co.id, totalValue: Number(out.co.totalValue), ceilingExceeded: out.co.ceilingExceeded });
-    if (out.co.status === "AWAITING_SUPPLIER") await this.tellSupplier(out.t, out.co, user);
-    return { id: out.co.id, status: out.co.status, warnings: out.warnings };
   }
 
   private async tellSupplier(t: { id: string; title: string; referenceNumber: string }, co: { awardedOrganizationId: string; reference: string }, user: RequestUser) {
@@ -246,6 +255,192 @@ export class TenderFrameworkService {
     });
     await this.event(r.t, r.co.organizationId, user, "PROJECT_CREATED", `Supplier created its delivery project from call-off ${r.co.reference}`, { projectId: r.project.id });
     return { projectId: r.project.id };
+  }
+
+
+  // ------------------------------------------------------------------ mini-competition
+
+  /** Prices a supplier has agreed for the given items: its bid price, converted, unless a later price review was accepted. */
+  private async agreedPrices(tx: Tx, contract: { id: string; awardId: string }, lineIds: string[]) {
+    const award = await tx.tenderAward.findUnique({ where: { id: contract.awardId } });
+    const [blines, bid, reviews] = await Promise.all([tx.tenderBidLine.findMany({ where: { bidId: award!.bidId } }), tx.tenderBid.findUnique({ where: { id: award!.bidId } }), tx.tenderPriceReview.findMany({ where: { contractId: contract.id } })]);
+    const fx = num(bid?.fxRate) ?? 1;
+    const out = new Map<string, number>();
+    for (const id of lineIds) {
+      const bl = blines.find((x) => x.tenderLineId === id);
+      if (!bl || bl.unitPrice == null) throw new BadRequestException("An item has no agreed price.");
+      const price = effectivePrice(Number(bl.unitPrice) * fx, reviews.filter((x) => x.tenderLineId === id).map((x) => ({ status: x.status, proposedPrice: Number(x.proposedPrice), respondedAt: x.respondedAt })));
+      out.set(id, Math.round(price * 10000) / 10000);
+    }
+    return out;
+  }
+
+  private async miniView(tx: Tx, user: RequestUser, tenderId: string, owner: boolean, tlines: { id: string; description: string }[], names: Map<string, string>, now: Date) {
+    const desc = (id: string) => tlines.find((x) => x.id === id)?.description ?? "";
+    const quotes = await tx.tenderCallOffQuote.findMany({ where: { tenderId, ...(owner ? {} : { awardedOrganizationId: user.organizationId }) }, orderBy: { createdAt: "asc" } });
+    const qlines = quotes.length ? await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: { in: quotes.map((q) => q.id) } } }) : [];
+    const lineViews = (qid: string, quantities?: Map<string, number>) => qlines.filter((l) => l.quoteId === qid).map((l) => ({ tenderLineId: l.tenderLineId, description: desc(l.tenderLineId), quantity: Number(l.quantity), frameworkPrice: Number(l.frameworkPrice), quotedPrice: num(l.quotedPrice), leadTimeDays: l.leadTimeDays }));
+    if (!owner) {
+      return { competitions: [] as unknown[], invitations: quotes.map((q) => ({ id: q.id, reference: q.reference, status: q.status, closesAt: q.closesAt, open: q.status !== "CANCELLED" && competitionOpen(q.closesAt, now), requestNotes: q.requestNotes, deliveryCountryCode: q.deliveryCountryCode, requiredBy: q.requiredBy, quotedAt: q.quotedAt, totalValue: num(q.totalValue), quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id) })) };
+    }
+    const comps = await tx.tenderMiniCompetition.findMany({ where: { tenderId }, orderBy: { createdAt: "desc" } });
+    return { invitations: [] as unknown[], competitions: comps.map((c) => {
+      const cq = quotes.filter((q) => q.competitionId === c.id);
+      const sealed = c.status === "OPEN" && competitionOpen(c.closesAt, now);
+      const lines = (JSON.parse(c.linesJson) as { tenderLineId: string; quantity: number }[]).map((l) => ({ tenderLineId: l.tenderLineId, description: desc(l.tenderLineId), quantity: l.quantity }));
+      return {
+        id: c.id, reference: c.reference, status: c.status, closesAt: c.closesAt, sealed, notes: c.notes, requiredBy: c.requiredBy, deliveryCountryCode: c.deliveryCountryCode, lines,
+        invited: cq.length, quotesReceived: cq.filter((q) => q.status === "QUOTED" || q.status === "WON" || q.status === "LOST").length,
+        awardedQuoteId: c.awardedQuoteId, awardReason: c.awardReason, cancelReason: c.cancelReason,
+        canAward: c.status === "OPEN" && !sealed && cq.some((q) => q.status === "QUOTED"),
+        quotes: sealed ? [] : cq.map((q) => ({ id: q.id, supplierName: names.get(q.awardedOrganizationId) ?? null, status: q.status, totalValue: num(q.totalValue), quotedAt: q.quotedAt, quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id) })),
+      };
+    }) };
+  }
+
+  /** The owner invites every framework supplier that covers all the requested items, at least two, to quote at or below their framework prices. */
+  async openCompetition(user: RequestUser, tenderId: string, dto: OpenMiniCompetitionDto) {
+    assertHasPermission(user, "tenders.award");
+    const lineIds = dto.lines.map((l) => l.tenderLineId);
+    if (new Set(lineIds).size !== lineIds.length) throw new BadRequestException("List each item once.");
+    const closesAt = new Date(dto.closesAt);
+    const now = new Date();
+    if (!(closesAt.getTime() > now.getTime())) throw new BadRequestException("The closing time must be in the future.");
+    if (closesAt.getTime() - now.getTime() > 90 * 86_400_000) throw new BadRequestException("The closing time can be at most 90 days away.");
+    const out = await withTenantContext(user.organizationId, async (tx) => {
+      const t = await this.tenders.ownTender(tx, user, tenderId);
+      if (t.tenderType !== "FRAMEWORK") throw new ConflictException("Mini-competitions are run on framework agreements.");
+      const contracts = (await tx.tenderContract.findMany({ where: { tenderId, status: "ACTIVE" } })).filter((c) => !c.endDate || c.endDate.getTime() > now.getTime());
+      const eligible = [];
+      for (const c of contracts) {
+        const al = await tx.tenderAwardLine.findMany({ where: { awardId: c.awardId } });
+        if (lineIds.every((id) => al.some((a) => a.tenderLineId === id))) eligible.push(c);
+      }
+      if (eligible.length < MIN_COMPETITORS) throw new BadRequestException(`A mini-competition needs at least ${MIN_COMPETITORS} framework suppliers that cover all of those items; ${eligible.length} do. Use a direct or rotation call-off instead.`);
+      const n = (await tx.tenderMiniCompetition.count({ where: { tenderId } })) + 1;
+      const reference = `MC-${t.referenceNumber}-${n}`;
+      const comp = await tx.tenderMiniCompetition.create({ data: { organizationId: user.organizationId, tenderId, reference, notes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null, closesAt, linesJson: JSON.stringify(dto.lines.map((l) => ({ tenderLineId: l.tenderLineId, quantity: l.quantity }))), createdById: user.id } });
+      const invited: string[] = [];
+      for (const c of eligible) {
+        const prices = await this.agreedPrices(tx, c, lineIds);
+        const q = await tx.tenderCallOffQuote.create({ data: { organizationId: user.organizationId, awardedOrganizationId: c.awardedOrganizationId, tenderId, competitionId: comp.id, contractId: c.id, reference, closesAt, requestNotes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null } });
+        for (const l of dto.lines) await tx.tenderCallOffQuoteLine.create({ data: { organizationId: user.organizationId, awardedOrganizationId: c.awardedOrganizationId, tenderId, quoteId: q.id, tenderLineId: l.tenderLineId, quantity: l.quantity, frameworkPrice: prices.get(l.tenderLineId)! } });
+        invited.push(c.awardedOrganizationId);
+      }
+      return { t, comp, invited };
+    });
+    for (const org of out.invited) await this.event(out.t, org, user, "MINI_COMP_INVITED", `Mini-competition ${out.comp.reference} opened; supplier invited to quote by ${closesAt.toISOString().slice(0, 16).replace("T", " ")} UTC`, { competitionId: out.comp.id });
+    await this.tenders.notifyOrgs(out.invited, () => ({ title: `Invitation to quote: ${out.comp.reference}`, body: `You are invited to quote for a call-off under ${out.t.title}. Quotes close ${closesAt.toISOString().slice(0, 16).replace("T", " ")} UTC.`, link: `/tenders/framework?id=${out.t.id}`, subjectId: out.t.id }), "TENDER_MINI_COMPETITION", user.id);
+    return this.view(user, tenderId);
+  }
+
+  /** Ends the quoting period now (useful for demonstrations, or when every supplier has answered). Quotes then become readable and can be awarded. */
+  async closeCompetition(user: RequestUser, competitionId: string) {
+    assertHasPermission(user, "tenders.award");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderMiniCompetition.findFirst({ where: { id: competitionId, organizationId: user.organizationId } });
+      if (!c) throw new NotFoundException("Mini-competition not found.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      const now = new Date();
+      if (!competitionOpen(c.closesAt, now)) throw new ConflictException("Quoting has already closed.");
+      await tx.tenderMiniCompetition.update({ where: { id: c.id }, data: { closesAt: now } });
+      await tx.tenderCallOffQuote.updateMany({ where: { competitionId: c.id }, data: { closesAt: now } });
+      const t = await tx.tender.findUnique({ where: { id: c.tenderId } });
+      const qs = await tx.tenderCallOffQuote.findMany({ where: { competitionId: c.id } });
+      return { c, t: t!, orgs: qs.map((q) => q.awardedOrganizationId) };
+    });
+    for (const org of r.orgs) await this.event(r.t, org, user, "MINI_COMP_CLOSED", `Quoting for ${r.c.reference} closed early by the owner`, { competitionId: r.c.id });
+    return this.view(user, r.t.id);
+  }
+
+  async cancelCompetition(user: RequestUser, competitionId: string, reason: string) {
+    assertHasPermission(user, "tenders.award");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderMiniCompetition.findFirst({ where: { id: competitionId, organizationId: user.organizationId } });
+      if (!c) throw new NotFoundException("Mini-competition not found.");
+      if (c.status !== "OPEN") throw new ConflictException("Only an open mini-competition can be cancelled.");
+      await tx.tenderMiniCompetition.update({ where: { id: c.id }, data: { status: "CANCELLED", cancelReason: reason } });
+      await tx.tenderCallOffQuote.updateMany({ where: { competitionId: c.id }, data: { status: "CANCELLED" } });
+      const t = await tx.tender.findUnique({ where: { id: c.tenderId } });
+      const qs = await tx.tenderCallOffQuote.findMany({ where: { competitionId: c.id } });
+      return { c, t: t!, orgs: qs.map((q) => q.awardedOrganizationId) };
+    });
+    for (const org of r.orgs) await this.event(r.t, org, user, "MINI_COMP_CANCELLED", `Mini-competition ${r.c.reference} cancelled: ${reason.slice(0, 200)}`, { competitionId: r.c.id });
+    await this.tenders.notifyOrgs(r.orgs, () => ({ title: `Mini-competition cancelled: ${r.c.reference}`, body: `The invitation to quote under ${r.t.title} has been cancelled: ${reason}`, link: `/tenders/framework?id=${r.t.id}`, subjectId: r.t.id }), "TENDER_MINI_COMPETITION", user.id);
+    return this.view(user, r.t.id);
+  }
+
+  /** A supplier submits (or replaces, until the deadline) its quote. Every item must be priced, at or below its framework price. */
+  async submitQuote(user: RequestUser, quoteId: string, dto: MiniQuoteDto) {
+    assertHasPermission(user, "tenders.bid");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, awardedOrganizationId: user.organizationId } });
+      if (!q) throw new NotFoundException("Invitation not found.");
+      if (!(q.status === "INVITED" || q.status === "QUOTED") || !competitionOpen(q.closesAt, new Date())) throw new ConflictException("Quoting for this invitation has closed.");
+      const lines = await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: q.id } });
+      const tl = await tx.tenderLine.findMany({ where: { id: { in: lines.map((l) => l.tenderLineId) } } });
+      const given = new Map(dto.lines.map((l) => [l.tenderLineId, l]));
+      const problems = quoteProblems(lines.map((l) => ({ label: tl.find((x) => x.id === l.tenderLineId)?.description ?? "an item", frameworkPrice: Number(l.frameworkPrice), quotedPrice: given.get(l.tenderLineId)?.quotedPrice })));
+      if (dto.lines.some((l) => !lines.some((x) => x.tenderLineId === l.tenderLineId))) problems.push("The quote includes an item that was not requested.");
+      if (problems.length) throw new BadRequestException(problems.join(" "));
+      let total = 0;
+      for (const l of lines) {
+        const g = given.get(l.tenderLineId)!;
+        total += Number(l.quantity) * g.quotedPrice;
+        await tx.tenderCallOffQuoteLine.update({ where: { id: l.id }, data: { quotedPrice: g.quotedPrice, leadTimeDays: g.leadTimeDays ?? null } });
+      }
+      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { status: "QUOTED", quotedAt: new Date(), totalValue: r2(total), quoteNotes: dto.notes ?? null, declineReason: null } });
+      const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
+      return { q, t: t!, total: r2(total) };
+    });
+    await this.event(r.t, r.q.organizationId, user, "MINI_COMP_QUOTED", `Supplier submitted a quote for ${r.q.reference}`, { quoteId: r.q.id });
+    return this.view(user, r.t.id);
+  }
+
+  async declineQuote(user: RequestUser, quoteId: string, reason: string) {
+    assertHasPermission(user, "tenders.bid");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, awardedOrganizationId: user.organizationId } });
+      if (!q) throw new NotFoundException("Invitation not found.");
+      if (!(q.status === "INVITED" || q.status === "QUOTED") || !competitionOpen(q.closesAt, new Date())) throw new ConflictException("Quoting for this invitation has closed.");
+      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { status: "DECLINED", declineReason: reason, totalValue: null } });
+      const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
+      return { q, t: t! };
+    });
+    await this.event(r.t, r.q.organizationId, user, "MINI_COMP_DECLINED", `Supplier declined to quote for ${r.q.reference}: ${reason.slice(0, 200)}`, { quoteId: r.q.id });
+    return this.view(user, r.t.id);
+  }
+
+  /** After quoting closes the owner chooses a winner and records why. The win becomes an ordinary call-off, so the approval limit and ceiling apply as usual. */
+  async awardCompetition(user: RequestUser, competitionId: string, dto: MiniAwardDto) {
+    assertHasPermission(user, "tenders.award");
+    const out = await withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderMiniCompetition.findFirst({ where: { id: competitionId, organizationId: user.organizationId } });
+      if (!c) throw new NotFoundException("Mini-competition not found.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      const now = new Date();
+      if (competitionOpen(c.closesAt, now)) throw new ConflictException("Quotes are sealed until the closing time. Close quoting first if you want to award now.");
+      const t = await this.tenders.ownTender(tx, user, c.tenderId);
+      const quotes = await tx.tenderCallOffQuote.findMany({ where: { competitionId: c.id } });
+      const win = quotes.find((q) => q.id === dto.quoteId);
+      if (!win || win.status !== "QUOTED") throw new BadRequestException("Choose one of the quotes that was submitted.");
+      const contract = await tx.tenderContract.findUnique({ where: { id: win.contractId } });
+      if (!contract || contract.status !== "ACTIVE") throw new ConflictException("That supplier's framework agreement is no longer active.");
+      const qlines = await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: win.id } });
+      const priced = qlines.map((l) => ({ tenderLineId: l.tenderLineId, quantity: Number(l.quantity), unitPrice: Number(l.quotedPrice), lineTotal: r2(Number(l.quantity) * Number(l.quotedPrice)) }));
+      const existing = await tx.tenderCallOff.findMany({ where: { tenderId: t.id, status: { in: OPEN_STATUSES } } });
+      const placed = await this.place(tx, user, { t, contract, priced, method: "MINI_COMPETITION", existing, now, stale: [], deliveryCountryCode: c.deliveryCountryCode ?? undefined, requiredBy: c.requiredBy, notes: c.notes, quoteId: win.id });
+      await tx.tenderCallOffQuote.update({ where: { id: win.id }, data: { status: "WON" } });
+      await tx.tenderCallOffQuote.updateMany({ where: { competitionId: c.id, id: { not: win.id }, status: { in: ["QUOTED", "INVITED"] } }, data: { status: "LOST" } });
+      await tx.tenderMiniCompetition.update({ where: { id: c.id }, data: { status: "AWARDED", awardedQuoteId: win.id, awardReason: dto.reason } });
+      return { ...placed, c, win, losers: quotes.filter((q) => q.id !== win.id && (q.status === "QUOTED" || q.status === "INVITED")).map((q) => q.awardedOrganizationId) };
+    });
+    await this.event(out.t, out.win.awardedOrganizationId, user, "MINI_COMP_WON", `Mini-competition ${out.c.reference} awarded to a supplier. Reason: ${dto.reason.slice(0, 300)}`, { competitionId: out.c.id, quoteId: out.win.id });
+    for (const org of out.losers) await this.event(out.t, org, user, "MINI_COMP_LOST", `Mini-competition ${out.c.reference} awarded to another supplier`, { competitionId: out.c.id });
+    await this.event(out.t, out.co.awardedOrganizationId, user, "CALL_OFF_RAISED", `Call-off ${out.co.reference} raised from mini-competition ${out.c.reference}, ${out.co.status === "PENDING_APPROVAL" ? "awaiting second authorisation" : "sent to the supplier"}`, { callOffId: out.co.id, totalValue: Number(out.co.totalValue), ceilingExceeded: out.co.ceilingExceeded });
+    if (out.co.status === "AWAITING_SUPPLIER") await this.tellSupplier(out.t, out.co, user);
+    await this.tenders.notifyOrgs(out.losers, () => ({ title: `Mini-competition result: ${out.c.reference}`, body: `The call-off under ${out.t.title} was awarded to another supplier. Thank you for quoting.`, link: `/tenders/framework?id=${out.t.id}`, subjectId: out.t.id }), "TENDER_MINI_COMPETITION", user.id);
+    return { id: out.co.id, status: out.co.status, warnings: out.warnings };
   }
 
   // ------------------------------------------------------------------ price reviews

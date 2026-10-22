@@ -48,3 +48,20 @@ export function ceilingCheck(ceiling: number | null, committed: number, adding: 
 }
 
 export function addMonths(d: Date, months: number): Date { const x = new Date(d.getTime()); x.setUTCMonth(x.getUTCMonth() + months); return x; }
+
+// ---------------------------------------------------------------- mini-competition (step 7 part 2b)
+
+export const MIN_COMPETITORS = 2;
+
+/** A competition accepts quotes until its closing time; after that the owner may read the quotes and award. */
+export function competitionOpen(closesAt: Date, now: Date): boolean { return closesAt.getTime() > now.getTime(); }
+
+/** Why a quote is not acceptable: every item must be priced, above zero, and no higher than the supplier's agreed framework price. */
+export function quoteProblems(lines: { label: string; frameworkPrice: number; quotedPrice: number | null | undefined }[]): string[] {
+  const out: string[] = [];
+  for (const l of lines) {
+    if (l.quotedPrice == null || !Number.isFinite(l.quotedPrice) || l.quotedPrice <= 0) out.push(`Enter a price for ${l.label}.`);
+    else if (l.quotedPrice > l.frameworkPrice + 1e-9) out.push(`${l.label}: your quote cannot be higher than your framework price of ${l.frameworkPrice}.`);
+  }
+  return out;
+}

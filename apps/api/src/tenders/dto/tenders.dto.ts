@@ -306,3 +306,18 @@ export class CallOffResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @
 export class PriceReviewDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) proposedPrice!: number; @IsString() @Length(1, 1000) reason!: string }
 export class PriceReviewResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) note?: string }
 export class ApprovalSettingsDto { @IsNumber() @Min(0) individualLimit!: number; @IsInt() @Min(1) @Max(365) splitWindowDays!: number }
+
+export class MiniLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.001) quantity!: number }
+export class OpenMiniCompetitionDto {
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => MiniLineDto) lines!: MiniLineDto[];
+  @IsDateString() closesAt!: string;
+  @IsOptional() @IsString() @Length(2, 2) deliveryCountryCode?: string;
+  @IsOptional() @IsDateString() requiredBy?: string;
+  @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+}
+export class MiniQuoteLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) quotedPrice!: number; @IsOptional() @IsInt() @Min(0) @Max(1000) leadTimeDays?: number }
+export class MiniQuoteDto {
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => MiniQuoteLineDto) lines!: MiniQuoteLineDto[];
+  @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+}
+export class MiniAwardDto { @IsString() quoteId!: string; @IsString() @Length(5, 1000) reason!: string }

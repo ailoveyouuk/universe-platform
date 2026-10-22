@@ -4326,6 +4326,8 @@ model TenderCallOff {
   respondedAt           DateTime?
   declineReason         String?   @db.NVarChar(1000)
   supplierProjectId     String?
+  /// The winning quote when this call-off came from a mini-competition.
+  quoteId               String?
   createdAt             DateTime  @default(now())
 
   @@index([tenderId])
@@ -4370,4 +4372,71 @@ model TenderPriceReview {
 
   @@index([contractId])
   @@map("tender_price_reviews")
+}
+
+/// A mini-competition among framework suppliers for one call-off (step 7 part 2b). Private to the owner; each invited supplier sees only its own quote row.
+model TenderMiniCompetition {
+  id                  String    @id @default(uuid())
+  organizationId      String
+  tenderId            String
+  reference           String    @db.NVarChar(100)
+  /// OPEN, AWARDED, CANCELLED
+  status              String    @default("OPEN")
+  notes               String?   @db.NVarChar(1000)
+  deliveryCountryCode String?   @db.Char(2)
+  requiredBy          DateTime?
+  closesAt            DateTime
+  /// [{ tenderLineId, quantity }]
+  linesJson           String    @db.NVarChar(Max)
+  awardedQuoteId      String?
+  awardReason         String?   @db.NVarChar(1000)
+  cancelReason        String?   @db.NVarChar(1000)
+  createdById         String
+  createdAt           DateTime  @default(now())
+
+  @@index([tenderId])
+  @@map("tender_mini_competitions")
+}
+
+/// One invited supplier's invitation and quote. Shared by the owner and that supplier only, so suppliers never see each other.
+model TenderCallOffQuote {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  competitionId         String
+  contractId            String
+  reference             String    @db.NVarChar(100)
+  /// INVITED, QUOTED, DECLINED, WON, LOST, CANCELLED
+  status                String    @default("INVITED")
+  closesAt              DateTime
+  requestNotes          String?   @db.NVarChar(1000)
+  deliveryCountryCode   String?   @db.Char(2)
+  requiredBy            DateTime?
+  quotedAt              DateTime?
+  totalValue            Decimal?  @db.Decimal(18, 2)
+  quoteNotes            String?   @db.NVarChar(1000)
+  declineReason         String?   @db.NVarChar(1000)
+  createdAt             DateTime  @default(now())
+
+  @@index([competitionId])
+  @@index([awardedOrganizationId])
+  @@map("tender_call_off_quotes")
+}
+
+model TenderCallOffQuoteLine {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  quoteId               String
+  tenderLineId          String
+  quantity              Decimal  @db.Decimal(18, 3)
+  /// The agreed framework price: a quote may match it or go below, never above.
+  frameworkPrice        Decimal  @db.Decimal(18, 4)
+  quotedPrice           Decimal? @db.Decimal(18, 4)
+  leadTimeDays          Int?
+
+  @@index([quoteId])
+  @@map("tender_call_off_quote_lines")
 }

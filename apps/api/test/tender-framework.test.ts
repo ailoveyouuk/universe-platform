@@ -35,3 +35,17 @@ describe("framework rules", () => {
     expect(ceilingCheck(100, 60, 50).exceeded).toBe(true);
   });
 });
+
+import { competitionOpen as _open, quoteProblems as _qp } from "../src/tenders/tender-framework";
+describe("mini-competition rules", () => {
+  it("quotes may match or beat the framework price, never exceed it, and every item needs a price", () => {
+    expect(_qp([{ label: "A", frameworkPrice: 10, quotedPrice: 10 }, { label: "B", frameworkPrice: 5, quotedPrice: 4.5 }])).toEqual([]);
+    expect(_qp([{ label: "A", frameworkPrice: 10, quotedPrice: 10.01 }])[0]).toMatch(/cannot be higher/);
+    expect(_qp([{ label: "A", frameworkPrice: 10, quotedPrice: undefined }, { label: "B", frameworkPrice: 5, quotedPrice: 0 }]).length).toBe(2);
+  });
+  it("quoting is open only until the closing time", () => {
+    const now = new Date("2026-10-22T12:00:00Z");
+    expect(_open(new Date("2026-10-22T12:00:01Z"), now)).toBe(true);
+    expect(_open(new Date("2026-10-22T12:00:00Z"), now)).toBe(false);
+  });
+});

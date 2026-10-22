@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CALL_OFF_STATUS_LABEL, type CallOffView, type FrameworkView } from "@universe/types";
+import { CALL_OFF_STATUS_LABEL, type CallOffView, type FrameworkView, type MiniCompetitionView, type MiniInvitationView } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { Card, ErrorNote, Field, Heading, Page, fmtDate, inputStyle } from "../../../lib/ui";
@@ -45,6 +45,9 @@ export function FrameworkPage() {
       {v.contracts.map((c) => <Agreement key={c.contractId} v={v} c={c} owner={owner} act={act} busy={busy} />)}
 
       {owner && v.contracts.some((c) => c.status === "ACTIVE") && <RaiseCallOff v={v} act={act} busy={busy} onWarn={setWarn} />}
+      {owner && v.contracts.filter((c) => c.status === "ACTIVE").length >= 2 && <RunCompetition v={v} act={act} busy={busy} />}
+      {owner && v.miniCompetitions.length > 0 && <Card title={`Mini-competitions (${v.miniCompetitions.length})`}>{v.miniCompetitions.map((m) => <Competition key={m.id} m={m} currency={t.currency} act={act} busy={busy} onWarn={setWarn} />)}</Card>}
+      {!owner && v.invitations.length > 0 && <Card title={`Invitations to quote (${v.invitations.length})`}>{v.invitations.map((i) => <Invitation key={i.id} i={i} currency={t.currency} act={act} busy={busy} />)}</Card>}
       {warn.length > 0 && <div role="status" style={{ padding: "10px 14px", border: "1px solid var(--u-status-warning)", borderRadius: "var(--u-radius-md)", fontSize: 13.5 }}>{warn.map((w, i) => <div key={i}>{w}</div>)}</div>}
 
       <Card title={`Call-offs (${v.callOffs.length})`}>
@@ -130,7 +133,7 @@ function CallOff({ c, owner, act, busy }: { c: CallOffView; owner: boolean; act:
     <div style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <span><strong>{c.reference}</strong> · {owner ? `${c.supplierName} · ` : ""}{money(c.totalValue, c.currency)} <Pill tone={tone(c.status)}>{CALL_OFF_STATUS_LABEL[c.status]}</Pill> {c.ceilingExceeded && <Pill tone="critical">Over the maximum value</Pill>}</span>
-        <span style={muted}>{c.method === "ROTATION" ? "Rotation" : "Direct award"}{c.requiredBy ? ` · needed by ${fmtDate(c.requiredBy)}` : ""}{c.raisedBy ? ` · raised by ${c.raisedBy}` : ""}</span>
+        <span style={muted}>{c.method === "ROTATION" ? "Rotation" : c.method === "MINI_COMPETITION" ? "Mini-competition" : "Direct award"}{c.requiredBy ? ` · needed by ${fmtDate(c.requiredBy)}` : ""}{c.raisedBy ? ` · raised by ${c.raisedBy}` : ""}</span>
       </div>
       {c.lines.map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quantity} × {l.unitPrice} = {l.lineTotal.toLocaleString()}</div>)}
       {c.notes && <div style={muted}>Notes: {c.notes}</div>}
@@ -149,6 +152,92 @@ function CallOff({ c, owner, act, busy }: { c: CallOffView; owner: boolean; act:
         {!owner && c.status === "ACCEPTED" && !c.supplierProjectId && <Button size="sm" variant="secondary" disabled={busy} onClick={() => act(() => apiClient.createCallOffProject(c.id))}>Create delivery project</Button>}
         {!owner && c.supplierProjectId && <Pill tone="good">Delivery project created</Pill>}
       </div>
+    </div>
+  );
+}
+
+const when = (d: string) => new Date(d).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+const qTone = (s: string) => (s === "WON" ? "good" : s === "DECLINED" || s === "LOST" || s === "CANCELLED" ? "critical" : s === "QUOTED" ? "brand" : "warning") as "good" | "critical" | "warning" | "brand";
+
+/** Owner: invite every framework supplier that covers the chosen items to quote at or below their framework prices. */
+function RunCompetition({ v, act, busy }: { v: FrameworkView; act: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
+  const items = [...new Map(v.contracts.filter((c) => c.status === "ACTIVE").flatMap((c) => c.items).map((i) => [i.tenderLineId, i])).values()].sort((a, b) => a.lineNumber - b.lineNumber);
+  const [qty, setQty] = useState<Record<string, string>>({}); const [notes, setNotes] = useState(""); const [by, setBy] = useState(""); const [closes, setCloses] = useState("");
+  const chosen = items.filter((i) => Number(qty[i.tenderLineId]) > 0);
+  return (
+    <Card title="Run a mini-competition">
+      <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>Ask every framework supplier that covers all the items you choose (at least two) to quote. Each can match its agreed price or go lower, never higher. Quotes stay sealed from you until the closing time (or until you close quoting early), then you choose a winner and record why.</p>
+      {items.map((i) => <div key={i.tenderLineId} style={{ display: "flex", gap: 8, alignItems: "center", padding: "4px 0", fontSize: 13.5 }}><span style={{ flex: 1 }}>{i.lineNumber}. {i.description}</span><input aria-label={`Competition quantity of item ${i.lineNumber}`} type="number" min={0} style={{ ...inputStyle, width: 110 }} value={qty[i.tenderLineId] ?? ""} onChange={(e) => setQty((q) => ({ ...q, [i.tenderLineId]: e.target.value }))} /></div>)}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginTop: 10 }}>
+        <Field label="Quotes close at"><input type="datetime-local" style={inputStyle} value={closes} onChange={(e) => setCloses(e.target.value)} /></Field>
+        <Field label="Needed by (optional)"><input type="date" style={inputStyle} value={by} onChange={(e) => setBy(e.target.value)} /></Field>
+        <Field label="Notes for suppliers (optional)"><input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} /></Field>
+      </div>
+      <div style={{ marginTop: 12 }}><Button variant="primary" disabled={busy || chosen.length === 0 || !closes} onClick={() => act(async () => { await apiClient.openMiniCompetition(v.tender.id, { lines: chosen.map((i) => ({ tenderLineId: i.tenderLineId, quantity: Number(qty[i.tenderLineId]) })), closesAt: new Date(closes).toISOString(), requiredBy: by || undefined, notes: notes || undefined }); setQty({}); setNotes(""); setBy(""); setCloses(""); })}>Invite suppliers to quote</Button></div>
+    </Card>
+  );
+}
+
+function Competition({ m, currency, act, busy, onWarn }: { m: MiniCompetitionView; currency: string | null; act: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean; onWarn: (w: string[]) => void }) {
+  const [reason, setReason] = useState(""); const [pick, setPick] = useState("");
+  return (
+    <div style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <span><strong>{m.reference}</strong> <Pill tone={m.status === "AWARDED" ? "good" : m.status === "CANCELLED" ? "critical" : m.sealed ? "warning" : "brand"}>{m.status === "OPEN" ? (m.sealed ? "Quoting open, sealed" : "Quoting closed") : m.status.toLowerCase()}</Pill></span>
+        <span style={muted}>{m.sealed ? `Closes ${when(m.closesAt)}` : `Closed ${when(m.closesAt)}`} · {m.invited} invited · {m.quotesReceived} quote{m.quotesReceived === 1 ? "" : "s"} received</span>
+      </div>
+      {m.lines.map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quantity}</div>)}
+      {m.sealed && <div style={muted}>Quotes are sealed until the closing time. You can see how many have arrived, not who or what they are.</div>}
+      {!m.sealed && m.quotes.map((q) => (
+        <div key={q.id} style={{ padding: "6px 0", borderTop: "1px dotted var(--u-border)" }}>
+          {m.status === "OPEN" && q.status === "QUOTED" && <label style={{ marginRight: 8 }}><input type="radio" name={`pick-${m.id}`} checked={pick === q.id} onChange={() => setPick(q.id)} /> </label>}
+          <strong>{q.supplierName}</strong> <Pill tone={qTone(q.status)}>{q.status === "INVITED" ? "no answer" : q.status.toLowerCase()}</Pill> {q.totalValue != null && <strong>{money(q.totalValue, currency)}</strong>}
+          {q.lines.filter((l) => l.quotedPrice != null).map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quotedPrice} (framework {l.frameworkPrice}){l.leadTimeDays != null ? ` · ${l.leadTimeDays} days` : ""}</div>)}
+          {q.quoteNotes && <div style={muted}>Note: {q.quoteNotes}</div>}{q.declineReason && <div style={muted}>Declined: {q.declineReason}</div>}
+        </div>))}
+      {m.awardReason && <div style={muted}>Why the winner was chosen: {m.awardReason}</div>}{m.cancelReason && <div style={muted}>Cancelled: {m.cancelReason}</div>}
+      {m.status === "OPEN" && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+        {m.sealed && <Button size="sm" variant="secondary" disabled={busy} onClick={() => act(() => apiClient.closeMiniCompetition(m.id))}>Close quoting now</Button>}
+        <input aria-label="Reason" style={{ ...inputStyle, width: 260 }} placeholder={m.canAward ? "Why this supplier won (recorded)" : "Reason (to cancel)"} value={reason} onChange={(e) => setReason(e.target.value)} />
+        {m.canAward && <Button size="sm" variant="primary" disabled={busy || !pick || reason.trim().length < 5} onClick={() => act(async () => { const r = await apiClient.awardMiniCompetition(m.id, { quoteId: pick, reason }); onWarn(r.warnings); })}>Award the call-off</Button>}
+        <Button size="sm" variant="secondary" disabled={busy || !reason.trim()} onClick={() => act(() => apiClient.cancelMiniCompetition(m.id, reason))}>Cancel competition</Button>
+      </div>}
+    </div>
+  );
+}
+
+/** Supplier: its own invitation only. Quote at or below the framework price for every item before the deadline; it can be replaced until then. */
+function Invitation({ i, currency, act, busy }: { i: MiniInvitationView; currency: string | null; act: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
+  const [price, setPrice] = useState<Record<string, string>>(() => Object.fromEntries(i.lines.map((l) => [l.tenderLineId, l.quotedPrice != null ? String(l.quotedPrice) : ""])));
+  const [lead, setLead] = useState<Record<string, string>>(() => Object.fromEntries(i.lines.map((l) => [l.tenderLineId, l.leadTimeDays != null ? String(l.leadTimeDays) : ""])));
+  const [notes, setNotes] = useState(i.quoteNotes ?? ""); const [reason, setReason] = useState("");
+  const ready = i.lines.every((l) => Number(price[l.tenderLineId]) > 0 && Number(price[l.tenderLineId]) <= l.frameworkPrice);
+  return (
+    <div style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <span><strong>{i.reference}</strong> <Pill tone={qTone(i.status)}>{i.status === "INVITED" ? "awaiting your quote" : i.status.toLowerCase()}</Pill> {i.totalValue != null && <strong>{money(i.totalValue, currency)}</strong>}</span>
+        <span style={muted}>{i.open ? `Closes ${when(i.closesAt)}` : `Closed ${when(i.closesAt)}`}{i.requiredBy ? ` · needed by ${fmtDate(i.requiredBy)}` : ""}</span>
+      </div>
+      {i.requestNotes && <div style={muted}>Notes from the buyer: {i.requestNotes}</div>}
+      {i.lines.map((l) => (
+        <div key={l.tenderLineId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "4px 0" }}>
+          <span style={{ flex: 1, minWidth: 200 }}>{l.description}: {l.quantity} <span style={muted}>(your framework price {l.frameworkPrice})</span></span>
+          {i.open ? <>
+            <input aria-label={`Quote for ${l.description}`} type="number" min={0} step="0.0001" max={l.frameworkPrice} style={{ ...inputStyle, width: 120 }} value={price[l.tenderLineId] ?? ""} onChange={(e) => setPrice((p) => ({ ...p, [l.tenderLineId]: e.target.value }))} />
+            <input aria-label={`Lead time in days for ${l.description}`} type="number" min={0} style={{ ...inputStyle, width: 110 }} placeholder="Days (optional)" value={lead[l.tenderLineId] ?? ""} onChange={(e) => setLead((p) => ({ ...p, [l.tenderLineId]: e.target.value }))} />
+          </> : <span>{l.quotedPrice ?? "no quote"}</span>}
+        </div>))}
+      {i.open && <>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+          <input aria-label="Quote notes" style={{ ...inputStyle, flex: 1, minWidth: 220 }} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} />
+          <Button size="sm" variant="primary" disabled={busy || !ready} onClick={() => act(() => apiClient.submitMiniQuote(i.id, { lines: i.lines.map((l) => ({ tenderLineId: l.tenderLineId, quotedPrice: Number(price[l.tenderLineId]), leadTimeDays: lead[l.tenderLineId] ? Number(lead[l.tenderLineId]) : undefined })), notes: notes || undefined }))}>{i.status === "QUOTED" ? "Replace my quote" : "Submit quote"}</Button>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
+          <input aria-label="Reason for not quoting" style={{ ...inputStyle, width: 260 }} placeholder="Reason (to decline to quote)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <Button size="sm" variant="secondary" disabled={busy || !reason.trim()} onClick={() => act(() => apiClient.declineMiniQuote(i.id, reason))}>Decline to quote</Button>
+        </div>
+      </>}
+      {i.declineReason && <div style={muted}>You declined: {i.declineReason}</div>}
     </div>
   );
 }
