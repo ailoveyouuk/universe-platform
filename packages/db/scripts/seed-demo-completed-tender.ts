@@ -29,7 +29,13 @@ async function main() {
   await withPlatformStaffContext(async (tx) => {
     const owner = await tx.organization.findFirst({ where: { name: OWNER_NAME, isDemo: true }, select: { id: true, name: true } });
     if (!owner) throw new Error(`Demo organisation "${OWNER_NAME}" not found.`);
-    if (await tx.tender.findFirst({ where: { organizationId: owner.id, referenceNumber: REF }, select: { id: true } })) { console.log(`${REF} already exists; nothing to do.`); return; }
+    const have = await tx.tender.findFirst({ where: { organizationId: owner.id, referenceNumber: REF }, select: { id: true } });
+    if (have) {
+      // Corrects the title written by the first run (it named the wrong products); harmless on later runs.
+      const title = "Supply of injectable and oral essential medicines (simulated, completed)";
+      if (!dryRun) { await tx.tender.update({ where: { id: have.id }, data: { title } }); await tx.tenderContract.updateMany({ where: { tenderId: have.id }, data: { title: `Contract for ${title}` } }); }
+      console.log(`${REF} already exists; title ${dryRun ? "would be " : ""}ensured.`); return;
+    }
     const user = await tx.user.findFirst({ where: { organizationId: owner.id, status: "ACTIVE" }, orderBy: { email: "asc" }, select: { id: true, forename: true, surname: true } });
     if (!user) throw new Error("The owner has no active user to act as chair.");
     const rivals = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], skip: 3, take: 3, select: { id: true, name: true } });
@@ -44,7 +50,7 @@ async function main() {
     const at = (daysAgo: number, hours = 0) => new Date(now - daysAgo * DAY + hours * HOUR);
     const pub = at(80), closing = at(58), opened = at(58, 1), awardedAt = at(44), execAt = at(41), start = at(40), end = at(6), closedAt = at(4);
     const t = await tx.tender.create({ data: {
-      organizationId: owner.id, referenceNumber: REF, title: "Supply of paediatric antimalarials and rapid tests (simulated, completed)",
+      organizationId: owner.id, referenceNumber: REF, title: "Supply of injectable and oral essential medicines (simulated, completed)",
       summary: "A simulated competitive request for quotation, taken through evaluation, award, contract, delivery and closure.",
       tenderType: "RFQ", visibility: "INVITED_ONLY", visibleToAll: false, isPublished: true, status: "CONTRACTED", publishedAt: pub,
       deliveryCountryCodes: "KE", currency: "USD", incoterm: "DAP", clientName: "Simulated client", clarificationDeadline: at(66), closingAt: closing, evaluationDueAt: at(50), awardDueAt: at(45),

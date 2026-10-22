@@ -7,7 +7,7 @@ import { Button, Pill, PlusIcon, SearchInput } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { Card, ErrorNote, Heading, Page, STATUS_LABEL, STATUS_TONE, TYPE_LABEL, fmtDate } from "../../lib/ui";
 
-const FILTERS = [["", "All"], ["DRAFT", "Drafts"], ["PUBLISHED", "Open"], ["CLOSED", "Closed"], ["EVALUATING", "Evaluating"], ["AWARDED", "Awarded"], ["CANCELLED", "Cancelled"]] as const;
+const FILTERS = [["", "All"], ["DRAFT", "Drafts"], ["PUBLISHED", "Open"], ["CLOSED", "Closed"], ["EVALUATING", "Evaluating"], ["AWARDED", "Awarded"], ["CONTRACTED", "Contracted"], ["CANCELLED", "Cancelled"]] as const;
 
 export default function TendersPage() {
   const [rows, setRows] = useState<TenderListItem[] | null>(null);
