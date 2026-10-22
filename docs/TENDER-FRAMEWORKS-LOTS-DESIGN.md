@@ -60,10 +60,13 @@ Contracts for a multi-lot award: one per supplier with a milestone per lot (Clau
 - Prices are the supplier's submitted bid prices. They are held from signature for the hold period. After it, either party can propose a change to specific items; the other accepts or rejects; the latest accepted price is used for new call-offs.
 - Call-offs go to one supplier chosen by the method. Items awarded to different suppliers need separate call-offs. The supplier accepts or declines, then creates its delivery project.
 - Approval limit (decision 7): per organisation; up to the limit one authoriser (the person raising); above it a second, different authoriser. Recent open orders to the same supplier count together, so orders cannot be split to stay under the limit. Defaults (25,000 and a 30-day window) are a placeholder flagged "not yet confirmed" until the organisation saves its own figure. No single published insurer standard exists.
-- Not built: mini-competition, framework-level performance rollup from call-off deliveries, call-off documents, approval limits by role or currency.
+- Not built: framework-level performance rollup from call-off deliveries, call-off documents, approval limits by role or currency.
+
+## 5d. Mini-competition: what was built (2026-10-22)
+- The owner invites every active framework supplier that covers all chosen items (at least two) to quote by a closing time. Quotes are at or below each supplier's own framework price, sealed from the owner until the deadline, replaceable until then. The owner can close quoting early, then picks a winner with a written reason; the win becomes a normal call-off (method MINI_COMPETITION) subject to the approval limit and ceiling warning. Each supplier sees only its own invitation; losers are notified. Lead time is recorded on quotes but not scored.
 
 ## 6. Build plan once approved
 1. Lots: schema and builder; bid form and completeness per lot; evaluation and results per lot; award, debriefs and contracts; tests; demo lots on a new simulated tender.
 2. Framework terms and agreement (reusing the contract card); call-off model with direct award and rotation; supplier accept/decline and project handover; ceiling tracking; tests; demo framework.
-3. Mini-competition (if not in step 2), framework performance, documents, backup and live walkthrough as for every step.
+3. Mini-competition (built, 5d), framework performance, documents, backup and live walkthrough as for every step.
 Estimated at roughly two to three times the size of step 6, so delivered in the two parts above.
