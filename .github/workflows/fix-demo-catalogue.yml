@@ -1,0 +1,29 @@
+name: Fix demo catalogue
+
+# Corrects catalogue anomalies in the simulated data (2026-10-22). DRY RUN by default.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (writes nothing). Untick to apply."
+        default: true
+        type: boolean
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Fix (or dry run)
+        run: npm run fix:catalogue --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PRISMA_TX_TIMEOUT_MS: "120000"
