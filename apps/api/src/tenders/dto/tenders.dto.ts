@@ -301,6 +301,7 @@ export class RaiseCallOffDto {
   @IsOptional() @IsDateString() requiredBy?: string;
   @IsOptional() @IsString() @Length(0, 1000) notes?: string;
 }
+export class OptionalReasonDto { @IsOptional() @IsString() @Length(0, 1000) reason?: string }
 export class CallOffReasonDto { @IsString() @Length(1, 1000) reason!: string }
 export class CallOffResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) reason?: string }
 export class PriceReviewDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) proposedPrice!: number; @IsString() @Length(1, 1000) reason!: string }

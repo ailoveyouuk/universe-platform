@@ -15,7 +15,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import {
   AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
-import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
+import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
@@ -149,7 +149,7 @@ export class TendersController {
   @Post("mini-quotes/:qid/decline") declineMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: CallOffReasonDto) { return this.framework.declineQuote(u, qid, dto.reason); }
   @Post("contracts/:cid/variations") proposeVariation(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ProposeVariationDto) { return this.variations.propose(u, cid, dto); }
   @Post("variations/:vid/respond") respondVariation(@CurrentUser() u: RequestUser, @Param("vid") vid: string, @Body() dto: VariationResponseDto) { return this.variations.respond(u, vid, dto); }
-  @Post("variations/:vid/withdraw") withdrawVariation(@CurrentUser() u: RequestUser, @Param("vid") vid: string, @Body() dto: CallOffReasonDto) { return this.variations.withdraw(u, vid, dto.reason); }
+  @Post("variations/:vid/withdraw") withdrawVariation(@CurrentUser() u: RequestUser, @Param("vid") vid: string, @Body() dto: OptionalReasonDto) { return this.variations.withdraw(u, vid, dto.reason ?? ""); }
   @Post("contracts/:cid/evidence/upload-url") evidenceUploadUrl(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: RequestContractFileDto) { return this.evidence.requestUpload(u, cid, dto); }
   @Post("contracts/:cid/evidence") addEvidence(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: AddEvidenceDto) { return this.evidence.add(u, cid, dto); }
   @Post("evidence/:eid/acknowledge") acknowledgeEvidence(@CurrentUser() u: RequestUser, @Param("eid") eid: string) { return this.evidence.acknowledge(u, eid); }
