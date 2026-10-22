@@ -136,6 +136,7 @@ module storage 'modules/storage.bicep' = {
       'https://${productDatabaseSwa.outputs.defaultHostname}'
       // Tender Issuance added 2026-10-21 (tender documents and bid files upload directly to blob storage).
       'https://${tendersSwa.outputs.defaultHostname}'
+      'https://${supplierPortalSwa.outputs.defaultHostname}'
     ]
   }
 }
@@ -272,6 +273,17 @@ module tendersSwa 'modules/staticWebApp.bicep' = {
   }
 }
 
+// Supplier Portal — added 2026-10-22. After deploy-infra.yml creates it: set SWA_TOKEN_SUPPLIER_PORTAL (secret) and
+// SUPPLIER_PORTAL_URL (variable, its https hostname), register that URL as a redirect URI on the CIAM app registration, add it
+// to the API's allowed CORS origins, then flip "supplier-portal" in packages/ui/src/AppSwitcher.tsx to status: "available".
+module supplierPortalSwa 'modules/staticWebApp.bicep' = {
+  name: 'supplierPortalSwa'
+  params: {
+    name: '${namePrefix}-supplier-portal'
+    location: staticWebAppLocation
+  }
+}
+
 output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
@@ -282,3 +294,4 @@ output projectManagementUrl string = projectManagementSwa.outputs.defaultHostnam
 output adminUrl string = adminSwa.outputs.defaultHostname
 output productDatabaseUrl string = productDatabaseSwa.outputs.defaultHostname
 output tendersUrl string = tendersSwa.outputs.defaultHostname
+output supplierPortalUrl string = supplierPortalSwa.outputs.defaultHostname

@@ -1,6 +1,6 @@
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
-  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
+  TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -297,6 +297,7 @@ export class UniverseApiClient {
   }
 
   // ---- Tender Issuance & Management (issuer side, 2026-10-19)
+  supplierPortalDashboard(): Promise<SupplierPortalDashboard> { return this.request("/supplier-portal/dashboard"); }
   tenderDashboard(): Promise<TenderDashboard> { return this.request("/tenders/dashboard"); }
   listMyTenders(status?: string): Promise<TenderListItem[]> { return this.request(`/tenders/mine${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
   getMyTender(id: string): Promise<TenderDetailForIssuer> { return this.request(`/tenders/mine/${id}`); }

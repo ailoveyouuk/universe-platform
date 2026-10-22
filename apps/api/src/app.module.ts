@@ -5,6 +5,7 @@ import { RolesModule } from "./roles/roles.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { SupplierDirectoryModule } from "./supplier-directory/supplier-directory.module";
 import { TendersModule } from "./tenders/tenders.module";
+import { SupplierPortalModule } from "./supplier-portal/supplier-portal.module";
 import { MeController } from "./me/me.controller";
 import { PartnersModule } from "./partners/partners.module";
 import { SupplierEnquiriesModule } from "./supplier-enquiries/supplier-enquiries.module";
@@ -35,6 +36,7 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     OrganizationsModule,
     SupplierDirectoryModule,
     TendersModule,
+    SupplierPortalModule,
     PartnersModule,
     SupplierEnquiriesModule,
     DocumentsModule,
