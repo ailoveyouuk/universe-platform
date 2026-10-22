@@ -10,7 +10,7 @@ import JSZip from "jszip";
  * Sheet protection is a convenience only; every value is validated again on upload.
  */
 export interface TemplateTender { id: string; referenceNumber: string; title: string; issuerName: string; currency: string; bidValidityDays: number | null; closingText: string }
-export interface TemplateLine { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null }
+export interface TemplateLine { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null; lotNumber?: number | null; lotTitle?: string | null }
 export interface TemplateCriterion { id: string; title: string; description: string | null; kind: string; weight: string | null; isMandatory: boolean; responseFormat: string }
 export interface TemplateCountry { code: string; name: string }
 
@@ -35,9 +35,9 @@ export async function buildFinancialTemplate(t: TemplateTender, lines: TemplateL
   ws.getCell("B3").value = "Currency of all prices"; ws.getCell("C3").value = t.currency; ws.getCell("C3").font = { bold: true };
   ws.getCell("B4").value = `Bid valid for ${t.bidValidityDays ?? "the required number of"} days after closing? (Yes / No)`;
   ws.getCell("B5").value = "Notes (optional)";
-  ws.getCell("B6").value = "Complete only the shaded cells. Do not add, remove or reorder rows. Prices are per unit in the currency above.";
+  ws.getCell("B6").value = "Complete only the shaded cells. Do not add, remove or reorder rows. Prices are per unit in the currency above."+(lines.some((l) => l.lotNumber) ? " Bid for a lot in full (price every item in it) or mark every item in it \"Yes\" under Not bidding." : "");
   ws.getCell("B6").font = { italic: true, color: { argb: "FF666666" } };
-  const hdr = ["", "Item", "Description", "Quantity", "Unit", "Not bidding? (Yes / No)", "Unit price", "Lead time (days)", "Country of origin", "Manufacturer (optional)", "Remarks (optional)", "Line total"];
+  const hdr = ["", "Item", "Description", "Quantity", "Unit", "Not bidding? (Yes / No)", "Unit price", "Lead time (days)", "Country of origin", "Manufacturer (optional)", "Remarks (optional)", "Line total", "Lot"];
   hdr.forEach((h, i) => { const c = ws.getCell(HDR_ROW, i + 1); c.value = h; c.font = { bold: true }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } }; });
   const input = { type: "pattern" as const, pattern: "solid" as const, fgColor: { argb: "FFFFF4CC" } };
   const open = (addr: string) => { const c = ws.getCell(addr); c.protection = { locked: false }; c.fill = input; return c; };
@@ -53,13 +53,14 @@ export async function buildFinancialTemplate(t: TemplateTender, lines: TemplateL
     open(`H${r}`).dataValidation = { type: "whole", operator: "between", allowBlank: true, formulae: [0, 3650], showErrorMessage: true, errorTitle: "Lead time", error: "Enter whole days, 0 to 3650." };
     open(`I${r}`).dataValidation = { type: "list", allowBlank: true, formulae: [`Lists!$A$1:$A$${Math.max(countries.length, 1)}`], showErrorMessage: true, errorTitle: "Country", error: "Choose a country from the list." };
     open(`J${r}`); open(`K${r}`);
+    ws.getCell(r, 13).value = l.lotNumber ? `Lot ${l.lotNumber}${l.lotTitle ? ` · ${l.lotTitle}` : ""}` : "";
     ws.getCell(r, 12).value = { formula: `IF(F${r}="Yes",0,IF(ISNUMBER(G${r}),G${r}*D${r},0))` } as ExcelJS.CellFormulaValue;
   });
   const last = FIRST + lines.length;
   ws.getCell(last, 11).value = "Total"; ws.getCell(last, 11).font = { bold: true };
   ws.getCell(last, 12).value = { formula: `SUM(L${FIRST}:L${last - 1})` } as ExcelJS.CellFormulaValue; ws.getCell(last, 12).font = { bold: true };
   ws.getColumn(1).hidden = true;
-  [[2, 7], [3, 46], [4, 11], [5, 10], [6, 16], [7, 13], [8, 14], [9, 24], [10, 24], [11, 28], [12, 14]].forEach(([c, w]) => { ws.getColumn(c!).width = w!; });
+  [[2, 7], [3, 46], [4, 11], [5, 10], [6, 16], [7, 13], [8, 14], [9, 24], [10, 24], [11, 28], [12, 14], [13, 30]].forEach(([c, w]) => { ws.getColumn(c!).width = w!; });
   await ws.protect("", { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true });
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

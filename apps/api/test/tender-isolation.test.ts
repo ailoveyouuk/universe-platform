@@ -133,4 +133,18 @@ describe("Tender row-level security", () => {
     expect(await withTenantContext(issuer, (tx) => tx.tenderContractSignatory.count({ where: { contractId: c.id } }))).toBe(2);
     await expect(withTenantContext(partB, (tx) => tx.tenderContractSignatory.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, party: "SUPPLIER", signerName: "X", signedOn: new Date(), recordedByOrganizationId: partB } }))).rejects.toThrow();
   });
+  it("a bidder's per-lot debrief is readable by that bidder and the issuer only, and a bidder cannot write or alter it", async () => {
+    const lotsA = JSON.stringify([{ lotNumber: 1, lotTitle: "Medicines", bid: true, rank: 1, of: 2, itemsAwarded: 2, itemsInLot: 2 }]);
+    const lotsB = JSON.stringify([{ lotNumber: 1, lotTitle: "Medicines", bid: true, rank: 2, of: 2, itemsAwarded: 0, itemsInLot: 2 }]);
+    const mk = (bidder: string, lots: string) => withTenantContext(issuer, (tx) => tx.tenderDebrief.create({ data: { organizationId: issuer, tenderId: openId, bidId: randomUUID(), bidderOrganizationId: bidder, outcome: "AWARDED", scoresJson: "[]", lotsJson: lots } }));
+    const dA = await mk(partA, lotsA); const dB = await mk(partB, lotsB);
+    const read = (org: string) => withTenantContext(org, async (tx) => (await tx.tenderDebrief.findMany({ where: { tenderId: openId } })).map((d) => d.lotsJson).sort());
+    expect(await read(partA)).toEqual([lotsA]);
+    expect(await read(partB)).toEqual([lotsB]);
+    expect((await read(issuer)).sort()).toEqual([lotsA, lotsB].sort());
+    expect(await read(outsider)).toEqual([]);
+    await expect(withTenantContext(partA, (tx) => tx.tenderDebrief.update({ where: { id: dA.id }, data: { lotsJson: lotsB } }))).rejects.toThrow();
+    await expect(withTenantContext(partA, (tx) => tx.tenderDebrief.create({ data: { organizationId: issuer, tenderId: openId, bidId: randomUUID(), bidderOrganizationId: partA, outcome: "AWARDED", scoresJson: "[]", lotsJson: lotsA } }))).rejects.toThrow();
+    expect(dB.id).not.toBe(dA.id);
+  });
 });

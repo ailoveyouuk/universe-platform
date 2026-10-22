@@ -18,3 +18,19 @@ describe("bid completeness with lots", () => {
     expect(r.some((x) => x.label.includes("lot"))).toBe(false);
   });
 });
+
+import ExcelJS from "exceljs";
+import { buildFinancialTemplate } from "../src/tenders/bid-template";
+
+describe("financial template with lots", () => {
+  it("shows each item's lot in the last column and the lot instruction", async () => {
+    const t = { id: "t1", referenceNumber: "R-1", title: "T", issuerName: "I", closingText: "soon", currency: "USD", bidValidityDays: 90 } as Parameters<typeof buildFinancialTemplate>[0];
+    const lines = [{ id: "a", lineNumber: 1, description: "A", quantity: "1", unit: "box", lotNumber: 1, lotTitle: "Medicines" }, { id: "b", lineNumber: 2, description: "B", quantity: "1", unit: "box", lotNumber: 2, lotTitle: "Supplies" }];
+    const buf = await buildFinancialTemplate(t, lines, [], []);
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buf as unknown as ArrayBuffer);
+    const ws = wb.getWorksheet("Financial offer")!;
+    const rows = ws.getRows(1, 20)!.map((r) => r.getCell(13).value);
+    expect(rows).toContain("Lot 1 · Medicines"); expect(rows).toContain("Lot 2 · Supplies");
+    expect(String(ws.getCell("B6").value)).toContain("Bid for a lot in full");
+  });
+});

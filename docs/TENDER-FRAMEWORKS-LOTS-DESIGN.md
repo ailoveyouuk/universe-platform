@@ -53,7 +53,7 @@ Contracts for a multi-lot award: one per supplier with a milestone per lot (Clau
 - Evaluation: "Results by lot". Price and lead time are scored on the lot's own items; gates, evaluator scores and past performance stay tender-wide. Only bidders who priced the whole lot are listed.
 - Award: "Award by item", defaulting each item to the lot's rank 1; change per item to split a lot. One award decision, one standstill.
 - Debrief: each bidder sees its own rank, score and items won per lot (`tender_debriefs.lotsJson`, migration 20261021180000).
-- Not yet: automatic milestone per lot at contract creation, and the Excel bid template has no lot column (lots are enforced when the draft is checked).
+- Added 2026-10-22: automatic milestone per lot at contract creation; read-only Lot column in the Excel template (lot rules still enforced when the draft is checked).
 
 ## 6. Build plan once approved
 1. Lots: schema and builder; bid form and completeness per lot; evaluation and results per lot; award, debriefs and contracts; tests; demo lots on a new simulated tender.

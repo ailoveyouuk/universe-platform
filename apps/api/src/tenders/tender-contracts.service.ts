@@ -120,6 +120,11 @@ export class TenderContractsService {
         organizationId: user.organizationId, awardedOrganizationId: award.awardedOrganizationId, tenderId, awardId, reference: `CON-${t.referenceNumber}-${n}`,
         title: `Contract for ${t.title}`, currency: t.currency, totalValue: Math.round(total * 100) / 100, startDate: t.contractStartDate, createdById: user.id,
       } });
+      // Lots (step 7): one milestone per lot this supplier won items in, so delivery of each lot is tracked and counted in the performance record.
+      const lots = [...new Map(alines.map((al) => tlines.find((x) => x.id === al.tenderLineId)).filter((x): x is NonNullable<typeof x> => !!x && x.lotNumber !== null).map((x) => [x.lotNumber!, x.lotTitle])).entries()].sort((a, b) => a[0] - b[0]);
+      for (const [i, [no, title]] of lots.entries()) {
+        await tx.tenderContractMilestone.create({ data: { organizationId: user.organizationId, awardedOrganizationId: award.awardedOrganizationId, tenderId, contractId: c.id, title: `Lot ${no}${title ? `: ${title}` : ""} delivered`.slice(0, 200), sortOrder: i } });
+      }
       return { t, c };
     });
     await this.event(out.c, user, "CONTRACT_CREATED", `Contract ${out.c.reference} drafted`, { contractId: out.c.id });
