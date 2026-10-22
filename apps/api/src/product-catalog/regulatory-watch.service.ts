@@ -41,7 +41,8 @@ export class RegulatoryWatchService {
     const since = new Date(Date.now() - 30 * DAY);
     const matchInclude = { item: true, productMaster: { select: { name: true } } } as const;
     const [runsRaw, itemsLast30, pendingCount, confirmed, dismissed, pendingRows, recentItems] = await Promise.all([
-      prisma.regulatoryWatchRun.findMany({ where: { isSimulated }, orderBy: { startedAt: "desc" }, take: 60 }),
+      // Source health is real for everyone: the demo organisation sees the real daily runs, not only the sample ones (2026-10-22).
+      prisma.regulatoryWatchRun.findMany({ where: { isSimulated: false }, orderBy: { startedAt: "desc" }, take: 60 }),
       prisma.regulatoryWatchItem.count({ where: { isSimulated, issueDate: { gte: since } } }),
       prisma.regulatoryWatchMatch.count({ where: { status: "PENDING", item: { isSimulated } } }),
       prisma.regulatoryWatchMatch.count({ where: { status: "CONFIRMED", item: { isSimulated } } }),
