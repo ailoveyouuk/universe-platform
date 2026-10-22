@@ -95,4 +95,14 @@ describe("Product exports", () => {
     const audit = await withTenantContext(orgA, (tx) => tx.fieldChangeLog.findMany({ where: { tableName: "data_exports", recordId: productId } }));
     expect(audit).toHaveLength(1);
   });
+  it("shows another organisation nothing identifiable beyond the product and manufacturer (Lewis's condition for leaving the dossier open)", async () => {
+    const other = await exportsSvc.dossier(asUser(orgB, userB), productId);
+    const text = JSON.stringify({ ...other, generatedFor: undefined });
+    expect(text).not.toContain("Org A");            // the contributing organisation's name
+    expect(text).not.toContain(`Ex A ${suffix}`);   // its registered name
+    expect(text).not.toContain(`exa-${suffix}`);    // its user's email
+    expect(other.documents).toHaveLength(0);         // controlled documents are private to the organisation that holds them
+    expect(other.registrations.every((r) => r.myVerification === null)).toBe(true);
+    expect(other.history.every((h) => h.changedByName === null && h.changedByOrganizationName !== "Org A")).toBe(true);
+  });
 });

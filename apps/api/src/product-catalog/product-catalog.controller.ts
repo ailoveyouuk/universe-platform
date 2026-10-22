@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
+import { rateLimit } from "../common/rate-limit";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CreateProductMasterDto } from "./dto/create-product-master.dto";
@@ -95,12 +96,14 @@ export class ProductCatalogController {
    * Global admins get everything; everyone else gets the products their own organisation contributed. */
   @Get("exports/catalogue")
   exportCatalogue(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string) {
+    rateLimit(user.id, "product-export", 30, 3_600_000);
     return this.exportsService.catalogueCsv(user, { q, category, sourceStandard, includeArchived: includeArchived === "true" }, isGlobalAdmin(user));
   }
 
   /** GET /product-catalog/exports/registrations — CSV of registrations with the caller's own verification; own contributions unless a global admin. */
   @Get("exports/registrations")
   exportRegistrations(@CurrentUser() user: RequestUser, @Query("status") status?: string, @Query("includeArchived") includeArchived?: string) {
+    rateLimit(user.id, "product-export", 30, 3_600_000);
     return this.exportsService.registrationsCsv(user, { status, includeArchived: includeArchived === "true" }, isGlobalAdmin(user));
   }
 
@@ -342,6 +345,7 @@ export class ProductCatalogController {
    * ImportProductMasterDto's doc comment. Added 2026-10-03. */
   @Post("import")
   import(@CurrentUser() user: RequestUser, @Body() dto: ImportProductMasterDto) {
+    rateLimit(user.id, "product-import", 20, 3_600_000);
     return this.productCatalogService.importBatch(user, dto.sourceStandard, dto.rows);
   }
 
@@ -391,6 +395,7 @@ export class ProductCatalogController {
   /** GET /product-catalog/:id/history — shared change history (who changed what, when, from which organisation). */
   @Get(":id/dossier")
   dossier(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    rateLimit(user.id, "product-dossier", 120, 3_600_000);
     return this.exportsService.dossier(user, id);
   }
 

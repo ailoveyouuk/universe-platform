@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsNotEmpty, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 /**
@@ -35,6 +35,7 @@ export class ImportProductMasterDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(5000)
   @ValidateNested({ each: true })
   @Type(() => ImportProductMasterRowDto)
   rows!: ImportProductMasterRowDto[];

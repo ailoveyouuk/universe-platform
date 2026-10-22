@@ -115,6 +115,10 @@ export default function ImportPage() {
   const parsedRows = parseCsv(csvText);
 
   async function runImport() {
+    if (parsedRows.length > 5000) {
+      setError(`This file has ${parsedRows.length.toLocaleString()} rows. Import at most 5,000 at a time: split the file and import the parts one after another.`);
+      return;
+    }
     if (parsedRows.length === 0) {
       setError("No valid rows found — each line needs at least name,category.");
       return;
