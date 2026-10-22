@@ -55,6 +55,13 @@ Contracts for a multi-lot award: one per supplier with a milestone per lot (Clau
 - Debrief: each bidder sees its own rank, score and items won per lot (`tender_debriefs.lotsJson`, migration 20261021180000).
 - Added 2026-10-22: automatic milestone per lot at contract creation; read-only Lot column in the Excel template (lot rules still enforced when the draft is checked).
 
+## 5c. Frameworks and call-offs: what was built (2026-10-22)
+- Terms on the tender: term in months, optional maximum value (warn-only), call-off method (direct award to first-ranked, or rotation), price-hold days.
+- Prices are the supplier's submitted bid prices. They are held from signature for the hold period. After it, either party can propose a change to specific items; the other accepts or rejects; the latest accepted price is used for new call-offs.
+- Call-offs go to one supplier chosen by the method. Items awarded to different suppliers need separate call-offs. The supplier accepts or declines, then creates its delivery project.
+- Approval limit (decision 7): per organisation; up to the limit one authoriser (the person raising); above it a second, different authoriser. Recent open orders to the same supplier count together, so orders cannot be split to stay under the limit. Defaults (25,000 and a 30-day window) are a placeholder flagged "not yet confirmed" until the organisation saves its own figure. No single published insurer standard exists.
+- Not built: mini-competition, framework-level performance rollup from call-off deliveries, call-off documents, approval limits by role or currency.
+
 ## 6. Build plan once approved
 1. Lots: schema and builder; bid form and completeness per lot; evaluation and results per lot; award, debriefs and contracts; tests; demo lots on a new simulated tender.
 2. Framework terms and agreement (reusing the contract card); call-off model with direct award and rotation; supplier accept/decline and project handover; ceiling tracking; tests; demo framework.
