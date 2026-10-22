@@ -109,7 +109,7 @@ export class TenderContractsService {
   async listAll(user: RequestUser) {
     assertHasPermission(user, "tenders.view");
     return withTenantContext(user.organizationId, async (tx) => {
-      const contracts = await tx.tenderContract.findMany({ orderBy: { createdAt: "desc" } });
+      const contracts = await tx.tenderContract.findMany({ where: { OR: [{ organizationId: user.organizationId }, { awardedOrganizationId: user.organizationId }] }, orderBy: { createdAt: "desc" } });
       const ids = contracts.map((c) => c.id);
       const tenderIds = [...new Set(contracts.map((c) => c.tenderId))];
       const [tenders, milestones, payments, variations, callOffs] = await Promise.all([

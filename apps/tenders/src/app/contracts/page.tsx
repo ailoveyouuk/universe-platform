@@ -66,7 +66,7 @@ export default function ContractsPage() {
             <div style={{ minWidth: 0 }}>
               <div><strong>{c.reference}</strong> {c.title}</div>
               <div style={{ fontSize: 12.5, marginTop: 3, ...muted }}>
-                {c.role === "OWNER" ? "You are the tender owner" : "You are the supplier"} · {c.counterparty ?? "n/a"} · tender {c.tenderReference}{c.isFramework ? " (framework)" : ""}{c.totalValue != null ? ` · ${money(c.totalValue, c.currency)}` : ""}{c.endDate ? ` · ends ${fmtDate(c.endDate)}` : ""}
+                {c.role === "OWNER" ? "You are the tender owner" : "You are the supplier"} · {c.counterparty ?? "n/a"} {c.tenderReference ? ` · tender ${c.tenderReference}` : ""}{c.isFramework ? " (framework)" : ""}{c.totalValue != null ? ` · ${money(c.totalValue, c.currency)}` : ""}{c.endDate ? ` · ends ${fmtDate(c.endDate)}` : ""}
                 {c.milestonesTotal > 0 ? ` · milestones ${c.milestonesDone}/${c.milestonesTotal}` : ""}{c.openCallOffs > 0 ? ` · ${c.openCallOffs} open call-off${c.openCallOffs === 1 ? "" : "s"}` : ""}
               </div>
             </div>
