@@ -399,6 +399,7 @@ export class TenderFrameworkService {
 
   async declineQuote(user: RequestUser, quoteId: string, reason: string) {
     assertHasPermission(user, "tenders.bid");
+    if (!reason?.trim()) throw new BadRequestException("Give a reason for declining to quote.");
     const r = await withTenantContext(user.organizationId, async (tx) => {
       const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, awardedOrganizationId: user.organizationId } });
       if (!q) throw new NotFoundException("Invitation not found.");
@@ -414,6 +415,7 @@ export class TenderFrameworkService {
   /** After quoting closes the owner chooses a winner and records why. The win becomes an ordinary call-off, so the approval limit and ceiling apply as usual. */
   async awardCompetition(user: RequestUser, competitionId: string, dto: MiniAwardDto) {
     assertHasPermission(user, "tenders.award");
+    if ((dto.reason ?? "").trim().length < 5) throw new BadRequestException("Record why this supplier was chosen.");
     const out = await withTenantContext(user.organizationId, async (tx) => {
       const c = await tx.tenderMiniCompetition.findFirst({ where: { id: competitionId, organizationId: user.organizationId } });
       if (!c) throw new NotFoundException("Mini-competition not found.");
