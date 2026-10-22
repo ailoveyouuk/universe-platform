@@ -108,7 +108,12 @@ export function buildOcdsPackage(input: OcdsInput) {
   return {
     uri: `${input.baseUrl ?? "https://universe.invalid"}/ocds/${ocid}`, version: OCDS_VERSION, publishedDate: now.toISOString(),
     publisher: { name: "Universe Platform", scheme: "universe", uid: buyer.id },
-    extensions: t.tenderType === "FRAMEWORK" ? ["https://raw.githubusercontent.com/open-contracting-extensions/ocds_techniques_extension/master/extension.json"] : undefined,
+    extensions: ((): string[] | undefined => {
+      const e: string[] = [];
+      if (lots.length) e.push("https://raw.githubusercontent.com/open-contracting-extensions/ocds_lots_extension/master/extension.json");
+      if (t.tenderType === "FRAMEWORK") e.push("https://raw.githubusercontent.com/open-contracting-extensions/ocds_techniques_extension/master/extension.json");
+      return e.length ? e : undefined;
+    })(),
     releases: [release],
   };
 }

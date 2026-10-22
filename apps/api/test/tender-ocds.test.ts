@@ -15,6 +15,11 @@ describe("OCDS release package", () => {
   it("is a valid-shaped package with a release, ocid, buyer and items", () => {
     const p = buildOcdsPackage(base());
     expect(p.version).toBe("1.1");
+    // required by the official release package schema 1.1.5: uri, publisher (with name), publishedDate, releases, version; release: ocid, id, date, tag, initiationType
+    for (const k of ["uri", "publisher", "publishedDate", "releases", "version"]) expect(p).toHaveProperty(k);
+    expect(p.publisher.name).toBeTruthy();
+    for (const k of ["ocid", "id", "date", "tag", "initiationType"]) expect(p.releases[0]).toHaveProperty(k);
+    expect(p.extensions).toEqual(["https://raw.githubusercontent.com/open-contracting-extensions/ocds_lots_extension/master/extension.json"]);
     const r = p.releases[0] as Record<string, any>;
     expect(r.ocid).toBe("ocds-universe-t1");
     expect(r.tag).toEqual(["tender"]);
