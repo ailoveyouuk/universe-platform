@@ -24,6 +24,7 @@
     "grant:demo-access": "tsx scripts/grant-demo-organisation-access.ts",
     "advance:demo-tender": "tsx scripts/advance-demo-tender.ts",
     "seed:demo-evaluation": "tsx scripts/seed-demo-evaluation.ts",
+    "seed:demo-completed-tender": "tsx scripts/seed-demo-completed-tender.ts",
     "seed:demo-performance-history": "tsx scripts/seed-demo-performance-history.ts",
     "seed:demo-lots": "tsx scripts/seed-demo-lots.ts",
     "seed:demo-framework": "tsx scripts/seed-demo-framework.ts",
