@@ -3278,6 +3278,7 @@ export interface TenderRecord {
   requireIntegrityPledge: boolean; requireExclusionDeclaration: boolean; allowTemplateSubmission: boolean;
   emergencyProcurement: boolean; emergencyReason: string | null; allowSingleEvaluator: boolean; singleEvaluatorReason: string | null;
   bidsOpenedAt: string | null; evaluationStartedAt: string | null; scoringFinalisedAt: string | null; awardedAt: string | null; standstillEndsAt: string | null;
+  frameworkTermMonths: number | null; frameworkCeiling: number | string | null; frameworkCallOffMethod: "DIRECT" | "ROTATION" | null; frameworkPriceHoldDays: number | null;
 }
 export interface TenderListItem extends TenderRecord { interestedOrganisations: number; /** Submitted bids: a count only, bids stay sealed until close. */ bidsReceived?: number }
 export interface TenderLineRecord {
@@ -3487,7 +3488,7 @@ export interface EvaluationOverview {
 }
 export interface TenderStatusView {
   tender: {
-    id: string; referenceNumber: string; title: string; issuerName: string; status: string; closingAt: string | null; timeZone: string | null; currency: string | null;
+    tenderType: TenderType; id: string; referenceNumber: string; title: string; issuerName: string; status: string; closingAt: string | null; timeZone: string | null; currency: string | null;
     emergencyProcurement: boolean; emergencyReason: string | null; standstillEnabled: boolean; standstillEndsAt: string | null; cancelledReason: string | null;
   };
   milestones: { key: string; label: string; at: string | null; target: string | null; done: boolean }[];
@@ -3698,3 +3699,29 @@ export interface ScorecardSettings {
   updatedAt: string | null;
 }
 export type UpdateScorecardSettingsInput = Partial<Omit<ScorecardSettings, "isCustom" | "canEdit" | "updatedAt">> & { reason?: string };
+
+// ---------------------------------------------------------------------------
+// Framework agreements and call-offs (step 7 part 2, 2026-10-22)
+// ---------------------------------------------------------------------------
+export type CallOffStatus = "PENDING_APPROVAL" | "AWAITING_SUPPLIER" | "ACCEPTED" | "DECLINED" | "CANCELLED";
+export const CALL_OFF_STATUS_LABEL: Record<CallOffStatus, string> = { PENDING_APPROVAL: "Awaiting second authorisation", AWAITING_SUPPLIER: "Waiting for the supplier", ACCEPTED: "Accepted", DECLINED: "Declined", CANCELLED: "Cancelled" };
+export interface ApprovalSettingsView { individualLimit: number; splitWindowDays: number; confirmed: boolean; confirmedAt: string | null }
+export interface FrameworkItem { tenderLineId: string; lineNumber: number; lotNumber: number | null; description: string; unit: string | null; bidPrice: number; price: number; reviewPending: boolean }
+export interface FrameworkContractView { contractId: string; reference: string; status: string; supplierName: string | null; endDate: string | null; executedAt: string | null; holdEndsAt: string | null; holdActive: boolean; rank: number | null; callOffCount: number; items: FrameworkItem[] }
+export interface CallOffView {
+  id: string; contractId: string; reference: string; method: string; status: CallOffStatus; supplierName: string | null; currency: string | null; totalValue: number; testedValue: number;
+  requiresSecondApproval: boolean; ceilingExceeded: boolean; deliveryCountryCode: string | null; requiredBy: string | null; notes: string | null; createdAt: string; raisedBy: string | null;
+  firstApprovedAt: string | null; secondApprovedAt: string | null; rejectedReason: string | null; declineReason: string | null; respondedAt: string | null; supplierProjectId: string | null; canApprove: boolean;
+  lines: { tenderLineId: string; description: string; quantity: number; unitPrice: number; lineTotal: number }[];
+}
+export interface PriceReviewView { id: string; contractId: string; tenderLineId: string; description: string; previousPrice: number; proposedPrice: number; reason: string; status: "PROPOSED" | "ACCEPTED" | "REJECTED"; byYou: boolean; createdAt: string; responseNote: string | null }
+export interface FrameworkView {
+  viewer: { party: "OWNER" | "SUPPLIER" };
+  tender: { id: string; referenceNumber: string; title: string; currency: string | null; termMonths: number | null; method: "DIRECT" | "ROTATION" | null; priceHoldDays: number | null };
+  ceiling: { value: number | null; committed: number; remaining: number | null } | null;
+  committedToYou: number | null;
+  settings: ApprovalSettingsView | null;
+  contracts: FrameworkContractView[];
+  callOffs: CallOffView[];
+  priceReviews: PriceReviewView[];
+}

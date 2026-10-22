@@ -38,6 +38,10 @@ export class UpdateTenderDto {
   @IsOptional() @IsString() @Length(0, 1000) singleEvaluatorReason?: string;
   @IsOptional() @IsBoolean() requireIntegrityPledge?: boolean;
   @IsOptional() @IsBoolean() requireExclusionDeclaration?: boolean;
+  @IsOptional() @IsInt() @Min(1) @Max(120) frameworkTermMonths?: number;
+  @IsOptional() @IsNumber() @Min(0) frameworkCeiling?: number;
+  @IsOptional() @IsIn(["DIRECT", "ROTATION"]) frameworkCallOffMethod?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(730) frameworkPriceHoldDays?: number;
 }
 export class CreateTenderDto extends UpdateTenderDto {
   @IsString() @Length(1, 300) override title!: string;
@@ -288,3 +292,17 @@ export class ContractPaymentUpdateDto {
   @IsOptional() @IsDateString() paidDate?: string | null;
   @IsOptional() @IsString() @Length(0, 300) description?: string;
 }
+
+// ---- frameworks and call-offs (step 7 part 2)
+export class CallOffLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.001) quantity!: number }
+export class RaiseCallOffDto {
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CallOffLineDto) lines!: CallOffLineDto[];
+  @IsOptional() @IsString() @Length(2, 2) deliveryCountryCode?: string;
+  @IsOptional() @IsDateString() requiredBy?: string;
+  @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+}
+export class CallOffReasonDto { @IsString() @Length(1, 1000) reason!: string }
+export class CallOffResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) reason?: string }
+export class PriceReviewDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) proposedPrice!: number; @IsString() @Length(1, 1000) reason!: string }
+export class PriceReviewResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) note?: string }
+export class ApprovalSettingsDto { @IsNumber() @Min(0) individualLimit!: number; @IsInt() @Min(1) @Max(365) splitWindowDays!: number }

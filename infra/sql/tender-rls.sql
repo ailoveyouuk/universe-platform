@@ -229,6 +229,23 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_contract_quality_links AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_contract_quality_links AFTER UPDATE,
 
+    -- Framework call-offs and price reviews (step 7 part 2): shared by the owner and the awarded supplier. Approval settings are private to the owner.
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_call_offs,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_offs AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_offs AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_call_off_lines,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_lines AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_call_off_lines AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_twoPartyReadPredicate(organizationId, awardedOrganizationId, NULL) ON dbo.tender_price_reviews,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_price_reviews AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_price_reviews AFTER UPDATE,
+
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER UPDATE,
+
     -- Private to the owning organisation.
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_shortlists AFTER INSERT,

@@ -7,6 +7,7 @@ import { BlobStorageService } from "../documents/blob-storage.service";
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
 import { TenderPerformanceService } from "./tender-performance.service";
+import { TenderFrameworkService } from "./tender-framework.service";
 import type { CloseContractDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto } from "./dto/tenders.dto";
 
 type Party = "ISSUER" | "SUPPLIER";
@@ -118,7 +119,7 @@ export class TenderContractsService {
       const n = (await tx.tenderContract.count({ where: { tenderId } })) + 1;
       const c = await tx.tenderContract.create({ data: {
         organizationId: user.organizationId, awardedOrganizationId: award.awardedOrganizationId, tenderId, awardId, reference: `CON-${t.referenceNumber}-${n}`,
-        title: `Contract for ${t.title}`, currency: t.currency, totalValue: Math.round(total * 100) / 100, startDate: t.contractStartDate, createdById: user.id,
+        title: `Contract for ${t.title}`, currency: t.currency, totalValue: Math.round(total * 100) / 100, startDate: t.contractStartDate, endDate: t.tenderType === "FRAMEWORK" ? TenderFrameworkService.endDateFor(t.contractStartDate, t.frameworkTermMonths) : undefined, createdById: user.id,
       } });
       // Lots (step 7): one milestone per lot this supplier won items in, so delivery of each lot is tracked and counted in the performance record.
       const lots = [...new Map(alines.map((al) => tlines.find((x) => x.id === al.tenderLineId)).filter((x): x is NonNullable<typeof x> => !!x && x.lotNumber !== null).map((x) => [x.lotNumber!, x.lotTitle])).entries()].sort((a, b) => a[0] - b[0]);

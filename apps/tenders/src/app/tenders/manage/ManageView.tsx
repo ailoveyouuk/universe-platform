@@ -93,6 +93,7 @@ export function ManageView() {
       {tab === "bids" && <BidsPanel d={d} />}
       {tab === "questions" && <QuestionsPanel d={d} onChanged={load} />}
       {tab === "documents" && <DocumentsPanel tenderId={d.tender.id} documents={d.documents} published={d.tender.status !== "DRAFT"} onChanged={load} />}
+      {tab === "contracts" && d.tender.tenderType === "FRAMEWORK" && <Card title="Framework agreement"><p style={{ marginTop: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Agreed prices, price reviews, the approval limit and call-offs are on the framework page. Contracts below are the agreements with each supplier; once active, place call-offs against them.</p><Link href={`/tenders/framework?id=${d.tender.id}`} style={{ textDecoration: "none" }}><Button variant="primary">Open framework</Button></Link></Card>}
       {tab === "contracts" && <ContractsPanel tenderId={d.tender.id} />}
       {tab === "addenda" && <AddendaPanel d={d} onChanged={load} />}
       {tab === "screening" && <ScreeningPanel d={d} onChanged={load} />}

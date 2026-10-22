@@ -104,6 +104,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     allowTemplateSubmission: t?.allowTemplateSubmission ?? true, emergencyProcurement: t?.emergencyProcurement ?? false, emergencyReason: t?.emergencyReason ?? "", allowSingleEvaluator: t?.allowSingleEvaluator ?? false, singleEvaluatorReason: t?.singleEvaluatorReason ?? "", requireIntegrityPledge: t?.requireIntegrityPledge ?? true, requireExclusionDeclaration: t?.requireExclusionDeclaration ?? true,
     bidValidityDays: t?.bidValidityDays?.toString() ?? "", acceptedFileTypes: t?.acceptedFileTypes ?? "pdf,docx,xlsx,csv", maxFileSizeMb: t?.maxFileSizeMb?.toString() ?? "25",
     allowTextSubmission: t?.allowTextSubmission ?? true, termsAndConditions: t?.termsAndConditions ?? "",
+    frameworkTermMonths: t?.frameworkTermMonths?.toString() ?? "24", frameworkCeiling: t?.frameworkCeiling?.toString() ?? "", frameworkCallOffMethod: t?.frameworkCallOffMethod ?? "DIRECT", frameworkPriceHoldDays: t?.frameworkPriceHoldDays?.toString() ?? "90",
   });
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
   const s = useSaver<TenderRecord>((r) => onSaved(r));
@@ -118,6 +119,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
       allowTemplateSubmission: f.allowTemplateSubmission, emergencyProcurement: f.emergencyProcurement, emergencyReason: f.emergencyProcurement ? f.emergencyReason : undefined, allowSingleEvaluator: f.allowSingleEvaluator, singleEvaluatorReason: f.allowSingleEvaluator ? f.singleEvaluatorReason : undefined, requireIntegrityPledge: f.requireIntegrityPledge, requireExclusionDeclaration: f.requireExclusionDeclaration,
       bidValidityDays: num(f.bidValidityDays) ?? undefined, acceptedFileTypes: f.acceptedFileTypes || undefined, maxFileSizeMb: num(f.maxFileSizeMb) ?? undefined,
       allowTextSubmission: f.allowTextSubmission, termsAndConditions: f.termsAndConditions || undefined,
+      ...(f.tenderType === "FRAMEWORK" ? { frameworkTermMonths: num(f.frameworkTermMonths) ?? undefined, frameworkCeiling: num(f.frameworkCeiling) ?? undefined, frameworkCallOffMethod: f.frameworkCallOffMethod as "DIRECT" | "ROTATION", frameworkPriceHoldDays: num(f.frameworkPriceHoldDays) ?? undefined } : {}),
     };
     return detail ? await apiClient.updateTender(detail.tender.id, body) : await apiClient.createTender(body);
   }, detail ? "Saved" : "Draft created");
@@ -128,7 +130,13 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 16, marginTop: s.err ? 12 : 0 }}>
         <Field label="Title" wide><input style={inputStyle} value={f.title} onChange={(e) => set("title", e.target.value)} maxLength={300} placeholder="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" /></Field>
         <Field label="Summary" wide hint="What you are buying and why. Organisations read this before opting in."><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
-        <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).filter(([k]) => k !== "FRAMEWORK").map(([value, label]) => ({ value, label }))} /></Field>
+        <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))} /></Field>
+        {f.tenderType === "FRAMEWORK" && <>
+          <Field label="Framework term (months)" hint="How long the agreement runs from the contract start date."><input type="number" min={1} max={120} style={inputStyle} value={f.frameworkTermMonths} onChange={(e) => set("frameworkTermMonths", e.target.value)} /></Field>
+          <Field label="Maximum total value (optional)" hint="A guide for spend. Call-offs above it are allowed but flagged."><input type="number" min={0} style={inputStyle} value={f.frameworkCeiling} onChange={(e) => set("frameworkCeiling", e.target.value)} /></Field>
+          <Field label="How call-offs are placed" hint="Direct: the best-ranked supplier for the items. Rotation: the supplier with the fewest call-offs so far."><Select value={f.frameworkCallOffMethod} onChange={(v) => set("frameworkCallOffMethod", v as "DIRECT" | "ROTATION")} options={[{ value: "DIRECT", label: "Direct award to the first-ranked supplier" }, { value: "ROTATION", label: "Rotation between suppliers" }]} /></Field>
+          <Field label="Prices held for (days)" hint="Prices come from each supplier's bid and are fixed for this long from signature. After that either side can propose a change to specific items."><input type="number" min={0} max={730} style={inputStyle} value={f.frameworkPriceHoldDays} onChange={(e) => set("frameworkPriceHoldDays", e.target.value)} /></Field>
+        </>}
         <Field label="Who can see it" hint={VISIBILITY_LABEL[f.visibility]}><Select value={f.visibility} onChange={(v) => set("visibility", v as typeof f.visibility)} options={[{ value: "ELIGIBLE_ORGANISATIONS", label: "All registered, eligible bid" }, { value: "ALL_REGISTERED", label: "All registered, all can bid" }, { value: "INVITED_ONLY", label: "Invited organisations only" }]} /></Field>
         <Field label="Delivery countries" wide><CountryMultiSelect value={f.countries} onChange={(c) => set("countries", c)} options={countries} /></Field>
         <Field label="Currency"><CurrencySelect value={f.currency} onChange={(c) => set("currency", c)} options={CURRENCY_OPTIONS} ariaLabel="Currency" /></Field>

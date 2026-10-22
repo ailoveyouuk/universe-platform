@@ -75,6 +75,7 @@ export function StatusView() {
         <div style={{ fontSize: 14 }}>{a.reason}</div>
         {a.lines.map((l, j) => <div key={j} style={{ fontSize: 13.5, ...muted }}>{l.description}{l.sharePercent !== null ? `: ${l.sharePercent}% of the requirement` : ""}</div>)}
       </Card>)}
+      {my.awards.length > 0 && s.tender.tenderType === "FRAMEWORK" && <Card title="Framework agreement"><p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>This is a framework agreement. Your agreed prices, price reviews and the call-offs placed with you are on the framework page.</p><Link href={`/tenders/framework?id=${id}`} style={{ textDecoration: "none" }}><Button variant="primary">Open framework</Button></Link></Card>}
       {my.awards.length > 0 && <ContractsPanel tenderId={id} />}
       {(my.canComplain || my.complaints.length > 0) && (
         <Card title="Complaints">

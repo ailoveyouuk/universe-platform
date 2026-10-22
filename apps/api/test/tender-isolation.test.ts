@@ -147,4 +147,25 @@ describe("Tender row-level security", () => {
     await expect(withTenantContext(partA, (tx) => tx.tenderDebrief.create({ data: { organizationId: issuer, tenderId: openId, bidId: randomUUID(), bidderOrganizationId: partA, outcome: "AWARDED", scoresJson: "[]", lotsJson: lotsA } }))).rejects.toThrow();
     expect(dB.id).not.toBe(dA.id);
   });
+  it("call-offs, their lines and price reviews are shared by the owner and the awarded supplier only; approval settings are private to the owner", async () => {
+    const sfx = randomUUID().slice(0, 8);
+    const c = await withTenantContext(issuer, (tx) => tx.tenderContract.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, awardId: randomUUID(), reference: `CON-F-${sfx}`, title: "Framework", status: "ACTIVE" } }));
+    const co = await withTenantContext(issuer, (tx) => tx.tenderCallOff.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, reference: `CO-${sfx}`, method: "DIRECT", totalValue: 10, testedValue: 10, raisedById: randomUUID() } }));
+    await withTenantContext(issuer, (tx) => tx.tenderCallOffLine.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, callOffId: co.id, tenderLineId: randomUUID(), quantity: 1, unitPrice: 10, lineTotal: 10 } }));
+    await withTenantContext(partA, (tx) => tx.tenderPriceReview.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, tenderLineId: randomUUID(), previousPrice: 1, proposedPrice: 2, reason: "Costs", proposedByOrganizationId: partA } }));
+    for (const org of [issuer, partA]) {
+      expect(await withTenantContext(org, (tx) => tx.tenderCallOff.count({ where: { id: co.id } }))).toBe(1);
+      expect(await withTenantContext(org, (tx) => tx.tenderCallOffLine.count({ where: { callOffId: co.id } }))).toBe(1);
+      expect(await withTenantContext(org, (tx) => tx.tenderPriceReview.count({ where: { contractId: c.id } }))).toBe(1);
+    }
+    for (const org of [partB, outsider]) {
+      expect(await withTenantContext(org, (tx) => tx.tenderCallOff.count({ where: { id: co.id } }))).toBe(0);
+      expect(await withTenantContext(org, (tx) => tx.tenderCallOffLine.count({ where: { callOffId: co.id } }))).toBe(0);
+      expect(await withTenantContext(org, (tx) => tx.tenderPriceReview.count({ where: { contractId: c.id } }))).toBe(0);
+    }
+    await expect(withTenantContext(partB, (tx) => tx.tenderCallOff.create({ data: { organizationId: issuer, awardedOrganizationId: partA, tenderId: openId, contractId: c.id, reference: `X-${sfx}`, method: "DIRECT", totalValue: 1, testedValue: 1, raisedById: randomUUID() } }))).rejects.toThrow();
+    await withTenantContext(issuer, (tx) => tx.tenderApprovalSettings.create({ data: { organizationId: issuer, individualLimit: 5000 } }));
+    expect(await withTenantContext(issuer, (tx) => tx.tenderApprovalSettings.count({ where: { organizationId: issuer } }))).toBe(1);
+    expect(await withTenantContext(partA, (tx) => tx.tenderApprovalSettings.count({ where: { organizationId: issuer } }))).toBe(0);
+  });
 });

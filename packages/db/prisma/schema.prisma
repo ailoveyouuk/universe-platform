@@ -3317,6 +3317,12 @@ model Tender {
   emergencyReason       String?      @db.NVarChar(1000)
   allowSingleEvaluator  Boolean      @default(false)
   singleEvaluatorReason String?      @db.NVarChar(1000)
+  /// Framework agreement terms (step 7 part 2); only used when tenderType is FRAMEWORK.
+  frameworkTermMonths   Int?
+  frameworkCeiling      Decimal?     @db.Decimal(18, 2)
+  /// DIRECT (first-ranked supplier) or ROTATION (supplier with fewest call-offs)
+  frameworkCallOffMethod String?     @db.NVarChar(20)
+  frameworkPriceHoldDays Int?
   /// Milestones, set by the issuer's actions and shown (without any bidder detail) to participants.
   bidsOpenedAt          DateTime?
   evaluationStartedAt   DateTime?
@@ -4273,4 +4279,95 @@ model TenderContractQualityLink {
   @@unique([contractId, kind, refId])
   @@index([contractId])
   @@map("tender_contract_quality_links")
+}
+
+/// Organisation-level call-off approval limits (step 7 part 2). Private to the organisation. `confirmedAt` is null while the defaults are untouched.
+model TenderApprovalSettings {
+  id              String    @id @default(uuid())
+  organizationId  String    @unique
+  /// A call-off up to this value (including recent call-offs to the same supplier) needs one authoriser, who may be the person raising it; above it a second, different authoriser is needed.
+  individualLimit Decimal   @default(25000) @db.Decimal(18, 2)
+  /// Call-offs to the same supplier raised within this many days count together, so a large order cannot be split to stay under the limit.
+  splitWindowDays Int       @default(30)
+  confirmedAt     DateTime?
+  updatedById     String?
+  updatedAt       DateTime  @default(now()) @updatedAt
+
+  @@map("tender_approval_settings")
+}
+
+/// An order placed against a framework agreement with one supplier. Shared by the owner and the supplier.
+model TenderCallOff {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  contractId            String
+  reference             String    @db.NVarChar(100)
+  /// DIRECT or ROTATION
+  method                String    @db.NVarChar(20)
+  /// PENDING_APPROVAL, AWAITING_SUPPLIER, ACCEPTED, DECLINED, CANCELLED
+  status                String    @default("PENDING_APPROVAL")
+  currency              String?   @db.Char(3)
+  totalValue            Decimal   @db.Decimal(18, 2)
+  /// Value tested against the approval limit: this order plus recent orders to the same supplier.
+  testedValue           Decimal   @db.Decimal(18, 2)
+  requiresSecondApproval Boolean  @default(false)
+  ceilingExceeded       Boolean   @default(false)
+  deliveryCountryCode   String?   @db.Char(2)
+  requiredBy            DateTime?
+  notes                 String?   @db.NVarChar(1000)
+  raisedById            String
+  firstApprovedById     String?
+  firstApprovedAt       DateTime?
+  secondApprovedById    String?
+  secondApprovedAt      DateTime?
+  rejectedReason        String?   @db.NVarChar(1000)
+  respondedAt           DateTime?
+  declineReason         String?   @db.NVarChar(1000)
+  supplierProjectId     String?
+  createdAt             DateTime  @default(now())
+
+  @@index([tenderId])
+  @@index([contractId])
+  @@index([awardedOrganizationId])
+  @@map("tender_call_offs")
+}
+
+model TenderCallOffLine {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  callOffId             String
+  tenderLineId          String
+  quantity              Decimal  @db.Decimal(18, 3)
+  /// Price snapshot at the time of the call-off, in the tender currency.
+  unitPrice             Decimal  @db.Decimal(18, 4)
+  lineTotal             Decimal  @db.Decimal(18, 2)
+
+  @@index([callOffId])
+  @@map("tender_call_off_lines")
+}
+
+/// A line-level price review on a framework contract, possible once the price-hold period has ended. The other party accepts or rejects.
+model TenderPriceReview {
+  id                    String    @id @default(uuid())
+  organizationId        String
+  awardedOrganizationId String
+  tenderId              String
+  contractId            String
+  tenderLineId          String
+  previousPrice         Decimal   @db.Decimal(18, 4)
+  proposedPrice         Decimal   @db.Decimal(18, 4)
+  reason                String    @db.NVarChar(1000)
+  proposedByOrganizationId String
+  /// PROPOSED, ACCEPTED, REJECTED
+  status                String    @default("PROPOSED")
+  respondedAt           DateTime?
+  responseNote          String?   @db.NVarChar(1000)
+  createdAt             DateTime  @default(now())
+
+  @@index([contractId])
+  @@map("tender_price_reviews")
 }

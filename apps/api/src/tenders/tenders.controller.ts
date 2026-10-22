@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuard
 import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
 import { TenderContractsService } from "./tender-contracts.service";
+import { TenderFrameworkService } from "./tender-framework.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
@@ -12,12 +13,13 @@ import { CurrentUser } from "../common/current-user.decorator";
 import {
   AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
+import { ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
@@ -126,6 +128,18 @@ export class TendersController {
   @Delete(":id/interest") withdraw(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.withdrawInterest(u, id); }
   @Put(":id/shortlist") shortlist(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ShortlistDto) { return this.tenders.addShortlist(u, id, dto.note); }
   @Delete(":id/shortlist") unshortlist(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.removeShortlist(u, id); }
+  // ---- frameworks and call-offs (step 7 part 2)
+  @Get("framework/settings") frameworkSettings(@CurrentUser() u: RequestUser) { return this.framework.getSettings(u); }
+  @Put("framework/settings") saveFrameworkSettings(@CurrentUser() u: RequestUser, @Body() dto: ApprovalSettingsDto) { return this.framework.saveSettings(u, dto); }
+  @Get(":id/framework") frameworkView(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.framework.view(u, id); }
+  @Post(":id/call-offs") raiseCallOff(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: RaiseCallOffDto) { return this.framework.raise(u, id, dto); }
+  @Post("call-offs/:cid/approve") approveCallOff(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.framework.approve(u, cid); }
+  @Post("call-offs/:cid/reject") rejectCallOff(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: CallOffReasonDto) { return this.framework.reject(u, cid, dto.reason); }
+  @Post("call-offs/:cid/cancel") cancelCallOff(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: CallOffReasonDto) { return this.framework.reject(u, cid, dto.reason, true); }
+  @Post("call-offs/:cid/respond") respondCallOff(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: CallOffResponseDto) { return this.framework.respond(u, cid, dto.accept, dto.reason); }
+  @Post("call-offs/:cid/project") callOffProject(@CurrentUser() u: RequestUser, @Param("cid") cid: string) { return this.framework.createProject(u, cid); }
+  @Post("contracts/:cid/price-reviews") proposePrice(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: PriceReviewDto) { return this.framework.proposePrice(u, cid, dto); }
+  @Post("price-reviews/:rid/respond") respondPrice(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PriceReviewResponseDto) { return this.framework.respondPrice(u, rid, dto); }
 }
 
 /** Public notices: no sign-in. Only tenders whose issuer switched "public notice" on, and never simulated ones. */
@@ -134,4 +148,5 @@ export class PublicNoticesController {
   constructor(private readonly compliance: TenderComplianceService) {}
   @Get() list() { return this.compliance.publicNotices(); }
   @Get(":id") async one(@Param("id") id: string) { return (await this.compliance.publicNotices(id))[0] ?? null; }
+
 }

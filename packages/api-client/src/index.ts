@@ -169,6 +169,7 @@ import type {
   SearchResponse,
   NotificationSummary,
   AssignProjectActionInput,
+  ApprovalSettingsView, FrameworkView,
 } from "@universe/types";
 
 /**
@@ -394,6 +395,17 @@ export class UniverseApiClient {
   staffPerformanceRecords(): Promise<StaffPerformanceRow[]> { return this.request(`/tenders/performance/staff`); }
   withdrawPerformanceRecord(rid: string, reason: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/withdraw`, { method: "POST", body: JSON.stringify({ body: reason }) }); }
   restorePerformanceRecord(rid: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/restore`, { method: "POST" }); }
+  frameworkView(id: string): Promise<FrameworkView> { return this.request(`/tenders/${id}/framework`); }
+  frameworkSettings(): Promise<ApprovalSettingsView> { return this.request(`/tenders/framework/settings`); }
+  saveFrameworkSettings(body: { individualLimit: number; splitWindowDays: number }): Promise<ApprovalSettingsView> { return this.request(`/tenders/framework/settings`, { method: "PUT", body: JSON.stringify(body) }); }
+  raiseCallOff(id: string, body: { lines: { tenderLineId: string; quantity: number }[]; deliveryCountryCode?: string; requiredBy?: string; notes?: string }): Promise<{ id: string; status: string; warnings: string[] }> { return this.request(`/tenders/${id}/call-offs`, { method: "POST", body: JSON.stringify(body) }); }
+  approveCallOff(cid: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/approve`, { method: "POST" }); }
+  rejectCallOff(cid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/reject`, { method: "POST", body: JSON.stringify({ reason }) }); }
+  cancelCallOff(cid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }); }
+  respondCallOff(cid: string, accept: boolean, reason?: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/respond`, { method: "POST", body: JSON.stringify({ accept, reason }) }); }
+  createCallOffProject(cid: string): Promise<{ projectId: string }> { return this.request(`/tenders/call-offs/${cid}/project`, { method: "POST" }); }
+  proposePriceReview(contractId: string, body: { tenderLineId: string; proposedPrice: number; reason: string }): Promise<FrameworkView> { return this.request(`/tenders/contracts/${contractId}/price-reviews`, { method: "POST", body: JSON.stringify(body) }); }
+  respondPriceReview(rid: string, accept: boolean, note?: string): Promise<FrameworkView> { return this.request(`/tenders/price-reviews/${rid}/respond`, { method: "POST", body: JSON.stringify({ accept, note }) }); }
   myPerformance(): Promise<MyPerformanceItem[]> { return this.request(`/tenders/performance/mine`); }
   supplierPerformance(orgId: string): Promise<SupplierPerformanceSummary> { return this.request(`/tenders/performance/supplier/${orgId}`); }
   ownerPaymentPractice(orgId: string): Promise<PaymentPracticeSummary> { return this.request(`/tenders/performance/owner/${orgId}/payments`); }

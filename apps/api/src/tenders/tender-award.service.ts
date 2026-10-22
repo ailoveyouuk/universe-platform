@@ -174,7 +174,7 @@ export class TenderAwardService {
     ];
     const next = t.status === "CANCELLED" ? null : milestones.find((x) => !x.done) ?? null;
     return {
-      tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: t.organization.name, status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, currency: t.currency, emergencyProcurement: t.emergencyProcurement, emergencyReason: t.emergencyReason, standstillEnabled: t.standstillEnabled, standstillEndsAt: t.standstillEndsAt, cancelledReason: t.cancelledReason },
+      tender: { tenderType: t.tenderType, id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: t.organization.name, status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, currency: t.currency, emergencyProcurement: t.emergencyProcurement, emergencyReason: t.emergencyReason, standstillEnabled: t.standstillEnabled, standstillEndsAt: t.standstillEndsAt, cancelledReason: t.cancelledReason },
       milestones, next: next ? { label: next.label, at: next.at ?? next.target } : null,
       bidsSubmitted,
       my: {
