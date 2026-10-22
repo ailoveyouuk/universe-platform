@@ -3292,6 +3292,27 @@ export interface TenderEventRecord { id: string; kind: string; summary: string; 
 export type ContractStatus = "DRAFT" | "AWAITING_SIGNATURE" | "ACTIVE" | "COMPLETED" | "TERMINATED";
 export const CONTRACT_STATUS_LABELS: Record<string, string> = { DRAFT: "Draft", AWAITING_SIGNATURE: "Awaiting signature", ACTIVE: "Active", COMPLETED: "Completed", TERMINATED: "Terminated" };
 export const CONTRACT_FILE_KIND_LABELS: Record<string, string> = { DRAFT: "Draft contract", SIGNED: "Signed copy", CERTIFICATE: "Signing certificate or audit trail", VARIATION: "Variation", OTHER: "Other" };
+export const EVIDENCE_KINDS = ["DELIVERY_NOTE", "PROOF_OF_DELIVERY", "INSPECTION_REPORT", "CERTIFICATE_OF_ANALYSIS", "QUALITY_RECORD", "INVOICE", "PAYMENT_CONFIRMATION", "CORRESPONDENCE", "PHOTO", "OTHER"] as const;
+export const EVIDENCE_KIND_LABELS: Record<string, string> = { DELIVERY_NOTE: "Delivery note", PROOF_OF_DELIVERY: "Proof of delivery", INSPECTION_REPORT: "Inspection report", CERTIFICATE_OF_ANALYSIS: "Certificate of analysis", QUALITY_RECORD: "Quality record", INVOICE: "Invoice", PAYMENT_CONFIRMATION: "Payment confirmation", CORRESPONDENCE: "Correspondence", PHOTO: "Photograph", OTHER: "Other" };
+/** Evidence logged on a contract: typed, dated, linked, fingerprinted, append-only (it can be withdrawn with a reason, never edited). */
+export interface EvidenceView {
+  id: string; contractId: string; kind: string; title: string; description: string | null; reference: string | null; evidenceDate: string; linkType: "MILESTONE" | "PAYMENT" | "VARIATION" | "CALL_OFF" | null; linkId: string | null; linkLabel: string | null;
+  fileName: string | null; fileSizeBytes: number | null; sha256: string | null; recordedBy: string | null; recordedByYou: boolean; recordedAt: string;
+  acknowledgedBy: string | null; acknowledgedAt: string | null; canAcknowledge: boolean; withdrawnAt: string | null; withdrawnReason: string | null; canWithdraw: boolean;
+}
+/** One row of the contract list (owner or supplier side). The tiles on the list page filter these rows. */
+export interface ContractListItem {
+  id: string; tenderId: string; tenderReference: string; tenderTitle: string; isFramework: boolean; reference: string; title: string; status: ContractStatus; role: "OWNER" | "SUPPLIER"; counterparty: string | null;
+  currency: string | null; totalValue: number | null; startDate: string | null; endDate: string | null; executedAt: string | null; closedAt: string | null; daysToEnd: number | null;
+  milestonesTotal: number; milestonesDone: number; overdueMilestones: number; overduePayments: number; unpaidPayments: number; variationsWaiting: number; variationsWaitingOnYou: number; openCallOffs: number;
+  endingSoon: boolean; expired: boolean; awaitingSignature: boolean;
+}
+/** A formal change to a signed contract; applies only once the other party accepts (step 7 part 3). */
+export interface ContractVariationView {
+  id: string; contractId: string; number: number; title: string; reason: string; status: "PROPOSED" | "ACCEPTED" | "REJECTED" | "WITHDRAWN"; proposedBy: string | null; byYou: boolean;
+  newTotalValue: number | null; previousTotalValue: number | null; newEndDate: string | null; previousEndDate: string | null; termsAmendment: string | null;
+  createdAt: string; respondedAt: string | null; responseNote: string | null; appliedAt: string | null; canRespond: boolean; canWithdraw: boolean;
+}
 export interface TenderContractView {
   id: string; awardId: string; reference: string; title: string; status: ContractStatus; currency: string | null; totalValue: number | null;
   startDate: string | null; endDate: string | null; terms: string | null; sentAt: string | null; executedAt: string | null; closedAt: string | null; closeNote: string | null;
@@ -3300,6 +3321,8 @@ export interface TenderContractView {
   files: { id: string; kind: string; version: number; title: string; fileName: string; fileSizeBytes: number | null; uploadedBy: string | null; uploadedAt: string; note: string | null }[];
   signatories: { id: string; party: "ISSUER" | "SUPPLIER"; signerName: string; signerRole: string | null; signedOn: string; own: boolean }[];
   signature: { status: "NOT_STARTED" | "AWAITING" | "PARTLY_SIGNED" | "EXECUTED"; missing: string[] };
+  variations: ContractVariationView[];
+  evidence: EvidenceView[];
   performance: PerformanceRecordView | null;
   payments: ContractPaymentView[];
 }
@@ -3707,7 +3730,8 @@ export type CallOffStatus = "PENDING_APPROVAL" | "AWAITING_SUPPLIER" | "ACCEPTED
 export const CALL_OFF_STATUS_LABEL: Record<CallOffStatus, string> = { PENDING_APPROVAL: "Awaiting second authorisation", AWAITING_SUPPLIER: "Waiting for the supplier", ACCEPTED: "Accepted", DECLINED: "Declined", CANCELLED: "Cancelled" };
 export interface ApprovalSettingsView { individualLimit: number; splitWindowDays: number; confirmed: boolean; confirmedAt: string | null }
 export interface FrameworkItem { tenderLineId: string; lineNumber: number; lotNumber: number | null; description: string; unit: string | null; bidPrice: number; price: number; reviewPending: boolean }
-export interface FrameworkContractView { contractId: string; reference: string; status: string; supplierName: string | null; endDate: string | null; executedAt: string | null; holdEndsAt: string | null; holdActive: boolean; rank: number | null; callOffCount: number; items: FrameworkItem[] }
+export interface FrameworkContractView { contractId: string; reference: string; status: string; supplierName: string | null; endDate: string | null; executedAt: string | null; holdEndsAt: string | null; holdActive: boolean; rank: number | null; callOffCount: number; items: FrameworkItem[]; performance: FrameworkRollup }
+export interface FrameworkRollup { placed: number; accepted: number; declined: number; cancelled: number; awaiting: number; acceptedShare: number | null; avgResponseHours: number | null; valueAccepted: number; projects: number; onTimePercent: number | null; inFullPercent: number | null; deliveriesMeasured: number }
 export interface CallOffView {
   id: string; contractId: string; reference: string; method: string; status: CallOffStatus; supplierName: string | null; currency: string | null; totalValue: number; testedValue: number;
   requiresSecondApproval: boolean; ceilingExceeded: boolean; deliveryCountryCode: string | null; requiredBy: string | null; notes: string | null; createdAt: string; raisedBy: string | null;

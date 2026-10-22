@@ -49,3 +49,17 @@ describe("mini-competition rules", () => {
     expect(_open(new Date("2026-10-22T12:00:00Z"), now)).toBe(false);
   });
 });
+
+import { variationProblems as _vp } from "../src/tenders/tender-variations.service";
+describe("variation rules", () => {
+  const c = { totalValue: 1000, startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") };
+  it("needs a real change and a sensible date and value", () => {
+    expect(_vp(c, {}).join()).toMatch(/at least one/);
+    expect(_vp(c, { newTotalValue: 1000 }).join()).toMatch(/at least one/);
+    expect(_vp(c, { newTotalValue: 1200 })).toEqual([]);
+    expect(_vp(c, { newEndDate: new Date("2026-12-31") }).join()).toMatch(/at least one/);
+    expect(_vp(c, { newEndDate: new Date("2025-12-31") }).join()).toMatch(/after the contract start/);
+    expect(_vp(c, { termsAmendment: "  " }).join()).toMatch(/at least one/);
+    expect(_vp(c, { termsAmendment: "Split shipments" })).toEqual([]);
+  });
+});

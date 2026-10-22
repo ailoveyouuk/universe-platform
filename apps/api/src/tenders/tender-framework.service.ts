@@ -6,6 +6,8 @@ import type { ApprovalSettingsDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetiti
 import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT_INDIVIDUAL_LIMIT, DEFAULT_SPLIT_WINDOW_DAYS, competitionOpen, effectivePrice, holdActive, holdEndsAt, MIN_COMPETITORS, quoteProblems, requiresSecondApproval } from "./tender-framework";
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
+import { TenderPerformanceService } from "./tender-performance.service";
+import { loadSettings } from "../quality/scorecard-settings.service";
 
 type Tx = Parameters<Parameters<typeof withTenantContext>[1]>[0];
 const num = (v: unknown) => (v == null ? null : Number(v));
@@ -22,7 +24,7 @@ const OPEN_STATUSES = ["PENDING_APPROVAL", "AWAITING_SUPPLIER", "ACCEPTED"];
  */
 @Injectable()
 export class TenderFrameworkService {
-  constructor(private readonly tenders: TendersService) {}
+  constructor(private readonly tenders: TendersService, private readonly performance: TenderPerformanceService) {}
 
   private async event(t: { organizationId: string; id: string }, counterparty: string, user: RequestUser, kind: string, summary: string, details?: unknown) {
     await appendTenderEvent({ organizationId: t.organizationId, counterpartyOrganizationId: counterparty, tenderId: t.id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind, summary, details });
@@ -78,7 +80,13 @@ export class TenderFrameworkService {
           tx.tenderAwardLine.findMany({ where: { awardId: c.awardId } }), award ? tx.tenderBidLine.findMany({ where: { bidId: award.bidId } }) : Promise.resolve([]), award ? tx.tenderBid.findUnique({ where: { id: award.bidId } }) : Promise.resolve(null),
         ]);
         const fx = num(bid?.fxRate) ?? 1;
+        const mineCo = callOffs.filter((x) => x.contractId === c.id);
+        const facts = this.performance.callOffFacts(mineCo);
+        const cfg = owner ? await loadSettings(tx, user.organizationId) : null;
+        const dlv = cfg ? await this.performance.deliveryFacts(cfg, mineCo.filter((x) => x.status === "ACCEPTED" && x.supplierProjectId).map((x) => x.supplierProjectId!)) : null;
+        const pct = (y: number, n: number) => (n > 0 ? Math.round(100 * y / n) : null);
         return {
+          performance: { ...facts, onTimePercent: dlv ? pct(dlv.onTimeYes, dlv.onTimeFlags) : null, inFullPercent: dlv ? pct(dlv.inFullYes, dlv.inFullFlags) : null, deliveriesMeasured: dlv ? Math.max(dlv.onTimeFlags, dlv.inFullFlags) : 0 },
           contractId: c.id, reference: c.reference, status: c.status, supplierName: names.get(c.awardedOrganizationId) ?? null, endDate: c.endDate, executedAt: c.executedAt,
           holdEndsAt: holdEndsAt(c.executedAt, hold), holdActive: holdActive(now, c.executedAt, hold),
           rank: owner ? debriefs.find((d) => d.bidId === award?.bidId)?.rank ?? null : null,

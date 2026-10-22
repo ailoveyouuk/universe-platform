@@ -5,6 +5,8 @@ import { CONTRACT_FILE_KIND_LABELS, CONTRACT_STATUS_LABELS } from "@universe/typ
 import type { TenderContractView, TenderContractsForTender } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
+import { VariationsSection } from "./VariationsPanel";
+import { EvidenceSection } from "./EvidencePanel";
 import { CloseContractForm, PaymentLog, PerformanceCard, QualityLinks } from "./PerformancePanel";
 import { Card, ErrorNote, Field, fmtDate, fmtDateTime, inputStyle } from "../lib/ui";
 
@@ -137,6 +139,10 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
           )}
         </>
       )}
+
+      {(active || c.variations.length > 0) && <VariationsSection c={c} busy={busy} act={act} />}
+
+      <EvidenceSection c={c} busy={busy} act={act} setErr={setErr} />
 
       {/* Files */}
       <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Files</h4>

@@ -169,7 +169,7 @@ import type {
   SearchResponse,
   NotificationSummary,
   AssignProjectActionInput,
-  ApprovalSettingsView, FrameworkView,
+  ApprovalSettingsView, ContractListItem, FrameworkView,
 } from "@universe/types";
 
 /**
@@ -425,6 +425,23 @@ export class UniverseApiClient {
     return this.request(`/tenders/contracts/${cid}/files`, { method: "POST", body: JSON.stringify({ blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined, fileSizeBytes: file.size, ...meta }) });
   }
   contractFileUrl(cid: string, fid: string): Promise<{ downloadUrl: string; fileName: string }> { return this.request(`/tenders/contracts/${cid}/files/${fid}/download-url`); }
+  async addContractEvidence(cid: string, file: File | null, meta: { kind: string; title: string; description?: string; reference?: string; evidenceDate: string; linkType?: string; linkId?: string }): Promise<{ tenderId: string }> {
+    let upload: { blobName?: string; fileName?: string; mimeType?: string; fileSizeBytes?: number; sha256?: string } = {};
+    if (file) {
+      const up = await this.request<{ uploadUrl: string; blobName: string }>(`/tenders/contracts/${cid}/evidence/upload-url`, { method: "POST", body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSizeBytes: file.size }) });
+      await this.uploadDocumentFile(up.uploadUrl, file);
+      const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+      upload = { blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined, fileSizeBytes: file.size, sha256: Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("") };
+    }
+    return this.request(`/tenders/contracts/${cid}/evidence`, { method: "POST", body: JSON.stringify({ ...meta, ...upload }) });
+  }
+  acknowledgeEvidence(eid: string): Promise<{ tenderId: string }> { return this.request(`/tenders/evidence/${eid}/acknowledge`, { method: "POST" }); }
+  withdrawEvidence(eid: string, reason: string): Promise<{ tenderId: string }> { return this.request(`/tenders/evidence/${eid}/withdraw`, { method: "POST", body: JSON.stringify({ reason }) }); }
+  evidenceFileUrl(eid: string): Promise<{ downloadUrl: string; fileName: string }> { return this.request(`/tenders/evidence/${eid}/download-url`); }
+  contractList(): Promise<ContractListItem[]> { return this.request(`/tenders/contracts-overview`); }
+  proposeContractVariation(cid: string, body: { title: string; reason: string; newTotalValue?: number; newEndDate?: string; termsAmendment?: string }): Promise<{ tenderId: string }> { return this.request(`/tenders/contracts/${cid}/variations`, { method: "POST", body: JSON.stringify(body) }); }
+  respondContractVariation(vid: string, accept: boolean, note?: string): Promise<{ tenderId: string }> { return this.request(`/tenders/variations/${vid}/respond`, { method: "POST", body: JSON.stringify({ accept, note }) }); }
+  withdrawContractVariation(vid: string, reason: string): Promise<{ tenderId: string }> { return this.request(`/tenders/variations/${vid}/withdraw`, { method: "POST", body: JSON.stringify({ reason }) }); }
   addContractSignatory(cid: string, body: { signerName: string; signerRole?: string; signedOn: string }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/signatories`, { method: "POST", body: JSON.stringify(body) }); }
   removeContractSignatory(cid: string, sid: string): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/signatories/${sid}`, { method: "DELETE" }); }
   createContractProject(cid: string): Promise<{ projectId: string }> { return this.request(`/tenders/contracts/${cid}/project`, { method: "POST" }); }

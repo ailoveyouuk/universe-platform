@@ -4440,3 +4440,67 @@ model TenderCallOffQuoteLine {
   @@index([quoteId])
   @@map("tender_call_off_quote_lines")
 }
+
+/// A formal change to a signed contract (step 7 part 3). Either party proposes; the other must accept before anything changes. Shared by the owner and the supplier only.
+model TenderContractVariation {
+  id                       String    @id @default(uuid())
+  organizationId           String
+  awardedOrganizationId    String
+  tenderId                 String
+  contractId               String
+  number                   Int
+  title                    String    @db.NVarChar(300)
+  reason                   String    @db.NVarChar(1000)
+  /// New total value, if the value changes
+  newTotalValue            Decimal?  @db.Decimal(18, 2)
+  previousTotalValue       Decimal?  @db.Decimal(18, 2)
+  newEndDate               DateTime?
+  previousEndDate          DateTime?
+  /// Wording of an amendment to the terms, appended to the contract terms once accepted
+  termsAmendment           String?   @db.NVarChar(Max)
+  /// PROPOSED, ACCEPTED, REJECTED, WITHDRAWN
+  status                   String    @default("PROPOSED")
+  proposedByOrganizationId String
+  proposedById             String?
+  createdAt                DateTime  @default(now())
+  respondedById            String?
+  respondedAt              DateTime?
+  responseNote             String?   @db.NVarChar(1000)
+  appliedAt                DateTime?
+
+  @@index([contractId])
+  @@map("tender_contract_variations")
+}
+
+/// Evidence logged against a contract (step 7 part 3): a typed, dated record with an optional file and its SHA-256 fingerprint, linked to a milestone, payment, variation or call-off. Append-only: it can be withdrawn with a reason, never edited or deleted. Shared by the owner and the supplier.
+model TenderEvidence {
+  id                         String    @id @default(uuid())
+  organizationId             String
+  awardedOrganizationId      String
+  tenderId                   String
+  contractId                 String
+  kind                       String    @db.NVarChar(40)
+  title                      String    @db.NVarChar(300)
+  description                String?   @db.NVarChar(2000)
+  reference                  String?   @db.NVarChar(200)
+  evidenceDate               DateTime
+  /// MILESTONE, PAYMENT, VARIATION, CALL_OFF, or null for the contract as a whole
+  linkType                   String?   @db.NVarChar(20)
+  linkId                     String?
+  blobName                   String?   @db.NVarChar(500)
+  fileName                   String?   @db.NVarChar(300)
+  mimeType                   String?   @db.NVarChar(200)
+  fileSizeBytes              Int?
+  sha256                     String?   @db.NVarChar(64)
+  recordedByOrganizationId   String
+  recordedById               String?
+  recordedAt                 DateTime  @default(now())
+  acknowledgedByOrganizationId String?
+  acknowledgedById           String?
+  acknowledgedAt             DateTime?
+  withdrawnAt                DateTime?
+  withdrawnReason            String?   @db.NVarChar(1000)
+
+  @@index([contractId])
+  @@map("tender_evidence")
+}

@@ -36,6 +36,7 @@ import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean; needs?: string }[] = [
   { href: "/", label: "Dashboard", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/tenders", label: "My tenders", icon: () => <GridIcon size={19} />, inNav: true, needs: "tenders.issue" },
+  { href: "/contracts", label: "Contracts", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/discover", label: "Find tenders", icon: () => <SearchIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/discover/view", label: "Tender", icon: () => <GridIcon size={19} />, inNav: false },
   { href: "/bids", label: "My bids", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.bid" },

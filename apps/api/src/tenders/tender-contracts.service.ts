@@ -8,6 +8,8 @@ import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderFrameworkService } from "./tender-framework.service";
+import { TenderVariationsService } from "./tender-variations.service";
+import { TenderEvidenceService } from "./tender-evidence.service";
 import type { CloseContractDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto } from "./dto/tenders.dto";
 
 type Party = "ISSUER" | "SUPPLIER";
@@ -66,6 +68,10 @@ export class TenderContractsService {
         tx.tenderContractFile.findMany({ where: { contractId: { in: ids } }, orderBy: { uploadedAt: "asc" } }),
         tx.tenderContractSignatory.findMany({ where: { contractId: { in: ids } }, orderBy: { recordedAt: "asc" } }),
       ]);
+      const variations = await tx.tenderContractVariation.findMany({ where: { contractId: { in: ids } }, orderBy: { number: "asc" } });
+      const evidence = await tx.tenderEvidence.findMany({ where: { contractId: { in: ids } }, orderBy: { recordedAt: "asc" } });
+      const callOffRows = await tx.tenderCallOff.findMany({ where: { contractId: { in: ids } }, select: { id: true, reference: true } });
+      const labels = new Map<string, string>([...milestones.map((m) => [m.id, m.title] as [string, string]), ...payments.map((p) => [p.id, p.reference] as [string, string]), ...variations.map((v) => [v.id, `Variation ${v.number}: ${v.title}`] as [string, string]), ...callOffRows.map((x) => [x.id, x.reference] as [string, string])]);
       const orgIds = [...new Set([tender.organizationId, ...contracts.map((c) => c.awardedOrganizationId), ...awards.map((a) => a.awardedOrganizationId)])];
       const names = new Map((await tx.organization.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
       const complaints = issuerSide ? await tx.tenderComplaint.count({ where: { tenderId, status: "OPEN" } }) : 0;
@@ -87,6 +93,8 @@ export class TenderContractsService {
             milestones: milestones.filter((m) => m.contractId === c.id).map((m) => ({ id: m.id, title: m.title, dueDate: m.dueDate, status: m.status, completedAt: m.completedAt, notes: m.notes })),
             files: f.map((x) => ({ id: x.id, kind: x.kind, version: x.version, title: x.title, fileName: x.fileName, fileSizeBytes: x.fileSizeBytes, uploadedBy: names.get(x.uploadedByOrganizationId) ?? null, uploadedAt: x.uploadedAt, note: x.note })),
             signatories: s.map((x) => ({ id: x.id, party: x.party, signerName: x.signerName, signerRole: x.signerRole, signedOn: x.signedOn, own: x.recordedByOrganizationId === user.organizationId })),
+            evidence: TenderEvidenceService.shape(evidence.filter((x) => x.contractId === c.id), user.organizationId, names, labels),
+            variations: TenderVariationsService.shape(variations.filter((x) => x.contractId === c.id), user.organizationId, names),
             performance: perf.get(c.id) ?? null, payments: payments.filter((p) => p.contractId === c.id),
             signature: { status: c.status === "DRAFT" ? "NOT_STARTED" : missing.length === 0 ? "EXECUTED" : missing.length === 3 ? "AWAITING" : "PARTLY_SIGNED", missing },
           };
@@ -94,6 +102,46 @@ export class TenderContractsService {
         // Awards that do not have a contract yet (issuer only).
         awardsWithoutContract: awards.filter((a) => !contracts.some((c) => c.awardId === a.id)).map((a) => ({ awardId: a.id, supplierName: names.get(a.awardedOrganizationId) ?? null })),
       };
+    });
+  }
+
+  /** Every contract the caller's organisation is party to, as owner or supplier, with what needs attention. Tiles on the list page filter this same list. */
+  async listAll(user: RequestUser) {
+    assertHasPermission(user, "tenders.view");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const contracts = await tx.tenderContract.findMany({ orderBy: { createdAt: "desc" } });
+      const ids = contracts.map((c) => c.id);
+      const tenderIds = [...new Set(contracts.map((c) => c.tenderId))];
+      const [tenders, milestones, payments, variations, callOffs] = await Promise.all([
+        tx.tender.findMany({ where: { id: { in: tenderIds } }, select: { id: true, referenceNumber: true, title: true, tenderType: true, organizationId: true } }),
+        tx.tenderContractMilestone.findMany({ where: { contractId: { in: ids } }, select: { contractId: true, status: true, dueDate: true } }),
+        tx.tenderContractPayment.findMany({ where: { contractId: { in: ids } }, select: { contractId: true, dueDate: true, paidDate: true } }),
+        tx.tenderContractVariation.findMany({ where: { contractId: { in: ids }, status: "PROPOSED" }, select: { contractId: true, proposedByOrganizationId: true } }),
+        tx.tenderCallOff.findMany({ where: { contractId: { in: ids }, status: { in: ["PENDING_APPROVAL", "AWAITING_SUPPLIER", "ACCEPTED"] } }, select: { contractId: true } }),
+      ]);
+      const orgIds = [...new Set(contracts.flatMap((c) => [c.organizationId, c.awardedOrganizationId]))];
+      const names = new Map((await tx.organization.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
+      const now = Date.now();
+      return contracts.map((c) => {
+        const owner = c.organizationId === user.organizationId;
+        const t = tenders.find((x) => x.id === c.tenderId);
+        const ms = milestones.filter((m) => m.contractId === c.id);
+        const overdueMilestones = ms.filter((m) => m.status === "PENDING" && m.dueDate && m.dueDate.getTime() < now).length;
+        const pay = payments.filter((p) => p.contractId === c.id);
+        const overduePayments = pay.filter((p) => !p.paidDate && p.dueDate.getTime() < now).length;
+        const vs = variations.filter((v) => v.contractId === c.id);
+        const daysToEnd = c.endDate ? Math.ceil((c.endDate.getTime() - now) / 86_400_000) : null;
+        const active = c.status === "ACTIVE";
+        return {
+          id: c.id, tenderId: c.tenderId, tenderReference: t?.referenceNumber ?? "", tenderTitle: t?.title ?? "", isFramework: t?.tenderType === "FRAMEWORK",
+          reference: c.reference, title: c.title, status: c.status, role: (owner ? "OWNER" : "SUPPLIER") as "OWNER" | "SUPPLIER", counterparty: names.get(owner ? c.awardedOrganizationId : c.organizationId) ?? null,
+          currency: c.currency, totalValue: num(c.totalValue), startDate: c.startDate, endDate: c.endDate, executedAt: c.executedAt, closedAt: c.closedAt, daysToEnd,
+          milestonesTotal: ms.length, milestonesDone: ms.filter((m) => m.status === "DONE").length, overdueMilestones, overduePayments, unpaidPayments: pay.filter((p) => !p.paidDate).length,
+          variationsWaiting: vs.length, variationsWaitingOnYou: vs.filter((v) => v.proposedByOrganizationId !== user.organizationId).length, openCallOffs: callOffs.filter((x) => x.contractId === c.id).length,
+          endingSoon: active && daysToEnd !== null && daysToEnd >= 0 && daysToEnd <= 90, expired: active && daysToEnd !== null && daysToEnd < 0,
+          awaitingSignature: c.status === "DRAFT" || c.status === "AWAITING_SIGNATURE",
+        };
+      });
     });
   }
 

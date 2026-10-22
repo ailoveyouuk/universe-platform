@@ -89,6 +89,13 @@ function Agreement({ v, c, owner, act, busy }: { v: FrameworkView; c: FrameworkV
         {c.endDate ? `Runs to ${fmtDate(c.endDate)}. ` : ""}{c.executedAt ? (c.holdActive ? `Prices are held until ${fmtDate(c.holdEndsAt)}.` : `The price-hold period ended on ${fmtDate(c.holdEndsAt)}. Either side can propose a change to specific items.`) : "Prices are held from signature."}
         {owner && c.rank !== null ? ` Rank ${c.rank}.` : ""} {c.callOffCount} open call-off{c.callOffCount === 1 ? "" : "s"}.
       </div>
+      {c.performance.placed > 0 && (
+        <div style={{ fontSize: 13.5, padding: "8px 12px", margin: "0 0 8px", background: "var(--u-surface-subtle, rgba(0,0,0,0.03))", borderRadius: "var(--u-radius-md)" }}>
+          <strong>Call-off performance so far:</strong> {c.performance.placed} placed, {c.performance.accepted} accepted, {c.performance.declined} declined{c.performance.cancelled ? `, ${c.performance.cancelled} cancelled` : ""}{c.performance.awaiting ? `, ${c.performance.awaiting} waiting` : ""}
+          {c.performance.acceptedShare !== null && ` · ${c.performance.acceptedShare}% of answered call-offs accepted`}{c.performance.avgResponseHours !== null && ` · answered in ${c.performance.avgResponseHours} h on average`} · {money(c.performance.valueAccepted, v.tender.currency)} accepted · {c.performance.projects} delivery project{c.performance.projects === 1 ? "" : "s"}
+          {owner && (c.performance.onTimePercent !== null || c.performance.inFullPercent !== null) && <> · delivered on time {c.performance.onTimePercent ?? "n/a"}%, in full {c.performance.inFullPercent ?? "n/a"}% ({c.performance.deliveriesMeasured} lines measured)</>}
+          <div style={muted}>These roll up into the agreement's performance record when it is closed.</div>
+        </div>)}
       {c.items.map((it) => (
         <div key={it.tenderLineId} style={{ padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

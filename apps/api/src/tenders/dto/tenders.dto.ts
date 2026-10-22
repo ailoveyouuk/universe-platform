@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
-import { EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
+import { EVIDENCE_KINDS, EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
 export const TENDER_TYPES = ["RFQ", "RFP", "ITT", "OPEN_TENDER", "FRAMEWORK"] as const;
@@ -321,3 +321,27 @@ export class MiniQuoteDto {
   @IsOptional() @IsString() @Length(0, 1000) notes?: string;
 }
 export class MiniAwardDto { @IsString() quoteId!: string; @IsString() @Length(5, 1000) reason!: string }
+
+export class ProposeVariationDto {
+  @IsString() @Length(2, 300) title!: string;
+  @IsString() @Length(5, 1000) reason!: string;
+  @IsOptional() @IsNumber() @Min(0.01) newTotalValue?: number;
+  @IsOptional() @IsDateString() newEndDate?: string;
+  @IsOptional() @IsString() @Length(0, 8000) termsAmendment?: string;
+}
+export class VariationResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) note?: string }
+
+export class AddEvidenceDto {
+  @IsIn(EVIDENCE_KINDS as unknown as string[]) kind!: string;
+  @IsString() @Length(2, 300) title!: string;
+  @IsOptional() @IsString() @Length(0, 2000) description?: string;
+  @IsOptional() @IsString() @Length(0, 200) reference?: string;
+  @IsDateString() evidenceDate!: string;
+  @IsOptional() @IsIn(["MILESTONE", "PAYMENT", "VARIATION", "CALL_OFF"]) linkType?: string;
+  @IsOptional() @IsString() linkId?: string;
+  @IsOptional() @IsString() @Length(1, 500) blobName?: string;
+  @IsOptional() @IsString() @Length(1, 300) fileName?: string;
+  @IsOptional() @IsString() mimeType?: string;
+  @IsOptional() @IsInt() @Min(0) fileSizeBytes?: number;
+  @IsOptional() @IsString() @Length(64, 64) sha256?: string;
+}

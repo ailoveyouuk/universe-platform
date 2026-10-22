@@ -3,12 +3,18 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext, w
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { TenderFrameworkService } from "../src/tenders/tender-framework.service";
+import { TenderPerformanceService } from "../src/tenders/tender-performance.service";
+import { TenderEvidenceService, evidenceProblems } from "../src/tenders/tender-evidence.service";
+import { BlobStorageService } from "../src/documents/blob-storage.service";
+import { TenderVariationsService } from "../src/tenders/tender-variations.service";
 import { TendersService } from "../src/tenders/tenders.service";
 
 /** The framework call-off flow end to end against a real RLS database (2026-10-22): rotation, approval limit with a second authoriser, ceiling warning, price hold and review, supplier accept/decline, supplier isolation. */
 describe("Framework call-off flow", () => {
   const suffix = randomUUID().slice(0, 8);
-  const fw = new TenderFrameworkService(new TendersService());
+  const fw = new TenderFrameworkService(new TendersService(), new TenderPerformanceService(new TendersService()));
+  const vars = new TenderVariationsService(new TendersService());
+  const evid = new TenderEvidenceService(new TendersService(), {} as unknown as BlobStorageService);
   let owner: string; let supA: string; let supB: string; let tenderId: string; let cA: string; let cB: string; let l1: string; let l2: string;
   const DAY = 86_400_000;
   const user = (organizationId: string, id: string, permissions: string[]): RequestUser => ({
@@ -90,6 +96,10 @@ describe("Framework call-off flow", () => {
     expect(v.callOffs.find((c) => c.id === first)!.status).toBe("ACCEPTED");
     expect(v.callOffs.find((c) => c.id === secondCo)!.status).toBe("DECLINED");
     await expect(fw.respond(uA, first, true)).rejects.toThrow(/not waiting/);
+    const pa = v.contracts.find((c) => c.contractId === cA)!.performance; const pb = v.contracts.find((c) => c.contractId === cB)!.performance;
+    expect(pa).toMatchObject({ placed: 2, accepted: 2, declined: 0, acceptedShare: 100 });
+    expect(pb).toMatchObject({ placed: 1, accepted: 0, declined: 1, acceptedShare: 0 });
+    expect(pa.avgResponseHours).not.toBeNull();
   });
 
   it("a price review is refused while prices are held, then proposed, answered by the other party, and used for the next call-off", async () => {
@@ -168,5 +178,48 @@ describe("Framework call-off flow", () => {
     await expect(fw.submitQuote(uA, ia.id, { lines: [{ tenderLineId: l1, quotedPrice: 9 }] })).rejects.toThrow(/closed/);
     await withTenantContext(owner, (tx) => tx.tenderContract.update({ where: { id: cB }, data: { status: "CLOSED" } }));
     await expect(fw.openCompetition(raiser, tenderId, { lines: [{ tenderLineId: l1, quantity: 10 }], closesAt: new Date(Date.now() + DAY).toISOString() })).rejects.toThrow(/at least 2/);
+  });
+  it("contract variations: either party proposes, only the other party can accept, nothing changes until then, and the contract is updated on acceptance", async () => {
+    const before = await withTenantContext(owner, (tx) => tx.tenderContract.findUnique({ where: { id: cA } }));
+    await expect(vars.propose(raiser, cA, { title: "No change", reason: "Nothing at all", newTotalValue: undefined })).rejects.toThrow(/at least one/);
+    await expect(vars.propose(uB, cA, { title: "Not mine", reason: "Not my contract", newTotalValue: 10 })).rejects.toThrow();
+    await vars.propose(raiser, cA, { title: "Extend and increase", reason: "Higher demand", newTotalValue: 90000, newEndDate: new Date(Date.now() + 900 * DAY).toISOString(), termsAmendment: "Deliveries may be split into four shipments." });
+    await expect(vars.propose(raiser, cA, { title: "Second", reason: "Another one", newTotalValue: 1 })).rejects.toThrow(/already waiting/);
+    const v1 = (await withTenantContext(owner, (tx) => tx.tenderContractVariation.findMany({ where: { contractId: cA } })))[0];
+    expect((await withTenantContext(owner, (tx) => tx.tenderContract.findUnique({ where: { id: cA } })))!.totalValue).toEqual(before!.totalValue);   // unchanged while waiting
+    await expect(vars.respond(raiser, v1.id, { accept: true })).rejects.toThrow(/other party/);
+    await expect(vars.respond(uB, v1.id, { accept: true })).rejects.toThrow();
+    await expect(vars.respond(uA, v1.id, { accept: false })).rejects.toThrow(/reason/);
+    await vars.respond(uA, v1.id, { accept: true, note: "Agreed" });
+    const after = await withTenantContext(owner, (tx) => tx.tenderContract.findUnique({ where: { id: cA } }));
+    expect(Number(after!.totalValue)).toBe(90000); expect(after!.endDate!.getTime()).toBeGreaterThan(Date.now() + 800 * DAY); expect(after!.terms).toMatch(/Variation 1.*four shipments/);
+    await expect(vars.respond(uA, v1.id, { accept: true })).rejects.toThrow(/already/);
+    await vars.propose(uA, cA, { title: "Price indexation", reason: "Cost inflation", termsAmendment: "Prices rise 3% annually." });
+    const v2 = (await withTenantContext(owner, (tx) => tx.tenderContractVariation.findMany({ where: { contractId: cA, status: "PROPOSED" } })))[0];
+    await expect(vars.withdraw(raiser, v2.id, "x")).rejects.toThrow(/proposed the variation/);
+    await vars.respond(raiser, v2.id, { accept: false, note: "Not acceptable" });
+    expect((await withTenantContext(owner, (tx) => tx.tenderContractVariation.findUnique({ where: { id: v2.id } })))!.status).toBe("REJECTED");
+    expect((await withTenantContext(owner, (tx) => tx.tenderContract.findUnique({ where: { id: cA } })))!.terms).not.toMatch(/3% annually/);
+    expect(await withTenantContext(supB, (tx) => tx.tenderContractVariation.count({ where: { contractId: cA } }))).toBe(0);
+  });
+  it("evidence: logged against a contract and a milestone, acknowledged by the other party only, withdrawn only by the logger with a reason, and invisible to other suppliers", async () => {
+    const ms = await withTenantContext(owner, (tx) => tx.tenderContractMilestone.create({ data: { organizationId: owner, awardedOrganizationId: supA, tenderId, contractId: cA, title: "Shipment 1", status: "PENDING" } }));
+    await expect(evid.add(uA, cA, { kind: "DELIVERY_NOTE", title: "Delivery note", evidenceDate: new Date().toISOString() })).rejects.toThrow(/file or give a reference/);
+    await expect(evid.add(uA, cA, { kind: "DELIVERY_NOTE", title: "Delivery note", reference: "DN-1", evidenceDate: new Date(Date.now() + 5 * DAY).toISOString() })).rejects.toThrow(/future/);
+    await expect(evid.add(uA, cA, { kind: "DELIVERY_NOTE", title: "Delivery note", reference: "DN-1", evidenceDate: new Date().toISOString(), linkType: "MILESTONE", linkId: randomUUID() })).rejects.toThrow(/not on this contract/);
+    await expect(evid.add(uB, cA, { kind: "OTHER", title: "Not mine", reference: "X", evidenceDate: new Date().toISOString() })).rejects.toThrow();
+    await evid.add(uA, cA, { kind: "DELIVERY_NOTE", title: "Delivery note DN-1", reference: "DN-1", evidenceDate: new Date().toISOString(), linkType: "MILESTONE", linkId: ms.id });
+    const e = (await withTenantContext(owner, (tx) => tx.tenderEvidence.findMany({ where: { contractId: cA } })))[0];
+    expect(e).toMatchObject({ kind: "DELIVERY_NOTE", reference: "DN-1", linkType: "MILESTONE" });
+    await expect(evid.acknowledge(uA, e.id)).rejects.toThrow(/other party/);
+    await expect(evid.withdraw(raiser, e.id, "x")).rejects.toThrow(/logged the evidence/);
+    await evid.acknowledge(raiser, e.id);
+    await expect(evid.acknowledge(raiser, e.id)).rejects.toThrow(/already/);
+    await expect(evid.withdraw(uA, e.id, "")).rejects.toThrow(/reason/);
+    await evid.withdraw(uA, e.id, "Wrong shipment");
+    const after = await withTenantContext(owner, (tx) => tx.tenderEvidence.findUnique({ where: { id: e.id } }));
+    expect(after!.withdrawnAt).not.toBeNull(); expect(after!.withdrawnReason).toBe("Wrong shipment"); expect(after!.title).toBe("Delivery note DN-1");   // withdrawn, never deleted or edited
+    expect(await withTenantContext(supB, (tx) => tx.tenderEvidence.count({ where: { contractId: cA } }))).toBe(0);
+    expect(evidenceProblems({ blobName: "b", sha256: "bad", evidenceDate: new Date(), now: new Date() }).join()).toMatch(/fingerprint/);
   });
 });

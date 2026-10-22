@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { TenderDashboard, TenderListItem } from "@universe/types";
+import type { ContractListItem, TenderDashboard, TenderListItem } from "@universe/types";
 import { AlertIcon, Button, CalendarIcon, CheckCircleIcon, ClockIcon, FileEditIcon, GridIcon, Pill, PlusIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -18,9 +18,11 @@ export default function TenderDashboardPage() {
   const [d, setD] = useState<TenderDashboard | null>(null);
   const [recent, setRecent] = useState<TenderListItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [contracts, setContracts] = useState<ContractListItem[]>([]);
 
   useEffect(() => {
     if (!canIssue) return;
+    apiClient.contractList().then(setContracts).catch(() => undefined);
     Promise.all([apiClient.tenderDashboard(), apiClient.listMyTenders()]).then(([a, b]) => { setD(a); setRecent(b.slice(0, 6)); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the dashboard."));
   }, [canIssue]);
 
@@ -48,6 +50,8 @@ export default function TenderDashboardPage() {
             <Link href="/tenders?view=bids" style={{ textDecoration: "none" }}><StatTile label="Bids received" value={d.bidsReceived ?? 0} icon={<CheckCircleIcon size={18} />} tone="brand" note="Sealed until each tender closes" /></Link>
             <Link href="/tenders?status=PUBLISHED&view=interest" style={{ textDecoration: "none" }}><StatTile label="Interested organisations" value={d.totalInterested} icon={<GridIcon size={18} />} tone="brand" note={d.openWithNoInterest ? `${d.openWithNoInterest} open with none yet` : undefined} /></Link>
             {attention > 0 && <Link href="/tenders?view=attention" style={{ textDecoration: "none" }}><StatTile label="Needs attention" value={attention} icon={<AlertIcon size={18} />} tone="critical" note={[d.attention.overdueEvaluation && `${d.attention.overdueEvaluation} evaluation overdue`, d.attention.overdueAward && `${d.attention.overdueAward} award overdue`, d.attention.unansweredQuestions && `${d.attention.unansweredQuestions} questions`].filter(Boolean).join(", ")} /></Link>}
+            <Link href="/contracts?view=active" style={{ textDecoration: "none" }}><StatTile label="Active contracts" value={contracts.filter((c) => c.status === "ACTIVE").length} icon={<CheckCircleIcon size={18} />} tone="good" /></Link>
+            {contracts.some((c) => c.status === "ACTIVE" && (c.overdueMilestones > 0 || c.overduePayments > 0 || c.variationsWaitingOnYou > 0 || c.endingSoon || c.expired)) && <Link href="/contracts?view=attention" style={{ textDecoration: "none" }}><StatTile label="Contracts needing attention" value={contracts.filter((c) => c.status === "ACTIVE" && (c.overdueMilestones > 0 || c.overduePayments > 0 || c.variationsWaitingOnYou > 0 || c.endingSoon || c.expired)).length} icon={<AlertIcon size={18} />} tone="warning" /></Link>}
           </StatTileGrid>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))", gap: 20 }}>

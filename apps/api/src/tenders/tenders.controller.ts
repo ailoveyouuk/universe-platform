@@ -3,6 +3,8 @@ import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
 import { TenderContractsService } from "./tender-contracts.service";
 import { TenderFrameworkService } from "./tender-framework.service";
+import { TenderVariationsService } from "./tender-variations.service";
+import { TenderEvidenceService } from "./tender-evidence.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
@@ -13,18 +15,19 @@ import { CurrentUser } from "../common/current-user.decorator";
 import {
   AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
-import { ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto } from "./dto/tenders.dto";
+import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService) {}
 
   // ---- issuer (tenders.issue)
   @Post() create(@CurrentUser() u: RequestUser, @Body() dto: CreateTenderDto) { return this.tenders.create(u, dto); }
   @Get("organisations") organisations(@CurrentUser() u: RequestUser, @Query("q") q = "") { return this.tenders.searchOrganisations(u, q); }
   @Get("mine") listMine(@CurrentUser() u: RequestUser, @Query("status") status?: string) { return this.tenders.listMine(u, status); }
+  @Get("contracts-overview") contractList(@CurrentUser() u: RequestUser) { return this.contracts.listAll(u); }
   @Get("dashboard") dashboard(@CurrentUser() u: RequestUser) { return this.tenders.dashboard(u); }
   @Get("mine/:id") getMine(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.getMine(u, id); }
   @Patch(":id") update(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: UpdateTenderDto) { return this.tenders.update(u, id, dto); }
@@ -144,6 +147,14 @@ export class TendersController {
   @Post("mini-competitions/:mid/award") awardMini(@CurrentUser() u: RequestUser, @Param("mid") mid: string, @Body() dto: MiniAwardDto) { return this.framework.awardCompetition(u, mid, dto); }
   @Post("mini-quotes/:qid/quote") quoteMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: MiniQuoteDto) { return this.framework.submitQuote(u, qid, dto); }
   @Post("mini-quotes/:qid/decline") declineMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: CallOffReasonDto) { return this.framework.declineQuote(u, qid, dto.reason); }
+  @Post("contracts/:cid/variations") proposeVariation(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ProposeVariationDto) { return this.variations.propose(u, cid, dto); }
+  @Post("variations/:vid/respond") respondVariation(@CurrentUser() u: RequestUser, @Param("vid") vid: string, @Body() dto: VariationResponseDto) { return this.variations.respond(u, vid, dto); }
+  @Post("variations/:vid/withdraw") withdrawVariation(@CurrentUser() u: RequestUser, @Param("vid") vid: string, @Body() dto: CallOffReasonDto) { return this.variations.withdraw(u, vid, dto.reason); }
+  @Post("contracts/:cid/evidence/upload-url") evidenceUploadUrl(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: RequestContractFileDto) { return this.evidence.requestUpload(u, cid, dto); }
+  @Post("contracts/:cid/evidence") addEvidence(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: AddEvidenceDto) { return this.evidence.add(u, cid, dto); }
+  @Post("evidence/:eid/acknowledge") acknowledgeEvidence(@CurrentUser() u: RequestUser, @Param("eid") eid: string) { return this.evidence.acknowledge(u, eid); }
+  @Post("evidence/:eid/withdraw") withdrawEvidence(@CurrentUser() u: RequestUser, @Param("eid") eid: string, @Body() dto: CallOffReasonDto) { return this.evidence.withdraw(u, eid, dto.reason); }
+  @Get("evidence/:eid/download-url") evidenceUrl(@CurrentUser() u: RequestUser, @Param("eid") eid: string) { return this.evidence.fileUrl(u, eid); }
   @Post("contracts/:cid/price-reviews") proposePrice(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: PriceReviewDto) { return this.framework.proposePrice(u, cid, dto); }
   @Post("price-reviews/:rid/respond") respondPrice(@CurrentUser() u: RequestUser, @Param("rid") rid: string, @Body() dto: PriceReviewResponseDto) { return this.framework.respondPrice(u, rid, dto); }
 }

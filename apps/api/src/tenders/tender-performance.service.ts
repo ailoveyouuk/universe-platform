@@ -14,7 +14,8 @@ const DAY = 86_400_000;
 const num = (v: unknown) => (v == null ? null : Number(v));
 
 /** What the owner's close step needs: facts read from both parties' data, then frozen into the record. */
-export interface ClosePrep { cfg: ScoringConfig & { earlyDays: number; lateDays: number }; milestones: MilestoneFacts; delivery: DeliveryFacts | null; quality: QualityFacts }
+export interface CallOffFacts { placed: number; accepted: number; declined: number; cancelled: number; awaiting: number; acceptedShare: number | null; avgResponseHours: number | null; valueAccepted: number; projects: number }
+export interface ClosePrep { cfg: ScoringConfig & { earlyDays: number; lateDays: number }; milestones: MilestoneFacts; delivery: DeliveryFacts | null; quality: QualityFacts; callOffs?: CallOffFacts | null }
 
 /**
  * Tender performance records (step 6, 2026-10-21). One frozen record per closed contract, shared by the owner and the supplier (database
@@ -41,21 +42,11 @@ export class TenderPerformanceService {
       } else if (m.status === "MISSED") milestones.missed++;
       else milestones.pending = (milestones.pending ?? 0) + 1; // never recorded either way: not measured, not held against the supplier
     }
-    let delivery: DeliveryFacts | null = null;
-    if (c.supplierProjectId) {
-      const lines = await withPlatformStaffContext((s) => s.projectLine.findMany({
-        where: { projectId: c.supplierProjectId!, archivedAt: null },
-        select: { supplierInFull: true, supplierOnTime: true, internalOnTime: true, projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true },
-      }));
-      const d: DeliveryFacts = { onTimeYes: 0, onTimeFlags: 0, inFullYes: 0, inFullFlags: 0, otifYes: 0, otifN: 0 };
-      for (const l of lines) {
-        const t = lineTimeliness(l, "SUPPLIER", cfg);
-        if (t !== null) { d.onTimeFlags++; if (t) d.onTimeYes++; }
-        if (l.supplierInFull !== null) { d.inFullFlags++; if (l.supplierInFull) d.inFullYes++; }
-        if (t !== null && l.supplierInFull !== null) { d.otifN++; if (t && l.supplierInFull) d.otifYes++; }
-      }
-      delivery = d.onTimeFlags + d.inFullFlags > 0 ? d : null;
-    }
+    // A framework agreement has no delivery project of its own: its deliveries are the supplier's projects created from accepted call-offs.
+    const callOffRows = await tx.tenderCallOff.findMany({ where: { contractId: c.id } });
+    const callOffs = this.callOffFacts(callOffRows);
+    const projectIds = [...(c.supplierProjectId ? [c.supplierProjectId] : []), ...callOffRows.filter((x) => x.status === "ACCEPTED" && x.supplierProjectId).map((x) => x.supplierProjectId!)];
+    const delivery = await this.deliveryFacts(cfg, projectIds);
     // The owner's own complaints and temperature logs that it linked to this contract: counts only.
     const links = await tx.tenderContractQualityLink.findMany({ where: { contractId: c.id } });
     const cs = await tx.qualityComplaint.findMany({ where: { id: { in: links.filter((l) => l.kind === "COMPLAINT").map((l) => l.refId) }, archivedAt: null, status: { not: "WITHDRAWN" } }, select: { outcome: true, isSerious: true } });
@@ -66,7 +57,38 @@ export class TenderPerformanceService {
       upheldEq: upheld.reduce((a, x) => a + (x.outcome === "UPHELD" ? 1 : 0.5), 0), seriousUpheld: upheld.filter((x) => x.isSerious).length,
       open: cs.filter((x) => !x.outcome).length, logs: logs.length, excursions: logs.filter((x) => x.hasExcursion).length,
     };
-    return { cfg, milestones, delivery, quality };
+    return { cfg, milestones, delivery, quality, callOffs: callOffRows.length ? callOffs : null };
+  }
+
+  /** Counts of a framework agreement's call-offs and how quickly the supplier answered them. */
+  callOffFacts(rows: { status: string; totalValue: unknown; createdAt: Date; respondedAt: Date | null; supplierProjectId: string | null; firstApprovedAt: Date | null; secondApprovedAt: Date | null }[]): CallOffFacts {
+    const answered = rows.filter((r) => r.respondedAt);
+    const accepted = rows.filter((r) => r.status === "ACCEPTED"), declined = rows.filter((r) => r.status === "DECLINED");
+    const sent = (r: (typeof rows)[number]) => (r.secondApprovedAt ?? r.firstApprovedAt ?? r.createdAt).getTime();
+    const hours = answered.map((r) => Math.max(0, (r.respondedAt!.getTime() - sent(r)) / 3_600_000));
+    return {
+      placed: rows.length, accepted: accepted.length, declined: declined.length, cancelled: rows.filter((r) => r.status === "CANCELLED").length, awaiting: rows.filter((r) => r.status === "AWAITING_SUPPLIER" || r.status === "PENDING_APPROVAL").length,
+      acceptedShare: accepted.length + declined.length > 0 ? Math.round(100 * accepted.length / (accepted.length + declined.length)) : null,
+      avgResponseHours: hours.length ? Math.round(10 * hours.reduce((a, b) => a + b, 0) / hours.length) / 10 : null,
+      valueAccepted: Math.round(accepted.reduce((a, r) => a + Number(r.totalValue), 0) * 100) / 100, projects: accepted.filter((r) => r.supplierProjectId).length,
+    };
+  }
+
+  /** Delivery facts across the supplier's projects (staff read; facts only, as at close). */
+  async deliveryFacts(cfg: ClosePrep["cfg"], projectIds: string[]): Promise<DeliveryFacts | null> {
+    if (projectIds.length === 0) return null;
+    const lines = await withPlatformStaffContext((s) => s.projectLine.findMany({
+      where: { projectId: { in: projectIds }, archivedAt: null },
+      select: { supplierInFull: true, supplierOnTime: true, internalOnTime: true, projectedDeliveryDate: true, actualDeliveryDate: true, goodsCollectedDate: true, supplierGad: true },
+    }));
+    const d: DeliveryFacts = { onTimeYes: 0, onTimeFlags: 0, inFullYes: 0, inFullFlags: 0, otifYes: 0, otifN: 0 };
+    for (const l of lines) {
+      const t = lineTimeliness(l, "SUPPLIER", cfg);
+      if (t !== null) { d.onTimeFlags++; if (t) d.onTimeYes++; }
+      if (l.supplierInFull !== null) { d.inFullFlags++; if (l.supplierInFull) d.inFullYes++; }
+      if (t !== null && l.supplierInFull !== null) { d.otifN++; if (t && l.supplierInFull) d.otifYes++; }
+    }
+    return d.onTimeFlags + d.inFullFlags > 0 ? d : null;
   }
 
   /** Validates owner feedback before anything is written. */
@@ -79,6 +101,11 @@ export class TenderPerformanceService {
   /** Writes the frozen record inside the close transaction. */
   async createRecord(tx: Tx, user: RequestUser, c: { id: string; organizationId: string; awardedOrganizationId: string; tenderId: string }, outcome: string, closedAt: Date, prep: ClosePrep, feedback: OwnerFeedbackDto | undefined) {
     const built = buildMeasures(prep.delivery, prep.milestones, (feedback as FeedbackInput | undefined) ?? null, prep.cfg, prep.quality);
+    if (prep.callOffs && prep.callOffs.placed > 0) {
+      const f = prep.callOffs;
+      built.measures.push({ key: "call_off_response", group: "DELIVERY", label: "Call-off responsiveness", weight: 0, benchmark: null, href: null, display: f.acceptedShare === null ? "No call-offs answered" : `${f.acceptedShare}% accepted`, score: null, status: "neutral",
+        detail: `${f.placed} call-off${f.placed === 1 ? "" : "s"} placed: ${f.accepted} accepted, ${f.declined} declined, ${f.cancelled} cancelled${f.avgResponseHours !== null ? `; answered in ${f.avgResponseHours} hours on average` : ""}. Shown for information; not part of the score.` } as never);
+    }
     const pctOf = (k: string) => built.measures.find((m) => m.key === k)?.score ?? null;
     const clean = feedback ? { quality: feedback.quality, communication: feedback.communication, documentation: feedback.documentation, flexibility: feedback.flexibility, wouldUseAgain: feedback.wouldUseAgain, reasons: feedback.reasons ?? {}, comment: feedback.comment?.trim() || null } : null;
     return tx.tenderPerformanceRecord.create({ data: {
