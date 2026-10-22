@@ -33,3 +33,6 @@ Status of research for the curated entries in Universe's export-restriction feat
 2. Load Portugal, Italy and Austria first as curated entries (primary sources, structured); open and verify Greece and Poland official documents before loading.
 3. Consider connectors: INFARMED monthly deliberation PDF and AIFA PDF are machine-readable but the file URLs change; a monthly check would need page scraping. Entries from them would carry the source link and date and be auto-marked removed when dropped.
 4. Re-check each source monthly; EU lists are temporary and renewed.
+
+## Outcome 2026-10-22
+Decision (Lewis): UK only for now, unless a reliable European, US, Canadian, Australian or Japanese source exists. Research found none stable (Portugal, Italy, Austria monthly PDFs with changing URLs; EU lists temporary; Canada is duty-based, not a list). Nothing to load; revisit if a source appears.

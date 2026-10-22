@@ -126,3 +126,8 @@ Lewis: augment regulatory status with a daily check of MHRA, EU bodies, FDA, WHO
 - **Done:** catalogue CSV (follows browse filters), registrations CSV (with the organisation's own verification), and a printable/JSON product dossier; formula-safe cells, 50,000-row ceiling, every export audit-logged; CI and deploys green (see BUILD-LOG).
 - **Open decision:** whether bulk export should need its own permission (currently any signed-in user can export what they can see).
 - **Remaining in step 5:** demo-data completeness review, and live security and scale checks of the new screens (including a click-through once the Product Database tab is signed in).
+
+## Update 2026-10-22 - step 5 complete
+- Security matrix, dossier privacy test, import cap, rate limits and dashboard caches delivered (see BUILD-LOG). Open decision resolved: dossier and exports stay open to all signed-in users because no other organisation is identifiable.
+- Demo-data review done; only cosmetic category-label inconsistencies remain.
+- Deferred by Lewis: regulatory watch sources. Go-live gate: Defender for Storage.
