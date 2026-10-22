@@ -24,7 +24,7 @@ async function demoVisitors(orgId: string, term = "", ids?: string[]) {
     if (!org?.isDemo) return [] as { id: string; forename: string; surname: string; email: string }[];
     const match = term ? { OR: [{ forename: { contains: term } }, { surname: { contains: term } }, { email: { contains: term } }] } : {};
     return tx.user.findMany({
-      where: { status: "ACTIVE", ...(ids ? { id: { in: ids } } : {}), ...match, OR: [{ platformStaffRole: { not: "NONE" } }, { organizationAccess: { some: { grantedOrganizationId: orgId } } }] },
+      where: { status: "ACTIVE", ...(ids ? { id: { in: ids } } : {}), AND: [match, { OR: [{ platformStaffRole: { not: "NONE" } }, { organizationAccess: { some: { grantedOrganizationId: orgId } } }] }] },
       select: { id: true, forename: true, surname: true, email: true }, take: 25,
     });
   });
