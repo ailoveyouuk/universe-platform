@@ -31,6 +31,7 @@
     "seed:demo-competitive-tender": "tsx scripts/seed-demo-competitive-tender.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
+    "audit:catalogue": "tsx scripts/audit-demo-catalogue.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",
     "recohere:demo": "tsx scripts/recohere-demo-data.ts",
     "fix:demo-consistency": "tsx scripts/fix-demo-sim-consistency.ts",
