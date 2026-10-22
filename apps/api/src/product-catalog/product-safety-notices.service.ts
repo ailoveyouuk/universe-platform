@@ -1,3 +1,4 @@
+import { cached, invalidate } from "../common/ttl-cache";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { ProductSafetyFlag, ProductSafetyNoticeSummary, RegulatoryRegisterPage, SafetyNoticeDashboard, SafetyNoticeReviewSummary } from "@universe/types";
@@ -168,6 +169,7 @@ export class ProductSafetyNoticesService {
       });
       return row;
     });
+    invalidate("safety:");
     await this.notifyUsers(created.id, user).catch(() => undefined); // best-effort: the notice itself is already saved
     return this.toSummary(created, undefined, undefined, await attributionContext(user, [created.contributedByOrganizationId]));
   }
@@ -279,6 +281,7 @@ export class ProductSafetyNoticesService {
       await writeTargetChanges(tx, { productMasterId: n.productMasterId, productFamilyId: n.productFamilyId }, { version: n.ownerVersion, changes, source: "REGISTRATION", user });
       return row;
     });
+    invalidate("safety:");
     if (n.status === "CLOSED" && updated.status === "OPEN") await this.notifyUsers(updated.id, user).catch(() => undefined);
     // A closed notice needs no further action from anyone.
     if (n.status !== "CLOSED" && updated.status === "CLOSED") {
@@ -334,7 +337,7 @@ export class ProductSafetyNoticesService {
     const simWhere = showSim ? {} : { OR: [{ productMaster: { isSimulated: false } }, { productFamily: { isSimulated: false } }] };
     const base = { isArchived: false, ...simWhere };
     const since = new Date(Date.now() - 90 * DAY);
-    const [open, critical, closedRecent, openRows] = await Promise.all([
+    const [open, critical, closedRecent, openRows] = await cached(`safety:dashboard:${showSim}`, 60_000, () => Promise.all([
       prisma.productSafetyNotice.count({ where: { AND: [base, { status: "OPEN" }] } }),
       prisma.productSafetyNotice.count({ where: { AND: [base, { status: "OPEN", severity: "CRITICAL" }] } }),
       prisma.productSafetyNotice.count({ where: { AND: [base, { status: "CLOSED", closedDate: { gte: since } }] } }),
@@ -344,7 +347,7 @@ export class ProductSafetyNoticesService {
         orderBy: [{ issueDate: "desc" }],
         take: 100,
       }),
-    ]);
+    ]));
     const productsAffected = new Set(openRows.map((r) => r.productMasterId ?? r.productFamilyId)).size;
     const mine = await this.myReviews(user, openRows.map((r) => r.id));
     const ctx = await attributionContext(user, openRows.map((r) => r.contributedByOrganizationId));

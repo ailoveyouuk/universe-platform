@@ -1,3 +1,4 @@
+import { cached, invalidate } from "../common/ttl-cache";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
 import type {
@@ -208,6 +209,7 @@ export class ProductRegistrationsService {
       });
       return row;
     });
+    invalidate("regulatory:");
     return this.toSummary(created, undefined, undefined, await attributionContext(user, [created.contributedByOrganizationId]));
   }
 
@@ -258,6 +260,7 @@ export class ProductRegistrationsService {
       await writeTargetChanges(tx, { productMasterId: reg.productMasterId, productFamilyId: reg.productFamilyId }, { version: reg.ownerVersion, changes, source: "REGISTRATION", user });
       return row;
     });
+    invalidate("regulatory:");
     return this.toSummary(updated, (await this.myVerifications(user, [updated.id])).get(updated.id), undefined, await attributionContext(user, [updated.contributedByOrganizationId]));
   }
 
@@ -294,7 +297,7 @@ export class ProductRegistrationsService {
     const soon = new Date(now.getTime() + EXPIRING_SOON_DAYS * DAY);
     const base = { isArchived: false, ...simWhere };
     const withStatus = (extra: object) => ({ AND: [base, extra] });
-    const [registrations, active, expiringSoon, expired, suspendedOrWithdrawn, productsWithRegs, productCount, attentionRows] = await Promise.all([
+    const [registrations, active, expiringSoon, expired, suspendedOrWithdrawn, productsWithRegs, productCount, attentionRows] = await cached(`regulatory:dashboard:${showSim}`, 90_000, () => Promise.all([
       prisma.productRegulatoryRegistration.count({ where: base }),
       prisma.productRegulatoryRegistration.count({ where: withStatus({ status: "ACTIVE", OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] }) }),
       prisma.productRegulatoryRegistration.count({ where: withStatus({ status: "ACTIVE", expiryDate: { gte: now, lte: soon } }) }),
@@ -308,7 +311,7 @@ export class ProductRegistrationsService {
         orderBy: [{ expiryDate: "asc" }],
         take: 25,
       }),
-    ]);
+    ]));
     const mine = await withTenantContext(user.organizationId, async (tx) => {
       const verifs = await tx.productRegistrationVerification.findMany({
         where: { organizationId: user.organizationId },
