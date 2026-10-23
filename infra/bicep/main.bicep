@@ -137,6 +137,8 @@ module storage 'modules/storage.bicep' = {
       // Tender Issuance added 2026-10-21 (tender documents and bid files upload directly to blob storage).
       'https://${tendersSwa.outputs.defaultHostname}'
       'https://${supplierPortalSwa.outputs.defaultHostname}'
+      // Admin added 2026-10-23 (organisation certificate files upload directly to blob storage).
+      'https://${adminSwa.outputs.defaultHostname}'
     ]
   }
 }

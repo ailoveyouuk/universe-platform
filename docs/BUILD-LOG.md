@@ -871,3 +871,8 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - **Organisation cards in Project Management and Product Database:** `GET /partners/:id/organization-link` resolves a stakeholder through its registry entry to the real company's organisation, only if that company has published its profile. The partner page heading (PM) and the manufacturer and supplier names in the product's sourcing table (Product Database) open the card; an unpublished company gets a plain message.
 - Tests: `saved-searches.test.ts` (criteria matching, tender match extensions, saved-search CRUD and isolation, reminder stages).
 - Not done: email alerts; alerts on profile edits (publish only); card links in PM list rows (rows are already links).
+
+## 2026-10-23 — Live test finding: Admin origin missing from storage CORS
+
+- Live test of certificate file upload failed with "Failed to fetch": the storage account's CORS allow-list had no entry for the Admin site, so the direct browser PUT was blocked. `infra/bicep/main.bicep` now lists `adminSwa`. Needs Deploy Infrastructure (or adding the Admin origin under Resource sharing, Blob service, in the Azure portal).
+- Saved supplier and tender searches passed a live test (save, reload, apply, toggle alerts, delete).
