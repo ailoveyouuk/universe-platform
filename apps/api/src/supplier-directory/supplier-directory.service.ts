@@ -47,46 +47,69 @@ export class SupplierDirectoryService {
    * function, not gated by a specific permission (buyers and suppliers
    * alike should be able to browse). */
   /**
-   * The network directory: organisations that have published their profile, searchable by name or description, organisation type,
-   * scope-of-supply categories (any of the given ids), country of operation and certification type held (not expired).
-   * Read in a system context because the rows belong to other organisations; only published, public fields leave.
+   * The network directory: organisations that have published their profile. Filters: name or description, organisation type, scope-of-supply
+   * categories (any of), countries of operation (any of), certifications held and not expired (all of), minimum years in operation, warehousing,
+   * WHO prequalified and local manufacturer. Also returns headline statistics and breakdowns of the whole matching set (not just the page) for the
+   * dashboard tiles. Read in a system context because the rows belong to other organisations; only published, public fields leave.
    */
-  async network(caller: RequestUser, f: { q?: string; type?: string; scope?: string; country?: string; certType?: string }): Promise<NetworkSearchResult> {
-    const scopeIds = (f.scope ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 60);
+  async network(
+    caller: RequestUser,
+    f: { q?: string; type?: string; scope?: string; country?: string; certType?: string; minYears?: number; warehousing?: string; whoPq?: boolean; localMfr?: boolean; certified?: boolean; sort?: string; offset?: number },
+  ): Promise<NetworkSearchResult> {
+    const list = (v?: string, max = 60) => (v ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, max);
+    const scopeIds = list(f.scope);
+    const countryCodes = list(f.country).map((c) => c.toUpperCase());
+    const certTypes = list(f.certType, 10);
     const q = f.q?.trim();
+    const notExpired = { archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] };
+    const and: any[] = [];
+    if (scopeIds.length) and.push({ organization: { scopeOfSupply: { some: { scopeSubId: { in: scopeIds }, archivedAt: null } } } });
+    if (countryCodes.length) and.push({ organization: { OR: [{ countryPresence: { some: { countryCode: { in: countryCodes } } } }, { supplierCountryPresence: { some: { countryCode: { in: countryCodes } } } }] } });
+    for (const t of certTypes) and.push({ organization: { certifications: { some: { type: t, ...notExpired } } } });
+    if (f.certified) and.push({ organization: { certifications: { some: notExpired } } });
+    if (f.whoPq) and.push({ organization: { manufacturerProfile: { whoPrequalified: true } } });
+    if (f.localMfr) and.push({ organization: { manufacturerProfile: { isLocalManufacturer: true } } });
+    if (q) and.push({ OR: [{ description: { contains: q } }, { organization: { name: { contains: q } } }, { principalManufacturersRepresented: { contains: q } }] });
     const where: any = {
       publishedAt: { not: null },
-      organization: {
-        ...(f.type ? { type: f.type } : {}),
-        ...(scopeIds.length ? { scopeOfSupply: { some: { scopeSubId: { in: scopeIds }, archivedAt: null } } } : {}),
-        ...(f.country ? { OR: [{ countryPresence: { some: { countryCode: f.country.toUpperCase() } } }, { supplierCountryPresence: { some: { countryCode: f.country.toUpperCase() } } }] } : {}),
-        ...(f.certType ? { certifications: { some: { type: f.certType, archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] } } } : {}),
-      },
-      ...(q ? { OR: [{ description: { contains: q } }, { organization: { name: { contains: q } } }] } : {}),
+      ...(f.type ? { organization: { type: f.type } } : {}),
+      ...(f.minYears ? { yearsInOperation: { gte: f.minYears } } : {}),
+      ...(f.warehousing ? { warehousingCapability: f.warehousing } : {}),
+      ...(and.length ? { AND: and } : {}),
     };
     return withPlatformStaffContext(async (tx: any) => {
-      const [total, rows] = await Promise.all([
-        tx.supplierProfile.count({ where }),
-        tx.supplierProfile.findMany({
-          where,
-          take: 50,
-          orderBy: { organization: { name: "asc" } },
-          include: { organization: { select: { id: true, name: true, type: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: { archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] }, select: { type: true } } } } },
-        }),
-      ]);
-      return {
-        total,
-        organizations: rows.map((r: any) => ({
-          id: r.organization.id,
-          name: r.organization.name,
-          type: r.organization.type,
-          description: r.description ?? null,
-          countryCodes: [...new Set<string>([...r.organization.countryPresence, ...r.organization.supplierCountryPresence].map((c: any) => c.countryCode))].sort(),
-          scope: r.organization.scopeOfSupply.map((x: any) => x.scopeSubId),
-          certificationTypes: [...new Set<string>(r.organization.certifications.map((c: any) => c.type))],
-          yearsInOperation: r.yearsInOperation ?? null,
-        })),
+      const rows = await tx.supplierProfile.findMany({
+        where,
+        take: 1000,
+        include: { organization: { select: { id: true, name: true, type: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: notExpired, select: { type: true } } } } },
+      });
+      const all = rows.map((r: any) => ({
+        id: r.organization.id as string,
+        name: r.organization.name as string,
+        type: r.organization.type as string,
+        description: (r.description ?? null) as string | null,
+        countryCodes: [...new Set<string>([...r.organization.countryPresence, ...r.organization.supplierCountryPresence].map((c: any) => c.countryCode))].sort(),
+        scope: r.organization.scopeOfSupply.map((x: any) => x.scopeSubId) as string[],
+        certificationTypes: [...new Set<string>(r.organization.certifications.map((c: any) => c.type))],
+        yearsInOperation: (r.yearsInOperation ?? null) as number | null,
+      }));
+      const tally = (pick: (o: (typeof all)[number]) => string[]) => {
+        const m = new Map<string, number>();
+        for (const o of all) for (const k of new Set(pick(o))) m.set(k, (m.get(k) ?? 0) + 1);
+        return [...m].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
       };
+      const facets = { countries: tally((o) => o.countryCodes), scope: tally((o) => o.scope), certifications: tally((o) => o.certificationTypes), types: tally((o) => [o.type]) };
+      const stats = { suppliers: all.length, countries: facets.countries.length, categories: facets.scope.length, certified: all.filter((o: any) => o.certificationTypes.length > 0).length };
+      const sorters: Record<string, (a: (typeof all)[number], b: (typeof all)[number]) => number> = {
+        name: (a, b) => a.name.localeCompare(b.name),
+        years: (a, b) => (b.yearsInOperation ?? -1) - (a.yearsInOperation ?? -1) || a.name.localeCompare(b.name),
+        categories: (a, b) => b.scope.length - a.scope.length || a.name.localeCompare(b.name),
+        countries: (a, b) => b.countryCodes.length - a.countryCodes.length || a.name.localeCompare(b.name),
+        certifications: (a, b) => b.certificationTypes.length - a.certificationTypes.length || a.name.localeCompare(b.name),
+      };
+      all.sort(sorters[f.sort ?? "name"] ?? sorters.name);
+      const offset = Math.max(0, f.offset ?? 0);
+      return { total: all.length, stats, facets, organizations: all.slice(offset, offset + 50) };
     });
   }
 

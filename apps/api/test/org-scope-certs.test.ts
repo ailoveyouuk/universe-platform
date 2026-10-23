@@ -82,6 +82,12 @@ describe("organisation scope of supply and certifications", () => {
     const byScope = await dir.network(me, { scope: "pharma-antimalarials,pharma-antibiotics", q: sfx });
     expect(byScope.organizations.map((o) => o.id)).toEqual([orgA]);
     expect(byScope.organizations[0]).toMatchObject({ scope: ["pharma-antimalarials"], certificationTypes: ["GMP"] });
+    expect(byScope.stats).toMatchObject({ suppliers: 1, categories: 1, certified: 1 });
+    expect(byScope.facets.certifications).toEqual([{ key: "GMP", count: 1 }]);
+    expect((await dir.network(me, { q: sfx, certified: true })).total).toBe(1);
+    expect((await dir.network(me, { q: sfx, minYears: 10 })).total).toBe(0);
+    expect((await dir.network(me, { q: sfx, whoPq: true })).total).toBe(0);
+    expect((await dir.network(me, { q: sfx, sort: "years", offset: 5 })).organizations).toEqual([]);
     expect((await dir.network(me, { q: sfx, scope: "ppe-gloves" })).total).toBe(0);
     expect((await dir.network(me, { q: sfx, certType: "GMP" })).total).toBe(1);
     expect((await dir.network(me, { q: sfx, certType: "ISO_13485" })).total).toBe(0);

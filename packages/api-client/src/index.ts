@@ -324,7 +324,7 @@ export class UniverseApiClient {
   createTenderAddendum(id: string, body: { title: string; body: string; requiresAcknowledgement?: boolean; newClosingAt?: string }): Promise<unknown> { return this.request(`/tenders/${id}/addenda`, { method: "POST", body: JSON.stringify(body) }); }
   recordTenderScreening(id: string, body: { organisationId: string; lists: string[]; outcome: string; notes?: string; screenedOn: string }): Promise<unknown> { return this.request(`/tenders/${id}/screenings`, { method: "POST", body: JSON.stringify(body) }); }
   // ---- participant side and bids (step 3, 2026-10-19)
-  listAvailableTenders(q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlisted?: boolean } = {}): Promise<TenderAvailableResult> {
+  listAvailableTenders(q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlisted?: boolean; status?: string; closingWithinDays?: number; publishedWithinDays?: number; issuer?: string; currency?: string; scopeMatch?: boolean } = {}): Promise<TenderAvailableResult> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "" && v !== false) p.set(k, String(v));
     return this.request(`/tenders/available${p.toString() ? `?${p}` : ""}`);
   }
@@ -1468,8 +1468,8 @@ export class UniverseApiClient {
     return this.request(`/supplier-directory/search${query ? `?${query}` : ""}`);
   }
 
-  searchNetwork(f: { q?: string; type?: string; scope?: string; country?: string; certType?: string }): Promise<NetworkSearchResult> {
-    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => !!v) as [string, string][]).toString();
+  searchNetwork(f: { q?: string; type?: string; scope?: string; country?: string; certType?: string; minYears?: number; warehousing?: string; whoPq?: boolean; localMfr?: boolean; certified?: boolean; sort?: string; offset?: number }): Promise<NetworkSearchResult> {
+    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => !!v).map(([k, v]) => [k, String(v)])).toString();
     return this.request(`/supplier-directory/network${qs ? `?${qs}` : ""}`);
   }
 

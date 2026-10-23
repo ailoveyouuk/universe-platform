@@ -17,8 +17,13 @@ export class SupplierDirectoryController {
   constructor(private readonly supplierDirectoryService: SupplierDirectoryService) {}
 
   @Get("network")
-  network(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("type") type?: string, @Query("scope") scope?: string, @Query("country") country?: string, @Query("certType") certType?: string) {
-    return this.supplierDirectoryService.network(user, { q, type, scope, country, certType });
+  network(
+    @CurrentUser() user: RequestUser,
+    @Query("q") q?: string, @Query("type") type?: string, @Query("scope") scope?: string, @Query("country") country?: string, @Query("certType") certType?: string,
+    @Query("minYears") minYears?: string, @Query("warehousing") warehousing?: string, @Query("whoPq") whoPq?: string, @Query("localMfr") localMfr?: string,
+    @Query("certified") certified?: string, @Query("sort") sort?: string, @Query("offset") offset?: string,
+  ) {
+    return this.supplierDirectoryService.network(user, { q, type, scope, country, certType, minYears: Number(minYears) || undefined, warehousing, whoPq: whoPq === "true", localMfr: localMfr === "true", certified: certified === "true", sort, offset: Number(offset) || undefined });
   }
 
   @Get("search")

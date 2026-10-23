@@ -2361,8 +2361,15 @@ export interface NetworkOrganization {
   yearsInOperation: number | null;
 }
 
+export interface NetworkFacet { key: string; count: number }
+
 export interface NetworkSearchResult {
+  /** Organisations matching the filters (the page below holds at most 50 of them). */
   total: number;
+  /** Headline figures for the dashboard tiles, over the whole matching set. */
+  stats: { suppliers: number; countries: number; categories: number; certified: number };
+  /** Breakdowns of the matching set, for drilldown. */
+  facets: { countries: NetworkFacet[]; scope: NetworkFacet[]; certifications: NetworkFacet[]; types: NetworkFacet[] };
   organizations: NetworkOrganization[];
 }
 
@@ -3574,7 +3581,13 @@ export interface TenderAvailableItem {
   /** Declared scope-of-supply categories (SCOPE_TAXONOMY ids) that this tender's catalogue lines fall into; only set on "Tenders for you". */
   scopeMatches?: string[];
 }
-export interface TenderAvailableResult { counts: Record<string, number>; tenders: TenderAvailableItem[] }
+export interface TenderFacet { key: string; count: number }
+export interface TenderAvailableResult {
+  counts: Record<string, number>;
+  /** Breakdowns of the filtered set, for the dashboard drilldowns. */
+  facets?: { issuers: TenderFacet[]; countries: TenderFacet[]; categories: TenderFacet[]; currencies: TenderFacet[] };
+  tenders: TenderAvailableItem[];
+}
 export interface TenderSavedSearchCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }
 export interface TenderSavedSearchRecord { id: string; name: string; alertsEnabled: boolean; criteria: TenderSavedSearchCriteria; createdAt: string }
 

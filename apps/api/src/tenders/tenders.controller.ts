@@ -44,8 +44,8 @@ export class TendersController {
 
   // ---- participant (tenders.view / tenders.bid)
   @Get("available")
-  available(@CurrentUser() u: RequestUser, @Query("chip") chip?: string, @Query("type") type?: string, @Query("country") country?: string, @Query("category") category?: string, @Query("keyword") keyword?: string, @Query("sort") sort?: string, @Query("shortlisted") shortlisted?: string) {
-    return this.tenders.listAvailable(u, { chip, type, country, category, keyword, sort, shortlistedOnly: shortlisted === "true" });
+  available(@CurrentUser() u: RequestUser, @Query("chip") chip?: string, @Query("type") type?: string, @Query("country") country?: string, @Query("category") category?: string, @Query("keyword") keyword?: string, @Query("sort") sort?: string, @Query("shortlisted") shortlisted?: string, @Query("status") status?: string, @Query("closingWithinDays") closingWithinDays?: string, @Query("publishedWithinDays") publishedWithinDays?: string, @Query("issuer") issuer?: string, @Query("currency") currency?: string, @Query("scopeMatch") scopeMatch?: string) {
+    return this.tenders.listAvailable(u, { chip, type, country, category, keyword, sort, shortlistedOnly: shortlisted === "true", status, closingWithinDays: Number(closingWithinDays) || undefined, publishedWithinDays: Number(publishedWithinDays) || undefined, issuer, currency, scopeMatch: scopeMatch === "true" });
   }
   @Get("for-you") forYou(@CurrentUser() u: RequestUser) { return this.tenders.forYou(u); }
   @Get("saved-searches") listSearches(@CurrentUser() u: RequestUser) { return this.tenders.listSavedSearches(u); }

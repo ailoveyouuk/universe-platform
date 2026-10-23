@@ -450,7 +450,7 @@ export class TendersService {
   private ruleView(rules: { id: string; ruleType: string; ruleValue: string; explanation: string | null; isRequired: boolean }[]): RuleLike[] { return rules; }
 
   /** Every published tender, each with an eligibility chip and checklist summary. Filtering is by chip, never by hiding. */
-  async listAvailable(user: RequestUser, q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlistedOnly?: boolean }) {
+  private async listAvailableBase(user: RequestUser, q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlistedOnly?: boolean }) {
     assertHasPermission(user, "tenders.view");
     return withTenantContext(user.organizationId, async (tx) => {
       const profile = await this.loadProfile(tx, user.organizationId);
@@ -504,6 +504,47 @@ export class TendersService {
       }
       return { counts, tenders: rows };
     });
+  }
+
+  /**
+   * Find tenders: every published tender, explained by chips, with the extra filters layered on top: status, closing and publication windows, issuer,
+   * currency, delivery country, catalogue category and "matches my declared scope". Counts and the dashboard breakdowns reflect the filtered set.
+   */
+  async listAvailable(user: RequestUser, q: { chip?: string; type?: string; country?: string; category?: string; keyword?: string; sort?: string; shortlistedOnly?: boolean; status?: string; closingWithinDays?: number; publishedWithinDays?: number; issuer?: string; currency?: string; scopeMatch?: boolean }) {
+    const base = await this.listAvailableBase(user, { chip: q.chip, type: q.type, country: q.country, category: q.category, keyword: q.keyword, sort: q.sort, shortlistedOnly: q.shortlistedOnly });
+    const scope = await this.scopeMatches(user, base.tenders.map((t) => t.id));
+    const now = Date.now();
+    const day = 86_400_000;
+    let rows = base.tenders.map((t) => ({ ...t, scopeMatches: scope.get(t.id) ?? [] }));
+    if (q.status) rows = rows.filter((t) => t.status === q.status);
+    if (q.closingWithinDays) rows = rows.filter((t) => t.status === "PUBLISHED" && t.closingAt && t.closingAt.getTime() >= now && t.closingAt.getTime() <= now + q.closingWithinDays! * day);
+    if (q.publishedWithinDays) rows = rows.filter((t) => t.publishedAt && t.publishedAt.getTime() >= now - q.publishedWithinDays! * day);
+    if (q.issuer) rows = rows.filter((t) => t.issuerName.toLowerCase().includes(q.issuer!.toLowerCase()));
+    if (q.currency) rows = rows.filter((t) => t.currency === q.currency!.toUpperCase());
+    if (q.scopeMatch) rows = rows.filter((t) => t.scopeMatches.length > 0);
+    if (q.sort === "issuer") rows.sort((a, b) => a.issuerName.localeCompare(b.issuerName));
+    const counts = { ...base.counts, eligible: 0, almostEligible: 0, notEligible: 0, invited: 0, participating: 0, shortlisted: 0, closingSoon: 0, open: 0, scopeMatch: 0 };
+    for (const r of rows) {
+      if (r.chips.includes("ELIGIBLE")) counts.eligible++; else if (r.chips.includes("ALMOST_ELIGIBLE")) counts.almostEligible++; else counts.notEligible++;
+      if (r.chips.includes("INVITED")) counts.invited++;
+      if (r.chips.includes("PARTICIPATING")) counts.participating++;
+      if (r.chips.includes("SHORTLISTED")) counts.shortlisted++;
+      if (r.chips.includes("CLOSING_SOON")) counts.closingSoon++;
+      if (r.status === "PUBLISHED") counts.open++;
+      if (r.scopeMatches.length) counts.scopeMatch++;
+    }
+    const tally = (keys: (t: (typeof rows)[number]) => string[]) => {
+      const m = new Map<string, number>();
+      for (const r of rows) for (const k of new Set(keys(r))) m.set(k, (m.get(k) ?? 0) + 1);
+      return [...m].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+    };
+    const facets = {
+      issuers: tally((t) => [t.issuerName]),
+      countries: tally((t) => (t.deliveryCountryCodes ?? "").split(",").filter(Boolean)),
+      categories: tally((t) => t.categories.map((c) => c.split(".")[0])),
+      currencies: tally((t) => (t.currency ? [t.currency] : [])),
+    };
+    return { counts, facets, tenders: rows };
   }
 
   /** The participant's view of one tender: everything they need to prepare, plus their live eligibility checklist. */
@@ -655,11 +696,9 @@ export class TendersService {
   async forYou(user: RequestUser) {
     const all = await this.listAvailable(user, { sort: "closing" });
     const searches = await this.listSavedSearches(user);
-    const open = all.tenders.filter((t) => t.status === "PUBLISHED");
-    const scope = await this.scopeMatches(user, open.map((t) => t.id));
-    const matching = open
-      .filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || (scope.get(t.id)?.length ?? 0) > 0 || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories }) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))))
-      .map((t) => ({ ...t, scopeMatches: scope.get(t.id) ?? [] }));
+    const matching = all.tenders
+      .filter((t) => t.status === "PUBLISHED")
+      .filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || t.scopeMatches.length > 0 || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories }) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))));
     return { tenders: matching.slice(0, 50), savedSearches: searches.length };
   }
 

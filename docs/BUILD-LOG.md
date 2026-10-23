@@ -855,3 +855,9 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - Branding upload: image pixel size is checked (over 2000 px refused with advice; non-square icon, squarish logo or tiny image get a note) and the picker is keyboard-focusable.
 - Test: network search (published only; scope, certification and type filters).
 - Not done: scope matching uses catalogue-linked lines only (free-text lines have no category); no saved supplier searches; the Supplier Portal app is unchanged.
+
+## 2026-10-23 — Dashboards and full-depth filters on Find suppliers and Find tenders
+
+- **Standing rule (Lewis):** every new section gets a four-tile "mini dashboard" of its most prominent metrics, each tile drilling down (filtering or breaking down the list), plus full-depth filtering and search on search screens. Saved to project memory.
+- **Find suppliers:** tiles for organisations, countries covered, categories covered and certified (click to break down by type, country or category, or filter to certified). Filters: name, description or manufacturers, type, category (group then subcategories, any of), countries (any of), certifications held (all of, current only), minimum years, warehousing, WHO prequalified, local manufacturer; five sort orders and paging (50 a page). The API returns headline stats and breakdowns over the whole matching set.
+- **Find tenders:** tiles for open for bids, you can bid, closing in 7 days and match your scope, plus a break-down by issuer, delivery country or category. New filters: status, closing window, published window, issuer, currency, category, matches my scope, sort by issuer. Counts and breakdowns follow the filters. `GET /tenders/available` gained the matching parameters; Tenders for you reuses the scope matching.
