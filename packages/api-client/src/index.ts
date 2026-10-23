@@ -1290,6 +1290,7 @@ export class UniverseApiClient {
     });
   }
 
+  getPartnerOrganizationLink(partnerId: string): Promise<{ organizationId: string | null }> { return this.request(`/partners/${partnerId}/organization-link`); }
   getOrganizationCard(organizationId: string): Promise<OrganizationCard> {
     return this.request(`/organizations/${organizationId}/card`);
   }

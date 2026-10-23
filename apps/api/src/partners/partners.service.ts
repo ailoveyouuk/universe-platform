@@ -365,6 +365,13 @@ export class PartnersService {
     return toSummary(p);
   }
 
+  /** The organisation card behind a stakeholder: set only when the real company has published its directory profile (see StakeholderRegistryService.isIdentityPublic). */
+  async organizationLink(user: RequestUser, id: string): Promise<{ organizationId: string | null }> {
+    const p = await withTenantContext(user.organizationId, (tx) => tx.partner.findFirst({ where: { id, ...tenantScope(user.organizationId) }, select: { registryEntryId: true } }));
+    if (!p) throw new NotFoundException(`Partner ${id} not found`);
+    return { organizationId: await this.stakeholderRegistryService.publishedOrganizationId(p.registryEntryId) };
+  }
+
   async create(user: RequestUser, dto: CreatePartnerDto): Promise<PartnerSummary> {
     // Certifications that reference a manufacturer site (by index into
     // dto.manufacturerSites) can't be nested into the same create() call

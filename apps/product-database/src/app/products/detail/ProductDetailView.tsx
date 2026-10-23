@@ -25,6 +25,7 @@ import { assessBatches, summariseBatches, FLAG_TEXT } from "./batchLife";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
+import { PartnerOrgName } from "../../../components/PartnerOrgName";
 
 /**
  * Full product page (added 2026-10-18, Product Database completion step 1 — docs/PRODUCT-DATABASE-GAP-ANALYSIS.md).
@@ -932,8 +933,8 @@ function SourcingTab({ productId, shelfLifeMonths }: { productId: string; shelfL
           empty="No approved sources recorded for this product yet."
           head={["Manufacturer", "Supplier", "Status", "Review due"]}
           rows={(sourcing ?? []).map((s) => [
-            <>{s.manufacturerName}{s.manufacturerCountryCode ? <span style={{ color: "var(--u-ink-secondary)" }}> — {cname(s.manufacturerCountryCode)}</span> : null}</>,
-            s.supplierName ? <>{s.supplierName}{s.supplierCountryCode ? ` — ${cname(s.supplierCountryCode)}` : ""}</> : "—",
+            <><PartnerOrgName partnerId={s.manufacturerId} name={s.manufacturerName} />{s.manufacturerCountryCode ? <span style={{ color: "var(--u-ink-secondary)" }}> — {cname(s.manufacturerCountryCode)}</span> : null}</>,
+            s.supplierName && s.supplierId ? <><PartnerOrgName partnerId={s.supplierId} name={s.supplierName} />{s.supplierCountryCode ? ` — ${cname(s.supplierCountryCode)}` : ""}</> : "—",
             s.status,
             dateOnly(s.nextReviewDue) ?? "—",
           ])}

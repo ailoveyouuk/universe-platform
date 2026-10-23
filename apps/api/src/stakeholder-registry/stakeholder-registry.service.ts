@@ -37,6 +37,16 @@ export class StakeholderRegistryService {
     return Boolean(entry.linkedOrganizationId && entry.linkedOrganization?.supplierProfile?.publishedAt);
   }
 
+  /** The linked organisation's id, but only when its identity is public (profile published); otherwise null. Used to open an organisation card from a Partner. */
+  async publishedOrganizationId(registryEntryId: string | null): Promise<string | null> {
+    if (!registryEntryId) return null;
+    const entry = await prisma.stakeholderRegistryEntry.findUnique({
+      where: { id: registryEntryId },
+      include: { linkedOrganization: { include: { supplierProfile: true } } },
+    });
+    return entry && this.isIdentityPublic(entry) ? entry.linkedOrganizationId : null;
+  }
+
   /** Typeahead match while a user is onboarding a new stakeholder —
    * GET /stakeholder-registry/search. Scoped by stakeholder type (the
    * calling form already knows whether it's adding a Manufacturer,

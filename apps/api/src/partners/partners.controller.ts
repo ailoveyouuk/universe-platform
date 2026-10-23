@@ -46,6 +46,11 @@ export class PartnersController {
     return this.partnersService.findAll(user, roleType);
   }
 
+  @Get(":id/organization-link")
+  organizationLink(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.partnersService.organizationLink(user, id);
+  }
+
   @Get(":id")
   findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.partnersService.findOne(user, id);

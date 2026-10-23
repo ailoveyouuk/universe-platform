@@ -16,6 +16,7 @@ import { useCountries } from "../../../lib/useCountries";
 import { Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
+import { PartnerOrgName } from "../../../components/PartnerOrgName";
 import { PartnerScorecardPanel } from "../../../components/PartnerScorecardPanel";
 import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
@@ -306,7 +307,7 @@ export default function PartnerDetailPage() {
             <BuildingIcon size={22} />
           </span>
           <div>
-            <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>{partner.name}</h1>
+            <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>{partner.registryEntryId ? <PartnerOrgName partnerId={partner.id} name={partner.name} /> : partner.name}</h1>
             <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
               {partner.roles.map((r) => (
                 <Pill key={r.roleType} tone="neutral">
