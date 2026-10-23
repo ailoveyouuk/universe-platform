@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsOptional, IsString, IsUrl } from "class-validator";
+import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUrl, Max, MaxLength, Min } from "class-validator";
 
 /** Every field optional — profile completion happens incrementally, and
  * publishing (a separate endpoint) is what actually makes it visible. */
@@ -32,4 +32,17 @@ export class CreateSupplierProductDto {
 
 export class UpdateSupplierProductDto extends CreateSupplierProductDto {
   @IsOptional() @IsBoolean() isPublished?: boolean;
+}
+
+/** Directory profile as edited from an organisation's hub in Admin; null clears a field. */
+export class UpsertOrgDirectoryProfileDto {
+  @IsOptional() @IsString() @MaxLength(4000) description?: string | null;
+  @IsOptional() @IsUrl() website?: string | null;
+  @IsOptional() @IsString() @MaxLength(200) contactName?: string | null;
+  @IsOptional() @IsString() @MaxLength(200) contactEmail?: string | null;
+  @IsOptional() @IsString() @MaxLength(60) contactPhone?: string | null;
+  @IsOptional() @IsArray() @IsString({ each: true }) @MaxLength(200, { each: true }) principalManufacturersRepresented?: string[];
+  @IsOptional() @IsString() @MaxLength(200) wholesaleDistributionLicense?: string | null;
+  @IsOptional() @IsIn(["OWN", "THIRD_PARTY", "MIXED"]) warehousingCapability?: "OWN" | "THIRD_PARTY" | "MIXED" | null;
+  @IsOptional() @IsInt() @Min(0) @Max(300) yearsInOperation?: number | null;
 }

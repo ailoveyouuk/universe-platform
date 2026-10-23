@@ -6,6 +6,7 @@ import {
   CreateSupplierProductDto,
   SetCountryPresenceDto,
   UpdateSupplierProductDto,
+  UpsertOrgDirectoryProfileDto,
   UpsertSupplierProfileDto,
 } from "./dto/supplier-directory.dto";
 import { SupplierDirectoryService } from "./supplier-directory.service";
@@ -43,6 +44,26 @@ export class SupplierDirectoryController {
   @Put("profile/me/countries")
   setCountryPresence(@CurrentUser() user: RequestUser, @Body() dto: SetCountryPresenceDto) {
     return this.supplierDirectoryService.setCountryPresence(user, dto);
+  }
+
+  @Get("org/:organizationId/profile")
+  getOrgProfile(@CurrentUser() user: RequestUser, @Param("organizationId") organizationId: string) {
+    return this.supplierDirectoryService.getOrgProfile(user, organizationId);
+  }
+
+  @Put("org/:organizationId/profile")
+  upsertOrgProfile(@CurrentUser() user: RequestUser, @Param("organizationId") organizationId: string, @Body() dto: UpsertOrgDirectoryProfileDto) {
+    return this.supplierDirectoryService.upsertOrgProfile(user, organizationId, dto);
+  }
+
+  @Post("org/:organizationId/profile/publish")
+  publishOrg(@CurrentUser() user: RequestUser, @Param("organizationId") organizationId: string) {
+    return this.supplierDirectoryService.setOrgPublished(user, organizationId, true);
+  }
+
+  @Post("org/:organizationId/profile/unpublish")
+  unpublishOrg(@CurrentUser() user: RequestUser, @Param("organizationId") organizationId: string) {
+    return this.supplierDirectoryService.setOrgPublished(user, organizationId, false);
   }
 
   @Get("profile/:organizationId")

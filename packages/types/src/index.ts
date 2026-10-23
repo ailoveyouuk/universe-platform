@@ -381,6 +381,23 @@ export interface SupplierProfile {
   publishedAt: string | null;
 }
 
+/** An organisation's supplier-directory profile as edited in the Admin hub (all fields; arrays already parsed). */
+export interface OrgDirectoryProfile {
+  organizationId: string;
+  description: string | null;
+  website: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  principalManufacturersRepresented: string[];
+  wholesaleDistributionLicense: string | null;
+  warehousingCapability: "OWN" | "THIRD_PARTY" | "MIXED" | null;
+  yearsInOperation: number | null;
+  publishedAt: string | null;
+}
+
+export type UpsertOrgDirectoryProfileInput = Partial<Omit<OrgDirectoryProfile, "organizationId" | "publishedAt">>;
+
 export interface UpsertSupplierProfileInput {
   description?: string;
   website?: string;

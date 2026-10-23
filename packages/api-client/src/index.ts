@@ -135,6 +135,8 @@ import type {
   UpdateSupplierEnquiryInput,
   UpdateSupplierProductInput,
   UpsertSupplierProfileInput,
+  OrgDirectoryProfile,
+  UpsertOrgDirectoryProfileInput,
   UserSummary,
   EvidenceStandardSummary,
   StakeholderEvidenceRecordSummary,
@@ -1434,6 +1436,18 @@ export class UniverseApiClient {
 
   upsertMySupplierProfile(input: UpsertSupplierProfileInput): Promise<SupplierProfile> {
     return this.request("/supplier-directory/profile/me", { method: "PUT", body: JSON.stringify(input) });
+  }
+
+  getOrgDirectoryProfile(organizationId: string): Promise<OrgDirectoryProfile> {
+    return this.request(`/supplier-directory/org/${organizationId}/profile`);
+  }
+
+  saveOrgDirectoryProfile(organizationId: string, input: UpsertOrgDirectoryProfileInput): Promise<OrgDirectoryProfile> {
+    return this.request(`/supplier-directory/org/${organizationId}/profile`, { method: "PUT", body: JSON.stringify(input) });
+  }
+
+  setOrgDirectoryPublished(organizationId: string, published: boolean): Promise<OrgDirectoryProfile> {
+    return this.request(`/supplier-directory/org/${organizationId}/profile/${published ? "publish" : "unpublish"}`, { method: "POST" });
   }
 
   publishMySupplierProfile(): Promise<SupplierProfile> {

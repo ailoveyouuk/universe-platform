@@ -1,12 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { prisma, withTenantContext } from "@universe/db";
+import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { assertCanManageOrg, assertNotDemoUser } from "../common/authorization";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import type { OrgDirectoryProfile } from "@universe/types";
 import type {
   CreateSupplierProductDto,
   SetCountryPresenceDto,
   UpdateSupplierProductDto,
+  UpsertOrgDirectoryProfileDto,
   UpsertSupplierProfileDto,
 } from "./dto/supplier-directory.dto";
 
@@ -128,6 +131,87 @@ export class SupplierDirectoryService {
       await this.stakeholderRegistryService.reconcileOnPublish(caller.organizationId);
     }
     return result;
+  }
+
+
+  // ---- Organisation hub (Admin): the same profile, addressed by organisation so an org admin or platform staff can edit it ----
+
+  private runFor<T>(caller: RequestUser, organizationId: string, fn: (tx: any) => Promise<T>): Promise<T> {
+    return caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn);
+  }
+
+  private toOrgProfile(organizationId: string, row: any | null): OrgDirectoryProfile {
+    let manufacturers: string[] = [];
+    try {
+      const parsed = row?.principalManufacturersRepresented ? JSON.parse(row.principalManufacturersRepresented) : [];
+      if (Array.isArray(parsed)) manufacturers = parsed.filter((x) => typeof x === "string");
+    } catch {
+      manufacturers = [];
+    }
+    return {
+      organizationId,
+      description: row?.description ?? null,
+      website: row?.website ?? null,
+      contactName: row?.contactName ?? null,
+      contactEmail: row?.contactEmail ?? null,
+      contactPhone: row?.contactPhone ?? null,
+      principalManufacturersRepresented: manufacturers,
+      wholesaleDistributionLicense: row?.wholesaleDistributionLicense ?? null,
+      warehousingCapability: (row?.warehousingCapability as OrgDirectoryProfile["warehousingCapability"]) ?? null,
+      yearsInOperation: row?.yearsInOperation ?? null,
+      publishedAt: row?.publishedAt ? row.publishedAt.toISOString() : null,
+    };
+  }
+
+  async getOrgProfile(caller: RequestUser, organizationId: string): Promise<OrgDirectoryProfile> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const row = await this.runFor(caller, organizationId, (tx) => tx.supplierProfile.findUnique({ where: { organizationId } }));
+    return this.toOrgProfile(organizationId, row);
+  }
+
+  async upsertOrgProfile(caller: RequestUser, organizationId: string, dto: UpsertOrgDirectoryProfileDto): Promise<OrgDirectoryProfile> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const { principalManufacturersRepresented, ...rest } = dto;
+    const data: Record<string, unknown> = { ...rest };
+    if (principalManufacturersRepresented !== undefined) {
+      data.principalManufacturersRepresented = JSON.stringify(principalManufacturersRepresented.map((m) => m.trim()).filter(Boolean));
+    }
+    const fields = Object.keys(data);
+    const row = await this.runFor(caller, organizationId, async (tx) => {
+      const existing = await tx.supplierProfile.findUnique({ where: { organizationId } });
+      const saved = await tx.supplierProfile.upsert({ where: { organizationId }, update: data, create: { organizationId, ...data } });
+      await recordFieldChanges(tx, {
+        organizationId,
+        tableName: "supplier_profiles",
+        recordId: saved.id,
+        changedById: caller.id,
+        changes: diffForAudit(existing ?? {}, data, fields),
+        source: "API",
+      });
+      return saved;
+    });
+    return this.toOrgProfile(organizationId, row);
+  }
+
+  async setOrgPublished(caller: RequestUser, organizationId: string, published: boolean): Promise<OrgDirectoryProfile> {
+    assertNotDemoUser(caller, "Publishing to the supplier directory");
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const existing = await this.runFor(caller, organizationId, (tx) => tx.supplierProfile.findUnique({ where: { organizationId } }));
+    if (!existing) throw new BadRequestException("Save the profile before publishing it.");
+    const row = await this.runFor(caller, organizationId, async (tx) => {
+      const saved = await tx.supplierProfile.update({ where: { organizationId }, data: { publishedAt: published ? new Date() : null } });
+      await recordFieldChanges(tx, {
+        organizationId,
+        tableName: "supplier_profiles",
+        recordId: saved.id,
+        changedById: caller.id,
+        changes: [{ field: "published", oldValue: (existing as any).publishedAt ? "yes" : "no", newValue: published ? "yes" : "no" }],
+        source: "API",
+      });
+      return saved;
+    });
+    if (published) await this.stakeholderRegistryService.reconcileOnPublish(organizationId);
+    return this.toOrgProfile(organizationId, row);
   }
 
   async setCountryPresence(caller: RequestUser, dto: SetCountryPresenceDto) {

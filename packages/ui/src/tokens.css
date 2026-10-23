@@ -33,6 +33,8 @@
   --u-surface: #FFFFFF;
   --u-surface-alt: #F7F8FA;
   --u-brand-violet: #4A2E8C;
+  /* Standard text-link colour for the whole platform (names, organisations, references). Brand violet; the magenta accent shows on hover. */
+  --u-link: var(--u-brand-violet);
   --u-brand-violet-on: #FFFFFF;
   --u-accent-magenta: #B23A82;
   --u-accent-magenta-tint: #FAF2F7;
@@ -544,4 +546,27 @@ input[type="date"]::-webkit-date-and-time-value {
     grid-column: 2;
     text-align: left;
   }
+}
+
+/*
+ * Standard link style (2026-10-23, Lewis: replace the browser's default blue everywhere). Every plain <a> and Next <Link> in every app
+ * picks this up with no per-link styling: brand-violet text, no underline at rest, a thin magenta underline on hover/focus. Visited links
+ * stay the same colour. Anything that sets its own colour inline (nav items, buttons-as-links, pills) still wins, as before.
+ * For a link that needs the fancier fade-in underline use <TextLink> from @universe/ui; for a new link just write an <a>.
+ */
+a {
+  color: var(--u-link);
+  text-decoration: none;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 150ms ease;
+}
+a:visited {
+  color: var(--u-link);
+}
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+  text-decoration-color: var(--u-accent-magenta);
 }
