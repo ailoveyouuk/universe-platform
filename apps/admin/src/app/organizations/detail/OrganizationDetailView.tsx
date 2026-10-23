@@ -21,6 +21,9 @@ import {
   StatusChip,
   inputStyle,
 } from "../../../components/form";
+import { UsersView } from "../../../components/UsersView";
+import { RolesView } from "../../../components/RolesView";
+import { ActivityView } from "../../../components/ActivityView";
 import { CategoryProfileSection, ConsentSection, ContributorVisibilitySection, CountryPresenceSection, DemoAccessSection, ManufacturerSitesSection } from "../../../components/OrgSections";
 
 type FormState = {
@@ -103,8 +106,28 @@ function buildPatch(original: OrganizationDetail, form: FormState, isPlatform: b
   return patch as UpdateOrganizationInput;
 }
 
+type OrgTab = "profile" | "users" | "roles" | "activity";
+const TABS: { key: OrgTab; label: string }[] = [
+  { key: "profile", label: "Profile" },
+  { key: "users", label: "Users" },
+  { key: "roles", label: "Roles" },
+  { key: "activity", label: "Activity" },
+];
+
 export function OrganizationDetailView() {
-  const id = useSearchParams()?.get("id") ?? "";
+  const params = useSearchParams();
+  const id = params?.get("id") ?? "";
+  const [tab, setTabState] = useState<OrgTab>(() => (TABS.some((t) => t.key === params?.get("tab")) ? (params?.get("tab") as OrgTab) : "profile"));
+  const setTab = (t: OrgTab) => {
+    setTabState(t);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("tab", t);
+      window.history.replaceState(null, "", u.toString());
+    } catch {
+      /* the tab still switches; only the shareable URL is lost */
+    }
+  };
   const me = useCurrentUser();
   const countries = useCountries();
   const isPlatform = !!me && me.platformStaffRole !== "NONE";
@@ -155,7 +178,7 @@ export function OrganizationDetailView() {
   const readOnlyIdentity = !isPlatform;
 
   return (
-    <main style={{ padding: 32, maxWidth: 960 }}>
+    <main style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: tab === "profile" ? 960 : 1100 }}>
       <p style={{ margin: 0, fontSize: 13 }}>
         <Link href="/organizations">← Organisations</Link>
       </p>
@@ -166,9 +189,48 @@ export function OrganizationDetailView() {
       </div>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "6px 0 0" }}>
         {org.activeUserCount} active of {org.userCount} users ·{" "}
-        <Link href={`/users?organizationId=${org.id}`}>Manage users</Link> · created {new Date(org.createdAt).toLocaleDateString()}
+        <a href={`?id=${org.id}&tab=users`} onClick={(e) => { e.preventDefault(); setTab("users"); }}>Manage users</a> · created {new Date(org.createdAt).toLocaleDateString()}
       </p>
 
+      <div
+        role="tablist"
+        aria-label="Organisation"
+        style={{ display: "flex", gap: 4, marginTop: 16, borderBottom: "1px solid var(--u-border)", overflowX: "auto", WebkitOverflowScrolling: "touch" }}
+      >
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              style={{
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                padding: "10px 16px",
+                fontSize: 14,
+                fontWeight: active ? 700 : 500,
+                whiteSpace: "nowrap",
+                color: active ? "var(--u-org-accent, var(--u-brand-violet))" : "var(--u-ink-secondary)",
+                borderBottom: active ? "2px solid var(--u-org-accent, var(--u-brand-violet))" : "2px solid transparent",
+                marginBottom: -1,
+                fontFamily: "inherit",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "users" && <div style={{ marginTop: 16 }}><UsersView lockedOrgId={org.id} /></div>}
+      {tab === "roles" && <div style={{ marginTop: 16 }}><RolesView lockedOrgId={org.id} /></div>}
+      {tab === "activity" && <div style={{ marginTop: 16 }}><ActivityView lockedOrgId={org.id} /></div>}
+
+      {tab === "profile" && (
+      <>
       <Section
         title="Organisation details"
         hint={isPlatform ? undefined : "Name, URL slug and lifecycle status are managed by Universe platform staff."}
@@ -318,6 +380,8 @@ export function OrganizationDetailView() {
       <ContributorVisibilitySection org={org} onChanged={(o) => setOrg({ ...org, ...o })} />
       <ConsentSection organizationId={org.id} />
       <AuditHistory tableName="organizations" recordId={org.id} />
+      </>
+      )}
     </main>
   );
 }

@@ -75,12 +75,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (r.href !== "/stakeholders" || me?.platformStaffRole !== "NONE")).map((r) => ({
-    label: r.label,
-    href: r.href,
-    icon: r.icon(pathname === r.href),
-    active: r.href === "/" ? pathname === "/" : pathname.startsWith(r.href),
-  }));
+  // Platform staff see every admin list. An organisation's own admins get a single "My organisation" hub (profile, users, roles
+  // and activity as tabs) instead of separate lists they would have to filter to their own organisation.
+  const isStaff = me?.platformStaffRole !== "NONE";
+  const HUB_ONLY = ["/users", "/roles", "/activity"];
+  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (r.href !== "/stakeholders" || isStaff) && (isStaff || !HUB_ONLY.includes(r.href)) && (isStaff || r.href !== "/performance")).map((r) => {
+    const own = !isStaff && r.href === "/organizations" && me?.organizationId;
+    return {
+      label: own ? "My organisation" : r.label,
+      href: own ? `/organizations/detail?id=${me!.organizationId}` : r.href,
+      icon: r.icon(pathname === r.href),
+      active: r.href === "/" ? pathname === "/" : pathname.startsWith(r.href) || (r.href === "/organizations" && !isStaff && HUB_ONLY.some((h) => pathname.startsWith(h))),
+    };
+  });
 
   if (status !== "signedIn" || !me) {
     return (
