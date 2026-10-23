@@ -29,7 +29,8 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [page, setPage] = useState(0);
-  const [includeSimulated, setIncludeSimulated] = useState(false);
+  // Inside one organisation's hub the organisation is explicit, so its simulated users (the demo org's generated staff) are listed too.
+  const [includeSimulated, setIncludeSimulated] = useState(embedded);
 
   useEffect(() => {
     apiClient.listOrganizations(includeSimulated).then(setOrgs).catch(() => setOrgs([]));
@@ -116,7 +117,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
             <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
               <th style={{ padding: 8 }}>Name</th>
               <th style={{ padding: 8 }}>Email</th>
-              <th style={{ padding: 8 }}>Organisation</th>
+              {!embedded && <th style={{ padding: 8 }}>Organisation</th>}
               <th style={{ padding: 8 }}>Role(s)</th>
               <th style={{ padding: 8 }}>Status</th>
               <th style={{ padding: 8 }}>Invited</th>
@@ -132,9 +133,11 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
                   </Link>
                 </td>
                 <td style={{ padding: 8 }}>{u.email}</td>
-                <td style={{ padding: 8 }}>
-                  <Link href={`/organizations/detail?id=${u.organizationId}`}>{u.organizationName}</Link>
-                </td>
+                {!embedded && (
+                  <td style={{ padding: 8 }}>
+                    <Link href={`/organizations/detail?id=${u.organizationId}`}>{u.organizationName}</Link>
+                  </td>
+                )}
                 <td style={{ padding: 8 }}>{u.roleNames.join(", ") || "—"}</td>
                 <td style={{ padding: 8 }}>
                   <StatusChip status={u.status} />
@@ -145,7 +148,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
             ))}
             {visible.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
+                <td colSpan={embedded ? 6 : 7} style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   No users match.
                 </td>
               </tr>
