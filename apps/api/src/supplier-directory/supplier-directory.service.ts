@@ -57,7 +57,6 @@ export class SupplierDirectoryService {
     const where: any = {
       publishedAt: { not: null },
       organization: {
-        archivedAt: null,
         ...(f.type ? { type: f.type } : {}),
         ...(scopeIds.length ? { scopeOfSupply: { some: { scopeSubId: { in: scopeIds }, archivedAt: null } } } : {}),
         ...(f.country ? { OR: [{ countryPresence: { some: { countryCode: f.country.toUpperCase() } } }, { supplierCountryPresence: { some: { countryCode: f.country.toUpperCase() } } }] } : {}),

@@ -22,9 +22,9 @@ describe("organisation scope of supply and certifications", () => {
   });
   afterAll(async () => {
     for (const id of [orgA, orgB]) {
-      await prisma.supplierProfile.deleteMany({ where: { organizationId: id } });
-      await prisma.organizationScope.deleteMany({ where: { organizationId: id } });
-      await prisma.organizationCertification.deleteMany({ where: { organizationId: id } });
+      await withPlatformStaffContext((tx: any) => tx.supplierProfile.deleteMany({ where: { organizationId: id } }));
+      await withPlatformStaffContext((tx: any) => tx.organizationScope.deleteMany({ where: { organizationId: id } }));
+      await withPlatformStaffContext((tx: any) => tx.organizationCertification.deleteMany({ where: { organizationId: id } }));
     }
   });
 
@@ -67,7 +67,7 @@ describe("organisation scope of supply and certifications", () => {
     await svc.addCertification(asAdmin(orgA), orgA, { type: "GMP", reference: "SECRET-1", expiresOn: inDays(200) } as never);
     const hidden = await svc.getCard(asAdmin(orgB), orgA);
     expect(hidden).toMatchObject({ name: `Scope A ${sfx}`, detailVisible: false, canEdit: false, scope: [], certifications: [] });
-    await prisma.supplierProfile.create({ data: { organizationId: orgA, description: "Hello", publishedAt: new Date() } as never });
+    await withPlatformStaffContext((tx: any) => tx.supplierProfile.create({ data: { organizationId: orgA, description: "Hello", publishedAt: new Date() } }));
     const shown = await svc.getCard(asAdmin(orgB), orgA);
     expect(shown).toMatchObject({ detailVisible: true, canEdit: false, description: "Hello", scope: ["pharma-antimalarials"] });
     expect(shown.certifications).toHaveLength(1);
@@ -86,7 +86,7 @@ describe("organisation scope of supply and certifications", () => {
     expect((await dir.network(me, { q: sfx, certType: "GMP" })).total).toBe(1);
     expect((await dir.network(me, { q: sfx, certType: "ISO_13485" })).total).toBe(0);
     expect((await dir.network(me, { q: sfx, type: "MANUFACTURER" })).total).toBe(0);
-    await prisma.supplierProfile.create({ data: { organizationId: orgB } as never });
+    await withPlatformStaffContext((tx: any) => tx.supplierProfile.create({ data: { organizationId: orgB } }));
     expect((await dir.network(me, { q: sfx })).organizations.map((o) => o.id)).toEqual([orgA]);
   });
 });
