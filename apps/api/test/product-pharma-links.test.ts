@@ -7,7 +7,7 @@ import type { RequestUser } from "../src/auth/entra-auth.guard";
 
 const sfx = randomUUID().slice(0, 8);
 const svc = new ProductPharmaLinksService();
-const approver = { id: "u-" + sfx, forename: "Test", surname: "Approver", email: "t@example.org", permissions: ["products.approve"], inDemoOrganization: false, organizationId: "x" } as unknown as RequestUser;
+const approver = { id: "u-" + sfx, forename: "Test", surname: "Approver", email: "t@example.org", permissions: ["products.approve"], platformStaffRole: "NONE", inDemoOrganization: false, organizationId: "x" } as unknown as RequestUser;
 const plain = { ...approver, permissions: [] } as unknown as RequestUser;
 
 describe("product ↔ register links", () => {
