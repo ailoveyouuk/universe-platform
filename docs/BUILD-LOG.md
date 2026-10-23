@@ -809,3 +809,7 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - Ringfence: `ProductPharmaLink.isSimulated` (migration 20261023170000). Demo products are linked to real register entries but flagged simulated; register counts/lists/panels hide them from real orgs. Verified: simulated links 1,361, real 0, leakage 0 (dosage-form-aware relink; 3/7 INNs matched, inexact by nature).
 - Responsive pass (phone/tablet, portrait/landscape): catalogue table scrolls and hides low-value columns under 900px; PM project header wraps; projects table scrolls; shared `Select` closed panel no longer widens the page (was the cause of PM phone overflow). Verified no horizontal overflow on PM /, /projects, project detail (+Add Line), and Product Database /, /register, product detail.
 - Not yet exercised live: filtered CSV download, PM "add new product" RegisterLookup.
+
+## 2026-10-23 — Production RLS applied
+
+Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor against the `universe` database (universe-pilot-sql) at 14:57 UK; it completed with no errors. Afterwards `sys.security_policies` showed three policies, all enabled: `QualityComplaintPolicy`, `TenantAccessPolicy`, `TenderAccessPolicy`. Cross-organisation isolation was not re-tested against production (the isolation tests run in CI on their own database). Still open: Defender for Storage (go-live gate) and a registered OCID prefix in place of `ocds-universe`.
