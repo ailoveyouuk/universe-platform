@@ -74,8 +74,59 @@ function simulatedFilter(showSimulated?: boolean): { isSimulated?: false } {
  * (product-database-and-map-roadmap.md Stage 0 point 1, Lewis's explicit
  * design).
  */
+export interface CatalogueFilters {
+  q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean; showSimulated?: boolean;
+  missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit"; recent?: boolean;
+  atc?: string; register?: "EMA" | "MHRA" | "ANY" | "NONE"; hasSuggestions?: boolean; inn?: string; hsCode?: string;
+}
+
+/** The one definition of "what the catalogue filters mean", shared by the browse list and the CSV export so they never disagree. */
+export function catalogueWhere(params: CatalogueFilters) {
+    // Explicit per-field mapping rather than a computed `{ [params.missingField]: null }`
+    // spread — keeps this trivially type-checkable against Prisma's
+    // ProductMasterWhereInput rather than relying on TS inferring a
+    // discriminated-union shape from a dynamic key.
+    const missingFieldWhere: Record<string, null> =
+      params.missingField === "gtin"
+        ? { gtin: null }
+        : params.missingField === "hsCode"
+          ? { hsCode: null }
+          : params.missingField === "unspscCode"
+            ? { unspscCode: null }
+            : params.missingField === "standardUnit"
+              ? { standardUnit: null }
+              : {};
+  return {
+      ...simulatedFilter(params.showSimulated),
+      ...(params.includeArchived ? {} : { isArchived: false }),
+      // One search box over every identifying field (name, brand, INN, ATC, GTIN, HS/UNSPSC, manufacturer part number).
+      ...(params.q && params.q.trim() ? { OR: ["name", "brand", "inn", "atcCode", "gtin", "hsCode", "unspscCode", "canonicalManufacturerPartNumber"].map((f) => ({ [f]: { contains: params.q!.trim() } })) } : {}),
+      ...(params.atc ? { atcCode: { startsWith: params.atc.toUpperCase().slice(0, 7) } } : {}),
+      ...(params.inn ? { inn: { contains: params.inn.trim() } } : {}),
+      ...(params.hsCode ? { hsCode: { startsWith: params.hsCode.replace(/\D/g, "") } } : {}),
+      // Register conditions go in AND so "EMA" plus "suggested matches" can combine instead of overwriting each other.
+      AND: [
+        ...(params.register === "EMA" || params.register === "MHRA" ? [{ pharmaLinks: { some: { status: "CONFIRMED", reference: { source: params.register } } } }] : []),
+        ...(params.register === "ANY" ? [{ pharmaLinks: { some: { status: "CONFIRMED" } } }] : []),
+        ...(params.register === "NONE" ? [{ pharmaLinks: { none: { status: "CONFIRMED" } } }] : []),
+        ...(params.hasSuggestions ? [{ pharmaLinks: { some: { status: "SUGGESTED" } } }] : []),
+      ],
+      ...(params.category ? { category: { startsWith: params.category } } : {}),
+      ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
+      ...missingFieldWhere,
+      ...(params.recent ? { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } : {}),
+    };
+}
+
 @Injectable()
 export class ProductCatalogService {
+  /** Adds confirmed-register sources to a set of matches so pickers can show EMA / MHRA pills (one query for the whole page). */
+  private async withRegister<T extends ProductCatalogMatch>(items: T[]): Promise<T[]> {
+    if (items.length === 0) return items;
+    const links = await prisma.productPharmaLink.findMany({ where: { productMasterId: { in: items.map((i) => i.id) }, status: "CONFIRMED" }, select: { productMasterId: true, reference: { select: { source: true } } } });
+    return items.map((i) => ({ ...i, pharmaVerifiedSources: [...new Set(links.filter((l) => l.productMasterId === i.id).map((l) => l.reference.source))].filter((x): x is "EMA" | "MHRA" => x === "EMA" || x === "MHRA") }));
+  }
+
   /** Typeahead search — GET /product-catalog/search?q=&category=. Shared by
    * the Project Management line-item picker, the Quality module's existing
    * "new approval" product field, and, going forward, CRM/Supplier
@@ -86,7 +137,7 @@ export class ProductCatalogService {
         isArchived: false,
         ...simulatedFilter(showSimulated),
         ...(q && q.trim()
-          ? { OR: [{ name: { contains: q.trim() } }, { brand: { contains: q.trim() } }, { inn: { contains: q.trim() } }, { gtin: { contains: q.trim() } }, { productFamily: { name: { contains: q.trim() } } }] }
+          ? { OR: [{ name: { contains: q.trim() } }, { brand: { contains: q.trim() } }, { inn: { contains: q.trim() } }, { gtin: { contains: q.trim() } }, { atcCode: { contains: q.trim() } }, { productFamily: { name: { contains: q.trim() } } }] }
           : {}),
         ...(category ? { category: { startsWith: category } } : {}),
       },
@@ -96,7 +147,7 @@ export class ProductCatalogService {
     });
     const pending = await this.pendingAmendmentIds(rows);
     const ctx = await attributionContext(viewer, rows.map((r) => r.addedByOrganizationId));
-    return rows.map((r) => this.toMatch(r, pending.has(r.id), ctx));
+    return this.withRegister(rows.map((r) => this.toMatch(r, pending.has(r.id), ctx)));
   }
 
   /**
@@ -111,7 +162,7 @@ export class ProductCatalogService {
     const productWhere = {
       isArchived: false,
       ...simulatedFilter(showSimulated),
-      ...(term ? { OR: [{ name: { contains: term } }, { brand: { contains: term } }, { inn: { contains: term } }, { gtin: { contains: term } }, { productFamily: { name: { contains: term } } }] } : {}),
+      ...(term ? { OR: [{ name: { contains: term } }, { brand: { contains: term } }, { inn: { contains: term } }, { gtin: { contains: term } }, { atcCode: { contains: term } }, { productFamily: { name: { contains: term } } }] } : {}),
       ...(category ? { category: { startsWith: category } } : {}),
     };
     const approvals = await withTenantContext(user.organizationId, (tx) =>
@@ -145,7 +196,7 @@ export class ProductCatalogService {
     const rows = fetched.slice(0, 25);
     const pending = await this.pendingAmendmentIds(rows);
     const ctx = await attributionContext(user, rows.map((r) => r.addedByOrganizationId));
-    return rows.map((r) => ({ ...this.toMatch(r, pending.has(r.id), ctx), orgApproval: statusOf.get(r.id) ?? null, approvedSources: (byProduct.get(r.id) ?? []).filter((x) => x.status === "APPROVED") }));
+    return this.withRegister(rows.map((r) => ({ ...this.toMatch(r, pending.has(r.id), ctx), orgApproval: statusOf.get(r.id) ?? null, approvedSources: (byProduct.get(r.id) ?? []).filter((x) => x.status === "APPROVED") })));
   }
 
   /** Full detail for a single catalogue entry, including the category's
@@ -350,37 +401,7 @@ export class ProductCatalogService {
   }): Promise<ProductCatalogListResult> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
-    // Explicit per-field mapping rather than a computed `{ [params.missingField]: null }`
-    // spread — keeps this trivially type-checkable against Prisma's
-    // ProductMasterWhereInput rather than relying on TS inferring a
-    // discriminated-union shape from a dynamic key.
-    const missingFieldWhere: Record<string, null> =
-      params.missingField === "gtin"
-        ? { gtin: null }
-        : params.missingField === "hsCode"
-          ? { hsCode: null }
-          : params.missingField === "unspscCode"
-            ? { unspscCode: null }
-            : params.missingField === "standardUnit"
-              ? { standardUnit: null }
-              : {};
-    const where = {
-      ...simulatedFilter(params.showSimulated),
-      ...(params.includeArchived ? {} : { isArchived: false }),
-      // One search box over every identifying field (name, brand, INN, ATC, GTIN, HS/UNSPSC, manufacturer part number).
-      ...(params.q && params.q.trim() ? { OR: ["name", "brand", "inn", "atcCode", "gtin", "hsCode", "unspscCode", "canonicalManufacturerPartNumber"].map((f) => ({ [f]: { contains: params.q!.trim() } })) } : {}),
-      ...(params.atc ? { atcCode: { startsWith: params.atc.toUpperCase().slice(0, 7) } } : {}),
-      ...(params.inn ? { inn: { contains: params.inn.trim() } } : {}),
-      ...(params.hsCode ? { hsCode: { startsWith: params.hsCode.replace(/\D/g, "") } } : {}),
-      ...(params.register === "EMA" || params.register === "MHRA" ? { pharmaLinks: { some: { status: "CONFIRMED", reference: { source: params.register } } } } : {}),
-      ...(params.register === "ANY" ? { pharmaLinks: { some: { status: "CONFIRMED" } } } : {}),
-      ...(params.register === "NONE" ? { pharmaLinks: { none: { status: "CONFIRMED" } } } : {}),
-      ...(params.hasSuggestions ? { pharmaLinks: { some: { status: "SUGGESTED" } } } : {}),
-      ...(params.category ? { category: { startsWith: params.category } } : {}),
-      ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
-      ...missingFieldWhere,
-      ...(params.recent ? { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } } : {}),
-    };
+    const where = catalogueWhere(params);
     const [rows, total] = await Promise.all([
       prisma.productMaster.findMany({
         where,
@@ -1011,8 +1032,8 @@ export class ProductCatalogService {
       packSize?: string | null;
       strength?: string | null;
       brand?: string | null;
-      inn?: string | null;
       atcCode?: string | null;
+      isSimulated?: boolean;
     },
     hasPendingAmendment: boolean,
     ctx?: AttributionContext,
@@ -1040,6 +1061,7 @@ export class ProductCatalogService {
       strength: row.strength ?? null,
       brand: row.brand ?? null,
       atcCode: row.atcCode ?? null,
+      isSimulated: row.isSimulated ?? false,
     };
   }
 }

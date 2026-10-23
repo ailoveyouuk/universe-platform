@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withTenantContext } from "@universe/db";
-import type { ProductDossier, ProductExportFile } from "@universe/types";
+import { pilLinksForReference, type ProductDossier, type ProductExportFile } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
 import { csvFile, csvRow, csvCell, EXPORT_PAGE, EXPORT_ROW_LIMIT, isoDate } from "../common/csv";
 import { attributionContext, maskContributor } from "./attribution";
 import { ExportRestrictionsService } from "./export-restrictions.service";
-import { ProductCatalogService } from "./product-catalog.service";
+import { ProductCatalogService, catalogueWhere, type CatalogueFilters } from "./product-catalog.service";
 import { ProductDocumentsService } from "./product-documents.service";
 import { ProductRegistrationsService } from "./product-registrations.service";
 import { ProductSafetyNoticesService } from "./product-safety-notices.service";
@@ -45,17 +45,11 @@ export class ProductExportsService {
   }
 
   /** The catalogue (variants) matching the same filters as the browse screen. */
-  async catalogueCsv(user: RequestUser, f: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean }, all = false): Promise<ProductExportFile> {
+  async catalogueCsv(user: RequestUser, f: CatalogueFilters, all = false): Promise<ProductExportFile> {
     const showSim = user.inDemoOrganization === true;
-    const where = {
-      ...(showSim ? {} : { isSimulated: false }),
-      ...(all ? {} : { addedByOrganizationId: user.organizationId }),
-      ...(f.includeArchived ? {} : { isArchived: false }),
-      ...(f.q && f.q.trim() ? { name: { contains: f.q.trim() } } : {}),
-      ...(f.category ? { category: { startsWith: f.category } } : {}),
-      ...(f.sourceStandard ? { sourceStandard: f.sourceStandard } : {}),
-    };
-    const header = ["Product ID", "Name", "Family", "Variant", "Brand", "INN", "Category", "Strength", "Dosage form", "Pack size", "GTIN", "HS code", "UNSPSC", "Standard unit", "Regulatory class", "Lifecycle", "Storage class", "Cold chain", "Shelf life (months)", "Controlled substance", "Archived", "Source standard", "Contributed by", "Created", "Updated"];
+    // Same filter definition as the browse screen (catalogueWhere), so the file always matches what was on screen.
+    const where = { ...catalogueWhere({ ...f, showSimulated: showSim }), ...(all ? {} : { addedByOrganizationId: user.organizationId }) };
+    const header = ["Product ID", "Name", "Family", "Variant", "Brand", "INN", "Category", "Strength", "Dosage form", "Pack size", "GTIN", "HS code", "UNSPSC", "Standard unit", "Regulatory class", "Lifecycle", "Storage class", "Cold chain", "Shelf life (months)", "Controlled substance", "Archived", "Source standard", "ATC code", "Register status", "Registers (confirmed)", "Register entries", "Leaflet links", "Contributed by", "Created", "Updated"];
     const lines: string[] = [];
     let cursor: string | undefined;
     let truncated = false;
@@ -66,15 +60,19 @@ export class ProductExportsService {
       });
       if (rows.length === 0) break;
       const ctx = await attributionContext(user, rows.map((r) => r.addedByOrganizationId));
+      const links = await prisma.productPharmaLink.findMany({ where: { productMasterId: { in: rows.map((r) => r.id) }, status: { in: ["CONFIRMED", "SUGGESTED"] } }, select: { productMasterId: true, status: true, reference: { select: { source: true, sourceKey: true, sourceUrl: true } } } });
       for (const r of rows) {
         if (lines.length >= EXPORT_ROW_LIMIT) { truncated = true; break; }
         const who = maskContributor(ctx, r.addedByOrganizationId, r.addedByOrganization?.name, r.attributionOverride);
-        lines.push(csvRow([r.id, r.name, r.productFamily?.name, r.variantLabel, r.brand, r.inn, r.category, r.strength, r.dosageForm, r.packSize, r.gtin, r.hsCode, r.unspscCode, r.standardUnit, r.regulatoryClass, r.lifecycleStatus, r.storageClass, r.coldChain ? "Yes" : "No", r.shelfLifeMonths, r.controlledSubstance ? "Yes" : "No", r.isArchived ? "Yes" : "No", r.sourceStandard, who.name, iso(r.createdAt), iso(r.updatedAt)]));
+        const mine = links.filter((l) => l.productMasterId === r.id), ok = mine.filter((l) => l.status === "CONFIRMED");
+        const leaflets = ok.flatMap((l) => pilLinksForReference({ source: l.reference.source, sourceKey: l.reference.sourceKey, sourceUrl: l.reference.sourceUrl }).filter((x) => x.kind !== "EPAR_PAGE").map((x) => x.url));
+        const regState = ok.length ? "Verified" : mine.length ? "Suggested" : "Not linked";
+        lines.push(csvRow([r.id, r.name, r.productFamily?.name, r.variantLabel, r.brand, r.inn, r.category, r.strength, r.dosageForm, r.packSize, r.gtin, r.hsCode, r.unspscCode, r.standardUnit, r.regulatoryClass, r.lifecycleStatus, r.storageClass, r.coldChain ? "Yes" : "No", r.shelfLifeMonths, r.controlledSubstance ? "Yes" : "No", r.isArchived ? "Yes" : "No", r.sourceStandard, r.atcCode, regState, [...new Set(ok.map((l) => l.reference.source))].join("; "), ok.map((l) => l.reference.sourceKey).join("; "), leaflets.join(" "), who.name, iso(r.createdAt), iso(r.updatedAt)]));
       }
       if (truncated || rows.length < PAGE) break;
       cursor = rows[rows.length - 1].id;
     }
-    await this.audit(user, "catalogue_export", "catalogue", `${all ? "Whole catalogue" : "Own contributions"}: ${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ q: f.q ?? null, category: f.category ?? null, sourceStandard: f.sourceStandard ?? null, includeArchived: !!f.includeArchived })}`);
+    await this.audit(user, "catalogue_export", "catalogue", `${all ? "Whole catalogue" : "Own contributions"}: ${lines.length} rows${truncated ? " (truncated)" : ""}; filters: ${JSON.stringify({ q: f.q ?? null, category: f.category ?? null, sourceStandard: f.sourceStandard ?? null, includeArchived: !!f.includeArchived, atc: f.atc ?? null, inn: f.inn ?? null, hsCode: f.hsCode ?? null, register: f.register ?? null, hasSuggestions: !!f.hasSuggestions, missingField: f.missingField ?? null, recent: !!f.recent })}`);
     return this.file("catalogue", header, lines, lines.length, truncated);
   }
 

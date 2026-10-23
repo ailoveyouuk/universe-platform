@@ -48,6 +48,7 @@ export function PharmaCard({ detail }: { detail: ProductCatalogDetail }) {
   return (
     <Card title="Register and patient information leaflet" note="Matched against the EMA and UK MHRA registers. Links go to the official documents; the official text prevails.">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        {panel?.simulated && <SourcePill label="Simulated" tone="critical" title="Demo data: simulated product and links, visible only in demo organisations" />}
         <SourcePill {...state} />
         {panel?.atcCode && <SourcePill label={`ATC ${panel.atcCode}`} tone="neutral" title="WHO Anatomical Therapeutic Chemical code" />}
         {[...new Set(confirmed.map((l) => l.reference.source))].map((s) => <SourcePill key={s} {...sourcePill(s)} />)}

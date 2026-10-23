@@ -33,6 +33,7 @@
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "audit:catalogue": "tsx scripts/audit-demo-catalogue.ts",
     "check:hs": "tsx scripts/check-hs-mapping.ts",
+    "link:demo-pharma": "tsx scripts/link-demo-pharma.ts",
     "fix:catalogue": "tsx scripts/fix-demo-catalogue.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",
     "recohere:demo": "tsx scripts/recohere-demo-data.ts",

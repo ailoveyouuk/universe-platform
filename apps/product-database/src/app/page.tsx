@@ -416,7 +416,7 @@ export default function ProductCatalogPage() {
           onClick={async () => {
             setExporting(true); setExportNote(null);
             try {
-              const f = await apiClient.exportCatalogueCsv({ q: search || undefined, category: category || undefined, sourceStandard: sourceStandard || undefined, includeArchived });
+              const f = await apiClient.exportCatalogueCsv({ q: search || undefined, category: category || undefined, sourceStandard: sourceStandard || undefined, includeArchived, atc: atc.trim() || undefined, inn: inn.trim() || undefined, hsCode: hsFilter.trim() || undefined, register: register || undefined, hasSuggestions, missingField: missingField || undefined, recent: recentOnly });
               saveExport(f);
               setExportNote(`${f.rowCount.toLocaleString("en-GB")} products exported${f.truncated ? " (stopped at the row limit; narrow the filters for the rest)" : ""}.`);
             } catch (e) { setExportNote(e instanceof Error ? e.message : "Export failed."); }
@@ -523,6 +523,7 @@ function ProductRow({ product }: { product: ProductCatalogMatch }) {
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
       <td style={{ padding: 8 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {product.isSimulated && <SourcePill label="Simulated" tone="critical" title="Demo data, visible only in demo organisations" />}
           {(product.pharmaVerifiedSources ?? []).map((src) => <SourcePill key={src} {...sourcePill(src)} />)}
           {(product.pharmaSuggestedCount ?? 0) > 0 && !(product.pharmaVerifiedSources ?? []).length && <SourcePill {...matchPill("SUGGESTED")} />}
           {product.atcCode && <SourcePill label={product.atcCode} tone="neutral" title="ATC code" />}

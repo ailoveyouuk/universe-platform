@@ -112,6 +112,8 @@ export interface ProductPharmaLinkView {
   pilLinks: PilLink[];
 }
 export interface ProductPharmaPanel {
+  /** True for simulated demo products: their links are demo data, visible only inside demo organisations. */
+  simulated?: boolean;
   atcCode: string | null;
   verified: boolean;
   links: ProductPharmaLinkView[];

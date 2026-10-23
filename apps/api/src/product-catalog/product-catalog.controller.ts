@@ -107,9 +107,17 @@ export class ProductCatalogController {
   /** GET /product-catalog/exports/catalogue — CSV of the catalogue (same filters as the browse screen); audited.
    * Global admins get everything; everyone else gets the products their own organisation contributed. */
   @Get("exports/catalogue")
-  exportCatalogue(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string) {
+  exportCatalogue(
+    @CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("category") category?: string, @Query("sourceStandard") sourceStandard?: string, @Query("includeArchived") includeArchived?: string,
+    @Query("atc") atc?: string, @Query("register") register?: string, @Query("hasSuggestions") hasSuggestions?: string, @Query("inn") inn?: string, @Query("hsCode") hsCode?: string,
+    @Query("missingField") missingField?: string, @Query("recent") recent?: string,
+  ) {
     rateLimit(user.id, "product-export", 30, 3_600_000);
-    return this.exportsService.catalogueCsv(user, { q, category, sourceStandard, includeArchived: includeArchived === "true" }, isGlobalAdmin(user));
+    return this.exportsService.catalogueCsv(user, {
+      q, category, sourceStandard, includeArchived: includeArchived === "true", atc, inn, hsCode, hasSuggestions: hasSuggestions === "true", recent: recent === "true",
+      register: register === "EMA" || register === "MHRA" || register === "ANY" || register === "NONE" ? register : undefined,
+      missingField: missingField === "gtin" || missingField === "hsCode" || missingField === "unspscCode" || missingField === "standardUnit" ? missingField : undefined,
+    }, isGlobalAdmin(user));
   }
 
   /** GET /product-catalog/exports/registrations — CSV of registrations with the caller's own verification; own contributions unless a global admin. */
@@ -215,8 +223,8 @@ export class ProductCatalogController {
 
   /** Pharma links: GET the panel (pills + leaflet links); POST suggest/link/confirm/reject; PUT the hand-entered leaflet. */
   @Get(":id/pharma")
-  pharmaPanel(@Param("id") id: string) {
-    return this.pharmaLinks.panel(id);
+  pharmaPanel(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.pharmaLinks.panel(id, user.inDemoOrganization === true);
   }
   @Post(":id/pharma/suggest")
   pharmaSuggest(@CurrentUser() user: RequestUser, @Param("id") id: string) {

@@ -17,6 +17,7 @@ import {
   NotificationBell,
   DashboardIcon,
   GridIcon,
+  ClipboardCheckIcon,
   ShieldIcon,
   AlertIcon,
   LogoutIcon,
@@ -35,6 +36,7 @@ import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean }[] = [
   { href: "/", label: "Catalogue", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/families", label: "Families", icon: () => <GridIcon size={19} />, inNav: true },
+  { href: "/register", label: "Medicines register", icon: () => <ClipboardCheckIcon size={19} />, inNav: true },
   { href: "/regulatory", label: "Regulatory", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/watch", label: "Regulatory watch", icon: () => <AlertIcon size={19} />, inNav: true },
   { href: "/exports", label: "Data exports", icon: () => <DownloadIcon size={19} />, inNav: true },

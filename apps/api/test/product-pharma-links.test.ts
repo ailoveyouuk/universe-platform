@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@universe/db";
 import { afterAll, describe, expect, it } from "vitest";
 import { ProductPharmaLinksService } from "../src/product-catalog/product-pharma-links.service";
-import { ProductCatalogService } from "../src/product-catalog/product-catalog.service";
+import { PharmaReferenceService } from "../src/pharma-reference/pharma-reference.service";
+import { ProductCatalogService, catalogueWhere } from "../src/product-catalog/product-catalog.service";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 
 const sfx = randomUUID().slice(0, 8);
@@ -50,5 +51,37 @@ describe("product ↔ register links", () => {
     await expect(svc.setManualPil(approver, productId, "http://x.example/pil")).rejects.toThrow();
     const r = await svc.setManualPil(approver, productId, "https://example.org/pil.pdf");
     expect(r.pil.at(-1)).toMatchObject({ source: "SUPPLIER", official: false });
+  });
+
+  it("ringfences simulated products: their links are hidden and uncounted outside demo organisations", async () => {
+    const ref = await prisma.pharmaReference.create({ data: { source: "MHRA", sourceKey: `PL ${sfx}/0001`, name: `Simtest${sfx}`, inn: `simsubstance${sfx}`, productType: "HUMAN", status: "Authorised", rawHash: "h" } });
+    const sim = await prisma.productMaster.create({ data: { name: `Simtest${sfx} 10 mg`, category: "Pharmaceuticals", inn: `simsubstance${sfx}`, isSimulated: true } });
+    await prisma.productPharmaLink.create({ data: { productMasterId: sim.id, pharmaReferenceId: ref.id, status: "CONFIRMED", isSimulated: true } });
+    try {
+      const reg = new PharmaReferenceService();
+      const real = await reg.search({ q: `Simtest${sfx}`, linked: "YES" }, false);
+      expect(real.total).toBe(0); // not counted as linked for a real organisation
+      const realAll = await reg.search({ q: `Simtest${sfx}` }, false);
+      expect(realAll.items[0].linkedProducts).toBe(0);
+      const demo = await reg.search({ q: `Simtest${sfx}`, linked: "YES" }, true);
+      expect(demo.total).toBe(1);
+      expect((await reg.get(ref.id, false)).linkedProducts).toHaveLength(0);
+      expect((await reg.get(ref.id, true)).linkedProducts[0]).toMatchObject({ id: sim.id, isSimulated: true });
+      await expect(svc.panel(sim.id, false)).rejects.toThrow(); // a real organisation cannot open a simulated product's panel
+      expect((await svc.panel(sim.id, true)).simulated).toBe(true);
+      const hidden = await new ProductCatalogService().list({ q: `Simtest${sfx}`, showSimulated: false });
+      expect(hidden.items).toHaveLength(0);
+    } finally {
+      await prisma.productPharmaLink.deleteMany({ where: { productMasterId: sim.id } });
+      await prisma.productMaster.delete({ where: { id: sim.id } });
+      await prisma.pharmaReference.delete({ where: { id: ref.id } });
+    }
+  });
+
+  it("builds one filter definition for list and export, combining register and suggestion filters", () => {
+    const w = catalogueWhere({ register: "EMA", hasSuggestions: true, atc: "j01", hsCode: "30.04" }) as { AND: unknown[]; atcCode: { startsWith: string }; hsCode: { startsWith: string } };
+    expect(w.AND).toHaveLength(2);
+    expect(w.atcCode.startsWith).toBe("J01");
+    expect(w.hsCode.startsWith).toBe("3004");
   });
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import { RegisterLookup } from "./RegisterLookup";
 import type { CreateProductMasterInput, ProductCatalogMatch, ProductFamilySummary } from "@universe/types";
 import { Button } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
@@ -170,6 +171,8 @@ export function ProductCreateForm({
         <label>{label("Pack size", true)}<input style={inputStyle} value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="e.g. 20 tablets" /></label>
         <label>{label("Standard unit", true)}<input style={inputStyle} value={standardUnit} onChange={(e) => setStandardUnit(e.target.value)} /></label>
       </div>
+
+      {(/pharma/i.test(lockedCategory ?? category) || family?.category.match(/pharma/i)) && <RegisterLookup term={inn || brand || (mode === "standalone" ? name : "")} onUseInn={setInn} />}
 
       <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: 6, padding: "8px 12px" }}>
         <legend style={{ fontSize: 12.5, fontWeight: 600 }}>Barcodes (GTIN) by packaging level <span style={{ fontWeight: 400, color: "var(--u-ink-secondary)" }}>(optional)</span></legend>

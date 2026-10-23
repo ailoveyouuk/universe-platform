@@ -29,21 +29,21 @@ export class ProductPharmaLinksService {
     };
   }
 
-  async panel(productId: string): Promise<ProductPharmaPanel> {
-    const product = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, atcCode: true, pilUrl: true } });
-    if (!product) throw new NotFoundException("Product not found.");
+  async panel(productId: string, showSimulated = true): Promise<ProductPharmaPanel> {
+    const product = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, atcCode: true, pilUrl: true, isSimulated: true } });
+    if (!product || (product.isSimulated && !showSimulated)) throw new NotFoundException("Product not found.");
     const rows = await prisma.productPharmaLink.findMany({ where: { productMasterId: productId, status: { not: "REJECTED" } }, include: { reference: { select: refSelect } }, orderBy: [{ status: "asc" }, { score: "desc" }] });
     const links = rows.map((r) => this.view(r));
     const pil: PilLink[] = links.filter((l) => l.status === "CONFIRMED").flatMap((l) => l.pilLinks);
     const manual = manualPilLink(product.pilUrl);
     if (manual) pil.push(manual);
-    return { atcCode: product.atcCode, verified: links.some((l) => l.status === "CONFIRMED"), links, pil, manualPilUrl: product.pilUrl, attribution: PHARMA_ATTRIBUTION };
+    return { simulated: product.isSimulated, atcCode: product.atcCode, verified: links.some((l) => l.status === "CONFIRMED"), links, pil, manualPilUrl: product.pilUrl, attribution: PHARMA_ATTRIBUTION };
   }
 
   /** Find likely register entries for a product and store them as SUGGESTED. Never changes a link a person has already decided. */
   async suggest(user: RequestUser, productId: string) {
     assertNotDemoUser(user, "Suggesting register matches");
-    const p = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, name: true, inn: true, brand: true, atcCode: true } });
+    const p = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, name: true, inn: true, brand: true, atcCode: true, isSimulated: true } });
     if (!p) throw new NotFoundException("Product not found.");
     const terms = [p.brand, p.inn].map((t) => (t ?? "").trim()).filter((t) => t.length >= 3);
     if (!terms.length) terms.push(p.name.split(/[\s,(]/)[0] ?? "");
@@ -58,7 +58,7 @@ export class ProductPharmaLinksService {
       const existing = await prisma.productPharmaLink.findMany({ where: { productMasterId: productId, pharmaReferenceId: { in: scored.map((x) => x.c.id) } }, select: { pharmaReferenceId: true } });
       const have = new Set(existing.map((e) => e.pharmaReferenceId));
       const fresh = scored.filter((x) => !have.has(x.c.id));
-      if (fresh.length) await prisma.productPharmaLink.createMany({ data: fresh.map((x) => ({ productMasterId: productId, pharmaReferenceId: x.c.id, status: "SUGGESTED", score: x.score, basis: x.basis.join(", ") })) });
+      if (fresh.length) await prisma.productPharmaLink.createMany({ data: fresh.map((x) => ({ productMasterId: productId, pharmaReferenceId: x.c.id, status: "SUGGESTED", score: x.score, basis: x.basis.join(", "), isSimulated: p.isSimulated })) });
     }
     return this.panel(productId);
   }
@@ -82,9 +82,9 @@ export class ProductPharmaLinksService {
     assertHasPermission(user, "products.approve");
     const ref = await prisma.pharmaReference.findUnique({ where: { id: pharmaReferenceId }, select: { id: true, atcCode: true } });
     if (!ref) throw new NotFoundException("Register entry not found.");
-    const product = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, atcCode: true } });
+    const product = await prisma.productMaster.findUnique({ where: { id: productId }, select: { id: true, atcCode: true, isSimulated: true } });
     if (!product) throw new NotFoundException("Product not found.");
-    const data = { status: "CONFIRMED", decidedById: user.id, decidedByName: who(user), decidedAt: new Date(), basis: "chosen by a person", score: 100 };
+    const data = { status: "CONFIRMED", decidedById: user.id, decidedByName: who(user), decidedAt: new Date(), basis: "chosen by a person", score: 100, isSimulated: product.isSimulated };
     await prisma.productPharmaLink.upsert({ where: { productMasterId_pharmaReferenceId: { productMasterId: productId, pharmaReferenceId } }, create: { productMasterId: productId, pharmaReferenceId, ...data }, update: data });
     if (ref.atcCode && !product.atcCode) await prisma.productMaster.update({ where: { id: productId }, data: { atcCode: ref.atcCode } });
     return this.panel(productId);

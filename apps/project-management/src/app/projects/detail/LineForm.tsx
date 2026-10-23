@@ -5,6 +5,7 @@ import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, Product
 import { CURRENCY_OPTIONS } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
+import { RegisterStrip } from "../../../components/RegisterStrip";
 import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { apiClient } from "../../../lib/apiClient";
@@ -493,6 +494,7 @@ export function LineForm({
               <a href={`${PRODUCT_DATABASE_URL}/products/detail?id=${productDetail.id}`} target="_blank" rel="noreferrer" style={{ color: "var(--u-brand-violet)", fontWeight: 600 }}>View or edit in Product Database</a>
             </p>
           )}
+          {productDetail && /pharma/i.test(productDetail.category) && <RegisterStrip productId={productDetail.id} medicine />}
           {productHasPendingAmendment && (
             <p style={{ fontSize: 12, color: "var(--u-status-warning)", margin: "6px 0 0" }}>
               This product has a pending amendment awaiting QA/RP ratification — it can still be used on this line.

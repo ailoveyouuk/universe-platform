@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SearchIcon, XIcon } from "./icons";
+import { SourcePill } from "./SourcePill";
 
 export interface ProductPickerOption {
   id: string;
@@ -26,6 +27,10 @@ export interface ProductPickerOption {
   lifecycleStatus?: string | null;
   /** This organisation's own source-approval status for the product (2026-10-18). Drives the source tag. */
   orgApproval?: "APPROVED" | "IN_REVIEW" | "REJECTED" | null;
+  /** Confirmed register sources (medicines) and ATC code, shown as small pills so a user sees at a glance which products are verified. */
+  pharmaVerifiedSources?: Array<"EMA" | "MHRA"> | null;
+  atcCode?: string | null;
+  isSimulated?: boolean | null;
 }
 
 export type ProductPickerScope = "ALL" | "APPROVED" | "CATALOGUE";
@@ -268,6 +273,8 @@ export function ProductPicker({
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {o.name}
                   {scope && <ProductSourceTag approval={o.orgApproval} orgName={orgName} />}
+                  {(o.pharmaVerifiedSources ?? []).map((src) => <SourcePill key={src} label={src} tone={src === "EMA" ? "brand" : "accent"} title={`Confirmed in the ${src} register`} />)}
+                  {o.isSimulated && <SourcePill label="Simulated" tone="critical" title="Demo data" />}
                   {o.hasPendingAmendment && (
                     <span
                       title="This product has a pending amendment awaiting QA/RP ratification — it can still be selected."

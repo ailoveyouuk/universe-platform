@@ -861,8 +861,11 @@ export class UniverseApiClient {
   listProductExportRestrictions(productMasterId: string): Promise<ProductExportRestrictionMatch[]> {
     return this.request(`/product-catalog/${productMasterId}/export-restrictions`);
   }
-  exportCatalogueCsv(filters: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean } = {}): Promise<ProductExportFile> {
+  exportCatalogueCsv(filters: { q?: string; category?: string; sourceStandard?: string; includeArchived?: boolean; atc?: string; inn?: string; hsCode?: string; register?: string; hasSuggestions?: boolean; missingField?: string; recent?: boolean } = {}): Promise<ProductExportFile> {
     const qs = new URLSearchParams();
+    for (const k of ["atc", "inn", "hsCode", "register", "missingField"] as const) if (filters[k]) qs.set(k, filters[k]!);
+    if (filters.hasSuggestions) qs.set("hasSuggestions", "true");
+    if (filters.recent) qs.set("recent", "true");
     if (filters.q) qs.set("q", filters.q);
     if (filters.category) qs.set("category", filters.category);
     if (filters.sourceStandard) qs.set("sourceStandard", filters.sourceStandard);
@@ -1045,6 +1048,12 @@ export class UniverseApiClient {
   }
   decideProductPharmaLink(linkId: string, decision: "confirm" | "reject"): Promise<ProductPharmaPanel> {
     return this.request(`/product-catalog/pharma-links/${linkId}/${decision}`, { method: "POST", body: "{}" });
+  }
+  pharmaRegisterSummary(): Promise<{ linkedEntries: number; counts: Array<{ source: string; status: string; count: number }>; lastSync: Array<{ source: string; finishedAt: string | null; fetched: number }>; attribution: string }> {
+    return this.request(`/pharma-reference/summary`);
+  }
+  getPharmaRegisterEntry(id: string): Promise<{ id: string; source: "EMA" | "MHRA"; sourceKey: string; name: string; activeSubstances: string | null; inn: string | null; atcCode: string | null; holder: string | null; status: string; legalStatus: string | null; windsorCategory: string | null; indication: string | null; therapeuticArea: string | null; pharmacotherapeuticGroup: string | null; authorisedOn: string | null; sourceUrl: string | null; pilLinks: PilLink[]; linkedProducts: Array<{ id: string; name: string; category: string; isSimulated: boolean }>; scopeSubcategory: string | null }> {
+    return this.request(`/pharma-reference/${id}`);
   }
   searchPharmaRegister(params: { q?: string; source?: string; atc?: string; status?: string; holder?: string; generic?: boolean; biosimilar?: boolean; orphan?: boolean; linked?: "YES" | "NO"; skip?: number; take?: number }): Promise<{ total: number; items: Array<{ id: string; source: "EMA" | "MHRA"; sourceKey: string; name: string; activeSubstances: string | null; inn: string | null; atcCode: string | null; holder: string | null; status: string; isGeneric: boolean; isBiosimilar: boolean; isOrphan: boolean; sourceUrl: string | null; linkedProducts: number; pilLinks: PilLink[] }> }> {
     const qs = new URLSearchParams();

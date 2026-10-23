@@ -4588,10 +4588,13 @@ model ProductPharmaLink {
   decidedById       String?          @db.NVarChar(100)
   decidedByName     String?          @db.NVarChar(200)
   decidedAt         DateTime?
+  /// Ringfence: true when the product is simulated demo data. Such links are visible only inside demo organisations and never counted for real ones.
+  isSimulated       Boolean          @default(false)
   createdAt         DateTime         @default(now())
 
   @@unique([productMasterId, pharmaReferenceId])
   @@index([pharmaReferenceId])
   @@index([status])
+  @@index([isSimulated])
   @@map("product_pharma_links")
 }
