@@ -570,3 +570,10 @@ a:focus-visible {
   text-decoration: underline;
   text-decoration-color: var(--u-accent-magenta);
 }
+
+/* Stat tiles sit two across on phones, with a tighter gap and padding so the number stays the focus (2026-10-23). */
+@media (max-width: 640px) {
+  .u-stat-grid {
+    gap: 10px !important;
+  }
+}

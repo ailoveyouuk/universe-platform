@@ -107,9 +107,11 @@ export function StatTile({
 export function StatTileGrid({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div
+      className="u-stat-grid"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+        // min(190px, 46%) keeps tiles two across on a phone instead of one full-width tile per row.
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))",
         gap: 16,
         ...style,
       }}
