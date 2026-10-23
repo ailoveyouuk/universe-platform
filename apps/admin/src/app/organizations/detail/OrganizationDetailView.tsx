@@ -22,6 +22,7 @@ import {
   inputStyle,
 } from "../../../components/form";
 import { ManufacturerProfileSection } from "../../../components/ManufacturerProfileSection";
+import { ScopeCertificationsSection } from "../../../components/ScopeCertificationsSection";
 import { DirectoryProfileSection } from "../../../components/DirectoryProfileSection";
 import { UsersView } from "../../../components/UsersView";
 import { RolesView } from "../../../components/RolesView";
@@ -377,6 +378,7 @@ export function OrganizationDetailView() {
 
       {org.type !== "FUNDER_DONOR" && org.type !== "DATA_INSIGHTS_USER" && <DirectoryProfileSection organizationId={org.id} />}
       <CountryPresenceSection organizationId={org.id} />
+      {org.type !== "FUNDER_DONOR" && org.type !== "DATA_INSIGHTS_USER" && <ScopeCertificationsSection organizationId={org.id} />}
       <DemoAccessSection organizationId={org.id} />
       <CategoryProfileSection org={org} />
       {org.type === "MANUFACTURER" && <ManufacturerProfileSection organizationId={org.id} />}

@@ -2303,6 +2303,41 @@ export interface OrganizationManufacturerSiteSummary {
   createdAt: string;
 }
 
+export type CertificationStatus = "VALID" | "EXPIRING" | "EXPIRED" | "NO_EXPIRY";
+
+export interface OrganizationCertificationSummary {
+  id: string;
+  organizationId: string;
+  type: string;
+  title: string | null;
+  reference: string | null;
+  issuingBody: string | null;
+  issuedOn: string | null;
+  expiresOn: string | null;
+  notes: string | null;
+  /** Derived from expiresOn: EXPIRING = within 90 days. */
+  status: CertificationStatus;
+  daysToExpiry: number | null;
+}
+
+export interface SaveOrganizationCertificationInput {
+  type: string;
+  title?: string;
+  reference?: string;
+  issuingBody?: string;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
+  notes?: string;
+}
+
+export interface OrganizationScopeSummary {
+  organizationId: string;
+  /** Declared: ids from SCOPE_TAXONOMY. */
+  declared: string[];
+  /** Derived, never stored: taxonomy ids seen in this organisation's submitted bids and awards. */
+  demonstrated: { scopeSubId: string; bids: number; awards: number }[];
+}
+
 export interface ManufacturerProfileSummary {
   organizationId: string;
   productCategoriesManufactured: string[];

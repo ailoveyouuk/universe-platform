@@ -330,6 +330,8 @@ model Organization {
   tenderingBodyProfile        TenderingBodyProfile?
   manufacturerProfile         ManufacturerProfile?
   manufacturerSites           OrganizationManufacturerSite[]
+  scopeOfSupply               OrganizationScope[]
+  certifications              OrganizationCertification[]
   funderProfile               FunderProfile?
   dataInsightsUserProfile     DataInsightsUserProfile?
   /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
@@ -2339,6 +2341,48 @@ model OrganizationManufacturerSite {
 
   @@index([organizationId])
   @@map("manufacturer_sites")
+}
+
+/// Scope of supply (2026-10-23): the categories an organisation says it supplies,
+/// as ids from SCOPE_TAXONOMY (packages/types/src/supplier-scope.ts). Declared by
+/// the organisation; the "demonstrated" scope is derived from real activity and
+/// never stored. Archive-not-delete.
+model OrganizationScope {
+  archivedAt     DateTime?
+  archivedById   String?
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scopeSubId     String       @db.NVarChar(100)
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, scopeSubId])
+  @@map("organization_scope")
+}
+
+/// Organisation-level certifications and accreditations (2026-10-23), reusable
+/// across every partner/tender relationship (unlike StakeholderEvidenceRecord,
+/// which is per partner). Status (valid / expiring / expired) is derived from
+/// expiresOn, never stored. Archive-not-delete.
+model OrganizationCertification {
+  archivedAt     DateTime?
+  archivedById   String?
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  type           String       @db.NVarChar(60)
+  title          String?      @db.NVarChar(200)
+  reference      String?      @db.NVarChar(200)
+  issuingBody    String?      @db.NVarChar(200)
+  issuedOn       DateTime?
+  expiresOn      DateTime?
+  notes          String?      @db.NVarChar(Max)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([expiresOn])
+  @@map("organization_certifications")
 }
 
 /// FUNDER_DONOR detail — deliberately minimal. Unlike the other five detail

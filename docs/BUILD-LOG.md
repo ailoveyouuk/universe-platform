@@ -829,3 +829,12 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - **RLS gap found and fixed:** `manufacturer_profiles` had an `organizationId` column but no row-level security policy (it was missing from the 7-table fix on 2026-10-14). Added to `row-level-security.sql` and a one-off idempotent script `infra/sql/manufacturer-profiles-rls.sql`. **Prod step for Lewis: run that script once in the Azure portal query editor.**
 - New DB-backed tests `apps/api/test/org-hub-profiles.test.ts` cover the directory profile (draft, parse, publish, refusals) and the manufacturer profile (round trip, per-organisation isolation). CI green.
 - Next: step 4, scope of supply and certifications (two new tables, RLS entries in the one-paste SQL).
+
+## 2026-10-23 — Organisation hub step 4: scope of supply and certifications
+
+- Two new tables, `organization_scope` (declared categories, ids from `SCOPE_TAXONOMY`) and `organization_certifications` (type, title, number, issuing body, issued/expiry dates, notes), both archive-not-delete. Migration `20261023190000_org_scope_certifications`; RLS entries added to `row-level-security.sql` and a one-off idempotent script `infra/sql/org-scope-certifications-rls.sql` (expected result: 6 predicates). **Prod step for Lewis: run that script after Deploy API has applied the migration.**
+- Endpoints (all `org.profile.manage`, audited): `GET/PUT /organizations/:id/scope`, `GET/POST /organizations/:id/certifications`, `PUT/DELETE .../certifications/:certId`. Certification status (valid / expiring within 90 days / expired / no expiry) is derived from the expiry date, never stored.
+- **Demonstrated scope** is derived, never stored: taxonomy categories of the catalogue products on tender lines the organisation has bid on (submitted bids, not no-bids) and been awarded. Only category counts leave the system read. Source approvals are not used yet because partners are not linked to organisations.
+- Admin: new "Scope of supply" and "Certifications and accreditations" sections on the Profile tab (not for funders or data/insights users), with an "in bids but not declared" prompt.
+- Tests: `apps/api/test/org-scope-certs.test.ts`.
+- Next: step 5, the shared read-only organisation card with an "Edit profile" link into Admin.

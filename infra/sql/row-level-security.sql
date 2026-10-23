@@ -321,6 +321,14 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_profiles AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_profiles AFTER UPDATE,
 
+    -- organization_scope / organization_certifications: added with the scope + certifications editors (2026-10-23).
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_scope,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_scope AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_scope AFTER UPDATE,
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_certifications,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_certifications AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_certifications AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER UPDATE,

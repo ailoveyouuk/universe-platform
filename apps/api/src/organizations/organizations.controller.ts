@@ -15,12 +15,14 @@ import {
 } from "./dto/org-type-profiles.dto";
 import { OrganizationAccessService } from "./organization-access.service";
 import { AddOrganizationAccessDto } from "./dto/organization-access.dto";
+import { OrgScopeCertsService } from "./org-scope-certs.service";
+import { SaveOrganizationCertificationDto, SetOrganizationScopeDto } from "./dto/org-scope-certs.dto";
 import { OrganizationsService } from "./organizations.service";
 
 @Controller("organizations")
 @UseGuards(EntraAuthGuard)
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService, private readonly access: OrganizationAccessService) {}
+  constructor(private readonly organizationsService: OrganizationsService, private readonly access: OrganizationAccessService, private readonly scopeCerts: OrgScopeCertsService) {}
 
   /** The organisations the caller can act inside: their own, plus (demo users) the demo organisations they have been granted. */
   @Get("accessible")
@@ -181,5 +183,35 @@ export class OrganizationsController {
   @Delete(":id/manufacturer-sites/:siteId")
   removeManufacturerSite(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("siteId") siteId: string) {
     return this.organizationsService.removeManufacturerSite(user, id, siteId);
+  }
+
+  @Get(":id/scope")
+  getScope(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.scopeCerts.getScope(user, id);
+  }
+
+  @Put(":id/scope")
+  setScope(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: SetOrganizationScopeDto) {
+    return this.scopeCerts.setScope(user, id, dto.scopeSubIds);
+  }
+
+  @Get(":id/certifications")
+  listCertifications(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.scopeCerts.listCertifications(user, id);
+  }
+
+  @Post(":id/certifications")
+  addCertification(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: SaveOrganizationCertificationDto) {
+    return this.scopeCerts.addCertification(user, id, dto);
+  }
+
+  @Put(":id/certifications/:certId")
+  updateCertification(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string, @Body() dto: SaveOrganizationCertificationDto) {
+    return this.scopeCerts.updateCertification(user, id, certId, dto);
+  }
+
+  @Delete(":id/certifications/:certId")
+  archiveCertification(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string) {
+    return this.scopeCerts.archiveCertification(user, id, certId);
   }
 }

@@ -120,6 +120,9 @@ import type {
   OrganizationManufacturerSiteSummary,
   FunderProfileSummary,
   ManufacturerProfileSummary,
+  OrganizationScopeSummary,
+  OrganizationCertificationSummary,
+  SaveOrganizationCertificationInput,
   DataInsightsUserProfileSummary,
   SupplierLead,
   SupplierProduct,
@@ -1282,6 +1285,30 @@ export class UniverseApiClient {
       method: "PUT",
       body: JSON.stringify(input),
     });
+  }
+
+  getOrganizationScope(organizationId: string): Promise<OrganizationScopeSummary> {
+    return this.request(`/organizations/${organizationId}/scope`);
+  }
+
+  setOrganizationScope(organizationId: string, scopeSubIds: string[]): Promise<OrganizationScopeSummary> {
+    return this.request(`/organizations/${organizationId}/scope`, { method: "PUT", body: JSON.stringify({ scopeSubIds }) });
+  }
+
+  listOrganizationCertifications(organizationId: string): Promise<OrganizationCertificationSummary[]> {
+    return this.request(`/organizations/${organizationId}/certifications`);
+  }
+
+  addOrganizationCertification(organizationId: string, input: SaveOrganizationCertificationInput): Promise<OrganizationCertificationSummary> {
+    return this.request(`/organizations/${organizationId}/certifications`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  updateOrganizationCertification(organizationId: string, certId: string, input: SaveOrganizationCertificationInput): Promise<OrganizationCertificationSummary> {
+    return this.request(`/organizations/${organizationId}/certifications/${certId}`, { method: "PUT", body: JSON.stringify(input) });
+  }
+
+  archiveOrganizationCertification(organizationId: string, certId: string): Promise<void> {
+    return this.request(`/organizations/${organizationId}/certifications/${certId}`, { method: "DELETE" });
   }
 
   getManufacturerProfile(organizationId: string): Promise<ManufacturerProfileSummary | null> {

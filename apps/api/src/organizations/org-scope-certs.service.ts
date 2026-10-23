@@ -1,0 +1,174 @@
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { withPlatformStaffContext, withTenantContext } from "@universe/db";
+import { SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
+import type { CertificationStatus, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
+import { assertCanManageOrg } from "../common/authorization";
+import type { RequestUser } from "../auth/entra-auth.guard";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import type { SaveOrganizationCertificationDto } from "./dto/org-scope-certs.dto";
+
+const VALID_SCOPE_IDS = new Set(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => s.id)));
+const EXPIRING_DAYS = 90;
+const CERT_AUDIT_FIELDS = ["type", "title", "reference", "issuingBody", "issuedOn", "expiresOn", "notes"];
+
+function runner(caller: RequestUser, organizationId: string) {
+  return (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+}
+
+export function certificationStatus(expiresOn: Date | null, now = new Date()): { status: CertificationStatus; daysToExpiry: number | null } {
+  if (!expiresOn) return { status: "NO_EXPIRY", daysToExpiry: null };
+  const days = Math.floor((expiresOn.getTime() - now.getTime()) / 86_400_000);
+  if (days < 0) return { status: "EXPIRED", daysToExpiry: days };
+  return { status: days <= EXPIRING_DAYS ? "EXPIRING" : "VALID", daysToExpiry: days };
+}
+
+function toCert(row: any): OrganizationCertificationSummary {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    type: row.type,
+    title: row.title ?? null,
+    reference: row.reference ?? null,
+    issuingBody: row.issuingBody ?? null,
+    issuedOn: row.issuedOn ? row.issuedOn.toISOString() : null,
+    expiresOn: row.expiresOn ? row.expiresOn.toISOString() : null,
+    notes: row.notes ?? null,
+    ...certificationStatus(row.expiresOn ?? null),
+  };
+}
+
+@Injectable()
+export class OrgScopeCertsService {
+  async getScope(caller: RequestUser, organizationId: string): Promise<OrganizationScopeSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const rows = await runner(caller, organizationId)((tx) => tx.organizationScope.findMany({ where: { organizationId, archivedAt: null }, orderBy: { scopeSubId: "asc" } }));
+    return { organizationId, declared: rows.map((r: any) => r.scopeSubId), demonstrated: await this.demonstrated(organizationId) };
+  }
+
+  /** Replaces the declared scope with the given set: new ids are added, removed ids archived, archived ids re-activated. */
+  async setScope(caller: RequestUser, organizationId: string, ids: string[]): Promise<OrganizationScopeSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const wanted = Array.from(new Set(ids));
+    const bad = wanted.filter((i) => !VALID_SCOPE_IDS.has(i));
+    if (bad.length) throw new BadRequestException(`Unknown scope categories: ${bad.join(", ")}`);
+    await runner(caller, organizationId)(async (tx) => {
+      const existing = await tx.organizationScope.findMany({ where: { organizationId } });
+      const before = existing.filter((r: any) => !r.archivedAt).map((r: any) => r.scopeSubId).sort();
+      const now = new Date();
+      for (const r of existing) {
+        const want = wanted.includes(r.scopeSubId);
+        if (want && r.archivedAt) await tx.organizationScope.update({ where: { id: r.id }, data: { archivedAt: null, archivedById: null } });
+        if (!want && !r.archivedAt) await tx.organizationScope.update({ where: { id: r.id }, data: { archivedAt: now, archivedById: caller.id } });
+      }
+      const have = new Set(existing.map((r: any) => r.scopeSubId));
+      for (const id of wanted) if (!have.has(id)) await tx.organizationScope.create({ data: { organizationId, scopeSubId: id } });
+      const after = [...wanted].sort();
+      if (before.join(",") !== after.join(",")) {
+        await recordFieldChanges(tx, {
+          organizationId,
+          tableName: "organization_scope",
+          recordId: organizationId,
+          changedById: caller.id,
+          changes: [{ field: "scopeOfSupply", oldValue: before.join(", ") || null, newValue: after.join(", ") || null }],
+          source: "API",
+        });
+      }
+    });
+    return this.getScope(caller, organizationId);
+  }
+
+  async listCertifications(caller: RequestUser, organizationId: string): Promise<OrganizationCertificationSummary[]> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const rows = await runner(caller, organizationId)((tx) => tx.organizationCertification.findMany({ where: { organizationId, archivedAt: null }, orderBy: [{ expiresOn: "asc" }, { createdAt: "asc" }] }));
+    return rows.map(toCert);
+  }
+
+  async addCertification(caller: RequestUser, organizationId: string, dto: SaveOrganizationCertificationDto): Promise<OrganizationCertificationSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    this.checkDates(dto);
+    const row = await runner(caller, organizationId)(async (tx) => {
+      const created = await tx.organizationCertification.create({ data: { organizationId, ...this.data(dto) } });
+      await recordFieldChanges(tx, {
+        organizationId,
+        tableName: "organization_certifications",
+        recordId: created.id,
+        changedById: caller.id,
+        changes: [{ field: "created", oldValue: null, newValue: `${dto.type}${dto.reference ? " " + dto.reference : ""}` }],
+        source: "API",
+      });
+      return created;
+    });
+    return toCert(row);
+  }
+
+  async updateCertification(caller: RequestUser, organizationId: string, id: string, dto: SaveOrganizationCertificationDto): Promise<OrganizationCertificationSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    this.checkDates(dto);
+    const row = await runner(caller, organizationId)(async (tx) => {
+      const existing = await tx.organizationCertification.findFirst({ where: { id, organizationId, archivedAt: null } });
+      if (!existing) throw new NotFoundException("Certification not found");
+      const data = this.data(dto);
+      const changes = diffForAudit(existing, data, CERT_AUDIT_FIELDS);
+      const updated = await tx.organizationCertification.update({ where: { id }, data });
+      await recordFieldChanges(tx, { organizationId, tableName: "organization_certifications", recordId: id, changedById: caller.id, changes, source: "API" });
+      return updated;
+    });
+    return toCert(row);
+  }
+
+  async archiveCertification(caller: RequestUser, organizationId: string, id: string): Promise<void> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    await runner(caller, organizationId)(async (tx) => {
+      const res = await tx.organizationCertification.updateMany({ where: { id, organizationId, archivedAt: null }, data: { archivedAt: new Date(), archivedById: caller.id } });
+      if (res.count === 0) throw new NotFoundException("Certification not found");
+      await recordFieldChanges(tx, { organizationId, tableName: "organization_certifications", recordId: id, changedById: caller.id, changes: [{ field: "archived", oldValue: null, newValue: "true" }], source: "API" });
+    });
+  }
+
+  private checkDates(dto: SaveOrganizationCertificationDto) {
+    if (dto.issuedOn && dto.expiresOn && new Date(dto.expiresOn) < new Date(dto.issuedOn)) throw new BadRequestException("Expiry date is before the issue date.");
+  }
+
+  private data(dto: SaveOrganizationCertificationDto) {
+    return {
+      type: dto.type,
+      title: dto.title?.trim() || null,
+      reference: dto.reference?.trim() || null,
+      issuingBody: dto.issuingBody?.trim() || null,
+      issuedOn: dto.issuedOn ? new Date(dto.issuedOn) : null,
+      expiresOn: dto.expiresOn ? new Date(dto.expiresOn) : null,
+      notes: dto.notes?.trim() || null,
+    };
+  }
+
+  /**
+   * What the organisation has actually done: catalogue categories of the products on tender lines it bid on (submitted, not no-bid)
+   * and was awarded. Read in a system context because the tender lines belong to the issuing organisations; only category counts leave.
+   */
+  private async demonstrated(organizationId: string): Promise<{ scopeSubId: string; bids: number; awards: number }[]> {
+    return withPlatformStaffContext(async (tx: any) => {
+      const bidLines = await tx.tenderBidLine.findMany({ where: { organizationId, noBid: false }, select: { tenderLineId: true, bidId: true } });
+      const bids = await tx.tenderBid.findMany({ where: { organizationId, status: { not: "DRAFT" } }, select: { id: true } });
+      const submitted = new Set(bids.map((b: any) => b.id));
+      const awardLines = await tx.tenderAwardLine.findMany({ where: { awardedOrganizationId: organizationId }, select: { tenderLineId: true } });
+      const bidLineIds = Array.from(new Set(bidLines.filter((l: any) => submitted.has(l.bidId)).map((l: any) => l.tenderLineId)));
+      const awardLineIds = Array.from(new Set(awardLines.map((l: any) => l.tenderLineId)));
+      const lines = await tx.tenderLine.findMany({ where: { id: { in: [...bidLineIds, ...awardLineIds] as string[] }, productMasterId: { not: null } }, select: { id: true, productMasterId: true } });
+      const productIds = Array.from(new Set(lines.map((l: any) => l.productMasterId)));
+      const products = await tx.productMaster.findMany({ where: { id: { in: productIds as string[] } }, select: { id: true, category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
+      const subsByProduct = new Map<string, string[]>(products.map((p: any) => [p.id, scopeSubsForProduct(p)]));
+      const subsByLine = new Map<string, string[]>(lines.map((l: any) => [l.id, subsByProduct.get(l.productMasterId) ?? []]));
+      const tally = new Map<string, { bids: number; awards: number }>();
+      const bump = (lineId: string, k: "bids" | "awards") => {
+        for (const sub of subsByLine.get(lineId) ?? []) {
+          const t = tally.get(sub) ?? { bids: 0, awards: 0 };
+          t[k] += 1;
+          tally.set(sub, t);
+        }
+      };
+      bidLineIds.forEach((id) => bump(id as string, "bids"));
+      awardLineIds.forEach((id) => bump(id as string, "awards"));
+      return Array.from(tally, ([scopeSubId, t]) => ({ scopeSubId, ...t })).sort((a, b) => b.awards - a.awards || b.bids - a.bids);
+    });
+  }
+}
