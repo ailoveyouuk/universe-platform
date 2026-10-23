@@ -220,4 +220,24 @@ export class OrganizationsController {
   archiveCertification(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string) {
     return this.scopeCerts.archiveCertification(user, id, certId);
   }
+
+  @Post(":id/certifications/:certId/document/upload-url")
+  certDocumentUploadUrl(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string, @Body() dto: { fileName: string; contentType: string; fileSizeBytes: number }) {
+    return this.scopeCerts.requestDocumentUpload(user, id, certId, dto);
+  }
+
+  @Post(":id/certifications/:certId/document")
+  certDocumentConfirm(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string, @Body() dto: { blobName: string; fileName: string; mimeType?: string }) {
+    return this.scopeCerts.confirmDocument(user, id, certId, dto);
+  }
+
+  @Get(":id/certifications/:certId/document")
+  certDocumentDownload(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string) {
+    return this.scopeCerts.documentDownload(user, id, certId);
+  }
+
+  @Delete(":id/certifications/:certId/document")
+  certDocumentRemove(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("certId") certId: string) {
+    return this.scopeCerts.removeDocument(user, id, certId);
+  }
 }

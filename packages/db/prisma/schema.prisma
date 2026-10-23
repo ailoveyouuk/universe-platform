@@ -332,6 +332,7 @@ model Organization {
   manufacturerSites           OrganizationManufacturerSite[]
   scopeOfSupply               OrganizationScope[]
   certifications              OrganizationCertification[]
+  networkSavedSearches        NetworkSavedSearch[]
   funderProfile               FunderProfile?
   dataInsightsUserProfile     DataInsightsUserProfile?
   /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
@@ -2377,12 +2378,35 @@ model OrganizationCertification {
   issuedOn       DateTime?
   expiresOn      DateTime?
   notes          String?      @db.NVarChar(Max)
+  /// The certificate itself (2026-10-23): one file in the organisation's own storage container.
+  documentBlobName   String?   @db.NVarChar(500)
+  documentFileName   String?   @db.NVarChar(300)
+  documentSizeBytes  Int?
+  documentMimeType   String?   @db.NVarChar(120)
+  documentUploadedAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@index([organizationId])
   @@index([expiresOn])
   @@map("organization_certifications")
+}
+
+/// Saved Find-suppliers searches with optional alerts (2026-10-23): the filters are stored as JSON and an alert is raised when a newly
+/// published organisation matches. Owned by the organisation, like TenderSavedSearch.
+model NetworkSavedSearch {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name           String       @db.NVarChar(120)
+  criteriaJson   String       @db.NVarChar(Max)
+  alertsEnabled  Boolean      @default(true)
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@map("network_saved_searches")
 }
 
 /// FUNDER_DONOR detail — deliberately minimal. Unlike the other five detail

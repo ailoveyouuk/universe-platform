@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BlobStorageService } from "../documents/blob-storage.service";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
 import type { CertificationStatus, OrganizationCard, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
@@ -33,12 +35,75 @@ function toCert(row: any): OrganizationCertificationSummary {
     issuedOn: row.issuedOn ? row.issuedOn.toISOString() : null,
     expiresOn: row.expiresOn ? row.expiresOn.toISOString() : null,
     notes: row.notes ?? null,
+    documentFileName: row.documentFileName ?? null,
     ...certificationStatus(row.expiresOn ?? null),
   };
 }
 
+const DOC_EXT = ["pdf", "png", "jpg", "jpeg", "doc", "docx"];
+const DOC_MAX = 10 * 1024 * 1024;
+const safeName = (n: string) => n.replace(/[^A-Za-z0-9._-]+/g, "_").slice(-120);
+
 @Injectable()
 export class OrgScopeCertsService {
+  constructor(private readonly blob: BlobStorageService) {}
+
+  /** Step 1 of attaching the certificate file: a short-lived write link into the organisation's own container. */
+  async requestDocumentUpload(caller: RequestUser, organizationId: string, certId: string, dto: { fileName: string; contentType: string; fileSizeBytes: number }) {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const ext = dto.fileName.split(".").pop()?.toLowerCase() ?? "";
+    if (!DOC_EXT.includes(ext)) throw new BadRequestException(`A certificate can be a ${DOC_EXT.join(", ")} file.`);
+    if (!(dto.fileSizeBytes > 0) || dto.fileSizeBytes > DOC_MAX) throw new BadRequestException("A certificate file can be up to 10 MB.");
+    await this.ownCert(caller, organizationId, certId);
+    return this.blob.getUploadUrl(organizationId, `org-certs/${certId}/${randomUUID()}-${safeName(dto.fileName)}`, dto.contentType);
+  }
+
+  /** Step 2: records the uploaded file against the certificate, replacing (and removing) any earlier file. */
+  async confirmDocument(caller: RequestUser, organizationId: string, certId: string, dto: { blobName: string; fileName: string; mimeType?: string }): Promise<OrganizationCertificationSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    if (!dto.blobName.startsWith(`org-certs/${certId}/`)) throw new BadRequestException("That file does not belong to this certificate.");
+    const info = await this.blob.getBlobInfo(organizationId, dto.blobName);
+    if (!info) throw new BadRequestException("The file was not found in storage. Please upload it again.");
+    if (info.scanStatus === "INFECTED") {
+      await this.blob.deleteBlob(organizationId, dto.blobName);
+      throw new BadRequestException("That file was flagged by the malware scan and has been removed.");
+    }
+    const { row, previous } = await runner(caller, organizationId)(async (tx) => {
+      const cur = await tx.organizationCertification.findFirst({ where: { id: certId, organizationId, archivedAt: null } });
+      if (!cur) throw new NotFoundException("Certification not found");
+      const updated = await tx.organizationCertification.update({ where: { id: certId }, data: { documentBlobName: dto.blobName, documentFileName: dto.fileName.slice(0, 300), documentSizeBytes: info.size, documentMimeType: dto.mimeType ?? info.contentType, documentUploadedAt: new Date() } });
+      await recordFieldChanges(tx, { organizationId, tableName: "organization_certifications", recordId: certId, changedById: caller.id, changes: [{ field: "document", oldValue: cur.documentFileName ?? null, newValue: dto.fileName }], source: "API" });
+      return { row: updated, previous: cur.documentBlobName as string | null };
+    });
+    if (previous && previous !== dto.blobName) await this.blob.deleteBlob(organizationId, previous).catch(() => undefined);
+    return toCert(row);
+  }
+
+  async documentDownload(caller: RequestUser, organizationId: string, certId: string): Promise<{ downloadUrl: string; fileName: string | null }> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const c = await this.ownCert(caller, organizationId, certId);
+    if (!c.documentBlobName) throw new NotFoundException("No file is attached to this certificate.");
+    return { downloadUrl: await this.blob.getDownloadUrl(organizationId, c.documentBlobName), fileName: c.documentFileName ?? null };
+  }
+
+  async removeDocument(caller: RequestUser, organizationId: string, certId: string): Promise<OrganizationCertificationSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const { row, previous } = await runner(caller, organizationId)(async (tx) => {
+      const cur = await tx.organizationCertification.findFirst({ where: { id: certId, organizationId, archivedAt: null } });
+      if (!cur) throw new NotFoundException("Certification not found");
+      const updated = await tx.organizationCertification.update({ where: { id: certId }, data: { documentBlobName: null, documentFileName: null, documentSizeBytes: null, documentMimeType: null, documentUploadedAt: null } });
+      await recordFieldChanges(tx, { organizationId, tableName: "organization_certifications", recordId: certId, changedById: caller.id, changes: [{ field: "document", oldValue: cur.documentFileName ?? null, newValue: null }], source: "API" });
+      return { row: updated, previous: cur.documentBlobName as string | null };
+    });
+    if (previous) await this.blob.deleteBlob(organizationId, previous).catch(() => undefined);
+    return toCert(row);
+  }
+
+  private async ownCert(caller: RequestUser, organizationId: string, certId: string) {
+    const c = await runner(caller, organizationId)((tx) => tx.organizationCertification.findFirst({ where: { id: certId, organizationId, archivedAt: null } }));
+    if (!c) throw new NotFoundException("Certification not found");
+    return c;
+  }
   /** Read-only card for any signed-in user. Details are read in a system context, so what leaves is decided here, not by row-level security. */
   async getCard(caller: RequestUser, organizationId: string): Promise<OrganizationCard> {
     const isStaff = caller.platformStaffRole !== "NONE";

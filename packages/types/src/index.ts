@@ -2315,6 +2315,8 @@ export interface OrganizationCertificationSummary {
   issuedOn: string | null;
   expiresOn: string | null;
   notes: string | null;
+  /** Name of the attached certificate file, if any. */
+  documentFileName: string | null;
   /** Derived from expiresOn: EXPIRING = within 90 days. */
   status: CertificationStatus;
   daysToExpiry: number | null;

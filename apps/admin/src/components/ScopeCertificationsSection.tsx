@@ -171,7 +171,7 @@ export function ScopeCertificationsSection({ organizationId }: { organizationId:
 
       <Section
         title="Certifications and accreditations"
-        hint="Held at organisation level and reusable across every relationship. Status is worked out from the expiry date; removed items are archived, not deleted."
+        hint="Held at organisation level and reusable across every relationship. Attach the certificate itself as a PDF, image or Word file up to 10 MB; only your organisation can open it. Status is worked out from the expiry date; removed items are archived, not deleted."
         actions={editing ? undefined : <Button variant="secondary" onClick={() => startEdit(null)}>Add certification</Button>}
       >
         {error && <Notice tone="error">{error}</Notice>}
@@ -228,6 +228,7 @@ export function ScopeCertificationsSection({ organizationId }: { organizationId:
                     <span style={{ fontSize: 12, fontWeight: 700, color: st.color }}>
                       {st.label}{c.daysToExpiry !== null && c.status !== "EXPIRED" ? ` (${c.daysToExpiry}d)` : ""}
                     </span>
+                    <CertFile organizationId={organizationId} cert={c} disabled={busy} onChanged={load} onError={setError} />
                     <Button variant="secondary" disabled={busy} onClick={() => startEdit(c)}>Edit</Button>
                     <Button variant="secondary" disabled={busy} onClick={() => archiveCert(c.id)}>Remove</Button>
                   </div>
@@ -238,5 +239,61 @@ export function ScopeCertificationsSection({ organizationId }: { organizationId:
         )}
       </Section>
     </>
+  );
+}
+
+/** The certificate file for one certification: upload or replace (PDF, image or Word, up to 10 MB), open, remove. */
+function CertFile({ organizationId, cert, disabled, onChanged, onError }: { organizationId: string; cert: OrganizationCertificationSummary; disabled: boolean; onChanged: () => void; onError: (m: string | null) => void }) {
+  const [busy, setBusy] = useState(false);
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) return onError("That file is over 10 MB. Please use a smaller file.");
+    setBusy(true);
+    onError(null);
+    try {
+      await apiClient.uploadOrganizationCertificationDocument(organizationId, cert.id, file);
+      onChanged();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function open() {
+    try {
+      const r = await apiClient.organizationCertificationDocumentUrl(organizationId, cert.id);
+      window.open(r.downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not open the file");
+    }
+  }
+  async function remove() {
+    setBusy(true);
+    try {
+      await apiClient.removeOrganizationCertificationDocument(organizationId, cert.id);
+      onChanged();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not remove the file");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+      {cert.documentFileName && (
+        <>
+          <button type="button" onClick={open} style={{ border: "none", background: "none", padding: 0, cursor: "pointer", color: "var(--u-link)", fontFamily: "inherit", fontSize: 13 }} title={cert.documentFileName}>View file</button>
+          <button type="button" onClick={remove} disabled={busy || disabled} aria-label="Remove file" style={{ border: "none", background: "none", padding: 0, cursor: "pointer", color: "var(--u-ink-secondary)", fontSize: 13 }}>✕</button>
+        </>
+      )}
+      <label style={{ display: "inline-block", position: "relative" }}>
+        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" onChange={pick} disabled={busy || disabled} aria-label={`${cert.documentFileName ? "Replace" : "Attach"} certificate file`} style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} />
+        <span style={{ display: "inline-block", padding: "6px 12px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, fontWeight: 600, cursor: busy || disabled ? "default" : "pointer", opacity: busy || disabled ? 0.6 : 1 }}>
+          {busy ? "Working…" : cert.documentFileName ? "Replace file" : "Attach file"}
+        </span>
+      </label>
+    </span>
   );
 }

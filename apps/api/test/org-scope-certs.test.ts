@@ -7,7 +7,14 @@ import { OrgScopeCertsService, certificationStatus } from "../src/organizations/
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 
 const sfx = randomUUID().slice(0, 8);
-const svc = new OrgScopeCertsService();
+const deleted: string[] = [];
+const blob = {
+  getUploadUrl: async (_o: string, blobName: string) => ({ uploadUrl: "https://example.invalid/put", blobName }),
+  getBlobInfo: async () => ({ size: 1234, contentType: "application/pdf", etag: "x", scanStatus: "CLEAN" }),
+  getDownloadUrl: async (_o: string, b: string) => `https://example.invalid/get/${b}`,
+  deleteBlob: async (_o: string, b: string) => { deleted.push(b); },
+};
+const svc = new OrgScopeCertsService(blob as never);
 const dir = new SupplierDirectoryService(new StakeholderRegistryService());
 let orgA = "", orgB = "";
 const asAdmin = (organizationId: string) =>
@@ -94,5 +101,24 @@ describe("organisation scope of supply and certifications", () => {
     expect((await dir.network(me, { q: sfx, type: "MANUFACTURER" })).total).toBe(0);
     await withPlatformStaffContext((tx: any) => tx.supplierProfile.create({ data: { organizationId: orgB } }));
     expect((await dir.network(me, { q: sfx })).organizations.map((o) => o.id)).toEqual([orgA]);
+  });
+
+  it("attaches, replaces and removes a certificate file, keeping it to the owning organisation", async () => {
+    const admin = asAdmin(orgA);
+    const c = await svc.addCertification(admin, orgA, { type: "ISO_9001", reference: "DOC-1" } as never);
+    await expect(svc.requestDocumentUpload(admin, orgA, c.id, { fileName: "x.exe", contentType: "application/octet-stream", fileSizeBytes: 10 })).rejects.toThrow(/can be a/);
+    await expect(svc.requestDocumentUpload(admin, orgA, c.id, { fileName: "x.pdf", contentType: "application/pdf", fileSizeBytes: 11 * 1024 * 1024 })).rejects.toThrow(/10 MB/);
+    await expect(svc.requestDocumentUpload(asAdmin(orgB), orgB, c.id, { fileName: "x.pdf", contentType: "application/pdf", fileSizeBytes: 10 })).rejects.toThrow();
+    const up = await svc.requestDocumentUpload(admin, orgA, c.id, { fileName: "cert one.pdf", contentType: "application/pdf", fileSizeBytes: 100 });
+    expect(up.blobName.startsWith(`org-certs/${c.id}/`)).toBe(true);
+    await expect(svc.confirmDocument(admin, orgA, c.id, { blobName: "org-certs/other/x.pdf", fileName: "x.pdf" })).rejects.toThrow(/does not belong/);
+    expect((await svc.confirmDocument(admin, orgA, c.id, { blobName: up.blobName, fileName: "cert one.pdf" })).documentFileName).toBe("cert one.pdf");
+    expect((await svc.documentDownload(admin, orgA, c.id)).downloadUrl).toContain(up.blobName);
+    const up2 = await svc.requestDocumentUpload(admin, orgA, c.id, { fileName: "cert two.pdf", contentType: "application/pdf", fileSizeBytes: 100 });
+    await svc.confirmDocument(admin, orgA, c.id, { blobName: up2.blobName, fileName: "cert two.pdf" });
+    expect(deleted).toContain(up.blobName);
+    expect((await svc.removeDocument(admin, orgA, c.id)).documentFileName).toBeNull();
+    expect(deleted).toContain(up2.blobName);
+    await expect(svc.documentDownload(admin, orgA, c.id)).rejects.toThrow(/No file/);
   });
 });

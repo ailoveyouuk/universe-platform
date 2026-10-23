@@ -1313,6 +1313,21 @@ export class UniverseApiClient {
     return this.request(`/organizations/${organizationId}/certifications/${certId}`, { method: "PUT", body: JSON.stringify(input) });
   }
 
+  /** Attaches a certificate file: asks for a write link, puts the file straight to storage, then records it. */
+  async uploadOrganizationCertificationDocument(organizationId: string, certId: string, file: File): Promise<OrganizationCertificationSummary> {
+    const up = await this.request<{ uploadUrl: string; blobName: string }>(`/organizations/${organizationId}/certifications/${certId}/document/upload-url`, { method: "POST", body: JSON.stringify({ fileName: file.name, contentType: file.type || "application/octet-stream", fileSizeBytes: file.size }) });
+    await this.uploadDocumentFile(up.uploadUrl, file);
+    return this.request(`/organizations/${organizationId}/certifications/${certId}/document`, { method: "POST", body: JSON.stringify({ blobName: up.blobName, fileName: file.name, mimeType: file.type || undefined }) });
+  }
+
+  organizationCertificationDocumentUrl(organizationId: string, certId: string): Promise<{ downloadUrl: string; fileName: string | null }> {
+    return this.request(`/organizations/${organizationId}/certifications/${certId}/document`);
+  }
+
+  removeOrganizationCertificationDocument(organizationId: string, certId: string): Promise<OrganizationCertificationSummary> {
+    return this.request(`/organizations/${organizationId}/certifications/${certId}/document`, { method: "DELETE" });
+  }
+
   archiveOrganizationCertification(organizationId: string, certId: string): Promise<void> {
     return this.request(`/organizations/${organizationId}/certifications/${certId}`, { method: "DELETE" });
   }

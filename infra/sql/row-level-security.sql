@@ -329,6 +329,11 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_certifications AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.organization_certifications AFTER UPDATE,
 
+    -- network_saved_searches: saved Find-suppliers searches (2026-10-23).
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.network_saved_searches,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.network_saved_searches AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.network_saved_searches AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER UPDATE,
