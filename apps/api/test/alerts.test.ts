@@ -33,6 +33,7 @@ describe("alerts", () => {
       await tx.networkSavedSearch.create({ data: { organizationId: otherSearcher, name: "Alerts off", criteriaJson: JSON.stringify({ country: ["KE"] }), alertsEnabled: false } });
       await tx.supplierProfile.create({ data: { organizationId: publisher, description: "Antimalarials", publishedAt: new Date() } });
       await tx.organizationScope.create({ data: { organizationId: publisher, scopeSubId: "pharma-antimalarials" } });
+      await tx.country.upsert({ where: { code: "KE" }, update: {}, create: { code: "KE", name: "Kenya", regionCode: "AF" } });
       await tx.organizationCountryPresence.create({ data: { organizationId: publisher, countryCode: "KE" } });
       await tx.organizationCertification.create({ data: { organizationId: searcher, type: "GMP", title: "GMP certificate", expiresOn: new Date(Date.now() + 20 * 86_400_000) } });
     });
