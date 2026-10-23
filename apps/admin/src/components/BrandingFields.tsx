@@ -65,6 +65,7 @@ export function LogoField({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [broken, setBroken] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   const url = apiClient.assetUrl(logoUrl);
 
   async function pick(e: ChangeEvent<HTMLInputElement>) {
@@ -77,7 +78,16 @@ export function LogoField({
     }
     setBusy(true);
     setError(null);
+    setNote(null);
     try {
+      const dims = await imageSize(file);
+      if (dims) {
+        if (dims.w > 2000 || dims.h > 2000) throw new Error(`That image is ${dims.w} × ${dims.h} px, which is larger than needed. Please resize it to ${isIcon ? "128 × 128" : "around 300 × 68"} px or smaller.`);
+        const ratio = dims.w / dims.h;
+        if (isIcon && (ratio > 1.3 || ratio < 0.77)) setNote(`Uploaded, but the icon is ${dims.w} × ${dims.h} px and not square, so it will be cropped or shrunk in small spaces. A square mark works best.`);
+        else if (!isIcon && ratio < 1.5) setNote(`Uploaded, but the logo is ${dims.w} × ${dims.h} px and fairly square. A wide logo (about 4:1) fits the menu header best; consider also adding a square icon.`);
+        else if (Math.min(dims.w, dims.h) < (isIcon ? 48 : 24)) setNote(`Uploaded, but at ${dims.w} × ${dims.h} px it may look blurry. A larger image is safer.`);
+      }
       const r = await apiClient.uploadOrganizationLogo(organizationId, file, variant);
       setBroken(false);
       onChanged(r.logoUrl);
@@ -126,8 +136,8 @@ export function LogoField({
             <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{url ? `Can't load ${noun}` : isIcon ? "None" : "No logo — Universe logo shown"}</span>
           )}
         </div>
-        <label style={{ display: "inline-block" }}>
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={pick} disabled={busy} style={{ display: "none" }} />
+        <label style={{ display: "inline-block", position: "relative" }}>
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={pick} disabled={busy} aria-label={`Choose ${noun} image`} style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden" }} />
           <span
             style={{
               display: "inline-block",
@@ -150,6 +160,25 @@ export function LogoField({
         )}
       </div>
       {error && <Notice tone="error">{error}</Notice>}
+      {note && !error && <Notice tone="info">{note}</Notice>}
     </Field>
   );
+}
+
+/** Pixel size of a raster image, or null when it cannot be read (SVG scales, so it is skipped). */
+function imageSize(file: File): Promise<{ w: number; h: number } | null> {
+  if (file.type === "image/svg+xml") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      resolve(null);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
 }
