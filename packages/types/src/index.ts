@@ -1,3 +1,4 @@
+export * from "./category-codes";
 /**
  * Shared, hand-written types used across apps for shapes that don't map
  * 1:1 onto a Prisma model (API request/response DTOs, computed fields, etc.).
