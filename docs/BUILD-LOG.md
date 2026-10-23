@@ -878,3 +878,4 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - Saved supplier and tender searches passed a live test (save, reload, apply, toggle alerts, delete).
 - Alerts verified by `alerts.test.ts` against the RLS database (CI green): a matching alert-enabled supplier search is notified when an organisation publishes, an alerts-off search is not, and each certification expiry stage is sent once.
 - Live checks: Find tenders saved search passed (save, reload, apply restores the scope filter, alerts toggle, delete). Organisation cards in Project Management could not be exercised live because the demo partners have no registry link to a published organisation.
+- 2026-10-24: touch targets. Pill buttons (Break down by, status chips) and organisation-name links are 44px tall on phones and touch screens via a shared `.u-touch` class in tokens.css. Checked live at 375px: no horizontal overflow.
