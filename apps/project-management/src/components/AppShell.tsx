@@ -13,6 +13,7 @@ import {
   readableTextOn,
   Breadcrumbs,
   MobileBrand,
+  MobileAppTag,
   NotificationBell,
   DashboardIcon,
   ProjectsIcon,
@@ -237,6 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <DashboardIcon size={20} />
                 </button>
+                <MobileAppTag currentApp="project-management" />
                 <MobileBrand logoUrl={brandLogoUrl} iconUrl={brandIconUrl} name={me?.organizationName ?? ""} />
                 <Breadcrumbs items={crumbsFor(pathname)} LinkComponent={Link} />
               </div>

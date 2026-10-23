@@ -413,12 +413,16 @@ input[type="checkbox"], input[type="radio"] {
   }
 }
 /* Organisation mark in the header, phones/tablets only (the sidebar drawer hides the usual one). */
-.u-mobile-brand {
+.u-mobile-brand,
+.u-mobile-app-tag {
   display: none;
 }
 @media (max-width: 900px) {
   .u-mobile-brand {
     display: flex;
+  }
+  .u-mobile-app-tag {
+    display: inline-flex;
   }
 }
 @keyframes u-scrim-in {

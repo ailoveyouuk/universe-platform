@@ -32,3 +32,5 @@ export { MobileBrand } from "./MobileBrand";
 export * from "./Notifications";
 export * from "./GlobalSearch";
 export * from "./RankedTile";
+
+export { MobileAppTag } from "./MobileAppTag";
