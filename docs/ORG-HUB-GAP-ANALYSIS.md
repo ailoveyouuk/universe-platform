@@ -48,3 +48,13 @@ Decision (Lewis, 2026-10-23): Admin is the central hub for an organisation's det
 
 ## Prod steps for Lewis
 Re-run the regenerated RLS one-paste SQL after step 4 (two new tenant tables).
+
+## Status (2026-10-23, end of day)
+All six build steps are done and live: hub shell, directory profile editor, manufacturer profile, scope of supply and certifications (with derived demonstrated scope), shared read-only organisation card with "Edit profile" into Admin, and the network directory (Find suppliers in Tenders) with scope-aware Find tenders. Production RLS for the new tables (`manufacturer-profiles-rls.sql`, `org-scope-certifications-rls.sql`) has been run by Lewis (results 3 and 6).
+
+Open follow-ups:
+- Demonstrated scope uses tender bids and awards only; product source approvals need partners linked to organisations.
+- Organisation card is wired into Tenders only; Project Management and Product Database have no organisation-level names yet.
+- No saved supplier searches or alerts; the Supplier Portal app itself is unchanged.
+- Certificates hold details only, with no document upload yet; certification expiry has no reminder notifications yet.
+- Standing rule: every new section gets a four-tile drilldown dashboard and full-depth filters (see BUILD-LOG 2026-10-23).
