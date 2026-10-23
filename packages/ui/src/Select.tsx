@@ -114,18 +114,23 @@ export function Select({
           position: "absolute",
           top: "calc(100% + 6px)",
           left: shift,
-          minWidth: "100%",
+          minWidth: open ? "100%" : 0,
+          // Closed: zero width so the (clipped) panel adds nothing to the page's scrollable area.
+          width: open ? undefined : 0,
           maxWidth: "calc(100vw - 32px)",
           backgroundColor: "var(--u-surface-raised)",
           backgroundImage:
             "linear-gradient(color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 7%, transparent), color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 7%, transparent))",
-          border: "1px solid var(--u-border)",
+          border: open ? "1px solid var(--u-border)" : "0 solid transparent",
           borderRadius: "var(--u-radius-md)",
-          boxShadow: "var(--u-shadow-card)",
+          boxShadow: open ? "var(--u-shadow-card)" : "none",
           overflow: "hidden auto",
           maxHeight: open ? Math.min(all.length * 38 + 8, 320) : 0,
           opacity: open ? 1 : 0,
-          transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease",
+          // A closed panel must not widen the page: hidden (after the close animation) and not clickable.
+          visibility: open ? "visible" : "hidden",
+          pointerEvents: open ? "auto" : "none",
+          transition: `max-height 240ms cubic-bezier(0.4,0,0.2,1), opacity 180ms ease, visibility 0s linear ${open ? "0s" : "240ms"}`,
           zIndex: 50,
         }}
       >
