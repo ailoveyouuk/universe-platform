@@ -39,6 +39,17 @@ export class UpsertTenderingBodyProfileDto {
   @IsOptional() @IsString() scaleServedSummary?: string;
 }
 
+export class UpsertManufacturerProfileDto {
+  @IsOptional() @IsArray() @IsString({ each: true }) productCategoriesManufactured?: string[];
+  @IsOptional() @IsBoolean() whoPrequalified?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) sraApprovals?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) nationalRegistrations?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) otherCertifications?: string[];
+  @IsOptional() @IsString() productionCapacitySummary?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) currentExportMarkets?: string[];
+  @IsOptional() @IsBoolean() isLocalManufacturer?: boolean;
+}
+
 export class UpsertFunderProfileDto {
   @IsOptional() @IsArray() @IsString({ each: true }) fundingFocusAreas?: string[];
   @IsOptional() @IsString() notes?: string;

@@ -2303,6 +2303,20 @@ export interface OrganizationManufacturerSiteSummary {
   createdAt: string;
 }
 
+export interface ManufacturerProfileSummary {
+  organizationId: string;
+  productCategoriesManufactured: string[];
+  whoPrequalified: boolean;
+  sraApprovals: string[];
+  /** ISO 3166-1 alpha-2 codes. */
+  nationalRegistrations: string[];
+  otherCertifications: string[];
+  productionCapacitySummary: string | null;
+  /** ISO 3166-1 alpha-2 codes. */
+  currentExportMarkets: string[];
+  isLocalManufacturer: boolean;
+}
+
 export interface FunderProfileSummary {
   organizationId: string;
   fundingFocusAreas: string[];

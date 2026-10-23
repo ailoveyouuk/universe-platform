@@ -21,6 +21,7 @@ import {
   StatusChip,
   inputStyle,
 } from "../../../components/form";
+import { ManufacturerProfileSection } from "../../../components/ManufacturerProfileSection";
 import { DirectoryProfileSection } from "../../../components/DirectoryProfileSection";
 import { UsersView } from "../../../components/UsersView";
 import { RolesView } from "../../../components/RolesView";
@@ -378,6 +379,7 @@ export function OrganizationDetailView() {
       <CountryPresenceSection organizationId={org.id} />
       <DemoAccessSection organizationId={org.id} />
       <CategoryProfileSection org={org} />
+      {org.type === "MANUFACTURER" && <ManufacturerProfileSection organizationId={org.id} />}
       {org.type === "MANUFACTURER" && <ManufacturerSitesSection organizationId={org.id} />}
       <ContributorVisibilitySection org={org} onChanged={(o) => setOrg({ ...org, ...o })} />
       <ConsentSection organizationId={org.id} />

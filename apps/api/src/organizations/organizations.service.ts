@@ -11,6 +11,7 @@ import type {
   TenderingBodyProfileSummary,
   OrganizationManufacturerSiteSummary,
   FunderProfileSummary,
+  ManufacturerProfileSummary,
   DataInsightsUserProfileSummary,
 } from "@universe/types";
 import { assertPlatformStaff, assertCanManageOrg } from "../common/authorization";
@@ -23,6 +24,7 @@ import type {
   UpsertProcurementAgentProfileDto,
   UpsertTenderingBodyProfileDto,
   UpsertFunderProfileDto,
+  UpsertManufacturerProfileDto,
   UpsertDataInsightsUserProfileDto,
   AddManufacturerSiteDto,
 } from "./dto/org-type-profiles.dto";
@@ -476,6 +478,43 @@ export class OrganizationsService {
       }),
     );
     return (await this.getTenderingBodyProfile(caller, organizationId))!;
+  }
+
+  async getManufacturerProfile(caller: RequestUser, organizationId: string): Promise<ManufacturerProfileSummary | null> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+    const row = await runInContext((tx: any) => tx.manufacturerProfile.findUnique({ where: { organizationId } }));
+    if (!row) return null;
+    return {
+      organizationId: row.organizationId,
+      productCategoriesManufactured: fromJsonArray(row.productCategoriesManufactured),
+      whoPrequalified: !!row.whoPrequalified,
+      sraApprovals: fromJsonArray(row.sraApprovals),
+      nationalRegistrations: fromJsonArray(row.nationalRegistrations),
+      otherCertifications: fromJsonArray(row.otherCertifications),
+      productionCapacitySummary: row.productionCapacitySummary ?? null,
+      currentExportMarkets: fromJsonArray(row.currentExportMarkets),
+      isLocalManufacturer: !!row.isLocalManufacturer,
+    };
+  }
+
+  async upsertManufacturerProfile(caller: RequestUser, organizationId: string, dto: UpsertManufacturerProfileDto): Promise<ManufacturerProfileSummary> {
+    assertCanManageOrg(caller, organizationId, "org.profile.manage");
+    const runInContext = (fn: (tx: any) => Promise<any>): Promise<any> => (caller.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(organizationId, fn));
+    const data = {
+      productCategoriesManufactured: toJsonArray(dto.productCategoriesManufactured),
+      whoPrequalified: dto.whoPrequalified,
+      sraApprovals: toJsonArray(dto.sraApprovals),
+      nationalRegistrations: toJsonArray(dto.nationalRegistrations),
+      otherCertifications: toJsonArray(dto.otherCertifications),
+      productionCapacitySummary: dto.productionCapacitySummary,
+      currentExportMarkets: toJsonArray(dto.currentExportMarkets),
+      isLocalManufacturer: dto.isLocalManufacturer,
+    };
+    await runInContext((tx: any) =>
+      tx.manufacturerProfile.upsert({ where: { organizationId }, update: data, create: { organizationId, ...data } }),
+    );
+    return (await this.getManufacturerProfile(caller, organizationId))!;
   }
 
   async getFunderProfile(caller: RequestUser, organizationId: string): Promise<FunderProfileSummary | null> {

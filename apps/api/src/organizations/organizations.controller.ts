@@ -9,6 +9,7 @@ import {
   UpsertProcurementAgentProfileDto,
   UpsertTenderingBodyProfileDto,
   UpsertFunderProfileDto,
+  UpsertManufacturerProfileDto,
   UpsertDataInsightsUserProfileDto,
   AddManufacturerSiteDto,
 } from "./dto/org-type-profiles.dto";
@@ -131,6 +132,16 @@ export class OrganizationsController {
     @Body() dto: UpsertTenderingBodyProfileDto,
   ) {
     return this.organizationsService.upsertTenderingBodyProfile(user, id, dto);
+  }
+
+  @Get(":id/manufacturer-profile")
+  getManufacturerProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.organizationsService.getManufacturerProfile(user, id);
+  }
+
+  @Put(":id/manufacturer-profile")
+  upsertManufacturerProfile(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpsertManufacturerProfileDto) {
+    return this.organizationsService.upsertManufacturerProfile(user, id, dto);
   }
 
   @Get(":id/funder-profile")

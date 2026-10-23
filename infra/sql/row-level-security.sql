@@ -316,6 +316,11 @@ CREATE SECURITY POLICY rls.TenantAccessPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_sites AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_sites AFTER UPDATE,
 
+    -- manufacturer_profiles: gap found 2026-10-23 when the profile editor was built (the table had organizationId but no policy).
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_profiles,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_profiles AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.manufacturer_profiles AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.funder_profiles AFTER UPDATE,

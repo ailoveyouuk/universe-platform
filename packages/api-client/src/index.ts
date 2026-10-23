@@ -119,6 +119,7 @@ import type {
   TenderingBodyProfileSummary,
   OrganizationManufacturerSiteSummary,
   FunderProfileSummary,
+  ManufacturerProfileSummary,
   DataInsightsUserProfileSummary,
   SupplierLead,
   SupplierProduct,
@@ -1281,6 +1282,14 @@ export class UniverseApiClient {
       method: "PUT",
       body: JSON.stringify(input),
     });
+  }
+
+  getManufacturerProfile(organizationId: string): Promise<ManufacturerProfileSummary | null> {
+    return this.request(`/organizations/${organizationId}/manufacturer-profile`);
+  }
+
+  upsertManufacturerProfile(organizationId: string, input: Partial<ManufacturerProfileSummary>): Promise<ManufacturerProfileSummary> {
+    return this.request(`/organizations/${organizationId}/manufacturer-profile`, { method: "PUT", body: JSON.stringify(input) });
   }
 
   getFunderProfile(organizationId: string): Promise<FunderProfileSummary | null> {
