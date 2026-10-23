@@ -21,6 +21,7 @@ import {
   StatusChip,
   inputStyle,
 } from "../../../components/form";
+import { DirectoryProfileSection } from "../../../components/DirectoryProfileSection";
 import { UsersView } from "../../../components/UsersView";
 import { RolesView } from "../../../components/RolesView";
 import { ActivityView } from "../../../components/ActivityView";
@@ -373,6 +374,7 @@ export function OrganizationDetailView() {
         </div>
       </Section>
 
+      {org.type !== "FUNDER_DONOR" && org.type !== "DATA_INSIGHTS_USER" && <DirectoryProfileSection organizationId={org.id} />}
       <CountryPresenceSection organizationId={org.id} />
       <DemoAccessSection organizationId={org.id} />
       <CategoryProfileSection org={org} />
