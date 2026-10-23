@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { NetworkSearchesService } from "../src/supplier-directory/network-searches.service";
 import { SupplierDirectoryService } from "../src/supplier-directory/supplier-directory.service";
 import { StakeholderRegistryService } from "../src/stakeholder-registry/stakeholder-registry.service";
 import { OrgScopeCertsService, certificationStatus } from "../src/organizations/org-scope-certs.service";
@@ -15,7 +16,7 @@ const blob = {
   deleteBlob: async (_o: string, b: string) => { deleted.push(b); },
 };
 const svc = new OrgScopeCertsService(blob as never);
-const dir = new SupplierDirectoryService(new StakeholderRegistryService());
+const dir = new SupplierDirectoryService(new StakeholderRegistryService(), new NetworkSearchesService());
 let orgA = "", orgB = "";
 const asAdmin = (organizationId: string) =>
   ({ id: randomUUID(), organizationId, permissions: ["org.profile.manage"], platformStaffRole: "NONE", inDemoOrganization: false, forename: "T", surname: "A", email: "t@example.org" }) as unknown as RequestUser;

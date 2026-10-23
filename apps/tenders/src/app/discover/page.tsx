@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type { TenderAvailableItem, TenderAvailableResult, TenderSavedSearchRecord } from "@universe/types";
+import type { TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord } from "@universe/types";
 import { SCOPE_TAXONOMY } from "@universe/types";
 import { Button, CheckCircleIcon, ClockIcon, CountrySelect, GlobeIcon, Pill, SearchIcon, SearchInput, Select, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
+import { SavedSearchesPanel } from "../../components/SavedSearchesPanel";
 import { CHIP_LABEL, CHIP_TONE, Card, ErrorNote, Heading, Page, TYPE_LABEL, daysUntil, fmtDateTime } from "../../lib/ui";
 
 const CHIPS = ["ELIGIBLE", "ALMOST_ELIGIBLE", "NOT_ELIGIBLE", "INVITED", "PARTICIPATING", "SHORTLISTED", "CLOSING_SOON", "CLOSED"];
@@ -27,7 +28,6 @@ export default function DiscoverPage() {
   const [forYou, setForYou] = useState<TenderAvailableItem[]>([]);
   const [searches, setSearches] = useState<TenderSavedSearchRecord[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const [name, setName] = useState("");
   const [more, setMore] = useState(false);
   const [by, setBy] = useState<"" | "issuers" | "countries" | "categories">("");
 
@@ -45,13 +45,25 @@ export default function DiscoverPage() {
   const countryName = (code: string) => countries.find((c) => c.code === code)?.name ?? code;
   const activeCount = (Object.keys(EMPTY) as (keyof Filters)[]).filter((k) => k !== "sort" && f[k] !== EMPTY[k]).length;
 
-  const saveSearch = async () => {
-    try {
-      await apiClient.saveTenderSearch({ name: name.trim(), keyword: f.keyword || undefined, countries: f.country ? [f.country] : undefined, types: f.type ? [f.type] : undefined, onlyEligible: f.chip === "ELIGIBLE" || undefined, alertsEnabled: true });
-      setName(""); setSearches(await apiClient.listTenderSavedSearches());
-    } catch (e) { setErr(e instanceof Error ? e.message : "Could not save the search."); }
+  const toCriteria = (): TenderSavedSearchCriteria => ({
+    keyword: f.keyword || undefined, countries: f.country ? [f.country] : undefined, types: f.type ? [f.type] : undefined, categories: f.category ? [f.category] : undefined,
+    onlyEligible: f.chip === "ELIGIBLE" || undefined, chip: f.chip || undefined, issuer: f.issuer || undefined, currency: f.currency || undefined, scopeMatch: f.scopeMatch || undefined,
+    status: f.status || undefined, closingWithinDays: Number(f.closingWithinDays) || undefined, publishedWithinDays: Number(f.publishedWithinDays) || undefined, shortlisted: f.shortlisted || undefined,
+  });
+  const apply = (s: TenderSavedSearchRecord) => {
+    const c = s.criteria;
+    set({
+      ...EMPTY, sort: f.sort, keyword: c.keyword ?? "", country: c.countries?.[0] ?? "", type: c.types?.[0] ?? "", category: c.categories?.[0] ?? "",
+      chip: c.chip ?? (c.onlyEligible ? "ELIGIBLE" : ""), issuer: c.issuer ?? "", currency: c.currency ?? "", scopeMatch: !!c.scopeMatch, status: c.status ?? "",
+      closingWithinDays: c.closingWithinDays ? String(c.closingWithinDays) : "", publishedWithinDays: c.publishedWithinDays ? String(c.publishedWithinDays) : "", shortlisted: !!c.shortlisted,
+    });
+    setMore(true);
   };
-  const apply = (s: TenderSavedSearchRecord) => set({ keyword: s.criteria.keyword ?? "", country: s.criteria.countries?.[0] ?? "", type: s.criteria.types?.[0] ?? "", chip: s.criteria.onlyEligible ? "ELIGIBLE" : "" });
+  const describe = (c: TenderSavedSearchCriteria) => [
+    c.keyword && `“${c.keyword}”`, c.types?.length && (TYPE_LABEL[c.types[0] as keyof typeof TYPE_LABEL] ?? c.types[0]), c.countries?.length && countryName(c.countries[0]), c.categories?.length && c.categories[0],
+    c.issuer && `Issuer: ${c.issuer}`, c.currency, c.scopeMatch && "Matches my scope", (c.chip || c.onlyEligible) && (CHIP_LABEL[(c.chip ?? "ELIGIBLE") as keyof typeof CHIP_LABEL] ?? c.chip),
+    c.status && c.status.toLowerCase(), c.closingWithinDays && `Closing in ${c.closingWithinDays} days`, c.publishedWithinDays && `Published in ${c.publishedWithinDays} days`, c.shortlisted && "Shortlisted",
+  ].filter(Boolean).join(" · ");
   const facet = by ? res?.facets?.[by] ?? [] : [];
   const pick = (key: string) => (by === "issuers" ? set({ issuer: f.issuer === key ? "" : key }) : by === "countries" ? set({ country: f.country === key ? "" : key }) : set({ category: f.category === key ? "" : key }));
   const picked = by === "issuers" ? f.issuer : by === "countries" ? f.country : f.category;
@@ -120,17 +132,17 @@ export default function DiscoverPage() {
         {rows?.length === 0 && <div style={{ padding: 20, color: "var(--u-ink-secondary)" }}>No tenders match.</div>}
         {rows?.map((t) => <Row key={t.id} t={t} bordered />)}
       </Card>
-      <Card title="Saved searches">
-        {searches.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>{searches.map((s) => (
-          <span key={s.id} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-            <Button variant="secondary" onClick={() => apply(s)}>{s.name}</Button>
-            <button type="button" aria-label={`Delete ${s.name}`} onClick={async () => { await apiClient.deleteTenderSavedSearch(s.id); setSearches((x) => x.filter((y) => y.id !== s.id)); }} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}>✕</button>
-          </span>))}</div>}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input aria-label="Name this search" placeholder="Name the current filters to save them and get alerts" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1, minWidth: 220, padding: "8px 10px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13.5 }} />
-          <Button variant="primary" disabled={!name.trim()} onClick={saveSearch}>Save search</Button>
-        </div>
-      </Card>
+      <SavedSearchesPanel
+        title="Saved searches" noun="tender" canSave={activeCount > 0}
+        rows={searches.map((x) => ({ id: x.id, name: x.name, alertsEnabled: x.alertsEnabled, summary: describe(x.criteria) }))}
+        onSave={async (name, alertsEnabled) => {
+          try { await apiClient.saveTenderSearch({ ...toCriteria(), name, alertsEnabled }); setSearches(await apiClient.listTenderSavedSearches()); }
+          catch (e) { setErr(e instanceof Error ? e.message : "Could not save the search."); }
+        }}
+        onApply={(id) => { const x = searches.find((y) => y.id === id); if (x) apply(x); }}
+        onToggleAlerts={async (id, enabled) => { await apiClient.updateTenderSavedSearch(id, { alertsEnabled: enabled }); setSearches((x) => x.map((y) => (y.id === id ? { ...y, alertsEnabled: enabled } : y))); }}
+        onDelete={async (id) => { await apiClient.deleteTenderSavedSearch(id); setSearches((x) => x.filter((y) => y.id !== id)); }}
+      />
     </Page>
   );
 }

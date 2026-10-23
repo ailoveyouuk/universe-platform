@@ -1,6 +1,6 @@
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
-  TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
+  TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -331,6 +331,7 @@ export class UniverseApiClient {
   tendersForYou(): Promise<{ tenders: TenderAvailableItem[]; savedSearches: number }> { return this.request("/tenders/for-you"); }
   listTenderSavedSearches(): Promise<TenderSavedSearchRecord[]> { return this.request("/tenders/saved-searches"); }
   saveTenderSearch(body: TenderSavedSearchCriteria & { name: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request("/tenders/saved-searches", { method: "POST", body: JSON.stringify(body) }); }
+  updateTenderSavedSearch(id: string, body: { name?: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request(`/tenders/saved-searches/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   deleteTenderSavedSearch(id: string): Promise<unknown> { return this.request(`/tenders/saved-searches/${id}`, { method: "DELETE" }); }
   viewTender(id: string): Promise<TenderParticipantView> { return this.request(`/tenders/${id}/view`); }
   expressTenderInterest(id: string, body: { integrityPledge?: boolean; exclusion?: { noGrounds: boolean; grounds?: string[]; explanation?: string } }): Promise<unknown> { return this.request(`/tenders/${id}/interest`, { method: "POST", body: JSON.stringify(body) }); }
@@ -1487,6 +1488,11 @@ export class UniverseApiClient {
     const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => !!v).map(([k, v]) => [k, String(v)])).toString();
     return this.request(`/supplier-directory/network${qs ? `?${qs}` : ""}`);
   }
+
+  listNetworkSavedSearches(): Promise<NetworkSavedSearchRecord[]> { return this.request("/supplier-directory/network/searches"); }
+  saveNetworkSearch(body: NetworkSearchCriteria & { name: string; alertsEnabled?: boolean }): Promise<{ id: string }> { return this.request("/supplier-directory/network/searches", { method: "POST", body: JSON.stringify(body) }); }
+  updateNetworkSavedSearch(id: string, body: { name?: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request(`/supplier-directory/network/searches/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  deleteNetworkSavedSearch(id: string): Promise<unknown> { return this.request(`/supplier-directory/network/searches/${id}`, { method: "DELETE" }); }
 
   getSupplierProfile(organizationId: string): Promise<SupplierProfile & { countryCodes: string[] }> {
     return this.request(`/supplier-directory/profile/${organizationId}`);

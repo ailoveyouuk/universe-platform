@@ -93,6 +93,19 @@ export class SavedSearchDto {
   @IsOptional() @IsArray() @IsString({ each: true }) types?: string[];
   @IsOptional() @IsBoolean() onlyEligible?: boolean;
   @IsOptional() @IsString() keyword?: string;
+  @IsOptional() @IsString() @Length(0, 200) issuer?: string;
+  @IsOptional() @IsString() @Length(0, 3) currency?: string;
+  @IsOptional() @IsBoolean() scopeMatch?: boolean;
+  @IsOptional() @IsString() chip?: string;
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsInt() @Min(1) @Max(3650) closingWithinDays?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(3650) publishedWithinDays?: number;
+  @IsOptional() @IsBoolean() shortlisted?: boolean;
+  @IsOptional() @IsBoolean() alertsEnabled?: boolean;
+}
+
+export class UpdateSavedSearchDto {
+  @IsOptional() @IsString() @Length(1, 200) name?: string;
   @IsOptional() @IsBoolean() alertsEnabled?: boolean;
 }
 

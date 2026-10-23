@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -9,12 +9,19 @@ import {
   UpsertOrgDirectoryProfileDto,
   UpsertSupplierProfileDto,
 } from "./dto/supplier-directory.dto";
+import { SaveNetworkSearchDto, UpdateNetworkSearchDto } from "./dto/network-search.dto";
+import { NetworkSearchesService } from "./network-searches.service";
 import { SupplierDirectoryService } from "./supplier-directory.service";
 
 @Controller("supplier-directory")
 @UseGuards(EntraAuthGuard)
 export class SupplierDirectoryController {
-  constructor(private readonly supplierDirectoryService: SupplierDirectoryService) {}
+  constructor(private readonly supplierDirectoryService: SupplierDirectoryService, private readonly networkSearches: NetworkSearchesService) {}
+
+  @Get("network/searches") listNetworkSearches(@CurrentUser() user: RequestUser) { return this.networkSearches.list(user); }
+  @Post("network/searches") saveNetworkSearch(@CurrentUser() user: RequestUser, @Body() dto: SaveNetworkSearchDto) { return this.networkSearches.save(user, dto); }
+  @Patch("network/searches/:id") updateNetworkSearch(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateNetworkSearchDto) { return this.networkSearches.update(user, id, dto); }
+  @Delete("network/searches/:id") deleteNetworkSearch(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.networkSearches.remove(user, id); }
 
   @Get("network")
   network(

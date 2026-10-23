@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { assertCanManageOrg, assertNotDemoUser } from "../common/authorization";
+import { NetworkSearchesService } from "./network-searches.service";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
@@ -41,7 +42,7 @@ import type {
  */
 @Injectable()
 export class SupplierDirectoryService {
-  constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
+  constructor(private readonly stakeholderRegistryService: StakeholderRegistryService, private readonly networkSearches: NetworkSearchesService) {}
 
   /** Anyone authenticated can search — this is the marketplace's core
    * function, not gated by a specific permission (buyers and suppliers
@@ -196,6 +197,7 @@ export class SupplierDirectoryService {
     // whether that company's profile happens to be published right now.
     if (published) {
       await this.stakeholderRegistryService.reconcileOnPublish(caller.organizationId);
+      await this.networkSearches.alertOnPublish(caller.organizationId);
     }
     return result;
   }
@@ -277,7 +279,10 @@ export class SupplierDirectoryService {
       });
       return saved;
     });
-    if (published) await this.stakeholderRegistryService.reconcileOnPublish(organizationId);
+    if (published) {
+      await this.stakeholderRegistryService.reconcileOnPublish(organizationId);
+      if (!(existing as any).publishedAt) await this.networkSearches.alertOnPublish(organizationId);
+    }
     return this.toOrgProfile(organizationId, row);
   }
 

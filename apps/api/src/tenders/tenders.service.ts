@@ -327,11 +327,13 @@ export class TendersService {
   }
 
   /** "A new tender matches your saved search": runs after publication, across organisations, in a platform-staff context. */
-  private async alertSavedSearches(user: RequestUser, t: { id: string; organizationId: string; referenceNumber: string; title: string; summary: string | null; tenderType: string; deliveryCountryCodes: string | null }, skip: Set<string>) {
-    const categories = await withTenantContext(user.organizationId, async (tx) => {
+  private async alertSavedSearches(user: RequestUser, t: { id: string; organizationId: string; referenceNumber: string; title: string; summary: string | null; tenderType: string; deliveryCountryCodes: string | null; currency?: string | null }, skip: Set<string>) {
+    const { categories, scopeSubs, issuerName } = await withTenantContext(user.organizationId, async (tx) => {
       const lines = await tx.tenderLine.findMany({ where: { tenderId: t.id, productMasterId: { not: null } }, select: { productMasterId: true } });
       const ids = [...new Set(lines.map((l) => l.productMasterId!))];
-      return [...new Set((await tx.productMaster.findMany({ where: { id: { in: ids } }, select: { category: true } })).map((p) => p.category))];
+      const products = await tx.productMaster.findMany({ where: { id: { in: ids } }, select: { category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
+      const org = await tx.organization.findUnique({ where: { id: t.organizationId }, select: { name: true } });
+      return { categories: [...new Set(products.map((p) => p.category))], scopeSubs: [...new Set(products.flatMap((p: any) => scopeSubsForProduct(p)))] as string[], issuerName: org?.name ?? "" };
     });
     const matched = await withPlatformStaffContext(async (tx) => {
       const searches = await tx.tenderSavedSearch.findMany({ where: { alertsEnabled: true, organizationId: { not: t.organizationId } }, take: 5000 });
@@ -340,7 +342,11 @@ export class TendersService {
         if (skip.has(s.organizationId) || orgs.has(s.organizationId)) continue;
         let c: SavedCriteria = {};
         try { c = JSON.parse(s.criteriaJson); } catch { continue; }
-        if (matchesSavedSearch(c, { ...t, categories })) orgs.set(s.organizationId, s.name);
+        let declared: Set<string> | undefined;
+        if (c.scopeMatch) {
+          declared = new Set((await tx.organizationScope.findMany({ where: { organizationId: s.organizationId, archivedAt: null }, select: { scopeSubId: true } })).map((r: any) => r.scopeSubId));
+        }
+        if (matchesSavedSearch(c, { ...t, categories, issuerName, currency: t.currency ?? null, scopeSubs }, declared)) orgs.set(s.organizationId, s.name);
       }
       return orgs;
     });
@@ -687,6 +693,17 @@ export class TendersService {
     });
   }
 
+  async updateSearch(user: RequestUser, id: string, dto: { name?: string; alertsEnabled?: boolean }) {
+    assertHasPermission(user, "tenders.view");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const r = await tx.tenderSavedSearch.updateMany({
+        where: { id, organizationId: user.organizationId },
+        data: { ...(dto.name !== undefined ? { name: dto.name.trim() } : {}), ...(dto.alertsEnabled !== undefined ? { alertsEnabled: dto.alertsEnabled } : {}) },
+      });
+      return { updated: r.count > 0 };
+    });
+  }
+
   async deleteSearch(user: RequestUser, id: string) {
     assertHasPermission(user, "tenders.view");
     return withTenantContext(user.organizationId, async (tx) => { await tx.tenderSavedSearch.deleteMany({ where: { id, organizationId: user.organizationId } }); return { deleted: true }; });
@@ -698,7 +715,7 @@ export class TendersService {
     const searches = await this.listSavedSearches(user);
     const matching = all.tenders
       .filter((t) => t.status === "PUBLISHED")
-      .filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || t.scopeMatches.length > 0 || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories }) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))));
+      .filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || t.scopeMatches.length > 0 || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories, issuerName: t.issuerName, currency: t.currency, scopeSubs: t.scopeMatches }, new Set(t.scopeMatches)) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))));
     return { tenders: matching.slice(0, 50), savedSearches: searches.length };
   }
 

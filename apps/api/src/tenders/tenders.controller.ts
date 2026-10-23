@@ -14,7 +14,7 @@ import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import {
-  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
+  AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, UpdateSavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
 import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
@@ -50,6 +50,7 @@ export class TendersController {
   @Get("for-you") forYou(@CurrentUser() u: RequestUser) { return this.tenders.forYou(u); }
   @Get("saved-searches") listSearches(@CurrentUser() u: RequestUser) { return this.tenders.listSavedSearches(u); }
   @Post("saved-searches") saveSearch(@CurrentUser() u: RequestUser, @Body() dto: SavedSearchDto) { return this.tenders.saveSearch(u, dto); }
+  @Patch("saved-searches/:id") updateSearch(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: UpdateSavedSearchDto) { return this.tenders.updateSearch(u, id, dto); }
   @Delete("saved-searches/:id") deleteSearch(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.deleteSearch(u, id); }
   @Get(":id/view") view(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.getForParticipant(u, id); }
   @Post(":id/interest") interest(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: InterestDto) { return this.tenders.expressInterest(u, id, dto); }

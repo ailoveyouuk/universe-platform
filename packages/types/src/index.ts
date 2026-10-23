@@ -2365,6 +2365,13 @@ export interface NetworkOrganization {
 
 export interface NetworkFacet { key: string; count: number }
 
+/** The filters of a Find suppliers search, as saved. Lists are arrays of codes/ids. */
+export interface NetworkSearchCriteria {
+  q?: string; type?: string; scope?: string[]; country?: string[]; certType?: string[];
+  certified?: boolean; whoPq?: boolean; localMfr?: boolean; minYears?: number; warehousing?: string;
+}
+export interface NetworkSavedSearchRecord { id: string; name: string; alertsEnabled: boolean; criteria: NetworkSearchCriteria; createdAt: string }
+
 export interface NetworkSearchResult {
   /** Organisations matching the filters (the page below holds at most 50 of them). */
   total: number;
@@ -3590,7 +3597,11 @@ export interface TenderAvailableResult {
   facets?: { issuers: TenderFacet[]; countries: TenderFacet[]; categories: TenderFacet[]; currencies: TenderFacet[] };
   tenders: TenderAvailableItem[];
 }
-export interface TenderSavedSearchCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }
+export interface TenderSavedSearchCriteria {
+  categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string;
+  issuer?: string; currency?: string; scopeMatch?: boolean;
+  chip?: string; status?: string; closingWithinDays?: number; publishedWithinDays?: number; shortlisted?: boolean;
+}
 export interface TenderSavedSearchRecord { id: string; name: string; alertsEnabled: boolean; criteria: TenderSavedSearchCriteria; createdAt: string }
 
 export type BidTemplateKind = "financial" | "technical";

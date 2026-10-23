@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { NetworkSearchesService } from "../src/supplier-directory/network-searches.service";
 import { SupplierDirectoryService } from "../src/supplier-directory/supplier-directory.service";
 import { StakeholderRegistryService } from "../src/stakeholder-registry/stakeholder-registry.service";
 import { OrganizationsService } from "../src/organizations/organizations.service";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 
 const sfx = randomUUID().slice(0, 8);
-const dir = new SupplierDirectoryService(new StakeholderRegistryService());
+const dir = new SupplierDirectoryService(new StakeholderRegistryService(), new NetworkSearchesService());
 const orgs = new OrganizationsService();
 let orgA = "", orgB = "";
 const asAdmin = (organizationId: string) =>

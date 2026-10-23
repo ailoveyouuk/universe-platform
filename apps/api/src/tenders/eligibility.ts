@@ -95,17 +95,33 @@ export function evaluateEligibility(rules: RuleLike[], profile: OrgProfile, opts
   return { outcome, canBid: outcome === "ELIGIBLE" || invited, invited, unmetRequired: failing.length, items };
 }
 
-export interface SavedCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }
-export interface TenderForMatch { title: string; summary?: string | null; tenderType: string; deliveryCountryCodes?: string | null; categories: string[] }
+/**
+ * A saved tender search. The first group is what an alert can be matched on when a tender is published; the second group (chip, status, windows, shortlisted)
+ * describes the current state of a tender for you and is only restored into the Find tenders filters, never used for alerts.
+ */
+export interface SavedCriteria {
+  categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string;
+  issuer?: string; currency?: string; scopeMatch?: boolean;
+  chip?: string; status?: string; closingWithinDays?: number; publishedWithinDays?: number; shortlisted?: boolean;
+}
+export interface TenderForMatch {
+  title: string; summary?: string | null; tenderType: string; deliveryCountryCodes?: string | null; categories: string[];
+  issuerName?: string; currency?: string | null;
+  /** Scope-of-supply categories the tender's catalogue lines fall into. */
+  scopeSubs?: string[];
+}
 
 /** Does a published tender fit a saved search? (Eligibility is checked separately when onlyEligible is set.) */
-export function matchesSavedSearch(c: SavedCriteria, t: TenderForMatch): boolean {
+export function matchesSavedSearch(c: SavedCriteria, t: TenderForMatch, orgScope?: Set<string>): boolean {
   if (c.types?.length && !c.types.includes(t.tenderType)) return false;
   if (c.countries?.length) {
     const codes = (t.deliveryCountryCodes ?? "").split(",").filter(Boolean);
     if (!c.countries.some((x) => codes.includes(x.toUpperCase()))) return false;
   }
   if (c.categories?.length && !c.categories.some((v) => t.categories.some((tc) => tc === v || tc.startsWith(`${v}.`)))) return false;
+  if (c.issuer?.trim() && !(t.issuerName ?? "").toLowerCase().includes(c.issuer.trim().toLowerCase())) return false;
+  if (c.currency && (t.currency ?? "").toUpperCase() !== c.currency.toUpperCase()) return false;
+  if (c.scopeMatch && !(orgScope && (t.scopeSubs ?? []).some((x) => orgScope.has(x)))) return false;
   if (c.keyword?.trim()) {
     const k = c.keyword.trim().toLowerCase();
     if (!`${t.title} ${t.summary ?? ""}`.toLowerCase().includes(k)) return false;

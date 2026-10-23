@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { NetworkSearchResult } from "@universe/types";
+import type { NetworkSavedSearchRecord, NetworkSearchResult } from "@universe/types";
 import { SCOPE_TAXONOMY } from "@universe/types";
 import { Button, BuildingIcon, CheckCircleIcon, CountryMultiSelect, GlobeIcon, Pill, SearchInput, Select, ShieldIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { OrgName } from "../../components/OrgName";
+import { SavedSearchesPanel } from "../../components/SavedSearchesPanel";
 import { Card, ErrorNote, Heading, Page } from "../../lib/ui";
 
 const ORG_TYPES: Record<string, string> = {
@@ -42,6 +43,8 @@ export default function FindSuppliersPage() {
   const [more, setMore] = useState(false);
   const [by, setBy] = useState<"" | "countries" | "scope" | "certifications" | "types">("");
   const [group, setGroup] = useState("");
+  const [saved, setSaved] = useState<NetworkSavedSearchRecord[]>([]);
+  useEffect(() => { apiClient.listNetworkSavedSearches().then(setSaved).catch(() => undefined); }, []);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -62,6 +65,12 @@ export default function FindSuppliersPage() {
   const isOn = (k: string) => (by === "countries" ? f.countries.includes(k) : by === "scope" ? f.scope.includes(k) : by === "certifications" ? f.certs.includes(k) : f.type === k);
   const pick = (k: string) => (by === "countries" ? set({ countries: toggle(f.countries, k) }) : by === "scope" ? set({ scope: toggle(f.scope, k) }) : by === "certifications" ? set({ certs: toggle(f.certs, k) }) : set({ type: f.type === k ? "" : k }));
   const st = res?.stats;
+  const describe = (c: NetworkSavedSearchRecord["criteria"]) => [
+    c.q && `“${c.q}”`, c.type && (ORG_TYPES[c.type] ?? c.type), c.scope?.length && `${c.scope.length} categor${c.scope.length === 1 ? "y" : "ies"}`,
+    c.country?.length && c.country.map(nameOf).slice(0, 3).join(", ") + (c.country.length > 3 ? ` +${c.country.length - 3}` : ""),
+    c.certType?.length && c.certType.map((t) => CERTS[t] ?? t).join(", "), c.certified && "Certified", c.whoPq && "WHO prequalified", c.localMfr && "Local manufacturer",
+    c.minYears && `${c.minYears}+ years`, c.warehousing && `Warehousing: ${c.warehousing.toLowerCase()}`,
+  ].filter(Boolean).join(" · ");
 
   return (
     <Page>
@@ -160,6 +169,19 @@ export default function FindSuppliersPage() {
           </div>
         )}
       </Card>
+      <SavedSearchesPanel
+        title="Saved searches" noun="supplier" canSave={activeCount > 0}
+        rows={saved.map((s) => ({ id: s.id, name: s.name, alertsEnabled: s.alertsEnabled, summary: describe(s.criteria) }))}
+        onSave={async (name, alertsEnabled) => {
+          try {
+            await apiClient.saveNetworkSearch({ name, alertsEnabled, q: f.q || undefined, type: f.type || undefined, scope: f.scope, country: f.countries, certType: f.certs, certified: f.certified || undefined, whoPq: f.whoPq || undefined, localMfr: f.localMfr || undefined, minYears: Number(f.minYears) || undefined, warehousing: f.warehousing || undefined });
+            setSaved(await apiClient.listNetworkSavedSearches());
+          } catch (e) { setErr(e instanceof Error ? e.message : "Could not save the search."); }
+        }}
+        onApply={(id) => { const c = saved.find((x) => x.id === id)?.criteria; if (c) { setF({ ...EMPTY, sort: f.sort, q: c.q ?? "", type: c.type ?? "", scope: c.scope ?? [], countries: c.country ?? [], certs: c.certType ?? [], certified: !!c.certified, whoPq: !!c.whoPq, localMfr: !!c.localMfr, minYears: c.minYears ? String(c.minYears) : "", warehousing: c.warehousing ?? "" }); setMore(true); } }}
+        onToggleAlerts={async (id, enabled) => { await apiClient.updateNetworkSavedSearch(id, { alertsEnabled: enabled }); setSaved((x) => x.map((y) => (y.id === id ? { ...y, alertsEnabled: enabled } : y))); }}
+        onDelete={async (id) => { await apiClient.deleteNetworkSavedSearch(id); setSaved((x) => x.filter((y) => y.id !== id)); }}
+      />
     </Page>
   );
 }
