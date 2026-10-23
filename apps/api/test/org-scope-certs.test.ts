@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createOrganizationWithDefaultRoles, prisma } from "@universe/db";
+import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { OrgScopeCertsService, certificationStatus } from "../src/organizations/org-scope-certs.service";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
@@ -54,7 +54,7 @@ describe("organisation scope of supply and certifications", () => {
     expect(await svc.listCertifications(asAdmin(orgB), orgB)).toEqual([]);
     await svc.archiveCertification(admin, orgA, c.id);
     expect(await svc.listCertifications(admin, orgA)).toEqual([]);
-    const log = await prisma.fieldChangeLog.count({ where: { tableName: "organization_certifications", recordId: c.id } });
+    const log = await withPlatformStaffContext((tx: any) => tx.fieldChangeLog.count({ where: { tableName: "organization_certifications", recordId: c.id } }));
     expect(log).toBeGreaterThanOrEqual(3);
   });
 });
