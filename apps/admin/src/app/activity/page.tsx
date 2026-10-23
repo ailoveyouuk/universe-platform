@@ -94,7 +94,7 @@ export default function ActivityPage() {
 
       {error && <Notice tone="error">{error}</Notice>}
       {entries === null && <p>Loading…</p>}
-      {entries && entries.length === 0 && !error && <p style={{ color: "var(--u-ink-secondary)" }}>No activity recorded.</p>}
+      {entries && entries.length === 0 && !error && <p style={{ color: "var(--u-ink-secondary)" }}>No activity recorded{isPlatform && !orgId && !includeSimulated ? " for your organisation or any live organisation. Demo and simulated organisations are hidden here: pick one in the organisation filter, or tick the simulated toggle, to see theirs" : ""}.</p>}
       {entries && entries.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {entries.map((e) => {

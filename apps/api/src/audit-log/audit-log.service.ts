@@ -145,7 +145,8 @@ export class AuditLogService {
     if (orgId) where.organizationId = orgId;
     // The all-organisations platform feed leaves out demo and simulated organisations' activity (8,000+ generated
     // rows would bury real activity) unless asked for, or one organisation is selected explicitly.
-    else if (isPlatform && !q.includeSimulated) where.organization = { isDemo: false, isSimulated: false };
+    // The caller's own organisation is always included: Universe Demo is the platform owner's working account, so its activity must show.
+    else if (isPlatform && !q.includeSimulated) where.AND = [{ OR: [{ organization: { isDemo: false, isSimulated: false } }, { organizationId: user.organizationId }] }];
     if (q.tableName) where.tableName = q.tableName;
     if (q.changedById) where.changedById = q.changedById;
     if (cursor) {
