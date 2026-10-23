@@ -846,3 +846,12 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - Wired into Tenders wherever an organisation is named: interested organisations, opened bids, award and bid tables in evaluation, past performance, and the invited list. Project Management and Product Database have no organisation-level names yet (partners are not linked to organisations), so nothing was added there.
 - Test added in `org-scope-certs.test.ts` (hidden until published, no certificate numbers, edit rights).
 - Next: step 6, the network directory (the old Supplier Portal slot) and two-way search.
+
+## 2026-10-23 — Organisation hub step 6: network directory and two-way search
+
+- **Find suppliers** (new page in Tenders): the network directory. `GET /supplier-directory/network` lists organisations that have published their directory profile, searchable by name or description, organisation type, scope-of-supply category (group or subcategory), country of operation (Admin's "Countries of operation", plus the older supplier presence list) and certification held and not expired. Results show scope, certifications and countries as pills and open the shared organisation card. Capped at 50 with a total count. Read in a system context; only published, public fields leave.
+- **Tenders for you** now also includes open tenders whose catalogue lines fall inside the organisation's declared scope, marked "Matches your scope" (also shown on Find tenders rows). Tender lines are read in a system context and only category ids return.
+- The two halves: issuers and donors find suppliers in Find suppliers; suppliers see scope-matched tenders in Find tenders.
+- Branding upload: image pixel size is checked (over 2000 px refused with advice; non-square icon, squarish logo or tiny image get a note) and the picker is keyboard-focusable.
+- Test: network search (published only; scope, certification and type filters).
+- Not done: scope matching uses catalogue-linked lines only (free-text lines have no category); no saved supplier searches; the Supplier Portal app is unchanged.

@@ -122,6 +122,7 @@ import type {
   ManufacturerProfileSummary,
   OrganizationScopeSummary,
   OrganizationCard,
+  NetworkSearchResult,
   OrganizationCertificationSummary,
   SaveOrganizationCertificationInput,
   DataInsightsUserProfileSummary,
@@ -1465,6 +1466,11 @@ export class UniverseApiClient {
       Object.entries(params).filter((entry): entry is [string, string] => entry[1] !== undefined),
     ).toString();
     return this.request(`/supplier-directory/search${query ? `?${query}` : ""}`);
+  }
+
+  searchNetwork(f: { q?: string; type?: string; scope?: string; country?: string; certType?: string }): Promise<NetworkSearchResult> {
+    const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => !!v) as [string, string][]).toString();
+    return this.request(`/supplier-directory/network${qs ? `?${qs}` : ""}`);
   }
 
   getSupplierProfile(organizationId: string): Promise<SupplierProfile & { countryCodes: string[] }> {

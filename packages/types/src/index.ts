@@ -2349,6 +2349,23 @@ export interface OrganizationCard {
   certifications: { type: string; title: string | null; issuingBody: string | null; expiresOn: string | null; status: CertificationStatus }[];
 }
 
+/** One organisation in the network directory (published profiles only). */
+export interface NetworkOrganization {
+  id: string;
+  name: string;
+  type: string;
+  description: string | null;
+  countryCodes: string[];
+  scope: string[];
+  certificationTypes: string[];
+  yearsInOperation: number | null;
+}
+
+export interface NetworkSearchResult {
+  total: number;
+  organizations: NetworkOrganization[];
+}
+
 export interface OrganizationScopeSummary {
   organizationId: string;
   /** Declared: ids from SCOPE_TAXONOMY. */
@@ -3554,6 +3571,8 @@ export interface TenderParticipantView {
 export interface TenderAvailableItem {
   id: string; referenceNumber: string; title: string; summary: string | null; tenderType: TenderType; issuerName: string; deliveryCountryCodes: string | null; currency: string | null;
   publishedAt: string | null; closingAt: string | null; timeZone: string | null; status: TenderStatus; categories: string[]; chips: string[]; unmetRequired: number; canBid: boolean;
+  /** Declared scope-of-supply categories (SCOPE_TAXONOMY ids) that this tender's catalogue lines fall into; only set on "Tenders for you". */
+  scopeMatches?: string[];
 }
 export interface TenderAvailableResult { counts: Record<string, number>; tenders: TenderAvailableItem[] }
 export interface TenderSavedSearchCriteria { categories?: string[]; countries?: string[]; types?: string[]; onlyEligible?: boolean; keyword?: string }

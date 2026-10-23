@@ -16,6 +16,11 @@ import { SupplierDirectoryService } from "./supplier-directory.service";
 export class SupplierDirectoryController {
   constructor(private readonly supplierDirectoryService: SupplierDirectoryService) {}
 
+  @Get("network")
+  network(@CurrentUser() user: RequestUser, @Query("q") q?: string, @Query("type") type?: string, @Query("scope") scope?: string, @Query("country") country?: string, @Query("certType") certType?: string) {
+    return this.supplierDirectoryService.network(user, { q, type, scope, country, certType });
+  }
+
   @Get("search")
   search(@CurrentUser() user: RequestUser, @Query("category") category?: string, @Query("countryCode") countryCode?: string) {
     return this.supplierDirectoryService.search(user, category, countryCode);

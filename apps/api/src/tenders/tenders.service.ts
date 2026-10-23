@@ -10,7 +10,7 @@ import {
   chipsFor, evaluateEligibility, matchesSavedSearch,
   type EligibilityResult, type OrgProfile, type RuleLike, type SavedCriteria,
 } from "./eligibility";
-import { EXCLUSION_GROUNDS } from "@universe/types";
+import { EXCLUSION_GROUNDS, scopeSubsForProduct } from "@universe/types";
 import type {
   CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
@@ -651,12 +651,33 @@ export class TendersService {
     return withTenantContext(user.organizationId, async (tx) => { await tx.tenderSavedSearch.deleteMany({ where: { id, organizationId: user.organizationId } }); return { deleted: true }; });
   }
 
-  /** "Tenders for you": open tenders the organisation is eligible for, or that match a saved search. */
+  /** "Tenders for you": open tenders the organisation is eligible for, that fall inside its declared scope of supply, or that match a saved search. */
   async forYou(user: RequestUser) {
     const all = await this.listAvailable(user, { sort: "closing" });
     const searches = await this.listSavedSearches(user);
     const open = all.tenders.filter((t) => t.status === "PUBLISHED");
-    const matching = open.filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories }) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))));
+    const scope = await this.scopeMatches(user, open.map((t) => t.id));
+    const matching = open
+      .filter((t) => t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED") || (scope.get(t.id)?.length ?? 0) > 0 || searches.some((s) => matchesSavedSearch(s.criteria, { title: t.title, summary: t.summary, tenderType: t.tenderType, deliveryCountryCodes: t.deliveryCountryCodes, categories: t.categories }) && (!s.criteria.onlyEligible || t.chips.includes("ELIGIBLE") || t.chips.includes("INVITED"))))
+      .map((t) => ({ ...t, scopeMatches: scope.get(t.id) ?? [] }));
     return { tenders: matching.slice(0, 50), savedSearches: searches.length };
+  }
+
+  /** For each tender, the organisation's declared scope categories that the tender's catalogue lines fall into. Tender lines are read in a system context; only category ids come back. */
+  private async scopeMatches(user: RequestUser, tenderIds: string[]): Promise<Map<string, string[]>> {
+    const out = new Map<string, string[]>();
+    if (tenderIds.length === 0) return out;
+    const declared = new Set<string>((await withTenantContext(user.organizationId, (tx) => tx.organizationScope.findMany({ where: { organizationId: user.organizationId, archivedAt: null } }))).map((r) => r.scopeSubId));
+    if (declared.size === 0) return out;
+    await withPlatformStaffContext(async (tx: any) => {
+      const lines = await tx.tenderLine.findMany({ where: { tenderId: { in: tenderIds }, productMasterId: { not: null } }, select: { tenderId: true, productMasterId: true } });
+      const products = await tx.productMaster.findMany({ where: { id: { in: [...new Set<string>(lines.map((l: any) => l.productMasterId))] } }, select: { id: true, category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
+      const subs = new Map<string, string[]>(products.map((p: any) => [p.id, scopeSubsForProduct(p)]));
+      for (const l of lines) {
+        const hit = (subs.get(l.productMasterId) ?? []).filter((s) => declared.has(s));
+        if (hit.length) out.set(l.tenderId, [...new Set([...(out.get(l.tenderId) ?? []), ...hit])]);
+      }
+    });
+    return out;
   }
 }

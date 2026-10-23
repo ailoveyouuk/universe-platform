@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { SupplierDirectoryService } from "../src/supplier-directory/supplier-directory.service";
+import { StakeholderRegistryService } from "../src/stakeholder-registry/stakeholder-registry.service";
 import { OrgScopeCertsService, certificationStatus } from "../src/organizations/org-scope-certs.service";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 
 const sfx = randomUUID().slice(0, 8);
 const svc = new OrgScopeCertsService();
+const dir = new SupplierDirectoryService(new StakeholderRegistryService());
 let orgA = "", orgB = "";
 const asAdmin = (organizationId: string) =>
   ({ id: randomUUID(), organizationId, permissions: ["org.profile.manage"], platformStaffRole: "NONE", inDemoOrganization: false, forename: "T", surname: "A", email: "t@example.org" }) as unknown as RequestUser;
@@ -72,5 +75,18 @@ describe("organisation scope of supply and certifications", () => {
     expect((await svc.getCard(asAdmin(orgA), orgA)).canEdit).toBe(true);
     expect((await svc.getCard(noPerm(orgA), orgA)).canEdit).toBe(false);
     await expect(svc.getCard(asAdmin(orgA), randomUUID())).rejects.toThrow(/not found/);
+  });
+
+  it("finds only published organisations in the network directory, filtered by scope, certification and type", async () => {
+    const me = asAdmin(orgB);
+    const byScope = await dir.network(me, { scope: "pharma-antimalarials,pharma-antibiotics", q: sfx });
+    expect(byScope.organizations.map((o) => o.id)).toEqual([orgA]);
+    expect(byScope.organizations[0]).toMatchObject({ scope: ["pharma-antimalarials"], certificationTypes: ["GMP"] });
+    expect((await dir.network(me, { q: sfx, scope: "ppe-gloves" })).total).toBe(0);
+    expect((await dir.network(me, { q: sfx, certType: "GMP" })).total).toBe(1);
+    expect((await dir.network(me, { q: sfx, certType: "ISO_13485" })).total).toBe(0);
+    expect((await dir.network(me, { q: sfx, type: "MANUFACTURER" })).total).toBe(0);
+    await prisma.supplierProfile.create({ data: { organizationId: orgB } as never });
+    expect((await dir.network(me, { q: sfx })).organizations.map((o) => o.id)).toEqual([orgA]);
   });
 });

@@ -4,7 +4,7 @@ import { assertCanManageOrg, assertNotDemoUser } from "../common/authorization";
 import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-registry.service";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
-import type { OrgDirectoryProfile } from "@universe/types";
+import type { NetworkSearchResult, OrgDirectoryProfile } from "@universe/types";
 import type {
   CreateSupplierProductDto,
   SetCountryPresenceDto,
@@ -46,6 +46,51 @@ export class SupplierDirectoryService {
   /** Anyone authenticated can search — this is the marketplace's core
    * function, not gated by a specific permission (buyers and suppliers
    * alike should be able to browse). */
+  /**
+   * The network directory: organisations that have published their profile, searchable by name or description, organisation type,
+   * scope-of-supply categories (any of the given ids), country of operation and certification type held (not expired).
+   * Read in a system context because the rows belong to other organisations; only published, public fields leave.
+   */
+  async network(caller: RequestUser, f: { q?: string; type?: string; scope?: string; country?: string; certType?: string }): Promise<NetworkSearchResult> {
+    const scopeIds = (f.scope ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 60);
+    const q = f.q?.trim();
+    const where: any = {
+      publishedAt: { not: null },
+      organization: {
+        archivedAt: null,
+        ...(f.type ? { type: f.type } : {}),
+        ...(scopeIds.length ? { scopeOfSupply: { some: { scopeSubId: { in: scopeIds }, archivedAt: null } } } : {}),
+        ...(f.country ? { OR: [{ countryPresence: { some: { countryCode: f.country.toUpperCase() } } }, { supplierCountryPresence: { some: { countryCode: f.country.toUpperCase() } } }] } : {}),
+        ...(f.certType ? { certifications: { some: { type: f.certType, archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] } } } : {}),
+      },
+      ...(q ? { OR: [{ description: { contains: q } }, { organization: { name: { contains: q } } }] } : {}),
+    };
+    return withPlatformStaffContext(async (tx: any) => {
+      const [total, rows] = await Promise.all([
+        tx.supplierProfile.count({ where }),
+        tx.supplierProfile.findMany({
+          where,
+          take: 50,
+          orderBy: { organization: { name: "asc" } },
+          include: { organization: { select: { id: true, name: true, type: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: { archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] }, select: { type: true } } } } },
+        }),
+      ]);
+      return {
+        total,
+        organizations: rows.map((r: any) => ({
+          id: r.organization.id,
+          name: r.organization.name,
+          type: r.organization.type,
+          description: r.description ?? null,
+          countryCodes: [...new Set<string>([...r.organization.countryPresence, ...r.organization.supplierCountryPresence].map((c: any) => c.countryCode))].sort(),
+          scope: r.organization.scopeOfSupply.map((x: any) => x.scopeSubId),
+          certificationTypes: [...new Set<string>(r.organization.certifications.map((c: any) => c.type))],
+          yearsInOperation: r.yearsInOperation ?? null,
+        })),
+      };
+    });
+  }
+
   async search(caller: RequestUser, category?: string, countryCode?: string) {
     return withTenantContext(caller.organizationId, (tx) =>
       tx.supplierProduct.findMany({

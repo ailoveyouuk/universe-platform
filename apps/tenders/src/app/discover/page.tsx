@@ -83,7 +83,7 @@ function Row({ t, bordered }: { t: TenderAvailableItem; bordered?: boolean }) {
         <div style={{ minWidth: 0 }}><strong>{t.referenceNumber}</strong> {t.title}<div style={{ fontSize: 13, color: "var(--u-ink-secondary)", marginTop: 3 }}>{t.issuerName} · {TYPE_LABEL[t.tenderType]}{t.currency ? ` · ${t.currency}` : ""}</div></div>
         <div style={{ fontSize: 13, color: "var(--u-ink-secondary)", textAlign: "right" }}>{t.closingAt ? <>Closes {fmtDateTime(t.closingAt, t.timeZone)}{n !== null && n >= 0 ? ` (${n}d)` : ""}</> : "No closing date"}</div>
       </div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{t.chips.map((c) => <Pill key={c} tone={CHIP_TONE[c] ?? "neutral"}>{CHIP_LABEL[c] ?? c}</Pill>)}</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{t.scopeMatches && t.scopeMatches.length > 0 && <Pill tone="brand">Matches your scope</Pill>}{t.chips.map((c) => <Pill key={c} tone={CHIP_TONE[c] ?? "neutral"}>{CHIP_LABEL[c] ?? c}</Pill>)}</div>
     </Link>
   );
 }

@@ -40,6 +40,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/contracts", label: "Contracts", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/discover", label: "Find tenders", icon: () => <SearchIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/discover/view", label: "Tender", icon: () => <GridIcon size={19} />, inNav: false },
+  { href: "/suppliers", label: "Find suppliers", icon: () => <SearchIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/bids", label: "My bids", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.bid" },
   { href: "/performance", label: "Performance", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "tenders.view" },
   { href: "/bids/edit", label: "Bid", icon: () => <ShieldIcon size={19} />, inNav: false },
