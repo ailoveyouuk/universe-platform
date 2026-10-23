@@ -220,7 +220,10 @@ export function AppSwitcher({
           position: "absolute",
           bottom: "calc(100% + 6px)",
           left: 0,
-          width: 240,
+          // Fit inside the sidebar column (a fixed 240px overflowed it and clipped the CURRENT badge); a collapsed rail is narrower than the list so keeps a fixed width.
+          width: collapsed ? 240 : "100%",
+          maxWidth: "calc(100vw - 24px)",
+          boxSizing: "border-box",
           backgroundColor: "var(--u-surface-raised)",
           backgroundImage:
             "linear-gradient(color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 6%, transparent), color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 6%, transparent))",

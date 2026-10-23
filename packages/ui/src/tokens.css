@@ -503,3 +503,41 @@ input[type="checkbox"], input[type="radio"] {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* Date/time inputs have a wide intrinsic size on iOS Safari and spill out of grid cells (overlapping the next control); keep them inside their box (2026-10-23 responsive pass). */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 38px;
+  text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.2em;
+}
+/* Shared timeline-style rows: label and date line up in two columns, and the date drops under the label on narrow screens. */
+.u-timeline-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+.u-timeline-row > .u-timeline-when {
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .u-timeline-row {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .u-timeline-row > .u-timeline-when {
+    grid-column: 2;
+    text-align: left;
+  }
+}

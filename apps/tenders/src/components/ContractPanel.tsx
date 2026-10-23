@@ -173,7 +173,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
         <div style={{ marginTop: 18 }}>
           {c.supplierProjectId
             ? <a href={`${PM_URL}/projects/detail?id=${c.supplierProjectId}`} style={{ fontSize: 14 }}>Open your delivery project in Project Management</a>
-            : <><Button disabled={busy} onClick={() => act(async () => { const r = await apiClient.createContractProject(c.id); window.open(`${PM_URL}/projects/detail?id=${r.projectId}`, "_blank", "noopener"); return undefined; })}>Create my delivery project</Button><span style={{ marginLeft: 10, fontSize: 13, ...muted }}>Creates a Project Management project with a line for each item awarded to you.</span></>}
+            : <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}><Button disabled={busy} onClick={() => act(async () => { const r = await apiClient.createContractProject(c.id); window.open(`${PM_URL}/projects/detail?id=${r.projectId}`, "_blank", "noopener"); return undefined; })}>Create my delivery project</Button><span style={{ flex: "1 1 220px", fontSize: 13, ...muted }}>Creates a Project Management project with a line for each item awarded to you.</span></div>}
         </div>
       )}
       {active && issuer && <QualityLinks c={c} busy={busy} act={act} />}
