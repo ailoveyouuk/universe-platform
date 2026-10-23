@@ -876,3 +876,5 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 - Live test of certificate file upload failed with "Failed to fetch": the storage account's CORS allow-list had no entry for the Admin site, so the direct browser PUT was blocked. `infra/bicep/main.bicep` now lists `adminSwa`. Needs Deploy Infrastructure (or adding the Admin origin under Resource sharing, Blob service, in the Azure portal).
 - Saved supplier and tender searches passed a live test (save, reload, apply, toggle alerts, delete).
+- Alerts verified by `alerts.test.ts` against the RLS database (CI green): a matching alert-enabled supplier search is notified when an organisation publishes, an alerts-off search is not, and each certification expiry stage is sent once.
+- Live checks: Find tenders saved search passed (save, reload, apply restores the scope filter, alerts toggle, delete). Organisation cards in Project Management could not be exercised live because the demo partners have no registry link to a published organisation.
