@@ -44,6 +44,7 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
     { code: "9018", note: "Instruments and appliances for medical, surgical or veterinary use", basis: "WCO" },
     { code: "9019", note: "Oxygen therapy, ventilators, humidifiers", basis: "WCO" },
     { code: "9021", note: "Orthopaedic appliances, hearing aids", basis: "JUDGEMENT" },
+    { code: "9020", note: "Breathing appliances (respiratory care)", basis: "WCO" },
     { code: "9025", note: "Thermometers", basis: "WCO" },
     { code: "9026", note: "Flow meters (oxygen flowmeter)", basis: "WCO" },
     { code: "9402", note: "Medical and surgical furniture", basis: "WCO" },
@@ -64,12 +65,16 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
   "Wound Care": [
     { code: "3005", note: "Wadding, gauze, bandages, dressings, adhesive plasters", basis: "WCO" },
     { code: "300610", note: "Sterile suture materials and tissue adhesives", basis: "JUDGEMENT" },
+    { code: "380894", note: "Disinfectant and antiseptic preparations, hand sanitiser", basis: "WCO" },
   ],
   Imaging: [
     { code: "9022", note: "X-ray and CT apparatus", basis: "WCO" },
     { code: "901812", note: "Ultrasonic scanning apparatus", basis: "WCO" },
     { code: "901813", note: "Magnetic resonance imaging apparatus", basis: "JUDGEMENT" },
     { code: "901814", note: "Scintigraphic apparatus", basis: "JUDGEMENT" },
+    { code: "3701", note: "Photographic plates and film (X-ray film)", basis: "JUDGEMENT" },
+    { code: "300630", note: "X-ray contrast preparations", basis: "JUDGEMENT" },
+    { code: "300670", note: "Conductive and ultrasound gels", basis: "WCO" },
   ],
   "Personal Protective Equipment": [
     { code: "4015", note: "Rubber gloves, including surgical gloves and garments", basis: "WCO" },

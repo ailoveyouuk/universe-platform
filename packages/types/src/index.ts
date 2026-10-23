@@ -1,3 +1,4 @@
+export * from "./supplier-scope";
 export * from "./category-codes";
 /**
  * Shared, hand-written types used across apps for shapes that don't map
