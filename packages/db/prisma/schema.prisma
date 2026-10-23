@@ -1724,6 +1724,10 @@ model ProductMaster {
   strength                        String?
   dosageForm                      String?
   brand                           String?
+  /// ATC code (WHO), set from a confirmed register link or entered by hand; drives pharma filters and supplier scope matching.
+  atcCode                         String?        @db.NVarChar(20)
+  /// Patient information leaflet link entered by hand for products in neither register (shown as supplier-provided, not official).
+  pilUrl                          String?        @db.NVarChar(1000)
   /// Pack size/hierarchy as text, e.g. "10 x 10 tablets; inner 10; outer 100; pallet 5,000".
   packSize                        String?
   /// Regulatory class where it applies (e.g. device class I, IIa, IIb, III; IVD class A-D; Rx/OTC).
@@ -1757,6 +1761,7 @@ model ProductMaster {
   amendments             ProductAmendment[]
   safetyNotices          ProductSafetyNotice[]
   watchMatches           RegulatoryWatchMatch[]
+  pharmaLinks            ProductPharmaLink[]
 
   @@index([category])
   @@index([hsCode])
@@ -1766,6 +1771,7 @@ model ProductMaster {
   @@index([lifecycleStatus])
   @@index([nextReviewDue])
   @@index([productFamilyId])
+  @@index([atcCode])
   @@map("product_master")
 }
 
@@ -4542,6 +4548,8 @@ model PharmaReference {
   lastSeenAt               DateTime  @default(now())
   removedAt                DateTime?
 
+  links                    ProductPharmaLink[]
+
   @@unique([source, sourceKey])
   @@index([atcCode])
   @@index([status])
@@ -4562,4 +4570,28 @@ model PharmaReferenceRun {
   error      String?   @db.NVarChar(Max)
 
   @@map("pharma_reference_runs")
+}
+
+/// Link between a catalogue product and an entry in the EMA/MHRA register. Global (like product_master), no tenant column.
+/// SUGGESTED by the matcher, then CONFIRMED or REJECTED by a person; only CONFIRMED links drive leaflet links and the verified badge.
+model ProductPharmaLink {
+  id                String           @id @default(uuid())
+  productMasterId   String
+  product           ProductMaster    @relation(fields: [productMasterId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pharmaReferenceId String
+  reference         PharmaReference  @relation(fields: [pharmaReferenceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  /// SUGGESTED | CONFIRMED | REJECTED
+  status            String           @default("SUGGESTED") @db.NVarChar(20)
+  /// 0-100 match score and the fields that matched, e.g. "brand, inn".
+  score             Int              @default(0)
+  basis             String?          @db.NVarChar(200)
+  decidedById       String?          @db.NVarChar(100)
+  decidedByName     String?          @db.NVarChar(200)
+  decidedAt         DateTime?
+  createdAt         DateTime         @default(now())
+
+  @@unique([productMasterId, pharmaReferenceId])
+  @@index([pharmaReferenceId])
+  @@index([status])
+  @@map("product_pharma_links")
 }

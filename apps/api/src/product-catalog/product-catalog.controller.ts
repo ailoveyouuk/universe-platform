@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
 import { rateLimit } from "../common/rate-limit";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -16,6 +16,7 @@ import { ProductSafetyNoticesService } from "./product-safety-notices.service";
 import { CreateSafetyNoticeDto, ReviewSafetyNoticeDto, UpdateSafetyNoticeDto } from "./dto/safety-notice.dto";
 import { CreateRegistrationDto, UpdateRegistrationDto, VerifyRegistrationDto } from "./dto/registration.dto";
 import { familyTarget, productTarget } from "./product-target";
+import { ProductPharmaLinksService } from "./product-pharma-links.service";
 import { ExportRequestsService } from "./export-requests.service";
 import { CreateDataExportRequestDto, DecideDataExportRequestDto } from "./dto/data-export-request.dto";
 import { ProductExportsService, isGlobalAdmin } from "./product-exports.service";
@@ -56,6 +57,7 @@ export class ProductCatalogController {
     private readonly families: ProductFamiliesService,
     private readonly exportsService: ProductExportsService,
     private readonly exportRequests: ExportRequestsService,
+    private readonly pharmaLinks: ProductPharmaLinksService,
   ) {}
 
   /** GET /product-catalog — paginated browse for the Product Database
@@ -71,8 +73,18 @@ export class ProductCatalogController {
     @Query("includeArchived") includeArchived?: string,
     @Query("missingField") missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit",
     @Query("recent") recent?: string,
+    @Query("atc") atc?: string,
+    @Query("register") register?: string,
+    @Query("hasSuggestions") hasSuggestions?: string,
+    @Query("inn") inn?: string,
+    @Query("hsCode") hsCode?: string,
   ) {
     return this.productCatalogService.list({
+      atc,
+      inn,
+      hsCode,
+      register: register === "EMA" || register === "MHRA" || register === "ANY" || register === "NONE" ? register : undefined,
+      hasSuggestions: hasSuggestions === "true",
       recent: recent === "true",
       viewer: user,
       q,
@@ -199,6 +211,32 @@ export class ProductCatalogController {
   @Post("regulatory-watch/matches/:matchId/dismiss")
   dismissWatchMatch(@CurrentUser() user: RequestUser, @Param("matchId") matchId: string, @Body() dto: DismissWatchMatchDto) {
     return this.watch.dismiss(user, matchId, dto.notes);
+  }
+
+  /** Pharma links: GET the panel (pills + leaflet links); POST suggest/link/confirm/reject; PUT the hand-entered leaflet. */
+  @Get(":id/pharma")
+  pharmaPanel(@Param("id") id: string) {
+    return this.pharmaLinks.panel(id);
+  }
+  @Post(":id/pharma/suggest")
+  pharmaSuggest(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.pharmaLinks.suggest(user, id);
+  }
+  @Post(":id/pharma/link")
+  pharmaLink(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: { pharmaReferenceId: string }) {
+    return this.pharmaLinks.linkManually(user, id, String(dto?.pharmaReferenceId ?? ""));
+  }
+  @Put(":id/pharma/pil-url")
+  pharmaPilUrl(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: { url: string | null }) {
+    return this.pharmaLinks.setManualPil(user, id, dto?.url ?? null);
+  }
+  @Post("pharma-links/:linkId/confirm")
+  pharmaConfirm(@CurrentUser() user: RequestUser, @Param("linkId") linkId: string) {
+    return this.pharmaLinks.decide(user, linkId, "CONFIRMED");
+  }
+  @Post("pharma-links/:linkId/reject")
+  pharmaReject(@CurrentUser() user: RequestUser, @Param("linkId") linkId: string) {
+    return this.pharmaLinks.decide(user, linkId, "REJECTED");
   }
 
   @Get(":id/watch-matches")

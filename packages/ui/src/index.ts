@@ -4,6 +4,7 @@ export * from "./StageTracker";
 export * from "./Logo";
 export * from "./Button";
 export * from "./Pill";
+export * from "./SourcePill";
 export * from "./Breadcrumbs";
 export * from "./Sidebar";
 export * from "./OrgTheme";

@@ -11,9 +11,9 @@ export class PharmaReferenceController {
   constructor(private readonly ref: PharmaReferenceService) {}
   @Get("summary") summary() { return this.ref.summary(); }
   @Get("search")
-  search(@CurrentUser() u: RequestUser, @Query("q") q?: string, @Query("source") source?: string, @Query("atc") atc?: string, @Query("status") status?: string, @Query("type") type?: string, @Query("skip") skip?: string, @Query("take") take?: string) {
+  search(@CurrentUser() u: RequestUser, @Query("q") q?: string, @Query("source") source?: string, @Query("atc") atc?: string, @Query("status") status?: string, @Query("type") type?: string, @Query("holder") holder?: string, @Query("generic") generic?: string, @Query("biosimilar") biosimilar?: string, @Query("orphan") orphan?: string, @Query("linked") linked?: string, @Query("skip") skip?: string, @Query("take") take?: string) {
     rateLimit(u.id, "pharma-search", 600, 3_600_000);
-    return this.ref.search({ q, source, atc, status, type, skip: skip ? Number(skip) : 0, take: take ? Number(take) : 50 });
+    return this.ref.search({ q, source, atc, status, type, holder, generic: generic === "true", biosimilar: biosimilar === "true", orphan: orphan === "true", linked: linked === "YES" || linked === "NO" ? linked : undefined, skip: skip ? Number(skip) : 0, take: take ? Number(take) : 50 });
   }
   @Get(":id") get(@Param("id") id: string) { return this.ref.get(id); }
 }

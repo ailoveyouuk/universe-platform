@@ -20,6 +20,7 @@ import type {
 } from "@universe/types";
 import { UNIT_OPTIONS } from "@universe/types";
 import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon, UnitSelect } from "@universe/ui";
+import { PharmaCard } from "./PharmaCard";
 import { assessBatches, summariseBatches, FLAG_TEXT } from "./batchLife";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -351,6 +352,7 @@ function RecordTab({ detail }: { detail: ProductCatalogDetail }) {
           </div>
         )}
       </Card>
+      <PharmaCard detail={detail} />
       {detail.family && detail.siblings.length > 0 && (
         <Card title="Other variants in this family" note={`Part of ${detail.family.name}. Registrations and documents held by the family apply to every variant.`}>
           <SimpleTable

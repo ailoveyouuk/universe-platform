@@ -341,6 +341,12 @@ export class ProductCatalogService {
     recent?: boolean;
     /** Simulated (scale-test) entries are visible only inside a demo organisation. */
     showSimulated?: boolean;
+    /** Pharma interconnection filters (2026-10-23): ATC prefix, register membership (EMA | MHRA | ANY | NONE) via a CONFIRMED link, suggestions awaiting review. */
+    atc?: string;
+    register?: "EMA" | "MHRA" | "ANY" | "NONE";
+    hasSuggestions?: boolean;
+    inn?: string;
+    hsCode?: string;
   }): Promise<ProductCatalogListResult> {
     const page = params.page && params.page > 0 ? params.page : 1;
     const pageSize = params.pageSize && params.pageSize > 0 && params.pageSize <= 200 ? params.pageSize : 50;
@@ -361,7 +367,15 @@ export class ProductCatalogService {
     const where = {
       ...simulatedFilter(params.showSimulated),
       ...(params.includeArchived ? {} : { isArchived: false }),
-      ...(params.q && params.q.trim() ? { name: { contains: params.q.trim() } } : {}),
+      // One search box over every identifying field (name, brand, INN, ATC, GTIN, HS/UNSPSC, manufacturer part number).
+      ...(params.q && params.q.trim() ? { OR: ["name", "brand", "inn", "atcCode", "gtin", "hsCode", "unspscCode", "canonicalManufacturerPartNumber"].map((f) => ({ [f]: { contains: params.q!.trim() } })) } : {}),
+      ...(params.atc ? { atcCode: { startsWith: params.atc.toUpperCase().slice(0, 7) } } : {}),
+      ...(params.inn ? { inn: { contains: params.inn.trim() } } : {}),
+      ...(params.hsCode ? { hsCode: { startsWith: params.hsCode.replace(/\D/g, "") } } : {}),
+      ...(params.register === "EMA" || params.register === "MHRA" ? { pharmaLinks: { some: { status: "CONFIRMED", reference: { source: params.register } } } } : {}),
+      ...(params.register === "ANY" ? { pharmaLinks: { some: { status: "CONFIRMED" } } } : {}),
+      ...(params.register === "NONE" ? { pharmaLinks: { none: { status: "CONFIRMED" } } } : {}),
+      ...(params.hasSuggestions ? { pharmaLinks: { some: { status: "SUGGESTED" } } } : {}),
       ...(params.category ? { category: { startsWith: params.category } } : {}),
       ...(params.sourceStandard ? { sourceStandard: params.sourceStandard } : {}),
       ...missingFieldWhere,
@@ -379,7 +393,12 @@ export class ProductCatalogService {
     ]);
     const pending = await this.pendingAmendmentIds(rows);
     const ctx = await attributionContext(params.viewer, rows.map((r) => r.addedByOrganizationId));
-    return { items: rows.map((r) => this.toMatch(r, pending.has(r.id), ctx)), total, page, pageSize };
+    const links = rows.length ? await prisma.productPharmaLink.findMany({ where: { productMasterId: { in: rows.map((r) => r.id) }, status: { in: ["CONFIRMED", "SUGGESTED"] } }, select: { productMasterId: true, status: true, reference: { select: { source: true } } } }) : [];
+    return { items: rows.map((r) => {
+      const mine = links.filter((l) => l.productMasterId === r.id);
+      const verified = [...new Set(mine.filter((l) => l.status === "CONFIRMED").map((l) => l.reference.source))].filter((x): x is "EMA" | "MHRA" => x === "EMA" || x === "MHRA");
+      return { ...this.toMatch(r, pending.has(r.id), ctx), pharmaVerifiedSources: verified, pharmaSuggestedCount: mine.filter((l) => l.status === "SUGGESTED").length };
+    }), total, page, pageSize };
   }
 
   /** GET /product-catalog/completeness-stats — product-database-and-map-
@@ -992,6 +1011,8 @@ export class ProductCatalogService {
       packSize?: string | null;
       strength?: string | null;
       brand?: string | null;
+      inn?: string | null;
+      atcCode?: string | null;
     },
     hasPendingAmendment: boolean,
     ctx?: AttributionContext,
@@ -1018,6 +1039,7 @@ export class ProductCatalogService {
       packSize: row.packSize ?? null,
       strength: row.strength ?? null,
       brand: row.brand ?? null,
+      atcCode: row.atcCode ?? null,
     };
   }
 }

@@ -8,6 +8,7 @@ import type {
   ProductCatalogDashboardStats,
   ProductSourcingSummary,
 } from "@universe/types";
+import { matchPill, sourcePill } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useRouter } from "next/navigation";
 import { useCountries } from "../lib/useCountries";
@@ -22,6 +23,7 @@ import {
   Pill,
   SearchInput,
   Select,
+  SourcePill,
   StatTile,
   StatTileGrid,
   TextLink,
@@ -101,6 +103,12 @@ export default function ProductCatalogPage() {
   // the same way category/sourceStandard already are. Clicking the same
   // completeness tile again clears it (see the tile's onClick below).
   const [recentOnly, setRecentOnly] = useState(false);
+  // Pharma interconnection filters: register membership (a CONFIRMED link), suggestions awaiting review, ATC and INN.
+  const [register, setRegister] = useState<"" | "EMA" | "MHRA" | "ANY" | "NONE">("");
+  const [hasSuggestions, setHasSuggestions] = useState(false);
+  const [atc, setAtc] = useState("");
+  const [inn, setInn] = useState("");
+  const [hsFilter, setHsFilter] = useState("");
   const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">("");
 
 
@@ -201,6 +209,11 @@ export default function ProductCatalogPage() {
         includeArchived,
         missingField: missingField || undefined,
         recent: recentOnly || undefined,
+        register: register || undefined,
+        hasSuggestions: hasSuggestions || undefined,
+        atc: atc.trim() || undefined,
+        inn: inn.trim() || undefined,
+        hsCode: hsFilter.trim() || undefined,
         page: page + 1,
         pageSize: pageSize === "all" ? 200 : pageSize,
       })
@@ -211,7 +224,7 @@ export default function ProductCatalogPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load the product catalogue"))
       .finally(() => setLoading(false));
-  }, [search, category, sourceStandard, includeArchived, missingField, recentOnly, page, pageSize]);
+  }, [search, category, sourceStandard, includeArchived, missingField, recentOnly, register, hasSuggestions, atc, inn, hsFilter, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -373,7 +386,7 @@ export default function ProductCatalogPage() {
       </p>
 
       <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search by product name…" />
+        <SearchInput value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search name, brand, INN, ATC, GTIN, HS…" />
         <Select
           value={category}
           onChange={(v) => { setCategory(v); setPage(0); }}
@@ -413,6 +426,16 @@ export default function ProductCatalogPage() {
           <DownloadIcon size={14} /> {exporting ? "Preparing…" : "Export CSV"}
         </Button>
       </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Register</span>
+        {(["EMA", "MHRA", "ANY", "NONE"] as const).map((r) => (
+          <SourcePill key={r} label={r === "ANY" ? "Any register" : r === "NONE" ? "Not linked" : r} tone={r === "EMA" ? "brand" : r === "MHRA" ? "accent" : r === "ANY" ? "good" : "neutral"} active={register === r} onClick={() => { setRegister(register === r ? "" : r); setPage(0); }} title={r === "NONE" ? "Products with no confirmed register match" : "Products with a confirmed match in this register"} />
+        ))}
+        <SourcePill label="Suggested matches" tone="warning" active={hasSuggestions} onClick={() => { setHasSuggestions(!hasSuggestions); setPage(0); }} title="Products with register matches waiting for confirmation" />
+        <input value={atc} onChange={(e) => { setAtc(e.target.value); setPage(0); }} placeholder="ATC e.g. J01" aria-label="Filter by ATC code" style={{ width: 110, padding: "5px 9px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13 }} />
+        <input value={inn} onChange={(e) => { setInn(e.target.value); setPage(0); }} placeholder="INN / substance" aria-label="Filter by INN" style={{ width: 140, padding: "5px 9px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13 }} />
+        <input value={hsFilter} onChange={(e) => { setHsFilter(e.target.value); setPage(0); }} placeholder="HS e.g. 3004" aria-label="Filter by HS code" style={{ width: 110, padding: "5px 9px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13 }} />
+      </div>
       <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>
         {exportNote ? `${exportNote} ` : ""}Export CSV covers the products your organisation added (global admins: the whole catalogue), follows your current filters and is recorded in your audit trail. <Link href="/exports">Need more? Request a wider export.</Link>
       </p>
@@ -430,6 +453,7 @@ export default function ProductCatalogPage() {
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>HS Code</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>UNSPSC</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>GTIN</th>
+                <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Register</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Added by</th>
               </tr>
             </thead>
@@ -439,7 +463,7 @@ export default function ProductCatalogPage() {
               ))}
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
+                  <td colSpan={7} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
                     No catalogue entries match these filters.
                   </td>
                 </tr>
@@ -497,6 +521,14 @@ function ProductRow({ product }: { product: ProductCatalogMatch }) {
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.hsCode ?? "—"}</td>
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.unspscCode ?? "—"}</td>
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
+      <td style={{ padding: 8 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {(product.pharmaVerifiedSources ?? []).map((src) => <SourcePill key={src} {...sourcePill(src)} />)}
+          {(product.pharmaSuggestedCount ?? 0) > 0 && !(product.pharmaVerifiedSources ?? []).length && <SourcePill {...matchPill("SUGGESTED")} />}
+          {product.atcCode && <SourcePill label={product.atcCode} tone="neutral" title="ATC code" />}
+          {!product.atcCode && !(product.pharmaVerifiedSources ?? []).length && !(product.pharmaSuggestedCount ?? 0) && <span style={{ color: "var(--u-ink-secondary)" }}>—</span>}
+        </div>
+      </td>
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.addedByOrganizationName ?? "—"}</td>
     </tr>
   );

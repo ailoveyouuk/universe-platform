@@ -19,7 +19,10 @@
 - EMA covers centrally authorised EU medicines. Many medicines bought for low and middle income countries are authorised nationally or WHO prequalified, so they will not appear. WHO prequalification data is deliberately not a source until WHO permission is given (see ProductSourceStandard). EMA also publishes "medicines for use outside the EU" (EU-M4all) opinions in the same download page, which suits global health and is a candidate for slice 3.
 - The register is a pointer to the official entry; it is not the authorised product information, and Universe displays the attribution text from `/summary` wherever register data is shown.
 
-## Slice 2 (proposed)
+## Slice 2 (built 2026-10-23: links, leaflets, filters)
+Product to register links with confirm/reject, leaflet links (EMA PDF and page, MHRA search link-out, hand-entered fallback), branded source pills, and register filters in the catalogue. See BUILD-LOG. Remaining from the original proposal: register browser page, member-state product information URLs, EMA outside-EU sheet.
+
+## Slice 2 (original proposal)
 1. Suggested links from catalogue pharmaceutical products to register entries (match on INN or active substance, then strength and form from the name), with the same human confirm or reject step as the regulatory watch; a confirmed link stores `atcCode` and the register reference on the product.
 2. Product Database search and filters: ATC class, "listed in EMA / MHRA", authorisation status, generic, biosimilar, orphan; a "verified against register" badge and a link to the official page on the product page.
 3. A register browser page (search, filter, attribution) and use of ATC to place suppliers' pharmaceutical scope.

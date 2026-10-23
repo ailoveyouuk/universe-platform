@@ -1,3 +1,4 @@
+export * from "./pharma-links";
 export * from "./supplier-scope";
 export * from "./category-codes";
 /**
@@ -1597,6 +1598,10 @@ export interface ProductCatalogMatch {
   packSize: string | null;
   strength: string | null;
   brand: string | null;
+  /** Pharma interconnection (2026-10-23): INN and ATC for medicines, and the register sources this product is confirmed against (list view). */
+  atcCode?: string | null;
+  pharmaVerifiedSources?: Array<"EMA" | "MHRA">;
+  pharmaSuggestedCount?: number;
   /** True when the contributing organisation is hidden from the viewer (pooled-database rule): the name reads "A Universe member". */
   contributorAnonymised?: boolean;
 }

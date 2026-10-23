@@ -74,6 +74,8 @@ import type {
   UpdateExportRestrictionInput,
   ProjectExportCheckItem,
   WatchMatchSummary,
+  ProductPharmaPanel,
+  PilLink,
   SafetyNoticeDashboard,
   CreateRegistrationInput,
   UpdateRegistrationInput,
@@ -1003,6 +1005,12 @@ export class UniverseApiClient {
     /** Added 2026-10-09 — Stage 0 point 3 (data completeness pass). */
     missingField?: "gtin" | "hsCode" | "unspscCode" | "standardUnit";
     recent?: boolean;
+    /** Pharma interconnection filters (2026-10-23). */
+    atc?: string;
+    inn?: string;
+    hsCode?: string;
+    register?: "EMA" | "MHRA" | "ANY" | "NONE";
+    hasSuggestions?: boolean;
   }): Promise<ProductCatalogListResult> {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
@@ -1013,8 +1021,35 @@ export class UniverseApiClient {
     if (params?.includeArchived) qs.set("includeArchived", "true");
     if (params?.missingField) qs.set("missingField", params.missingField);
     if (params?.recent) qs.set("recent", "true");
+    if (params?.atc) qs.set("atc", params.atc);
+    if (params?.inn) qs.set("inn", params.inn);
+    if (params?.hsCode) qs.set("hsCode", params.hsCode);
+    if (params?.register) qs.set("register", params.register);
+    if (params?.hasSuggestions) qs.set("hasSuggestions", "true");
     const query = qs.toString() ? `?${qs.toString()}` : "";
     return this.request(`/product-catalog${query}`);
+  }
+
+  /** Pharma register links for one product: pills, leaflet links, suggestions (2026-10-23). */
+  productPharmaPanel(productId: string): Promise<ProductPharmaPanel> {
+    return this.request(`/product-catalog/${productId}/pharma`);
+  }
+  suggestProductPharmaLinks(productId: string): Promise<ProductPharmaPanel> {
+    return this.request(`/product-catalog/${productId}/pharma/suggest`, { method: "POST", body: "{}" });
+  }
+  linkProductToRegister(productId: string, pharmaReferenceId: string): Promise<ProductPharmaPanel> {
+    return this.request(`/product-catalog/${productId}/pharma/link`, { method: "POST", body: JSON.stringify({ pharmaReferenceId }) });
+  }
+  setProductPilUrl(productId: string, url: string | null): Promise<ProductPharmaPanel> {
+    return this.request(`/product-catalog/${productId}/pharma/pil-url`, { method: "PUT", body: JSON.stringify({ url }) });
+  }
+  decideProductPharmaLink(linkId: string, decision: "confirm" | "reject"): Promise<ProductPharmaPanel> {
+    return this.request(`/product-catalog/pharma-links/${linkId}/${decision}`, { method: "POST", body: "{}" });
+  }
+  searchPharmaRegister(params: { q?: string; source?: string; atc?: string; status?: string; holder?: string; generic?: boolean; biosimilar?: boolean; orphan?: boolean; linked?: "YES" | "NO"; skip?: number; take?: number }): Promise<{ total: number; items: Array<{ id: string; source: "EMA" | "MHRA"; sourceKey: string; name: string; activeSubstances: string | null; inn: string | null; atcCode: string | null; holder: string | null; status: string; isGeneric: boolean; isBiosimilar: boolean; isOrphan: boolean; sourceUrl: string | null; linkedProducts: number; pilLinks: PilLink[] }> }> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
+    return this.request(`/pharma-reference/search?${qs.toString()}`);
   }
 
   /** GET /product-catalog/completeness-stats — Stage 0 point 3 (data

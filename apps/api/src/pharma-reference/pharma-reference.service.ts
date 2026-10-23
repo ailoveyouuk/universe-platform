@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma } from "@universe/db";
-import { scopeSubForAtc } from "@universe/types";
+import { pilLinksForReference, scopeSubForAtc } from "@universe/types";
 
-export interface PharmaSearch { q?: string; source?: string; atc?: string; status?: string; type?: string; includeRemoved?: boolean; skip?: number; take?: number }
+export interface PharmaSearch { q?: string; source?: string; atc?: string; status?: string; type?: string; holder?: string; generic?: boolean; biosimilar?: boolean; orphan?: boolean; linked?: "YES" | "NO"; includeRemoved?: boolean; skip?: number; take?: number }
 
 /**
  * Read access to the reference register of authorised medicines (EMA and MHRA). Global reference data, so no tenant context: every
@@ -17,6 +17,11 @@ export class PharmaReferenceService {
       ...(p.source && ["EMA", "MHRA"].includes(p.source) ? { source: p.source } : {}),
       ...(p.status ? { status: p.status } : {}),
       ...(p.type && ["HUMAN", "VETERINARY"].includes(p.type) ? { productType: p.type } : {}),
+      ...(p.holder ? { holder: { contains: p.holder.trim() } } : {}),
+      ...(p.generic ? { isGeneric: true } : {}),
+      ...(p.biosimilar ? { isBiosimilar: true } : {}),
+      ...(p.orphan ? { isOrphan: true } : {}),
+      ...(p.linked === "YES" ? { links: { some: { status: "CONFIRMED" } } } : p.linked === "NO" ? { links: { none: { status: "CONFIRMED" } } } : {}),
       ...(p.atc ? { atcCode: { startsWith: p.atc.toUpperCase().slice(0, 7) } } : {}),
       ...(q ? { OR: [{ name: { contains: q } }, { activeSubstances: { contains: q } }, { inn: { contains: q } }, { holder: { contains: q } }, { sourceKey: { contains: q } }] } : {}),
     };
@@ -26,15 +31,17 @@ export class PharmaReferenceService {
       prisma.pharmaReference.findMany({ where, orderBy: [{ name: "asc" }], skip, take, select: {
         id: true, source: true, sourceKey: true, name: true, activeSubstances: true, inn: true, atcCode: true, holder: true, legalStatus: true, windsorCategory: true,
         productType: true, status: true, isGeneric: true, isBiosimilar: true, isOrphan: true, authorisedOn: true, sourceUrl: true, removedAt: true,
+        _count: { select: { links: { where: { status: "CONFIRMED" } } } },
       } }),
     ]);
-    return { total, items: rows.map((r) => ({ ...r, scopeSubcategory: scopeSubForAtc(r.atcCode) })) };
+    return { total, items: rows.map(({ _count, ...r }) => ({ ...r, linkedProducts: _count.links, pilLinks: pilLinksForReference(r), scopeSubcategory: scopeSubForAtc(r.atcCode) })) };
   }
 
   async get(id: string) {
     const r = await prisma.pharmaReference.findUnique({ where: { id } });
     if (!r) throw new NotFoundException("Register entry not found.");
-    return { ...r, scopeSubcategory: scopeSubForAtc(r.atcCode) };
+    const linked = await prisma.productPharmaLink.findMany({ where: { pharmaReferenceId: id, status: "CONFIRMED" }, take: 50, select: { product: { select: { id: true, name: true, category: true } } } });
+    return { ...r, pilLinks: pilLinksForReference(r), linkedProducts: linked.map((l) => l.product), scopeSubcategory: scopeSubForAtc(r.atcCode) };
   }
 
   /** What is loaded and how fresh it is, for the attribution line and the "register last updated" note. */
