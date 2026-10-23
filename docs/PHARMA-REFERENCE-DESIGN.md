@@ -27,3 +27,6 @@ Product to register links with confirm/reject, leaflet links (EMA PDF and page, 
 2. Product Database search and filters: ATC class, "listed in EMA / MHRA", authorisation status, generic, biosimilar, orphan; a "verified against register" badge and a link to the official page on the product page.
 3. A register browser page (search, filter, attribution) and use of ATC to place suppliers' pharmaceutical scope.
 4. Product information: link to the EPAR page; add member-state product information URLs (EMA publishes a spreadsheet) later.
+
+## Slice 3 (2026-10-23)
+Filtered CSV export, `/register` browser, PM lite views, and the simulated ringfence (`ProductPharmaLink.isSimulated`; register search/summary/panel exclude simulated links for viewers outside demo orgs). Demo linking script `link:demo-pharma` links simulated Pharmaceuticals to the best EMA/MHRA entry per generic name + dosage form; always flagged simulated, decided by "Simulated demo data". Accuracy limits: matches are by name/form, not licence-exact.

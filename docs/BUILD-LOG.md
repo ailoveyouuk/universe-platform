@@ -800,3 +800,12 @@ Plan and gap analysis: `docs/PRODUCT-DATABASE-GAP-ANALYSIS.md` (project doc `cla
 - **Search and filters:** catalogue search box now covers name, brand, INN, ATC, GTIN, HS, UNSPSC and part number; new filters for register (EMA, MHRA, any, not linked), suggested matches, ATC prefix, INN and HS. Register search gained holder, generic, biosimilar, orphan and linked filters and returns leaflet links and a linked-product count.
 - **Tests:** 8 pure (links, scoring, pills) and a database-backed suite (suggest, approver-only confirm, ATC fill, filter, https-only leaflet).
 - **Not done:** CSV export does not yet carry the new filters; a standalone register browser page; the live UI was not clicked through in a browser this session.
+
+## 2026-10-23 — Pharma slice 3: export, register browser, PM lite views, ringfence
+
+- Catalogue CSV export now carries every catalogue filter (shared `catalogueWhere`) plus columns: ATC code, Register status, Registers (confirmed), Register entries, Leaflet links. Audit detail records the filters.
+- Product Database: full **Medicines register** browser at `/register` (EMA + MHRA; pill filters, ATC/holder search, linked products, attribution).
+- Project Management: lite `RegisterStrip` on the line form and `RegisterLookup` in "add new product", each linking to the full Product Database record.
+- Ringfence: `ProductPharmaLink.isSimulated` (migration 20261023170000). Demo products are linked to real register entries but flagged simulated; register counts/lists/panels hide them from real orgs. Verified: simulated links 1,361, real 0, leakage 0 (dosage-form-aware relink; 3/7 INNs matched, inexact by nature).
+- Responsive pass (phone/tablet, portrait/landscape): catalogue table scrolls and hides low-value columns under 900px; PM project header wraps; projects table scrolls; shared `Select` closed panel no longer widens the page (was the cause of PM phone overflow). Verified no horizontal overflow on PM /, /projects, project detail (+Add Line), and Product Database /, /register, product detail.
+- Not yet exercised live: filtered CSV download, PM "add new product" RegisterLookup.
