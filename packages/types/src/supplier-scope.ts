@@ -87,6 +87,29 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
   ] },
 ];
 
+/**
+ * WHO ATC classification prefixes to pharmaceutical subcategories (2026-10-23). ATC is the right key for the pharmaceutical subcategories
+ * because HS cannot tell an antibiotic from an antimalarial. Longest matching prefix wins. The EMA register supplies an ATC code per
+ * medicine, so a catalogue product linked to a register entry can be placed by it. A medicine with no match here is left to the name terms.
+ */
+export const ATC_SCOPE: [string, string][] = [
+  ["J01", "pharma-antibiotics"], ["J02", "pharma-antibiotics"],
+  ["P01B", "pharma-antimalarials"],
+  ["J04", "pharma-hiv-tb"], ["J05", "pharma-hiv-tb"],
+  ["J06", "pharma-vaccines"], ["J07", "pharma-vaccines"],
+  ["N02", "pharma-analgesics"], ["M01A", "pharma-analgesics"],
+  ["G02", "pharma-maternal"], ["G03", "pharma-maternal"], ["H01BB", "pharma-maternal"],
+  ["A10", "pharma-endocrine"], ["H02", "pharma-endocrine"], ["H03", "pharma-endocrine"],
+  ["A07CA", "pharma-essential"], ["A11", "pharma-essential"], ["A12", "pharma-essential"], ["R03", "pharma-essential"], ["A02B", "pharma-essential"],
+];
+export function scopeSubForAtc(atc: string | null | undefined): string | null {
+  const code = (atc ?? "").toUpperCase().replace(/\s/g, "");
+  if (code.length < 3) return null;
+  let best: string | null = null, bestLen = 0;
+  for (const [prefix, id] of ATC_SCOPE) if (code.startsWith(prefix) && prefix.length > bestLen) { best = id; bestLen = prefix.length; }
+  return best;
+}
+
 export function scopeSubsForGroup(group: string): ScopeSub[] {
   return SCOPE_TAXONOMY.find((g) => g.group === group)?.subs ?? [];
 }
@@ -100,7 +123,7 @@ export function scopeSubById(id: string): { group: string; sub: ScopeSub } | nul
  * of the subcategory labels' key words; (2) HS prefix; (3) terms in the name, INN or brand. Only subcategories of the product's own
  * group are considered. Returns every match (a product can sit in more than one).
  */
-export function scopeSubsForProduct(p: { category: string; hsCode?: string | null; name?: string | null; inn?: string | null; brand?: string | null }): string[] {
+export function scopeSubsForProduct(p: { category: string; hsCode?: string | null; name?: string | null; inn?: string | null; brand?: string | null; atcCode?: string | null }): string[] {
   const [group, ...rest] = p.category.split(".");
   const subs = scopeSubsForGroup(group);
   if (subs.length === 0) return [];
@@ -112,6 +135,8 @@ export function scopeSubsForProduct(p: { category: string; hsCode?: string | nul
     const byTerm = s.terms.some((t) => text.includes(t));
     if (byHs || byTerm) out.push(s.id);
   }
+  const byAtc = group === "Pharmaceuticals" ? scopeSubForAtc(p.atcCode) : null;
+  if (byAtc && !out.includes(byAtc)) out.push(byAtc);
   return out;
 }
 

@@ -1,0 +1,38 @@
+name: Sync pharma reference
+
+# Weekly refresh of the reference register of authorised medicines (2026-10-23): the EMA medicines data table and the MHRA Windsor
+# Framework category lists (UK marketing authorisations). Public files from a fixed host allow-list; rows are upserted idempotently and
+# never deleted (missing rows are marked removed); each run is logged in pharma_reference_runs. A failing source fails the run so GitHub
+# notifies the repository owner. Same database secret as the demo load (the live Universe database).
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (fetch and count, write nothing)."
+        default: true
+        type: boolean
+      sources:
+        description: "Comma-separated sources (EMA, MHRA). Blank = all."
+        default: ""
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - name: Sync
+        run: npm run sync:pharma --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ github.event_name == 'schedule' && 'false' || inputs.dry_run }}
+          SOURCES: ${{ inputs.sources }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

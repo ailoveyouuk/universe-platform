@@ -38,6 +38,7 @@
     "recohere:demo": "tsx scripts/recohere-demo-data.ts",
     "fix:demo-consistency": "tsx scripts/fix-demo-sim-consistency.ts",
     "watch:regulatory": "tsx scripts/run-regulatory-watch.ts",
+    "sync:pharma": "tsx scripts/sync-pharma-reference.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
     "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts",
@@ -56,7 +57,8 @@
     "provision:universe-demo": "tsx scripts/provision-universe-demo.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.20.0"
+    "@prisma/client": "^5.20.0",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "prisma": "^5.20.0",

@@ -28,3 +28,5 @@ export * from "./regulatory-watch/connectors";
 export * from "./regulatory-watch/run";
 export * from "./regulatory-watch/export-restrictions";
 export * from "./regulatory-watch/restriction-lifted";
+export * from "./pharma-reference/parse";
+export * from "./pharma-reference/run";
