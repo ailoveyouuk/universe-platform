@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgName } from "../../../components/OrgName";
 import { useEffect, useState } from "react";
 import { EXCLUSION_GROUNDS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
 import type { IssuerBidRecord, TenderChainCheck, TenderDetailForIssuer } from "@universe/types";
@@ -26,7 +27,7 @@ export function ParticipantsPanel({ d }: { d: TenderDetailForIssuer }) {
       {d.participants.length === 0 ? <p style={{ margin: 0, ...muted }}>None yet. Eligible organisations see this tender in their list; invite more below.</p> : d.participants.map((p, i) => (
         <div key={p.organizationId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <strong>{p.organizationName ?? "Organisation"}</strong>
+            <strong><OrgName id={p.organizationId} name={p.organizationName} /></strong>
             <span style={muted}>Interested {fmtDate(p.optedInAt)}</span>
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
@@ -199,7 +200,7 @@ export function BidsPanel({ d }: { d: TenderDetailForIssuer }) {
       ) : bids.length === 0 ? <p style={{ margin: 0, ...muted }}>No bids were submitted.</p> : bids.map((b, i) => (
         <div key={b.bidId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <strong>{i + 1}. {b.organizationName}</strong>
+            <strong>{i + 1}. <OrgName id={b.organizationId} name={b.organizationName} /></strong>
             <span>{t.currency} {Number(b.totalTenderCurrency ?? 0).toLocaleString()}{b.bidCurrency !== t.currency && b.bidCurrency ? <span style={muted}> ({b.bidCurrency} {Number(b.totalBidCurrency).toLocaleString()} at {Number(b.fxRate).toFixed(4)}, {b.fxRateDate?.slice(0, 10)})</span> : null}</span>
           </div>
           <button type="button" onClick={() => setOpenId(openId === b.bidId ? null : b.bidId)} style={{ border: "none", background: "none", padding: 0, color: "var(--u-accent)", cursor: "pointer", fontSize: 13 }}>{openId === b.bidId ? "Hide details" : "Show details"}</button>

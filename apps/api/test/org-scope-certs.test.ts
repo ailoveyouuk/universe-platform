@@ -19,6 +19,7 @@ describe("organisation scope of supply and certifications", () => {
   });
   afterAll(async () => {
     for (const id of [orgA, orgB]) {
+      await prisma.supplierProfile.deleteMany({ where: { organizationId: id } });
       await prisma.organizationScope.deleteMany({ where: { organizationId: id } });
       await prisma.organizationCertification.deleteMany({ where: { organizationId: id } });
     }
@@ -56,5 +57,20 @@ describe("organisation scope of supply and certifications", () => {
     expect(await svc.listCertifications(admin, orgA)).toEqual([]);
     const log = await withPlatformStaffContext((tx: any) => tx.fieldChangeLog.count({ where: { tableName: "organization_certifications", recordId: c.id } }));
     expect(log).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shows another organisation's card only once it has published, never with certificate numbers, and offers Edit only to those who may", async () => {
+    await svc.setScope(asAdmin(orgA), orgA, ["pharma-antimalarials"]);
+    await svc.addCertification(asAdmin(orgA), orgA, { type: "GMP", reference: "SECRET-1", expiresOn: inDays(200) } as never);
+    const hidden = await svc.getCard(asAdmin(orgB), orgA);
+    expect(hidden).toMatchObject({ name: `Scope A ${sfx}`, detailVisible: false, canEdit: false, scope: [], certifications: [] });
+    await prisma.supplierProfile.create({ data: { organizationId: orgA, description: "Hello", publishedAt: new Date() } as never });
+    const shown = await svc.getCard(asAdmin(orgB), orgA);
+    expect(shown).toMatchObject({ detailVisible: true, canEdit: false, description: "Hello", scope: ["pharma-antimalarials"] });
+    expect(shown.certifications).toHaveLength(1);
+    expect(JSON.stringify(shown)).not.toContain("SECRET-1");
+    expect((await svc.getCard(asAdmin(orgA), orgA)).canEdit).toBe(true);
+    expect((await svc.getCard(noPerm(orgA), orgA)).canEdit).toBe(false);
+    await expect(svc.getCard(asAdmin(orgA), randomUUID())).rejects.toThrow(/not found/);
   });
 });

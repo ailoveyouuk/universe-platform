@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgName } from "../../../components/OrgName";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -196,7 +197,7 @@ function Results({ o }: { o: EvaluationOverview }) {
         <thead><tr style={{ textAlign: "left", ...muted }}><th>Rank</th><th>Bidder</th><th>Price ({o.tender.currency})</th>{scored.map((c) => <th key={c.id}>{c.title} ({c.weight}%)</th>)}<th>Total</th></tr></thead>
         <tbody>{rows.map((b) => (
           <tr key={b.bidId} style={{ borderTop: "1px solid var(--u-border)" }}>
-            <td>{b.rank ?? "–"}</td><td>{b.organizationName}{!b.compliant && <> <Pill tone="critical">Not compliant</Pill></>}{b.partial && <> <Pill tone="warning">Partial</Pill></>}</td>
+            <td>{b.rank ?? "–"}</td><td><OrgName id={b.organizationId} name={b.organizationName} />{!b.compliant && <> <Pill tone="critical">Not compliant</Pill></>}{b.partial && <> <Pill tone="warning">Partial</Pill></>}</td>
             <td>{b.total?.toLocaleString()}</td>{scored.map((c) => <td key={c.id}>{b.scores[c.id] ?? "–"}</td>)}<td><strong>{b.totalScore ?? "–"}</strong></td>
           </tr>))}</tbody>
       </table>
@@ -241,7 +242,7 @@ function Awarded({ o, id, act, busy }: { o: EvaluationOverview; id: string; act:
   return (
     <>
       <Card title="Awards">
-        {o.awards.map((a) => <div key={a.awardId} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}><strong>{a.organizationName}</strong> <span style={muted}>· {a.reason}</span>
+        {o.awards.map((a) => <div key={a.awardId} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}><strong><OrgName id={a.organizationId} name={a.organizationName} /></strong> <span style={muted}>· {a.reason}</span>
           {a.lines.map((l) => <div key={l.tenderLineId} style={{ fontSize: 13, ...muted }}>{o.lines.find((x) => x.id === l.tenderLineId)?.description}: {l.sharePercent}%</div>)}</div>)}
         <p style={{ marginBottom: 0, fontSize: 13.5, ...muted }}>{o.tender.standstillEnabled ? (o.tender.standstillEndsAt ? `Standstill ends ${fmtDateTime(o.tender.standstillEndsAt, o.tender.timeZone)}. Contracts can be signed after that, once any complaint is answered.` : "The standstill was waived (emergency procurement).") : "No standstill period applies."}</p>
       </Card>

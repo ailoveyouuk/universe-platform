@@ -34,3 +34,4 @@ export * from "./GlobalSearch";
 export * from "./RankedTile";
 
 export { MobileAppTag } from "./MobileAppTag";
+export * from "./OrganizationCard";

@@ -121,6 +121,7 @@ import type {
   FunderProfileSummary,
   ManufacturerProfileSummary,
   OrganizationScopeSummary,
+  OrganizationCard,
   OrganizationCertificationSummary,
   SaveOrganizationCertificationInput,
   DataInsightsUserProfileSummary,
@@ -1285,6 +1286,10 @@ export class UniverseApiClient {
       method: "PUT",
       body: JSON.stringify(input),
     });
+  }
+
+  getOrganizationCard(organizationId: string): Promise<OrganizationCard> {
+    return this.request(`/organizations/${organizationId}/card`);
   }
 
   getOrganizationScope(organizationId: string): Promise<OrganizationScopeSummary> {

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
-import type { CertificationStatus, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
+import type { CertificationStatus, OrganizationCard, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
@@ -39,6 +39,35 @@ function toCert(row: any): OrganizationCertificationSummary {
 
 @Injectable()
 export class OrgScopeCertsService {
+  /** Read-only card for any signed-in user. Details are read in a system context, so what leaves is decided here, not by row-level security. */
+  async getCard(caller: RequestUser, organizationId: string): Promise<OrganizationCard> {
+    const isStaff = caller.platformStaffRole !== "NONE";
+    const isOwn = caller.organizationId === organizationId;
+    return withPlatformStaffContext(async (tx: any) => {
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, type: true } });
+      if (!org) throw new NotFoundException("Organisation not found");
+      const profile = await tx.supplierProfile.findUnique({ where: { organizationId } });
+      const detailVisible = isOwn || isStaff || !!profile?.publishedAt;
+      const canEdit = isStaff || (isOwn && (caller.permissions ?? []).includes("org.profile.manage"));
+      const card: OrganizationCard = { id: org.id, name: org.name, type: org.type, detailVisible, canEdit, description: null, website: null, contactName: null, contactEmail: null, yearsInOperation: null, scope: [], certifications: [] };
+      if (!detailVisible) return card;
+      const [scope, certs] = await Promise.all([
+        tx.organizationScope.findMany({ where: { organizationId, archivedAt: null }, orderBy: { scopeSubId: "asc" } }),
+        tx.organizationCertification.findMany({ where: { organizationId, archivedAt: null }, orderBy: [{ expiresOn: "asc" }] }),
+      ]);
+      return {
+        ...card,
+        description: profile?.description ?? null,
+        website: profile?.website ?? null,
+        contactName: profile?.contactName ?? null,
+        contactEmail: profile?.contactEmail ?? null,
+        yearsInOperation: profile?.yearsInOperation ?? null,
+        scope: scope.map((r: any) => r.scopeSubId),
+        certifications: certs.map((c: any) => ({ type: c.type, title: c.title ?? null, issuingBody: c.issuingBody ?? null, expiresOn: c.expiresOn ? c.expiresOn.toISOString() : null, status: certificationStatus(c.expiresOn ?? null).status })),
+      };
+    });
+  }
+
   async getScope(caller: RequestUser, organizationId: string): Promise<OrganizationScopeSummary> {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
     const rows = await runner(caller, organizationId)((tx) => tx.organizationScope.findMany({ where: { organizationId, archivedAt: null }, orderBy: { scopeSubId: "asc" } }));

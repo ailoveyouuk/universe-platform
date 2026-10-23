@@ -2330,6 +2330,25 @@ export interface SaveOrganizationCertificationInput {
   notes?: string;
 }
 
+/** Read-only view of an organisation for other parts of Universe. Detail beyond name and type appears only when the organisation has published its profile (or the caller is that organisation or platform staff). */
+export interface OrganizationCard {
+  id: string;
+  name: string;
+  type: string;
+  /** False when the organisation has not published a profile and the caller is someone else. */
+  detailVisible: boolean;
+  canEdit: boolean;
+  description: string | null;
+  website: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  yearsInOperation: number | null;
+  /** Declared scope of supply: ids from SCOPE_TAXONOMY. */
+  scope: string[];
+  /** No certificate numbers: type, issuer and status only. */
+  certifications: { type: string; title: string | null; issuingBody: string | null; expiresOn: string | null; status: CertificationStatus }[];
+}
+
 export interface OrganizationScopeSummary {
   organizationId: string;
   /** Declared: ids from SCOPE_TAXONOMY. */

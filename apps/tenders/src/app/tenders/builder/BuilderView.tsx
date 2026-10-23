@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgName } from "../../../components/OrgName";
 import { DocumentsPanel } from "../../../components/TenderDocuments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -357,7 +358,7 @@ export function Invitations({ detail, onSaved }: { detail: TenderDetailForIssuer
       {chosen.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>{chosen.map((c) => <Pill key={c.id} tone="brand">{c.name}</Pill>)}</div>}
       <SaveBar saving={s.saving} note={s.note} label={`Invite ${chosen.length || ""}`.trim()} onSave={() => chosen.length ? s.run(() => apiClient.inviteToTender(detail.tender.id, chosen.map((c) => c.id)), "Invited") : undefined} />
       <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Invited so far ({detail.invitations.length})</h3>
-      {detail.invitations.length === 0 ? <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Nobody yet.</p> : <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{detail.invitations.map((i) => <Pill key={i.id}>{i.organizationName ?? "Organisation"}</Pill>)}</div>}
+      {detail.invitations.length === 0 ? <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Nobody yet.</p> : <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{detail.invitations.map((i) => <Pill key={i.id}><OrgName id={i.invitedOrganizationId} name={i.organizationName} /></Pill>)}</div>}
     </Card>
   );
 }

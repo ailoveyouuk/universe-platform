@@ -185,6 +185,12 @@ export class OrganizationsController {
     return this.organizationsService.removeManufacturerSite(user, id, siteId);
   }
 
+  /** Read-only organisation card, for any signed-in user. Declared before the other ":id" routes only for readability. */
+  @Get(":id/card")
+  getCard(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.scopeCerts.getCard(user, id);
+  }
+
   @Get(":id/scope")
   getScope(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.scopeCerts.getScope(user, id);

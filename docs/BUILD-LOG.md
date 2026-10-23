@@ -838,3 +838,11 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - Admin: new "Scope of supply" and "Certifications and accreditations" sections on the Profile tab (not for funders or data/insights users), with an "in bids but not declared" prompt.
 - Tests: `apps/api/test/org-scope-certs.test.ts`.
 - Next: step 5, the shared read-only organisation card with an "Edit profile" link into Admin.
+
+## 2026-10-23 — Organisation hub step 5: shared read-only organisation card
+
+- `GET /organizations/:id/card` (any signed-in user): name and type always; description, contact, years in operation, declared scope and certifications (type, issuer, status and expiry only, never certificate numbers) only when the organisation has published its profile, or the caller is that organisation or platform staff. `canEdit` is true for platform staff and for the organisation's own `org.profile.manage` holders.
+- Shared `OrganizationCard` and `OrganizationCardLink` in `@universe/ui`: the name opens the card in a dialog, with an "Edit profile" link to the organisation's page in Admin when `canEdit`. The profile is edited only in Admin.
+- Wired into Tenders wherever an organisation is named: interested organisations, opened bids, award and bid tables in evaluation, past performance, and the invited list. Project Management and Product Database have no organisation-level names yet (partners are not linked to organisations), so nothing was added there.
+- Test added in `org-scope-certs.test.ts` (hidden until published, no certificate numbers, edit rights).
+- Next: step 6, the network directory (the old Supplier Portal slot) and two-way search.

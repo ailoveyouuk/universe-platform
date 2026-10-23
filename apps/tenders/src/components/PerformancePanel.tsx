@@ -1,5 +1,6 @@
 "use client";
 
+import { OrgName } from "./OrgName";
 import { useEffect, useState } from "react";
 import { FEEDBACK_LABELS } from "@universe/types";
 import type { ContractPaymentView, QualityEvidence, PaymentPracticeSummary, PerformanceRecordView, SupplierPerformanceSummary, TenderContractView } from "@universe/types";
@@ -161,7 +162,7 @@ export function PastPerformance({ bidders }: { bidders: { organizationId: string
   return (
     <div style={{ display: "grid", gap: 6 }}>
       <p style={{ margin: 0, fontSize: 13.5, ...muted }}>Aggregates of closed contracts on Universe across all tender owners. Individual owners, feedback and contracts are never shown, and nothing appears until there are at least 3 contracts from 2 owners.</p>
-      {bidders.map((b) => <div key={b.organizationId} style={{ fontSize: 14 }}><strong>{b.organizationName}</strong> {rows[b.organizationId] ? <SupplierSummary s={rows[b.organizationId]} /> : <span style={muted}>Loading…</span>}</div>)}
+      {bidders.map((b) => <div key={b.organizationId} style={{ fontSize: 14 }}><strong><OrgName id={b.organizationId} name={b.organizationName} /></strong> {rows[b.organizationId] ? <SupplierSummary s={rows[b.organizationId]} /> : <span style={muted}>Loading…</span>}</div>)}
     </div>
   );
 }
