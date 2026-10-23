@@ -59,6 +59,7 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
     { code: "901839", note: "Catheters, cannulae, airways and similar", basis: "WCO" },
     { code: "901890", note: "Other medical instruments, intubation and surgical kits", basis: "WCO" },
     { code: "300610", note: "Sterile surgical suture materials, haemostatics", basis: "JUDGEMENT" },
+    { code: "3005", note: "Surgical gauze, swabs and dressings", basis: "JUDGEMENT" },
   ],
   "Wound Care": [
     { code: "3005", note: "Wadding, gauze, bandages, dressings, adhesive plasters", basis: "WCO" },

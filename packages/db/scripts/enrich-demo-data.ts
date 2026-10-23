@@ -37,10 +37,10 @@ const CATALOGUE: Record<string, CatalogueProfile> = {
   "Medical Devices": { hs: ["901890", "901839", "902190"], unspsc: ["42181500", "42182000", "42192000"], units: ["Each", "Each", "Set"] },
   Pharmaceuticals: { hs: ["300490", "300420", "300439"], unspsc: ["51101500", "51102000", "51111800"], units: ["Blister pack of 10 tablets", "Vial", "Bottle (100 tablets)"] },
   "Personal Protective Equipment": { hs: ["401519", "630790", "621600"], unspsc: ["46181500", "46181800", "46182000"], units: ["Box of 50", "Box of 100 pairs", "Pack of 25"] },
-  "Cold Chain": { hs: ["841861", "392310", "842139"], unspsc: ["41104400", "40101700", "24112100"], units: ["Each", "Each", "Case of 6"] },
-  Reagents: { hs: ["382200", "382499", "280469"], unspsc: ["41116000", "12161500", "41116100"], units: ["Bottle (500 mL)", "Kit (100 reactions)", "Vial (10 mL)"] },
+  "Cold Chain": { hs: ["841869", "392310", "841850"], unspsc: ["41104400", "40101700", "24112100"], units: ["Each", "Each", "Case of 6"] },
+  Reagents: { hs: ["382200", "382499", "382100"], unspsc: ["41116000", "12161500", "41116100"], units: ["Bottle (500 mL)", "Kit (100 reactions)", "Vial (10 mL)"] },
   "Surgical Supplies": { hs: ["901890", "901832", "300590"], unspsc: ["42291600", "42291700", "42295100"], units: ["Each", "Box of 10", "Pack of 5"] },
-  "Wound Care": { hs: ["300510", "300590", "300630"], unspsc: ["42311500", "42312000", "42311700"], units: ["Box of 10", "Box of 50", "Roll"] },
+  "Wound Care": { hs: ["300510", "300590", "300610"], unspsc: ["42311500", "42312000", "42311700"], units: ["Box of 10", "Box of 50", "Roll"] },
   Imaging: { hs: ["901812", "902214", "902219"], unspsc: ["42201800", "42203000", "42203300"], units: ["Each", "Each", "Pack of 100 sheets"] },
 };
 const FALLBACK = CATALOGUE["Medical Devices"];

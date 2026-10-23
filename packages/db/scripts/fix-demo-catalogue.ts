@@ -62,6 +62,13 @@ async function main() {
     if (!dryRun && Object.keys(data).length) await prisma.productMaster.update({ where: { id: r.id }, data });
   }
   console.log(`${dryRun ? "DRY RUN " : ""}categories ${nCat}, units ${nUnit}, storage classes ${nStor}, gtins ${nGtin}`);
+  // HS codes that do not belong to their category (found by check-hs-mapping 2026-10-23): silicon on Reagents, gas filtering machinery on Cold Chain, X-ray contrast on Wound Care.
+  const HS_SWAPS: [string, string, string][] = [["Reagents", "280469", "382100"], ["Cold Chain", "842139", "841869"], ["Wound Care", "300630", "300610"]];
+  for (const [cat, from, to] of HS_SWAPS) {
+    const n = await prisma.productMaster.count({ where: { isSimulated: true, hsCode: from, category: { startsWith: cat } } });
+    console.log(`hs: ${cat} ${from} -> ${to}: ${n} products`);
+    if (!dryRun && n) await prisma.productMaster.updateMany({ where: { isSimulated: true, hsCode: from, category: { startsWith: cat } }, data: { hsCode: to } });
+  }
   const bulk = await prisma.$queryRawUnsafe<{ n: number }[]>(`SELECT COUNT(*) AS n FROM product_master WHERE isSimulated = 1 AND createdAt >= '2026-10-17' AND createdAt < '2026-10-18'`);
   console.log(`createdAt: ${Number(bulk[0].n)} products on the load day`);
   if (!dryRun) {
