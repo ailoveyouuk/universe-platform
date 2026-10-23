@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "./Logo";
 import { ChevronLeftIcon, ChevronRightIcon, MenuIcon } from "./icons";
 import { useOrgTheme } from "./OrgTheme";
-import { AppSwitcher } from "./AppSwitcher";
+import { AppSwitcher, UNIVERSE_APPS } from "./AppSwitcher";
 
 export interface NavItem {
   label: string;
@@ -74,6 +74,7 @@ export function Sidebar({
   // image fails to load. "Powered by Universe" moves to the footer.
   const showOrgLogo = !!orgLogoUrl && !logoFailed;
   const width = collapsed ? 72 : 232;
+  const appEntry = UNIVERSE_APPS.find((a) => a.key === currentApp);
 
   return (
     <>
@@ -110,7 +111,7 @@ export function Sidebar({
             display: "flex",
             alignItems: "center",
             justifyContent: collapsed ? "center" : "space-between",
-            padding: collapsed ? "20px 0" : "20px 20px 16px",
+            padding: collapsed ? "20px 0 10px" : "20px 20px 10px",
           }}
         >
           <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
@@ -145,6 +146,37 @@ export function Sidebar({
             </button>
           )}
         </div>
+
+        {/* Which app this is: a quiet tag in the app's own accent colour, directly under the logo. */}
+        {appEntry && (
+          <div
+            title={appEntry.label}
+            aria-label={`You are in ${appEntry.label}`}
+            style={{
+              margin: collapsed ? "0 auto 10px" : "0 20px 12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 7,
+              width: collapsed ? 28 : "fit-content",
+              maxWidth: collapsed ? 28 : "calc(100% - 40px)",
+              padding: collapsed ? "5px 0" : "4px 10px 4px 8px",
+              borderRadius: 999,
+              backgroundColor: `color-mix(in srgb, ${appEntry.accent} 11%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${appEntry.accent} 28%, transparent)`,
+              color: appEntry.accent,
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: 0.7,
+              textTransform: "uppercase",
+              lineHeight: 1.2,
+              boxSizing: "border-box",
+            }}
+          >
+            <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: appEntry.accent, flexShrink: 0 }} />
+            {!collapsed && <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--u-ink)" }}>{appEntry.label}</span>}
+          </div>
+        )}
 
         <nav style={{ flex: 1, padding: "4px 12px", display: "flex", flexDirection: "column", gap: 2 }}>
           {items.map((item) => (
