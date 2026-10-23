@@ -21,3 +21,12 @@ New Static Web App resource and deployment token (`SWA_TOKEN_SUPPLIER_PORTAL`), 
 ## Open questions
 - Should suppliers see buyer-side scores and award reasoning? Proposed: no (as today, debrief only).
 - Which supplier roles are needed (admin, sales, quality, finance)? Proposed: reuse existing role templates with tenders.view/bid and a new suppliers.manage key.
+
+## Decisions 2026-10-23 (Lewis)
+- Not a separate work app: supplier organisations (consolidators, procurement service agents, prime contractors, implementing partners) work in the Project Management app (name to be reconsidered; "Operations" suggested). The company profile lives there; the "waiting on you" list moves to its home for supplier organisations.
+- One shared organisation card for every organisation type, linked wherever an organisation appears; the Supplier Portal slot in the AppSwitcher becomes the browsable network directory (read-only).
+- Scope of supply: declared shallow Universe categories (the ten catalogue groups, two levels), plus demonstrated scope derived from source approvals, bids, contracts and delivered lines, plus optional specific products. HS codes act as a search layer behind the categories, not a form. Search works both ways (issuers and donors find suppliers; suppliers see matched tenders).
+- Other facets: services, Incoterms handled, countries (registered, operating, delivers to), funders/programmes, certifications with expiry, size bands.
+
+## Category to HS mapping (built 2026-10-23)
+`packages/types/src/category-codes.ts`: `CATEGORY_HS_MAP`, `categoriesForHs`, `hsPrefixesForCategory`. 4-digit headings where possible, because subheadings are renumbered between editions (2017 to 2022 changed 3002 and 3822; HS 2028 takes effect 1 January 2028 and restructures 3003/3004; HS 2022 is in force until then). Each code is tagged WCO (appears in the WCO/WHO COVID-19 medical supplies classification reference, Edition 2, based on HS 2017) or JUDGEMENT (our own reading of the HS structure). Indicative, not customs advice. UNSPSC is not mapped: its use needs the UNDP embedding-terms addendum first.
