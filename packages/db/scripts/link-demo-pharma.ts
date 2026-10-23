@@ -28,11 +28,17 @@ async function main() {
     });
     const rep = { name: inn, inn, brand: null as string | null, atcCode: null as string | null };
     const best = new Map<string, { id: string; score: number; atcCode: string | null; basis: string[] }>();
+    // Ties go to the shortest, plainest name.
     for (const c of cands) {
-      const sc = scorePharmaMatch(rep, c);
-      if (sc.score < Math.max(PHARMA_SUGGEST_MIN_SCORE, 30) || !sc.basis.some((b) => b === "inn" || b === "active substance")) continue;
+      let sc = scorePharmaMatch(rep, c);
+      if (sc.score < PHARMA_SUGGEST_MIN_SCORE || !sc.basis.some((b) => b === "inn" || b === "active substance")) {
+        // MHRA entries carry a product name such as "Amoxicillin 500mg Capsules": accept a name that starts with the generic name.
+        const n = c.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(), g = inn.replace(/[^a-z0-9]+/g, " ").trim();
+        if (n === g || n.startsWith(g + " ")) sc = { score: 45 - Math.min(n.length - g.length, 20) / 2, basis: ["name starts with generic name"] };
+        else continue;
+      }
       const cur = best.get(c.source);
-      if (!cur || sc.score > cur.score) best.set(c.source, { id: c.id, score: sc.score, atcCode: c.atcCode, basis: sc.basis });
+      if (!cur || sc.score > cur.score) best.set(c.source, { id: c.id, score: Math.round(sc.score), atcCode: c.atcCode, basis: sc.basis });
     }
     if (best.size === 0) { unmatched.push(inn); continue; }
     matchedInn++;
