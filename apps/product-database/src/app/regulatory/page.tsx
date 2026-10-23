@@ -61,7 +61,7 @@ export default function RegulatoryPage() {
       {!d ? !err && <p>Loading…</p> : (
         <>
           <h2 style={{ fontSize: 15, marginTop: 20 }}>Catalogue</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+          <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12 }}>
             <StatTile label="Registrations" onClick={() => pick("reg", "registrations", "Registrations")} active={on("reg", "registrations")} value={n(d.totals.registrations)} icon={<ShieldIcon size={20} />} tone="brand" />
             <StatTile label="Active" onClick={() => pick("reg", "active", "Active")} active={on("reg", "active")} value={n(d.totals.active)} icon={<CheckCircleIcon size={20} />} tone="good" />
             <StatTile label="Expiring within 90 days" onClick={() => pick("reg", "expiring", "Expiring within 90 days")} active={on("reg", "expiring")} value={n(d.totals.expiringSoon)} icon={<ClockIcon size={20} />} tone="warning" />
@@ -70,7 +70,7 @@ export default function RegulatoryPage() {
             <StatTile label="Products with no registration" onClick={() => pick("reg", "none", "Products with no registration")} active={on("reg", "none")} value={n(d.totals.productsWithoutRegistration)} icon={<HelpCircleIcon size={20} />} tone="warning" />
           </div>
           <h2 style={{ fontSize: 15, marginTop: 24 }}>Your organisation</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+          <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12 }}>
             <StatTile label="Registrations awaiting your verification" onClick={() => pick("reg", "unverified", "Registrations awaiting your verification")} active={on("reg", "unverified")} value={n(d.mine.unverified)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />
             <StatTile label="Re-verification overdue" onClick={() => pick("reg", "reverification", "Re-verification overdue")} active={on("reg", "reverification")} value={n(d.mine.reverificationDue)} icon={<RefreshIcon size={20} />} tone="critical" />
             <StatTile label="Documents awaiting approval" onClick={() => pick("reg", "docs-awaiting", "Documents awaiting approval")} active={on("reg", "docs-awaiting")} value={n(d.mine.documentsAwaitingApproval)} icon={<FileEditIcon size={20} />} tone="warning" />
@@ -80,7 +80,7 @@ export default function RegulatoryPage() {
           </div>
           {sd && (<>
             <h2 style={{ fontSize: 15, marginTop: 24 }}>Safety notices and recalls</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+            <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12 }}>
               <StatTile label="Open notices" onClick={() => pick("notice", "open", "Open notices")} active={on("notice", "open")} value={n(sd.totals.open)} icon={<AlertIcon size={20} />} tone="warning" />
               <StatTile label="Open critical (class I)" onClick={() => pick("notice", "critical", "Open critical (class I)")} active={on("notice", "critical")} value={n(sd.totals.critical)} icon={<BanIcon size={20} />} tone="critical" />
               <StatTile label="Awaiting your review" onClick={() => pick("notice", "review", "Awaiting your review")} active={on("notice", "review")} value={n(sd.mine.awaitingReview)} icon={<ClipboardCheckIcon size={20} />} tone="warning" />

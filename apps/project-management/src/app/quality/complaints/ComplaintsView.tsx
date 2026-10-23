@@ -64,7 +64,7 @@ function ComplaintList() {
         {canLog && <Button variant="primary" icon={<PlusIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))" onClick={() => setShowNew((v) => !v)}>Log a complaint</Button>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 46%), 1fr))", gap: 16, marginBottom: 24 }}>
         <StatTile label="Open" value={dash?.open} icon={<ShieldIcon size={20} />} tone="brand" active={quick === "open"} onClick={() => { setQuick(quick === "open" ? "" : "open"); setPage(0); }} />
         <StatTile label="Overdue" value={dash?.overdue} icon={<ClockIcon size={20} />} tone="warning" active={quick === "overdue"} onClick={() => { setQuick(quick === "overdue" ? "" : "overdue"); setPage(0); }} />
         <StatTile label="Serious" value={dash?.serious} icon={<AlertIcon size={20} />} tone="critical" active={quick === "serious"} onClick={() => { setQuick(quick === "serious" ? "" : "serious"); setPage(0); }} />

@@ -108,7 +108,7 @@ export default function QaQueuePage() {
 
       {queue && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 24 }}>
+          <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 16, marginBottom: 24 }}>
             <SummaryTile label="Total awaiting QA" value={totalItems} icon={<ShieldIcon size={20} />} tone="brand" />
             <SummaryTile label="Categories affected" value={queue.categories.length} icon={<ClockIcon size={20} />} tone="neutral" />
             <SummaryTile

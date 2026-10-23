@@ -158,10 +158,10 @@ export default function HomePage() {
 
       <ActionsCard api={apiClient} LinkComponent={Link} />
 
-      <div
+      <div className="u-stat-grid"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))",
           gap: 16,
           marginBottom: 32,
         }}

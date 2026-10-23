@@ -200,7 +200,7 @@ export default function RiskRegisterPage() {
       </div>
 
       {/* Section dashboard — key counts at a glance, each a working filter shortcut. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 12, marginTop: 24 }}>
+      <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 46%), 1fr))", gap: 12, marginTop: 24 }}>
         <StatTile label="Total risks" value={counts.total} icon={<ShieldIcon size={18} />} onClick={clearFilters} active={!statusFilter && !severityFilter && !subjectTypeFilter && !overdueOnly && !highCritOnly} />
         <StatTile label="Open" value={counts.open} icon={<AlertIcon size={18} />} tone="warning" onClick={() => { clearFilters(); setStatusFilter("OPEN"); setPage(0); }} active={statusFilter === "OPEN"} />
         <StatTile label="High / critical, unresolved" value={counts.highOrCritical} icon={<AlertIcon size={18} />} tone="critical" onClick={() => { const on = !highCritOnly; clearFilters(); setHighCritOnly(on); setPage(0); }} active={highCritOnly} />

@@ -96,7 +96,7 @@ export default function WatchPage() {
               </div>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginTop: 16 }}>
+          <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12, marginTop: 16 }}>
             <StatTile label="Items in last 30 days" onClick={() => toggle("items")} active={view === "items"} value={n(d.totals.itemsLast30Days)} icon={<ClockIcon size={20} />} tone="brand" />
             <StatTile label="Matches awaiting review" onClick={() => toggle("pending")} active={view === "pending"} value={n(d.totals.pendingMatches)} icon={<AlertIcon size={20} />} tone="warning" />
             <StatTile label="Confirmed" onClick={() => toggle("confirmed")} active={view === "confirmed"} value={n(d.totals.confirmed)} icon={<CheckCircleIcon size={20} />} tone="critical" />

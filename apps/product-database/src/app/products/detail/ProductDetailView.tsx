@@ -238,7 +238,7 @@ export function ProductDetailView() {
       ) : null}
 
       {/* Key tiles */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginTop: 18 }}>
+      <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12, marginTop: 18 }}>
         <CompletenessTile score={detail.completeness.score} filled={detail.completeness.filled} total={detail.completeness.total} />
         <StatTile label="Storage" value={storageLabel(detail.storageClass)?.split(" (")[0] ?? "Not set"} icon={<ThermometerIcon size={20} />} tone={detail.coldChain ? "brand" : "neutral"} />
         {(() => {
@@ -977,7 +977,7 @@ function UsageTab({ productId }: { productId: string }) {
   if (!usage) return <p style={{ color: "var(--u-ink-secondary)" }}>Loading…</p>;
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+      <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12 }}>
         <StatTile label="Project lines" value={usage.lineCount} icon={<span>▤</span>} tone="brand" />
         <StatTile label="Projects" value={usage.projectCount} icon={<span>▦</span>} tone="neutral" />
       </div>

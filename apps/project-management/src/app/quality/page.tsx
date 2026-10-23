@@ -181,7 +181,7 @@ export default function QualityPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16, marginBottom: 32 }}>
+      <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 16, marginBottom: 32 }}>
         <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" active={statusFilter === "QUALIFIED"} onClick={() => { setStatusFilter(statusFilter === "QUALIFIED" ? "" : "QUALIFIED"); setApprovalsPage(0); }} />
         <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" active={statusFilter === "WARNING"} onClick={() => { setStatusFilter(statusFilter === "WARNING" ? "" : "WARNING"); setApprovalsPage(0); }} />
         <StatTile label="Pending review" value={dashboard?.pendingCount} icon={<ClockIcon size={20} />} tone="neutral" active={statusFilter === "PENDING"} onClick={() => { setStatusFilter(statusFilter === "PENDING" ? "" : "PENDING"); setApprovalsPage(0); }} />

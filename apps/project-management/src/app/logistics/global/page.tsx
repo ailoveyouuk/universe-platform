@@ -238,7 +238,7 @@ export default function GlobalLogisticsPage() {
           </p>
         )}
         {ratings && ratings.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 16 }}>
+          <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 16 }}>
             {ratings.map((r) => (
               <StatTile
                 key={r.entityType}
