@@ -29,6 +29,12 @@ export interface PharmaRefRow {
   sourceUrl: string | null;
 }
 
+/** Column limits in pharma_references; a longer source value is cut rather than failing the whole load. */
+const clip = (v: string | null, n: number) => (v && v.length > n ? v.slice(0, n) : v);
+function fit(r: PharmaRefRow): PharmaRefRow {
+  return { ...r, name: clip(r.name, 500)!, inn: clip(r.inn, 500), holder: clip(r.holder, 500), therapeuticArea: clip(r.therapeuticArea, 1000), pharmacotherapeuticGroup: clip(r.pharmacotherapeuticGroup, 500), sourceUrl: clip(r.sourceUrl, 1000), sourceKey: clip(r.sourceKey, 100)!, atcCode: clip(r.atcCode, 20), status: clip(r.status, 50)! };
+}
+
 export function rowHash(r: PharmaRefRow): string {
   return createHash("sha256").update(JSON.stringify([r.name, r.activeSubstances, r.inn, r.atcCode, r.holder, r.legalStatus, r.windsorCategory, r.productType, r.status, r.isGeneric, r.isBiosimilar, r.isOrphan, r.therapeuticArea, r.pharmacotherapeuticGroup, r.indication, r.authorisedOn?.toISOString() ?? null, r.sourceUrl])).digest("hex");
 }
@@ -90,7 +96,7 @@ export async function parseEmaMedicines(buf: Buffer | ArrayBuffer | Uint8Array):
     const key = col(r, "EMA product number"), name = col(r, "Name of medicine"), category = col(r, "Category");
     if (!key || !name || !category) continue;
     const vet = category.toLowerCase().startsWith("vet");
-    out.push({
+    out.push(fit({
       source: "EMA", sourceKey: key, name,
       activeSubstances: col(r, "Active substance"), inn: col(r, "International non-proprietary name (INN) / common name"),
       atcCode: vet ? col(r, "ATCvet code (veterinary)") : col(r, "ATC code (human)"),
@@ -100,7 +106,7 @@ export async function parseEmaMedicines(buf: Buffer | ArrayBuffer | Uint8Array):
       therapeuticArea: col(r, "Therapeutic area (MeSH)"),
       pharmacotherapeuticGroup: vet ? col(r, "Pharmacotherapeutic group (veterinary)") : col(r, "Pharmacotherapeutic group (human)"),
       indication: col(r, "Therapeutic indication"), authorisedOn: parseDate(col(r, "Marketing authorisation date")), sourceUrl: col(r, "Medicine URL"),
-    });
+    }));
   }
   return out;
 }
@@ -126,5 +132,5 @@ export async function parseMhraCategory(buf: Buffer | ArrayBuffer | Uint8Array, 
       therapeuticArea: null, pharmacotherapeuticGroup: null, indication: null, authorisedOn: null, sourceUrl: null,
     });
   }
-  return [...byPl.values()];
+  return [...byPl.values()].map(fit);
 }

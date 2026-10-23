@@ -4516,7 +4516,7 @@ model PharmaReference {
   /// EMA product number (EMEA/H/C/000917) or MHRA authorisation number (PL 00010/0756).
   sourceKey                String    @db.NVarChar(100)
   name                     String    @db.NVarChar(500)
-  activeSubstances         String?   @db.NVarChar(1000)
+  activeSubstances         String?   @db.NVarChar(Max)
   inn                      String?   @db.NVarChar(500)
   /// ATC code (human) or ATCvet code. EMA only.
   atcCode                  String?   @db.NVarChar(20)
