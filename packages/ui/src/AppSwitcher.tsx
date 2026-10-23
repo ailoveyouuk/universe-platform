@@ -277,21 +277,21 @@ function AppRow({ app, isCurrent }: { app: UniverseAppEntry; isCurrent: boolean 
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 8,
-        padding: "8px 10px",
+        gap: 6,
+        padding: "8px 8px",
         borderRadius: "var(--u-radius-sm)",
         cursor: isCurrent || locked ? "default" : "pointer",
         opacity: locked ? 0.6 : 1,
       }}
     >
-      <span style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: app.accent, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: isCurrent ? 700 : 500, color: "var(--u-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <span style={{ fontSize: 12.5, fontWeight: isCurrent ? 700 : 500, color: "var(--u-ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {app.label}
         </span>
       </span>
       {isCurrent && (
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: "var(--u-brand-violet)", letterSpacing: 0.3 }}>CURRENT</span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--u-brand-violet)", letterSpacing: 0.2, flexShrink: 0 }}>CURRENT</span>
       )}
       {!isCurrent && locked && <LockIcon size={13} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
       {!isCurrent && !locked && <ChevronRightIcon size={14} style={{ color: "var(--u-ink-secondary)", flexShrink: 0 }} />}
