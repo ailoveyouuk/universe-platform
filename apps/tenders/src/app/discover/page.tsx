@@ -81,14 +81,14 @@ export default function DiscoverPage() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Break down by</span>
         {(["issuers", "countries", "categories"] as const).map((k) => (
-          <button key={k} type="button" onClick={() => setBy(by === k ? "" : k)} style={CROSS_LINK}><Pill tone={by === k ? "brand" : "neutral"}>{k === "issuers" ? "Issuer" : k === "countries" ? "Delivery country" : "Category"}</Pill></button>
+          <button key={k} type="button" onClick={() => setBy(by === k ? "" : k)} className="u-touch" style={CROSS_LINK}><Pill tone={by === k ? "brand" : "neutral"}>{k === "issuers" ? "Issuer" : k === "countries" ? "Delivery country" : "Category"}</Pill></button>
         ))}
       </div>
       {by && (
         <Card>
           {facet.length === 0 ? <span style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Nothing to break down.</span> : (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {facet.slice(0, 40).map((x) => <button key={x.key} type="button" onClick={() => pick(x.key)} style={CROSS_LINK}><Pill tone={picked === x.key ? "brand" : "neutral"}>{by === "countries" ? countryName(x.key) : x.key} · {x.count}</Pill></button>)}
+              {facet.slice(0, 40).map((x) => <button key={x.key} type="button" onClick={() => pick(x.key)} className="u-touch" style={CROSS_LINK}><Pill tone={picked === x.key ? "brand" : "neutral"}>{by === "countries" ? countryName(x.key) : x.key} · {x.count}</Pill></button>)}
             </div>
           )}
         </Card>
@@ -99,8 +99,8 @@ export default function DiscoverPage() {
         </Card>
       )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        <button type="button" onClick={() => set({ chip: "" })} style={CROSS_LINK}><Pill tone={f.chip === "" ? "brand" : "neutral"}>All {Object.values(counts).length ? (counts.eligible ?? 0) + (counts.almostEligible ?? 0) + (counts.notEligible ?? 0) : ""}</Pill></button>
-        {CHIPS.map((c) => <button key={c} type="button" onClick={() => set({ chip: f.chip === c ? "" : c })} style={CROSS_LINK}><Pill tone={f.chip === c ? "brand" : "neutral"}>{CHIP_LABEL[c] ?? c}</Pill></button>)}
+        <button type="button" onClick={() => set({ chip: "" })} className="u-touch" style={CROSS_LINK}><Pill tone={f.chip === "" ? "brand" : "neutral"}>All {Object.values(counts).length ? (counts.eligible ?? 0) + (counts.almostEligible ?? 0) + (counts.notEligible ?? 0) : ""}</Pill></button>
+        {CHIPS.map((c) => <button key={c} type="button" onClick={() => set({ chip: f.chip === c ? "" : c })} className="u-touch" style={CROSS_LINK}><Pill tone={f.chip === c ? "brand" : "neutral"}>{CHIP_LABEL[c] ?? c}</Pill></button>)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, alignItems: "end" }}>
         <SearchInput value={f.keyword} onChange={(v) => set({ keyword: v })} placeholder="Search title, summary or reference" />

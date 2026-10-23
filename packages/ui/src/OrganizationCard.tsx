@@ -128,7 +128,7 @@ export function OrganizationCardLink({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} style={{ all: "unset", cursor: "pointer", color: "var(--u-link)", fontWeight: "inherit", textDecoration: "none" }} title="View organisation profile">
+      <button type="button" className="u-touch" onClick={() => setOpen(true)} style={{ all: "unset", cursor: "pointer", color: "var(--u-link)", fontWeight: "inherit", textDecoration: "none" }} title="View organisation profile">
         {children ?? name}
       </button>
       {open && (

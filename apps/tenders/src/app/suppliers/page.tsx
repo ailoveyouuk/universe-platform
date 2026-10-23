@@ -85,7 +85,7 @@ export default function FindSuppliersPage() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <span style={muted}>Break down by</span>
         {([["types", "Type"], ["countries", "Country"], ["scope", "Category"], ["certifications", "Certification"]] as const).map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setBy(by === k ? "" : k)} style={bare}><Pill tone={by === k ? "brand" : "neutral"}>{l}</Pill></button>
+          <button key={k} type="button" onClick={() => setBy(by === k ? "" : k)} className="u-touch" style={bare}><Pill tone={by === k ? "brand" : "neutral"}>{l}</Pill></button>
         ))}
       </div>
       {by && (
@@ -93,7 +93,7 @@ export default function FindSuppliersPage() {
           {facet.length === 0 ? <span style={{ ...muted, fontSize: 14 }}>Nothing to break down.</span> : (
             <>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {facet.slice(0, 60).map((x) => <button key={x.key} type="button" onClick={() => pick(x.key)} style={bare}><Pill tone={isOn(x.key) ? "brand" : "neutral"}>{label(x.key)} · {x.count}</Pill></button>)}
+                {facet.slice(0, 60).map((x) => <button key={x.key} type="button" onClick={() => pick(x.key)} className="u-touch" style={bare}><Pill tone={isOn(x.key) ? "brand" : "neutral"}>{label(x.key)} · {x.count}</Pill></button>)}
               </div>
               {facet.length > 60 && <div style={{ ...muted, marginTop: 8 }}>Showing the 60 largest of {facet.length}. Use the filters to narrow further.</div>}
             </>
@@ -110,7 +110,7 @@ export default function FindSuppliersPage() {
       </div>
       {group && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {subs.map((s) => <button key={s.id} type="button" onClick={() => set({ scope: toggle(f.scope, s.id) })} style={bare}><Pill tone={f.scope.includes(s.id) ? "brand" : "neutral"}>{s.label}</Pill></button>)}
+          {subs.map((s) => <button key={s.id} type="button" onClick={() => set({ scope: toggle(f.scope, s.id) })} className="u-touch" style={bare}><Pill tone={f.scope.includes(s.id) ? "brand" : "neutral"}>{s.label}</Pill></button>)}
         </div>
       )}
       {more && (
@@ -125,7 +125,7 @@ export default function FindSuppliersPage() {
           <div>
             <div style={{ ...muted, marginBottom: 6 }}>Must hold all of these current certifications</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {Object.entries(CERTS).map(([k, l]) => <button key={k} type="button" onClick={() => set({ certs: toggle(f.certs, k) })} style={bare}><Pill tone={f.certs.includes(k) ? "brand" : "neutral"}>{l}</Pill></button>)}
+              {Object.entries(CERTS).map(([k, l]) => <button key={k} type="button" onClick={() => set({ certs: toggle(f.certs, k) })} className="u-touch" style={bare}><Pill tone={f.certs.includes(k) ? "brand" : "neutral"}>{l}</Pill></button>)}
             </div>
           </div>
         </>
@@ -133,7 +133,7 @@ export default function FindSuppliersPage() {
       {f.scope.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
           <span style={muted}>Any of:</span>
-          {f.scope.map((id) => <button key={id} type="button" onClick={() => set({ scope: toggle(f.scope, id) })} style={bare}><Pill tone="brand">{SUB_LABEL[id] ?? id} ✕</Pill></button>)}
+          {f.scope.map((id) => <button key={id} type="button" onClick={() => set({ scope: toggle(f.scope, id) })} className="u-touch" style={bare}><Pill tone="brand">{SUB_LABEL[id] ?? id} ✕</Pill></button>)}
         </div>
       )}
       {activeCount > 0 && (
