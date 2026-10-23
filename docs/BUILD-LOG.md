@@ -822,3 +822,10 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - **Directory profile editor** (Profile tab, not for funders or data/insights users): description, website, contact, years in operation, wholesale licence, warehousing, principal manufacturers, with Save draft and Publish/Unpublish. New org-scoped endpoints `GET/PUT /supplier-directory/org/:organizationId/profile` and `POST .../publish|unpublish`, gated by `org.profile.manage` (platform staff bypass), audited to `supplier_profiles`, publish blocked for demo users and reconciles the stakeholder registry as before. **No DB-backed test yet for these endpoints.**
 - **Activity feed:** the platform feed always includes the caller's own organisation (Universe Demo's activity was hidden because demo organisations are excluded by default).
 - Gap analysis and build order: `docs/ORG-HUB-GAP-ANALYSIS.md`. Next: manufacturer profile endpoints and editor (step 3), then scope and certifications (new tables, RLS re-run).
+
+## 2026-10-23 — Organisation hub step 3: manufacturer profile; RLS gap closed
+
+- `GET/PUT /organizations/:id/manufacturer-profile` (`org.profile.manage`), editor on the Profile tab for manufacturer organisations (WHO prequalified, local-manufacturer flag, categories, SRA approvals, other certifications, national registrations, export markets, capacity). Sites remain a separate section.
+- **RLS gap found and fixed:** `manufacturer_profiles` had an `organizationId` column but no row-level security policy (it was missing from the 7-table fix on 2026-10-14). Added to `row-level-security.sql` and a one-off idempotent script `infra/sql/manufacturer-profiles-rls.sql`. **Prod step for Lewis: run that script once in the Azure portal query editor.**
+- New DB-backed tests `apps/api/test/org-hub-profiles.test.ts` cover the directory profile (draft, parse, publish, refusals) and the manufacturer profile (round trip, per-organisation isolation). CI green.
+- Next: step 4, scope of supply and certifications (two new tables, RLS entries in the one-paste SQL).
