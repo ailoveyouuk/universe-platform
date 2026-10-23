@@ -16,20 +16,26 @@ async function main() {
     select: { id: true, name: true, inn: true, brand: true, atcCode: true },
   });
   console.log(`simulated pharmaceutical products with an INN: ${prods.length}`);
+  // Group by generic name AND dosage-form word, so "paracetamol tablets" is matched to a tablet licence, not a capsule one.
+  const FORM = /\b(tablets?|capsules?|injection|syrup|suspension|solution|cream|ointment|powder|sachets?|drops)\b/i;
+  const formOf = (name: string) => (FORM.exec(name)?.[1] ?? "").toLowerCase().replace(/s$/, "");
   const byInn = new Map<string, typeof prods>();
-  for (const p of prods) { const k = p.inn!.trim().toLowerCase(); (byInn.get(k) ?? byInn.set(k, []).get(k)!).push(p); }
-  console.log(`distinct INNs: ${byInn.size}`);
+  for (const p of prods) { const k = `${p.inn!.trim().toLowerCase()}|${formOf(p.name)}`; (byInn.get(k) ?? byInn.set(k, []).get(k)!).push(p); }
+  console.log(`distinct generic-name and dosage-form groups: ${byInn.size}`);
+  if (!DRY) { const del = await prisma.productPharmaLink.deleteMany({ where: { isSimulated: true } }); console.log(`removed ${del.count} earlier simulated links before relinking`); }
 
   let matchedInn = 0, links = 0, atcSet = 0; const unmatched: string[] = [];
-  for (const [inn, group] of byInn) {
+  for (const [key, group] of byInn) {
+    const [inn, form] = key.split("|");
     const cands = await prisma.pharmaReference.findMany({
       where: { removedAt: null, status: "Authorised", productType: "HUMAN", OR: [{ inn: { contains: inn } }, { activeSubstances: { contains: inn } }, { name: { contains: inn } }] },
-      select: { id: true, source: true, name: true, inn: true, activeSubstances: true, atcCode: true }, take: 300,
+      select: { id: true, source: true, name: true, inn: true, activeSubstances: true, atcCode: true }, take: 2000,
     });
     const rep = { name: inn, inn, brand: null as string | null, atcCode: null as string | null };
+    const preferred = form ? cands.filter((c) => c.name.toLowerCase().includes(form)) : [];
     const best = new Map<string, { id: string; score: number; atcCode: string | null; basis: string[] }>();
     // Ties go to the shortest, plainest name.
-    for (const c of cands) {
+    for (const c of (preferred.length ? preferred : cands)) {
       let sc = scorePharmaMatch(rep, c);
       if (sc.score < PHARMA_SUGGEST_MIN_SCORE || !sc.basis.some((b) => b === "inn" || b === "active substance")) {
         // MHRA entries carry a product name such as "Amoxicillin 500mg Capsules": accept a name that starts with the generic name.

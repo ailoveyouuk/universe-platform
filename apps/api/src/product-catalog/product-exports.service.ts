@@ -60,12 +60,12 @@ export class ProductExportsService {
       });
       if (rows.length === 0) break;
       const ctx = await attributionContext(user, rows.map((r) => r.addedByOrganizationId));
-      const links = await prisma.productPharmaLink.findMany({ where: { productMasterId: { in: rows.map((r) => r.id) }, status: { in: ["CONFIRMED", "SUGGESTED"] } }, select: { productMasterId: true, status: true, reference: { select: { source: true, sourceKey: true, sourceUrl: true } } } });
+      const links = await prisma.productPharmaLink.findMany({ where: { productMasterId: { in: rows.map((r) => r.id) }, status: { in: ["CONFIRMED", "SUGGESTED"] } }, select: { productMasterId: true, status: true, reference: { select: { source: true, sourceKey: true, sourceUrl: true, status: true } } } });
       for (const r of rows) {
         if (lines.length >= EXPORT_ROW_LIMIT) { truncated = true; break; }
         const who = maskContributor(ctx, r.addedByOrganizationId, r.addedByOrganization?.name, r.attributionOverride);
         const mine = links.filter((l) => l.productMasterId === r.id), ok = mine.filter((l) => l.status === "CONFIRMED");
-        const leaflets = ok.flatMap((l) => pilLinksForReference({ source: l.reference.source, sourceKey: l.reference.sourceKey, sourceUrl: l.reference.sourceUrl }).filter((x) => x.kind !== "EPAR_PAGE").map((x) => x.url));
+        const leaflets = ok.flatMap((l) => pilLinksForReference({ source: l.reference.source, sourceKey: l.reference.sourceKey, sourceUrl: l.reference.sourceUrl, status: l.reference.status }).filter((x) => x.kind !== "EPAR_PAGE").map((x) => x.url));
         const regState = ok.length ? "Verified" : mine.length ? "Suggested" : "Not linked";
         lines.push(csvRow([r.id, r.name, r.productFamily?.name, r.variantLabel, r.brand, r.inn, r.category, r.strength, r.dosageForm, r.packSize, r.gtin, r.hsCode, r.unspscCode, r.standardUnit, r.regulatoryClass, r.lifecycleStatus, r.storageClass, r.coldChain ? "Yes" : "No", r.shelfLifeMonths, r.controlledSubstance ? "Yes" : "No", r.isArchived ? "Yes" : "No", r.sourceStandard, r.atcCode, regState, [...new Set(ok.map((l) => l.reference.source))].join("; "), ok.map((l) => l.reference.sourceKey).join("; "), leaflets.join(" "), who.name, iso(r.createdAt), iso(r.updatedAt)]));
       }

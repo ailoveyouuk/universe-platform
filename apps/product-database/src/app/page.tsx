@@ -445,16 +445,18 @@ export default function ProductCatalogPage() {
 
       {items && (
         <>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+          <style>{`@media (max-width: 900px) { .u-hide-md { display: none; } }`}</style>
+          <div style={{ overflowX: "auto", marginTop: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--u-border)" }}>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Name</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Category</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>HS Code</th>
-                <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>UNSPSC</th>
-                <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>GTIN</th>
+                <th className="u-hide-md" style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>UNSPSC</th>
+                <th className="u-hide-md" style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>GTIN</th>
                 <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Register</th>
-                <th style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Added by</th>
+                <th className="u-hide-md" style={{ padding: "10px 8px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Added by</th>
               </tr>
             </thead>
             <tbody>
@@ -463,13 +465,14 @@ export default function ProductCatalogPage() {
               ))}
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={7} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
+                  <td colSpan={4} style={{ padding: 20, color: "var(--u-ink-secondary)", textAlign: "center" }}>
                     No catalogue entries match these filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
 
           <Pagination
             pageSize={pageSize}
@@ -519,8 +522,8 @@ function ProductRow({ product }: { product: ProductCatalogMatch }) {
         <Pill tone="neutral">{product.category}</Pill>
       </td>
       <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.hsCode ?? "—"}</td>
-      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.unspscCode ?? "—"}</td>
-      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
+      <td className="u-hide-md" style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.unspscCode ?? "—"}</td>
+      <td className="u-hide-md" style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.gtin ?? "—"}</td>
       <td style={{ padding: 8 }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {product.isSimulated && <SourcePill label="Simulated" tone="critical" title="Demo data, visible only in demo organisations" />}
@@ -530,7 +533,7 @@ function ProductRow({ product }: { product: ProductCatalogMatch }) {
           {!product.atcCode && !(product.pharmaVerifiedSources ?? []).length && !(product.pharmaSuggestedCount ?? 0) && <span style={{ color: "var(--u-ink-secondary)" }}>—</span>}
         </div>
       </td>
-      <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.addedByOrganizationName ?? "—"}</td>
+      <td className="u-hide-md" style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{product.addedByOrganizationName ?? "—"}</td>
     </tr>
   );
 }

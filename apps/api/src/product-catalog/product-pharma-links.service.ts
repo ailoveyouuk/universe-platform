@@ -25,7 +25,7 @@ export class ProductPharmaLinksService {
     return {
       id: l.id, status: l.status as ProductPharmaLinkView["status"], score: l.score, basis: l.basis, decidedByName: l.decidedByName, decidedAt: l.decidedAt?.toISOString() ?? null,
       reference: { id: r.id, source: r.source as "EMA" | "MHRA", sourceKey: r.sourceKey, name: r.name, activeSubstances: r.activeSubstances, inn: r.inn, atcCode: r.atcCode, holder: r.holder, status: r.status, legalStatus: r.legalStatus, windsorCategory: r.windsorCategory, isGeneric: r.isGeneric, isBiosimilar: r.isBiosimilar, isOrphan: r.isOrphan, sourceUrl: r.sourceUrl },
-      pilLinks: pilLinksForReference({ source: r.source, sourceKey: r.sourceKey, sourceUrl: r.sourceUrl, productType: r.productType }),
+      pilLinks: pilLinksForReference({ source: r.source, sourceKey: r.sourceKey, sourceUrl: r.sourceUrl, productType: r.productType, status: r.status }),
     };
   }
 

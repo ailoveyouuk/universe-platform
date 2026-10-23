@@ -61,7 +61,7 @@ function RegisterView() {
       <StatTileGrid>
         <StatTile label="EMA authorised" value={summary ? count("EMA") : undefined} icon={<ShieldIcon size={18} />} tone="brand" active={source === "EMA"} onClick={() => set({ source: source === "EMA" ? null : "EMA" })} />
         <StatTile label="MHRA authorised" value={summary ? count("MHRA") : undefined} icon={<ShieldIcon size={18} />} tone="warning" active={source === "MHRA"} onClick={() => set({ source: source === "MHRA" ? null : "MHRA" })} />
-        <StatTile label="Matched to catalogue" value={summary ? summary.linkedEntries : undefined} icon={<CheckCircleIcon size={18} />} tone="good" active={linked === "YES"} onClick={() => set({ linked: linked === "YES" ? null : "YES" })} />
+        <StatTile label="Entries in catalogue" value={summary ? summary.linkedEntries : undefined} icon={<CheckCircleIcon size={18} />} tone="good" active={linked === "YES"} onClick={() => set({ linked: linked === "YES" ? null : "YES" })} />
       </StatTileGrid>
 
       <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap", alignItems: "center" }}>

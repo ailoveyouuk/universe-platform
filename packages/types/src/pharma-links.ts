@@ -15,7 +15,7 @@ export interface PilLink {
   official: boolean;
 }
 
-export interface PilRegisterInput { source: string; sourceKey: string; sourceUrl: string | null; productType?: string | null }
+export interface PilRegisterInput { source: string; sourceKey: string; sourceUrl: string | null; productType?: string | null; status?: string | null }
 
 const EPAR = /^https:\/\/www\.ema\.europa\.eu\/en\/medicines\/human\/EPAR\/([a-z0-9][a-z0-9-]*)\/?$/i;
 
@@ -34,7 +34,8 @@ export function mhraSearchUrl(plNumber: string): string {
 export function pilLinksForReference(r: PilRegisterInput): PilLink[] {
   if (r.source === "EMA") {
     const out: PilLink[] = [];
-    const pdf = emaProductInformationPdf(r.sourceUrl);
+    // The PDF address is only reliable for authorised medicines (a withdrawn one may have no PDF at the usual address).
+    const pdf = !r.status || r.status === "Authorised" ? emaProductInformationPdf(r.sourceUrl) : null;
     if (pdf) out.push({ source: "EMA", kind: "PIL_PDF", label: "EU leaflet (EMA)", url: pdf, official: true });
     if (r.sourceUrl) out.push({ source: "EMA", kind: "EPAR_PAGE", label: "EMA product page", url: r.sourceUrl, official: true });
     return out;

@@ -36,14 +36,14 @@ export class PharmaReferenceService {
         _count: { select: { links: { where: linkWhere } } },
       } }),
     ]);
-    return { total, items: rows.map(({ _count, ...r }) => ({ ...r, linkedProducts: _count.links, pilLinks: pilLinksForReference(r), scopeSubcategory: scopeSubForAtc(r.atcCode) })) };
+    return { total, items: rows.map(({ _count, ...r }) => ({ ...r, linkedProducts: _count.links, pilLinks: pilLinksForReference({ ...r, productType: r.productType }), scopeSubcategory: scopeSubForAtc(r.atcCode) })) };
   }
 
   async get(id: string, showSimulated = false) {
     const r = await prisma.pharmaReference.findUnique({ where: { id } });
     if (!r) throw new NotFoundException("Register entry not found.");
     const linked = await prisma.productPharmaLink.findMany({ where: { pharmaReferenceId: id, status: "CONFIRMED", ...(showSimulated ? {} : { isSimulated: false }) }, take: 50, select: { isSimulated: true, product: { select: { id: true, name: true, category: true } } } });
-    return { ...r, pilLinks: pilLinksForReference(r), linkedProducts: linked.map((l) => ({ ...l.product, isSimulated: l.isSimulated })), scopeSubcategory: scopeSubForAtc(r.atcCode) };
+    return { ...r, pilLinks: pilLinksForReference({ ...r, productType: r.productType }), linkedProducts: linked.map((l) => ({ ...l.product, isSimulated: l.isSimulated })), scopeSubcategory: scopeSubForAtc(r.atcCode) };
   }
 
   /** What is loaded and how fresh it is, for the attribution line and the "register last updated" note. */
