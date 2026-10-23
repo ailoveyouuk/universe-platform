@@ -297,13 +297,13 @@ export function ProjectDetailView() {
   const isPharma = project.projectType === "PHARMACEUTICAL";
 
   return (
-    <main style={{ padding: 32, maxWidth: 1000 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+    <main style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
           <h1 style={{ marginBottom: 4, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{project.title}</h1>
           <p style={{ color: "var(--u-ink-secondary)", margin: 0 }}>{project.referenceNumber}</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {project.isArchived && (
             <span
               style={{

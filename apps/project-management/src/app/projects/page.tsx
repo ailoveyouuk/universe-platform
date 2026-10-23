@@ -246,7 +246,8 @@ export default function ProjectsPage() {
 
       {result && (
         <>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+          <div style={{ overflowX: "auto", marginTop: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--u-border)" }}>
                 <SortableHeader label="Reference" sortKey="reference" activeKey={sortKey} direction={sortDir} onSort={onSort} />
@@ -297,6 +298,7 @@ export default function ProjectsPage() {
               )}
             </tbody>
           </table>
+          </div>
 
           <Pagination
             pageSize={pageSize}
