@@ -318,7 +318,7 @@ export default function LogisticsPage() {
 
       <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginBottom: 18 }}>
         <input
-          placeholder="Search project / description…"
+          placeholder="Search project / description…" aria-label="Search project / description…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={filterInputStyle}
@@ -352,7 +352,7 @@ export default function LogisticsPage() {
           ))}
         </select>
         <input
-          placeholder="Max duration (days)"
+          placeholder="Max duration (days)" aria-label="Max duration (days)"
           type="number"
           min={0}
           value={filters.maxDurationDays ?? ""}

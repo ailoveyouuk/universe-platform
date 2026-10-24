@@ -34,7 +34,7 @@ export function ColourField({
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           style={{ width: 40, height: 34, padding: 0, border: "1px solid var(--u-border)", borderRadius: 6, background: "none", cursor: "pointer", flexShrink: 0 }}
         />
-        <input style={inputStyle} value={value} placeholder={placeholder} maxLength={7} onChange={(e) => onChange(e.target.value)} />
+        <input style={inputStyle} value={value} placeholder={placeholder} aria-label={placeholder} maxLength={7} onChange={(e) => onChange(e.target.value)} />
         {value && (
           <Button variant="ghost" size="sm" onClick={() => onChange("")}>
             Clear

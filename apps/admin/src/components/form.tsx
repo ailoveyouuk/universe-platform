@@ -104,7 +104,7 @@ export function TagListInput({ value, onChange, placeholder }: { value: string[]
       <input
         style={{ ...inputStyle, marginTop: 0 }}
         value={draft}
-        placeholder={placeholder ?? "Type and press Enter"}
+        placeholder={placeholder ?? "Type and press Enter"} aria-label={placeholder ?? "Type and press Enter"}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === ",") {

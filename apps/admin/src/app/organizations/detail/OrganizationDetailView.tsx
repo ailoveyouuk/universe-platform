@@ -301,7 +301,7 @@ export function OrganizationDetailView() {
             <input style={inputStyle} value={form.registrationNumber} onChange={(e) => set({ registrationNumber: e.target.value })} />
           </Field>
           <Field label="Website">
-            <input style={inputStyle} value={form.website} placeholder="https://" onChange={(e) => set({ website: e.target.value })} />
+            <input style={inputStyle} value={form.website} placeholder="https://" aria-label="https://" onChange={(e) => set({ website: e.target.value })} />
           </Field>
         </FormGrid>
 
@@ -344,7 +344,7 @@ export function OrganizationDetailView() {
         </FormGrid>
         <div style={{ marginTop: 12 }}>
           <Field label="Welcome line" hint={`Shown under the greeting on the dashboard. ${form.welcomeMessage.length}/200`}>
-            <input style={inputStyle} maxLength={200} value={form.welcomeMessage} placeholder="Here's what's happening across your projects." onChange={(e) => set({ welcomeMessage: e.target.value })} />
+            <input style={inputStyle} maxLength={200} value={form.welcomeMessage} placeholder="Here's what's happening across your projects." aria-label="Here's what's happening across your projects." onChange={(e) => set({ welcomeMessage: e.target.value })} />
           </Field>
         </div>
         <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "10px 0 0" }}>

@@ -115,7 +115,7 @@ export function DirectoryProfileSection({ organizationId }: { organizationId: st
           <textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} maxLength={4000} value={draft.description} onChange={(e) => set({ description: e.target.value })} />
         </Field></div>
         <Field label="Website">
-          <input style={inputStyle} placeholder="https://" value={draft.website} onChange={(e) => set({ website: e.target.value })} />
+          <input style={inputStyle} placeholder="https://" aria-label="https://" value={draft.website} onChange={(e) => set({ website: e.target.value })} />
         </Field>
         <Field label="Years in operation">
           <input style={inputStyle} inputMode="numeric" value={draft.yearsInOperation} onChange={(e) => set({ yearsInOperation: e.target.value.replace(/[^0-9]/g, "") })} />

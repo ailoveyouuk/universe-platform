@@ -1130,7 +1130,7 @@ function LogEvidenceForm({
         Or paste a document URL (e.g. a cloud storage link)
         <input
           style={inputStyle}
-          placeholder="https://…"
+          placeholder="https://…" aria-label="https://…"
           value={documentUrl}
           disabled={Boolean(file)}
           onChange={(e) => setDocumentUrl(e.target.value)}

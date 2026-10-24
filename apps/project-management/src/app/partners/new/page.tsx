@@ -1175,7 +1175,7 @@ export default function NewPartnerPage() {
                       Check Name
                       <input
                         style={inputStyle}
-                        placeholder="e.g. Export Licence Check"
+                        placeholder="e.g. Export Licence Check" aria-label="e.g. Export Licence Check"
                         value={row.customLabel}
                         onChange={(e) => updateCompanyCheck(checkType, { customLabel: e.target.value })}
                       />

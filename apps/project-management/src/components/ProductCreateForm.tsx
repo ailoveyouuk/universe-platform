@@ -122,7 +122,7 @@ export function ProductCreateForm({
       {mode === "family" && (
         <div>
           <label>{label("Family (generic product)")}
-            <input style={inputStyle} value={family ? family.name : familyQuery} readOnly={Boolean(family)} placeholder="Search by name, brand or generic name" onChange={(e) => setFamilyQuery(e.target.value)} />
+            <input style={inputStyle} value={family ? family.name : familyQuery} readOnly={Boolean(family)} placeholder="Search by name, brand or generic name" aria-label="Search by name, brand or generic name" onChange={(e) => setFamilyQuery(e.target.value)} />
           </label>
           {family ? (
             <p style={{ fontSize: 12, margin: "6px 0 0" }}>{family.variantCount} variant{family.variantCount === 1 ? "" : "s"} · {family.category}{" "}

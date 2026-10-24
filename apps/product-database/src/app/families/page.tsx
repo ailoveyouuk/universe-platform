@@ -47,10 +47,10 @@ export default function FamiliesPage() {
 
       {creating && (
         <div style={{ marginTop: 16, padding: 14, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))" }}>
-          <input style={input} placeholder="Family name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input style={input} placeholder="Category *" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-          <input style={input} placeholder="Brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-          <input style={input} placeholder="INN (generic name)" value={form.inn} onChange={(e) => setForm({ ...form, inn: e.target.value })} />
+          <input style={input} placeholder="Family name *" aria-label="Family name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input style={input} placeholder="Category *" aria-label="Category *" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+          <input style={input} placeholder="Brand" aria-label="Brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+          <input style={input} placeholder="INN (generic name)" aria-label="INN (generic name)" value={form.inn} onChange={(e) => setForm({ ...form, inn: e.target.value })} />
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="primary" size="sm" disabled={saving || !form.name.trim() || !form.category.trim()} onClick={create}>Create</Button>
             <Button variant="secondary" size="sm" onClick={() => setCreating(false)}>Cancel</Button>
@@ -60,7 +60,7 @@ export default function FamiliesPage() {
 
       <form onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(search); }} style={{ display: "flex", gap: 8, marginTop: 16, alignItems: "center" }}>
         <SearchIcon size={18} />
-        <input style={{ ...input, flex: 1, maxWidth: 420 }} placeholder="Search families, brands, INN" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input style={{ ...input, flex: 1, maxWidth: 420 }} placeholder="Search families, brands, INN" aria-label="Search families, brands, INN" value={search} onChange={(e) => setSearch(e.target.value)} />
         <Button type="submit" variant="secondary" size="sm">Search</Button>
       </form>
       {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
