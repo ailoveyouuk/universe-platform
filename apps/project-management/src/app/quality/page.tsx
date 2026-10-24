@@ -80,12 +80,12 @@ export default function QualityPage() {
   const [perfPageSize, setPerfPageSize] = useState<PageSize>(25);
   const [perfPage, setPerfPage] = useState(0);
   const performance = performanceResult?.items ?? null;
-  const [scores, setScores] = useState<Record<string, { overallScore: number | null; band: string }>>({});
+  const [scores, setScores] = useState<Record<string, { overallScore: number | null; band: string; attention: number }>>({});
   useEffect(() => {
     const ids = (performanceResult?.items ?? []).map((p) => p.partnerId).filter((id) => !(id in scores));
     if (!ids.length) return;
     let off = false;
-    apiClient.getPartnerScorecardScores(ids).then((r) => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(r.map((x) => [x.partnerId, { overallScore: x.overallScore, band: x.band }])) })); }).catch(() => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { overallScore: null, band: "NOT_ENOUGH_DATA" }])) })); });
+    apiClient.getPartnerScorecardScores(ids).then((r) => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(r.map((x) => [x.partnerId, { overallScore: x.overallScore, band: x.band, attention: x.attention }])) })); }).catch(() => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { overallScore: null, band: "NOT_ENOUGH_DATA", attention: 0 }])) })); });
     return () => { off = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [performanceResult]);
@@ -457,6 +457,7 @@ export default function QualityPage() {
                       {scores[p.partnerId] === undefined ? <span style={{ color: "var(--u-ink-secondary)" }}>…</span> : scores[p.partnerId].overallScore === null ? "—" : (
                         <Link href={`/partners/detail?id=${p.partnerId}`} style={{ textDecoration: "none", color: scores[p.partnerId].band === "STRONG" || scores[p.partnerId].band === "SATISFACTORY" ? "var(--u-status-good, #1a7f4b)" : scores[p.partnerId].band === "WATCH" ? "var(--u-status-warning, #b26a00)" : "var(--u-status-critical)" }} title={scores[p.partnerId].band.replace("_", " ").toLowerCase()}>{scores[p.partnerId].overallScore}</Link>
                       )}
+                      {scores[p.partnerId]?.attention > 0 && <span title={`${scores[p.partnerId].attention} measure(s) need attention`} style={{ marginLeft: 6, color: "var(--u-status-critical)", fontSize: 12 }}>⚑ {scores[p.partnerId].attention}</span>}
                     </td>
                     <td style={{ padding: "10px 14px" }}>{p.totalLines}</td>
                     <td style={{ padding: "10px 14px" }}>{p.onTimePercent === null ? "—" : `${p.onTimePercent}%`}</td>

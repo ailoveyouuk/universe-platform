@@ -21,23 +21,25 @@ export function pickHeadline(metrics: ScorecardMetric[]): ScorecardMetric[] {
     .slice(0, 4);
 }
 
-export function summarise(metrics: ScorecardMetric[]): Pick<PartnerScorecard, "overallScore" | "band" | "coverage" | "bandNote" | "headline"> {
+export function summarise(metrics: ScorecardMetric[]): Pick<PartnerScorecard, "overallScore" | "band" | "scoreBand" | "attention" | "coverage" | "bandNote" | "headline"> {
   const weighted = metrics.filter((m) => m.weight > 0);
   const totalWeight = weighted.reduce((a, m) => a + m.weight, 0);
   const scored = weighted.filter((m) => m.score !== null);
   const scoredWeight = scored.reduce((a, m) => a + m.weight, 0);
   const coverage = totalWeight ? Math.round((scoredWeight / totalWeight) * 100) : 0;
   const headline = pickHeadline(metrics);
-  if (!scored.length) return { overallScore: null, band: "NOT_ENOUGH_DATA", coverage, bandNote: null, headline };
+  const attention = metrics.filter((m) => m.status === "critical").map((m) => m.label);
+  if (!scored.length) return { overallScore: null, band: "NOT_ENOUGH_DATA", scoreBand: "NOT_ENOUGH_DATA", attention, coverage, bandNote: null, headline };
   const overall = Math.round(scored.reduce((a, m) => a + (m.score as number) * m.weight, 0) / scoredWeight);
   let band: PartnerScorecard["band"] = overall >= 85 ? "STRONG" : overall >= 70 ? "SATISFACTORY" : overall >= 50 ? "WATCH" : "AT_RISK";
+  const scoreBand = band;
   let bandNote: string | null = null;
   const critical = metrics.filter((m) => m.status === "critical");
   if (critical.length && (band === "STRONG" || band === "SATISFACTORY")) {
     band = "WATCH";
     bandNote = `Held at Watch because of: ${critical.map((m) => m.label.toLowerCase()).join(", ")}.`;
   }
-  return { overallScore: overall, band, coverage, bandNote, headline };
+  return { overallScore: overall, band, scoreBand, attention, coverage, bandNote, headline };
 }
 
 /** Moves a date by whole working days (Monday to Friday; public holidays are not modelled). Negative goes back. */

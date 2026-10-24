@@ -49,13 +49,13 @@ export class PartnerScorecardService {
   }
 
   /** Overall score and band for several stakeholders at once, for the Quality list. Failures return nulls rather than breaking the list. */
-  async scores(user: RequestUser, ids: string[]): Promise<{ partnerId: string; overallScore: number | null; band: PartnerScorecard["band"] }[]> {
-    const out: { partnerId: string; overallScore: number | null; band: PartnerScorecard["band"] }[] = [];
+  async scores(user: RequestUser, ids: string[]): Promise<{ partnerId: string; overallScore: number | null; band: PartnerScorecard["band"]; attention: number }[]> {
+    const out: { partnerId: string; overallScore: number | null; band: PartnerScorecard["band"]; attention: number }[] = [];
     const unique = [...new Set(ids)].slice(0, 50);
     for (let i = 0; i < unique.length; i += 5) {
       const batch = await Promise.all(unique.slice(i, i + 5).map(async (id) => {
-        try { const c = await this.get(user, id); return { partnerId: id, overallScore: c.overallScore, band: c.band }; }
-        catch { return { partnerId: id, overallScore: null, band: "NOT_ENOUGH_DATA" as const }; }
+        try { const c = await this.get(user, id); return { partnerId: id, overallScore: c.overallScore, band: c.scoreBand, attention: c.attention.length }; }
+        catch { return { partnerId: id, overallScore: null, band: "NOT_ENOUGH_DATA" as const, attention: 0 }; }
       }));
       out.push(...batch);
     }

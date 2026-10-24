@@ -42,7 +42,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
 
   if (failed) return null;
   if (!sc) return <section style={{ marginTop: 28, color: "var(--u-ink-secondary)", fontSize: 13 }}>Loading performance…</section>;
-  const band = BAND[sc.band];
+  const band = BAND[sc.scoreBand];
   const bandColor = STATUS_COLOR[band.tone];
 
   return (
@@ -65,8 +65,13 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: bandColor }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: bandColor }} />{band.label}
           </span>
+          {sc.attention.length > 0 && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--u-status-critical)" }}>
+              <AlertIcon size={13} /> {sc.attention.length} measure{sc.attention.length === 1 ? "" : "s"} need{sc.attention.length === 1 ? "s" : ""} attention: {sc.attention.join(", ").toLowerCase()}
+            </span>
+          )}
           <span style={{ fontSize: 11.5, color: "var(--u-ink-secondary)" }}>
-            {sc.coverage}% of the measures that apply have data{sc.bandNote ? ` · ${sc.bandNote}` : ""}
+            {sc.coverage}% of the measures that apply have data
           </span>
         </div>
         {sc.headline.map((m) => (

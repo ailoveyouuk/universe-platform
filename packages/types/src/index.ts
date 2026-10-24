@@ -3842,6 +3842,10 @@ export interface PartnerScorecard {
   /** 0–100, weighted over the measures that have data; null when there is nothing to score yet. */
   overallScore: number | null;
   band: "STRONG" | "SATISFACTORY" | "WATCH" | "AT_RISK" | "NOT_ENOUGH_DATA";
+  /** The band the number alone gives, before the critical-measure cap. Display colours follow this. */
+  scoreBand: "STRONG" | "SATISFACTORY" | "WATCH" | "AT_RISK" | "NOT_ENOUGH_DATA";
+  /** Labels of measures in a critical state, shown as a separate flag beside the score. */
+  attention: string[];
   /** Share of the applicable weighting that has data behind it (0–100). */
   coverage: number;
   /** A measure in critical state stops the band reading better than WATCH; this says why. */

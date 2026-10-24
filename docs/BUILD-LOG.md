@@ -983,3 +983,6 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **One-off for Lewis:** run `infra/sql/rls-paste-2026-10-24.sql` in the Azure portal (adds row-level security to the two new tables; expected 3 and 3). `quality-complaints-rls.sql` and `tender-rls.sql` also updated for fresh builds.
 - Not built: accounting reconciliation, e-auction, public viewing; award approvals are a hard limit check, not a second-authoriser flow.
 
+## 2026-10-24 — Scorecard display: score colour separated from the attention flag
+- Lewis pointed out that 93/100 shown amber as "Watch" was confusing. The capped band (a critical measure holds the band at Watch) is unchanged in the data, but the display now follows the number alone (`scoreBand`, uncapped) and a separate red flag lists the measures needing attention (`attention`), on the scorecard and as a small ⚑ count beside the score in the Quality list. The capped `band` and `bandNote` are still returned by the API.
+

@@ -21,6 +21,9 @@ describe("Partner scorecard scoring", () => {
     expect(s.overallScore).toBeGreaterThanOrEqual(85);
     expect(s.band).toBe("WATCH");
     expect(s.bandNote).toMatch(/serious/);
+    // The number alone still reads strong; the problem is flagged separately.
+    expect(s.scoreBand).toBe("STRONG");
+    expect(s.attention).toEqual(["serious"]);
   });
   it("headlines the four that need attention first, then the heaviest", () => {
     const h = pickHeadline([m("w10", 90, 10), m("w20", 90, 20), m("warn", 60, 5, "warning"), m("crit", 0, 3, "critical"), m("w15", 90, 15), m("none", null, 50, "neutral")]);
