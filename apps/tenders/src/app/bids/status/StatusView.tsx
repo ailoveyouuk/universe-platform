@@ -27,7 +27,7 @@ export function StatusView() {
   const load = useCallback(() => { if (id) apiClient.tenderStatus(id).then(setS).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the status.")); }, [id]);
   useEffect(load, [load]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
-  if (!s) return <Page><ErrorNote message={err} />{!err && <div style={muted}>Loading…</div>}</Page>;
+  if (!s) return <Page><Heading title="Bid status" /><ErrorNote message={err} />{!err && <div style={muted}>Loading…</div>}</Page>;
   const t = s.tender, my = s.my;
   const closeMs = t.closingAt ? new Date(t.closingAt).getTime() : null;
   const nextMs = s.next?.at ? new Date(s.next.at).getTime() : null;

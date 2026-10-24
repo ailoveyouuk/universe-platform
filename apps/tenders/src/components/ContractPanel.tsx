@@ -98,7 +98,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       {!issuer && draft && <p style={{ marginBottom: 0, fontSize: 13, ...muted }}>The tender owner is still preparing this contract. You will be notified when it is ready for signature.</p>}
 
       {/* Milestones */}
-      <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Milestones</h4>
+      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Milestones</h3>
       {c.milestones.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None yet.</div>}
       {c.milestones.map((m) => (
         <div key={m.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
@@ -121,7 +121,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       {/* Signature section */}
       {!draft && (
         <>
-          <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Signature <Pill tone={sigTone}>{c.signature.status === "EXECUTED" ? "Executed" : c.signature.status === "PARTLY_SIGNED" ? "Partly complete" : "Awaiting signature"}</Pill></h4>
+          <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Signature <Pill tone={sigTone}>{c.signature.status === "EXECUTED" ? "Executed" : c.signature.status === "PARTLY_SIGNED" ? "Partly complete" : "Awaiting signature"}</Pill></h3>
           <p style={{ margin: "0 0 8px", fontSize: 13, lineHeight: 1.5, ...muted }}>Sign the agreement outside Universe (Adobe Acrobat Sign, DocuSign or equivalent), then upload the signed copy and record who signed for each side. The contract becomes active when a signed copy is on file and both sides have recorded a signatory.{awaiting && c.signature.missing.length > 0 ? ` Still needed: ${c.signature.missing.join("; ")}.` : ""}</p>
           {c.signatories.map((s) => (
             <div key={s.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0", fontSize: 14 }}>
@@ -145,7 +145,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       <EvidenceSection c={c} busy={busy} act={act} setErr={setErr} />
 
       {/* Files */}
-      <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Files</h4>
+      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Files</h3>
       {c.files.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None yet.</div>}
       {c.files.map((x) => (
         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>

@@ -43,8 +43,8 @@ for (const file of files) {
     if (/\b(color|fg|textColor):\s*[^,}]*var\(--u-status-(critical|good|warning|serious)\)/.test(text) && !/\blabel:/.test(text)) report(file, n, "status-text", "Use var(--u-status-*-text) or statusText() for text colour; the bright tokens fail contrast on white.");
     // 4. no hard-coded white/black text (breaks in dark theme); use --u-brand-violet-on / --u-on-accent / --u-ink
     if (!isBrandAsset && /\bcolor:\s*[^,}]*["'](#fff|#ffffff|white|#000|#000000|black)["']/i.test(text) && !/var\(--/.test(text.split(/["'](#fff|#ffffff|white|#000|#000000|black)["']/i)[0].slice(-40))) report(file, n, "hard-coded-colour", "Hard-coded white/black text; use a token (--u-ink, --u-brand-violet-on, --u-on-accent).");
-    // 5. text inputs must have an accessible name (placeholder alone is not one)
-    if (/<(input|textarea)\b/.test(text) && /placeholder=/.test(text) && !/aria-label|aria-labelledby/.test(text)) report(file, n, "input-name", "Input with a placeholder but no aria-label");
+    // 5. text inputs must have an accessible name (placeholder alone is not one); the tag may span several lines
+    if (/<(input|textarea)\b/.test(text)) { const tag = lines.slice(i, i + 14).join(" ").match(/<(input|textarea)\b[\s\S]*?\/>/); if (tag && /placeholder=/.test(tag[0]) && !/aria-label|aria-labelledby/.test(tag[0])) report(file, n, "input-name", "Input with a placeholder but no aria-label"); }
     // 6. clickable non-interactive elements
     if (/<(div|span|li|td|tr)\b[^>]*\bonClick=/.test(text) && !/\brole=/.test(text) && !/stopPropagation|onClick=\{\(e\)\s*=>\s*e\.stopPropagation/.test(text)) report(file, n, "click-target", "onClick on a non-interactive element: use <button>, or add role, tabIndex and a key handler.");
     // 7. positive tabindex

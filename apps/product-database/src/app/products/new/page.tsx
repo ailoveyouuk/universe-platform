@@ -153,7 +153,7 @@ export default function AddProductPage() {
               style={inputStyle}
               value={subCategory}
               onChange={(e) => setSubCategory(e.target.value)}
-              placeholder={isPharma ? "e.g. Antibiotics" : "e.g. Cryovial"}
+              placeholder={isPharma ? "e.g. Antibiotics" : "e.g. Cryovial"} aria-label={isPharma ? "e.g. Antibiotics" : "e.g. Cryovial"}
             />
           </label>
         </div>
@@ -187,6 +187,7 @@ export default function AddProductPage() {
         <label style={{ display: "block" }}>
           Expected Quality Documentation
           <textarea
+            aria-label="Expected quality documentation"
             style={textareaStyle}
             value={expectedQualityDocumentation}
             onChange={(e) => setExpectedQualityDocumentation(e.target.value)}

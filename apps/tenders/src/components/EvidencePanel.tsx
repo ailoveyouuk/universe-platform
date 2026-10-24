@@ -26,7 +26,7 @@ export function EvidenceSection({ c, busy, act, setErr }: { c: TenderContractVie
   const openFile = async (id: string) => { try { const r = await apiClient.evidenceFileUrl(id); window.open(r.downloadUrl, "_blank", "noopener"); } catch (e) { setErr(e instanceof Error ? e.message : "Could not open the file."); } };
   return (
     <div>
-      <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Evidence {c.evidence.length > 0 && <Pill tone="neutral">{c.evidence.filter((e) => !e.withdrawnAt).length}</Pill>}</h4>
+      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Evidence {c.evidence.length > 0 && <Pill tone="neutral">{c.evidence.filter((e) => !e.withdrawnAt).length}</Pill>}</h3>
       <p style={{ margin: "0 0 8px", fontSize: 13, lineHeight: 1.5, ...muted }}>Log delivery notes, inspection reports, certificates, invoices and similar records here rather than sending loose files. Each is dated, typed and linked to what it proves; a file's fingerprint is written to the audit timeline, so it cannot be swapped unnoticed. The other party can acknowledge it.</p>
       {c.evidence.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None logged yet.</div>}
       {c.evidence.map((e) => <Evidence key={e.id} e={e} busy={busy} act={act} onOpen={() => openFile(e.id)} />)}

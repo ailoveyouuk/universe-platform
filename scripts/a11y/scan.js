@@ -52,7 +52,7 @@
       const name = (b.getAttribute("aria-label") || b.getAttribute("aria-labelledby") || b.textContent || b.getAttribute("title") || (b.querySelector("img[alt]") || {}).alt || "").trim();
       if (!name) add("name", `${b.tagName.toLowerCase()} with no accessible name: ${b.outerHTML.slice(0, 90)}`);
     });
-    q("input:not([type=hidden]):not([type=submit]):not([type=button]),select,textarea").forEach((i) => {
+    q("input:not([type=hidden]):not([type=submit]):not([type=button]),select,textarea").filter((i) => !i.hidden && i.type !== "hidden").forEach((i) => {
       const ok = i.getAttribute("aria-label") || i.getAttribute("aria-labelledby") || (i.id && doc.querySelector(`label[for="${i.id}"]`)) || i.closest("label") || i.getAttribute("title");
       if (!ok) add("label", `field with no label: ${i.outerHTML.slice(0, 90)}`);
     });

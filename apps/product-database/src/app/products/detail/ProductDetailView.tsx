@@ -299,7 +299,7 @@ export function ProductDetailView() {
 export function Card({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
   return (
     <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", background: "var(--u-surface-raised)", padding: "16px 18px" }}>
-      <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>{title}</h3>
+      <h2 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>{title}</h2>
       {note && <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--u-ink-secondary)" }}>{note}</p>}
       <div style={{ marginTop: note ? 0 : 10 }}>{children}</div>
     </section>

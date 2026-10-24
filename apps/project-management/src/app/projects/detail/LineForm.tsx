@@ -786,7 +786,7 @@ export function LineForm({
                   style={inputStyle}
                   value={batchQuery}
                   onChange={(e) => setBatchQuery(e.target.value)}
-                  placeholder="Search batch number…"
+                  placeholder="Search batch number…" aria-label="Search batch number…"
                 />
                 {batchOptions.length > 0 && (
                   <div

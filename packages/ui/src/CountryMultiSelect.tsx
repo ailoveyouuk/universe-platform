@@ -94,7 +94,7 @@ export function CountryMultiSelect({
           }}
           onFocus={() => setOpen(true)}
           placeholder={value.length ? "Add another country…" : placeholder}
-          aria-label={ariaLabel}
+          aria-label={ariaLabel ?? placeholder}
           style={{ width: "100%", padding: "9px 34px", fontFamily: "var(--u-font-sans)", fontSize: 13.5, borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", backgroundColor: "var(--u-surface-raised)", color: "var(--u-ink)" }}
         />
         <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "var(--u-ink-secondary)", display: "flex", pointerEvents: "none" }}>

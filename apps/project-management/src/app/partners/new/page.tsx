@@ -920,7 +920,7 @@ export default function NewPartnerPage() {
                     style={{ ...inputStyle, marginTop: 2 }}
                     value={productCategoryLicensingOtherNotes}
                     onChange={(e) => setProductCategoryLicensingOtherNotes(e.target.value)}
-                    placeholder="Describe the other licence/permit held"
+                    placeholder="Describe the other licence/permit held" aria-label="Describe the other licence/permit held"
                   />
                 )}
               </div>
@@ -931,7 +931,7 @@ export default function NewPartnerPage() {
                 style={textareaStyle}
                 value={destinationCountryRestrictionsNotes}
                 onChange={(e) => setDestinationCountryRestrictionsNotes(e.target.value)}
-                placeholder="Any export/import restrictions that apply to shipments for this customer"
+                placeholder="Any export/import restrictions that apply to shipments for this customer" aria-label="Any export/import restrictions that apply to shipments for this customer"
               />
             </label>
             <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
@@ -960,7 +960,7 @@ export default function NewPartnerPage() {
                 style={textareaStyle}
                 value={manufacturerScopeOfServices}
                 onChange={(e) => setManufacturerScopeOfServices(e.target.value)}
-                placeholder="Free text description of services this manufacturer provides, if any"
+                placeholder="Free text description of services this manufacturer provides, if any" aria-label="Free text description of services this manufacturer provides, if any"
               />
             </label>
 
@@ -1050,7 +1050,7 @@ export default function NewPartnerPage() {
                 style={textareaStyle}
                 value={supplierScopeOfServices}
                 onChange={(e) => setSupplierScopeOfServices(e.target.value)}
-                placeholder="Free text description of services this supplier provides, if any"
+                placeholder="Free text description of services this supplier provides, if any" aria-label="Free text description of services this supplier provides, if any"
               />
             </label>
             <label style={{ fontSize: 13.5, color: "var(--u-ink)" }}>
@@ -1145,7 +1145,7 @@ export default function NewPartnerPage() {
                 style={inputStyle}
                 value={monthlyReconciliationContact}
                 onChange={(e) => setMonthlyReconciliationContact(e.target.value)}
-                placeholder="Name/email this warehouse sends monthly stock reconciliations to"
+                placeholder="Name/email this warehouse sends monthly stock reconciliations to" aria-label="Name/email this warehouse sends monthly stock reconciliations to"
               />
             </label>
           </RoleSection>

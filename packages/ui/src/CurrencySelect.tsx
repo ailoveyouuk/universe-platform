@@ -88,7 +88,7 @@ export function CurrencySelect({
             setQuery("");
           }}
           placeholder={placeholder}
-          aria-label={ariaLabel}
+          aria-label={ariaLabel ?? placeholder}
           style={{
             width: "100%",
             padding: "9px 34px 9px 34px",

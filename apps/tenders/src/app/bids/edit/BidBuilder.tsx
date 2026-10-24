@@ -67,7 +67,7 @@ export function BidBuilder() {
   const pick = (criterionId: string | null) => { fileFor.current = criterionId; fileRef.current?.click(); };
   const onFile = async (f: File | undefined) => { if (!f) return; await run(async () => { if (dirty) await apiClient.saveTenderBid(id, payload()); return apiClient.uploadTenderBidFile(id, f, fileFor.current); }, "File added."); if (fileRef.current) fileRef.current.value = ""; };
 
-  if (!ws) return <Page><ErrorNote message={err} />{!err && <div style={muted}>Loading…</div>}{err && <Link href="/discover">Back to Find tenders</Link>}</Page>;
+  if (!ws) return <Page><Heading title="Bid" /><ErrorNote message={err} />{!err && <div style={muted}>Loading…</div>}{err && <Link href="/discover">Back to Find tenders</Link>}</Page>;
   const submitted = ws.bid.status === "SUBMITTED";
   const locked = !ws.open;
   const total = lines.filter((l) => !l.noBid).reduce((s, l) => s + (Number(l.unitPrice) || 0) * Number(l.quantity ?? 1), 0);

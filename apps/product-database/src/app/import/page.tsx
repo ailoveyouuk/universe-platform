@@ -193,7 +193,7 @@ export default function ImportPage() {
         <textarea
           value={csvText}
           onChange={(e) => setCsvText(e.target.value)}
-          placeholder={"name,category,hsCode,unspscCode,gtin,standardUnit\nDisposable nitrile gloves,CONSUMABLES,4015.19,,,BOX"}
+          placeholder={"name,category,hsCode,unspscCode,gtin,standardUnit\nDisposable nitrile gloves,CONSUMABLES,4015.19,,,BOX"} aria-label={"name,category,hsCode,unspscCode,gtin,standardUnit\nDisposable nitrile gloves,CONSUMABLES,4015.19,,,BOX"}
           style={{
             minHeight: 220,
             padding: 12,

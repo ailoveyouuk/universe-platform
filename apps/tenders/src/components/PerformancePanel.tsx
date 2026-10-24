@@ -28,7 +28,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
   const missing = give && KEYS.some((k) => r[k] <= 2 && !(why[k] ?? "").trim());
   return (
     <div style={{ marginTop: 18, display: "grid", gap: 10, maxWidth: 720 }}>
-      <h4 style={{ margin: 0, fontSize: 14 }}>Close the contract</h4>
+      <h3 style={{ margin: 0, fontSize: 14 }}>Close the contract</h3>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>Closing creates a performance record that you and the supplier both see. It is built from the milestones and, if the supplier created its delivery project, the delivery results, using your own scorecard settings. The supplier has 14 days to reply or dispute a measure. The record cannot be edited afterwards.</p>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, 220px) 1fr", gap: 8 }}>
         <Select ariaLabel="Outcome" value={close.outcome} onChange={(v) => setClose({ ...close, outcome: v })} options={[{ value: "COMPLETED", label: "Completed" }, { value: "TERMINATED", label: "Terminated early" }]} />
@@ -66,7 +66,7 @@ export function PerformanceCard({ p, issuer, busy, act }: { p: PerformanceRecord
   return (
     <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <h4 style={{ margin: 0, fontSize: 15 }}>Performance record</h4>
+        <h3 style={{ margin: 0, fontSize: 15 }}>Performance record</h3>
         <BandPill band={p.band} />
         {p.overallScore !== null && <strong style={{ fontSize: 15 }}>{p.overallScore}/100</strong>}
         <span style={{ fontSize: 13, ...muted }}>Based on {p.coverage}% of the weighting · closed {fmtDate(p.closedAt)}</span>
@@ -131,7 +131,7 @@ export function PaymentLog({ c, busy, act }: { c: TenderContractView; busy: bool
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
-      <h4 style={{ margin: 0, fontSize: 15 }}>Payment log</h4>
+      <h3 style={{ margin: 0, fontSize: 15 }}>Payment log</h3>
       <p style={{ margin: "4px 0 8px", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Kept by hand: Universe does not connect to either party's finance system. Either side can log an invoice and mark it paid. Settled invoices feed the anonymised payment-practice summary other suppliers see for the tender owner.</p>
       {rows.length === 0 && <p style={{ margin: 0, fontSize: 14, ...muted }}>No payments logged yet.</p>}
       {rows.map((p) => (
@@ -188,7 +188,7 @@ export function QualityLinks({ c, busy, act }: { c: TenderContractView; busy: bo
   return (
     <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <h4 style={{ margin: 0, fontSize: 15 }}>Quality and cold-chain evidence</h4>
+        <h3 style={{ margin: 0, fontSize: 15 }}>Quality and cold-chain evidence</h3>
         <Button size="sm" variant="secondary" onClick={() => setOpen(!open)}>{open ? "Hide" : "Link complaints and temperature logs"}</Button>
       </div>
       <p style={{ margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Tie your own complaints and temperature logs to this contract. At close only counts go into the record (how many, upheld, serious, excursions); the supplier never sees your complaint text. Only you can see these links.</p>

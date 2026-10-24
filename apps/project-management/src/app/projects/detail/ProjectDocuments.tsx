@@ -165,7 +165,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
             style={{ ...inputStyle, display: "block", width: 220, marginTop: 2 }}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Document title"
+            placeholder="Document title" aria-label="Document title"
           />
         </label>
         <label style={{ fontSize: 12 }}>

@@ -46,13 +46,14 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
 function crumbsFor(pathname: string) {
   if (pathname === "/") return [{ label: "Catalogue" }];
   const segments = pathname.split("/").filter(Boolean);
-  const crumbs = [{ label: "Catalogue", href: "/" }];
+  const crumbs: { label: string; href?: string }[] = [{ label: "Catalogue", href: "/" }];
   let acc = "";
   for (const seg of segments) {
     acc += `/${seg}`;
     const match = ROUTES.find((r) => r.href === acc);
     const label = match?.label ?? (seg === "new" ? "New" : seg === "detail" ? "Detail" : seg[0].toUpperCase() + seg.slice(1));
-    crumbs.push({ label, href: acc });
+    // "/products" has no page of its own (only /products/new, /products/detail, /products/dossier), so it is shown as text, not a link.
+    crumbs.push(acc === "/products" ? { label } : { label, href: acc });
   }
   return crumbs;
 }

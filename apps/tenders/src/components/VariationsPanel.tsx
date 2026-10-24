@@ -22,7 +22,7 @@ export function VariationsSection({ c, busy, act }: { c: TenderContractView; bus
   const valid = f.title.trim().length >= 2 && f.reason.trim().length >= 5 && (f.newTotalValue !== "" || f.newEndDate !== "" || f.termsAmendment.trim() !== "");
   return (
     <div>
-      <h4 style={{ margin: "18px 0 6px", fontSize: 14 }}>Variations {c.variations.length > 0 && <Pill tone="neutral">{c.variations.length}</Pill>}</h4>
+      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Variations {c.variations.length > 0 && <Pill tone="neutral">{c.variations.length}</Pill>}</h3>
       <p style={{ margin: "0 0 8px", fontSize: 13, lineHeight: 1.5, ...muted }}>After signature the contract changes only through a variation. Either party proposes a change to the value, the end date or the terms with a reason; it applies only when the other party accepts. Every step is on the timeline.</p>
       {c.variations.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None yet.</div>}
       {c.variations.map((v) => <Variation key={v.id} v={v} currency={c.currency} busy={busy} act={act} />)}
