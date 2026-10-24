@@ -28,3 +28,8 @@ Not yet. Build data sets 1 and 2 (and decide on 3), then re-run both audits, agr
 - **Organisation directory:** `seed:demo-org-profiles` filled 302 simulated organisations: 117 supplier profiles, 52 manufacturer profiles, 13 funder, 24 tendering-body and 125 procurement-agent profiles, 704 countries of operation, 631 supply countries, 974 listed products, 543 scope rows, 607 certifications (some expiring, a few expired), 96 manufacturer sites, and a registration country for every organisation. Find suppliers now shows 105 published organisations, 40 countries, 58 categories.
 - **Still open:** tender documents (need real stored files), mini-competitions, price reviews, variations and contract files for the new tenders (the older SIM-TND/SIM-FWK tenders already cover awards, contracts and call-offs), the Supplier portal deployment decision, quality scorecard settings, Insights user profiles, and the Reset sandbox mechanism.
 - **Note:** Universe Demo is registered as a procurement agent, so tenders limited to suppliers or manufacturers show it as "Not eligible"; that is the eligibility logic working.
+
+## Update, 2026-10-25: tender files, multi-role organisations, audits
+- Tender documents, bid files and signed contract copies now exist as real stored PDFs for the simulated tenders; tender lines are topic-coherent.
+- Organisations can hold several roles, so a supplier that is also a procurement service agent is no longer missed by eligibility, search or saved searches.
+- Audits re-run clean. Remaining before baseline: mini-competitions, price reviews and variations for the new tenders; Insights using real data in anonymised views; Reset sandbox mechanism (needs your approval, demo organisation only); a real screen-reader pass by a person.
