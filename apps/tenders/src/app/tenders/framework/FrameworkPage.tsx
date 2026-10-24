@@ -69,14 +69,39 @@ export function FrameworkPage() {
 function ApprovalLimit({ v, act, busy }: { v: FrameworkView; act: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
   const s = v.settings!;
   const [limit, setLimit] = useState(String(s.individualLimit)); const [days, setDays] = useState(String(s.splitWindowDays));
+  const [ccy, setCcy] = useState(s.limitCurrency ?? "");
+  const [rows, setRows] = useState<{ roleId: string; limit: string }[]>(s.roleLimits.map((r) => ({ roleId: r.roleId, limit: String(r.limit) })));
+  const unit = ccy.trim().toUpperCase() || v.tender.currency || "tender currency";
+  const used = new Set(rows.map((r) => r.roleId));
+  const spare = s.availableRoles.filter((r) => !used.has(r.id));
+  const bad = limit === "" || Number(limit) < 0 || Number(days) < 1 || (ccy.trim() !== "" && !/^[A-Za-z]{3}$/.test(ccy.trim())) || rows.some((r) => r.limit === "" || Number(r.limit) < 0);
   return (
-    <Card title="Call-off approval limit" action={<Pill tone={s.confirmed ? "good" : "warning"}>{s.confirmed ? "Set by your organisation" : "Default, not yet confirmed"}</Pill>}>
-      <p style={{ marginTop: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>One authoriser can raise a call-off up to the limit. Above it, a second and different authoriser must approve before it goes to the supplier. Recent call-offs to the same supplier count together, so an order cannot be split to stay under the limit. There is no single industry standard for this limit, so set the figure your own delegated authority requires.</p>
+    <Card title="Approval limits" action={<Pill tone={s.confirmed ? "good" : "warning"}>{s.confirmed ? "Set by your organisation" : "Default, not yet confirmed"}</Pill>}>
+      <p style={{ marginTop: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>A person can authorise alone up to their limit: the highest limit among the roles they hold, otherwise the default. Above it, a call-off needs a second and different authoriser who also has the authority, and awards and contracts must be done by someone with a high enough limit. Recent call-offs to the same supplier count together, so an order cannot be split to stay under the limit. Limits in a different currency from the tender are converted at the day&apos;s rate. You currently have a limit of {s.yourLimit.toLocaleString()}.</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, alignItems: "end" }}>
-        <Field label={`Individual approval limit (${v.tender.currency ?? "tender currency"})`}><input type="number" min={0} style={inputStyle} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
+        <Field label={`Default limit (${unit})`}><input type="number" min={0} style={inputStyle} value={limit} onChange={(e) => setLimit(e.target.value)} /></Field>
+        <Field label="Limits are written in (currency code, optional)"><input maxLength={3} placeholder={v.tender.currency ?? "GBP"} style={inputStyle} value={ccy} onChange={(e) => setCcy(e.target.value.toUpperCase())} /></Field>
         <Field label="Count recent orders to the same supplier over (days)"><input type="number" min={1} max={365} style={inputStyle} value={days} onChange={(e) => setDays(e.target.value)} /></Field>
-        <div><Button variant="secondary" disabled={busy || limit === "" || Number(limit) < 0 || Number(days) < 1} onClick={() => act(() => apiClient.saveFrameworkSettings({ individualLimit: Number(limit), splitWindowDays: Number(days) }))}>{s.confirmed ? "Save" : "Confirm limit"}</Button></div>
       </div>
+      <div style={{ marginTop: 14, fontWeight: 600, fontSize: 13.5 }}>Limits by role</div>
+      {rows.length === 0 && <div style={{ ...muted, fontSize: 13, margin: "4px 0 8px" }}>No role limits. Everyone uses the default.</div>}
+      {rows.map((r, i) => (
+        <div key={r.roleId} style={{ display: "flex", gap: 10, alignItems: "center", margin: "6px 0", flexWrap: "wrap" }}>
+          <span style={{ minWidth: 180 }}>{s.availableRoles.find((x) => x.id === r.roleId)?.name ?? "Role"}</span>
+          <input aria-label="Limit for this role" type="number" min={0} style={{ ...inputStyle, maxWidth: 160 }} value={r.limit} onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, limit: e.target.value } : x)))} />
+          <span style={muted}>{unit}</span>
+          <Button size="sm" variant="secondary" onClick={() => setRows(rows.filter((_, j) => j !== i))}>Remove</Button>
+        </div>
+      ))}
+      {spare.length > 0 && (
+        <div style={{ margin: "8px 0" }}>
+          <select aria-label="Add a role limit" style={inputStyle} value="" onChange={(e) => e.target.value && setRows([...rows, { roleId: e.target.value, limit: limit }])}>
+            <option value="">Add a limit for a role…</option>
+            {spare.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div style={{ marginTop: 10 }}><Button variant="secondary" disabled={busy || bad} onClick={() => act(() => apiClient.saveFrameworkSettings({ individualLimit: Number(limit), splitWindowDays: Number(days), limitCurrency: ccy.trim().toUpperCase(), roleLimits: rows.map((r) => ({ roleId: r.roleId, limit: Number(r.limit) })) }))}>{s.confirmed ? "Save" : "Confirm limits"}</Button></div>
     </Card>
   );
 }

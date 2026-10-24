@@ -4400,11 +4400,26 @@ model TenderApprovalSettings {
   individualLimit Decimal   @default(25000) @db.Decimal(18, 2)
   /// Call-offs to the same supplier raised within this many days count together, so a large order cannot be split to stay under the limit.
   splitWindowDays Int       @default(30)
+  /// Currency the limits are written in (3-letter code). Null = the limit is read in each tender's own currency, as before 2026-10-24.
+  limitCurrency   String?   @db.Char(3)
   confirmedAt     DateTime?
   updatedById     String?
   updatedAt       DateTime  @default(now()) @updatedAt
 
   @@map("tender_approval_settings")
+}
+
+/// A limit for people holding a role (2026-10-24). Someone who holds one or more limited roles may authorise alone up to the highest of them; everyone else uses the organisation's default limit.
+model TenderApprovalRoleLimit {
+  id             String   @id @default(uuid())
+  organizationId String
+  roleId         String
+  limit          Decimal  @db.Decimal(18, 2)
+  updatedById    String?
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  @@unique([organizationId, roleId])
+  @@map("tender_approval_role_limits")
 }
 
 /// An order placed against a framework agreement with one supplier. Shared by the owner and the supplier.

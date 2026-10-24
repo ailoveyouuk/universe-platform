@@ -416,7 +416,7 @@ export class UniverseApiClient {
   restorePerformanceRecord(rid: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/restore`, { method: "POST" }); }
   frameworkView(id: string): Promise<FrameworkView> { return this.request(`/tenders/${id}/framework`); }
   frameworkSettings(): Promise<ApprovalSettingsView> { return this.request(`/tenders/framework/settings`); }
-  saveFrameworkSettings(body: { individualLimit: number; splitWindowDays: number }): Promise<ApprovalSettingsView> { return this.request(`/tenders/framework/settings`, { method: "PUT", body: JSON.stringify(body) }); }
+  saveFrameworkSettings(body: { individualLimit: number; splitWindowDays: number; limitCurrency?: string; roleLimits?: { roleId: string; limit: number }[] }): Promise<ApprovalSettingsView> { return this.request(`/tenders/framework/settings`, { method: "PUT", body: JSON.stringify(body) }); }
   raiseCallOff(id: string, body: { lines: { tenderLineId: string; quantity: number }[]; deliveryCountryCode?: string; requiredBy?: string; notes?: string }): Promise<{ id: string; status: string; warnings: string[] }> { return this.request(`/tenders/${id}/call-offs`, { method: "POST", body: JSON.stringify(body) }); }
   approveCallOff(cid: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/approve`, { method: "POST" }); }
   rejectCallOff(cid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/reject`, { method: "POST", body: JSON.stringify({ reason }) }); }

@@ -319,7 +319,15 @@ export class CallOffReasonDto { @IsString() @Length(1, 1000) reason!: string }
 export class CallOffResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) reason?: string }
 export class PriceReviewDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) proposedPrice!: number; @IsString() @Length(1, 1000) reason!: string }
 export class PriceReviewResponseDto { @IsBoolean() accept!: boolean; @IsOptional() @IsString() @Length(0, 1000) note?: string }
-export class ApprovalSettingsDto { @IsNumber() @Min(0) individualLimit!: number; @IsInt() @Min(1) @Max(365) splitWindowDays!: number }
+export class RoleLimitDto { @IsString() roleId!: string; @IsNumber() @Min(0) limit!: number }
+export class ApprovalSettingsDto {
+  @IsNumber() @Min(0) individualLimit!: number;
+  @IsInt() @Min(1) @Max(365) splitWindowDays!: number;
+  /** Currency the limits are written in; empty or absent reads limits in each tender's own currency. */
+  @IsOptional() @IsString() @Length(0, 3) limitCurrency?: string;
+  /** Limits for people holding a role. Replaces the previous set. */
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => RoleLimitDto) roleLimits?: RoleLimitDto[];
+}
 
 export class MiniLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.001) quantity!: number }
 export class OpenMiniCompetitionDto {

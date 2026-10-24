@@ -1,3 +1,4 @@
+import { TenderApprovalAuthority } from "./tender-approval-authority";
 import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
@@ -28,7 +29,7 @@ const num = (v: unknown) => (v == null ? null : Number(v));
  */
 @Injectable()
 export class TenderContractsService {
-  constructor(private readonly tenders: TendersService, private readonly blob: BlobStorageService, private readonly performance: TenderPerformanceService) {}
+  constructor(private readonly tenders: TendersService, private readonly blob: BlobStorageService, private readonly performance: TenderPerformanceService, private readonly authority: TenderApprovalAuthority = new TenderApprovalAuthority()) {}
 
   // ------------------------------------------------------------------ helpers
 
@@ -164,6 +165,8 @@ export class TenderContractsService {
         const tl = tlines.find((x) => x.id === al.tenderLineId); const bl = blines.find((x) => x.tenderLineId === al.tenderLineId);
         if (tl?.quantity != null && bl?.unitPrice != null) total += Number(tl.quantity) * Number(bl.unitPrice) * (Number(al.sharePercent) / 100);
       }
+      const auth = await this.authority.authorityOf(tx, user.organizationId, user.id, t.currency ?? null);
+      if (auth.confirmed && !this.authority.within(auth, Math.round(total * 100) / 100)) throw new ForbiddenException(this.authority.explain(auth, Math.round(total * 100) / 100, t.currency ?? null, "This contract"));
       const n = (await tx.tenderContract.count({ where: { tenderId } })) + 1;
       const c = await tx.tenderContract.create({ data: {
         organizationId: user.organizationId, awardedOrganizationId: award.awardedOrganizationId, tenderId, awardId, reference: `CON-${t.referenceNumber}-${n}`,

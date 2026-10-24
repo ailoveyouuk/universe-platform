@@ -1,3 +1,4 @@
+import { crossRate } from "./bid-completeness";
 /**
  * Pure rules for framework agreements and call-offs (step 7 part 2, 2026-10-22). No database, so they can be tested directly.
  *
@@ -17,6 +18,21 @@ export function requiresSecondApproval(callOffValue: number, recentSameSupplier:
 /** A second authoriser must be a different person from the one raising (who gave the first authorisation) and from the first authoriser. */
 export function canGiveSecondApproval(userId: string, raisedById: string, firstApprovedById: string | null): boolean {
   return userId !== raisedById && userId !== firstApprovedById;
+}
+
+/**
+ * A person's own authority (2026-10-24): the highest limit among the roles they hold that have one, otherwise the organisation's default.
+ * Role limits and the default are written in the same currency.
+ */
+export function effectiveLimit(defaultLimit: number, heldRoleLimits: number[]): number {
+  return heldRoleLimits.length ? Math.max(...heldRoleLimits) : defaultLimit;
+}
+
+/** Converts an amount using the USD-based daily table. Null when either currency is not in the table. */
+export function convertAmount(amount: number, from: string, to: string, rates: Record<string, number> | null): number | null {
+  if (from === to) return amount;
+  const r = rates ? crossRate(rates, from, to) : null;
+  return r === null ? null : Math.round(amount * r * 100) / 100;
 }
 
 export interface SupplierCandidate { contractId: string; organizationId: string; rank: number | null; callOffs: number }

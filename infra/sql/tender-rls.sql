@@ -265,6 +265,10 @@ CREATE SECURITY POLICY rls.TenderAccessPolicy
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_evidence AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_twoPartyWritePredicate(organizationId, awardedOrganizationId) ON dbo.tender_evidence AFTER UPDATE,
 
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_role_limits,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_role_limits AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_role_limits AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.tender_approval_settings AFTER UPDATE,

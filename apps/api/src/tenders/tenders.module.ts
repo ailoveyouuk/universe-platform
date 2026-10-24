@@ -1,3 +1,4 @@
+import { TenderApprovalAuthority } from "./tender-approval-authority";
 import { Module } from "@nestjs/common";
 import { BlobStorageService } from "../documents/blob-storage.service";
 import { ExchangeRatesModule } from "../exchange-rates/exchange-rates.module";
@@ -19,6 +20,6 @@ import { TenderBidProjectsService } from "./tender-bid-projects.service";
 @Module({
   imports: [ExchangeRatesModule],
   controllers: [TendersController, PublicNoticesController],
-  providers: [TenderBidProjectsService, TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderVariationsService, TenderEvidenceService, TenderOcdsService, BlobStorageService],
+  providers: [TenderBidProjectsService, TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderApprovalAuthority, TenderVariationsService, TenderEvidenceService, TenderOcdsService, BlobStorageService],
 })
 export class TendersModule {}

@@ -3886,7 +3886,16 @@ export type UpdateScorecardSettingsInput = Partial<Omit<ScorecardSettings, "isCu
 // ---------------------------------------------------------------------------
 export type CallOffStatus = "PENDING_APPROVAL" | "AWAITING_SUPPLIER" | "ACCEPTED" | "DECLINED" | "CANCELLED";
 export const CALL_OFF_STATUS_LABEL: Record<CallOffStatus, string> = { PENDING_APPROVAL: "Awaiting second authorisation", AWAITING_SUPPLIER: "Waiting for the supplier", ACCEPTED: "Accepted", DECLINED: "Declined", CANCELLED: "Cancelled" };
-export interface ApprovalSettingsView { individualLimit: number; splitWindowDays: number; confirmed: boolean; confirmedAt: string | null }
+export interface ApprovalSettingsView {
+  individualLimit: number; splitWindowDays: number; confirmed: boolean; confirmedAt: string | null;
+  /** Currency the limits are written in; null reads them in each tender's own currency. */
+  limitCurrency: string | null;
+  roleLimits: { roleId: string; roleName: string; limit: number }[];
+  /** Roles in the organisation that a limit can be set for. */
+  availableRoles: { id: string; name: string }[];
+  /** The caller's own limit and where it comes from. */
+  yourLimit: number;
+}
 export interface FrameworkItem { tenderLineId: string; lineNumber: number; lotNumber: number | null; description: string; unit: string | null; bidPrice: number; price: number; reviewPending: boolean }
 export interface FrameworkContractView { contractId: string; reference: string; status: string; supplierName: string | null; endDate: string | null; executedAt: string | null; holdEndsAt: string | null; holdActive: boolean; rank: number | null; callOffCount: number; items: FrameworkItem[]; performance: FrameworkRollup }
 export interface FrameworkRollup { placed: number; accepted: number; declined: number; cancelled: number; awaiting: number; acceptedShare: number | null; avgResponseHours: number | null; valueAccepted: number; projects: number; onTimePercent: number | null; inFullPercent: number | null; deliveriesMeasured: number }

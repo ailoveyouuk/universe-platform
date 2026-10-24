@@ -7,6 +7,7 @@ import { addWorkingDays, overAllocatedLines } from "./evaluation";
 import { appendTenderEvent } from "./tender-events";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { effectiveStatus, TendersService } from "./tenders.service";
+import { TenderApprovalAuthority } from "./tender-approval-authority";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
@@ -18,7 +19,7 @@ const num = (v: { toString(): string } | null | undefined) => (v === null || v =
  */
 @Injectable()
 export class TenderAwardService {
-  constructor(private readonly tenders: TendersService, private readonly evaluation: TenderEvaluationService, private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService()) {}
+  constructor(private readonly tenders: TendersService, private readonly evaluation: TenderEvaluationService, private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService(), private readonly authority: TenderApprovalAuthority = new TenderApprovalAuthority()) {}
 
   async award(user: RequestUser, tenderId: string, dto: AwardDto) {
     assertHasPermission(user, "tenders.issue");
@@ -50,6 +51,24 @@ export class TenderAwardService {
       if (over.length) problems.push("An item has been allocated more than 100% across suppliers.");
       if (dto.waiveStandstill && !(t.standstillEnabled && t.emergencyProcurement)) problems.push("The standstill can only be waived on an emergency procurement that has a standstill.");
       if (problems.length) throw new BadRequestException({ message: "The award cannot be recorded yet.", problems });
+
+      // Approval limit: once the organisation has confirmed its limits, the value being awarded must be within the awarder's own authority.
+      const auth = await this.authority.authorityOf(tx, user.organizationId, user.id, t.currency ?? null);
+      if (auth.confirmed) {
+        const [tlines, blines, bids] = await Promise.all([
+          tx.tenderLine.findMany({ where: { tenderId } }), tx.tenderBidLine.findMany({ where: { bidId: { in: bidIds } } }), tx.tenderBid.findMany({ where: { id: { in: bidIds } }, select: { id: true, fxRate: true } }),
+        ]);
+        let value = 0;
+        for (const p of planned) {
+          const rate = Number(bids.find((b) => b.id === p.bidId)?.fxRate ?? 1);
+          for (const l of p.lines) {
+            const tl = tlines.find((x) => x.id === l.tenderLineId); const bl = blines.find((x) => x.bidId === p.bidId && x.tenderLineId === l.tenderLineId);
+            if (tl?.quantity != null && bl?.unitPrice != null) value += Number(tl.quantity) * Number(bl.unitPrice) * rate * (l.sharePercent / 100);
+          }
+        }
+        value = Math.round(value * 100) / 100;
+        if (!this.authority.within(auth, value)) throw new ForbiddenException(this.authority.explain(auth, value, t.currency ?? null, "This award"));
+      }
 
       const now = new Date();
       const standstillEndsAt = t.standstillEnabled && !dto.waiveStandstill ? addWorkingDays(now, t.standstillWorkingDays ?? 8) : null;

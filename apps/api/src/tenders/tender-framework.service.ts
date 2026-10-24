@@ -7,6 +7,7 @@ import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT
 import { appendTenderEvent } from "./tender-events";
 import { TendersService } from "./tenders.service";
 import { TenderPerformanceService } from "./tender-performance.service";
+import { TenderApprovalAuthority } from "./tender-approval-authority";
 import { loadSettings } from "../quality/scorecard-settings.service";
 
 type Tx = Parameters<Parameters<typeof withTenantContext>[1]>[0];
@@ -24,7 +25,7 @@ const OPEN_STATUSES = ["PENDING_APPROVAL", "AWAITING_SUPPLIER", "ACCEPTED"];
  */
 @Injectable()
 export class TenderFrameworkService {
-  constructor(private readonly tenders: TendersService, private readonly performance: TenderPerformanceService) {}
+  constructor(private readonly tenders: TendersService, private readonly performance: TenderPerformanceService, private readonly authority: TenderApprovalAuthority = new TenderApprovalAuthority()) {}
 
   private async event(t: { organizationId: string; id: string }, counterparty: string, user: RequestUser, kind: string, summary: string, details?: unknown) {
     await appendTenderEvent({ organizationId: t.organizationId, counterpartyOrganizationId: counterparty, tenderId: t.id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind, summary, details });
@@ -34,17 +35,38 @@ export class TenderFrameworkService {
 
   async getSettings(user: RequestUser) {
     assertHasPermission(user, "tenders.award");
-    return withTenantContext(user.organizationId, (tx) => this.settings(tx, user.organizationId));
+    return withTenantContext(user.organizationId, (tx) => this.settings(tx, user.organizationId, user.id));
   }
-  private async settings(tx: Tx, orgId: string) {
+  private async settings(tx: Tx, orgId: string, userId?: string) {
     const s = await tx.tenderApprovalSettings.findUnique({ where: { organizationId: orgId } });
-    return { individualLimit: num(s?.individualLimit) ?? DEFAULT_INDIVIDUAL_LIMIT, splitWindowDays: s?.splitWindowDays ?? DEFAULT_SPLIT_WINDOW_DAYS, confirmed: !!s?.confirmedAt, confirmedAt: s?.confirmedAt ?? null };
+    const limits = await tx.tenderApprovalRoleLimit.findMany({ where: { organizationId: orgId } });
+    const roles = await tx.role.findMany({ where: { organizationId: orgId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+    const name = new Map(roles.map((r) => [r.id, r.name]));
+    const mine = userId ? await this.authority.authorityOf(tx, orgId, userId, null) : null;
+    return {
+      individualLimit: num(s?.individualLimit) ?? DEFAULT_INDIVIDUAL_LIMIT, splitWindowDays: s?.splitWindowDays ?? DEFAULT_SPLIT_WINDOW_DAYS, confirmed: !!s?.confirmedAt, confirmedAt: s?.confirmedAt ?? null,
+      limitCurrency: s?.limitCurrency?.trim() || null,
+      roleLimits: limits.filter((l) => name.has(l.roleId)).map((l) => ({ roleId: l.roleId, roleName: name.get(l.roleId)!, limit: Number(l.limit) })),
+      availableRoles: roles.map((r) => ({ id: r.id, name: r.name })),
+      yourLimit: mine?.limit ?? num(s?.individualLimit) ?? DEFAULT_INDIVIDUAL_LIMIT,
+    };
   }
   async saveSettings(user: RequestUser, dto: ApprovalSettingsDto) {
     assertHasPermission(user, "tenders.award");
     await withTenantContext(user.organizationId, async (tx) => {
-      const data = { individualLimit: dto.individualLimit, splitWindowDays: dto.splitWindowDays, confirmedAt: new Date(), updatedById: user.id };
+      const ccy = dto.limitCurrency?.trim().toUpperCase() || null;
+      if (ccy && !/^[A-Z]{3}$/.test(ccy)) throw new BadRequestException("Use a three-letter currency code, for example GBP.");
+      const data = { individualLimit: dto.individualLimit, splitWindowDays: dto.splitWindowDays, limitCurrency: ccy, confirmedAt: new Date(), updatedById: user.id };
       await tx.tenderApprovalSettings.upsert({ where: { organizationId: user.organizationId }, create: { organizationId: user.organizationId, ...data }, update: data });
+      if (dto.roleLimits) {
+        const roles = await tx.role.findMany({ where: { organizationId: user.organizationId, archivedAt: null }, select: { id: true } });
+        const ok = new Set(roles.map((r) => r.id));
+        const wanted = new Map<string, number>();
+        for (const r of dto.roleLimits) { if (!ok.has(r.roleId)) throw new BadRequestException("One of the roles was not found in your organisation."); wanted.set(r.roleId, r.limit); }
+        const existing = await tx.tenderApprovalRoleLimit.findMany({ where: { organizationId: user.organizationId } });
+        for (const e of existing) if (!wanted.has(e.roleId)) await tx.tenderApprovalRoleLimit.delete({ where: { id: e.id } });
+        for (const [roleId, limit] of wanted) await tx.tenderApprovalRoleLimit.upsert({ where: { organizationId_roleId: { organizationId: user.organizationId, roleId } }, create: { organizationId: user.organizationId, roleId, limit, updatedById: user.id }, update: { limit, updatedById: user.id } });
+      }
     });
     return this.getSettings(user);
   }
@@ -69,7 +91,7 @@ export class TenderFrameworkService {
       ]);
       const coLines = await tx.tenderCallOffLine.findMany({ where: { callOffId: { in: callOffs.map((c) => c.id) } } });
       const names = new Map((await tx.organization.findMany({ where: { id: { in: [...new Set([t.organizationId, ...contracts.map((c) => c.awardedOrganizationId)])] } }, select: { id: true, name: true } })).map((o) => [o.id, o.name]));
-      const settings = owner ? await this.settings(tx, user.organizationId) : null;
+      const settings = owner ? await this.settings(tx, user.organizationId, user.id) : null;
       const now = new Date();
       const hold = t.frameworkPriceHoldDays;
       const committed = r2(callOffs.filter((c) => OPEN_STATUSES.includes(c.status)).reduce((s, c) => s + Number(c.totalValue), 0));
@@ -172,7 +194,9 @@ export class TenderFrameworkService {
       const cfg = await this.settings(tx, user.organizationId);
       const since = new Date(now.getTime() - cfg.splitWindowDays * 86_400_000);
       const recent = existing.filter((x) => x.awardedOrganizationId === contract.awardedOrganizationId && x.createdAt >= since).reduce((s, x) => s + Number(x.totalValue), 0);
-      const need = requiresSecondApproval(total, recent, cfg.individualLimit);
+      const auth = await this.authority.authorityOf(tx, user.organizationId, user.id, t.currency ?? null);
+      // No readable limit (no exchange rate) means the call-off is not treated as within the raiser's authority.
+      const need = requiresSecondApproval(total, recent, auth.inTenderCurrency ?? -1);
       const committed = existing.reduce((s, x) => s + Number(x.totalValue), 0);
       const cc = ceilingCheck(num(t.frameworkCeiling), committed, total);
       const n = (await tx.tenderCallOff.count({ where: { tenderId } })) + 1;
@@ -186,7 +210,7 @@ export class TenderFrameworkService {
       return { t, co, warnings: [
         ...(cc.exceeded ? [`This call-off takes committed spend over the framework's maximum value (by ${Math.abs(cc.remainingAfter ?? 0).toLocaleString()}). It has been recorded as over the ceiling.`] : []),
         ...(stale.length ? [`The price-hold period has ended and item${stale.length > 1 ? "s" : ""} ${stale.join(", ")} ${stale.length > 1 ? "have" : "has"} not had a price review. The supplier's original bid price was used.`] : []),
-        ...(need.second ? [`The value, with recent orders to this supplier (${need.tested.toLocaleString()}), is above your approval limit of ${cfg.individualLimit.toLocaleString()}. A second, different authoriser must approve it before it goes to the supplier.`] : []),
+        ...(need.second ? [`The value, with recent orders to this supplier (${need.tested.toLocaleString()}), is above your approval limit of ${(auth.inTenderCurrency ?? auth.limit).toLocaleString()}${t.currency ? ` ${t.currency}` : ""}.${auth.rateNote ? ` ${auth.rateNote}` : ""} A second, different authoriser must approve it before it goes to the supplier.`] : []),
       ] };
   }
 
@@ -202,6 +226,8 @@ export class TenderFrameworkService {
       if (co.status !== "PENDING_APPROVAL") throw new ConflictException("This call-off is not waiting for approval.");
       if (!canGiveSecondApproval(user.id, co.raisedById, co.firstApprovedById)) throw new ForbiddenException("The second authoriser must be someone other than the person who raised the call-off.");
       const t = await tx.tender.findUnique({ where: { id: co.tenderId } });
+      const auth = await this.authority.authorityOf(tx, user.organizationId, user.id, co.currency ?? null);
+      if (auth.rolesConfigured && !this.authority.within(auth, Number(co.testedValue))) throw new ForbiddenException(this.authority.explain(auth, Number(co.testedValue), co.currency, "This call-off, with recent orders to the same supplier,"));
       await tx.tenderCallOff.update({ where: { id: co.id }, data: { status: "AWAITING_SUPPLIER", secondApprovedById: user.id, secondApprovedAt: new Date() } });
       return { co, t: t! };
     });
