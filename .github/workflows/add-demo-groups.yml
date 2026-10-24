@@ -13,6 +13,10 @@ on:
         description: "Remove this script's earlier products in these groups first (refuses if anything else references them)"
         default: false
         type: boolean
+      reassign:
+        description: "Only re-pick the adding organisation of existing products (packaging goods credited to supply and logistics organisations)"
+        default: false
+        type: boolean
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -37,4 +41,5 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           PER_GROUP: ${{ inputs.per_group }}
           RESET: ${{ inputs.reset }}
+          REASSIGN: ${{ inputs.reassign }}
           PRISMA_TX_TIMEOUT_MS: "120000"

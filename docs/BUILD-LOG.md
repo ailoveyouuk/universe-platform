@@ -964,3 +964,8 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Contract test for editing a project line
 - The line edit 400 (computed on-time/in-full flags echoed back) went unnoticed because nothing checked that what the edit form sends matches what the API accepts. The form's mapper moved from LineForm into `@universe/types` (`projectLineSummaryToInput`) so it can be tested, and a new API test (`project-line-edit-contract.test.ts`) takes a real line from the API with every date, price and delivery field filled, maps it, validates it against the real `ProjectLineDto` with whitelist and forbidNonWhitelisted, then saves it back. Any future field the API returns but the DTO rejects now fails CI instead of failing in a live edit.
+
+## 2026-10-24 — Demo tidy-up
+- A row of exactly four stat tiles now sits two by two at tablet-portrait widths (600 to 940 px) instead of three plus a lone tile (shared rule in the UI tokens, all apps).
+- The tender Discover and supplier search boxes sit on their own full-width row so the longer placeholder is no longer clipped.
+- Demo packaging products (Logistics and Services) are credited to supply, logistics and distribution organisations instead of random ones: `add-demo-groups` gained a REASSIGN mode (workflow input `reassign`) that only re-picks the adding organisation of existing products.

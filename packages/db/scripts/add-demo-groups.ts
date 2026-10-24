@@ -14,6 +14,8 @@ import { GROUP_ITEMS } from "./_group-items";
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const reset = (process.env.RESET ?? "false") === "true";
+// REASSIGN=true re-picks the adding organisation of this script's existing products (no products are added or removed).
+const reassign = (process.env.REASSIGN ?? "false") === "true";
 const PER_GROUP = Number(process.env.PER_GROUP ?? 150);
 const GROUPS = Object.keys(GROUP_ITEMS);
 // Tables that may legitimately hold rows hanging off a new product: created only by the enrichment steps.
@@ -66,8 +68,24 @@ async function main() {
       console.log("Reset: removed", Object.fromEntries(plan));
     });
   }
-  const orgs = await prisma.organization.findMany({ where: { isSimulated: true, isDemo: false }, select: { id: true }, take: 60, orderBy: { id: "asc" } });
+  const orgs = await prisma.organization.findMany({ where: { isSimulated: true, isDemo: false }, select: { id: true, name: true }, take: 400, orderBy: { id: "asc" } });
   if (orgs.length === 0) throw new Error("No simulated organisations found to own the new products.");
+  // Packaging goods read oddly from a laboratory or diagnostics business, so those products are credited to supply, logistics or distribution organisations.
+  const poolFor = (group: string) => {
+    const logistic = orgs.filter((o) => /supply|logistic|procurement|distribution|trading|freight/i.test(o.name));
+    return group === "Logistics and Services" && logistic.length >= 5 ? logistic.slice(0, 60) : orgs.slice(0, 60);
+  };
+  if (reassign) {
+    for (const group of GROUPS) {
+      const pool = poolFor(group);
+      const ids = await prisma.productMaster.findMany({ where: { isSimulated: true, sourceStandard: "SIM-SCALE", category: group }, select: { id: true }, orderBy: { id: "asc" } });
+      console.log(`${group}: ${ids.length} products, ${pool.length} candidate organisations${dryRun ? " (dry run)" : ""}`);
+      if (dryRun) continue;
+      await withPlatformStaffContext(async (tx: any) => { for (let i = 0; i < ids.length; i++) await tx.productMaster.update({ where: { id: ids[i].id }, data: { addedByOrganizationId: pool[i % pool.length].id } }); });
+    }
+    console.log(dryRun ? "DRY RUN: nothing changed" : "Reassigned adding organisations");
+    return;
+  }
   let total = 0;
   for (const group of GROUPS) {
     const items = GROUP_ITEMS[group];
@@ -81,7 +99,7 @@ async function main() {
       const k = Math.floor(n / items.length);
       const a = item.a[k % item.a.length];
       const b = item.b[(k + Math.floor(k / item.a.length)) % item.b.length];
-      return { id: randomUUID(), name: `${item.noun}, ${a}, ${b} #${n}`, category: group, sourceStandard: "SIM-SCALE", isSimulated: true, addedByOrganizationId: orgs[n % orgs.length].id };
+      return { id: randomUUID(), name: `${item.noun}, ${a}, ${b} #${n}`, category: group, sourceStandard: "SIM-SCALE", isSimulated: true, addedByOrganizationId: poolFor(group)[n % poolFor(group).length].id };
     });
     await withPlatformStaffContext(async (tx: any) => { for (let j = 0; j < rows.length; j += 100) await tx.productMaster.createMany({ data: rows.slice(j, j + 100) }); });
     total += need;

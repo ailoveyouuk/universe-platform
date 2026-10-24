@@ -588,3 +588,10 @@ a:focus-visible {
     justify-content: center;
   }
 }
+
+/* A row of exactly four stat tiles sits two by two on tablet-portrait widths instead of three plus a lone tile (2026-10-24). */
+@media (min-width: 600px) and (max-width: 940px) {
+  .u-stat-grid:has(> :nth-child(4):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

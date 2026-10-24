@@ -101,7 +101,8 @@ export default function FindSuppliersPage() {
         </Card>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, alignItems: "end" }}>
-        <SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, description or manufacturers" />
+        {/* Own full-width row so the longer placeholder is not clipped in a narrow grid column (2026-10-24). */}
+        <div style={{ gridColumn: "1 / -1", display: "flex" }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, description or manufacturers" /></div>
         <Select value={f.type} onChange={(v) => set({ type: v })} allLabel="Any type" options={Object.entries(ORG_TYPES).map(([value, label]) => ({ value, label }))} ariaLabel="Organisation type" />
         <Select value={group} onChange={setGroup} allLabel="Pick a category group…" options={SCOPE_TAXONOMY.map((g) => ({ value: g.group, label: g.group }))} ariaLabel="Category group" />
         <CountryMultiSelect value={f.countries} onChange={(v) => set({ countries: v })} options={countries} ariaLabel="Countries of operation" />
