@@ -8,7 +8,7 @@ import { scopeSubsForProduct } from "../../types/src/supplier-scope";
  *   SUPPLIER / MANUFACTURER : directory profile (most published), countries of operation and supply, 4 to 9 listed products, scope of supply
  *                             derived from those products, 1 to 3 certifications (some expiring, a few expired); manufacturers also get the
  *                             manufacturer profile (WHO PQ, SRA approvals, registrations, export markets) and 1 to 3 sites
- *   FUNDER                  : funder profile      TENDERING_PURCHASING_BODY : tendering body profile      PROCUREMENT_SERVICE_AGENT : agent profile
+ *   FUNDER_DONOR            : funder profile      TENDERING_PURCHASING_BODY : tendering body profile      PROCUREMENT_SERVICE_AGENT : agent profile
  *   every other type        : countries of operation and a quality certification
  * Only fills gaps: an organisation or table that already has rows is left alone. Deterministic, simulated, never deletes. DRY_RUN defaults to true.
  */
@@ -52,7 +52,7 @@ async function main() {
 
     for (const o of orgs) {
       const h = hashStr(o.id);
-      const home = o.countryOfRegistrationCode && countries.has(o.countryOfRegistrationCode) ? o.countryOfRegistrationCode : ALL_C.filter((c) => countries.has(c))[h % ALL_C.length];
+      const known = ALL_C.filter((c) => countries.has(c)); const home = o.countryOfRegistrationCode && countries.has(o.countryOfRegistrationCode) ? o.countryOfRegistrationCode : known[h % known.length];
       if (!o.countryOfRegistrationCode) regFix.push({ id: o.id, code: home });
       const isMfr = o.type === "MANUFACTURER", isSup = o.type === "SUPPLIER";
       const domain = `${slug(o.name)}.example.com`;
@@ -96,7 +96,7 @@ async function main() {
           });
         }
         if (isMfr && !site.has(o.id)) for (let k = 0; k < 1 + (h % 3); k++) rows.organizationManufacturerSite.push({ id: randomUUID(), organizationId: o.id, locationCountryCode: k === 0 ? home : pick(ALL_C.filter((c) => countries.has(c)), h + k, 1)[0], locationDetail: `Plant ${k + 1}, industrial zone (simulated)`, gmpCertified: u(h, 40 + k) < 0.75, gmpCertificationDetail: u(h, 40 + k) < 0.75 ? "GMP certificate on file (simulated)" : null });
-      } else if (o.type === "FUNDER" && !fun.has(o.id)) {
+      } else if (o.type === "FUNDER_DONOR" && !fun.has(o.id)) {
         rows.funderProfile.push({ id: randomUUID(), organizationId: o.id, fundingFocusAreas: JSON.stringify(pick(FOCUS, h, 3)), notes: "Simulated funder profile." });
       } else if (o.type === "TENDERING_PURCHASING_BODY" && !bod.has(o.id)) {
         rows.tenderingBodyProfile.push({ id: randomUUID(), organizationId: o.id, bodyType: ["GOVERNMENT", "FAITH_BASED_NETWORK", "NGO_IMPLEMENTING_PARTNER", "MULTILATERAL"][h % 4], fundingSources: JSON.stringify(pick(["Domestic budget", "Global Fund", "Gavi", "World Bank", "Bilateral donors"], h, 2)), hasDirectProcurementAuthority: u(h, 50) < 0.7, usesExternalProcurementAgent: false, diseaseProgramAreas: JSON.stringify(pick(FOCUS, h + 1, 3)), scaleServedSummary: `Serves roughly ${(1 + (h % 30)) * 100} health facilities (simulated).` });
