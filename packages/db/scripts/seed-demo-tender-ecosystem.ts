@@ -130,7 +130,7 @@ async function main() {
         await tx.tenderAddendum.create({ data: { organizationId: issuer.id, tenderId: t.id, number: 1, title: "Closing date extended by one week", body: "Following requests from several organisations, the closing date has been extended by seven days. All other terms are unchanged.", requiresAcknowledgement: true, newClosingAt: newClose, createdAt: addAt } });
         events.push({ at: addAt, kind: "ADDENDUM_ISSUED", summary: "Addendum 1 issued: closing date extended by one week", cp: null, actor: issuer.id });
         const clAt = new Date(now.getTime() - 4 * DAY);
-        await tx.tenderClarification.create({ data: { organizationId: issuer.id, tenderId: t.id, question: "Are chlorine tablets acceptable in place of liquid sodium hypochlorite for line 2?", answer: "Yes, provided the tablets deliver the stated available chlorine per litre and carry the same registration in the destination country.", answeredAt: clAt } });
+        await tx.tenderClarification.create({ data: { organizationId: issuer.id, tenderId: t.id, question: "Are other chlorine-based purification tablets acceptable in place of line 1, if they deliver the same available chlorine per litre?", answer: "Yes, provided they deliver the stated available chlorine per litre and carry the same registration in the destination country.", answeredAt: clAt } });
         events.push({ at: clAt, kind: "CLARIFICATION_PUBLISHED", summary: "A clarification was published", cp: null, actor: issuer.id });
       }
 

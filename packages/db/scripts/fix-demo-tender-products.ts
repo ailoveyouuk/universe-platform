@@ -49,6 +49,10 @@ async function main() {
       await tx.tenderDocument.update({ where: { id: cur.id }, data: { supersededAt: new Date(), documentKey: key } });
       await tx.tenderDocument.create({ data: { organizationId: t.organizationId, tenderId: t.id, title: "Technical specification", docType: "SPECIFICATION", description: cur.description, blobName, fileName: "technical-specification.pdf", fileSizeBytes: buf.length, mimeType: "application/pdf", version: cur.version + 1, documentKey: key } });
     }
+    // The published clarification on SIM-ECO-05 referred to a product that is no longer on the tender.
+    const stale = await tx.tenderClarification.findMany({ where: { question: { contains: "sodium hypochlorite for line 2" }, tender: { referenceNumber: "SIM-ECO-05" } } });
+    console.log(`${stale.length} clarification(s) to reword.`);
+    if (!dryRun) for (const c of stale) await tx.tenderClarification.update({ where: { id: c.id }, data: { question: "Are other chlorine-based purification tablets acceptable in place of line 1, if they deliver the same available chlorine per litre?", answer: "Yes, provided they deliver the stated available chlorine per litre and carry the same registration in the destination country." } });
     console.log(dryRun ? "DRY RUN: nothing written." : "Written.");
   });
 }

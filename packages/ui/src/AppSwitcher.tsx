@@ -108,7 +108,6 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     envVar: "NEXT_PUBLIC_APP_URL_ADMIN",
   },
   { key: "insights", label: "Insights", accent: "var(--u-module-insights)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS" },
-  { key: "supplier-portal", label: "Supplier Portal", accent: "var(--u-module-supplier-portal)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_SUPPLIER_PORTAL" },
 ];
 
 /**
