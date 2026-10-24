@@ -228,7 +228,7 @@ export default function ImportPage() {
           <div style={{ display: "flex", gap: 24, fontSize: 14 }}>
             <span><strong style={{ color: "var(--u-status-good-text)" }}>{result.created}</strong> created</span>
             <span><strong style={{ color: "var(--u-brand-violet)" }}>{result.updated}</strong> updated</span>
-            <span><strong style={{ color: result.skipped > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>{result.skipped}</strong> skipped</span>
+            <span><strong style={{ color: result.skipped > 0 ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>{result.skipped}</strong> skipped</span>
           </div>
           {result.errors.length > 0 && (
             <ul style={{ marginTop: 10, paddingLeft: 18, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>

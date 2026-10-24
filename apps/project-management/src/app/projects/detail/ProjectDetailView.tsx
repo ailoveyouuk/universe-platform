@@ -884,7 +884,7 @@ export function ProjectDetailView() {
               {line.productMasterId && safetyFlags[line.productMasterId] && (() => {
                 const f = safetyFlags[line.productMasterId as string];
                 return (
-                  <p style={{ margin: "4px 0 0", fontSize: 12.5, color: f.criticalOpen > 0 ? "var(--u-status-critical)" : "var(--u-status-warning)", fontWeight: 600 }}>
+                  <p style={{ margin: "4px 0 0", fontSize: 12.5, color: f.criticalOpen > 0 ? "var(--u-status-critical-text)" : "var(--u-status-warning-text)", fontWeight: 600 }}>
                     {f.criticalOpen > 0 ? "Open recall / critical safety notice" : "Open safety notice"}: {f.headline}
                     {f.unreviewed > 0 ? " — not yet reviewed by your organisation" : ""}{" · "}
                     <a href={`${PRODUCT_DATABASE_URL}/products/detail?id=${line.productMasterId}`} target="_blank" rel="noreferrer" style={{ color: "var(--u-brand-violet)" }}>Review in Product Database</a>

@@ -376,7 +376,7 @@ function Review({ detail, ready }: { detail: TenderDetailForIssuer; ready: { ok:
     <Card title="Review and publish">
       <ErrorNote message={err} />
       <ul style={{ listStyle: "none", margin: "0 0 16px", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        {ready.map((r) => <li key={r.label} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: r.ok ? "var(--u-ink)" : "var(--u-status-critical)" }}><span aria-hidden style={{ width: 18, textAlign: "center" }}>{r.ok ? "✓" : "✗"}</span>{r.label}</li>)}
+        {ready.map((r) => <li key={r.label} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, color: r.ok ? "var(--u-ink)" : "var(--u-status-critical-text)" }}><span aria-hidden style={{ width: 18, textAlign: "center" }}>{r.ok ? "✓" : "✗"}</span>{r.label}</li>)}
       </ul>
       <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "6px 16px", margin: "0 0 18px", fontSize: 13.5 }}>
         <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{VISIBILITY_LABEL[t.visibility]}</dd>

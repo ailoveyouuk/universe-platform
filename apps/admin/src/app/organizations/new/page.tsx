@@ -219,7 +219,7 @@ export default function NewOrganizationPage() {
             onChange={(e) => updateSlug(e.target.value)}
             placeholder="e.g. acme-health-logistics"
           />
-          <span style={{ fontSize: 12, color: form.slug && !slugValid ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+          <span style={{ fontSize: 12, color: form.slug && !slugValid ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>
             Lowercase letters, numbers, and hyphens only. Auto-filled from the name — edit it
             directly if you need something different.
           </span>

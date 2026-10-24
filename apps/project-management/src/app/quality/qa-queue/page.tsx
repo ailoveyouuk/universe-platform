@@ -207,7 +207,7 @@ function QueueRow({ item, showCategories }: { item: QaQueueItem; showCategories?
           flexShrink: 0,
           fontSize: 12,
           fontWeight: 600,
-          color: item.ageDays > 14 ? "var(--u-status-critical)" : "var(--u-ink-secondary)",
+          color: item.ageDays > 14 ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)",
           whiteSpace: "nowrap",
         }}
       >

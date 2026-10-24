@@ -47,7 +47,7 @@ export function StatusView() {
         <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
           {s.milestones.map((m) => (
             <li key={m.key} className="u-timeline-row" style={{ padding: "6px 0", fontSize: 14 }}>
-              <span aria-hidden style={{ color: m.done ? "var(--u-status-good)" : "var(--u-ink-secondary)" }}>{m.done ? "●" : "○"}</span>
+              <span aria-hidden style={{ color: m.done ? "var(--u-status-good-text)" : "var(--u-ink-secondary)" }}>{m.done ? "●" : "○"}</span>
               <span style={{ fontWeight: m.done ? 600 : 400 }}>{m.label}</span>
               <span className="u-timeline-when" style={muted}>{m.at ? fmtDateTime(m.at, t.timeZone) : m.target ? `due ${fmtDateTime(m.target, t.timeZone)}` : "pending"}</span>
             </li>))}

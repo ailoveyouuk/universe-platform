@@ -388,7 +388,7 @@ function FinancialStat({
   return (
     <div>
       <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 600, color: tone === "good" ? "var(--u-status-good)" : tone === "critical" ? "var(--u-status-critical)" : "var(--u-ink)" }}>
+      <div style={{ fontSize: 20, fontWeight: 600, color: tone === "good" ? "var(--u-status-good-text)" : tone === "critical" ? "var(--u-status-critical-text)" : "var(--u-ink)" }}>
         {currency} {formatted}
       </div>
     </div>

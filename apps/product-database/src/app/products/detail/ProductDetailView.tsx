@@ -950,7 +950,7 @@ function SourcingTab({ productId, shelfLifeMonths }: { productId: string; shelfL
             l.remainingShare === null ? "—" : (
               <span>
                 {Math.round(l.remainingShare * 100)}%
-                {l.flag && <span style={{ marginLeft: 6, color: l.flag === "EXPIRED" ? "var(--u-status-critical)" : "var(--u-status-warning)", fontWeight: 600 }}>{FLAG_TEXT[l.flag]}</span>}
+                {l.flag && <span style={{ marginLeft: 6, color: l.flag === "EXPIRED" ? "var(--u-status-critical-text)" : "var(--u-status-warning-text)", fontWeight: 600 }}>{FLAG_TEXT[l.flag]}</span>}
               </span>
             ),
             l.batch.status,

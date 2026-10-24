@@ -107,7 +107,7 @@ export default function ReVerificationDuePage() {
                   fontSize: 12,
                   fontWeight: 600,
                   backgroundColor: r.isOverdue ? "var(--u-status-critical-tint)" : "var(--u-status-warning-tint)",
-                  color: r.isOverdue ? "var(--u-status-critical)" : "var(--u-status-warning-text)",
+                  color: r.isOverdue ? "var(--u-status-critical-text)" : "var(--u-status-warning-text)",
                 }}
               >
                 {r.isOverdue ? "Overdue" : "Due"} {new Date(r.dueDate).toLocaleDateString()}

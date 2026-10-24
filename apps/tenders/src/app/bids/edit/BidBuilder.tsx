@@ -172,7 +172,7 @@ export function BidBuilder() {
 
       <Card title="Before you submit">
         {ws.addenda.some((a) => a.requiresAcknowledgement && !a.acknowledged) && <p style={{ marginTop: 0, fontSize: 13.5 }}>Acknowledge addenda on the <Link href={`/discover/view?id=${id}`}>tender page</Link>.</p>}
-        {ws.checklist.map((c, i) => <div key={i} style={{ fontSize: 14, padding: "3px 0" }}><span aria-hidden style={{ color: c.ok ? "var(--u-status-good)" : "var(--u-status-warning)", fontWeight: 700 }}>{c.ok ? "✓" : "○"}</span> {c.label}</div>)}
+        {ws.checklist.map((c, i) => <div key={i} style={{ fontSize: 14, padding: "3px 0" }}><span aria-hidden style={{ color: c.ok ? "var(--u-status-good-text)" : "var(--u-status-warning-text)", fontWeight: 700 }}>{c.ok ? "✓" : "○"}</span> {c.label}</div>)}
         {dirty && <p style={{ fontSize: 13, ...muted }}>You have unsaved changes. The checklist updates when you save.</p>}
         {!locked && (
           <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>

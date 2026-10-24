@@ -114,7 +114,7 @@ function ComplaintList() {
                   <td style={{ padding: "10px" }}>{r.partnerName ?? "—"}</td>
                   <td style={{ padding: "10px" }}><SeverityPill severity={r.severity} /></td>
                   <td style={{ padding: "10px" }}><StatusPill status={r.status} />{r.outcome && <div style={{ ...muted, fontSize: 12 }}>{label(r.outcome)}</div>}</td>
-                  <td style={{ padding: "10px" }}>{r.nextDueAt ? <span style={{ color: r.overdue ? "var(--u-status-critical)" : undefined, fontWeight: r.overdue ? 700 : 400 }}>{r.nextDueLabel}: {fmtDateTime(r.nextDueAt)}{r.overdue ? " — overdue" : ""}</span> : "—"}</td>
+                  <td style={{ padding: "10px" }}>{r.nextDueAt ? <span style={{ color: r.overdue ? "var(--u-status-critical-text)" : undefined, fontWeight: r.overdue ? 700 : 400 }}>{r.nextDueLabel}: {fmtDateTime(r.nextDueAt)}{r.overdue ? " — overdue" : ""}</span> : "—"}</td>
                   <td style={{ padding: "10px" }}>{r.ownerName ?? "—"}</td>
                 </tr>
               ))}

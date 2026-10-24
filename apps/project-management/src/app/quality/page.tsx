@@ -367,7 +367,7 @@ export default function QualityPage() {
                         <Pill tone="neutral">—</Pill>
                       )}
                     </td>
-                    <td style={{ padding: "10px 14px", color: a.isReviewOverdue ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                    <td style={{ padding: "10px 14px", color: a.isReviewOverdue ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>
                       {a.nextReviewDue ? new Date(a.nextReviewDue).toLocaleDateString() : "—"}
                     </td>
                     <td style={{ padding: "10px 14px" }} />
@@ -455,7 +455,7 @@ export default function QualityPage() {
                     <td style={{ padding: "10px 14px", color: "var(--u-ink-secondary)" }}>{ROLE_LABELS[p.roleType]}</td>
                     <td style={{ padding: "10px 14px", fontWeight: 600 }}>
                       {scores[p.partnerId] === undefined ? <span style={{ color: "var(--u-ink-secondary)" }}>…</span> : scores[p.partnerId].overallScore === null ? "—" : (
-                        <Link href={`/partners/detail?id=${p.partnerId}`} style={{ textDecoration: "none", color: scores[p.partnerId].band === "STRONG" || scores[p.partnerId].band === "SATISFACTORY" ? "var(--u-status-good-text)" : scores[p.partnerId].band === "WATCH" ? "var(--u-status-warning-text)" : "var(--u-status-critical)" }} title={scores[p.partnerId].band.replace("_", " ").toLowerCase()}>{scores[p.partnerId].overallScore}</Link>
+                        <Link href={`/partners/detail?id=${p.partnerId}`} style={{ textDecoration: "none", color: scores[p.partnerId].band === "STRONG" || scores[p.partnerId].band === "SATISFACTORY" ? "var(--u-status-good-text)" : scores[p.partnerId].band === "WATCH" ? "var(--u-status-warning-text)" : "var(--u-status-critical-text)" }} title={scores[p.partnerId].band.replace("_", " ").toLowerCase()}>{scores[p.partnerId].overallScore}</Link>
                       )}
                       {scores[p.partnerId]?.attention > 0 && <span title={`${scores[p.partnerId].attention} measure(s) need attention`} style={{ marginLeft: 6, color: "var(--u-status-critical-text)", fontSize: 12 }}>⚑ {scores[p.partnerId].attention}</span>}
                     </td>
@@ -464,10 +464,10 @@ export default function QualityPage() {
                     <td style={{ padding: "10px 14px" }}>{p.inFullPercent === null ? "—" : `${p.inFullPercent}%`}</td>
                     <td style={{ padding: "10px 14px" }}>{p.otifPercent === null ? "—" : `${p.otifPercent}%`}</td>
                     <td style={{ padding: "10px 14px" }}>{p.avgDaysLate === null ? "—" : `${p.avgDaysLate}d`}</td>
-                    <td style={{ padding: "10px 14px", color: p.issueCount > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                    <td style={{ padding: "10px 14px", color: p.issueCount > 0 ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>
                       {p.issueCount}
                     </td>
-                    {canSeeComplaints && <td style={{ padding: "10px 14px", color: p.complaintsUpheld > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                    {canSeeComplaints && <td style={{ padding: "10px 14px", color: p.complaintsUpheld > 0 ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>
                       {p.complaintsTotal === 0 ? "—" : (
                         <Link href={`/quality/complaints`} style={{ textDecoration: "none", color: "inherit" }}>{p.complaintsTotal} ({p.complaintsUpheld})</Link>
                       )}

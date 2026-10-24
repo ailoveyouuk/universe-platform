@@ -413,7 +413,7 @@ export function LineForm({
             <p style={{ fontSize: 12.5, margin: "6px 0 0", color: "var(--u-ink-secondary)" }}>
               {productDetail.family ? <>Variant of <strong>{productDetail.family.name}</strong>{productDetail.variantLabel ? ` — ${productDetail.variantLabel}` : ""} · </> : "Standalone product · "}
               {productDetail.packSize ? `${productDetail.packSize} · ` : ""}
-              <span style={{ color: productDetail.compliance.status === "BLOCKED" ? "var(--u-status-critical)" : productDetail.compliance.status === "WARNING" ? "var(--u-status-warning)" : "var(--u-status-good)", fontWeight: 600 }}>
+              <span style={{ color: productDetail.compliance.status === "BLOCKED" ? "var(--u-status-critical-text)" : productDetail.compliance.status === "WARNING" ? "var(--u-status-warning-text)" : "var(--u-status-good-text)", fontWeight: 600 }}>
                 {productDetail.compliance.status === "BLOCKED" ? "Regulatory block" : productDetail.compliance.status === "WARNING" ? "Regulatory attention" : "No regulatory issues recorded"}
               </span>
               {productDetail.compliance.reasons.length > 0 ? ` (${productDetail.compliance.reasons[0]})` : ""}

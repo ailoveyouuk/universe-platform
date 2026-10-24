@@ -62,7 +62,7 @@ export function TenderView() {
       <Card title="Can your organisation bid?">
         {v.eligibility.items.length === 0 ? <p style={{ margin: 0, ...muted }}>This tender has no eligibility requirements{v.eligibility.invited ? "; you have also been invited." : "."}</p> : v.eligibility.items.map((i) => (
           <div key={i.ruleId} style={{ display: "flex", gap: 10, padding: "8px 0", fontSize: 14 }}>
-            <span aria-hidden style={{ fontWeight: 700, color: i.status === "MET" ? "var(--u-status-good)" : i.status === "NOT_MET" ? "var(--u-status-critical)" : "var(--u-status-warning)" }}>{STATUS_ICON[i.status]}</span>
+            <span aria-hidden style={{ fontWeight: 700, color: i.status === "MET" ? "var(--u-status-good-text)" : i.status === "NOT_MET" ? "var(--u-status-critical-text)" : "var(--u-status-warning-text)" }}>{STATUS_ICON[i.status]}</span>
             <div><div>{i.requirement}{!i.required && <span style={muted}> (optional)</span>}</div>{i.action && <div style={{ fontSize: 13, ...muted }}>{i.action}</div>}</div>
           </div>
         ))}

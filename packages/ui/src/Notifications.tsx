@@ -83,7 +83,7 @@ export function NotificationRow({
       <span style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: "var(--u-ink-secondary)", marginTop: 3 }}>
         {n.actorName && <span>from {n.actorName}</span>}
         <span>{relativeTime(n.createdAt)}</span>
-        {due && <span style={{ fontWeight: 650, color: due.overdue ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>{due.text}</span>}
+        {due && <span style={{ fontWeight: 650, color: due.overdue ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>{due.text}</span>}
       </span>
     </span>
   );

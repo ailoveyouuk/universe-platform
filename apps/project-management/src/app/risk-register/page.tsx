@@ -293,7 +293,7 @@ export default function RiskRegisterPage() {
                     </td>
                     <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{STATUS_OPTIONS.find((o) => o.value === r.status)?.label ?? r.status}</td>
                     <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{r.ownerName ?? "—"}</td>
-                    <td style={{ padding: 8, color: overdue ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>
+                    <td style={{ padding: 8, color: overdue ? "var(--u-status-critical-text)" : "var(--u-ink-secondary)" }}>
                       {r.reviewDate ? new Date(r.reviewDate).toLocaleDateString() : "—"}
                       {overdue ? " (overdue)" : ""}
                     </td>
