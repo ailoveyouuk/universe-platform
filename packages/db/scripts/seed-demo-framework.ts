@@ -10,6 +10,8 @@ const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const REF = process.env.TENDER_REF || "SIM-FWK-001";
 const DAY = 86400000;
 const QTY = [12000, 8000, 3000];
+const OFFSET = Number(process.env.PRODUCT_OFFSET || 0);          // picks different products for further frameworks
+const TITLE = process.env.TENDER_TITLE || "Framework for essential medicines and consumables (simulated)";
 
 async function main() {
   await withPlatformStaffContext(async (tx) => {
@@ -20,14 +22,14 @@ async function main() {
     if (!rival) throw new Error("No simulated supplier found.");
     if (await tx.tender.findFirst({ where: { organizationId: issuer.id, referenceNumber: REF }, select: { id: true } })) { console.log(`${REF} already exists; nothing to do.`); return; }
     const products = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 40, select: { id: true, name: true } });
-    const chosen = [products[10], products[18], products[30]].filter(Boolean);
+    const chosen = [products[10 + OFFSET], products[18 + OFFSET], products[30 - OFFSET]].filter(Boolean);
     if (chosen.length < 3) throw new Error("Not enough simulated products.");
     console.log(`${dryRun ? "DRY RUN: would create" : "Creating"} ${REF} for Andean Care Alliance 106, awarded to ${rival.name} (rank 1) and Universe Demo (rank 2).`);
     if (dryRun) return;
 
     const now = new Date();
     const t = await tx.tender.create({ data: {
-      organizationId: issuer.id, referenceNumber: REF, title: "Framework for essential medicines and consumables (simulated)",
+      organizationId: issuer.id, referenceNumber: REF, title: TITLE,
       summary: "Simulated two-year framework agreement for three items, awarded to two suppliers. Call-offs are placed by rotation.", tenderType: "FRAMEWORK", visibility: "INVITED_ONLY", visibleToAll: false,
       isPublished: true, status: "AWARDED", publishedAt: new Date(now.getTime() - 200 * DAY), deliveryCountryCodes: "KE", currency: "USD", incoterm: "DAP", clientName: "Simulated client",
       closingAt: new Date(now.getTime() - 170 * DAY), bidValidityDays: 90, timeZone: "Europe/London", isSimulated: true, bidsOpenedAt: new Date(now.getTime() - 169 * DAY), evaluationStartedAt: new Date(now.getTime() - 165 * DAY),
