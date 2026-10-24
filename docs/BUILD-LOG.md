@@ -919,3 +919,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 ## 2026-10-24 — Tender keyword search now covers line descriptions
 - A keyword in Discover, in a saved search, in "Tenders for you" and in publish alerts now also matches the tender's line item descriptions (what is being bought), not just title, summary and reference. Discover search box reads "Search title, summary, reference or items".
 - Tests: unit check in `tenders.test.ts`; the publish-alerts test now matches on a line description only (title no longer contains the keyword).
+
+## 2026-10-24 — Catalogue category analysis (research)
+- New `docs/CATALOGUE-CATEGORY-ANALYSIS.md`: how UNICEF, UNFPA, FHI 360, Global Fund, USAID GHSC-PSM, WHO, CRS, World Bank, ADB and NATO NSPA classify what they buy, mapped to Universe's 10 groups. Gaps: reproductive health, nutrition, vector control, WASH, immunisation, kits, shelter, field medical, logistics/services. PATH, ADB and NSPA data thin. Nothing built yet; awaiting Lewis's choice of groups.
