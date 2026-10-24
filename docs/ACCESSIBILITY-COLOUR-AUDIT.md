@@ -62,3 +62,9 @@ Rule going forward: the bright status colours (`--u-status-*`) are for dots, bar
 - Screen reader walk-through by a person is still outstanding (see above).
 - Score gradient: colour is never the only signal, because every bar sits next to its value and status wording.
 - Automated scans cover the pages listed above, not every page; the same checker can be re-run on any page.
+
+## Platform-wide live crawl (2026-10-24)
+Scanner: `scripts/a11y/scan.js` (contrast 4.5:1 / 3:1 large, one main, one h1, no skipped heading levels, names on buttons/links, labels on fields, alt, ids, table headers), each page in light and dark.
+- First pass found: PM unlabelled selects and risk-chip contrast and heading skips; Tenders unlabelled country search, h2 to h4 skips, fallback states with no h1; Product Database heading skips and a dead /products breadcrumb. All fixed.
+- Re-scan after deploy: Admin 13 pages, Tenders 20, Project Management 24, Product Database 13: zero issues, except one heading skip on PM project detail (Status History), fixed afterwards.
+- Not scanned live: Supplier portal (not deployed; covered by CI lint and code review). Not covered by any tool: reading order and announcement quality, which need a person with VoiceOver/NVDA.
