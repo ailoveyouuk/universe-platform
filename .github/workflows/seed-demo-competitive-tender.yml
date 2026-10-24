@@ -24,6 +24,10 @@ on:
         description: "Also submit Universe Demo's bid"
         default: false
         type: boolean
+      demo_fresh:
+        description: "Universe Demo is only invited (no interest or bid yet)"
+        default: false
+        type: boolean
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -51,4 +55,5 @@ jobs:
           PRODUCT_OFFSET: ${{ inputs.product_offset }}
           SINGLE_EVALUATOR: ${{ inputs.single_evaluator }}
           SUBMIT_DEMO: ${{ inputs.submit_demo }}
+          DEMO_FRESH: ${{ inputs.demo_fresh }}
           PRISMA_TX_TIMEOUT_MS: "120000"

@@ -14,6 +14,7 @@ const REF = process.env.TENDER_REF || "SIM-TND-002";
 const OFFSET = Number(process.env.PRODUCT_OFFSET || 0);           // picks different products for further tenders
 const TITLE = process.env.TENDER_TITLE || "Supply of antimalarial and diagnostic supplies (simulated RFQ)";
 const SINGLE_EVALUATOR = (process.env.SINGLE_EVALUATOR ?? "false") === "true"; // allow one evaluator (chair only), for walkthroughs
+const DEMO_FRESH = (process.env.DEMO_FRESH ?? "false") === "true";           // Universe Demo is only invited: no interest, no bid (to try registering interest live)
 const SUBMIT_DEMO = (process.env.SUBMIT_DEMO ?? "false") === "true";           // also submit Universe Demo's bid
 const QTY = [9000, 6000, 1500];
 // profile tag (read by the evaluation seed from the bid notes), unit prices per line, lead times, origin, manufacturer
@@ -58,7 +59,7 @@ async function main() {
       summary: "Simulated competitive request for quotation for three items delivered to Nairobi, with a standstill period before contract award. Several organisations have bid.",
       tenderType: "RFQ", visibility: "INVITED_ONLY", visibleToAll: false, isPublished: true, status: "PUBLISHED", publishedAt: pub,
       deliveryCountryCodes: "KE", currency: "USD", incoterm: "DAP", clientName: "Simulated client",
-      clarificationDeadline: new Date(now.getTime() + 2 * DAY), closingAt: new Date(now.getTime() + 5 * DAY), evaluationDueAt: new Date(now.getTime() + 12 * DAY), awardDueAt: new Date(now.getTime() + 18 * DAY),
+      clarificationDeadline: new Date(now.getTime() + 2 * DAY), closingAt: new Date(now.getTime() + (DEMO_FRESH ? 20 : 5) * DAY), evaluationDueAt: new Date(now.getTime() + 12 * DAY), awardDueAt: new Date(now.getTime() + 18 * DAY),
       bidValidityDays: 90, timeZone: "Europe/London", isSimulated: true,
       standstillEnabled: true, standstillWorkingDays: 8, requireIntegrityPledge: true, requireExclusionDeclaration: true,
       ...(SINGLE_EVALUATOR ? { allowSingleEvaluator: true, singleEvaluatorReason: "Below the organisation's financial threshold (simulated)." } : {}),
@@ -80,11 +81,12 @@ async function main() {
     const bidders = [{ id: demo.id, ...UD }, ...rivals.map((r, i) => ({ id: r.id, ...COMPETITORS[i] }))];
     bidders.forEach((b, i) => events.push({ at: new Date(pub.getTime() - 25 * HOUR + i * 60000), kind: "INVITED", summary: "An organisation was invited", org: issuer.id, cp: b.id, actor: issuer.id }));
     events.push({ at: pub, kind: "PUBLISHED", summary: `Published ${REF}`, org: issuer.id, cp: null, actor: issuer.id, details: { simulated: true, title: t.title } });
-    bidders.forEach((b, i) => events.push({ at: new Date(pub.getTime() + (2 + i) * HOUR), kind: "INTEREST_EXPRESSED", summary: "An organisation expressed interest", org: issuer.id, cp: b.id, actor: b.id, details: { integrityPledge: true, exclusionDeclared: true, exclusionGrounds: [] } }));
+    bidders.filter((b) => !(DEMO_FRESH && b.tag === "UD")).forEach((b, i) => events.push({ at: new Date(pub.getTime() + (2 + i) * HOUR), kind: "INTEREST_EXPRESSED", summary: "An organisation expressed interest", org: issuer.id, cp: b.id, actor: b.id, details: { integrityPledge: true, exclusionDeclared: true, exclusionGrounds: [] } }));
 
     for (const b of bidders) {
       const optedInAt = new Date(pub.getTime() + 3 * HOUR);
       await tx.tenderInvitation.create({ data: { organizationId: issuer.id, tenderId: t.id, invitedOrganizationId: b.id } });
+      if (DEMO_FRESH && b.tag === "UD") continue;
       await tx.tenderParticipation.create({ data: { organizationId: b.id, issuerOrganizationId: issuer.id, tenderId: t.id, status: "INTERESTED", optedInAt, integrityPledgeAt: optedInAt, exclusionDeclaredAt: optedInAt, exclusionNoGrounds: true } });
       const submitted = b.tag !== "UD" || SUBMIT_DEMO;
       const total = r2(b.prices.reduce((s, p, i) => s + p * QTY[i], 0));
