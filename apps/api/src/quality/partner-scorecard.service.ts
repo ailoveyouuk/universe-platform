@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import type { PartnerScorecard, ScorecardMetric } from "@universe/types";
+import type { PartnerScorecard, ScorecardMetric, ScorecardTrendPoint } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { tenantScope } from "../common/tenant-scoped";
 import { lineTimeliness } from "./delivery-metrics";
@@ -18,8 +18,50 @@ const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
  * always current. The overall score is the weighted mean of the measures that have data; coverage says how much of the
  * applicable weighting that is, so a thin record is never mistaken for a strong one.
  */
+const quarterKey = (d: Date) => `${d.getUTCFullYear()} Q${Math.floor(d.getUTCMonth() / 3) + 1}`;
+
 @Injectable()
 export class PartnerScorecardService {
+  /** On-time delivery and new complaints for each of the last six quarters, so a falling record shows before the headline score moves. */
+  private async trend(
+    tx: Parameters<Parameters<typeof withTenantContext>[1]>[0], org: string, partnerId: string,
+    lines: { manufacturerId: string | null; supplierId: string | null; actualDeliveryDate: Date | null; project: { freightForwarderId: string | null } }[] & object[],
+    timely: (l: never, role: "SUPPLIER" | "OTHER") => boolean | null, canComplaints: boolean, now: Date,
+  ): Promise<ScorecardTrendPoint[]> {
+    const quarters: string[] = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i * 3, 1)); quarters.push(quarterKey(d)); }
+    const buckets = new Map(quarters.map((q) => [q, { flags: 0, yes: 0, complaints: 0 }]));
+    for (const l of lines as unknown as { manufacturerId: string | null; supplierId: string | null; actualDeliveryDate: Date | null; project: { freightForwarderId: string | null } }[]) {
+      if (!l.actualDeliveryDate) continue;
+      const b = buckets.get(quarterKey(l.actualDeliveryDate));
+      if (!b) continue;
+      const flags: (boolean | null)[] = [];
+      if (l.manufacturerId === partnerId) flags.push(timely(l as never, "OTHER"));
+      if (l.supplierId === partnerId) flags.push(timely(l as never, "SUPPLIER"));
+      if (l.project.freightForwarderId === partnerId) flags.push(timely(l as never, "OTHER"));
+      for (const f of flags) if (f !== null) { b.flags++; if (f) b.yes++; }
+    }
+    if (canComplaints) {
+      const cs = await tx.qualityComplaint.findMany({ where: { ...tenantScope(org), partnerId, archivedAt: null, status: { not: "WITHDRAWN" } }, select: { receivedAt: true }, take: 2000 });
+      for (const c of cs) { const b = buckets.get(quarterKey(c.receivedAt)); if (b) b.complaints++; }
+    }
+    return quarters.map((q) => { const b = buckets.get(q)!; return { period: q, onTimePercent: pct(b.yes, b.flags), deliveries: b.flags, complaints: canComplaints ? b.complaints : null }; });
+  }
+
+  /** Overall score and band for several stakeholders at once, for the Quality list. Failures return nulls rather than breaking the list. */
+  async scores(user: RequestUser, ids: string[]): Promise<{ partnerId: string; overallScore: number | null; band: PartnerScorecard["band"] }[]> {
+    const out: { partnerId: string; overallScore: number | null; band: PartnerScorecard["band"] }[] = [];
+    const unique = [...new Set(ids)].slice(0, 50);
+    for (let i = 0; i < unique.length; i += 5) {
+      const batch = await Promise.all(unique.slice(i, i + 5).map(async (id) => {
+        try { const c = await this.get(user, id); return { partnerId: id, overallScore: c.overallScore, band: c.band }; }
+        catch { return { partnerId: id, overallScore: null, band: "NOT_ENOUGH_DATA" as const }; }
+      }));
+      out.push(...batch);
+    }
+    return out;
+  }
+
   async get(user: RequestUser, partnerId: string): Promise<PartnerScorecard> {
     const org = user.organizationId;
     const now = new Date();
@@ -222,12 +264,68 @@ export class PartnerScorecardService {
         });
       }
 
+      // ---- price: how their quotes compare with the lowest quote on the same line (same currency only) ----
+      if (isSupplier) {
+        const mine = await tx.supplierEnquiry.findMany({
+          where: { ...tenantScope(org), supplierId: partnerId, responseStatus: "QUOTED", quotedPrice: { not: null }, quotedCurrency: { not: null } },
+          select: { projectLineId: true, quotedPrice: true, quotedCurrency: true }, take: 500,
+        });
+        const lineIdsQ = [...new Set(mine.map((m) => m.projectLineId))];
+        const rivals = lineIdsQ.length
+          ? await tx.supplierEnquiry.findMany({
+              where: { ...tenantScope(org), projectLineId: { in: lineIdsQ }, responseStatus: "QUOTED", quotedPrice: { not: null }, quotedCurrency: { not: null } },
+              select: { projectLineId: true, supplierId: true, quotedPrice: true, quotedCurrency: true }, take: 5000,
+            })
+          : [];
+        const premiums: number[] = [];
+        let lowest = 0;
+        for (const q of mine) {
+          const others = rivals.filter((r) => r.projectLineId === q.projectLineId && r.quotedCurrency === q.quotedCurrency && r.supplierId !== partnerId).map((r) => Number(r.quotedPrice));
+          if (!others.length) continue;
+          const min = Math.min(...others, Number(q.quotedPrice));
+          if (min <= 0) continue;
+          premiums.push(((Number(q.quotedPrice) - min) / min) * 100);
+          if (Number(q.quotedPrice) <= min) lowest++;
+        }
+        const avgPrem = premiums.length ? Math.round((premiums.reduce((a, b) => a + b, 0) / premiums.length) * 10) / 10 : null;
+        add({
+          key: "quote_price", group: "RESPONSIVENESS", label: "Quote price against the lowest", weight: 5, href: null,
+          display: avgPrem === null ? "No comparison" : avgPrem === 0 ? "At the lowest" : `${avgPrem}% above lowest`,
+          score: avgPrem === null ? null : linearScore(avgPrem, 0, 25),
+          status: avgPrem === null ? "neutral" : avgPrem <= 5 ? "good" : avgPrem <= 15 ? "warning" : "critical",
+          detail: avgPrem === null ? "Needs lines where they and at least one other supplier quoted in the same currency." : `Across ${premiums.length} line${premiums.length === 1 ? "" : "s"} quoted by several suppliers; the lowest quote on ${lowest}.`, benchmark: null,
+        });
+      }
+
+      // ---- tender contract performance (this organisation's own closed-contract records for the linked supplier) ----
+      const linkedOrg = partner.registryEntryId
+        ? (await tx.stakeholderRegistryEntry.findUnique({ where: { id: partner.registryEntryId }, select: { linkedOrganizationId: true } }))?.linkedOrganizationId ?? null
+        : null;
+      if (linkedOrg) {
+        const recs = await tx.tenderPerformanceRecord.findMany({
+          where: { organizationId: org, awardedOrganizationId: linkedOrg, withdrawnAt: null },
+          select: { overallScore: true, outcome: true, onTimePercent: true }, take: 200,
+        });
+        const scoredRecs = recs.filter((r) => r.overallScore !== null);
+        const avgRec = scoredRecs.length ? Math.round(scoredRecs.reduce((a, r) => a + (r.overallScore as number), 0) / scoredRecs.length) : null;
+        const terminated = recs.filter((r) => r.outcome === "TERMINATED").length;
+        add({
+          key: "tender_performance", group: "DELIVERY", label: "Tender contract performance", weight: 10, href: null,
+          display: recs.length === 0 ? "No closed contracts" : avgRec === null ? `${recs.length} closed` : `${avgRec} average`,
+          score: avgRec, status: avgRec === null ? "neutral" : terminated ? "warning" : pctStatus(avgRec, 85, 70),
+          detail: recs.length === 0 ? "No tender contracts with them have been closed and scored yet." : `${recs.length} closed contract${recs.length === 1 ? "" : "s"}, average score ${avgRec ?? "—"}${terminated ? `; ${terminated} terminated` : ""}.`, benchmark: null,
+        });
+      }
+
+      // ---- trend: on-time delivery and complaints by quarter, newest last ----
+      const trend = await this.trend(tx, org, partnerId, lines, timely, canComplaints, now);
+
       // ---- activity (informational) ----
       add({ key: "lines", group: "ACTIVITY", label: "Project lines handled", weight: 0, href: null, display: String(lines.length), score: null, status: "neutral", detail: "Live project lines they supply, manufacture or forward.", benchmark: null });
       add({ key: "since", group: "ACTIVITY", label: "On your books since", weight: 0, href: null, display: partner.createdAt.toLocaleDateString("en-GB", { month: "short", year: "numeric" }), score: null, status: "neutral", detail: "When the stakeholder was added.", benchmark: null });
 
       return {
-        partnerId, partnerName: partner.name, roles: roles.map((r) => ROLE_LABEL[r] ?? r), ...summarise(metrics), metrics, includesComplaints: canComplaints, generatedAt: now.toISOString(),
+        partnerId, partnerName: partner.name, roles: roles.map((r) => ROLE_LABEL[r] ?? r), ...summarise(metrics), metrics, includesComplaints: canComplaints, trend, generatedAt: now.toISOString(),
       };
     });
   }

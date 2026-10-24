@@ -134,6 +134,33 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
           );
         })}
       </div>
+      {sc.trend.some((t) => t.deliveries > 0 || (t.complaints ?? 0) > 0) && (
+        <div style={{ marginTop: 16, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", backgroundColor: "var(--u-surface-alt)", fontSize: 12, fontWeight: 700, color: "var(--u-ink-secondary)" }}>Trend by quarter</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ textAlign: "left", color: "var(--u-ink-secondary)", fontSize: 12 }}><th style={{ padding: "8px 16px" }}>Quarter</th><th style={{ padding: "8px 16px" }}>On-time delivery</th><th style={{ padding: "8px 16px" }}>Deliveries</th>{sc.includesComplaints && <th style={{ padding: "8px 16px" }}>New complaints</th>}</tr></thead>
+              <tbody>
+                {sc.trend.map((t) => (
+                  <tr key={t.period} style={{ borderTop: "1px solid var(--u-border)" }}>
+                    <td style={{ padding: "8px 16px" }}>{t.period}</td>
+                    <td style={{ padding: "8px 16px", minWidth: 180 }}>
+                      {t.onTimePercent === null ? "—" : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <span aria-hidden style={{ display: "inline-block", width: 90, height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${Math.max(3, t.onTimePercent)}%`, backgroundColor: t.onTimePercent >= 90 ? STATUS_COLOR.good : t.onTimePercent >= 75 ? STATUS_COLOR.warning : STATUS_COLOR.critical }} /></span>
+                          {t.onTimePercent}%
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: "8px 16px" }}>{t.deliveries}</td>
+                    {sc.includesComplaints && <td style={{ padding: "8px 16px" }}>{t.complaints ?? "—"}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       <div style={{ marginTop: 10, fontSize: 12, color: "var(--u-ink-secondary)" }}>Delivery targets follow published global-health practice: {SCORECARD_THRESHOLDS.basis}.</div>
       {!sc.includesComplaints && <div style={{ marginTop: 10, fontSize: 12, color: "var(--u-ink-secondary)" }}>Complaint measures are shown only to quality roles.</div>}
     </section>

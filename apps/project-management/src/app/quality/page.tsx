@@ -80,6 +80,15 @@ export default function QualityPage() {
   const [perfPageSize, setPerfPageSize] = useState<PageSize>(25);
   const [perfPage, setPerfPage] = useState(0);
   const performance = performanceResult?.items ?? null;
+  const [scores, setScores] = useState<Record<string, { overallScore: number | null; band: string }>>({});
+  useEffect(() => {
+    const ids = (performanceResult?.items ?? []).map((p) => p.partnerId).filter((id) => !(id in scores));
+    if (!ids.length) return;
+    let off = false;
+    apiClient.getPartnerScorecardScores(ids).then((r) => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(r.map((x) => [x.partnerId, { overallScore: x.overallScore, band: x.band }])) })); }).catch(() => { if (!off) setScores((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { overallScore: null, band: "NOT_ENOUGH_DATA" }])) })); });
+    return () => { off = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [performanceResult]);
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("");
   const [performanceRole, setPerformanceRole] = useState<(typeof PERFORMANCE_ROLE_FILTERS)[number]>("");
   const [showNewForm, setShowNewForm] = useState(false);
@@ -418,7 +427,7 @@ export default function QualityPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ backgroundColor: "var(--u-surface-alt)", textAlign: "left" }}>
-                  {["Partner", "Role", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues", ...(canSeeComplaints ? ["Complaints (upheld)"] : [])].map((h) => (
+                  {["Partner", "Role", "Score", "Lines", "On time", "In full", "OTIF", "Avg. days late", "Flagged issues", ...(canSeeComplaints ? ["Complaints (upheld)"] : [])].map((h) => (
                     <th key={h} style={{ padding: "10px 14px", fontWeight: 600, color: "var(--u-ink-secondary)", fontSize: 12 }}>
                       {h === "OTIF" ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -444,6 +453,11 @@ export default function QualityPage() {
                       </Link>
                     </td>
                     <td style={{ padding: "10px 14px", color: "var(--u-ink-secondary)" }}>{ROLE_LABELS[p.roleType]}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 600 }}>
+                      {scores[p.partnerId] === undefined ? <span style={{ color: "var(--u-ink-secondary)" }}>…</span> : scores[p.partnerId].overallScore === null ? "—" : (
+                        <Link href={`/partners/detail?id=${p.partnerId}`} style={{ textDecoration: "none", color: scores[p.partnerId].band === "STRONG" || scores[p.partnerId].band === "SATISFACTORY" ? "var(--u-status-good, #1a7f4b)" : scores[p.partnerId].band === "WATCH" ? "var(--u-status-warning, #b26a00)" : "var(--u-status-critical)" }} title={scores[p.partnerId].band.replace("_", " ").toLowerCase()}>{scores[p.partnerId].overallScore}</Link>
+                      )}
+                    </td>
                     <td style={{ padding: "10px 14px" }}>{p.totalLines}</td>
                     <td style={{ padding: "10px 14px" }}>{p.onTimePercent === null ? "—" : `${p.onTimePercent}%`}</td>
                     <td style={{ padding: "10px 14px" }}>{p.inFullPercent === null ? "—" : `${p.inFullPercent}%`}</td>

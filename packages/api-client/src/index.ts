@@ -370,6 +370,7 @@ export class UniverseApiClient {
   updateComplaint(id: string, body: Partial<CreateComplaintInput>): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   /** One call for every stage action: acknowledge, triage, investigation, partner-response, resolve, regulator, close, effectiveness, hold, resume, withdraw, reopen, notes, actions, risk, source-review. */
   complaintStage(id: string, stage: string, body?: object): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/${stage}`, { method: "POST", body: JSON.stringify(body ?? {}) }); }
+  getPartnerScorecardScores(ids: string[]): Promise<{ partnerId: string; overallScore: number | null; band: string }[]> { return this.request(`/quality/partner-scorecard/scores?ids=${encodeURIComponent(ids.join(","))}`); }
   addComplaintAttachment(id: string, body: { documentId: string; note?: string }): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/attachments`, { method: "POST", body: JSON.stringify(body) }); }
   removeComplaintAttachment(id: string, attachmentId: string): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/attachments/${attachmentId}`, { method: "DELETE" }); }
   updateComplaintAction(id: string, actionId: string, body: { status?: string; completionNotes?: string; dueDate?: string; ownerId?: string }): Promise<ComplaintDetail> { return this.request(`/quality/complaints/${id}/actions/${actionId}`, { method: "PATCH", body: JSON.stringify(body) }); }

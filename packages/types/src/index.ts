@@ -3833,6 +3833,8 @@ export interface ScorecardMetric {
   href: string | null;
 }
 
+export interface ScorecardTrendPoint { period: string; onTimePercent: number | null; deliveries: number; complaints: number | null }
+
 export interface PartnerScorecard {
   partnerId: string;
   partnerName: string;
@@ -3849,6 +3851,8 @@ export interface PartnerScorecard {
   metrics: ScorecardMetric[];
   /** False when the caller may not see complaint data (it is ring-fenced to quality roles). */
   includesComplaints: boolean;
+  /** Last six quarters, oldest first. */
+  trend: ScorecardTrendPoint[];
   generatedAt: string;
 }
 
