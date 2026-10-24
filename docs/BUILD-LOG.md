@@ -911,3 +911,7 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - Verified live as Universe Demo: status pages for SIM-TND-001 (awarded, contract), -002 (not awarded, complaint section), -003 (evaluating, award due 8 Nov), -004 (submitted) and SIM-FWK-001 (awarded, framework, variations, evidence) show consistent dates and outcomes with no errors.
 - Phone (375), tablet portrait (768) and landscape (812x375) show no horizontal scroll.
 - Deploy API failures earlier today were overlapping pushes ("ContainerAppOperationInProgress"); later deploys succeeded. Space pushes at least a few minutes apart.
+
+## 2026-10-24 — Tender publish alerts now covered end to end
+- New CI test `tender-publish-alerts.test.ts` (real RLS database): publishing a tender alerts only organisations with an alert-enabled saved search that matches (country, keyword), with the right title and link; no alert for non-matching country or type, alerts switched off, or no saved search; the issuer's own search never alerts itself; invited organisations get the invitation notice, not a search match; a demonstration issuer alerts nobody.
+- No product bug found. Note for searches: the keyword matches the tender title and summary only, not line descriptions.
