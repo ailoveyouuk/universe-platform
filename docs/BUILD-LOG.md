@@ -1006,3 +1006,9 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Dark theme:** audited live. Only real issue was violet link text on amber rows (4.34:1); dark `--u-brand-violet` lightened to #A58FE0. An earlier "24 failures" was a measurement artefact (colours read mid-transition).
 - **Hard-coded colours:** Admin status chips (white on amber 1.8:1) now use `Pill`; 19 text uses of bright status colours moved to `-text` tokens; light module accents darkened (CRM #52708A, Product Database #2F7A45, Supplier #B83B71, Tenders #A85A18). Logo and organisation theme colours intentionally left.
 - Commits: 2868f42 (tokenisation, dark tokens, forced-colours), 09193f4, ab7733b, be24d45, 4d7398f, 20fde4c. Backup bk54.
+
+## 2026-10-24 — Theme toggle: Light / Dark / Device
+- New `ThemeToggle` (`@universe/ui`) in the header of all five apps, next to Sign out: a small menu with Light, Dark and Device (Device follows the operating-system setting and updates live when it changes). Choice is remembered per browser (`localStorage` key `u-theme`); the default stays Light so nobody's view changes until they choose.
+- `packages/ui/src/theme.ts` holds the logic; an inline script in each app's `<head>` sets `data-theme` before first paint (no flash). Pages only ever carry `data-theme="light"` or `"dark"`, which `tokens.css` reads.
+- Verified live on Project Management: Light, Dark and Device each apply and persist across pages and reloads; Device resolves to dark on a dark-mode computer and to light when the OS reports light (simulated); menu closes on Escape. A real OS-setting change while the page is open was not exercised (the listener is standard `matchMedia` change handling). Commit 6b41fa0.
+- Preference is per browser, not per account; a per-account setting would need a user-profile field (not built).
