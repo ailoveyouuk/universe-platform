@@ -104,7 +104,8 @@ describe("Framework call-off flow", () => {
   });
 
   it("an accepted call-off becomes its own delivery project, linked to the framework tender and carrying the agreed prices", async () => {
-    const u = user(supA, `ua-proj-${suffix}`, [...SUP, "projects.create"]);
+    const real = await withPlatformStaffContext((tx) => tx.user.create({ data: { organizationId: supA, email: `ua-proj-${suffix}@example.com`, forename: "Pro", surname: "Ject", status: "ACTIVE" } }));
+    const u = user(supA, real.id, [...SUP, "projects.create"]);
     const { projectId } = await fw.createProject(u, first);
     const p = await withPlatformStaffContext((tx) => tx.project.findUnique({ where: { id: projectId }, include: { lines: true } }));
     expect(p).toMatchObject({ status: "AWARDED", sourceTenderId: tenderId });
