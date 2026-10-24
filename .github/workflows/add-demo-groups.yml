@@ -1,0 +1,35 @@
+name: Add demo catalogue groups
+
+# Adds simulated products for the eight product groups added on 2026-10-24 (shared SIM-SCALE catalogue only). DRY RUN by default.
+# Afterwards run "Enrich demo data" with only=catalogue to fill identifiers and families.
+on:
+  workflow_dispatch:
+    inputs:
+      per_group:
+        description: "Products per group"
+        default: "150"
+        type: string
+      dry_run:
+        description: "Dry run (writes nothing). Untick to apply."
+        default: true
+        type: boolean
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Add groups (or dry run)
+        run: npm run add:demo-groups --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PER_GROUP: ${{ inputs.per_group }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

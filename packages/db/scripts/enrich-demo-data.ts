@@ -42,6 +42,15 @@ const CATALOGUE: Record<string, CatalogueProfile> = {
   "Surgical Supplies": { hs: ["901890", "901832", "300590"], unspsc: ["42291600", "42291700", "42295100"], units: ["Each", "Box of 10", "Pack of 5"] },
   "Wound Care": { hs: ["300510", "300590", "300610"], unspsc: ["42311500", "42312000", "42311700"], units: ["Box of 10", "Box of 50", "Roll"] },
   Imaging: { hs: ["901812", "902214", "902219"], unspsc: ["42201800", "42203000", "42203300"], units: ["Each", "Each", "Pack of 100 sheets"] },
+  // Added 2026-10-24. HS codes sit inside each group's CATEGORY_HS_MAP entries; UNSPSC is kept at segment/family level (simulated).
+  "Reproductive Health": { hs: ["401410", "300660", "401490"], unspsc: ["53130000", "51000000", "42000000"], units: ["Box of 100", "Pack of 144", "Each"] },
+  Nutrition: { hs: ["210690", "190110", "300450"], unspsc: ["50000000", "50190000", "51000000"], units: ["Carton of 150 sachets", "Sack (25 kg)", "Bottle (60 tablets)"] },
+  "Vector Control": { hs: ["560890", "630499", "380891"], unspsc: ["10191500", "10190000", "56000000"], units: ["Bale of 50", "Each", "Bottle (10 L)"] },
+  "Water, Sanitation and Hygiene": { hs: ["380894", "282890", "340119"], unspsc: ["47100000", "47000000", "53131600"], units: ["Tub of 100 tablets", "Each", "Box of 48"] },
+  Immunisation: { hs: ["300290", "901831", "392310"], unspsc: ["51200000", "42142500", "42000000"], units: ["Vial (10 doses)", "Box of 100", "Each"] },
+  "Kits and Emergency Supplies": { hs: ["300650", "901890", "300650"], unspsc: ["42170000", "42000000", "42171600"], units: ["Kit", "Kit", "Pack of 5"] },
+  "Shelter and Household Items": { hs: ["630612", "630140", "732393"], unspsc: ["30000000", "52000000", "27110000"], units: ["Each", "Bale of 10", "Set"] },
+  "Field and Military Medical": { hs: ["940690", "940620", "902300"], unspsc: ["42000000", "42180000", "30000000"], units: ["Each", "Pack of 10", "Set"] },
 };
 const FALLBACK = CATALOGUE["Medical Devices"];
 
@@ -134,6 +143,15 @@ const RECORD_PROFILES: Record<string, RecordProfile> = {
   "Surgical Supplies": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/suture|catheter|scalpel/.test(lc(n)) ? "Class IIa" : "Class I"), intended: (n) => `Surgical procedures in a sterile environment (${n}).`, brands: ["SurgiPro", "Steriline", "Clinix", "Medicut"], pack: ["Box of 10", "Box of 25", "Pack of 5"] },
   "Wound Care": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: () => "Class I", intended: (n) => `Dressing and protection of wounds (${n}).`, brands: ["WoundWell", "Healsure", "DermaCare", "Careplast"], pack: ["Box of 50", "Box of 10", "Pack of 100"] },
   Imaging: { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 36 }), regClass: (n) => (/contrast/.test(lc(n)) ? "Prescription only" : "Class I"), intended: (n) => `Diagnostic imaging support (${n}).`, brands: ["RadiaMed", "ImageCore", "Sonique", "Lumina"], pack: ["Pack of 100", "1 unit", "Tube of 250 g"] },
+  // Added 2026-10-24.
+  "Reproductive Health": { storage: () => ({ cls: "CRT", cold: false, shelf: 60 }), regClass: (n) => (/condom/.test(lc(n)) ? "Class IIb" : /iud/.test(lc(n)) ? "Class III" : "Prescription only"), intended: (n) => `Family planning and reproductive health programmes (${n}).`, brands: ["SafeStart", "Familia Plus", "Aurelia Health", "Mirela"], pack: ["Box of 100", "Pack of 144", "Carton of 1,000"] },
+  Nutrition: { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 24 }), regClass: () => "Food for special medical purposes", intended: (n) => `Prevention and treatment of malnutrition (${n}).`, brands: ["NutriBoost", "VitaCore", "GrowWell", "Sahel Nutri"], pack: ["Carton of 150 sachets", "Sack of 25 kg", "Box of 60 tablets"] },
+  "Vector Control": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: () => "WHO PQ vector control product", intended: (n) => `Malaria and vector-borne disease prevention (${n}).`, hazard: (n) => (/insecticide|larvicide/.test(lc(n)) ? "UN3082 Class 9 (environmentally hazardous)" : null), brands: ["NetGuard", "ProtecTex", "VectorShield", "AnoPlus"], pack: ["Bale of 50", "Carton of 25", "Drum of 10 L"] },
+  "Water, Sanitation and Hygiene": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 48 }), regClass: () => "Water treatment or hygiene product", intended: (n) => `Safe water, sanitation and hygiene in emergency and development settings (${n}).`, brands: ["PureFlow", "AquaSafe", "Clearwell", "HygieCore"], pack: ["Tub of 100", "Box of 48", "Pallet of 20"] },
+  Immunisation: { storage: (n) => (/vaccine/.test(lc(n)) ? { cls: "REFRIGERATED", cold: true, shelf: 24 } : { cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/vaccine/.test(lc(n)) ? "Prescription only (biological)" : "Class IIa"), intended: (n) => `Routine and campaign immunisation (${n}).`, brands: ["VaxaPharm", "ImmunoCare", "Paediva", "SafeJect"], pack: ["Box of 10 vials", "Box of 100", "Carton of 50"] },
+  "Kits and Emergency Supplies": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 36 }), regClass: () => "Class I (kit)", intended: (n) => `Pre-packed supplies for emergency and programme response (${n}).`, brands: ["KitReady", "RapidAid", "ReliefPack", "FieldCare"], pack: ["1 kit", "Pack of 5 kits", "Pallet of 4 kits"] },
+  "Shelter and Household Items": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 120 }), regClass: () => "General goods", intended: (n) => `Emergency shelter and household needs (${n}).`, brands: ["ShelterPro", "HavenWorks", "SafeRoof", "CampReady"], pack: ["Bale of 10", "Set of 8", "Roll of 50 m"] },
+  "Field and Military Medical": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/tourniquet|haemostatic|chest seal/.test(lc(n)) ? "Class IIa" : "Class I"), intended: (n) => `Deployed and combat casualty care (${n}).`, brands: ["FieldMed", "TacMed Systems", "Sentinel Care", "Redline Medical"], pack: ["1 unit", "Pack of 10", "Crate of 5"] },
 };
 const PHARMA: Record<string, { inn: string; strength: string; form: string }> = {
   "amoxicillin tablets": { inn: "Amoxicillin", strength: "500 mg", form: "Tablet" },

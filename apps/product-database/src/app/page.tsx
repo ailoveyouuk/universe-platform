@@ -8,7 +8,7 @@ import type {
   ProductCatalogDashboardStats,
   ProductSourcingSummary,
 } from "@universe/types";
-import { matchPill, sourcePill } from "@universe/types";
+import { matchPill, sourcePill, SCOPE_TAXONOMY } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useRouter } from "next/navigation";
 import { useCountries } from "../lib/useCountries";
@@ -56,21 +56,11 @@ import {
  * full page navigation would be more friction than it's worth for what is
  * mostly quick corrections to an imported or picker-created row).
  */
-const CATEGORIES = ["Personal Protective Equipment", "Consumables", "Laboratory", "Medical Devices", "Pharmaceuticals", "Equipment"] as const;
+// The product groups (2026-10-24): the same list the supplier scope picker uses, so the filter, the map legend and the data agree.
+const CATEGORIES: string[] = SCOPE_TAXONOMY.map((g) => g.group);
 
-// Stage 3c (product-database-and-map-roadmap.md) — one fixed colour per
-// top-level category for the sourcing map below, drawn from existing
-// theme-aware tokens (tokens.css) rather than inventing a new palette for
-// one screen. Not semantic (unlike the status-* tokens elsewhere) — purely
-// a qualitative "which category is this pulse" key.
-const CATEGORY_COLORS: Record<string, string> = {
-  "Personal Protective Equipment": "var(--u-brand-violet)",
-  "Consumables": "var(--u-module-crm)",
-  "Laboratory": "var(--u-status-good)",
-  "Medical Devices": "var(--u-module-tender-issuance)",
-  "Pharmaceuticals": "var(--u-accent-magenta)",
-  "Equipment": "var(--u-module-admin)",
-};
+// One fixed colour per product group for the sourcing map: a qualitative key (not semantic), spread round the hue wheel so 19 groups stay distinct.
+const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(CATEGORIES.map((c, i) => [c, `hsl(${Math.round((i * 137.5) % 360)} 52% 46%)`]));
 const SOURCE_STANDARDS = ["INTERNAL", "HS_CODE", "WHO_EML", "UNSPSC", "GS1_GTIN"] as const;
 
 export default function ProductCatalogPage() {

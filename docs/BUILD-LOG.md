@@ -922,3 +922,10 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Catalogue category analysis (research)
 - New `docs/CATALOGUE-CATEGORY-ANALYSIS.md`: how UNICEF, UNFPA, FHI 360, Global Fund, USAID GHSC-PSM, WHO, CRS, World Bank, ADB and NATO NSPA classify what they buy, mapped to Universe's 10 groups. Gaps: reproductive health, nutrition, vector control, WASH, immunisation, kits, shelter, field medical, logistics/services. PATH, ADB and NSPA data thin. Nothing built yet; awaiting Lewis's choice of groups.
+
+## 2026-10-24 — Nine new catalogue groups (19 in all)
+- New groups, from `docs/CATALOGUE-CATEGORY-ANALYSIS.md`: Reproductive Health, Nutrition, Vector Control, Water Sanitation and Hygiene, Immunisation, Kits and Emergency Supplies, Shelter and Household Items, Field and Military Medical, Logistics and Services. Each has HS headings in `CATEGORY_HS_MAP` and 3 to 5 subcategories in the supplier scope-of-supply taxonomy (so suppliers can declare them, tenders can match them, and HS/name searches find them).
+- The legacy `pharma-vaccines` subcategory stays (existing declarations use it); Immunisation adds vaccines, auto-disable syringes and safety boxes as their own group. Logistics and Services is a scope group only: services are not catalogue products, so it has no demo products.
+- Product Database: the category filter and map legend were a stale six-item list ("Consumables", "Laboratory", "Equipment"); they now list the real groups from the taxonomy.
+- Demo data: naming, HS, unit and record profiles for the eight product groups; new script/workflow `add-demo-groups` (dry run by default, 150 products per group), to be followed by Enrich demo data (catalogue).
+- UNSPSC for the new groups is kept at segment/family level and is approximate (simulated).

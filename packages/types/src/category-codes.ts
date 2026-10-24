@@ -93,6 +93,57 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
     { code: "392310", note: "Plastic boxes and cases (cold boxes, vaccine carriers)", basis: "JUDGEMENT" },
     { code: "9025", note: "Temperature loggers and thermometers", basis: "JUDGEMENT" },
   ],
+  // ---- Added 2026-10-24 after the buyer category analysis (docs/CATALOGUE-CATEGORY-ANALYSIS.md). Headings only, kept narrow so existing groups do not gain codes. ----
+  "Reproductive Health": [
+    { code: "4014", note: "Hygienic or pharmaceutical articles of vulcanised rubber, including condoms", basis: "JUDGEMENT" },
+    { code: "300660", note: "Chemical contraceptive preparations", basis: "JUDGEMENT" },
+  ],
+  Nutrition: [
+    { code: "2106", note: "Food preparations not elsewhere specified (ready-to-use therapeutic food, supplements)", basis: "JUDGEMENT" },
+    { code: "1901", note: "Infant food and malt-extract food preparations, fortified blends", basis: "JUDGEMENT" },
+    { code: "1904", note: "Prepared foods from cereals (fortified cereal blends)", basis: "JUDGEMENT" },
+    { code: "2936", note: "Vitamins and provitamins", basis: "JUDGEMENT" },
+    { code: "300450", note: "Medicaments containing vitamins (vitamin A, micronutrient tablets)", basis: "JUDGEMENT" },
+  ],
+  "Vector Control": [
+    { code: "6304", note: "Furnishing articles, including insecticide-treated bed nets", basis: "JUDGEMENT" },
+    { code: "5608", note: "Knotted netting of textile materials", basis: "JUDGEMENT" },
+    { code: "380891", note: "Insecticides (indoor residual spraying, larvicides)", basis: "JUDGEMENT" },
+    { code: "842441", note: "Portable spraying appliances", basis: "JUDGEMENT" },
+  ],
+  "Water, Sanitation and Hygiene": [
+    { code: "380894", note: "Disinfectants (water treatment tablets and solutions)", basis: "WCO" },
+    { code: "282890", note: "Hypochlorites and chlorinated compounds", basis: "JUDGEMENT" },
+    { code: "842121", note: "Machinery for filtering or purifying water", basis: "JUDGEMENT" },
+    { code: "3401", note: "Soap and washing preparations", basis: "JUDGEMENT" },
+    { code: "3924", note: "Plastic tableware, kitchenware and household articles (buckets, containers)", basis: "JUDGEMENT" },
+    { code: "3922", note: "Plastic lavatory seats, sanitation fittings", basis: "JUDGEMENT" },
+  ],
+  Immunisation: [
+    { code: "3002", note: "Vaccines, antisera and immunological products", basis: "JUDGEMENT" },
+    { code: "901831", note: "Syringes, including auto-disable immunisation syringes", basis: "WCO" },
+    { code: "392310", note: "Plastic boxes (safety boxes for used syringes)", basis: "JUDGEMENT" },
+  ],
+  "Kits and Emergency Supplies": [
+    { code: "300650", note: "First-aid boxes and kits", basis: "JUDGEMENT" },
+    { code: "901890", note: "Medical instruments, including procedural and trauma kits", basis: "WCO" },
+  ],
+  "Shelter and Household Items": [
+    { code: "6306", note: "Tarpaulins, tents and awnings", basis: "JUDGEMENT" },
+    { code: "6301", note: "Blankets and travelling rugs", basis: "JUDGEMENT" },
+    { code: "9404", note: "Mattresses, sleeping bags", basis: "JUDGEMENT" },
+    { code: "7323", note: "Table, kitchen or household articles of iron or steel", basis: "JUDGEMENT" },
+    { code: "8201", note: "Hand tools: spades, shovels, picks, axes", basis: "JUDGEMENT" },
+    { code: "5607", note: "Twine, cordage, ropes", basis: "JUDGEMENT" },
+  ],
+  "Field and Military Medical": [
+    { code: "9406", note: "Prefabricated buildings (field hospital modules)", basis: "JUDGEMENT" },
+    { code: "9023", note: "Instruments for demonstration, including training simulators", basis: "JUDGEMENT" },
+  ],
+  "Logistics and Services": [
+    { code: "4415", note: "Wooden pallets and packing cases", basis: "JUDGEMENT" },
+    { code: "4819", note: "Cartons, boxes and packing containers of paper", basis: "JUDGEMENT" },
+  ],
 };
 
 export function normaliseHs(raw: string): string { return raw.replace(/[^0-9]/g, ""); }

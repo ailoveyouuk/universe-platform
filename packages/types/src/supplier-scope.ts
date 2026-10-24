@@ -1,7 +1,7 @@
 import { normaliseHs } from "./category-codes";
 
 /**
- * Supplier scope of supply (2026-10-23): what a supplier ticks when describing what it can supply. Two levels only: one of the ten
+ * Supplier scope of supply (2026-10-23): what a supplier ticks when describing what it can supply. Two levels only: one of the nineteen
  * Universe product groups, then a few broad subcategories. Each subcategory is tied to the back-end schemes that actually identify
  * products, so a buyer can search by group, subcategory, HS code or product name and reach the same suppliers.
  *
@@ -84,6 +84,59 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
     { id: "cc-boxes", label: "Cold boxes and vaccine carriers", hs: ["392310"], terms: ["cold box", "vaccine carrier", "carrier"] },
     { id: "cc-monitoring", label: "Temperature monitoring", hs: ["9025"], terms: ["data logger", "logger", "temperature monitor", "fridge-tag", "indicator"] },
     { id: "cc-icepacks", label: "Ice packs and coolants", hs: [], terms: ["ice pack", "coolant", "cool pack", "gel pack"] },
+  ] },
+  { group: "Reproductive Health", subs: [
+    { id: "rh-condoms", label: "Male and female condoms", hs: ["4014"], terms: ["condom"] },
+    { id: "rh-hormonal", label: "Contraceptive pills, injectables and implants", hs: ["300660"], terms: ["contraceptive", "levonorgestrel", "etonogestrel", "medroxyprogesterone", "implant", "injectable", "oral pill", "emergency contraception"] },
+    { id: "rh-iud", label: "Intrauterine devices", hs: [], terms: ["iud", "intrauterine"] },
+  ] },
+  { group: "Nutrition", subs: [
+    { id: "nut-rutf", label: "Ready-to-use therapeutic and supplementary foods", hs: ["2106"], terms: ["rutf", "rusf", "therapeutic food", "ready-to-use", "f-75", "f-100", "therapeutic milk"] },
+    { id: "nut-micronutrients", label: "Micronutrients and vitamin A", hs: ["2936", "300450"], terms: ["micronutrient", "vitamin a", "multiple micronutrient", "iron and folic", "folic acid", "sprinkles"] },
+    { id: "nut-fortified", label: "Fortified blended foods", hs: ["1901", "1904"], terms: ["fortified", "blended food", "corn soya", "wheat soya", "csb"] },
+    { id: "nut-infant", label: "Infant feeding", hs: [], terms: ["infant formula", "breast milk substitute", "feeding cup", "baby food"] },
+  ] },
+  { group: "Vector Control", subs: [
+    { id: "vc-nets", label: "Insecticide-treated bed nets", hs: ["6304", "5608"], terms: ["llin", "bed net", "insecticide-treated net", "itn", "mosquito net"] },
+    { id: "vc-irs", label: "Indoor residual spraying insecticides", hs: ["380891"], terms: ["indoor residual", "irs", "deltamethrin", "pirimiphos", "clothianidin", "insecticide"] },
+    { id: "vc-larvicide", label: "Larvicides", hs: [], terms: ["larvicide", "temephos", "pyriproxyfen", "bti"] },
+    { id: "vc-sprayers", label: "Spraying equipment", hs: ["842441"], terms: ["sprayer", "compression sprayer", "spray pump"] },
+  ] },
+  { group: "Water, Sanitation and Hygiene", subs: [
+    { id: "wash-treatment", label: "Water treatment", hs: ["380894", "282890"], terms: ["chlorine", "water purification", "purification tablet", "aquatabs", "flocculant", "chlorination", "pur sachet"] },
+    { id: "wash-filters", label: "Water filters", hs: ["842121"], terms: ["water filter", "ceramic filter", "filtration"] },
+    { id: "wash-hygiene", label: "Hygiene items and kits", hs: ["3401", "3924"], terms: ["soap", "hygiene kit", "handwashing", "bucket", "jerrycan", "hand sanitiser"] },
+    { id: "wash-sanitation", label: "Sanitation", hs: ["3922"], terms: ["latrine", "toilet", "sanitation slab", "urinal"] },
+  ] },
+  { group: "Immunisation", subs: [
+    { id: "imz-vaccines", label: "Vaccines", hs: [], terms: ["vaccine", "bcg", "measles", "rotavirus", "hpv", "pneumococcal", "opv", "ipv", "pentavalent"] },
+    { id: "imz-syringes", label: "Auto-disable and reconstitution syringes", hs: [], terms: ["auto-disable", "ad syringe", "reconstitution syringe", "immunisation syringe"] },
+    { id: "imz-safety", label: "Safety boxes and sharps disposal", hs: [], terms: ["safety box", "sharps container", "sharps box"] },
+  ] },
+  { group: "Kits and Emergency Supplies", subs: [
+    { id: "kit-health", label: "Emergency health and first-aid kits", hs: ["300650"], terms: ["emergency health kit", "iehk", "health kit", "first aid kit", "first-aid kit", "trauma kit", "burn kit"] },
+    { id: "kit-reproductive", label: "Reproductive health and dignity kits", hs: [], terms: ["dignity kit", "reproductive health kit", "iarh", "clean delivery", "maternal kit", "birth kit"] },
+    { id: "kit-hiv", label: "PEP and male circumcision kits", hs: [], terms: ["pep kit", "post-exposure", "vmmc", "circumcision kit"] },
+    { id: "kit-outbreak", label: "Outbreak response kits", hs: [], terms: ["cholera kit", "ebola kit", "outbreak kit", "diarrhoeal disease kit"] },
+  ] },
+  { group: "Shelter and Household Items", subs: [
+    { id: "shl-shelter", label: "Tents, tarpaulins and plastic sheeting", hs: ["6306"], terms: ["tent", "tarpaulin", "plastic sheeting", "shelter"] },
+    { id: "shl-bedding", label: "Blankets, mats and sleeping gear", hs: ["6301", "9404"], terms: ["blanket", "sleeping mat", "mattress", "sleeping bag"] },
+    { id: "shl-household", label: "Kitchen and household sets", hs: ["7323"], terms: ["kitchen set", "cooking pot", "household kit", "household set"] },
+    { id: "shl-tools", label: "Tools and rope", hs: ["8201", "5607"], terms: ["tool kit", "shovel", "spade", "axe", "rope", "hammer"] },
+  ] },
+  { group: "Field and Military Medical", subs: [
+    { id: "fm-facilities", label: "Field hospitals and deployable facilities", hs: ["9406"], terms: ["field hospital", "role 1", "role 2", "role 3", "deployable", "medical shelter"] },
+    { id: "fm-trauma", label: "Trauma and combat casualty care", hs: [], terms: ["tourniquet", "haemostatic", "chest seal", "combat casualty", "ifak", "trauma"] },
+    { id: "fm-evacuation", label: "Casualty evacuation and transport", hs: [], terms: ["casevac", "medevac", "evacuation", "litter", "stretcher"] },
+    { id: "fm-training", label: "Medical training and simulation", hs: ["9023"], terms: ["simulator", "simulation", "training manikin", "manikin"] },
+  ] },
+  { group: "Logistics and Services", subs: [
+    { id: "ls-packaging", label: "Pallets, shippers and packaging", hs: ["4415", "4819"], terms: ["pallet", "shipper", "carton", "packaging"] },
+    { id: "ls-freight", label: "Freight, customs and transport", hs: [], terms: ["freight", "air cargo", "customs", "clearing", "transport service"] },
+    { id: "ls-warehousing", label: "Warehousing and distribution", hs: [], terms: ["warehousing", "storage service", "fulfilment", "distribution service"] },
+    { id: "ls-biomedical", label: "Biomedical servicing and maintenance", hs: [], terms: ["biomedical", "calibration", "equipment maintenance", "equipment repair"] },
+    { id: "ls-testing", label: "Sampling, inspection and testing", hs: [], terms: ["sampling", "inspection service", "quality control testing", "laboratory testing"] },
   ] },
 ];
 
