@@ -953,3 +953,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Walkthrough finding: line catalogue search returned nothing
 - On a project line the catalogue search passed the line's commodity group as the catalogue category filter. The two lists differ (CONSUMABLES vs "Laboratory Consumables"), so searches came back empty for every group except Pharmaceuticals (matched by case-insensitive name). New `catalogueGroupForCommodity` maps each commodity group to its single catalogue group where one exists (the six coarse originals add no filter). The 500 once seen on the Product Database record could not be reproduced (all calls 200) and coincided with an API redeploy.
+
+## 2026-10-24 — Walkthrough finding: editing an existing project line failed with 400
+- Saving an edited line returned 400 "property internalOnTime / supplierOnTime / supplierInFull should not exist": the edit form sent back the three server-computed on-time/in-full flags, which the line DTO (rightly) does not accept. `toLineInput` in LineForm now strips them with the other display-only fields.

@@ -82,6 +82,11 @@ function toLineInput(existing: ProjectLineSummary): ProjectLineInput {
     // getLogisticsLines) is where this is displayed/filtered, not this
     // form.
     logisticsMetric: _logisticsMetric,
+    // Server-computed on every save (2026-10-03) and not on the line DTO, so sending them back 400s ("property internalOnTime should not
+    // exist"): found by the 2026-10-24 live walkthrough when saving an edited line.
+    internalOnTime: _internalOnTime,
+    supplierOnTime: _supplierOnTime,
+    supplierInFull: _supplierInFull,
     ...rest
   } = existing;
   // Decimal columns (Prisma.Decimal) come back from the API as strings (see
