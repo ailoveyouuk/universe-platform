@@ -3,7 +3,7 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
-import { COMMODITY_GROUPS } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Button, CountryMultiSelect } from "@universe/ui";
@@ -149,7 +149,7 @@ export default function NewProjectPage() {
             <option value="">Select…</option>
             {PRODUCT_CATEGORY_OPTIONS.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {commodityGroupLabel(c)}
               </option>
             ))}
           </select>

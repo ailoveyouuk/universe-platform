@@ -944,3 +944,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Logistics and Services benchmark volume corrected
 - The first top-up gave Logistics and Services the full lane set (14,160 simulated CO2 rows, about 7x a normal group). Lewis approved a hard delete of those simulated rows (nothing real affected). The seed gained an optional `reset_logistics_groups` input that deletes only isSimulated rows of the named groups, and a top-up now scales to roughly one seventh of the lane set per added group (about 2,000 rows).
+
+## 2026-10-24 — Walkthrough finding: raw commodity group codes
+- Live walkthrough found the New Project line form, project detail line summary and Quality screen showing raw codes (LOGISTICS_SERVICES) instead of readable names. All three now use `commodityGroupLabel`. Logistics and CO2 page re-checked after the benchmark correction on desktop, tablet and phone: no horizontal overflow; Logistics and Services top countries now about 125 shipments each (the rest of the groups range up to the low thousands overall).

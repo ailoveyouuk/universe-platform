@@ -10,6 +10,7 @@ import type {
   ProductSourceApprovalSummary,
   QualityDashboardSummary,
 } from "@universe/types";
+import { commodityGroupLabel } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import {
@@ -312,7 +313,7 @@ export default function QualityPage() {
                   <tr key={a.id} style={{ borderTop: "1px solid var(--u-border)" }}>
                     <td style={{ padding: "10px 14px" }}>
                       <div style={{ fontWeight: 600, color: "var(--u-ink)" }}>{a.productMasterName}</div>
-                      <div style={{ fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{a.productCategory}</div>
+                      <div style={{ fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{commodityGroupLabel(a.productCategory)}</div>
                     </td>
                     <td style={{ padding: "10px 14px" }}>
                       <Link href={`/partners/detail?id=${a.manufacturerId}`} style={{ textDecoration: "none" }}>

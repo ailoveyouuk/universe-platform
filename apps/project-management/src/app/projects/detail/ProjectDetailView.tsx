@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
 import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
+import { commodityGroupLabel } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, INCOTERMS } from "@universe/types";
 import Link from "next/link";
 import { apiClient } from "../../../lib/apiClient";
@@ -891,7 +892,7 @@ export function ProjectDetailView() {
                 );
               })()}
               <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "4px 0 0" }}>
-                Qty {line.quantity ?? "—"} · {line.productCategory ?? "—"} · Supplier:{" "}
+                Qty {line.quantity ?? "—"} · {line.productCategory ? commodityGroupLabel(line.productCategory) : "—"} · Supplier:{" "}
                 <PartnerRef id={line.supplierId} name={line.supplierName} /> · Manufacturer:{" "}
                 <PartnerRef id={line.manufacturerId} name={line.manufacturerName} />
               </p>
