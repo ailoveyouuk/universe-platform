@@ -18,6 +18,8 @@ import { ProjectTeam } from "./ProjectTeam";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { RiskRegister } from "../../../components/RiskRegister";
 
+const TENDERS_URL = process.env.NEXT_PUBLIC_APP_URL_TENDER_ISSUANCE ?? "https://jolly-ground-0378d7b0f.4.azurestaticapps.net";
+
 const STATUSES = [...ACTIVE_STAGES, ...TERMINAL_STAGES] as const;
 const COMPLETION_STAGES = ["DELIVERED", "FINANCIALLY_CLOSED", "CLOSEOUT_FILED"] as const;
 /** Project-level freight fields (moved here from ProjectLineInput
@@ -456,6 +458,12 @@ export function ProjectDetailView() {
               <div>
                 <dt style={{ fontWeight: 600 }}>Reason for Cancellation</dt>
                 <dd>{project.reasonForCancellation ?? "—"}</dd>
+              </div>
+            )}
+            {project.sourceTenderId && (
+              <div>
+                <dt style={{ fontWeight: 600 }}>Tender</dt>
+                <dd><a href={`${TENDERS_URL}/discover/view?id=${project.sourceTenderId}`} target="_blank" rel="noopener noreferrer">Open the tender</a></dd>
               </div>
             )}
             <div style={{ gridColumn: "1 / -1" }}>

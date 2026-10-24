@@ -7,6 +7,7 @@ import { addWorkingDays, overAllocatedLines } from "./evaluation";
 import { appendTenderEvent } from "./tender-events";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { effectiveStatus, TendersService } from "./tenders.service";
+import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
 
@@ -17,7 +18,7 @@ const num = (v: { toString(): string } | null | undefined) => (v === null || v =
  */
 @Injectable()
 export class TenderAwardService {
-  constructor(private readonly tenders: TendersService, private readonly evaluation: TenderEvaluationService) {}
+  constructor(private readonly tenders: TendersService, private readonly evaluation: TenderEvaluationService, private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService()) {}
 
   async award(user: RequestUser, tenderId: string, dto: AwardDto) {
     assertHasPermission(user, "tenders.issue");
@@ -82,12 +83,13 @@ export class TenderAwardService {
         } });
       }
       await tx.tender.update({ where: { id: tenderId }, data: { status: "AWARDED", awardedAt: now, standstillEndsAt } });
-      return { t, planned, standstillEndsAt, allOrgIds: res.rows.map((r) => r.organizationId) };
+      return { t, planned, standstillEndsAt, allOrgIds: res.rows.map((r) => r.organizationId), rows: res.rows.map((r) => ({ organizationId: r.organizationId, compliant: r.compliant })) };
     });
     for (const p of out.planned) {
       await appendTenderEvent({ organizationId: out.t.organizationId, counterpartyOrganizationId: p.orgId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_MADE", summary: "An award was made", details: { bidId: p.bidId, lines: p.lines.length } });
     }
     await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "DEBRIEFS_RELEASED", summary: `Award recorded (${out.planned.length} supplier${out.planned.length === 1 ? "" : "s"}); outcomes released to ${out.allOrgIds.length} bidder${out.allOrgIds.length === 1 ? "" : "s"}` });
+    await this.bidProjects.onAward(tenderId, out.planned.map((p) => ({ organizationId: p.orgId, lines: p.lines })), out.rows.map((r) => ({ organizationId: r.organizationId, outcome: r.compliant ? "NOT_AWARDED" as const : "NOT_COMPLIANT" as const })));
     const awardedOrgs = new Set(out.planned.map((p) => p.orgId));
     await this.tenders.notifyOrgs(out.allOrgIds, (orgId) => ({ title: awardedOrgs.has(orgId) ? `Awarded: ${out.t.referenceNumber}` : `Outcome available: ${out.t.referenceNumber}`, body: awardedOrgs.has(orgId) ? `Your bid on ${out.t.title} has been successful.${out.standstillEndsAt ? " A standstill period applies before contract signature." : ""}` : `The award decision on ${out.t.title} has been made. Your debrief is available.`, link: `/bids/status?id=${tenderId}`, subjectId: tenderId }), "TENDER_AWARD", user.id);
     return this.evaluation.overview(user, tenderId);

@@ -362,14 +362,26 @@ export class TenderContractsService {
       const tlines = await tx.tenderLine.findMany({ where: { id: { in: alines.map((a) => a.tenderLineId) } }, orderBy: { lineNumber: "asc" } });
       const pm = await tx.productMaster.findMany({ where: { id: { in: tlines.map((l) => l.productMasterId).filter((x): x is string => !!x) } }, select: { category: true } });
       const pharma = pm.some((p) => /pharma|medicine|drug/i.test(p.category));
+      // The bid project (created when the supplier registered interest) carries on into delivery: same project, now with the contract's dates.
+      const bidProject = await tx.project.findFirst({ where: { organizationId: user.organizationId, sourceTenderId: c.tenderId, isArchived: false } });
+      if (bidProject) {
+        const promoted = !["AWARDED", "COMPLETED"].includes(bidProject.status);
+        await tx.project.update({ where: { id: bidProject.id }, data: {
+          startDate: c.startDate, dueDate: c.endDate, ...(promoted ? { status: "AWARDED" } : {}),
+          projectNotes: [bidProject.projectNotes, `Contract ${c.reference} executed; delivery tracked in this project.`].filter(Boolean).join("\n"),
+        } });
+        if (promoted) await tx.projectStatusHistory.create({ data: { organizationId: user.organizationId, projectId: bidProject.id, status: "AWARDED", changedById: user.id } });
+        await tx.tenderContract.update({ where: { id: c.id }, data: { supplierProjectId: bidProject.id } });
+        return { c, project: bidProject };
+      }
       const project = await tx.project.create({ data: {
-        organizationId: user.organizationId, referenceNumber: c.reference, title: c.title, category: "PROCUREMENT", projectType: pharma ? "PHARMACEUTICAL" : "NON_PHARMACEUTICAL",
+        organizationId: user.organizationId, sourceTenderId: c.tenderId, referenceNumber: c.reference, title: c.title, category: "PROCUREMENT", projectType: pharma ? "PHARMACEUTICAL" : "NON_PHARMACEUTICAL",
         status: "AWARDED", startDate: c.startDate, dueDate: c.endDate, incoterm: t?.incoterm ?? undefined,
         ...(t?.deliveryCountryCodes ? { deliveryCountryCodes: t.deliveryCountryCodes, deliveryCountryCode: t.deliveryCountryCodes.split(",").filter(Boolean)[0] } : {}),
         projectNotes: `Created from tender contract ${c.reference} (tender ${t?.referenceNumber ?? ""}).`,
         lines: { create: tlines.map((l) => {
           const share = Number(alines.find((a) => a.tenderLineId === l.id)?.sharePercent ?? 100);
-          return { organizationId: user.organizationId, clientProductDescription: l.description, productMasterId: l.productMasterId ?? undefined, quantity: l.quantity != null ? Math.round(Number(l.quantity) * share / 100) : undefined };
+          return { organizationId: user.organizationId, sourceTenderLineId: l.id, clientProductDescription: l.description, productMasterId: l.productMasterId ?? undefined, quantity: l.quantity != null ? Math.round(Number(l.quantity) * share / 100) : undefined };
         }) },
       } });
       await tx.projectStatusHistory.create({ data: { organizationId: user.organizationId, projectId: project.id, status: "AWARDED", changedById: user.id } });

@@ -18,11 +18,12 @@ import {
 } from "./dto/tenders.dto";
 import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
+import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 @Controller("tenders")
 @UseGuards(EntraAuthGuard)
 export class TendersController {
-  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService, private readonly ocds: TenderOcdsService) {}
+  constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService, private readonly ocds: TenderOcdsService, private readonly bidProjects: TenderBidProjectsService) {}
 
   // ---- open data export (tenders.view, owner only)
   @Get(":id/ocds") ocdsPackage(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.ocds.exportPackage(u, id); }
@@ -53,6 +54,8 @@ export class TendersController {
   @Patch("saved-searches/:id") updateSearch(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: UpdateSavedSearchDto) { return this.tenders.updateSearch(u, id, dto); }
   @Delete("saved-searches/:id") deleteSearch(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.deleteSearch(u, id); }
   @Get(":id/view") view(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.tenders.getForParticipant(u, id); }
+  @Post(":id/track-project") trackProject(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bidProjects.track(u, id); }
+  @Get(":id/my-project") myProject(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.bidProjects.mine(u, id); }
   @Post(":id/interest") interest(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: InterestDto) { return this.tenders.expressInterest(u, id, dto); }
   @Post(":id/questions") ask(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AskQuestionDto) { return this.compliance.askQuestion(u, id, dto.question); }
   @Post(":id/addenda/:addendumId/acknowledge") acknowledge(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("addendumId") aid: string) { return this.compliance.acknowledgeAddendum(u, id, aid); }

@@ -11,6 +11,7 @@ import {
   type EligibilityResult, type OrgProfile, type RuleLike, type SavedCriteria,
 } from "./eligibility";
 import { EXCLUSION_GROUNDS, scopeSubsForProduct } from "@universe/types";
+import { TenderBidProjectsService } from "./tender-bid-projects.service";
 import type {
   CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
@@ -38,6 +39,8 @@ export function effectiveStatus(t: { status: string; closingAt: Date | null }, n
  */
 @Injectable()
 export class TendersService {
+  constructor(private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService()) {}
+
   // ---------------------------------------------------------------- helpers
 
   private async event(_tx: Tx, t: { id: string; organizationId: string }, user: RequestUser, kind: string, summary: string, counterparty?: string | null, details?: unknown) {
@@ -365,6 +368,7 @@ export class TendersService {
       const parts = await tx.tenderParticipation.findMany({ where: { tenderId: id, withdrawnAt: null }, select: { organizationId: true } });
       return { updated, parts: parts.map((p) => p.organizationId), wasPublished: t.isPublished };
     });
+    if (out.wasPublished) await this.bidProjects.onTenderCancelled(id, reason);
     if (out.wasPublished) await this.notifyOrgs(out.parts, () => ({ title: `Tender cancelled: ${out.updated.referenceNumber}`, body: `${out.updated.title}. Reason: ${reason}`, link: `/tenders/detail?id=${id}`, subjectId: id }), "TENDER_CANCELLED", user.id);
     return out.updated;
   }
@@ -613,6 +617,7 @@ export class TendersService {
       return { already: false, t, declaredGrounds: jsonArray(declarations.exclusionGroundsJson) };
     });
     if (!out.already) {
+      await this.bidProjects.onInterest(user.organizationId, id, user.id);
       const flagged = out.declaredGrounds.length > 0 ? " It declared grounds for exclusion, which need your review." : "";
       await this.notifyIssuer(out.t, user, "TENDER_INTEREST", `New interest in ${out.t.referenceNumber}`, `An eligible organisation has expressed interest in ${out.t.title}.${flagged}`);
     }
@@ -652,6 +657,7 @@ export class TendersService {
       const p = await tx.tenderParticipation.findUnique({ where: { tenderId_organizationId: { tenderId: id, organizationId: user.organizationId } } });
       if (!p || p.withdrawnAt) throw new NotFoundException("You have not expressed interest in this tender.");
       await tx.tenderParticipation.update({ where: { id: p.id }, data: { status: "WITHDRAWN", withdrawnAt: new Date() } });
+      await this.bidProjects.onInterestWithdrawn(user.organizationId, id, user.id);
       await appendTenderEvent({ organizationId: p.issuerOrganizationId, counterpartyOrganizationId: user.organizationId, tenderId: id, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "INTEREST_WITHDRAWN", summary: "An organisation withdrew its interest" });
       return { participating: false };
     });

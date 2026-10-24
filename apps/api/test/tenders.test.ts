@@ -8,6 +8,7 @@ import { TenderEvaluationService } from "../src/tenders/tender-evaluation.servic
 import { addWorkingDays, calculatedScores, normaliseWeights, overAllocatedLines, rankBids, weightedTotal } from "../src/tenders/evaluation";
 import { SCREENING_LISTS } from "@universe/types";
 import { TenderBidsService } from "../src/tenders/tender-bids.service";
+import { TenderBidProjectsService } from "../src/tenders/tender-bid-projects.service";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { checkBid, crossRate } from "../src/tenders/bid-completeness";
@@ -579,6 +580,11 @@ describe("Tender service", () => {
     expect(done.awards).toHaveLength(2);
     expect(done.tender.awardedAt).toBeTruthy();
     expect(done.tender.standstillEndsAt).toBeTruthy();
+    // each awarded supplier's bid project becomes AWARDED, with its line at the awarded share (60% and 40% of 1,000)
+    const awardedProject = (org: string) => withPlatformStaffContext((tx: any) => tx.project.findFirst({ where: { organizationId: org, sourceTenderId: t.id }, include: { lines: true } }));
+    const pc = await awardedProject(capable); const pi = await awardedProject(invitee);
+    expect(pc).toMatchObject({ status: "AWARDED" }); expect(pc.lines[0].quantity).toBe(600);
+    expect(pi).toMatchObject({ status: "AWARDED" }); expect(pi.lines[0].quantity).toBe(400);
     await expect(awards.award(iss, t.id, award)).rejects.toThrow(/already/);
 
     // participant status page: milestones and a count, own debrief and award only
@@ -599,5 +605,47 @@ describe("Tender service", () => {
     await awards.respondComplaint(iss, t.id, open[0].id, "REJECTED", "The calculation follows the published method.");
     expect((await awards.participantStatus(asUser(invitee, BID), t.id)).my.complaints[0]).toMatchObject({ status: "REJECTED" });
     await expect(awards.lodgeComplaint(asUser(incapable, BID), t.id, "No bid was submitted by us at all.")).rejects.toThrow();
+  });
+
+  it("a supplier's bid project follows the tender: interest, draft, submit, withdraw, on-demand tracking and cancellation", async () => {
+    const projectOf = (org: string, tenderId: string) => withPlatformStaffContext((tx: any) => tx.project.findFirst({ where: { organizationId: org, sourceTenderId: tenderId }, include: { lines: true, statusHistory: true } }));
+    const t = await openBuilt(); // the capable supplier registers interest
+    let p = await projectOf(capable, t.id);
+    expect(p).toMatchObject({ status: "IDENTIFIED", category: "PROCUREMENT" });
+    expect(p.lines).toHaveLength(1);
+    expect(p.lines[0].sourceTenderLineId).toBeTruthy();
+    await fillBid(t.id);
+    p = await projectOf(capable, t.id);
+    expect(p.status).toBe("IN_PROGRESS");
+    expect(Number(p.lines[0].unitSalesPrice)).toBe(2);
+    await bids.submitBid(asUser(capable, BID), t.id);
+    p = await projectOf(capable, t.id);
+    expect(p.status).toBe("SUBMITTED");
+    expect(p.submissionDate).toBeTruthy();
+    expect(p.projectNotes).toMatch(/Bid submitted/);
+    await bids.withdrawBid(asUser(capable, BID), t.id);
+    p = await projectOf(capable, t.id);
+    expect(p.status).toBe("IN_PROGRESS");
+    expect(p.submissionDate).toBeNull();
+    expect(p.statusHistory.map((h: { status: string }) => h.status)).toEqual(expect.arrayContaining(["IDENTIFIED", "IN_PROGRESS", "SUBMITTED"]));
+
+    // on demand, for an organisation that has not registered interest; once only
+    const tracking = new TenderBidProjectsService();
+    const noPerm = asUser(incapable, BID);
+    await expect(tracking.track(noPerm, t.id)).rejects.toThrow();
+    const u = asUser(incapable, [...BID, "projects.create"]);
+    const first = await tracking.track(u, t.id);
+    const again = await tracking.track(u, t.id);
+    expect(first.created).toBe(true); expect(again).toMatchObject({ created: false, projectId: first.projectId });
+    expect(await tracking.mine(u, t.id)).toMatchObject({ projectId: first.projectId, status: "IDENTIFIED" });
+    expect(await tracking.mine(asUser(invitee, BID), t.id)).toBeNull();
+
+    // the issuer cancels: both projects, still before award, are cancelled with the reason
+    await svc.cancel(asUser(issuer, ISSUE), t.id, "Funding withdrawn");
+    for (const org of [capable, incapable]) {
+      const c = await projectOf(org, t.id);
+      expect(c.status).toBe("CANCELLED");
+      expect(c.reasonForCancellation).toMatch(/Funding withdrawn/);
+    }
   });
 });

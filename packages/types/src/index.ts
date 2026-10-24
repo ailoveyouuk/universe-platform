@@ -10,6 +10,8 @@ export * from "./category-codes";
 
 export interface ProjectSummary {
   id: string;
+  /** The tender this project tracks, when it began as a tender bid (2026-10-24). */
+  sourceTenderId?: string | null;
   referenceNumber: string;
   title: string;
   status: string;

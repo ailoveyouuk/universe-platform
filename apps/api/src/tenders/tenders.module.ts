@@ -14,10 +14,11 @@ import { TenderDocumentsService } from "./tender-documents.service";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { TenderComplianceService } from "./tender-compliance.service";
 import { TendersService } from "./tenders.service";
+import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 @Module({
   imports: [ExchangeRatesModule],
   controllers: [TendersController, PublicNoticesController],
-  providers: [TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderVariationsService, TenderEvidenceService, TenderOcdsService, BlobStorageService],
+  providers: [TenderBidProjectsService, TendersService, TenderComplianceService, TenderBidsService, TenderEvaluationService, TenderAwardService, TenderDocumentsService, TenderContractsService, TenderPerformanceService, TenderFrameworkService, TenderVariationsService, TenderEvidenceService, TenderOcdsService, BlobStorageService],
 })
 export class TendersModule {}

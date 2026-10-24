@@ -1018,6 +1018,9 @@ model Project {
   completionStage          String? // see allowed values reference above
   projectNotes             String?      @db.NVarChar(Max)
   projectFolderUrl         String?
+  /// The tender this project tracks (2026-10-24): a supplier's bid project, created when it registers interest or on demand, and carried through to delivery.
+  /// Not a foreign key: the tender belongs to another organisation. One project per (organisation, tender) is enforced in code.
+  sourceTenderId           String?
   isArchived               Boolean      @default(false)
   archivedAt               DateTime?
   archivedById             String?
@@ -1105,6 +1108,7 @@ model Project {
   // Reference numbers only need to be unique WITHIN an organization — two
   // different tenants can both have a "PROJ-001".
   @@unique([organizationId, referenceNumber])
+  @@index([organizationId, sourceTenderId])
   @@index([organizationId, status])
   @@index([clientId])
   @@index([freightForwarderId])
@@ -1194,6 +1198,8 @@ model ProjectLine {
 
   // --- Item identification ---
   clientProductDescription String?        @db.NVarChar(Max)
+  /// The tender line this project line answers (2026-10-24), so bid prices, awards and quantities can be carried across.
+  sourceTenderLineId       String?
   /// Once a product is identified/matched against the shared catalog. Not
   /// required — plenty of lines will never be matched, especially early on.
   productMasterId          String?

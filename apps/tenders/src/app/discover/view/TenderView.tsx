@@ -11,6 +11,7 @@ import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { CHIP_LABEL, CHIP_TONE, Card, ErrorNote, Heading, Page, STATUS_LABEL, TYPE_LABEL, fmtDateTime, inputStyle } from "../../../lib/ui";
 
+const PM_URL = process.env.NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT ?? "https://black-island-047de4e0f.5.azurestaticapps.net";
 const muted = { color: "var(--u-ink-secondary)" } as const;
 const STATUS_ICON = { MET: "✓", NOT_MET: "✗", NEEDS_EVIDENCE: "?" } as const;
 
@@ -23,9 +24,11 @@ export function TenderView() {
   const [dialog, setDialog] = useState(false);
   const [pledge, setPledge] = useState(false); const [noGrounds, setNoGrounds] = useState<boolean | null>(null); const [grounds, setGrounds] = useState<string[]>([]); const [expl, setExpl] = useState("");
   const [question, setQuestion] = useState("");
+  const [proj, setProj] = useState<{ projectId: string; referenceNumber: string; status: string } | null>(null);
 
   const load = useCallback(() => { if (id) apiClient.viewTender(id).then(setV).catch((e) => setErr(e instanceof Error ? e.message : "Could not load this tender.")); }, [id]);
   useEffect(load, [load]);
+  useEffect(() => { if (id) apiClient.getMyTenderProject(id).then(setProj).catch(() => undefined); }, [id, v?.participation?.status]);
   const run = async (fn: () => Promise<unknown>) => { setBusy(true); setErr(null); try { await fn(); load(); return true; } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); return false; } finally { setBusy(false); } };
 
   if (!v) return <Page><ErrorNote message={err} />{!err && <div style={muted}>Loading…</div>}</Page>;
@@ -117,6 +120,24 @@ export function TenderView() {
         )}
         {v.myQuestions.length > 0 && <div style={{ marginTop: 12, fontSize: 13, ...muted }}>Your questions awaiting an answer: {v.myQuestions.map((q) => `“${q.question}”`).join("; ")}</div>}
       </Card>
+
+      {(
+
+        <Card title="Your project">
+          {proj ? (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <Pill tone="brand">{proj.status.replace(/_/g, " ").toLowerCase()}</Pill>
+              <a href={`${PM_URL}/projects/detail?id=${proj.projectId}`} style={{ fontSize: 14 }}>Open {proj.referenceNumber} in Project Management</a>
+              <span style={{ flex: "1 1 220px", fontSize: 13, ...muted }}>Kept up to date as you bid, and as the tender is awarded or closed.</span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <Button variant="secondary" disabled={busy} onClick={async () => { const ok = await run(async () => { const r = await apiClient.trackTenderAsProject(id); setProj(await apiClient.getMyTenderProject(id)); return r; }); if (!ok) return; }}>Track as a project</Button>
+              <span style={{ flex: "1 1 220px", fontSize: 13, ...muted }}>Creates a Project Management project for this tender. Expressing interest creates one automatically.</span>
+            </div>
+          )}
+        </Card>
+      )}
 
       {open && (
         <Card title="Take part">

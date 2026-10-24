@@ -331,6 +331,8 @@ export class UniverseApiClient {
   tendersForYou(): Promise<{ tenders: TenderAvailableItem[]; savedSearches: number }> { return this.request("/tenders/for-you"); }
   listTenderSavedSearches(): Promise<TenderSavedSearchRecord[]> { return this.request("/tenders/saved-searches"); }
   saveTenderSearch(body: TenderSavedSearchCriteria & { name: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request("/tenders/saved-searches", { method: "POST", body: JSON.stringify(body) }); }
+  trackTenderAsProject(tenderId: string): Promise<{ projectId: string; created: boolean }> { return this.request(`/tenders/${tenderId}/track-project`, { method: "POST" }); }
+  getMyTenderProject(tenderId: string): Promise<{ projectId: string; referenceNumber: string; status: string } | null> { return this.request(`/tenders/${tenderId}/my-project`); }
   updateTenderSavedSearch(id: string, body: { name?: string; alertsEnabled?: boolean }): Promise<unknown> { return this.request(`/tenders/saved-searches/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   deleteTenderSavedSearch(id: string): Promise<unknown> { return this.request(`/tenders/saved-searches/${id}`, { method: "DELETE" }); }
   viewTender(id: string): Promise<TenderParticipantView> { return this.request(`/tenders/${id}/view`); }

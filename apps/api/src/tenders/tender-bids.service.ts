@@ -12,6 +12,7 @@ import { evaluateEligibility } from "./eligibility";
 import type { BidSaveDto, ConfirmBidFileDto, RequestBidFileDto, TemplateUploadDto } from "./dto/tenders.dto";
 import { appendTenderEvent } from "./tender-events";
 import { effectiveStatus, TendersService } from "./tenders.service";
+import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 type Tx = Prisma.TransactionClient;
 const dec = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : v.toString());
@@ -29,6 +30,7 @@ export class TenderBidsService {
     private readonly tenders: TendersService,
     private readonly fx: ExchangeRatesService,
     private readonly blob: BlobStorageService,
+    private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService(),
   ) {}
 
   // ----------------------------------------------------------- bidder side
@@ -143,6 +145,7 @@ export class TenderBidsService {
       }
       return this.buildWorkspace(tx, user, c);
     });
+    await this.bidProjects.onBidSaved(user.organizationId, tenderId, user.id);
     return ws;
   }
 
@@ -281,6 +284,7 @@ export class TenderBidsService {
     });
     await appendTenderEvent({ organizationId: out.t.organizationId, counterpartyOrganizationId: user.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "BID_SUBMITTED", summary: "A bid was submitted" });
     await this.tenders.notifyIssuer(out.t, user, "TENDER_BID", `Bid received on ${out.t.referenceNumber}`, `A bid was submitted on ${out.t.title}. Bids stay sealed until the closing time.`);
+    await this.bidProjects.onBidSubmitted(user.organizationId, tenderId, user.id, { currency: out.bid.bidCurrency, amount: dec(out.bid.totalBidCurrency) === null ? null : Number(out.bid.totalBidCurrency), tenderCurrency: out.t.currency, tenderAmount: out.bid.totalTenderCurrency == null ? null : Number(out.bid.totalTenderCurrency) });
     return { submitted: true, totalTenderCurrency: dec(out.bid.totalTenderCurrency), fxRate: dec(out.bid.fxRate), fxRateDate: out.bid.fxRateDate };
   }
 
@@ -295,6 +299,7 @@ export class TenderBidsService {
       return c.t;
     });
     await appendTenderEvent({ organizationId: t.organizationId, counterpartyOrganizationId: user.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "BID_WITHDRAWN", summary: "A bid was withdrawn" });
+    await this.bidProjects.onBidWithdrawn(user.organizationId, tenderId, user.id);
     return { withdrawn: true };
   }
 

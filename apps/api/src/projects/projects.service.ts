@@ -99,9 +99,11 @@ function toSummary(p: {
   // Project) but was never mapped through toSummary().
   deliveryCountryCode: string | null;
   deliveryCountryCodes?: string | null;
+  sourceTenderId?: string | null;
 }): ProjectSummary {
   return {
     id: p.id,
+    sourceTenderId: p.sourceTenderId ?? null,
     referenceNumber: p.referenceNumber,
     title: p.title,
     status: p.status,
