@@ -87,7 +87,7 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
   ] },
   { group: "Reproductive Health", subs: [
     { id: "rh-condoms", label: "Male and female condoms", hs: ["4014"], terms: ["condom"] },
-    { id: "rh-hormonal", label: "Contraceptive pills, injectables and implants", hs: ["300660"], terms: ["contraceptive", "levonorgestrel", "etonogestrel", "medroxyprogesterone", "implant", "injectable", "oral pill", "emergency contraception"] },
+    { id: "rh-hormonal", label: "Contraceptive pills, injectables and implants", hs: ["300660"], terms: ["contraceptive", "levonorgestrel", "etonogestrel", "medroxyprogesterone", "progestin", "implant", "injectable", "oral pill", "emergency contraception"] },
     { id: "rh-iud", label: "Intrauterine devices", hs: [], terms: ["iud", "intrauterine"] },
   ] },
   { group: "Nutrition", subs: [
@@ -97,7 +97,7 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
     { id: "nut-infant", label: "Infant feeding", hs: [], terms: ["infant formula", "breast milk substitute", "feeding cup", "baby food"] },
   ] },
   { group: "Vector Control", subs: [
-    { id: "vc-nets", label: "Insecticide-treated bed nets", hs: ["6304", "5608"], terms: ["llin", "bed net", "insecticide-treated net", "itn", "mosquito net"] },
+    { id: "vc-nets", label: "Insecticide-treated bed nets", hs: ["6304", "5608"], terms: ["llin", "insecticidal net", "long-lasting", "bed net", "insecticide-treated net", "itn", "mosquito net"] },
     { id: "vc-irs", label: "Indoor residual spraying insecticides", hs: ["380891"], terms: ["indoor residual", "irs", "deltamethrin", "pirimiphos", "clothianidin", "insecticide"] },
     { id: "vc-larvicide", label: "Larvicides", hs: [], terms: ["larvicide", "temephos", "pyriproxyfen", "bti"] },
     { id: "vc-sprayers", label: "Spraying equipment", hs: ["842441"], terms: ["sprayer", "compression sprayer", "spray pump"] },
@@ -117,7 +117,7 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
     { id: "kit-health", label: "Emergency health and first-aid kits", hs: ["300650"], terms: ["emergency health kit", "iehk", "health kit", "first aid kit", "first-aid kit", "trauma kit", "burn kit"] },
     { id: "kit-reproductive", label: "Reproductive health and dignity kits", hs: [], terms: ["dignity kit", "reproductive health kit", "iarh", "clean delivery", "maternal kit", "birth kit"] },
     { id: "kit-hiv", label: "PEP and male circumcision kits", hs: [], terms: ["pep kit", "post-exposure", "vmmc", "circumcision kit"] },
-    { id: "kit-outbreak", label: "Outbreak response kits", hs: [], terms: ["cholera kit", "ebola kit", "outbreak kit", "diarrhoeal disease kit"] },
+    { id: "kit-outbreak", label: "Outbreak response kits", hs: [], terms: ["cholera", "cholera kit", "ebola kit", "outbreak kit", "diarrhoeal disease kit"] },
   ] },
   { group: "Shelter and Household Items", subs: [
     { id: "shl-shelter", label: "Tents, tarpaulins and plastic sheeting", hs: ["6306"], terms: ["tent", "tarpaulin", "plastic sheeting", "shelter"] },

@@ -29,6 +29,8 @@ describe("supplier scope taxonomy", () => {
     expect(scopeSubsForProduct({ category: "Nutrition", name: "Ready-to-use therapeutic food paste" })).toContain("nut-rutf");
     expect(scopeSubsForProduct({ category: "Immunisation", name: "Auto-disable syringe 0.5 mL" })).toContain("imz-syringes");
     expect(scopeSubsForProduct({ category: "Logistics and Services", name: "Air freight and customs clearing" })).toContain("ls-freight");
+    expect(scopeSubsForProduct({ category: "Reproductive Health", name: "progestin-only pill, 28-day cycle" })).toContain("rh-hormonal");
+    expect(scopeSubsForProduct({ category: "Kits and Emergency Supplies", name: "cholera treatment kit, basic" })).toContain("kit-outbreak");
     expect(scopeSubById("wash-treatment")?.group).toBe("Water, Sanitation and Hygiene");
   });
   it("finds subcategories by HS code and by id", () => {
