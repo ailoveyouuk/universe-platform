@@ -986,3 +986,8 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 ## 2026-10-24 — Scorecard display: score colour separated from the attention flag
 - Lewis pointed out that 93/100 shown amber as "Watch" was confusing. The capped band (a critical measure holds the band at Watch) is unchanged in the data, but the display now follows the number alone (`scoreBand`, uncapped) and a separate red flag lists the measures needing attention (`attention`), on the scorecard and as a small ⚑ count beside the score in the Quality list. The capped `band` and `bandNote` are still returned by the API.
 
+## 2026-10-24 — One red-to-green colour rule for every score
+- New `scoreColor(fraction)` / `scoreColor100(score)` in `@universe/ui`: a continuous spectrum, red at 0 through amber to green at 1 (hue 0 to 120), so 80% reads mostly green and 20% mostly red. Returns null for no data (neutral fallback).
+- Applied to: partner scorecard (overall bar, every measure bar and value, headline tiles, trend bars), Quality list (Score, On time, In full, OTIF), project stage tiles (OTIF, lines priced, lines delivered), logistics efficiency tiles (score out of 10), tender performance scores (Tenders app and Admin). Status wording ("Action needed", "Needs attention") is unchanged.
+- Not changed: time-urgency and money tiles (days left, margin, balances), which are not scores.
+

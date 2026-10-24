@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { StaffPerformanceRow } from "@universe/types";
-import { Button } from "@universe/ui";
+import { Button, scoreColor100 } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { Notice } from "../../components/form";
@@ -39,7 +39,7 @@ export default function PerformanceAdminPage() {
           <div key={r.id} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "10px 14px", fontSize: 13.5, opacity: r.withdrawn ? 0.7 : 1 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
               <span><strong>{r.contractReference}</strong> · {r.ownerName} → {r.supplierName} · {r.outcome.toLowerCase()} {new Date(r.closedAt).toLocaleDateString("en-GB")}</span>
-              <span>{BAND[r.band] ?? r.band}{r.overallScore !== null ? ` · ${r.overallScore}/100` : ""}{r.disputes ? ` · ${r.disputes} dispute${r.disputes === 1 ? "" : "s"}` : ""}{r.withdrawn ? " · WITHDRAWN" : ""}</span>
+              <span>{BAND[r.band] ?? r.band}{r.overallScore !== null ? <> · <strong style={{ color: scoreColor100(r.overallScore) ?? undefined }}>{r.overallScore}/100</strong></> : ""}{r.disputes ? ` · ${r.disputes} dispute${r.disputes === 1 ? "" : "s"}` : ""}{r.withdrawn ? " · WITHDRAWN" : ""}</span>
             </div>
             {r.withdrawn && <div style={{ marginTop: 4, color: "var(--u-ink-secondary)" }}>Reason: {r.withdrawnReason}</div>}
             <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

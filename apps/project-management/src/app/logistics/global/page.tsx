@@ -24,6 +24,7 @@ import {
   type WorldMapPoint,
   type WorldMapArc,
   type WorldMapLegendEntry,
+  scoreColor,
 } from "@universe/ui";
 import { useCountries } from "../../../lib/useCountries";
 
@@ -247,7 +248,7 @@ export default function GlobalLogisticsPage() {
                 icon={r.entityType === "PROJECT" ? <ProjectsIcon size={18} /> : r.entityType === "PROCURING_ORGANIZATION" ? <GlobeIcon size={18} /> : <BuildingIcon size={18} />}
                 tone="neutral"
                 indicator={{
-                  color: SCORE_BAND_COLORS[r.scoreBand],
+                  color: scoreColor(r.averageScore / 10) ?? SCORE_BAND_COLORS[r.scoreBand],
                   label: `${{ RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[r.scoreBand] ?? ""} · ${r.entityCount.toLocaleString("en-GB")} rated`,
                   fraction: r.averageScore / 10,
                 }}

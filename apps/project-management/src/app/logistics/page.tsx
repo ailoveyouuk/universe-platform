@@ -26,6 +26,7 @@ import {
   type WorldMapPoint,
   type WorldMapArc,
   type WorldMapLegendEntry,
+  scoreColor,
 } from "@universe/ui";
 import { useCountries } from "../../lib/useCountries";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
@@ -267,7 +268,7 @@ export default function LogisticsPage() {
             active={filters.scoreBand === "RED"}
             onClick={() => setFilters((f) => ({ ...f, scoreBand: f.scoreBand === "RED" ? undefined : "RED" }))}
             note={filters.scoreBand === "RED" ? "Showing poor-scoring lines" : "Click for poor-scoring lines"}
-            indicator={{ color: SCORE_BAND_COLORS[bandForScore(totals.avgScore)], label: { RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[bandForScore(totals.avgScore)] ?? "", fraction: totals.avgScore / 10 }}
+            indicator={{ color: scoreColor(totals.avgScore / 10) ?? SCORE_BAND_COLORS[bandForScore(totals.avgScore)], label: { RED: "Poor", AMBER: "Fair", YELLOW: "Good", GREEN: "Excellent" }[bandForScore(totals.avgScore)] ?? "", fraction: totals.avgScore / 10 }}
           />
         </div>
       )}

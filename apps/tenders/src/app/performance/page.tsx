@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { MyPerformanceItem, SupplierPerformanceSummary } from "@universe/types";
-import { Pill } from "@universe/ui";
+import { Pill, scoreColor100 } from "@universe/ui";
 import { BandPill, SupplierSummary } from "../../components/PerformancePanel";
 import { apiClient } from "../../lib/apiClient";
 import { Card, ErrorNote, Heading, Page, fmtDate } from "../../lib/ui";
@@ -31,7 +31,7 @@ export default function PerformancePage() {
         {!rows ? <span style={muted}>Loading…</span> : rows.length === 0 ? <p style={{ margin: 0, ...muted }}>No contract has been closed yet. A record is created when a tender owner closes a contract.</p> : rows.map((r) => (
           <div key={r.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
             <span><strong>{r.contractReference}</strong> · {r.title} <Pill tone="neutral">{r.role === "SUPPLIER" ? "You supplied" : "You owned"}</Pill> <span style={muted}>· {r.counterpartyName} · closed {fmtDate(r.closedAt)}</span></span>
-            <span style={{ display: "flex", gap: 8, alignItems: "center" }}><BandPill band={r.band} />{r.overallScore !== null && <strong>{r.overallScore}/100</strong>}<Link href={`/${r.role === "SUPPLIER" ? "bids/status" : "tenders/manage"}?id=${r.tenderId}`}>Open</Link></span>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}><BandPill band={r.band} />{r.overallScore !== null && <strong style={{ color: scoreColor100(r.overallScore) ?? undefined }}>{r.overallScore}/100</strong>}<Link href={`/${r.role === "SUPPLIER" ? "bids/status" : "tenders/manage"}?id=${r.tenderId}`}>Open</Link></span>
           </div>))}
       </Card>
     </Page>
