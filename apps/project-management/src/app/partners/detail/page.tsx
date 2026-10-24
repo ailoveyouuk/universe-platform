@@ -354,7 +354,7 @@ export default function PartnerDetailPage() {
             marginTop: 16,
             borderRadius: "var(--u-radius-md)",
             border: "1px solid var(--u-status-critical)",
-            backgroundColor: "rgba(220,38,38,0.08)",
+            backgroundColor: "var(--u-status-critical-tint)",
             fontSize: 13,
             color: "var(--u-ink)",
           }}
@@ -378,7 +378,7 @@ export default function PartnerDetailPage() {
             padding: 16,
             borderRadius: "var(--u-radius-md)",
             border: "1px solid var(--u-status-critical)",
-            backgroundColor: "rgba(220,38,38,0.05)",
+            backgroundColor: "var(--u-status-critical-wash)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -702,7 +702,7 @@ function EvidenceStandardRow({
   const icon =
     effectiveStatus === "VERIFIED" ? <CheckCircleIcon size={16} /> : effectiveStatus === "PENDING" ? <ClockIcon size={16} /> : <AlertIcon size={16} />;
   const toneColor =
-    tone === "good" ? "var(--u-status-good, #16a34a)" : tone === "critical" ? "var(--u-status-critical)" : tone === "warning" ? "#946014" : "var(--u-ink-secondary)";
+    tone === "good" ? "var(--u-status-good-text)" : tone === "critical" ? "var(--u-status-critical)" : tone === "warning" ? "var(--u-status-warning-text)" : "var(--u-ink-secondary)";
 
   async function handleVerify(approve: boolean) {
     if (!record) return;

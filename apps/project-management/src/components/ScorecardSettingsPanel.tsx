@@ -6,7 +6,7 @@ import type { ScorecardSettings } from "@universe/types";
 import { Button } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 
-const inputStyle = { width: 84, padding: "7px 9px", border: "1px solid var(--u-border)", borderRadius: 8, fontSize: 14, fontFamily: "inherit", background: "var(--u-surface, #fff)", color: "var(--u-ink)" } as const;
+const inputStyle = { width: 84, padding: "7px 9px", border: "1px solid var(--u-border)", borderRadius: 8, fontSize: 14, fontFamily: "inherit", background: "var(--u-surface)", color: "var(--u-ink)" } as const;
 type Keys = "onTimeGood" | "onTimeWarn" | "inFullGood" | "inFullWarn" | "otifGood" | "otifWarn" | "earlyDays" | "lateDays";
 
 /**

@@ -728,7 +728,7 @@ export default function NewPartnerPage() {
         {!registryEntryId && registryMatches.length > 0 && (
           <div
             style={{
-              background: "var(--u-surface-subtle, #F5F6FA)",
+              background: "var(--u-surface-subtle)",
               border: "1px solid var(--u-border)",
               borderRadius: "var(--u-radius-md)",
               padding: "10px 14px",
@@ -759,7 +759,7 @@ export default function NewPartnerPage() {
         {registryEntryId && (
           <div
             style={{
-              background: "var(--u-surface-subtle, #F0F7F0)",
+              background: "var(--u-surface-subtle)",
               border: "1px solid var(--u-border)",
               borderRadius: "var(--u-radius-md)",
               padding: "10px 14px",
@@ -1511,7 +1511,7 @@ function RegistryLightbox({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(20, 20, 30, 0.45)",
+        background: "var(--u-overlay)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1522,7 +1522,7 @@ function RegistryLightbox({
     >
       <div
         style={{
-          background: "var(--u-surface-raised, #fff)",
+          background: "var(--u-surface-raised)",
           borderRadius: "var(--u-radius-md)",
           padding: 24,
           maxWidth: 480,

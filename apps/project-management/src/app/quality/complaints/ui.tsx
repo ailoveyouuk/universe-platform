@@ -5,10 +5,10 @@ import { Pill } from "@universe/ui";
 
 export const muted: CSSProperties = { color: "var(--u-ink-secondary)" };
 export const inputStyle: CSSProperties = {
-  width: "100%", padding: "8px 10px", border: "1px solid var(--u-border, #d9d9e3)", borderRadius: 8, fontSize: 14, fontFamily: "inherit",
-  background: "var(--u-surface, #fff)", color: "var(--u-ink)", boxSizing: "border-box",
+  width: "100%", padding: "8px 10px", border: "1px solid var(--u-border)", borderRadius: 8, fontSize: 14, fontFamily: "inherit",
+  background: "var(--u-surface)", color: "var(--u-ink)", boxSizing: "border-box",
 };
-export const cardStyle: CSSProperties = { border: "1px solid var(--u-border, #e3e3ec)", borderRadius: 12, padding: 18, background: "var(--u-surface, #fff)", marginBottom: 16 };
+export const cardStyle: CSSProperties = { border: "1px solid var(--u-border)", borderRadius: 12, padding: 18, background: "var(--u-surface)", marginBottom: 16 };
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (

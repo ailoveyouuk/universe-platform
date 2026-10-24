@@ -103,11 +103,11 @@ function ComplaintList() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ textAlign: "left", ...muted, fontSize: 12.5 }}>
-              {["Reference", "Complaint", "Direction", "Stakeholder", "Severity", "Status", "Next deadline", "Owner"].map((h) => <th key={h} style={{ padding: "8px 10px", borderBottom: "1px solid var(--u-border, #e3e3ec)" }}>{h}</th>)}
+              {["Reference", "Complaint", "Direction", "Stakeholder", "Severity", "Status", "Next deadline", "Owner"].map((h) => <th key={h} style={{ padding: "8px 10px", borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} style={{ borderBottom: "1px solid var(--u-border, #eee)" }}>
+                <tr key={r.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
                   <td style={{ padding: "10px" }}><Link href={`/quality/complaints?id=${r.id}`} style={{ fontWeight: 700 }}>{r.referenceNumber}</Link></td>
                   <td style={{ padding: "10px", maxWidth: 320 }}>{r.isSerious && <Pill tone="critical">Serious</Pill>} {r.title}<div style={{ ...muted, fontSize: 12 }}>Received {fmtDate(r.receivedAt)}{r.openActions ? ` · ${r.openActions} open action${r.openActions > 1 ? "s" : ""}` : ""}</div></td>
                   <td style={{ padding: "10px" }}>{DIRECTION_LABEL[r.direction]}</td>
@@ -189,7 +189,7 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
         <Field label="Project"><Select value={projectId} onChange={setProjectId} options={projects.map((p) => ({ value: p.id, label: `${p.referenceNumber} · ${p.title}` }))} allLabel="Not linked" ariaLabel="Project" /></Field>
         <Field label="Batch" hint={batch ? `Linked to ${batch.batchNumber}` : "Type a batch number to search"}>
           <input value={batchQ} onChange={(e) => setBatchQ(e.target.value)} style={inputStyle} placeholder="Batch number" />
-          {batchHits.length > 0 && <div style={{ border: "1px solid var(--u-border, #ddd)", borderRadius: 8, marginTop: 4 }}>{batchHits.map((b) => <div key={b.id} role="button" tabIndex={0} onClick={() => { setBatch(b); setBatchQ(b.batchNumber); setBatchHits([]); }} onKeyDown={(e) => e.key === "Enter" && (setBatch(b), setBatchQ(b.batchNumber), setBatchHits([]))} style={{ padding: "6px 10px", cursor: "pointer" }}>{b.batchNumber}</div>)}</div>}
+          {batchHits.length > 0 && <div style={{ border: "1px solid var(--u-border)", borderRadius: 8, marginTop: 4 }}>{batchHits.map((b) => <div key={b.id} role="button" tabIndex={0} onClick={() => { setBatch(b); setBatchQ(b.batchNumber); setBatchHits([]); }} onKeyDown={(e) => e.key === "Enter" && (setBatch(b), setBatchQ(b.batchNumber), setBatchHits([]))} style={{ padding: "6px 10px", cursor: "pointer" }}>{b.batchNumber}</div>)}</div>}
         </Field>
       </div>
       <Field label="Title"><input value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} maxLength={300} /></Field>
@@ -201,7 +201,7 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
         <Field label="Complainant email"><input value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} /></Field>
         <Field label="Complainant phone"><input value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} /></Field>
       </div>
-      <fieldset style={{ border: "1px solid var(--u-border, #ddd)", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+      <fieldset style={{ border: "1px solid var(--u-border)", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
         <legend style={{ fontSize: 12.5, fontWeight: 700, padding: "0 6px" }}>Serious indicators</legend>
         {[["Possible harm to a patient", pSafety, setPSafety], ["Suspected falsified or substandard product", falsified, setFalsified], ["Temperature excursion", temp, setTemp]].map(([t, v, set]) => (
           <label key={t as string} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 14 }}><input type="checkbox" checked={v as boolean} onChange={(e) => (set as (b: boolean) => void)(e.target.checked)} /> {t as string}</label>

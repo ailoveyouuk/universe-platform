@@ -94,7 +94,7 @@ export function NotificationRow({
           type="button"
           aria-label={done ? "Reopen action" : "Mark action done"}
           onClick={() => onToggleDone(n)}
-          style={{ border: "none", background: "none", padding: 2, marginTop: 1, cursor: "pointer", color: done ? "var(--u-status-success, #2a7d46)" : "var(--u-ink-secondary)", display: "flex" }}
+          style={{ border: "none", background: "none", padding: 2, marginTop: 1, cursor: "pointer", color: done ? "var(--u-status-good-text)" : "var(--u-ink-secondary)", display: "flex" }}
         >
           {done ? <CheckCircleIcon size={18} /> : <span style={{ width: 16, height: 16, borderRadius: "50%", border: "1.8px solid currentColor", display: "block", margin: 1 }} />}
         </button>

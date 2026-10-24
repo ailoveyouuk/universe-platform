@@ -176,7 +176,7 @@ export function CountrySelect({
                 borderRadius: "var(--u-radius-sm)",
                 cursor: "pointer",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(20,18,31,0.05)")}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--u-hover)")}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
             >
               <span>{c.name}</span>

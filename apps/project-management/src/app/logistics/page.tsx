@@ -399,7 +399,7 @@ export default function LogisticsPage() {
                         height: 32,
                         borderRadius: "50%",
                         background: color,
-                        color: "#fff",
+                        color: "var(--u-on-accent)",
                         fontWeight: 700,
                       }}
                       title={`Efficiency/CO2 impact score: ${m.efficiencyScore}/10`}

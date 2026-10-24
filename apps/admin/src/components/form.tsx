@@ -134,7 +134,7 @@ export function StatusChip({ status }: { status: string }) {
   return (
     <span
       style={{
-        color: "#fff",
+        color: "var(--u-on-accent)",
         background: statusColor(status),
         borderRadius: 999,
         padding: "2px 10px",

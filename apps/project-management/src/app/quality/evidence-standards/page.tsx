@@ -131,7 +131,7 @@ export default function EvidenceStandardsPage() {
             marginBottom: 12,
             borderRadius: "var(--u-radius-md)",
             border: "1px solid var(--u-status-critical)",
-            backgroundColor: "rgba(220,38,38,0.08)",
+            backgroundColor: "var(--u-status-critical-tint)",
           }}
         >
           <div style={{ fontSize: 13, color: "var(--u-ink)" }}>{error}</div>

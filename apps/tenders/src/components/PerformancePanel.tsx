@@ -194,7 +194,7 @@ export function QualityLinks({ c, busy, act }: { c: TenderContractView; busy: bo
       <p style={{ margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Tie your own complaints and temperature logs to this contract. At close only counts go into the record (how many, upheld, serious, excursions); the supplier never sees your complaint text. Only you can see these links.</p>
       {open && (
         <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
-          {err && <span style={{ color: "var(--u-critical, #b3261e)", fontSize: 13.5 }}>{err}</span>}
+          {err && <span style={{ color: "var(--u-status-critical-text)", fontSize: 13.5 }}>{err}</span>}
           {!ev ? <span style={muted}>Loading…</span> : (
             <>
               <strong style={{ fontSize: 14 }}>Complaints</strong>

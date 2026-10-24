@@ -87,12 +87,12 @@ export function StatTile({
       {indicator && (
         <span style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {indicator.fraction !== undefined && (
-            <span aria-hidden style={{ display: "block", height: 6, borderRadius: "var(--u-radius-pill)", backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
-              <span style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.barColor ?? indicator.color, borderRadius: "var(--u-radius-pill)" }} />
+            <span aria-hidden className="u-gauge-track" style={{ display: "block", height: 6, borderRadius: "var(--u-radius-pill)", backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
+              <span className="u-gauge-fill" style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.barColor ?? indicator.color, borderRadius: "var(--u-radius-pill)" }} />
             </span>
           )}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: statusText(indicator.color) }}>
-            <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: indicator.color }} />
+            <span aria-hidden className="u-gauge-fill" style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: indicator.color }} />
             {indicator.label}
           </span>
         </span>

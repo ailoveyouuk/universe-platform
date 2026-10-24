@@ -52,6 +52,25 @@
   --u-status-warning-text: #8a620e;
   --u-status-serious-text: #8e4f36;
   --u-status-critical-text: #b3261e;
+  /* Tints, overlays and fixed colours (2026-10-24): formerly hard-coded in components, now tokens so light and dark themes stay consistent. */
+  --u-status-good-tint: rgba(12, 163, 12, 0.12);
+  --u-status-warning-tint: rgba(250, 178, 25, 0.16);
+  --u-status-warning-wash: rgba(250, 178, 25, 0.08);
+  --u-status-critical-tint: rgba(208, 59, 59, 0.12);
+  --u-status-critical-wash: rgba(208, 59, 59, 0.07);
+  --u-surface-subtle: #F5F6FA;
+  --u-surface-success-subtle: #F0F7F0;
+  --u-hover: rgba(20, 18, 31, 0.05);
+  --u-overlay: rgba(20, 18, 31, 0.4);
+  --u-on-accent: #FFFFFF;
+  --u-badge-awarded: #0a6a0a;
+  --u-badge-completed: #085a08;
+  --u-badge-lost: #b0481a;
+  --u-band-red: #b3261e;
+  --u-band-amber: #a85f00;
+  --u-band-yellow: #806800;
+  --u-band-green: #1e7a3e;
+  --u-module-insights: #775C24;
 
   /* Type */
   --u-font-display: 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -95,6 +114,24 @@
   --u-status-warning-text: #fab219;
   --u-status-serious-text: #ff9a73;
   --u-status-critical-text: #ff8a8a;
+  --u-status-good-tint: rgba(95, 209, 106, 0.16);
+  --u-status-warning-tint: rgba(250, 178, 25, 0.18);
+  --u-status-warning-wash: rgba(250, 178, 25, 0.10);
+  --u-status-critical-tint: rgba(255, 138, 138, 0.16);
+  --u-status-critical-wash: rgba(255, 138, 138, 0.10);
+  --u-surface-subtle: #1E1C38;
+  --u-surface-success-subtle: #16301B;
+  --u-hover: rgba(255, 255, 255, 0.08);
+  --u-overlay: rgba(0, 0, 0, 0.6);
+  --u-on-accent: #14121F;
+  --u-badge-awarded: #5fd16a;
+  --u-badge-completed: #8be08f;
+  --u-badge-lost: #ff9a73;
+  --u-band-red: #ff8a8a;
+  --u-band-amber: #fab219;
+  --u-band-yellow: #e6d34d;
+  --u-band-green: #5fd16a;
+  --u-module-insights: #C9AE74;
   --u-border: rgba(255, 255, 255, 0.14);
   --u-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
   color-scheme: dark;
@@ -634,4 +671,15 @@ a:focus-visible {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Windows high-contrast / forced-colours mode (WCAG 1.4.11, 1.4.1): keep the gauge fills and status dots visible, give tracks an outline, and keep a clear focus ring. */
+@media (forced-colors: active) {
+  .u-gauge-fill { forced-color-adjust: none; }
+  .u-gauge-track { border: 1px solid CanvasText; }
+  :where(button, [role="button"], [role="tab"], summary, input, textarea, select, a, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  .u-skip-link { border: 2px solid LinkText; }
 }

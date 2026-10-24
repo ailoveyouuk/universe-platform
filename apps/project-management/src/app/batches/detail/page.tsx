@@ -127,7 +127,7 @@ export default function BatchDetailPage() {
             marginTop: 16,
             borderRadius: "var(--u-radius-md)",
             border: "1px solid var(--u-status-critical)",
-            backgroundColor: "rgba(220,38,38,0.08)",
+            backgroundColor: "var(--u-status-critical-tint)",
             fontSize: 13,
             color: "var(--u-ink)",
           }}
@@ -210,7 +210,7 @@ export default function BatchDetailPage() {
                   padding: "10px 16px",
                   borderRadius: "var(--u-radius-md)",
                   border: log.hasExcursion ? "1px solid var(--u-status-critical)" : "1px solid var(--u-border)",
-                  backgroundColor: log.hasExcursion ? "rgba(220,38,38,0.06)" : "var(--u-surface-raised)",
+                  backgroundColor: log.hasExcursion ? "var(--u-status-critical-wash)" : "var(--u-surface-raised)",
                 }}
               >
                 <div style={{ minWidth: 0 }}>

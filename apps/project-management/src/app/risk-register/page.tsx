@@ -61,8 +61,8 @@ const textareaStyle: CSSProperties = { ...inputStyle, minHeight: 60, resize: "ve
  * has no "critical" tone, so CRITICAL/HIGH is a plain custom-coloured span
  * rather than inventing a second colour mapping for the same field. */
 function severityStyle(severity: string): { bg: string; fg: string } {
-  if (severity === "CRITICAL" || severity === "HIGH") return { bg: "rgba(220,38,38,0.1)", fg: "var(--u-status-critical)" };
-  if (severity === "MEDIUM") return { bg: "rgba(250,178,25,0.16)", fg: "#946014" };
+  if (severity === "CRITICAL" || severity === "HIGH") return { bg: "var(--u-status-critical-tint)", fg: "var(--u-status-critical)" };
+  if (severity === "MEDIUM") return { bg: "var(--u-status-warning-tint)", fg: "var(--u-status-warning-text)" };
   return { bg: "var(--u-surface-alt)", fg: "var(--u-ink-secondary)" };
 }
 

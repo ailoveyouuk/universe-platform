@@ -223,7 +223,7 @@ export default function QualityPage() {
                   padding: "12px 16px",
                   borderRadius: "var(--u-radius-md)",
                   border: "1px solid var(--u-border)",
-                  backgroundColor: "rgba(250,178,25,0.08)",
+                  backgroundColor: "var(--u-status-warning-wash)",
                 }}
               >
                 <div style={{ minWidth: 0 }}>
@@ -242,7 +242,7 @@ export default function QualityPage() {
                     )}
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#946014", fontWeight: 600, flexShrink: 0 }}>
+                <div style={{ fontSize: 12, color: "var(--u-status-warning-text)", fontWeight: 600, flexShrink: 0 }}>
                   {a.isReviewOverdue ? "Review overdue" : a.hasExpiredCertification ? "Certification expired" : "Partner no longer approved"}
                 </div>
               </div>
@@ -276,7 +276,7 @@ export default function QualityPage() {
               marginBottom: 12,
               borderRadius: "var(--u-radius-md)",
               border: "1px solid var(--u-status-critical)",
-              backgroundColor: "rgba(220,38,38,0.08)",
+              backgroundColor: "var(--u-status-critical-tint)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink)" }}>

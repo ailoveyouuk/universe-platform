@@ -106,8 +106,8 @@ export default function ReVerificationDuePage() {
                   borderRadius: "var(--u-radius-pill)",
                   fontSize: 12,
                   fontWeight: 600,
-                  backgroundColor: r.isOverdue ? "rgba(220,38,38,0.1)" : "rgba(250,178,25,0.16)",
-                  color: r.isOverdue ? "var(--u-status-critical)" : "#946014",
+                  backgroundColor: r.isOverdue ? "var(--u-status-critical-tint)" : "var(--u-status-warning-tint)",
+                  color: r.isOverdue ? "var(--u-status-critical)" : "var(--u-status-warning-text)",
                 }}
               >
                 {r.isOverdue ? "Overdue" : "Due"} {new Date(r.dueDate).toLocaleDateString()}

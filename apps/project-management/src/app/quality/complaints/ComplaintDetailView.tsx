@@ -58,7 +58,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
       </div>
 
       {c.isSerious && (
-        <div role="alert" style={{ ...cardStyle, borderColor: "var(--u-status-critical)", background: "color-mix(in srgb, var(--u-status-critical) 7%, var(--u-surface, #fff))" }}>
+        <div role="alert" style={{ ...cardStyle, borderColor: "var(--u-status-critical)", background: "color-mix(in srgb, var(--u-status-critical) 7%, var(--u-surface))" }}>
           <strong>Serious case — fast-track.</strong>{" "}
           {[c.flagPatientSafety && "possible patient harm", c.flagSuspectedFalsified && "suspected falsified or substandard product", c.flagTemperatureExcursion && "temperature excursion"].filter(Boolean).join(", ")}.
           <ul style={{ margin: "6px 0 0", paddingLeft: 20, fontSize: 14 }}>
@@ -122,7 +122,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
       <Card title="Corrective and preventive actions">
         {c.actions.length === 0 && <div style={muted}>No actions yet.</div>}
         {c.actions.map((a) => (
-          <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border, #eee)", flexWrap: "wrap" }}>
+          <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border)", flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 220 }}>
               <Pill tone="neutral">{label(a.type)}</Pill> {a.description}
               <div style={{ ...muted, fontSize: 12.5 }}>{a.ownerName} · due {fmtDate(a.dueDate)}{a.overdue ? " — overdue" : ""}{a.completedAt ? ` · ${label(a.status)} ${fmtDate(a.completedAt)}` : ""}{a.completionNotes ? ` · ${a.completionNotes}` : ""}</div>
@@ -164,7 +164,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
       <Card title="Evidence and attachments">
         {c.attachments.length === 0 && <div style={muted}>No files attached yet.</div>}
         {c.attachments.map((a) => (
-          <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border, #eee)", flexWrap: "wrap", fontSize: 14 }}>
+          <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border)", flexWrap: "wrap", fontSize: 14 }}>
             <div style={{ flex: 1, minWidth: 220 }}>
               <button type="button" onClick={async () => { try { const { downloadUrl } = await apiClient.getStandaloneDocumentDownloadUrl(a.documentId); window.open(downloadUrl, "_blank", "noopener"); } catch { setErr("Could not open that file."); } }} style={{ background: "none", border: 0, padding: 0, color: "var(--u-brand, #4A2E8C)", cursor: "pointer", font: "inherit", textAlign: "left" }}>{a.fileName ?? a.title}</button>
               {a.note && <div style={{ ...muted, fontSize: 12.5 }}>{a.note}</div>}
@@ -179,7 +179,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
       <Card title="Timeline">
         {can.edit && <NoteForm busy={busy} onSave={(b) => stage("notes", b)} />}
         {[...c.events].reverse().map((e) => (
-          <div key={e.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border, #eee)", fontSize: 14 }}>
+          <div key={e.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
             <div><Pill tone={e.kind === "STAGE" ? "brand" : "neutral"}>{label(e.kind)}</Pill> {e.summary}</div>
             {e.body && <div style={{ ...muted, whiteSpace: "pre-wrap", marginTop: 2 }}>{e.body}</div>}
             <div style={{ ...muted, fontSize: 12 }}>{e.actorName ?? "System"} · {fmtDateTime(e.createdAt)}</div>
@@ -324,7 +324,7 @@ function EffectivenessForm({ busy, onSave }: { busy: boolean; onSave: (t: string
 function ActionForm({ busy, userOpts, onSave }: { busy: boolean; userOpts: { value: string; label: string }[]; onSave: (b: object) => void }) {
   const [type, setType] = useState<string>("CORRECTIVE"); const [d, setD] = useState(""); const [owner, setOwner] = useState(""); const [due, setDue] = useState("");
   return (
-    <div style={{ borderTop: "1px solid var(--u-border, #eee)", paddingTop: 12, marginTop: 8 }}>
+    <div style={{ borderTop: "1px solid var(--u-border)", paddingTop: 12, marginTop: 8 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: "0 16px" }}>
         <Field label="Type"><Select value={type} onChange={setType} options={toOptions(COMPLAINT_ACTION_TYPES)} ariaLabel="Action type" /></Field>
         <Field label="Owner"><Select value={owner} onChange={setOwner} options={userOpts} allLabel="Choose…" ariaLabel="Owner" /></Field>

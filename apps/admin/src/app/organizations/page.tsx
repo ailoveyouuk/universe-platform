@@ -116,7 +116,7 @@ export default function OrganizationsPage() {
                 <td style={{ padding: 8 }}>
                   <span
                     style={{
-                      color: "#fff",
+                      color: "var(--u-on-accent)",
                       background: STATUS_COLORS[o.status] ?? "var(--u-ink-secondary)",
                       borderRadius: 999,
                       padding: "2px 10px",

@@ -405,7 +405,7 @@ function tabStyle(active: boolean): CSSProperties {
     borderRadius: 6,
     border: "1px solid var(--u-border)",
     background: active ? "var(--u-org-accent, var(--u-brand-violet))" : "transparent",
-    color: active ? "#fff" : "var(--u-ink)",
+    color: active ? "var(--u-on-accent)" : "var(--u-ink)",
     fontSize: 13,
     cursor: "pointer",
   };

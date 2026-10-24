@@ -32,9 +32,9 @@ const TYPE_LABEL = Object.fromEntries(CERT_TYPES.map((t) => [t.value, t.label]))
 const SUB_LABEL = Object.fromEntries(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => [s.id, s.label])));
 
 const STATUS_STYLE: Record<string, { label: string; color: string }> = {
-  VALID: { label: "Valid", color: "var(--u-success, #1f7a4d)" },
+  VALID: { label: "Valid", color: "var(--u-status-good-text)" },
   EXPIRING: { label: "Expiring soon", color: "var(--u-status-warning-text)" },
-  EXPIRED: { label: "Expired", color: "var(--u-danger, #b3261e)" },
+  EXPIRED: { label: "Expired", color: "var(--u-status-critical-text)" },
   NO_EXPIRY: { label: "No expiry", color: "var(--u-ink-secondary)" },
 };
 

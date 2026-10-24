@@ -59,8 +59,8 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
             <span style={{ fontSize: 40, fontWeight: 700, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{sc.overallScore ?? "—"}</span>
             {sc.overallScore !== null && <span style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>/ 100</span>}
           </span>
-          <span aria-hidden style={{ display: "block", height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
-            <span style={{ display: "block", height: "100%", width: `${sc.overallScore ?? 0}%`, backgroundColor: scoreColor100(sc.overallScore) ?? bandColor }} />
+          <span aria-hidden className="u-gauge-track" style={{ display: "block", height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
+            <span className="u-gauge-fill" style={{ display: "block", height: "100%", width: `${sc.overallScore ?? 0}%`, backgroundColor: scoreColor100(sc.overallScore) ?? bandColor }} />
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: statusText(bandColor) }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: bandColor }} />{band.label}
@@ -127,8 +127,8 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
                     <span style={{ fontSize: 14, fontWeight: 700, color: statusText(STATUS_COLOR[m.status]) }}>{m.display}</span>
                   </div>
                   {m.score !== null && (
-                    <span aria-hidden style={{ display: "block", height: 4, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden", margin: "8px 0 6px" }}>
-                      <span style={{ display: "block", height: "100%", width: `${Math.max(3, m.score)}%`, backgroundColor: scoreColor100(m.score) ?? STATUS_COLOR[m.status] }} />
+                    <span aria-hidden className="u-gauge-track" style={{ display: "block", height: 4, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden", margin: "8px 0 6px" }}>
+                      <span className="u-gauge-fill" style={{ display: "block", height: "100%", width: `${Math.max(3, m.score)}%`, backgroundColor: scoreColor100(m.score) ?? STATUS_COLOR[m.status] }} />
                     </span>
                   )}
                   <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: m.score === null ? 4 : 0 }}>{m.detail}</div>
@@ -152,7 +152,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
                     <td style={{ padding: "8px 16px", minWidth: 180 }}>
                       {t.onTimePercent === null ? "—" : (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          <span aria-hidden style={{ display: "inline-block", width: 90, height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}><span style={{ display: "block", height: "100%", width: `${Math.max(3, t.onTimePercent)}%`, backgroundColor: scoreColor100(t.onTimePercent) ?? STATUS_COLOR.neutral }} /></span>
+                          <span aria-hidden className="u-gauge-track" style={{ display: "inline-block", width: 90, height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}><span className="u-gauge-fill" style={{ display: "block", height: "100%", width: `${Math.max(3, t.onTimePercent)}%`, backgroundColor: scoreColor100(t.onTimePercent) ?? STATUS_COLOR.neutral }} /></span>
                           {t.onTimePercent}%
                         </span>
                       )}

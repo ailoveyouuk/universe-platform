@@ -134,7 +134,7 @@ export function CountryMultiSelect({
                 aria-selected={on}
                 onClick={() => toggle(c.code)}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", textAlign: "left", padding: "7px 11px", fontSize: 13, fontWeight: on ? 700 : 500, color: on ? "var(--u-brand-violet)" : "var(--u-ink)", background: "none", border: "none", borderRadius: "var(--u-radius-sm)", cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(20,18,31,0.05)")}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--u-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
               >
                 <span>{c.name}</span>

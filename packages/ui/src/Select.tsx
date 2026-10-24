@@ -157,7 +157,7 @@ export function Select({
                 cursor: "pointer",
                 whiteSpace: "nowrap",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(20,18,31,0.05)")}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--u-hover)")}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
             >
               {opt.label}

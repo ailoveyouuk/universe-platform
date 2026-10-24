@@ -107,7 +107,7 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     href: appUrl("NEXT_PUBLIC_APP_URL_ADMIN", "https://orange-tree-06a3f710f.6.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_ADMIN",
   },
-  { key: "insights", label: "Insights", accent: "#775C24", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS" },
+  { key: "insights", label: "Insights", accent: "var(--u-module-insights)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS" },
   { key: "supplier-portal", label: "Supplier Portal", accent: "var(--u-module-supplier-portal)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_SUPPLIER_PORTAL" },
 ];
 

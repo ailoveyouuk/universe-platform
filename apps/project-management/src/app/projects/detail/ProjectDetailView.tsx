@@ -345,7 +345,7 @@ export function ProjectDetailView() {
             padding: 16,
             borderRadius: "var(--u-radius-md)",
             border: "1px solid var(--u-status-critical)",
-            backgroundColor: "rgba(220,38,38,0.05)",
+            backgroundColor: "var(--u-status-critical-wash)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
@@ -1041,7 +1041,7 @@ function LogisticsMetricBadge({
           height: 22,
           borderRadius: "50%",
           background: color,
-          color: "#fff",
+          color: "var(--u-on-accent)",
           fontWeight: 700,
           fontSize: 12,
         }}

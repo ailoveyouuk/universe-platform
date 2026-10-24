@@ -11,10 +11,10 @@
  * instead of three separately hand-copied Records.
  */
 export const SCORE_BAND_COLORS: Record<string, string> = {
-  RED: "#c0392b",
-  AMBER: "#d68910",
-  YELLOW: "#b7950b",
-  GREEN: "#1e8449",
+  RED: "var(--u-band-red)",
+  AMBER: "var(--u-band-amber)",
+  YELLOW: "var(--u-band-yellow)",
+  GREEN: "var(--u-band-green)",
 };
 
 const SCORE_BANDS: { band: keyof typeof SCORE_BAND_COLORS; range: string }[] = [

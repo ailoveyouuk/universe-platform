@@ -28,10 +28,10 @@ const STATUS_COLORS: Record<string, string> = {
   IDENTIFIED: "var(--u-ink-secondary)",
   IN_PROGRESS: "var(--u-brand-violet)",
   SUBMITTED: "var(--u-accent-magenta)",
-  AWARDED: "var(--u-status-good-text)",
-  COMPLETED: "#085a08",
-  UNAWARDED: "#b0481a",
-  DECLINED: "#b0481a",
+  AWARDED: "var(--u-badge-awarded)",
+  COMPLETED: "var(--u-badge-completed)",
+  UNAWARDED: "var(--u-badge-lost)",
+  DECLINED: "var(--u-badge-lost)",
   CANCELLED: "var(--u-ink-secondary)",
 };
 
@@ -46,7 +46,7 @@ export function StatusBadge({ status }: { status: string }): ReactNode {
         fontSize: 12,
         fontWeight: 600,
         fontFamily: "var(--u-font-sans)",
-        color: "#fff",
+        color: "var(--u-on-accent)",
         backgroundColor: color,
       }}
     >

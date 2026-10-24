@@ -103,7 +103,7 @@ export default function AddProductPage() {
       {created && (
         <div
           style={{
-            background: "var(--u-surface-subtle, #F0F7F0)",
+            background: "var(--u-surface-subtle)",
             border: "1px solid var(--u-border)",
             borderRadius: "var(--u-radius-md, 8px)",
             padding: "10px 14px",

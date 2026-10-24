@@ -127,7 +127,7 @@ export function GlobalSearch({ api, LinkComponent, currentApp }: { api: GlobalSe
       {open && (
         <div
           onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,18,31,0.4)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "min(12vh, 90px) 12px 12px" }}
+          style={{ position: "fixed", inset: 0, zIndex: 80, background: "var(--u-overlay)", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "min(12vh, 90px) 12px 12px" }}
         >
           <div role="dialog" aria-label="Search" style={{ width: 560, maxWidth: "100%", maxHeight: "76vh", display: "flex", flexDirection: "column", background: "var(--u-surface-raised, var(--u-surface))", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", boxShadow: "var(--u-shadow-card)", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: "1px solid var(--u-border)", color: "var(--u-ink-secondary)" }}>
