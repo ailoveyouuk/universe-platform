@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
+import { Pill } from "@universe/ui";
 
 /** Shared Admin form primitives (added 2026-10-16) — keeps the detail pages
  * on one consistent look using only @universe/ui tokens. */
@@ -131,20 +132,8 @@ export function statusColor(status: string): string {
 }
 
 export function StatusChip({ status }: { status: string }) {
-  return (
-    <span
-      style={{
-        color: "var(--u-on-accent)",
-        background: statusColor(status),
-        borderRadius: 999,
-        padding: "2px 10px",
-        fontSize: 12,
-        fontWeight: 600,
-      }}
-    >
-      {status === "DEACTIVATED" ? "ARCHIVED" : status}
-    </span>
-  );
+  const tone = status === "ACTIVE" ? "good" : status === "PILOT" || status === "INVITED" ? "warning" : "neutral";
+  return <Pill tone={tone}>{status === "DEACTIVATED" ? "ARCHIVED" : status}</Pill>;
 }
 
 export const ORG_TYPE_LABELS: Record<string, string> = {

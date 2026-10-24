@@ -3,17 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { OrganizationSummary } from "@universe/types";
-import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, StatTile, StatTileGrid } from "@universe/ui";
+import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, Pill, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { IncludeSimulatedToggle } from "../../components/IncludeSimulatedToggle";
 import { ORG_TYPE_LABELS } from "../../components/form";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { useCountries } from "../../lib/useCountries";
 
-const STATUS_COLORS: Record<string, string> = {
-  PILOT: "var(--u-status-warning)",
-  ACTIVE: "var(--u-status-good)",
-  SUSPENDED: "var(--u-ink-secondary)",
+const STATUS_TONES: Record<string, "warning" | "good" | "neutral"> = {
+  PILOT: "warning",
+  ACTIVE: "good",
+  SUSPENDED: "neutral",
 };
 
 /**
@@ -114,18 +114,7 @@ export default function OrganizationsPage() {
                     : "—"}
                 </td>
                 <td style={{ padding: 8 }}>
-                  <span
-                    style={{
-                      color: "var(--u-on-accent)",
-                      background: STATUS_COLORS[o.status] ?? "var(--u-ink-secondary)",
-                      borderRadius: 999,
-                      padding: "2px 10px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {o.status}
-                  </span>
+                  <Pill tone={STATUS_TONES[o.status] ?? "neutral"}>{o.status}</Pill>
                 </td>
               </tr>
             ))}
