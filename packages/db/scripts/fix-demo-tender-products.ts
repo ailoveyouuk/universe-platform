@@ -11,6 +11,8 @@ import { makePdf } from "./_pdf";
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const GROUPS: Record<number, string> = { 1: "Pharmaceuticals", 2: "Diagnostics", 3: "Immunisation", 4: "Reproductive Health", 5: "Water, Sanitation and Hygiene", 6: "Vector Control", 7: "Pharmaceuticals", 8: "Kits and Emergency Supplies", 9: "Nutrition", 10: "Surgical Supplies" };
+/** What each line of the tender is about, so the three lines are different products rather than three pack sizes of one. */
+const KEYWORDS: Record<number, string[]> = { 1: ["rehydration", "zinc", "salbutamol"], 2: ["HIV", "malaria", "pregnancy"], 3: ["vaccine", "syringe", "safety box"], 4: ["condom", "contraceptive", "oxytocin"], 5: ["tablet", "soap", "kit"], 6: ["net", "residual", "larvicide"], 7: ["amoxicillin", "paracetamol", "ciprofloxacin"], 8: ["emergency health kit", "dignity kit", "kit"], 9: ["therapeutic food", "iron", "formula"], 10: ["scalpel", "forceps", "suture"] };
 const slot: Record<number, number> = { 1: 3, 2: 9, 3: 15, 4: 21, 5: 27, 6: 5, 7: 12, 8: 18, 9: 24, 10: 30 };
 
 async function main() {
@@ -25,7 +27,12 @@ async function main() {
       if (!group) continue;
       const pool = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false, category: { startsWith: group } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 60, select: { id: true, name: true } });
       if (pool.length < 3) { console.log(`${t.referenceNumber}: not enough ${group} products; skipped.`); continue; }
-      const chosen = [0, 1, 2].map((k) => pool[(slot[n] * 7 + k * 5) % pool.length]);
+      const chosen: { id: string; name: string }[] = [];
+      for (let k = 0; k < 3; k++) {
+        const hits = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false, category: { startsWith: group }, name: { contains: KEYWORDS[n][k] } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 40, select: { id: true, name: true } });
+        const options = hits.filter((h) => !chosen.some((c) => c.id === h.id));
+        chosen.push((options.length ? options : pool)[(slot[n] + k) % (options.length || pool.length)]);
+      }
       const same = t.lines.every((l, i) => l.productMasterId === chosen[i].id);
       console.log(`${t.referenceNumber} (${group}): ${same ? "already correct" : chosen.map((c) => c.name).join(" | ")}`);
       if (same || dryRun) continue;
