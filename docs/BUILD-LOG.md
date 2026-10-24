@@ -956,3 +956,8 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Walkthrough finding: editing an existing project line failed with 400
 - Saving an edited line returned 400 "property internalOnTime / supplierOnTime / supplierInFull should not exist": the edit form sent back the three server-computed on-time/in-full flags, which the line DTO (rightly) does not accept. `toLineInput` in LineForm now strips them with the other display-only fields.
+
+## 2026-10-24 — Live end-to-end walkthrough (Universe Demo) and findings
+- Flow run live: Product Database (Logistics and Services packaging products) -> new project E2E-PACK-001 (Kenya, Logistics and services line, 400 units) -> edit line (catalogue match to a wooden pallet, India origin, supplier and manufacturer, price 14.50 and margin 12%, giving total 5,800 and unit sales 16.24) -> stages Identification, In Progress, Submitted, Awarded -> freight mode SEA, incoterm DAP, collection and delivery dates -> Logistics and CO2 shows the line (India to Kenya, 6,270 km, SEA, score 10, about 903 kg CO2e for 12 t) under the Logistics and services filter. Tenders Discover loads with the new favicon.
+- Findings fixed during the walk: raw commodity codes on three screens; no favicon (the console 404s); catalogue search on a line sent a commodity group as a catalogue category (returned nothing); saving an edited line returned 400 (computed on-time/in-full flags were sent back). A one-off 500 on a Product Database record was not reproducible.
+- The test project E2E-PACK-001 stays in Universe Demo (simulated; nothing is deleted). Archive it from the project page if it is not wanted in the demo.
