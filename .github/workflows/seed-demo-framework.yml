@@ -4,6 +4,10 @@ name: Seed demo framework
 on:
   workflow_dispatch:
     inputs:
+      issuer:
+        description: demo = Universe Demo issues it; blank = Andean Care Alliance 106
+        default: ""
+        type: string
       tender_ref:
         description: Simulated tender reference
         default: SIM-FWK-001
@@ -38,6 +42,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          ISSUER: ${{ inputs.issuer }}
           TENDER_REF: ${{ inputs.tender_ref }}
           PRODUCT_OFFSET: ${{ inputs.product_offset }}
           TENDER_TITLE: ${{ inputs.tender_title }}

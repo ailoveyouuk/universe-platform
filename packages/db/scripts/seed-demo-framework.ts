@@ -16,10 +16,13 @@ const TITLE = process.env.TENDER_TITLE || "Framework for essential medicines and
 async function main() {
   await withPlatformStaffContext(async (tx) => {
     const demo = await tx.organization.findFirst({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } });
-    const issuer = await tx.organization.findFirst({ where: { name: "Andean Care Alliance 106", isSimulated: true }, select: { id: true } });
+    const issuerIsDemo = process.env.ISSUER === "demo";           // Universe Demo issues the framework (to see the issuer side); two simulated suppliers are awarded
+    const issuer = issuerIsDemo ? demo : await tx.organization.findFirst({ where: { name: "Andean Care Alliance 106", isSimulated: true }, select: { id: true } });
     if (!demo || !issuer) throw new Error("Universe Demo or Andean Care Alliance 106 not found.");
     const rival = await tx.organization.findFirst({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, id: { not: issuer.id }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } });
     if (!rival) throw new Error("No simulated supplier found.");
+    const rival2 = issuerIsDemo ? await tx.organization.findFirst({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, id: { notIn: [issuer.id, rival.id] }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true } }) : null;
+    if (issuerIsDemo && !rival2) throw new Error("No second simulated supplier found.");
     if (await tx.tender.findFirst({ where: { organizationId: issuer.id, referenceNumber: REF }, select: { id: true } })) { console.log(`${REF} already exists; nothing to do.`); return; }
     const products = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 40, select: { id: true, name: true } });
     const chosen = [products[10 + OFFSET], products[18 + OFFSET], products[30 - OFFSET]].filter(Boolean);
@@ -40,7 +43,7 @@ async function main() {
     for (let i = 0; i < 3; i++) lines.push(await tx.tenderLine.create({ data: { organizationId: issuer.id, tenderId: t.id, lineNumber: i + 1, productMasterId: chosen[i].id, description: chosen[i].name, quantity: QTY[i], unit: "pack", destinationCountryCode: "KE" } }));
     const suppliers = [
       { org: rival.id, rank: 1, prices: [1.18, 3.05, 23.5], score: 91 },
-      { org: demo.id, rank: 2, prices: [1.26, 3.2, 25.0], score: 84 },
+      { org: issuerIsDemo ? rival2!.id : demo.id, rank: 2, prices: [1.26, 3.2, 25.0], score: 84 },
     ];
     for (const s of suppliers) {
       const total = s.prices.reduce((a, p, i) => a + p * QTY[i], 0);
