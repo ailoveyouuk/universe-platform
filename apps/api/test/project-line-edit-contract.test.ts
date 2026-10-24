@@ -21,7 +21,7 @@ describe("Project line edit contract", () => {
   const user = (): RequestUser => ({
     id: randomUUID(), organizationId: orgId, homeOrganizationId: orgId, email: `lc-${suffix}@example.com`, forename: "T", surname: "T", organizationName: "x",
     organizationLogoUrl: null, organizationLogoIconUrl: null, organizationPrimaryColor: null, organizationSecondaryColor: null, organizationWelcomeMessage: null,
-    platformStaffRole: "NONE", permissions: ["projects.view", "projects.edit", "projects.financials.view"],
+    platformStaffRole: "NONE", permissions: ["projects.view", "projects.edit", "projects.financials.view", "projects.financials.edit"],
   });
 
   beforeAll(async () => {
