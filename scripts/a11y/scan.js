@@ -4,7 +4,7 @@
  * Paste this whole file into the browser console (or run it through the browser tool) on any signed-in Universe app page. It then crawls the app's
  * own pages in hidden same-origin frames (so the sign-in is reused), checks each page in the light AND dark theme, and returns a compact report.
  *
- *   await __uniA11y.crawl({ start: ["/", "/projects"], max: 60 })      // follows in-app links, 2 pages per path pattern
+ *   await __uniA11y.crawl({ start: ["/", "/projects"], max: 60 })      // follows in-app links, 2 pages per path pattern; partial results in window.__uniA11yProgress
  *   __uniA11y.scanDocument(document)                                  // just the page you are on
  *
  * Checks (WCAG 2.1 AA): text contrast (4.5:1, large text 3:1); exactly one <main>; one <h1> and no skipped heading levels; buttons and links with no
@@ -12,6 +12,8 @@
  * It cannot judge reading order, announcement quality, or colour-only meaning: those need a person with a screen reader (VoiceOver / NVDA).
  */
 (() => {
+  // Waits without setTimeout: browsers throttle timers heavily in a hidden tab, which would make a crawl take hours. MessageChannel is not throttled.
+  const sleep = (ms) => new Promise((resolve) => { const end = Date.now() + ms; const ch = new MessageChannel(); ch.port1.onmessage = () => (Date.now() >= end ? resolve() : ch.port2.postMessage(0)); ch.port2.postMessage(0); });
   const parse = (c) => { const m = c && c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p[3] === undefined ? 1 : p[3] }; };
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
   const over = (t, b) => ({ r: t.r * t.a + b.r * (1 - t.a), g: t.g * t.a + b.g * (1 - t.a), b: t.b * t.a + b.b * (1 - t.a), a: 1 });
@@ -69,7 +71,7 @@
     const out = {};
     for (const th of ["light", "dark"]) {
       doc.documentElement.setAttribute("data-theme", th);
-      await new Promise((r) => setTimeout(r, 150));
+      await sleep(150);
       out[th] = scanDocument(doc);
     }
     st.remove();
@@ -87,10 +89,10 @@
       if (u.origin !== location.origin || done.has(u.pathname + u.search)) continue;
       if ((perPath[path] = (perPath[path] || 0) + 1) > perPattern) continue;
       done.add(u.pathname + u.search);
-      await load(u.href); await new Promise((r) => setTimeout(r, settleMs));
+      await load(u.href); await sleep(settleMs);
       const doc = frame.contentDocument; if (!doc || !doc.body) { report.push({ url: u.pathname + u.search, error: "no document" }); continue; }
       const res = await scanBothThemes(doc);
-      report.push({ url: u.pathname + u.search, textLen: doc.body.innerText.length, light: res.light, dark: res.dark });
+      report.push({ url: u.pathname + u.search, textLen: doc.body.innerText.length, light: res.light, dark: res.dark }); window.__uniA11yProgress = report;
       doc.querySelectorAll("a[href]").forEach((a) => { const h = new URL(a.getAttribute("href"), u.href); if (h.origin === location.origin && !/^\/(api|notices)/.test(h.pathname) && !done.has(h.pathname + h.search)) queue.push(h.pathname + h.search); });
     }
     frame.remove();

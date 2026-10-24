@@ -41,7 +41,7 @@ const textareaStyle: CSSProperties = { ...inputStyle, minHeight: 60, resize: "ve
  * instead, same convention as EvidenceStandardRow's status indicator on
  * the Partner detail page (partners/detail/page.tsx). */
 function severityStyle(severity: string): { bg: string; fg: string } {
-  if (severity === "CRITICAL" || severity === "HIGH") return { bg: "var(--u-status-critical-tint)", fg: "var(--u-status-critical)" };
+  if (severity === "CRITICAL" || severity === "HIGH") return { bg: "var(--u-status-critical-tint)", fg: "var(--u-status-critical-text)" };
   if (severity === "MEDIUM") return { bg: "var(--u-status-warning-tint)", fg: "var(--u-status-warning-text)" };
   return { bg: "var(--u-surface-alt)", fg: "var(--u-ink-secondary)" };
 }

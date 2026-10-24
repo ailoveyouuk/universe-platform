@@ -40,7 +40,7 @@ for (const file of files) {
     // 2. images need alt
     if (/<img\b/.test(text)) { const tag = lines.slice(i, i + 10).join(" ").match(/<img\b[\s\S]*?\/>/); if (!tag || !/\balt=/.test(tag[0])) report(file, n, "alt", "<img> without alt"); }
     // 3. bright status colours are for dots, bars and fills only, never text
-    if (/\bcolor:\s*[^,}]*var\(--u-status-(critical|good|warning|serious)\)/.test(text) && !/\blabel:/.test(text)) report(file, n, "status-text", "Use var(--u-status-*-text) or statusText() for text colour; the bright tokens fail contrast on white.");
+    if (/\b(color|fg|textColor):\s*[^,}]*var\(--u-status-(critical|good|warning|serious)\)/.test(text) && !/\blabel:/.test(text)) report(file, n, "status-text", "Use var(--u-status-*-text) or statusText() for text colour; the bright tokens fail contrast on white.");
     // 4. no hard-coded white/black text (breaks in dark theme); use --u-brand-violet-on / --u-on-accent / --u-ink
     if (!isBrandAsset && /\bcolor:\s*[^,}]*["'](#fff|#ffffff|white|#000|#000000|black)["']/i.test(text) && !/var\(--/.test(text.split(/["'](#fff|#ffffff|white|#000|#000000|black)["']/i)[0].slice(-40))) report(file, n, "hard-coded-colour", "Hard-coded white/black text; use a token (--u-ink, --u-brand-violet-on, --u-on-accent).");
     // 5. text inputs must have an accessible name (placeholder alone is not one)

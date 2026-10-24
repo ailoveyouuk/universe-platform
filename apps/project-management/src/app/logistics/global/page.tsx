@@ -317,21 +317,21 @@ export default function GlobalLogisticsPage() {
         />
 
         <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 10, marginTop: 20, marginBottom: 16 }}>
-          <select className="u-native-select" style={filterInputStyle} value={filters.transportMode ?? ""} onChange={(e) => update("transportMode", e.target.value)}>
+          <select className="u-native-select" aria-label="Transport mode" style={filterInputStyle} value={filters.transportMode ?? ""} onChange={(e) => update("transportMode", e.target.value)}>
             {TRANSPORT_MODES.map((m) => (
               <option key={m} value={m}>
                 {m || "All modes"}
               </option>
             ))}
           </select>
-          <select className="u-native-select" style={filterInputStyle} value={filters.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value)}>
+          <select className="u-native-select" aria-label="Incoterm" style={filterInputStyle} value={filters.incoterm ?? ""} onChange={(e) => update("incoterm", e.target.value)}>
             {INCOTERM_CHOICES.map((i) => (
               <option key={i} value={i}>
                 {i || "All incoterms"}
               </option>
             ))}
           </select>
-          <select className="u-native-select" style={filterInputStyle} value={filters.commodityGroup ?? ""} onChange={(e) => update("commodityGroup", e.target.value)}>
+          <select className="u-native-select" aria-label="Commodity group" style={filterInputStyle} value={filters.commodityGroup ?? ""} onChange={(e) => update("commodityGroup", e.target.value)}>
             {COMMODITY_FILTER.map((c) => (
               <option key={c} value={c}>
                 {c ? commodityGroupLabel(c) : "All commodity groups"}

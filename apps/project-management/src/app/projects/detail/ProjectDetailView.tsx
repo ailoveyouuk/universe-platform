@@ -604,9 +604,9 @@ export function ProjectDetailView() {
               per Lewis's request — freight is calculated once for the
               whole project, not per product line. See Project's doc
               comment in schema.prisma and ProjectsService.applyProjectFreightPricing. */}
-          <h3 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginTop: 24, marginBottom: 8 }}>
+          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginTop: 24, marginBottom: 8 }}>
             Freight & Logistics
-          </h3>
+          </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Freight Forwarder
@@ -793,9 +793,10 @@ export function ProjectDetailView() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 14 }}>Financial Summary (this project)</h3>
+            <h2 style={{ margin: 0, fontSize: 14 }}>Financial Summary (this project)</h2>
             <select
               className="u-native-select"
+              aria-label="Display currency"
               value={displayCurrency ?? financialSummary.displayCurrencyCode}
               onChange={(e) => setDisplayCurrency(e.target.value)}
               style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--u-border)" }}

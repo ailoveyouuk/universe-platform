@@ -221,6 +221,7 @@ export default function HomePage() {
                   rather than being fixed. See ExchangeRatesService's doc comment. */}
               <select
                 className="u-native-select"
+                aria-label="Display currency"
                 value={displayCurrency ?? financialSummary.displayCurrencyCode}
                 onChange={(e) => setDisplayCurrency(e.target.value)}
                 style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--u-border)" }}
