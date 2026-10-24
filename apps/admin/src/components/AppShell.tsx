@@ -20,8 +20,7 @@ import {
   UserIcon,
   ShieldIcon,
   ClockIcon,
-  LogoutIcon,
-} from "@universe/ui";
+  LogoutIcon, ThemeToggle } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -271,6 +270,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <UserIcon size={15} />
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink)" }}>{me.forename}</span>
+                  <ThemeToggle />
                   <button
                     onClick={signOut}
                     aria-label="Sign out"

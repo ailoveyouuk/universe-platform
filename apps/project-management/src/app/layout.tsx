@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import "@universe/ui/src/tokens.css";
+import { THEME_INIT_SCRIPT } from "@universe/ui/src/theme";
 import { AppShell } from "../components/AppShell";
 
 export const metadata = {
@@ -10,8 +11,9 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         {/* Universe Design System typefaces — see universe-brand-identity.md
            "Typography". Loaded once here for the whole app; first real use
            is the StageTracker component (project-stage-navigation-plan.md),
