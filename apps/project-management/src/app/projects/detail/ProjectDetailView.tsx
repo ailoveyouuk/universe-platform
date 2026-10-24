@@ -463,7 +463,7 @@ export function ProjectDetailView() {
             {project.sourceTenderId && (
               <div>
                 <dt style={{ fontWeight: 600 }}>Tender</dt>
-                <dd><a href={`${TENDERS_URL}/discover/view?id=${project.sourceTenderId}`} target="_blank" rel="noopener noreferrer">Open the tender</a></dd>
+                <dd><a className="u-touch" style={{ justifyContent: "flex-start" }} href={`${TENDERS_URL}/discover/view?id=${project.sourceTenderId}`} target="_blank" rel="noopener noreferrer">Open the tender</a></dd>
               </div>
             )}
             <div style={{ gridColumn: "1 / -1" }}>
