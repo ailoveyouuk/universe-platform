@@ -1,3 +1,4 @@
+import { normalizeStakeholderName } from "../common/normalize-name";
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -19,7 +20,7 @@ const PRE_AWARD = ["IDENTIFIED", "IN_PROGRESS", "SUBMITTED"];
 export class TenderBidProjectsService {
   /** The project for this organisation and tender, if one exists. */
   async findFor(tx: any, organizationId: string, tenderId: string) {
-    return tx.project.findFirst({ where: { organizationId, sourceTenderId: tenderId, isArchived: false }, orderBy: { createdAt: "asc" } });
+    return tx.project.findFirst({ where: { organizationId, sourceTenderId: tenderId, sourceCallOffId: null, isArchived: false }, orderBy: { createdAt: "asc" } });
   }
 
   private async uniqueReference(tx: any, organizationId: string, base: string) {
@@ -72,12 +73,20 @@ export class TenderBidProjectsService {
     if (!bid) return null;
     const bidLines = await tx.tenderBidLine.findMany({ where: { bidId: bid.id } });
     const plines = await tx.projectLine.findMany({ where: { projectId: project.id, sourceTenderLineId: { not: null } } });
+    const ccy = bid.bidCurrency ? String(bid.bidCurrency).trim().toUpperCase() : null;
     for (const pl of plines) {
       const bl = bidLines.find((x: any) => x.tenderLineId === pl.sourceTenderLineId);
       if (!bl) continue;
-      await tx.projectLine.update({ where: { id: pl.id }, data: bl.noBid
-        ? { archivedAt: new Date() }
-        : { archivedAt: null, unitSalesPrice: bl.unitPrice ?? null, countryOfManufactureCode: bl.countryOfOrigin ?? null } });
+      if (bl.noBid) { await tx.projectLine.update({ where: { id: pl.id }, data: { archivedAt: new Date() } }); continue; }
+      const name = bl.manufacturerName ? String(bl.manufacturerName).trim() : null;
+      const partner = name ? await tx.partner.findFirst({ where: { organizationId: project.organizationId, normalizedName: normalizeStakeholderName(name), isArchived: false }, select: { id: true } }) : null;
+      const qty = pl.quantity != null ? Number(pl.quantity) : null;
+      await tx.projectLine.update({ where: { id: pl.id }, data: {
+        archivedAt: null, unitSalesPrice: bl.unitPrice ?? null, countryOfManufactureCode: bl.countryOfOrigin ?? null,
+        clientPaymentCurrency: ccy, clientPaymentAmount: bl.unitPrice != null && qty != null ? Math.round(Number(bl.unitPrice) * qty * 100) / 100 : null,
+        quotedLeadTimeDays: bl.leadTimeDays ?? null, quotedManufacturerName: name,
+        ...(partner ? { manufacturerId: partner.id } : {}),
+      } });
     }
     return bid;
   }
@@ -138,7 +147,7 @@ export class TenderBidProjectsService {
 
   /** The caller's project for a tender, if any (null otherwise). */
   async mine(user: RequestUser, tenderId: string): Promise<{ projectId: string; referenceNumber: string; status: string } | null> {
-    const p = await withTenantContext(user.organizationId, (tx) => tx.project.findFirst({ where: { organizationId: user.organizationId, sourceTenderId: tenderId, isArchived: false }, select: { id: true, referenceNumber: true, status: true } }));
+    const p = await withTenantContext(user.organizationId, (tx) => tx.project.findFirst({ where: { organizationId: user.organizationId, sourceTenderId: tenderId, sourceCallOffId: null, isArchived: false }, select: { id: true, referenceNumber: true, status: true } }));
     return p ? { projectId: p.id, referenceNumber: p.referenceNumber, status: p.status } : null;
   }
 
@@ -187,7 +196,7 @@ export class TenderBidProjectsService {
   /** The issuer cancelled the tender: every bid project that was still before award is cancelled with the reason. */
   onTenderCancelled(tenderId: string, reason: string) {
     return this.safely("tender cancelled", () => withPlatformStaffContext(async (tx: any) => {
-      const projects = await tx.project.findMany({ where: { sourceTenderId: tenderId, isArchived: false, status: { in: PRE_AWARD } } });
+      const projects = await tx.project.findMany({ where: { sourceTenderId: tenderId, sourceCallOffId: null, isArchived: false, status: { in: PRE_AWARD } } });
       for (const p of projects) await this.move(tx, p, "CANCELLED", null, { reasonForCancellation: `Tender cancelled by the issuer: ${reason}`.slice(0, 500) });
     }));
   }
@@ -207,7 +216,7 @@ export class TenderBidProjectsService {
         const p = await this.findFor(tx, o.organizationId, tenderId);
         if (p && PRE_AWARD.includes(p.status)) await this.move(tx, p, "UNAWARDED", null, { reasonForCancellation: o.outcome === "NOT_COMPLIANT" ? "The bid did not pass every gate." : "Another bid was awarded." });
       }
-      const others = await tx.project.findMany({ where: { sourceTenderId: tenderId, isArchived: false, status: { in: PRE_AWARD } } });
+      const others = await tx.project.findMany({ where: { sourceTenderId: tenderId, sourceCallOffId: null, isArchived: false, status: { in: PRE_AWARD } } });
       for (const p of others) if (!awarded.has(p.organizationId) && !bidders.has(p.organizationId)) await this.move(tx, p, "DECLINED", null, { reasonForCancellation: "The tender closed without a submitted bid from this organisation." });
     }));
   }

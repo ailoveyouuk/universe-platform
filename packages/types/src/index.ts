@@ -479,6 +479,9 @@ export interface ProjectLineSummary {
   destinationCountryCode: string | null;
   manufacturerId: string | null;
   manufacturerName: string | null;
+  /** What the bidder quoted on the tender bid (tender-sourced projects). */
+  quotedManufacturerName: string | null;
+  quotedLeadTimeDays: number | null;
   supplierId: string | null;
   supplierName: string | null;
   clientPoNumber: string | null;
@@ -684,6 +687,8 @@ export interface ProjectLineInput {
   countryOfManufactureCode?: string | null;
   destinationCountryCode?: string | null;
   manufacturerId?: string | null;
+  quotedManufacturerName?: string | null;
+  quotedLeadTimeDays?: number | null;
   supplierId?: string | null;
   clientPoNumber?: string | null;
   clientPoReceiptDate?: string | null;
@@ -979,7 +984,7 @@ export interface AddProjectContactInput {
 
 /** Dashboard/list-tile data for Projects, computed in the database (2026-10-17, scale work). Archived projects are excluded. */
 export interface ProjectOverview {
-  counts: { total: number; active: number; submitted: number; awarded: number; completed: number; overdue: number };
+  counts: { total: number; active: number; submitted: number; awarded: number; completed: number; overdue: number; /** Projects that track a tender. */ fromTenders: number };
   /** Distinct delivery countries (for the dashboard tile and the list's country filter). */
   deliveryCountryCodes: string[];
   recentActive: ProjectSummary[];

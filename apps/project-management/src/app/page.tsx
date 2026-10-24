@@ -68,7 +68,7 @@ export default function HomePage() {
   const [displayCurrency, setDisplayCurrency] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.getProjectOverview().then(setProjectOverview).catch(() => setProjectOverview({ counts: { total: 0, active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0 }, deliveryCountryCodes: [], recentActive: [], recentAwarded: [] }));
+    apiClient.getProjectOverview().then(setProjectOverview).catch(() => setProjectOverview({ counts: { total: 0, active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0, fromTenders: 0 }, deliveryCountryCodes: [], recentActive: [], recentAwarded: [] }));
     apiClient.getPartnerOverview().then(setPartnerOverview).catch(() => setPartnerOverview(null));
   }, []);
 

@@ -8,6 +8,7 @@ import { TenderEvaluationService } from "../src/tenders/tender-evaluation.servic
 import { addWorkingDays, calculatedScores, normaliseWeights, overAllocatedLines, rankBids, weightedTotal } from "../src/tenders/evaluation";
 import { SCREENING_LISTS } from "@universe/types";
 import { TenderBidsService } from "../src/tenders/tender-bids.service";
+import { ProjectsService } from "../src/projects/projects.service";
 import { TenderBidProjectsService } from "../src/tenders/tender-bid-projects.service";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
@@ -356,7 +357,7 @@ describe("Tender service", () => {
     const ws = await bids.getWorkspace(asUser(capable, BID), tenderId);
     return bids.saveBid(asUser(capable, BID), tenderId, {
       bidCurrency: "EUR", validityConfirmed: true,
-      lines: ws.lines.map((l) => ({ tenderLineId: l.tenderLineId, noBid: false, unitPrice: 2, leadTimeDays: 30, countryOfOrigin: "IN" })),
+      lines: ws.lines.map((l) => ({ tenderLineId: l.tenderLineId, noBid: false, unitPrice: 2, leadTimeDays: 30, countryOfOrigin: "IN", manufacturerName: "Quoted Pharma Ltd" })),
       responses: ws.criteria.filter((c) => c.isMandatory).map((c) => ({ criterionId: c.id, text: "We comply." })),
       ...over,
     } as never);
@@ -618,6 +619,16 @@ describe("Tender service", () => {
     p = await projectOf(capable, t.id);
     expect(p.status).toBe("IN_PROGRESS");
     expect(Number(p.lines[0].unitSalesPrice)).toBe(2);
+    // currency, lead time and manufacturer travel with the price
+    expect(p.lines[0]).toMatchObject({ clientPaymentCurrency: "EUR", quotedLeadTimeDays: 30, quotedManufacturerName: "Quoted Pharma Ltd" });
+    expect(Number(p.lines[0].clientPaymentAmount)).toBe(Number(p.lines[0].quantity) * 2);
+    // the project list can be filtered to tender-sourced projects and counts them
+    const pm = new ProjectsService({} as never);
+    const mine = await pm.findPage(asUser(capable, ["projects.view"]), { source: "tender" });
+    expect(mine.items.some((x) => x.id === p.id)).toBe(true);
+    expect(mine.items.every((x) => x.sourceTenderId)).toBe(true);
+    expect((await pm.findPage(asUser(capable, ["projects.view"]), { source: "manual" })).items.some((x) => x.id === p.id)).toBe(false);
+    expect((await pm.overview(asUser(capable, ["projects.view"]))).counts.fromTenders).toBeGreaterThanOrEqual(1);
     await bids.submitBid(asUser(capable, BID), t.id);
     p = await projectOf(capable, t.id);
     expect(p.status).toBe("SUBMITTED");

@@ -1021,6 +1021,8 @@ model Project {
   /// The tender this project tracks (2026-10-24): a supplier's bid project, created when it registers interest or on demand, and carried through to delivery.
   /// Not a foreign key: the tender belongs to another organisation. One project per (organisation, tender) is enforced in code.
   sourceTenderId           String?
+  /// Set when the project delivers one call-off under a framework agreement (2026-10-24). It then also carries the framework's sourceTenderId, but is not the bid project.
+  sourceCallOffId          String?
   isArchived               Boolean      @default(false)
   archivedAt               DateTime?
   archivedById             String?
@@ -1200,6 +1202,9 @@ model ProjectLine {
   clientProductDescription String?        @db.NVarChar(Max)
   /// The tender line this project line answers (2026-10-24), so bid prices, awards and quantities can be carried across.
   sourceTenderLineId       String?
+  /// What the bidder quoted for this line (2026-10-24), copied from the tender bid: the manufacturer as named in the bid and the lead time in days.
+  quotedManufacturerName   String?        @db.NVarChar(300)
+  quotedLeadTimeDays       Int?
   /// Once a product is identified/matched against the shared catalog. Not
   /// required — plenty of lines will never be matched, especially early on.
   productMasterId          String?

@@ -252,10 +252,10 @@ export class TenderFrameworkService {
       const [t, lines] = await Promise.all([tx.tender.findUnique({ where: { id: co.tenderId } }), tx.tenderCallOffLine.findMany({ where: { callOffId: co.id } })]);
       const tlines = await tx.tenderLine.findMany({ where: { id: { in: lines.map((l) => l.tenderLineId) } } });
       const project = await tx.project.create({ data: {
-        organizationId: user.organizationId, referenceNumber: co.reference, title: `Call-off ${co.reference}: ${t?.title ?? ""}`.slice(0, 300), category: "PROCUREMENT", projectType: "NON_PHARMACEUTICAL", status: "AWARDED",
+        organizationId: user.organizationId, sourceTenderId: co.tenderId, sourceCallOffId: co.id, referenceNumber: co.reference, title: `Call-off ${co.reference}: ${t?.title ?? ""}`.slice(0, 300), category: "PROCUREMENT", projectType: "NON_PHARMACEUTICAL", status: "AWARDED",
         dueDate: co.requiredBy ?? undefined, incoterm: t?.incoterm ?? undefined, ...(co.deliveryCountryCode ? { deliveryCountryCode: co.deliveryCountryCode, deliveryCountryCodes: co.deliveryCountryCode } : {}),
         projectNotes: `Created from framework call-off ${co.reference} (tender ${t?.referenceNumber ?? ""}).`,
-        lines: { create: lines.map((l) => { const tl = tlines.find((x) => x.id === l.tenderLineId); return { organizationId: user.organizationId, clientProductDescription: tl?.description ?? "Item", productMasterId: tl?.productMasterId ?? undefined, quantity: Math.round(Number(l.quantity)) }; }) },
+        lines: { create: lines.map((l) => { const tl = tlines.find((x) => x.id === l.tenderLineId); return { organizationId: user.organizationId, clientProductDescription: tl?.description ?? "Item", productMasterId: tl?.productMasterId ?? undefined, sourceTenderLineId: l.tenderLineId, quantity: Math.round(Number(l.quantity)), unitSalesPrice: Number(l.unitPrice), clientPaymentCurrency: co.currency ?? t?.currency ?? undefined, clientPaymentAmount: Number(l.lineTotal) }; }) },
       } });
       await tx.projectStatusHistory.create({ data: { organizationId: user.organizationId, projectId: project.id, status: "AWARDED", changedById: user.id } });
       await tx.tenderCallOff.update({ where: { id: co.id }, data: { supplierProjectId: project.id } });

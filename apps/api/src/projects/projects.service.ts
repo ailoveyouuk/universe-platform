@@ -264,6 +264,8 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     destinationCountryCode: l.destinationCountryCode?.trim() || null,
     manufacturerId: l.manufacturerId,
     manufacturerName: l.manufacturer?.name ?? null,
+    quotedManufacturerName: l.quotedManufacturerName ?? null,
+    quotedLeadTimeDays: l.quotedLeadTimeDays ?? null,
     supplierId: l.supplierId,
     supplierName: l.supplier?.name ?? null,
     clientPoNumber: l.clientPoNumber,
@@ -499,7 +501,7 @@ export class ProjectsService {
    * date always sort last. */
   async findPage(
     user: RequestUser,
-    q: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; archived?: boolean; sort?: string; dir?: string },
+    q: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string },
   ): Promise<PagedResult<ProjectSummary>> {
     const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
     const page = Math.max(Math.floor(q.page ?? 1), 1);
@@ -509,6 +511,7 @@ export class ProjectsService {
       ...(q.archived ? {} : { isArchived: false }),
       ...(q.type ? { projectType: q.type } : {}),
       ...(q.country ? deliversTo(q.country) : {}),
+      ...(q.source === "tender" ? { sourceTenderId: { not: null } } : q.source === "manual" ? { sourceTenderId: null } : {}),
       ...(q.status === "ACTIVE"
         ? { status: { in: ["IDENTIFIED", "IN_PROGRESS"] } }
         : q.status === "OVERDUE"
@@ -603,6 +606,7 @@ export class ProjectsService {
     return withTenantContext(user.organizationId, async (tx) => {
       const grouped = await tx.project.groupBy({ by: ["status"], where: base, _count: { _all: true } });
       const n = (...statuses: string[]) => grouped.filter((g) => statuses.includes(g.status)).reduce((a, g) => a + g._count._all, 0);
+      const fromTenders = await tx.project.count({ where: { ...base, sourceTenderId: { not: null } } });
       const overdue = await tx.project.count({ where: { ...base, dueDate: { lt: new Date() }, status: { notIn: FINISHED_STATUSES } } });
       const countries = await tx.project.groupBy({ by: ["deliveryCountryCode", "deliveryCountryCodes"], where: { ...base, deliveryCountryCode: { not: null } } });
       const recent = (status: string[]) =>
@@ -616,6 +620,7 @@ export class ProjectsService {
           awarded: n("AWARDED"),
           completed: n("COMPLETED"),
           overdue,
+          fromTenders,
         },
         deliveryCountryCodes: [...new Set(countries.flatMap((c) => readDeliveryCountries(c)))].sort(),
         recentActive: recentActive.map(toSummary),

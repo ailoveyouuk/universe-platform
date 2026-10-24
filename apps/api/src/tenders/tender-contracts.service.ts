@@ -363,7 +363,7 @@ export class TenderContractsService {
       const pm = await tx.productMaster.findMany({ where: { id: { in: tlines.map((l) => l.productMasterId).filter((x): x is string => !!x) } }, select: { category: true } });
       const pharma = pm.some((p) => /pharma|medicine|drug/i.test(p.category));
       // The bid project (created when the supplier registered interest) carries on into delivery: same project, now with the contract's dates.
-      const bidProject = await tx.project.findFirst({ where: { organizationId: user.organizationId, sourceTenderId: c.tenderId, isArchived: false } });
+      const bidProject = await tx.project.findFirst({ where: { organizationId: user.organizationId, sourceTenderId: c.tenderId, sourceCallOffId: null, isArchived: false } });
       if (bidProject) {
         const promoted = !["AWARDED", "COMPLETED"].includes(bidProject.status);
         await tx.project.update({ where: { id: bidProject.id }, data: {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
+import { TenderBidProjectsService } from "../src/tenders/tender-bid-projects.service";
 import { TenderFrameworkService } from "../src/tenders/tender-framework.service";
 import { TenderPerformanceService } from "../src/tenders/tender-performance.service";
 import { TenderEvidenceService, evidenceProblems } from "../src/tenders/tender-evidence.service";
@@ -100,6 +101,19 @@ describe("Framework call-off flow", () => {
     expect(pa).toMatchObject({ placed: 2, accepted: 2, declined: 0, acceptedShare: 100 });
     expect(pb).toMatchObject({ placed: 1, accepted: 0, declined: 1, acceptedShare: 0 });
     expect(pa.avgResponseHours).not.toBeNull();
+  });
+
+  it("an accepted call-off becomes its own delivery project, linked to the framework tender and carrying the agreed prices", async () => {
+    const u = user(supA, `ua-proj-${suffix}`, [...SUP, "projects.create"]);
+    const { projectId } = await fw.createProject(u, first);
+    const p = await withPlatformStaffContext((tx) => tx.project.findUnique({ where: { id: projectId }, include: { lines: true } }));
+    expect(p).toMatchObject({ status: "AWARDED", sourceTenderId: tenderId });
+    expect(p!.sourceCallOffId).toBe(first);
+    expect(p!.lines.length).toBeGreaterThan(0);
+    for (const l of p!.lines) { expect(l.sourceTenderLineId).toBeTruthy(); expect(l.clientPaymentCurrency).toBe("USD"); expect(Number(l.unitSalesPrice)).toBeGreaterThan(0); }
+    // the framework's bid project (if any) is not confused with the call-off project
+    const bidProject = await new TenderBidProjectsService().mine(u, tenderId);
+    expect(bidProject?.projectId ?? null).not.toBe(projectId);
   });
 
   it("a price review is refused while prices are held, then proposed, answered by the other party, and used for the next call-off", async () => {

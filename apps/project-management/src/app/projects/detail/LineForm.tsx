@@ -580,6 +580,16 @@ export function LineForm({
             ))}
           </select>
         </Field>
+        {(existing?.quotedManufacturerName || existing?.quotedLeadTimeDays != null || form.quotedManufacturerName || form.quotedLeadTimeDays != null) && (
+          <>
+            <Field label="Manufacturer as quoted (tender bid)">
+              <input style={inputStyle} value={form.quotedManufacturerName ?? ""} onChange={(e) => update("quotedManufacturerName", e.target.value || null)} />
+            </Field>
+            <Field label="Quoted lead time (days)">
+              <input type="number" min={0} style={inputStyle} value={form.quotedLeadTimeDays ?? ""} onChange={(e) => update("quotedLeadTimeDays", e.target.value === "" ? null : Number(e.target.value))} />
+            </Field>
+          </>
+        )}
         <Field label="Supplier">
           <select className="u-native-select"
             style={inputStyle}

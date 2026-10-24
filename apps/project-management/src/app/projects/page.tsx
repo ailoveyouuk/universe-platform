@@ -66,6 +66,8 @@ export default function ProjectsPage() {
   // Deep-linkable from the dashboard's stat tiles, e.g. /projects?status=SUBMITTED.
   const [statusFilter, setStatusFilter] = useState<string>(() => searchParams.get("status") ?? "");
   const [typeFilter, setTypeFilter] = useState<string>("");
+  // "tender" = projects that track a tender (created from it); "manual" = everything else. Deep-linkable: /projects?source=tender.
+  const [sourceFilter, setSourceFilter] = useState<string>(() => searchParams.get("source") ?? "");
   // Stage 3b (product-database-and-map-roadmap.md) — deep-linkable from
   // the dashboard's "Delivery countries" stat tile, same ?param convention
   // as statusFilter above, though that tile links here with no specific
@@ -106,6 +108,7 @@ export default function ProjectsPage() {
         status: statusFilter,
         type: typeFilter,
         country: countryFilter,
+        source: sourceFilter,
         archived: showArchived,
         sort: sortKey,
         dir: sortDir,
@@ -122,9 +125,9 @@ export default function ProjectsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, debouncedSearch, statusFilter, typeFilter, countryFilter, showArchived, sortKey, sortDir]);
+  }, [page, pageSize, debouncedSearch, statusFilter, typeFilter, countryFilter, sourceFilter, showArchived, sortKey, sortDir]);
 
-  const stats = overview?.counts ?? { active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0, total: 0 };
+  const stats = overview?.counts ?? { active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0, total: 0, fromTenders: 0 };
 
   function onSort(key: string) {
     if (key === sortKey) {
@@ -192,6 +195,13 @@ export default function ProjectsPage() {
           active={statusFilter === "COMPLETED"}
         />
         <SectionStat
+          label="From tenders"
+          value={stats.fromTenders}
+          icon={<ProjectsIcon size={18} />}
+          onClick={() => { setSourceFilter((f) => (f === "tender" ? "" : "tender")); setPage(0); }}
+          active={sourceFilter === "tender"}
+        />
+        <SectionStat
           label="Overdue"
           value={stats.overdue}
           icon={<AlertIcon size={18} />}
@@ -200,10 +210,10 @@ export default function ProjectsPage() {
           active={statusFilter === "OVERDUE"}
         />
       </div>
-      {statusFilter && (
+      {(statusFilter || sourceFilter) && (
         <button
           type="button"
-          onClick={() => { setStatusFilter(""); setPage(0); }}
+          onClick={() => { setStatusFilter(""); setSourceFilter(""); setPage(0); }}
           style={{ background: "none", border: "none", padding: 0, marginTop: 10, fontSize: 12.5, color: "var(--u-ink-secondary)", textDecoration: "underline", cursor: "pointer" }}
         >
           Clear filter — show all projects
@@ -227,6 +237,13 @@ export default function ProjectsPage() {
           options={PROJECT_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))}
           allLabel="All types"
           ariaLabel="Filter by project type"
+        />
+        <Select
+          value={sourceFilter}
+          onChange={(v) => { setSourceFilter(v); setPage(0); }}
+          options={[{ value: "tender", label: "Tracking a tender" }, { value: "manual", label: "Not from a tender" }]}
+          allLabel="All sources"
+          ariaLabel="Filter by source"
         />
         <Select
           value={countryFilter}
@@ -265,6 +282,7 @@ export default function ProjectsPage() {
                     <Link href={`/projects/detail?id=${p.id}`} style={{ textDecoration: "none" }}>
                       <TextLink as="span">{p.referenceNumber}</TextLink>
                     </Link>
+                    {p.sourceTenderId && <span title="Tracks a tender" style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: "var(--u-ink-secondary)", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-pill)", padding: "1px 7px" }}>Tender</span>}
                   </td>
                   <td style={{ padding: 8, color: "var(--u-ink)" }}>{p.title}</td>
                   <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{p.clientName ?? "—"}</td>

@@ -39,6 +39,8 @@ export class ProjectLineDto {
   /** Must be one of the project's delivery countries (checked in the service). */
   @IsOptional() @IsString() destinationCountryCode?: string | null;
   @IsOptional() @IsString() manufacturerId?: string;
+  @IsOptional() @IsString() quotedManufacturerName?: string | null;
+  @IsOptional() @IsInt() quotedLeadTimeDays?: number | null;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientPoNumber?: string;
   @IsOptional() @IsString() clientPoReceiptDate?: string;

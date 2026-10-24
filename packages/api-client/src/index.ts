@@ -477,7 +477,7 @@ export class UniverseApiClient {
   }
 
   /** Server-paged, filtered, sorted project list. */
-  listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; archived?: boolean; sort?: string; dir?: string }): Promise<PagedResult<ProjectSummary>> {
+  listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string }): Promise<PagedResult<ProjectSummary>> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
     return this.request(`/projects/page?${qs.toString()}`);
