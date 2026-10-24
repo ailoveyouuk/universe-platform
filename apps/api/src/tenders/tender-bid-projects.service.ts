@@ -94,6 +94,7 @@ export class TenderBidProjectsService {
 
   /** Cuts the project's lines to what was awarded (at the awarded share of each quantity) and moves it to AWARDED. */
   private async applyAward(tx: any, project: any, tlines: any[], lines: { tenderLineId: string; sharePercent: number }[]) {
+    await this.copyPrices(tx, project, project.sourceTenderId);
     const plines = await tx.projectLine.findMany({ where: { projectId: project.id, sourceTenderLineId: { not: null } } });
     for (const pl of plines) {
       const al = lines.find((x) => x.tenderLineId === pl.sourceTenderLineId);
