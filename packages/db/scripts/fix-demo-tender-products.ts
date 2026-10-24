@@ -53,6 +53,10 @@ async function main() {
     const stale = await tx.tenderClarification.findMany({ where: { question: { contains: "sodium hypochlorite for line 2" }, tender: { referenceNumber: "SIM-ECO-05" } } });
     console.log(`${stale.length} clarification(s) to reword.`);
     if (!dryRun) for (const c of stale) await tx.tenderClarification.update({ where: { id: c.id }, data: { question: "Are other chlorine-based purification tablets acceptable in place of line 1, if they deliver the same available chlorine per litre?", answer: "Yes, provided they deliver the stated available chlorine per litre and carry the same registration in the destination country." } });
+    // SIM-FWK-002 was created with a title that did not match its (medicine) lines.
+    const fwk = await tx.tender.findMany({ where: { referenceNumber: "SIM-FWK-002", title: { contains: "nutrition and sanitation" } }, select: { id: true } });
+    console.log(`${fwk.length} framework title(s) to correct.`);
+    if (!dryRun) for (const f of fwk) await tx.tender.update({ where: { id: f.id }, data: { title: "Framework for antimalarial and analgesic supplies (simulated)" } });
     console.log(dryRun ? "DRY RUN: nothing written." : "Written.");
   });
 }
