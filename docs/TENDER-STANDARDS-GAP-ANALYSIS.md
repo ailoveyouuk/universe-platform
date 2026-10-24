@@ -142,3 +142,7 @@ Priority: **P1** needed before any real (non-demo) tender; **P2** needed for cre
 - OCDS: [How does the OCDS work](https://standard.open-contracting.org/latest/en/primer/how/)
 - UNCITRAL: [2011 Model Law on Public Procurement](https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/2011-model-law-on-public-procurement-e.pdf) (located, not read in full)
 - WHO: [MQAS, TRS 986 Annex 3](https://sites.bu.edu/qualityofmedicalproducts/files/2017/06/2014-WHO-MQAS-TRS986-annex3.pdf) (located, not read in full)
+
+
+## Status check, 2026-10-24
+Checked against BUILD-LOG.md. The "Not built" rows above predate later build steps and are now **built**: sealed bids, evaluator conflict declarations and individual scoring, award notices and bidder debriefs, configurable standstill (default 8 working days, enforced at award), and the complaint and challenge record (visible on the participant status page), plus lots, frameworks and call-offs, contracts, variations and evidence records, and supplier performance ratings. Still open: the items parked or deferred by Lewis (e-auction, public non-registered viewing, accounting-system payment reconciliation, framework-level approval limits by role or currency, call-off documents). Read the table above as the original gap list, not current status.

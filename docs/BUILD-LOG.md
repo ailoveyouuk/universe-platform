@@ -969,3 +969,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 - A row of exactly four stat tiles now sits two by two at tablet-portrait widths (600 to 940 px) instead of three plus a lone tile (shared rule in the UI tokens, all apps).
 - The tender Discover and supplier search boxes sit on their own full-width row so the longer placeholder is no longer clipped.
 - Demo packaging products (Logistics and Services) are credited to supply, logistics and distribution organisations instead of random ones: `add-demo-groups` gained a REASSIGN mode (workflow input `reassign`) that only re-picks the adding organisation of existing products.
+
+## 2026-10-24 — Status reconciliation
+- Tender standards and organisation hub gap analyses carried stale "not built" rows. Reconciled against this log and added a dated status note to each: sealed bids, evaluator scoring and conflict declarations, debriefs, standstill, complaint route, lots, frameworks, contracts and performance are built; the network directory is built.

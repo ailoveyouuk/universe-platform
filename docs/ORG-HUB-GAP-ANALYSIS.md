@@ -60,3 +60,7 @@ Open follow-ups:
 - Supplier alerts fire on first publication only, not on later profile changes.
 - The Supplier Portal app itself is unchanged.
 - Standing rule: every new section gets a four-tile drilldown dashboard and full-depth filters (see BUILD-LOG 2026-10-23).
+
+
+## Status check, 2026-10-24
+The network directory (listed above as not built) was built as organisation hub step 6, with two-way search. Nothing else from this analysis is known to be open.
