@@ -17,7 +17,7 @@ const reset = (process.env.RESET ?? "false") === "true";
 const PER_GROUP = Number(process.env.PER_GROUP ?? 150);
 const GROUPS = Object.keys(GROUP_ITEMS);
 // Tables that may legitimately hold rows hanging off a new product: created only by the enrichment steps.
-const OK_TO_DELETE = /famil|registration|document|identifier|source_approval|product_.*(link|alias|note)|^product_master$/i;
+const OK_TO_DELETE = /famil|registration|document|identifier|source_approval|safety_notice|product_.*(link|alias|note)|^product_master$/i;
 
 type Fk = { t: string; c: string; rc: string };
 const fkCache = new Map<string, Fk[]>();
@@ -54,12 +54,15 @@ async function main() {
   if (reset) {
     await withPlatformStaffContext(async (tx: any) => {
       const where = `isSimulated = 1 AND sourceStandard = 'SIM-SCALE' AND category IN (${groupList})`;
+      const famWhere = `isSimulated = 1 AND category IN (${groupList})`;
       await purge(tx, "product_master", where); // pass 1: plan only
+      await purge(tx, "product_families", famWhere);
       console.log("Reset plan (rows that would be removed):", Object.fromEntries(plan));
       if (blocked.size) throw new Error(`Refusing to reset: other tables reference these products: ${[...blocked].join(", ")}`);
       if (dryRun) { console.log("DRY RUN: nothing removed"); return; }
       plan.clear(); execute = true;
       await purge(tx, "product_master", where); // pass 2: delete, children first
+      await purge(tx, "product_families", famWhere);
       console.log("Reset: removed", Object.fromEntries(plan));
     });
   }
