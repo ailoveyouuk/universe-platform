@@ -37,6 +37,7 @@
     "seed:demo-org-profiles": "tsx scripts/seed-demo-org-profiles.ts",
     "seed:demo-tender-files": "tsx scripts/seed-demo-tender-files.ts",
     "seed:demo-tidy": "tsx scripts/seed-demo-tidy.ts",
+    "fix:demo-tender-products": "tsx scripts/fix-demo-tender-products.ts",
     "audit:catalogue": "tsx scripts/audit-demo-catalogue.ts",
     "check:hs": "tsx scripts/check-hs-mapping.ts",
     "link:demo-pharma": "tsx scripts/link-demo-pharma.ts",

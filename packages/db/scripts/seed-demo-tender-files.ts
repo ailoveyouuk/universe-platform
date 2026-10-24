@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { prisma, withPlatformStaffContext } from "../src/index";
+import { makePdf } from "./_pdf";
 
 /**
  * Simulated tender files (2026-10-24, requested by Lewis): real PDF files, stored where the app stores them, with matching database rows.
@@ -17,26 +18,6 @@ import { prisma, withPlatformStaffContext } from "../src/index";
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
 const DAY = 86400000;
 
-/** A small, valid, single-page PDF with plain text lines (Helvetica, A4). */
-function makePdf(title: string, lines: string[]): Buffer {
-  const esc = (s: string) => s.replace(/[\\()]/g, "\\$&").replace(/[^\x20-\x7e]/g, "?");
-  const body: string[] = ["BT", "/F1 16 Tf", "56 790 Td", `(${esc(title)}) Tj`, "/F1 10 Tf", "0 -26 Td", "14 TL"];
-  for (const l of lines.slice(0, 48)) body.push(`(${esc(l.slice(0, 100))}) Tj T*`);
-  body.push("ET");
-  const stream = body.join("\n");
-  const objs = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-    `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-  ];
-  let out = "%PDF-1.4\n"; const offsets: number[] = [];
-  objs.forEach((o, i) => { offsets.push(Buffer.byteLength(out)); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
-  const xref = Buffer.byteLength(out);
-  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  return Buffer.from(out, "latin1");
-}
 const safe = (n: string) => n.replace(/[^A-Za-z0-9._-]+/g, "-");
 
 async function main() {
