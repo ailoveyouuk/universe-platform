@@ -38,7 +38,7 @@ describe("Tender publish alerts", () => {
     withPlatformStaffContext((tx) => tx.notification.findMany({ where: { recipientUserId: orgs[tag].user, kind: "TENDER_MATCH", subjectId: tenderId } }));
 
   const draft = async (u: RequestUser, over: Record<string, unknown> = {}, country = "KE") => {
-    const t = await svc.create(u, { title: `Alert tender ${suffix}`, closingAt: future(30), tenderType: "RFQ", currency: "USD", ...over } as never);
+    const t = await svc.create(u, { title: `Alert tender ${suffix}`, closingAt: future(30), tenderType: "RFQ", currency: "USD", deliveryCountryCodes: `,${country},`, ...over } as never);
     await svc.setLines(u, t.id, { lines: [{ description: "Artemether/lumefantrine 20/120 mg", quantity: 1000, unit: "pack", destinationCountryCode: country }] });
     await svc.setCriteria(u, t.id, { criteria: [{ title: "Price", kind: "SCORED", weight: 100 }] });
     await svc.setRules(u, t.id, { rules: [] });
