@@ -141,7 +141,7 @@ export class TenderBidProjectsService {
     if (["CANCELLED"].includes(t.status)) throw new ConflictException("This tender has been cancelled.");
     return withPlatformStaffContext(async (tx: any) => {
       const r = await this.ensure(tx, user.organizationId, tenderId, user.id);
-      if (r.created) await this.reconcile(tx, r.project, tenderId, user.id);
+      await this.reconcile(tx, r.project, tenderId, user.id);
       return { projectId: r.project.id as string, created: r.created };
     });
   }
