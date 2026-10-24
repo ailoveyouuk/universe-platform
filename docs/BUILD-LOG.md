@@ -999,3 +999,10 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - Rule: bright `--u-status-*` colours are for dots, bars and fills only; text uses the `-text` tokens.
 - Still to do before go-live: screen-reader and high-contrast testing; dark theme audit if it is switched on.
 
+
+## 2026-10-24 — Accessibility follow-up: screen-reader structure, dark theme, hard-coded colours
+- Details in `docs/ACCESSIBILITY-COLOUR-AUDIT.md` ("Follow-up pass").
+- **Screen reader / high contrast:** forced-colours (Windows high-contrast) CSS added; nested `<main>` landmarks removed (42 page-level mains became divs, one main per page); placeholder-only inputs now have `aria-label`s (shared `SearchInput` plus 16 fields). Automated structure and contrast scans run live in light and dark on PM, Tenders, Admin and Product Database pages: 0 failures after fixes. A real screen-reader walk-through (VoiceOver/NVDA) still needs a person.
+- **Dark theme:** audited live. Only real issue was violet link text on amber rows (4.34:1); dark `--u-brand-violet` lightened to #A58FE0. An earlier "24 failures" was a measurement artefact (colours read mid-transition).
+- **Hard-coded colours:** Admin status chips (white on amber 1.8:1) now use `Pill`; 19 text uses of bright status colours moved to `-text` tokens; light module accents darkened (CRM #52708A, Product Database #2F7A45, Supplier #B83B71, Tenders #A85A18). Logo and organisation theme colours intentionally left.
+- Commits: 2868f42 (tokenisation, dark tokens, forced-colours), 09193f4, ab7733b, be24d45, 4d7398f, 20fde4c. Backup bk54.

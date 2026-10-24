@@ -38,8 +38,27 @@ Rule going forward: the bright status colours (`--u-status-*`) are for dots, bar
 ## Already in place
 - Language set on every page (`lang="en"`); pinch-zoom not disabled; 44px minimum touch targets on touch devices; links underline on hover and focus; status is always shown with words as well as colour (for example "Action needed"); the dark palette exists but is not switched on anywhere.
 
+## Follow-up pass (2026-10-24): the three "not covered" items
+
+**1. Screen reader and high-contrast**
+- Windows high-contrast / forced-colours: a `@media (forced-colors: active)` block in `tokens.css` keeps borders, focus rings, gauge bars and status pills visible using system colours.
+- Landmarks: every page had a nested `<main>` (the shell's `<main id="main-content">` wrapping a page-level `<main>`). All 42 page-level ones are now `<div>`; each page has exactly one `main`. The public tender notices page, which has no shell, keeps its own.
+- Accessible names: inputs that relied on a placeholder alone now carry an `aria-label` (shared `SearchInput` plus 16 form fields).
+- Automated structure scan (own in-page checker: contrast, unnamed buttons/links, unlabelled fields, images without alt, one h1, heading order, single main) run on live pages in light and dark: PM quality list and scorecard page; Tenders home and list; Admin home and organisations; Product Database home and register. Result after fixes: 0 failures.
+- NOT done: a real screen reader (VoiceOver, NVDA) walk-through. That needs a person; automated checks cannot judge reading order or announcement quality. Recommended before go-live. Supplier portal and the tender framework page were not scanned live (no direct URL / empty for the demo user).
+
+**2. Dark theme**
+- Scanned live with transitions disabled (an earlier "24 failures" was a measurement artefact from mid-transition colours).
+- Real issue found and fixed: brand violet link text on amber-tinted rows was 4.34:1; dark `--u-brand-violet` lightened #9B84D9 -> #A58FE0 (4.93 on the tint, 6.7 on the surface).
+- Result: 0 contrast failures on all dark pages scanned. Dark remains an opt-in theme, not the default.
+
+**3. Hard-coded colours**
+- Status chips in Admin (organisations, users) used white text on amber/green (1.8:1); now the shared `Pill`.
+- 19 places used the bright `--u-status-*` colours as text; now `-text` tokens.
+- Module accents darkened in light theme so they pass 4.5:1 when used as text: CRM #52708A, Product Database #2F7A45, Supplier portal #B83B71, Tenders #A85A18.
+- Remaining intentional exceptions: the Logo and per-organisation theme colours (brand identity, organisation-set), and decorative category swatches (non-text, 3:1 graphics rule).
+
 ## Known limits and follow-ups
-- Not tested with a screen reader or with Windows high-contrast mode; both are recommended before go-live.
+- Screen reader walk-through by a person is still outstanding (see above).
 - Score gradient: colour is never the only signal, because every bar sits next to its value and status wording.
-- Contrast was measured from token values; a few components use inline colours (about 20 hard-coded hex values remain, mostly in the logistics score legend and per-app accents). They are swatches next to text labels, so they meet the 3:1 non-text rule or have a label, but they are candidates for tokens.
-- The dark theme has not been audited against every component because it is not live.
+- Automated scans cover the pages listed above, not every page; the same checker can be re-run on any page.
