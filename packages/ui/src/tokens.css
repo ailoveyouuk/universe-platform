@@ -156,10 +156,10 @@
  */
 :root {
   --u-module-project-management: var(--u-brand-violet);
-  --u-module-crm: #5B7A94;
-  --u-module-product-database: #3C8C54;
-  --u-module-supplier-portal: #D6578E;
-  --u-module-tender-issuance: #B8651D;
+  --u-module-crm: #52708A;
+  --u-module-product-database: #2F7A45;
+  --u-module-supplier-portal: #B83B71;
+  --u-module-tender-issuance: #A85A18;
   --u-module-admin: #4B4458;
 }
 
