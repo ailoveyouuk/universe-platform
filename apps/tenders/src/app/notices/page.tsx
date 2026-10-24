@@ -28,7 +28,7 @@ function Notices() {
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "32px 20px 64px", fontFamily: "var(--u-font-sans)", color: "var(--u-ink)", backgroundColor: "var(--u-surface)", minHeight: "100vh" }}>
       <p style={{ margin: 0, fontSize: 13, ...muted }}>Universe · Public tender notices</p>
       <h1 style={{ fontFamily: "var(--u-font-display)", margin: "6px 0 20px" }}>{id ? "Tender notice" : "Open and recent tender notices"}</h1>
-      {err && <div role="alert" style={{ ...box, color: "var(--u-status-critical)" }}>{err}</div>}
+      {err && <div role="alert" style={{ ...box, color: "var(--u-status-critical-text)" }}>{err}</div>}
       {!id && list && list.length === 0 && <div style={{ ...box, ...muted }}>No public notices at the moment.</div>}
       {!id && list?.map((n) => (
         <a key={n.id} href={`/notices?id=${n.id}`} style={{ ...box, display: "block", marginBottom: 12, textDecoration: "none", color: "inherit" }}>

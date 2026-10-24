@@ -198,7 +198,7 @@ export default function AddProductPage() {
           />
         </label>
 
-        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
 
         <div style={{ display: "flex", gap: 8 }}>
           <Button type="submit" variant="primary" disabled={submitting}>

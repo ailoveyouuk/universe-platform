@@ -79,7 +79,7 @@ function RegisterView() {
         {(sp.toString() !== "") && <Button variant="ghost" size="sm" onClick={() => { setQ(""); router.replace("/register"); }}>Clear filters</Button>}
       </div>
 
-      {err && <p role="alert" style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{err}</p>}
+      {err && <p role="alert" style={{ color: "var(--u-status-critical-text)", marginTop: 16 }}>{err}</p>}
       {!data && !err && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
       {data && (
         <>

@@ -245,7 +245,7 @@ export default function RiskRegisterPage() {
         />
       </div>
 
-      {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", marginTop: 16 }}>{error}</p>}
       {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {result && (
@@ -436,7 +436,7 @@ function RiskEditPanel({
         </label>
       </div>
 
-      {error && <div style={{ marginTop: 10, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ marginTop: 10, color: "var(--u-status-critical-text)", fontSize: 12 }}>{error}</div>}
 
       <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={handleSave} disabled={saving}>

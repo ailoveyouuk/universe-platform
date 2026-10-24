@@ -19,9 +19,9 @@ export function Pill({
     neutral: { bg: "var(--u-surface-alt)", fg: "var(--u-ink-secondary)" },
     brand: { bg: "var(--u-accent-magenta-tint)", fg: "var(--u-brand-violet)" },
     accent: { bg: "var(--u-accent-magenta-tint)", fg: "var(--u-accent-magenta)" },
-    good: { bg: "rgba(12,163,12,0.12)", fg: "var(--u-status-good)" },
-    warning: { bg: "rgba(250,178,25,0.16)", fg: "#946014" },
-    critical: { bg: "rgba(208,59,59,0.12)", fg: "var(--u-status-critical)" },
+    good: { bg: "rgba(12,163,12,0.12)", fg: "var(--u-status-good-text)" },
+    warning: { bg: "rgba(250,178,25,0.16)", fg: "var(--u-status-warning-text)" },
+    critical: { bg: "rgba(208,59,59,0.12)", fg: "var(--u-status-critical-text)" },
   };
   const t = tones[tone];
   return (

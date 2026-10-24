@@ -236,7 +236,7 @@ export default function PartnersPage() {
         />
       </div>
 
-      {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", marginTop: 16 }}>{error}</p>}
       {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {result && (

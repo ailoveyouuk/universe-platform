@@ -430,7 +430,7 @@ export default function ProductCatalogPage() {
         {exportNote ? `${exportNote} ` : ""}Export CSV covers the products your organisation added (global admins: the whole catalogue), follows your current filters and is recorded in your audit trail. <Link href="/exports">Need more? Request a wider export.</Link>
       </p>
 
-      {error && <p style={{ color: "var(--u-status-critical)", marginTop: 16 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", marginTop: 16 }}>{error}</p>}
       {!items && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {items && (

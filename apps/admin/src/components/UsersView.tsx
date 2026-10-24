@@ -107,7 +107,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
         {isPlatform && !embedded && <IncludeSimulatedToggle checked={includeSimulated} onChange={(v) => { setIncludeSimulated(v); setPage(0); }} />}
       </div>
 
-      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
       {!result && !error && <p>Loading…</p>}
 
       {result && (

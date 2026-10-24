@@ -223,8 +223,8 @@ export function ProductDetailView() {
         </div>
       </div>
 
-      {notice && <p style={{ color: "var(--u-status-good)", fontWeight: 600, fontSize: 13, margin: "12px 0 0" }}>{notice}</p>}
-      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 13, margin: "12px 0 0" }}>{error}</p>}
+      {notice && <p style={{ color: "var(--u-status-good-text)", fontWeight: 600, fontSize: 13, margin: "12px 0 0" }}>{notice}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13, margin: "12px 0 0" }}>{error}</p>}
       {!canEdit && (
         <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "10px 0 0" }}>
           Read-only — only the contributing organisation (or a platform admin) can change this record.
@@ -232,7 +232,7 @@ export function ProductDetailView() {
       )}
       {detail.lifecycleStatus === "RECALLED" || detail.lifecycleStatus === "WITHDRAWN" ? (
         <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", background: "rgba(208,59,59,0.08)", fontSize: 13 }}>
-          <strong style={{ color: "var(--u-status-critical)" }}>{lc.label}</strong>
+          <strong style={{ color: "var(--u-status-critical-text)" }}>{lc.label}</strong>
           {detail.lifecycleReason ? ` — ${detail.lifecycleReason}` : ""}
           {detail.lifecycleChangedAt ? ` (since ${dateOnly(detail.lifecycleChangedAt)})` : ""}
         </div>
@@ -524,7 +524,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
 
   return (
     <Card title="Safety notices and recalls" note="The notice is shared, so every organisation sees the same record. Your review below is private to your organisation. Saving a notice alerts the QA team of every organisation that uses the product.">
-      {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
       {restrictions.length > 0 && (
         <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", fontSize: 13 }}>
           <strong>Export and hoarding restriction applies to this medicine</strong>
@@ -586,7 +586,7 @@ export function SafetyNoticesCard({ detail, familyId }: { detail?: ProductCatalo
                     <Pill tone={n.myReview.outcome === "AFFECTED" ? "critical" : n.myReview.outcome === "ACTION_TAKEN" ? "warning" : n.myReview.outcome === "CHECKED_NO_IMPACT" ? "good" : "neutral"}>{REVIEW_LABELS[n.myReview.outcome] ?? n.myReview.outcome}</Pill>{" "}
                     by {n.myReview.reviewedByName} on {dateOnly(n.myReview.reviewedAt)}{n.myReview.notes ? ` — ${n.myReview.notes}` : ""}
                   </span>
-                ) : n.status === "OPEN" ? <span style={{ color: "var(--u-status-critical)" }}>Not yet reviewed by your organisation.</span> : <span style={{ color: "var(--u-ink-secondary)" }}>Not reviewed by your organisation.</span>}
+                ) : n.status === "OPEN" ? <span style={{ color: "var(--u-status-critical-text)" }}>Not yet reviewed by your organisation.</span> : <span style={{ color: "var(--u-ink-secondary)" }}>Not reviewed by your organisation.</span>}
                 {canManage && !n.isArchived && n.status === "OPEN" && <Button variant="secondary" size="sm" onClick={() => { setReviewing(n.id); setRform({ outcome: "CHECKED_NO_IMPACT" }); }}>Record our review</Button>}
                 {isStaff && !n.isArchived && n.status === "OPEN" && <Button variant="secondary" size="sm" onClick={() => setClosing(n.id)}>Close notice</Button>}
                 {isStaff && n.status === "CLOSED" && !n.isArchived && <Button variant="secondary" size="sm" disabled={busy} onClick={() => run(() => apiClient.updateSafetyNotice(n.id, { status: "OPEN" }))}>Reopen</Button>}
@@ -700,7 +700,7 @@ export function RegulatoryTab({ detail, familyId }: { detail?: ProductCatalogDet
       </div>}
 
       <Card title="Registrations" note={familyId ? "Apply to every variant in this family. Shared facts, visible to every organisation. Your verification below is private to your organisation." : "Shared facts, visible to every organisation. Your verification below is private to your organisation. Registrations held by the product family also apply here."}>
-        {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+        {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
         {regs === null ? <p style={{ fontSize: 13 }}>Loading…</p> : regs.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No registrations recorded for this product yet.</p>
         ) : (
@@ -856,7 +856,7 @@ export function DocumentsTab({ productId, familyId }: { productId?: string; fami
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Card title="Controlled documents" note="Private to your organisation. Approval needs a second person (QA). New versions supersede older ones; nothing is deleted.">
-        {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+        {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
         {docs === null ? <p style={{ fontSize: 13 }}>Loading…</p> : docs.length === 0 ? (
           <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>No documents recorded for this product by your organisation yet.</p>
         ) : (

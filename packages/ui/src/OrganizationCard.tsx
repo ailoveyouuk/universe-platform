@@ -134,7 +134,7 @@ export function OrganizationCardLink({
       {open && (
         <div role="dialog" aria-modal="true" aria-label={name} onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(20,18,31,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--u-surface-raised)", borderRadius: "var(--u-radius-lg, 14px)", boxShadow: "var(--u-shadow-card)", padding: 22, width: "min(520px, 100%)", maxHeight: "85vh", overflowY: "auto", boxSizing: "border-box" }}>
-            {error ? <p style={{ color: "var(--u-status-critical)" }}>{error}</p> : card ? <OrganizationCard card={card} scopeLabels={scopeLabels} certLabels={certLabels} /> : <p>Loading…</p>}
+            {error ? <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p> : card ? <OrganizationCard card={card} scopeLabels={scopeLabels} certLabels={certLabels} /> : <p>Loading…</p>}
             <div style={{ marginTop: 18, textAlign: "right" }}>
               <button type="button" onClick={() => setOpen(false)} style={{ padding: "8px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", background: "var(--u-surface-raised)", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5 }}>Close</button>
             </div>

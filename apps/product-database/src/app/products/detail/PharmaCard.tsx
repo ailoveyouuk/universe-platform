@@ -100,7 +100,7 @@ export function PharmaCard({ detail }: { detail: ProductCatalogDetail }) {
           <Button variant="secondary" disabled={busy || pil === (panel?.manualPilUrl ?? "")} onClick={() => run(() => apiClient.setProductPilUrl(detail.id, pil.trim() || null))}>Save link</Button>
         </div>
       )}
-      {err && <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--u-status-critical)" }}>{err}</p>}
+      {err && <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--u-status-critical-text)" }}>{err}</p>}
       {panel && <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{panel.attribution}</p>}
     </Card>
   );

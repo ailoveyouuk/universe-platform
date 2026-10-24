@@ -78,7 +78,7 @@ export function BuilderView() {
 }
 
 function SaveBar({ onSave, saving, label = "Save", note }: { onSave: () => void; saving: boolean; label?: string; note?: string | null }) {
-  return <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}><Button variant="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : label}</Button>{note && <span style={{ fontSize: 13, color: "var(--u-status-good)" }}>{note}</span>}</div>;
+  return <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}><Button variant="primary" onClick={onSave} disabled={saving}>{saving ? "Saving…" : label}</Button>{note && <span style={{ fontSize: 13, color: "var(--u-status-good-text)" }}>{note}</span>}</div>;
 }
 
 function useSaver<T = unknown>(onSaved: (result: T) => void) {

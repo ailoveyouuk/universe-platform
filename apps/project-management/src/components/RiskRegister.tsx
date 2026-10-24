@@ -126,7 +126,7 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
         </Button>
       </div>
 
-      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical-text)", fontSize: 13 }}>{error}</div>}
 
       {adding && (
         <NewRiskForm
@@ -301,7 +301,7 @@ function NewRiskForm({
         Review by
         <input type="date" style={inputStyle} value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} />
       </label>
-      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical-text)", fontSize: 12 }}>{error}</div>}
       <div style={{ marginTop: 12 }}>
         <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Log risk"}

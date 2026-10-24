@@ -172,7 +172,7 @@ export default function ImportPage() {
           ariaLabel="Source standard"
         />
         {selected?.blocked && (
-          <p style={{ color: "var(--u-status-warning)", fontSize: 12.5, margin: "4px 0 0", display: "flex", alignItems: "center", gap: 6 }}><AlertIcon size={14} /> {selected.blocked}</p>
+          <p style={{ color: "var(--u-status-warning-text)", fontSize: 12.5, margin: "4px 0 0", display: "flex", alignItems: "center", gap: 6 }}><AlertIcon size={14} /> {selected.blocked}</p>
         )}
       </div>
 
@@ -207,7 +207,7 @@ export default function ImportPage() {
         <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{parsedRows.length} row(s) parsed.</span>
       </div>
 
-      {error && <p style={{ color: "var(--u-status-critical)", marginTop: 12 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", marginTop: 12 }}>{error}</p>}
 
       <div style={{ marginTop: 16 }}>
         <Button variant="primary" onClick={runImport} disabled={running || parsedRows.length === 0}>
@@ -226,7 +226,7 @@ export default function ImportPage() {
           }}
         >
           <div style={{ display: "flex", gap: 24, fontSize: 14 }}>
-            <span><strong style={{ color: "var(--u-status-good)" }}>{result.created}</strong> created</span>
+            <span><strong style={{ color: "var(--u-status-good-text)" }}>{result.created}</strong> created</span>
             <span><strong style={{ color: "var(--u-brand-violet)" }}>{result.updated}</strong> updated</span>
             <span><strong style={{ color: result.skipped > 0 ? "var(--u-status-critical)" : "var(--u-ink-secondary)" }}>{result.skipped}</strong> skipped</span>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { statusText } from "./statusText";
 import type { CSSProperties, ReactNode } from "react";
 
 /**
@@ -90,7 +91,7 @@ export function StatTile({
               <span style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.barColor ?? indicator.color, borderRadius: "var(--u-radius-pill)" }} />
             </span>
           )}
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: indicator.color }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: statusText(indicator.color) }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: indicator.color }} />
             {indicator.label}
           </span>

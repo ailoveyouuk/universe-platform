@@ -107,7 +107,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
     <div style={{ marginTop: 40 }}>
       <h2>Documents ({project.documents.length})</h2>
 
-      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
       {project.documents.length === 0 && <p style={{ color: "var(--u-ink-secondary)", marginTop: 8 }}>No documents uploaded yet.</p>}
 

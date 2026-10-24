@@ -293,8 +293,8 @@ export function ProjectDetailView() {
   const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
   const showLines = useMemo(() => (project ? isLinesSectionRelevant(project) : false), [project]);
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No project specified.</main>;
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
+  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No project specified.</main>;
+  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
   if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
 
   const isPharma = project.projectType === "PHARMACEUTICAL";
@@ -335,7 +335,7 @@ export function ProjectDetailView() {
       </div>
 
       {archiveError && (
-        <p style={{ color: "var(--u-status-critical)", marginTop: 12, fontSize: 13 }}>{archiveError}</p>
+        <p style={{ color: "var(--u-status-critical-text)", marginTop: 12, fontSize: 13 }}>{archiveError}</p>
       )}
 
       {confirmingArchive && !project.isArchived && (
@@ -808,7 +808,7 @@ export function ProjectDetailView() {
             </select>
           </div>
           {financialSummary.conversionUnavailable && (
-            <p style={{ fontSize: 12, color: "var(--u-status-critical)", margin: "0 0 8px" }}>
+            <p style={{ fontSize: 12, color: "var(--u-status-critical-text)", margin: "0 0 8px" }}>
               Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.
             </p>
           )}
@@ -854,7 +854,7 @@ export function ProjectDetailView() {
 
       {exportChecks.length > 0 && (
         <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--u-status-critical)", fontSize: 13 }}>
-          <strong style={{ color: "var(--u-status-critical)" }}>Export or hoarding restriction check ({exportChecks.length})</strong>
+          <strong style={{ color: "var(--u-status-critical-text)" }}>Export or hoarding restriction check ({exportChecks.length})</strong>
           <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
             {exportChecks.map((c) => (
               <li key={`${c.lineId}-${c.restriction.id}`}>

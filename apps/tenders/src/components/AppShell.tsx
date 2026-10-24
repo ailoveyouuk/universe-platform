@@ -227,6 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <a className="u-skip-link" href="#main-content">Skip to main content</a>
             <header
               className="u-app-header"
               style={{
@@ -303,7 +304,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
-            <main key={pathname} className="u-page-enter" style={{ flex: 1 }}>
+            <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
               {children}
             </main>
           </div>

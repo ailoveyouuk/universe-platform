@@ -73,7 +73,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
         </div>
       )}
 
-      {err && <div role="alert" style={{ ...cardStyle, borderColor: "var(--u-status-critical)", color: "var(--u-status-critical)" }}>{err}</div>}
+      {err && <div role="alert" style={{ ...cardStyle, borderColor: "var(--u-status-critical)", color: "var(--u-status-critical-text)" }}>{err}</div>}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {STEPS.filter(([s]) => c.direction === "INBOUND_CLIENT" || s !== "ACKNOWLEDGED").map(([s, t]) => {
@@ -286,7 +286,7 @@ function CloseForm({ c, busy, onSave }: { c: ComplaintDetail; busy: boolean; onS
   const open = c.actions.filter((a) => a.status === "OPEN").length;
   return (
     <Card title="Next: approve closure">
-      {open > 0 && <div style={{ color: "var(--u-status-warning)", marginBottom: 8 }}>{open} action{open > 1 ? "s are" : " is"} still open and must be completed or cancelled first.</div>}
+      {open > 0 && <div style={{ color: "var(--u-status-warning-text)", marginBottom: 8 }}>{open} action{open > 1 ? "s are" : " is"} still open and must be completed or cancelled first.</div>}
       <Field label="Closure summary"><textarea value={summary} onChange={(e) => setSummary(e.target.value)} style={{ ...inputStyle, minHeight: 70 }} /></Field>
       <Field label="Lessons learned"><textarea value={lessons} onChange={(e) => setLessons(e.target.value)} style={{ ...inputStyle, minHeight: 56 }} /></Field>
       <Field label="Check the fix worked on" hint="Optional date for an effectiveness check"><input type="date" value={check} onChange={(e) => setCheck(e.target.value)} style={{ ...inputStyle, maxWidth: 220 }} /></Field>

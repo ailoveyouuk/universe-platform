@@ -128,7 +128,7 @@ export default function ControlledDocumentsPage() {
         />
       )}
 
-      {error && <div style={{ color: "var(--u-status-critical)", fontSize: 13, marginTop: 12 }}>{error}</div>}
+      {error && <div style={{ color: "var(--u-status-critical-text)", fontSize: 13, marginTop: 12 }}>{error}</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 16 }}>
         {docs !== null && docs.length === 0 && (
@@ -267,7 +267,7 @@ function DocumentForm({
         Effective date
         <input type="date" style={inputStyle} value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
       </label>
-      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical-text)", fontSize: 12 }}>{error}</div>}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Save"}
@@ -374,7 +374,7 @@ function EditDocumentForm({
           <span style={{ color: "var(--u-ink-secondary)" }}>(currently approved by {doc.approvedByName})</span>
         ) : null}
       </label>
-      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical)", fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, color: "var(--u-status-critical-text)", fontSize: 12 }}>{error}</div>}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : "Save"}

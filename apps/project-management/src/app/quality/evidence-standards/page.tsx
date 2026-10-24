@@ -343,7 +343,7 @@ function StandardForm({
         )}
       </div>
 
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{formError}</div>}
 
       <div style={{ display: "flex", gap: 10 }}>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>

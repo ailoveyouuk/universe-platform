@@ -33,7 +33,7 @@ const SUB_LABEL = Object.fromEntries(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s
 
 const STATUS_STYLE: Record<string, { label: string; color: string }> = {
   VALID: { label: "Valid", color: "var(--u-success, #1f7a4d)" },
-  EXPIRING: { label: "Expiring soon", color: "var(--u-warning, #b26a00)" },
+  EXPIRING: { label: "Expiring soon", color: "var(--u-status-warning-text)" },
   EXPIRED: { label: "Expired", color: "var(--u-danger, #b3261e)" },
   NO_EXPIRY: { label: "No expiry", color: "var(--u-ink-secondary)" },
 };

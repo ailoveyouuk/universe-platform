@@ -992,3 +992,10 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - Applied to the bars of: partner scorecard (overall, every measure, headline tiles, trend), project stage tiles (OTIF, lines priced, lines delivered) and logistics efficiency tiles.
 - Not changed: time-urgency and money tiles (days left, margin, balances), which are not scores.
 
+## 2026-10-24 — Colour palette and web display standards audit (WCAG 2.1 AA)
+- Full report: `docs/ACCESSIBILITY-COLOUR-AUDIT.md` (also in the project docs as `claude/accessibility-colour-audit.md`).
+- Most pairs passed. Failures fixed: bright status colours used as text (new `--u-status-*-text` tokens, 57 files migrated, `statusText()` helper), muted text on violet, white-on-colour status badges, pill text, the amber "Expiring soon" text, and the score-gradient bars (now 3:1 or better everywhere).
+- Added: global keyboard focus ring, skip-to-content link in all five apps, `prefers-reduced-motion` support.
+- Rule: bright `--u-status-*` colours are for dots, bars and fills only; text uses the `-text` tokens.
+- Still to do before go-live: screen-reader and high-contrast testing; dark theme audit if it is switched on.
+

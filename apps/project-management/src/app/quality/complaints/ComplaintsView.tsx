@@ -206,9 +206,9 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
         {[["Possible harm to a patient", pSafety, setPSafety], ["Suspected falsified or substandard product", falsified, setFalsified], ["Temperature excursion", temp, setTemp]].map(([t, v, set]) => (
           <label key={t as string} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 14 }}><input type="checkbox" checked={v as boolean} onChange={(e) => (set as (b: boolean) => void)(e.target.checked)} /> {t as string}</label>
         ))}
-        {serious && <div style={{ marginTop: 6, color: "var(--u-status-critical)", fontSize: 13 }}>This will be treated as critical: the quality leads are alerted now and triage is due within one working day.</div>}
+        {serious && <div style={{ marginTop: 6, color: "var(--u-status-critical-text)", fontSize: 13 }}>This will be treated as critical: the quality leads are alerted now and triage is due within one working day.</div>}
       </fieldset>
-      {err && <div role="alert" style={{ color: "var(--u-status-critical)", marginBottom: 8 }}>{err}</div>}
+      {err && <div role="alert" style={{ color: "var(--u-status-critical-text)", marginBottom: 8 }}>{err}</div>}
       <div style={{ display: "flex", gap: 10 }}>
         <Button variant="primary" onClick={submit} disabled={busy || !title.trim() || !description.trim()}>{busy ? "Logging…" : "Log complaint"}</Button>
         <Button variant="secondary" onClick={onCancel}>Cancel</Button>

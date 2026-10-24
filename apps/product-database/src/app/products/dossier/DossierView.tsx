@@ -49,7 +49,7 @@ export function DossierView() {
     apiClient.getProductDossier(id).then(setDossier).catch((e) => setError(e instanceof Error ? e.message : "Could not build the dossier."));
   }, [id]);
 
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
+  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
   if (!dossier) return <main style={{ padding: 32 }}>{id ? "Building the dossier…" : "No product selected."}</main>;
   const p = dossier.product;
 

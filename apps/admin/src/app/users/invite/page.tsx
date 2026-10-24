@@ -165,7 +165,7 @@ function InviteUserForm() {
           ))}
         </fieldset>
 
-        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
 
         <button
           type="submit"

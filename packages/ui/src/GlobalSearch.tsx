@@ -145,7 +145,7 @@ export function GlobalSearch({ api, LinkComponent, currentApp }: { api: GlobalSe
             </div>
             <div style={{ overflowY: "auto" }}>
               {q.trim().length < 2 && <p style={{ margin: 0, padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>Type at least two characters.</p>}
-              {failed && <p style={{ margin: 0, padding: 16, fontSize: 13, color: "var(--u-status-critical)" }}>Search failed — please try again.</p>}
+              {failed && <p style={{ margin: 0, padding: 16, fontSize: 13, color: "var(--u-status-critical-text)" }}>Search failed — please try again.</p>}
               {results && results.length === 0 && !failed && <p style={{ margin: 0, padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>No matches for “{q.trim()}”.</p>}
               {ordered.map((r, i) => {
                 const heading = r.type !== lastType ? TYPE_LABEL[r.type] ?? r.type : null;

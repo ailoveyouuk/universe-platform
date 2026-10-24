@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SCORECARD_THRESHOLDS } from "@universe/types";
 import type { PartnerScorecard, ScorecardGroup, ScorecardMetric, ScorecardRecordSet, ScorecardStatus } from "@universe/types";
-import { AlertIcon, CheckCircleIcon, ClockIcon, GaugeIcon, Pill, ShieldIcon, StatTile, scoreColor100 } from "@universe/ui";
+import { AlertIcon, CheckCircleIcon, ClockIcon, GaugeIcon, Pill, ShieldIcon, StatTile, scoreColor100, statusText } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 
 const STATUS_COLOR: Record<ScorecardStatus, string> = {
@@ -62,11 +62,11 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
           <span aria-hidden style={{ display: "block", height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
             <span style={{ display: "block", height: "100%", width: `${sc.overallScore ?? 0}%`, backgroundColor: scoreColor100(sc.overallScore) ?? bandColor }} />
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: bandColor }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: statusText(bandColor) }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: bandColor }} />{band.label}
           </span>
           {sc.attention.length > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--u-status-critical)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--u-status-critical-text)" }}>
               <AlertIcon size={13} /> {sc.attention.length} measure{sc.attention.length === 1 ? "" : "s"} need{sc.attention.length === 1 ? "s" : ""} attention: {sc.attention.join(", ").toLowerCase()}
             </span>
           )}
@@ -86,7 +86,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--u-ink)" }}>{recs ? `${recs.title} (${recs.total})` : "Loading records…"}</span>
             <button type="button" onClick={() => { setOpenKey(null); setRecs(null); }} style={{ border: 0, background: "none", color: "var(--u-ink-secondary)", cursor: "pointer", fontSize: 12.5, font: "inherit" }}>Close</button>
           </div>
-          {recsErr && <div style={{ padding: 16, fontSize: 13, color: "var(--u-status-critical)" }}>Could not load the records.</div>}
+          {recsErr && <div style={{ padding: 16, fontSize: 13, color: "var(--u-status-critical-text)" }}>Could not load the records.</div>}
           {recs && recs.rows.length === 0 && <div style={{ padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>{recs.note ?? "No records for this measure yet."}</div>}
           {recs && recs.rows.length > 0 && (
             <div style={{ overflowX: "auto" }}>
@@ -96,7 +96,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
                   {recs.rows.map((r) => (
                     <tr key={r.id} style={{ borderTop: "1px solid var(--u-border)", backgroundColor: r.flag === "critical" ? "var(--u-status-critical-tint, transparent)" : undefined }}>
                       {r.cells.map((c, i) => (
-                        <td key={i} style={{ padding: "8px 12px", color: i === r.cells.length - 1 && r.flag ? STATUS_COLOR[r.flag] : "var(--u-ink)", fontWeight: i === r.cells.length - 1 && r.flag ? 600 : 400 }}>
+                        <td key={i} style={{ padding: "8px 12px", color: i === r.cells.length - 1 && r.flag ? statusText(STATUS_COLOR[r.flag]) : "var(--u-ink)", fontWeight: i === r.cells.length - 1 && r.flag ? 600 : 400 }}>
                           {i === 0 && r.href ? <Link href={r.href} style={{ color: "inherit" }}>{c}</Link> : c}
                         </td>
                       ))}
@@ -124,7 +124,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
                       {m.label}
                       {m.weight > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: "var(--u-ink-secondary)" }}>weight {m.weight}</span>}
                     </span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: STATUS_COLOR[m.status] }}>{m.display}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: statusText(STATUS_COLOR[m.status]) }}>{m.display}</span>
                   </div>
                   {m.score !== null && (
                     <span aria-hidden style={{ display: "block", height: 4, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden", margin: "8px 0 6px" }}>

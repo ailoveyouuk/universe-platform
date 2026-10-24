@@ -65,7 +65,7 @@ export default function ReVerificationDuePage() {
         ))}
       </div>
 
-      {error && <div style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{error}</div>}
 
       {rows !== null && rows.length === 0 && (
         <div style={{ padding: "12px 16px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-border)", fontSize: 13, color: "var(--u-ink-secondary)" }}>

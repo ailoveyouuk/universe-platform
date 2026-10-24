@@ -68,8 +68,8 @@ export default function BatchDetailPage() {
     }
   }
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No batch specified.</main>;
-  if (error && !batch) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
+  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No batch specified.</main>;
+  if (error && !batch) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
   if (!batch) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</main>;
 
   const unreviewedExcursions = batch.temperatureLogs.filter((l) => l.hasExcursion && !l.reviewed);
@@ -137,7 +137,7 @@ export default function BatchDetailPage() {
         </div>
       )}
 
-      {error && <div style={{ marginTop: 12, color: "var(--u-status-critical)", fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ marginTop: 12, color: "var(--u-status-critical-text)", fontSize: 13 }}>{error}</div>}
 
       <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 24 }}>
         <InfoCard label="Manufactured">{batch.manufacturedDate ? new Date(batch.manufacturedDate).toLocaleDateString() : "—"}</InfoCard>
@@ -220,7 +220,7 @@ export default function BatchDetailPage() {
                   </div>
                   {log.readingSummary && <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>{log.readingSummary}</div>}
                   {log.hasExcursion && log.excursionNotes && (
-                    <div style={{ fontSize: 12, color: "var(--u-status-critical)", marginTop: 2 }}>Excursion: {log.excursionNotes}</div>
+                    <div style={{ fontSize: 12, color: "var(--u-status-critical-text)", marginTop: 2 }}>Excursion: {log.excursionNotes}</div>
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
@@ -302,7 +302,7 @@ function AddTemperatureLogForm({ batchId, onSaved }: { batchId: string; onSaved:
           <input style={inputStyle} value={excursionNotes} onChange={(e) => setExcursionNotes(e.target.value)} />
         </label>
       )}
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       <div>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
           {submitting ? "Saving…" : "Save reading"}

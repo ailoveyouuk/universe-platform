@@ -39,13 +39,19 @@
   --u-accent-magenta: #B23A82;
   --u-accent-magenta-tint: #FAF2F7;
   --u-on-violet-secondary: #C7B4E6;
-  --u-on-violet-muted: #A496C6;
+  --u-on-violet-muted: #BDB0DC;
   --u-signal-amber: #E9A23B;
   --u-border: rgba(20, 18, 31, 0.12);
   --u-status-good: #0ca30c;
   --u-status-warning: #fab219;
   --u-status-serious: #ec835a;
   --u-status-critical: #d03b3b;
+  /* Text-safe twins of the four status colours (WCAG 2.1 AA, 4.5:1 on white and on --u-surface-alt). Use these for TEXT; the plain tokens above are for dots,
+     bars and fills, which only need 3:1 (and warning/serious are deliberately brighter). Added 2026-10-24 after the palette audit. */
+  --u-status-good-text: #0a6a0a;
+  --u-status-warning-text: #8a620e;
+  --u-status-serious-text: #8e4f36;
+  --u-status-critical-text: #b3261e;
 
   /* Type */
   --u-font-display: 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -85,6 +91,10 @@
   --u-brand-violet-on: #14121F;
   --u-accent-magenta: #E85FAE;
   --u-accent-magenta-tint: #3A1A2E;
+  --u-status-good-text: #5fd16a;
+  --u-status-warning-text: #fab219;
+  --u-status-serious-text: #ff9a73;
+  --u-status-critical-text: #ff8a8a;
   --u-border: rgba(255, 255, 255, 0.14);
   --u-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 8px rgba(0, 0, 0, 0.3);
   color-scheme: dark;
@@ -593,5 +603,35 @@ a:focus-visible {
 @media (min-width: 600px) and (max-width: 940px) {
   .u-stat-grid:has(> :nth-child(4):last-child) {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Accessibility baseline (2026-10-24 audit) --------------------------------------------------------------------------------------------- */
+/* A visible keyboard focus ring on every interactive element that does not already draw its own (WCAG 2.4.7, 1.4.11). */
+:where(button, [role="button"], [role="tab"], summary, input, textarea, select, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--u-brand-violet);
+  outline-offset: 2px;
+}
+/* Skip link: first focusable item on every page, visible only when focused (WCAG 2.4.1). */
+.u-skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border-radius: var(--u-radius-md);
+  background: var(--u-brand-violet);
+  color: var(--u-brand-violet-on);
+  font-weight: 600;
+  text-decoration: none;
+}
+.u-skip-link:focus { top: 8px; }
+/* Respect the operating-system "reduce motion" setting (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -7,9 +7,8 @@ export function scoreColor(fraction: number | null | undefined): string | null {
   if (fraction === null || fraction === undefined || Number.isNaN(fraction)) return null;
   const f = Math.max(0, Math.min(1, fraction));
   const hue = Math.round(f * 120);
-  // A touch darker through the yellow range so the colour stays readable as text on a white surface.
-  const light = hue > 40 && hue < 85 ? 37 : 40;
-  return `hsl(${hue} 70% ${light}%)`;
+  // 80% saturation at 32% lightness keeps every point on the spectrum at 3:1 or better against a white or light-grey track (WCAG 1.4.11).
+  return `hsl(${hue} 80% 32%)`;
 }
 
 /** A score out of 100 (or a percentage). */

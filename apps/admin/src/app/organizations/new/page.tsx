@@ -89,7 +89,7 @@ export default function NewOrganizationPage() {
     return (
       <main style={{ padding: 32, maxWidth: 560 }}>
         <h1>Create Organisation</h1>
-        <p style={{ color: "var(--u-status-critical)" }}>
+        <p style={{ color: "var(--u-status-critical-text)" }}>
           Onboarding a new organisation is platform-staff only during the pilot — your account
           doesn&apos;t have that role. This would also be rejected server-side if submitted.
         </p>
@@ -265,7 +265,7 @@ export default function NewOrganizationPage() {
           </span>
         </label>
 
-        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
 
         <button
           type="submit"

@@ -247,7 +247,7 @@ export function ActionsCard({ api, LinkComponent, viewAllHref = "/notifications?
         <h2 style={{ margin: 0, fontSize: 16 }}>
           My actions
           {summary && summary.openActions > 0 && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "color-mix(in srgb, var(--u-org-accent, var(--u-brand-violet)) 14%, transparent)", color: "var(--u-org-accent, var(--u-brand-violet))" }}>{summary.openActions} open</span>}
-          {summary && summary.overdueActions > 0 && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: "var(--u-status-critical)" }}>{summary.overdueActions} overdue</span>}
+          {summary && summary.overdueActions > 0 && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: "var(--u-status-critical-text)" }}>{summary.overdueActions} overdue</span>}
         </h2>
         <Link href={viewAllHref} style={{ fontSize: 13, fontWeight: 650, color: "var(--u-org-accent, var(--u-brand-violet))", textDecoration: "none" }}>
           View all
@@ -330,7 +330,7 @@ export function NotificationsView({ api, LinkComponent }: { api: NotificationsAp
           </button>
         ))}
       </div>
-      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
       {items === null && !error && <p style={{ color: "var(--u-ink-secondary)" }}>Loading…</p>}
       {items?.length === 0 && <p style={{ color: "var(--u-ink-secondary)" }}>{filter === "actions" ? "No open actions — you’re all caught up." : "Nothing here yet."}</p>}
       {[...groups.entries()].map(([label, rows]) => (

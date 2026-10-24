@@ -208,7 +208,7 @@ export function ProductCreateForm({
       <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: 0 }}>Registrations, documents and safety notices are managed on the product&rsquo;s page in the Product Database, once it is added.</p>
 
       {error && (
-        <p style={{ color: "var(--u-status-critical)", fontSize: 13, margin: 0 }}>
+        <p style={{ color: "var(--u-status-critical-text)", fontSize: 13, margin: 0 }}>
           {error}{" "}
           {existingId && onUseExisting && <button type="button" onClick={() => onUseExisting(existingId)} style={linkBtn}>Use the existing product</button>}
         </p>

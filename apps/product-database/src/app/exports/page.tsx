@@ -56,8 +56,8 @@ export default function ExportsPage() {
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", maxWidth: 760 }}>
         You can always export what your organisation added. The shared Universe catalogue is a platform asset, so a wider export needs a global admin&rsquo;s approval. Every export is recorded in your audit trail.
       </p>
-      {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
-      {msg && <p style={{ color: "var(--u-status-good)", fontWeight: 600, fontSize: 13 }}>{msg}</p>}
+      {err && <p style={{ color: "var(--u-status-critical-text)" }}>{err}</p>}
+      {msg && <p style={{ color: "var(--u-status-good-text)", fontWeight: 600, fontSize: 13 }}>{msg}</p>}
 
       <h2 style={{ fontFamily: "var(--u-font-display)", fontSize: 17, marginTop: 24 }}>{admin ? "Export directly (global admin)" : "Your organisation’s data"}</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))", gap: 12 }}>

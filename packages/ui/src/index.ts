@@ -36,3 +36,4 @@ export * from "./RankedTile";
 export { MobileAppTag } from "./MobileAppTag";
 export * from "./OrganizationCard";
 export { scoreColor, scoreColor100 } from "./scoreColor";
+export { statusText } from "./statusText";

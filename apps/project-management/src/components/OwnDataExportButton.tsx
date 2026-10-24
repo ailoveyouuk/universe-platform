@@ -18,7 +18,7 @@ export function OwnDataExportButton({ entity, label }: { entity: OrganisationExp
       }}>
         <DownloadIcon size={14} /> {busy ? "Preparing…" : label}
       </Button>
-      {err && <span style={{ color: "var(--u-status-critical)", fontSize: 12.5 }}>{err}</span>}
+      {err && <span style={{ color: "var(--u-status-critical-text)", fontSize: 12.5 }}>{err}</span>}
     </span>
   );
 }

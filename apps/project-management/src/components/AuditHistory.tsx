@@ -53,7 +53,7 @@ export function AuditHistory({ tableName, recordId }: { tableName: string; recor
       </button>
       {open && (
         <div style={{ marginTop: 10 }}>
-          {error && <div style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{error}</div>}
+          {error && <div style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{error}</div>}
           {!error && entries === null && <div style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Loading…</div>}
           {entries !== null && entries.length === 0 && (
             <div style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>No field changes recorded for this record yet.</div>

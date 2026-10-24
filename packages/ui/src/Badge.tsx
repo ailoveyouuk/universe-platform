@@ -19,6 +19,8 @@ import type { ReactNode } from "react";
  *   DECLINED    — status-serious
  *   CANCELLED   — ink-secondary (same family as Identified — a dead/
  *                 inactive state, not a failure)
+ * 2026-10-24 palette audit: white text on these fills must reach 4.5:1, so the bright status greens and orange were swapped for deeper shades
+ * (Awarded #0a6a0a, Completed #085a08, Unawarded/Declined #b0481a).
  * REMOVED (Partner.approvalStatus, not a Project status) uses the same
  * ink-secondary treatment via Pill's "neutral" tone — see partners/page.tsx.
  */
@@ -26,10 +28,10 @@ const STATUS_COLORS: Record<string, string> = {
   IDENTIFIED: "var(--u-ink-secondary)",
   IN_PROGRESS: "var(--u-brand-violet)",
   SUBMITTED: "var(--u-accent-magenta)",
-  AWARDED: "var(--u-status-good)",
-  COMPLETED: "#0a8a0a",
-  UNAWARDED: "var(--u-status-serious)",
-  DECLINED: "var(--u-status-serious)",
+  AWARDED: "var(--u-status-good-text)",
+  COMPLETED: "#085a08",
+  UNAWARDED: "#b0481a",
+  DECLINED: "#b0481a",
   CANCELLED: "var(--u-ink-secondary)",
 };
 

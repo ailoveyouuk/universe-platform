@@ -236,7 +236,7 @@ export default function HomePage() {
           <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "0 0 14px" }}>
             Each line’s native-currency price is converted once, at the FX rate for the date it was entered, and locked — these totals will not shift as rates move. Switching currency above re-expresses them live, as a view only.
             {financialSummary.conversionUnavailable && (
-              <span style={{ color: "var(--u-status-critical)" }}> Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.</span>
+              <span style={{ color: "var(--u-status-critical-text)" }}> Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.</span>
             )}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 16 }}>

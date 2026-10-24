@@ -50,7 +50,7 @@ export function Button({ variant = "secondary", size = "md", icon, accent, style
     },
     danger: {
       backgroundColor: "transparent",
-      color: "var(--u-status-critical)",
+      color: "var(--u-status-critical-text)",
     },
   };
 

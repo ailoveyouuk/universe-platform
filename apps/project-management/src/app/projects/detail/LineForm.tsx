@@ -379,7 +379,7 @@ export function LineForm({
             <div style={{ margin: "6px 0 0", fontSize: 12.5 }}>
               <ProductSourceTag approval={selectedApproval} orgName={me?.organizationName ?? null} />
               {selectedApproval !== "APPROVED" && (
-                <span style={{ marginLeft: 8, color: "var(--u-status-warning)" }}>
+                <span style={{ marginLeft: 8, color: "var(--u-status-warning-text)" }}>
                   Not yet approved by {me?.organizationName ?? "your organisation"} — you can still use it on this line.
                 </span>
               )}
@@ -423,7 +423,7 @@ export function LineForm({
           )}
           {productDetail && /pharma/i.test(productDetail.category) && <RegisterStrip productId={productDetail.id} medicine />}
           {productHasPendingAmendment && (
-            <p style={{ fontSize: 12, color: "var(--u-status-warning)", margin: "6px 0 0" }}>
+            <p style={{ fontSize: 12, color: "var(--u-status-warning-text)", margin: "6px 0 0" }}>
               This product has a pending amendment awaiting QA/RP ratification — it can still be used on this line.
             </p>
           )}
@@ -867,7 +867,7 @@ export function LineForm({
         </Section>
       )}
 
-      {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
         <Button type="submit" variant="primary" disabled={saving}>

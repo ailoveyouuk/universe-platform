@@ -41,7 +41,7 @@ export function ColourField({
           </Button>
         )}
       </div>
-      {!isValidHex(value) && <div style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 4 }}>Use a 6-digit hex colour, like #1B203D.</div>}
+      {!isValidHex(value) && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 4 }}>Use a 6-digit hex colour, like #1B203D.</div>}
     </Field>
   );
 }

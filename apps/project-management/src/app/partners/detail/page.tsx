@@ -271,8 +271,8 @@ export default function PartnerDetailPage() {
     }
   }
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>No stakeholder specified.</main>;
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical)" }}>{error}</main>;
+  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No stakeholder specified.</main>;
+  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
   if (!partner) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</main>;
 
   const activeRoleTypes = partner.roles.filter((r) => r.isActive).map((r) => r.roleType);
@@ -395,7 +395,7 @@ export default function PartnerDetailPage() {
             Reason (required)
             <input style={inputStyle} value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} autoFocus />
           </label>
-          {removeError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{removeError}</div>}
+          {removeError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{removeError}</div>}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Button variant="danger" onClick={handleRemove} disabled={removing}>
               {removing ? "Removing…" : "Confirm removal"}
@@ -724,7 +724,7 @@ function EvidenceStandardRow({
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--u-ink)" }}>
             {standard.name}
-            {standard.isMandatory && <span style={{ color: "var(--u-status-critical)", marginLeft: 4 }}>*</span>}
+            {standard.isMandatory && <span style={{ color: "var(--u-status-critical-text)", marginLeft: 4 }}>*</span>}
           </div>
           <div style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 2 }}>
             {standard.category.replace(/_/g, " ")}
@@ -763,7 +763,7 @@ function EvidenceStandardRow({
           )}
         </div>
       </div>
-      {actionError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{actionError}</div>}
+      {actionError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical-text)", fontSize: 12 }}>{actionError}</div>}
       {effectiveStatus === "PENDING" && (
         <div style={{ padding: "0 16px 12px" }}>
           <CertificationNotice statement="EVIDENCE_VERIFICATION_V1" />
@@ -842,7 +842,7 @@ function DocumentLink({ documentId, onDeleted }: { documentId: string; onDeleted
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
         {deleteError ? (
-          <span style={{ color: "var(--u-status-critical)" }}>{deleteError}</span>
+          <span style={{ color: "var(--u-status-critical-text)" }}>{deleteError}</span>
         ) : (
           <span style={{ color: "var(--u-ink-secondary)" }}>Delete this document?</span>
         )}
@@ -850,7 +850,7 @@ function DocumentLink({ documentId, onDeleted }: { documentId: string; onDeleted
           type="button"
           onClick={handleDelete}
           disabled={deleting}
-          style={{ color: "var(--u-status-critical)", background: "none", border: "none", padding: 0, cursor: deleting ? "default" : "pointer", textDecoration: "underline" }}
+          style={{ color: "var(--u-status-critical-text)", background: "none", border: "none", padding: 0, cursor: deleting ? "default" : "pointer", textDecoration: "underline" }}
         >
           {deleting ? "Deleting…" : "Confirm"}
         </button>
@@ -984,7 +984,7 @@ function EditEvidenceRecordForm({
           onChange={(e) => setNotes(e.target.value)}
         />
       </label>
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       <div style={{ display: "flex", gap: 8 }}>
         <Button variant="primary" onClick={handleSave} disabled={submitting}>
           {submitting ? "Saving…" : "Save"}
@@ -1146,7 +1146,7 @@ function LogEvidenceForm({
           Verify immediately (admin — logs and verifies this evidence in one step, for your account only)
         </label>
       )}
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
           {submitting ? uploadStage ?? "Saving…" : "Save evidence"}
@@ -1264,7 +1264,7 @@ function AddCertificationForm({
         Notes
         <input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </label>
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       <div>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
           {submitting ? "Saving…" : "Save document"}
@@ -1351,7 +1351,7 @@ function CertificationRow({
             {[cert.referenceNumber, cert.issuingBody, cert.expiryDate ? `expires ${new Date(cert.expiryDate).toLocaleDateString()}` : null]
               .filter(Boolean)
               .join(" — ") || "—"}
-            {cert.isExpired && <span style={{ color: "var(--u-status-critical)", marginLeft: 8 }}>Expired</span>}
+            {cert.isExpired && <span style={{ color: "var(--u-status-critical-text)", marginLeft: 8 }}>Expired</span>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -1365,7 +1365,7 @@ function CertificationRow({
           )}
         </div>
       </div>
-      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       {editing && (
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>
@@ -1504,7 +1504,7 @@ function AddCompanyCheckForm({ partnerId, onSaved }: { partnerId: string; onSave
         Comment
         <input style={inputStyle} value={comment} onChange={(e) => setComment(e.target.value)} />
       </label>
-      {formError && <div style={{ color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       <div>
         <Button variant="primary" onClick={handleSubmit} disabled={submitting}>
           {submitting ? "Saving…" : "Save check"}
@@ -1578,7 +1578,7 @@ function CompanyCheckRow({
           {editing ? "Cancel" : "Edit"}
         </Button>
       </div>
-      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical)", fontSize: 12 }}>{formError}</div>}
+      {formError && <div style={{ padding: "0 16px 12px", color: "var(--u-status-critical-text)", fontSize: 12 }}>{formError}</div>}
       {editing && (
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(180px, 100%), 1fr))", gap: 10 }}>

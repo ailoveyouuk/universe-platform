@@ -180,7 +180,7 @@ export function ProductPicker({
               transform: "translateY(-50%)",
               fontSize: 10,
               fontWeight: 700,
-              color: "var(--u-status-warning)",
+              color: "var(--u-status-warning-text)",
               border: "1px solid var(--u-status-warning)",
               borderRadius: 4,
               padding: "1px 5px",
@@ -281,7 +281,7 @@ export function ProductPicker({
                       style={{
                         fontSize: 10,
                         fontWeight: 700,
-                        color: "var(--u-status-warning)",
+                        color: "var(--u-status-warning-text)",
                         border: "1px solid var(--u-status-warning)",
                         borderRadius: 4,
                         padding: "1px 5px",

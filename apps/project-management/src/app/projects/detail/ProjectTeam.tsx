@@ -144,7 +144,7 @@ export function ProjectTeam({
     <div style={{ marginTop: 40 }}>
       <h2>Team & Contacts</h2>
 
-      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 20, marginTop: 8 }}>
         <div>
@@ -159,7 +159,7 @@ export function ProjectTeam({
                   aria-label={`Remove ${lead.userName} as lead`}
                   disabled={busy}
                   onClick={() => removeLead(lead.userId)}
-                  style={{ border: "none", background: "none", color: "var(--u-status-critical)", cursor: "pointer", fontSize: 13, padding: "0 4px" }}
+                  style={{ border: "none", background: "none", color: "var(--u-status-critical-text)", cursor: "pointer", fontSize: 13, padding: "0 4px" }}
                 >
                   ×
                 </button>
@@ -195,7 +195,7 @@ export function ProjectTeam({
                   aria-label={`Remove ${contact.contactName} as contact`}
                   disabled={busy}
                   onClick={() => removeContact(contact.contactId)}
-                  style={{ border: "none", background: "none", color: "var(--u-status-critical)", cursor: "pointer", fontSize: 13, padding: "0 4px" }}
+                  style={{ border: "none", background: "none", color: "var(--u-status-critical-text)", cursor: "pointer", fontSize: 13, padding: "0 4px" }}
                 >
                   ×
                 </button>

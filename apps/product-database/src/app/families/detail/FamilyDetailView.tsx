@@ -74,7 +74,7 @@ export function FamilyDetailView() {
           </div>
         )}
       </div>
-      {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
       {!isStaff && <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Read-only — families are maintained by platform staff.</p>}
 
       <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: `1px solid var(--u-status-${tone})`, fontSize: 13 }}>

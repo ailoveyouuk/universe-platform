@@ -129,7 +129,7 @@ function Dates({ d, onSaved }: { d: TenderDetailForIssuer; onSaved: () => void }
         <Field label="Evaluation due"><input type="datetime-local" style={inputStyle} value={v.evaluationDueAt} onChange={(e) => setV({ ...v, evaluationDueAt: e.target.value })} /></Field>
         <Field label="Award due"><input type="datetime-local" style={inputStyle} value={v.awardDueAt} onChange={(e) => setV({ ...v, awardDueAt: e.target.value })} /></Field>
       </div>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14 }}><Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Update dates"}</Button>{note && <span style={{ fontSize: 13, color: "var(--u-status-good)" }}>{note}</span>}</div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14 }}><Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Update dates"}</Button>{note && <span style={{ fontSize: 13, color: "var(--u-status-good-text)" }}>{note}</span>}</div>
     </Card>
   );
 }

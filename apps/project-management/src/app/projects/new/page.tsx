@@ -192,7 +192,7 @@ export default function NewProjectPage() {
           </p>
         )}
 
-        {error && <p style={{ color: "var(--u-status-critical)" }}>{error}</p>}
+        {error && <p style={{ color: "var(--u-status-critical-text)" }}>{error}</p>}
 
         <Button type="submit" variant="primary" disabled={submitting} style={{ alignSelf: "flex-start" }}>
           {submitting ? "Creating…" : "Create Project"}

@@ -5,9 +5,9 @@ type Tone = "brand" | "accent" | "good" | "warning" | "critical" | "neutral";
 const TONES: Record<Tone, { bg: string; fg: string; ring: string }> = {
   brand: { bg: "var(--u-accent-magenta-tint)", fg: "var(--u-brand-violet)", ring: "var(--u-brand-violet)" },
   accent: { bg: "var(--u-accent-magenta-tint)", fg: "var(--u-accent-magenta)", ring: "var(--u-accent-magenta)" },
-  good: { bg: "rgba(12,163,12,0.12)", fg: "var(--u-status-good)", ring: "var(--u-status-good)" },
-  warning: { bg: "rgba(250,178,25,0.16)", fg: "#946014", ring: "#946014" },
-  critical: { bg: "rgba(208,59,59,0.12)", fg: "var(--u-status-critical)", ring: "var(--u-status-critical)" },
+  good: { bg: "rgba(12,163,12,0.12)", fg: "var(--u-status-good-text)", ring: "var(--u-status-good-text)" },
+  warning: { bg: "rgba(250,178,25,0.16)", fg: "var(--u-status-warning-text)", ring: "var(--u-status-warning-text)" },
+  critical: { bg: "rgba(208,59,59,0.12)", fg: "var(--u-status-critical-text)", ring: "var(--u-status-critical-text)" },
   neutral: { bg: "var(--u-surface-alt)", fg: "var(--u-ink-secondary)", ring: "var(--u-ink-secondary)" },
 };
 

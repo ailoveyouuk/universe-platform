@@ -63,7 +63,7 @@ export default function FamiliesPage() {
         <input style={{ ...input, flex: 1, maxWidth: 420 }} placeholder="Search families, brands, INN" value={search} onChange={(e) => setSearch(e.target.value)} />
         <Button type="submit" variant="secondary" size="sm">Search</Button>
       </form>
-      {err && <p style={{ color: "var(--u-status-critical)", fontSize: 13 }}>{err}</p>}
+      {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
 
       <div style={{ marginTop: 14, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>

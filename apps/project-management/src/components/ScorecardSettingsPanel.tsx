@@ -55,7 +55,7 @@ export function ScorecardSettingsPanel() {
           {s.canEdit ? (
             <>
               <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for the change (optional, recorded)" style={{ ...inputStyle, width: "100%", maxWidth: 420, marginBottom: 10, display: "block" }} />
-              {err && <div role="alert" style={{ color: "var(--u-status-critical)", fontSize: 13, marginBottom: 8 }}>{err}</div>}
+              {err && <div role="alert" style={{ color: "var(--u-status-critical-text)", fontSize: 13, marginBottom: 8 }}>{err}</div>}
               <div style={{ display: "flex", gap: 10 }}>
                 <Button size="sm" variant="primary" disabled={busy} onClick={save}>Save</Button>
                 <Button size="sm" variant="secondary" disabled={busy || !s.isCustom} onClick={() => run(() => apiClient.resetScorecardSettings())}>Reset to defaults</Button>

@@ -123,7 +123,7 @@ export function SupplierEnquiries({
         )}
       </div>
 
-      {error && <p style={{ color: "var(--u-status-critical)", fontSize: 12, marginTop: 6 }}>{error}</p>}
+      {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
       {line.enquiries.length === 0 && !adding && (
         <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, marginTop: 4 }}>No enquiries logged yet.</p>

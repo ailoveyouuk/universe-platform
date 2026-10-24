@@ -82,7 +82,7 @@ export default function WatchPage() {
     <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory watch</h1>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>A daily automated check of public regulator feeds for recalls and safety alerts. Matches to products in the catalogue are advisory flags for platform staff to confirm; nothing is blocked automatically. This supports, but does not replace, formal regulatory intelligence.</p>
-      {err && <p style={{ color: "var(--u-status-critical)" }}>{err}</p>}
+      {err && <p style={{ color: "var(--u-status-critical-text)" }}>{err}</p>}
       {!d ? !err && <p>Loading…</p> : (
         <>
           <h2 style={{ fontSize: 15, marginTop: 20 }}>Sources</h2>
@@ -92,7 +92,7 @@ export default function WatchPage() {
                 <strong>{SOURCE_LABEL[s.source] ?? s.source}</strong>{" "}
                 <Pill tone={s.lastStatus === "FAILED" || s.stale ? "critical" : "good"}>{s.lastStatus === "FAILED" ? "last run failed" : s.stale ? "stale" : "healthy"}</Pill>
                 <p style={{ margin: "6px 0 0", color: "var(--u-ink-secondary)" }}>Last run {dt(s.lastRunAt)} · last success {dt(s.lastSuccessAt)}</p>
-                {s.lastError && <p style={{ margin: "4px 0 0", color: "var(--u-status-critical)" }}>{s.lastError}</p>}
+                {s.lastError && <p style={{ margin: "4px 0 0", color: "var(--u-status-critical-text)" }}>{s.lastError}</p>}
               </div>
             ))}
           </div>

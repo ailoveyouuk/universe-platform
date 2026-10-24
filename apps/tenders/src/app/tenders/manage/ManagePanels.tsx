@@ -175,7 +175,7 @@ export function VerifyTimeline({ id }: { id: string }) {
     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "0 0 12px" }}>
       <Button size="sm" variant="ghost" onClick={go} disabled={busy}>{busy ? "Checking…" : "Verify timeline integrity"}</Button>
       {res && (res.ok ? <Pill tone="good">{res.events} chained entries verified, none altered</Pill> : <Pill tone="critical">Integrity check failed{res.brokenAt ? ` at entry ${res.brokenAt}` : ""}</Pill>)}
-      {err && <span style={{ fontSize: 13, color: "var(--u-status-critical)" }}>{err}</span>}
+      {err && <span style={{ fontSize: 13, color: "var(--u-status-critical-text)" }}>{err}</span>}
     </div>
   );
 }
