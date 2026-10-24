@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary } from "@universe/types";
-import { INCOTERMS as SHARED_INCOTERMS } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel, INCOTERMS as SHARED_INCOTERMS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import {
   GaugeIcon,
@@ -39,7 +39,7 @@ const TOP_ROUTE_COUNT = 10;
 
 const TRANSPORT_MODES = ["", "AIR", "SEA", "LAND"] as const;
 const INCOTERM_CHOICES = ["", ...SHARED_INCOTERMS] as const;
-const COMMODITY_GROUPS = ["", "CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+const COMMODITY_FILTER = ["", ...COMMODITY_GROUPS] as const;
 
 const ENTITY_LABELS: Record<string, string> = {
   PROJECT: "Projects",
@@ -330,9 +330,9 @@ export default function GlobalLogisticsPage() {
             ))}
           </select>
           <select className="u-native-select" style={filterInputStyle} value={filters.commodityGroup ?? ""} onChange={(e) => update("commodityGroup", e.target.value)}>
-            {COMMODITY_GROUPS.map((c) => (
+            {COMMODITY_FILTER.map((c) => (
               <option key={c} value={c}>
-                {c || "All commodity groups"}
+                {c ? commodityGroupLabel(c) : "All commodity groups"}
               </option>
             ))}
           </select>
@@ -369,7 +369,7 @@ export default function GlobalLogisticsPage() {
                     {r.destinationCountryCode ? countries.find((c) => c.code === r.destinationCountryCode)?.name ?? r.destinationCountryCode : "—"}
                   </p>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>
-                    {r.transportMode ?? "—"} · {r.incoterm ?? "—"} · {r.commodityGroup ?? "—"}
+                    {r.transportMode ?? "—"} · {r.incoterm ?? "—"} · {r.commodityGroup ? commodityGroupLabel(r.commodityGroup) : "—"}
                     {r.avgDurationDays !== null && ` · avg ${Math.round(r.avgDurationDays)}d`}
                   </p>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--u-ink-secondary)" }}>

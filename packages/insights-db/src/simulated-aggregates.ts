@@ -8,7 +8,7 @@ import { insightsPrisma } from "./index";
  *
  * Each (group) gets several distinct synthetic source hashes so the MINIMUM_COHORT_SIZE floor is met exactly as it
  * would be for real data - the cohort rule itself is not bypassed. The hashes are random strings, not derived from any
- * organisation. Idempotent per table: a table that already holds simulated rows is left alone (nothing is deleted).
+ * organisation. Idempotent per table and per group: only groups that have no simulated rows yet are added (2026-10-24: a top-up for the nine catalogue groups and eight commodity groups added that day); nothing is deleted.
  */
 // A table counts as already seeded once it holds this many simulated rows (earlier test rows were flagged simulated too, so "any row" is not enough).
 const SEEDED_THRESHOLD = 1000;
@@ -26,11 +26,16 @@ const monthStart = (monthsAgo: number) => {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - monthsAgo, 1));
 };
 
-const CATEGORIES = ["Laboratory Consumables", "Diagnostics", "Medical Devices", "Pharmaceuticals", "Personal Protective Equipment", "Cold Chain", "Reagents", "Surgical Supplies", "Wound Care", "Imaging"];
+const CATEGORIES = [
+  "Laboratory Consumables", "Diagnostics", "Medical Devices", "Pharmaceuticals", "Personal Protective Equipment", "Cold Chain", "Reagents", "Surgical Supplies", "Wound Care", "Imaging",
+  // Added 2026-10-24 (same names as the catalogue groups in supplier-scope.ts; "Logistics and Services" is a service group with no products).
+  "Reproductive Health", "Nutrition", "Vector Control", "Water, Sanitation and Hygiene", "Immunisation", "Kits and Emergency Supplies", "Shelter and Household Items", "Field and Military Medical",
+];
 const ORIGINS = ["IN", "CN", "DE", "GB", "FR", "BE", "NL", "TR", "ZA", "KE", "VN", "BD", "PK"];
 const DESTINATIONS = ["KE", "UG", "TZ", "NG", "GH", "ZA", "ET", "MZ", "ZM", "BD", "PK", "IN"];
 const INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP"];
-const BASE_PRICE: Record<string, number> = { "Laboratory Consumables": 6, Diagnostics: 28, "Medical Devices": 85, Pharmaceuticals: 4, "Personal Protective Equipment": 9, "Cold Chain": 140, Reagents: 55, "Surgical Supplies": 22, "Wound Care": 7, Imaging: 320 };
+const BASE_PRICE: Record<string, number> = { "Laboratory Consumables": 6, Diagnostics: 28, "Medical Devices": 85, Pharmaceuticals: 4, "Personal Protective Equipment": 9, "Cold Chain": 140, Reagents: 55, "Surgical Supplies": 22, "Wound Care": 7, Imaging: 320,
+  "Reproductive Health": 0.4, Nutrition: 1.8, "Vector Control": 3.2, "Water, Sanitation and Hygiene": 2.5, Immunisation: 1.6, "Kits and Emergency Supplies": 180, "Shelter and Household Items": 14, "Field and Military Medical": 650 };
 
 export async function seedSimulatedAggregates() {
   const r = rng(20261017);
@@ -56,8 +61,13 @@ export async function seedSimulatedAggregates() {
   const originPool = ["IN", "CN", "DE", "GB", "FR", "BE", "NL", "TR", "ZA", "KE", "VN", "BD", "PK", "US", "CH", "ID", "TH", "EG", "MA", "IT", "ES", "AE", "SG", "BR", "MX", "JP", "KR", "PL", "RW", "ET"].filter((c) => byCode.has(c));
   const destPool = ["KE", "UG", "TZ", "NG", "GH", "ZA", "ET", "MZ", "ZM", "BD", "PK", "IN", "MW", "ZW", "SN", "CM", "CD", "RW", "SS", "SD", "NP", "MM", "KH", "HT", "YE", "AF", "SL", "LR", "ML", "BF"].filter((c) => byCode.has(c));
   const GROUPS = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"];
+  // Eight commodity groups added 2026-10-24; they get their own top-up lanes (below) so the original rows stay as they are.
+  const NEW_GROUPS = ["REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL"];
   const LANE_INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP", "FOB"];
-  if ((await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })) >= SEEDED_THRESHOLD) result.skipped.push("logistics");
+  const haveLogistics = new Set((await insightsPrisma.aggregatedLogisticsMetric.groupBy({ by: ["commodityGroup"], where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })).map((g) => g.commodityGroup));
+  const seededLogistics = (await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })) >= SEEDED_THRESHOLD;
+  const logisticsGroups = seededLogistics ? NEW_GROUPS.filter((g) => !haveLogistics.has(g)) : [...GROUPS, ...NEW_GROUPS];
+  if (logisticsGroups.length === 0) result.skipped.push("logistics");
   else {
     const rows: any[] = [];
     for (const d of destPool) {
@@ -75,7 +85,7 @@ export async function seedSimulatedAggregates() {
           const lanes = 1 + Math.floor(r() * 2);
           for (let ln = 0; ln < lanes; ln++) {
             const incoterm = LANE_INCOTERMS[Math.floor(r() * LANE_INCOTERMS.length)];
-            const group = GROUPS[Math.floor(r() * GROUPS.length)];
+            const group = logisticsGroups[Math.floor(r() * logisticsGroups.length)];
             const cohort = pickHashes(6 + Math.floor(r() * 5)).map((h) => "s2" + h.slice(2));
             for (const sourceHash of cohort) {
               const perHash = 1 + Math.floor(r() * 3);
@@ -113,12 +123,15 @@ export async function seedSimulatedAggregates() {
   }
 
   // --- Pricing ---
-  if ((await insightsPrisma.aggregatedProductPrice.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("pricing");
+  const pricedCategories = new Set((await insightsPrisma.aggregatedProductPrice.groupBy({ by: ["category"], where: { isSimulated: true } })).map((g) => g.category));
+  const seededPricing = (await insightsPrisma.aggregatedProductPrice.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD;
+  const pricingCategories = seededPricing ? CATEGORIES.filter((c) => !pricedCategories.has(c)) : CATEGORIES;
+  if (pricingCategories.length === 0) result.skipped.push("pricing");
   else {
     const rows: any[] = [];
     const destRegions = ["AFRO", "SEARO", "EMRO"];
     const manuRegions = ["SEARO", "WPRO", "EURO", "AFRO"];
-    for (const category of CATEGORIES) {
+    for (const category of pricingCategories) {
       for (const destinationRegion of destRegions) {
         for (const manufactureRegion of manuRegions) {
           const incoterm = INCOTERMS[Math.floor(r() * 3) + 2 > 4 ? 4 : Math.floor(r() * 3) + 2];
@@ -149,10 +162,13 @@ export async function seedSimulatedAggregates() {
   }
 
   // --- Product sourcing (category x country of manufacture) ---
-  if ((await insightsPrisma.aggregatedProductSourcing.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD) result.skipped.push("sourcing");
+  const sourcedCategories = new Set((await insightsPrisma.aggregatedProductSourcing.groupBy({ by: ["category"], where: { isSimulated: true } })).map((g) => g.category));
+  const seededSourcing = (await insightsPrisma.aggregatedProductSourcing.count({ where: { isSimulated: true } })) >= SEEDED_THRESHOLD;
+  const sourcingCategories = seededSourcing ? CATEGORIES.filter((c) => !sourcedCategories.has(c)) : CATEGORIES;
+  if (sourcingCategories.length === 0) result.skipped.push("sourcing");
   else {
     const rows: any[] = [];
-    for (const category of CATEGORIES) {
+    for (const category of sourcingCategories) {
       for (const country of ORIGINS) {
         if (r() < 0.2) continue; // not every category is made in every country
         const cohort = pickHashes(5 + Math.floor(r() * 5));

@@ -1,3 +1,4 @@
+import { COMMODITY_GROUPS } from "@universe/types";
 import { Type } from "class-transformer";
 import {
   ArrayMaxSize,
@@ -13,7 +14,7 @@ import {
 
 const CATEGORIES = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
 const PROJECT_TYPES = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
-const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 
 /**
  * Added 2026-09-24, schema rework: mirrors CreateProjectLineInput in

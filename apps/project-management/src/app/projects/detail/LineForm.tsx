@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { CURRENCY_OPTIONS } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { RegisterStrip } from "../../../components/RegisterStrip";
@@ -10,7 +10,9 @@ import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { apiClient } from "../../../lib/apiClient";
 
-const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+// The six original groups stay the ones offered when creating a catalogue product here; the line itself can use every commodity group.
+const NEW_PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 const PAYMENT_STATUSES = ["NOT_STARTED", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
 const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "WHOPES", "GHTF", "OTHER"] as const;
 /** A project's "awarded or later" statuses — the point at which the
@@ -474,7 +476,7 @@ export function LineForm({
                 <ProductCreateForm
                   initialName={newProductName}
                   defaultCategory={form.productCategory ?? undefined}
-                  categoryOptions={[...PRODUCT_CATEGORIES]}
+                  categoryOptions={[...NEW_PRODUCT_CATEGORIES]}
                   onCreated={(p) => { handleSelectProduct(p); setShowCreateProduct(false); }}
                   onUseExisting={async (id) => { const d = await apiClient.getProductCatalogEntry(id); handleSelectProduct({ id: d.id, name: d.name, category: d.category, hasPendingAmendment: d.hasPendingAmendment }); setShowCreateProduct(false); }}
                   onCancel={() => setShowCreateProduct(false)}
@@ -510,7 +512,7 @@ export function LineForm({
             <option value="">Select…</option>
             {PRODUCT_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {commodityGroupLabel(c)}
               </option>
             ))}
           </select>

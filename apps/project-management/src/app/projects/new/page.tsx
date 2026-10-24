@@ -3,20 +3,14 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { CreateProjectInput, CreateProjectLineInput } from "@universe/types";
+import { COMMODITY_GROUPS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { Button, CountryMultiSelect } from "@universe/ui";
 
 const CATEGORY_OPTIONS = ["PROCUREMENT", "TECHNICAL_ASSISTANCE"] as const;
 const PROJECT_TYPE_OPTIONS = ["PHARMACEUTICAL", "NON_PHARMACEUTICAL"] as const;
-const PRODUCT_CATEGORY_OPTIONS = [
-  "CONSUMABLES",
-  "DEVICES",
-  "REAGENTS",
-  "EQUIPMENT",
-  "PHARMACEUTICALS",
-  "LABORATORY",
-] as const;
+const PRODUCT_CATEGORY_OPTIONS = COMMODITY_GROUPS;
 
 /**
  * Project intake form. Project Type (Pharmaceutical / Non-Pharmaceutical) is

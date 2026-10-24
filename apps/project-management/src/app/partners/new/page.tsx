@@ -11,6 +11,7 @@ import type {
   StakeholderRegistryMatch,
   StakeholderRegistryProduct,
 } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -32,7 +33,7 @@ const ROLE_LABELS: Record<string, string> = {
 // Matches ProjectLine.productCategory's allowed values (schema.prisma
 // "Allowed values reference") — SupplierDetail.productCategory reuses the
 // same fixed list rather than inventing a separate one.
-const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 
 
 const RISK_TIERS = ["HIGH", "MEDIUM", "LOW"] as const;
@@ -1034,7 +1035,7 @@ export default function NewPartnerPage() {
                   onChange={setSupplierProductCategory}
                   allLabel="Select a category"
                   ariaLabel="Supplier product category"
-                  options={PRODUCT_CATEGORIES.map((c) => ({ value: c, label: c.charAt(0) + c.slice(1).toLowerCase() }))}
+                  options={PRODUCT_CATEGORIES.map((c) => ({ value: c, label: commodityGroupLabel(c) }))}
                 />
               </div>
             </label>

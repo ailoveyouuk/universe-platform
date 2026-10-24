@@ -91,6 +91,15 @@ export const WEIGHT_ESTIMATE_DEFAULTS_KG: Record<string, number> = {
   EQUIPMENT: 250,
   PHARMACEUTICALS: 10,
   LABORATORY: 20,
+  // Added 2026-10-24 with the new commodity groups (rough, like the rest).
+  REPRODUCTIVE_HEALTH: 80,
+  NUTRITION: 400,
+  VECTOR_CONTROL: 300,
+  WASH: 200,
+  IMMUNISATION: 60,
+  KITS: 150,
+  SHELTER: 500,
+  FIELD_MEDICAL: 250,
 };
 const DEFAULT_WEIGHT_FALLBACK_KG = 30; // used if productCategory itself is unset/unrecognized
 

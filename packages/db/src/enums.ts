@@ -49,6 +49,14 @@ export const ProductCategory = {
   EQUIPMENT: "EQUIPMENT",
   PHARMACEUTICALS: "PHARMACEUTICALS",
   LABORATORY: "LABORATORY",
+  REPRODUCTIVE_HEALTH: "REPRODUCTIVE_HEALTH",
+  NUTRITION: "NUTRITION",
+  VECTOR_CONTROL: "VECTOR_CONTROL",
+  WASH: "WASH",
+  IMMUNISATION: "IMMUNISATION",
+  KITS: "KITS",
+  SHELTER: "SHELTER",
+  FIELD_MEDICAL: "FIELD_MEDICAL",
 } as const;
 export type ProductCategory = (typeof ProductCategory)[keyof typeof ProductCategory];
 

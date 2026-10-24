@@ -1,6 +1,7 @@
+import { COMMODITY_GROUPS } from "@universe/types";
 import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
-const PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 /** Added 2026-09-30, replacing the old supplierPaymentStatusPercent field —
  * see ProjectLine.supplierPaymentStatus's doc comment in schema.prisma /
  * procurement-lifecycle-benchmarking.md rec. #2. */
