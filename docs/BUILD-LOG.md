@@ -1028,3 +1028,9 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 ## 2026-10-24 — Backup policy change
 - `Universe/current/` on the LaCie drive is a complete, always-current mirror (each new source tar is extracted over it). Dated folders are snapshots and always contain the source archive, docs, the whole `infra/sql` folder and COMMIT.txt. SQL Lewis must run by hand also goes loose in the `Universe/` root.
 - Live re-scan after deploy (2026-10-24): Admin 13 pages, Tenders 20 pages, Project Management 24 pages, all clean in light and dark except one heading skip on project detail (Status History h3 to h2, fixed in the following commit). Product Database re-scan follows the same deploy.
+
+## 2026-10-24 — Tender ecosystem and organisation directory data (baseline data sets 1 and 2)
+- New seeds (both dry-run by default, idempotent, simulated, nothing deleted): `seed:demo-tender-ecosystem` (workflow "Seed demo tender ecosystem") and `seed:demo-org-profiles` (workflow "Seed demo org profiles"). Applied live the same evening.
+- Tenders: ten new simulated tenders SIM-ECO-01 to 10 across stages (new, addendum, closing soon, closed with three bids, framework, invited-only); Universe Demo gets saved searches, shortlist and approval limits. Verified live on Find tenders: 15 tenders, 9 open, eligibility chips correct.
+- Directory: profiles, countries, products, scope, certifications and sites for all 302 simulated organisations; verified live on Find suppliers (105 published organisations).
+- Coverage audit re-run: published tenders 9, supplier profiles 118, manufacturer 52, funder 13, tendering body 24, agent 125. `docs/BASELINE-READINESS.md` updated with what remains.
