@@ -4,8 +4,8 @@ import { GROUP_ITEMS } from "./_group-items";
 
 /**
  * Adds simulated catalogue products for the eight product groups added on 2026-10-24. Names, specs, HS codes, units and pack sizes
- * come from the noun-specific tables in _group-items.ts, so every product is internally coherent. Logistics and Services has no
- * products (services are not catalogue items). Shared simulated products only: sourceStandard SIM-SCALE, isSimulated true.
+ * come from the noun-specific tables in _group-items.ts, so every product is internally coherent. Logistics and Services holds
+ * packaging goods only (pallets, cases, cartons); services are not catalogue items. Shared simulated products only: sourceStandard SIM-SCALE, isSimulated true.
  *
  * Idempotent: a group that already has PER_GROUP products is skipped. RESET=true first removes this script's earlier products in
  * these groups, together with everything that hangs off them (families, registrations, documents, identifiers), found by following the

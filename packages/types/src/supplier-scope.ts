@@ -145,6 +145,9 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
  * because HS cannot tell an antibiotic from an antimalarial. Longest matching prefix wins. The EMA register supplies an ATC code per
  * medicine, so a catalogue product linked to a register entry can be placed by it. A medicine with no match here is left to the name terms.
  */
+/** Groups a catalogue product can be filed under when added by hand: every group except Pharmaceuticals, which has its own form. */
+export const PRODUCT_GROUPS_NON_PHARMA: string[] = SCOPE_TAXONOMY.map((g) => g.group).filter((g) => g !== "Pharmaceuticals");
+
 export const ATC_SCOPE: [string, string][] = [
   ["J01", "pharma-antibiotics"], ["J02", "pharma-antibiotics"],
   ["P01B", "pharma-antimalarials"],

@@ -5,14 +5,14 @@
  */
 export const COMMODITY_GROUPS = [
   "CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY",
-  "REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL",
+  "REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL", "LOGISTICS_SERVICES",
 ] as const;
 export type CommodityGroup = (typeof COMMODITY_GROUPS)[number];
 
 export const COMMODITY_GROUP_LABEL: Record<CommodityGroup, string> = {
   CONSUMABLES: "Consumables", DEVICES: "Devices", REAGENTS: "Reagents", EQUIPMENT: "Equipment", PHARMACEUTICALS: "Pharmaceuticals", LABORATORY: "Laboratory",
   REPRODUCTIVE_HEALTH: "Reproductive health", NUTRITION: "Nutrition", VECTOR_CONTROL: "Vector control", WASH: "Water, sanitation and hygiene",
-  IMMUNISATION: "Immunisation", KITS: "Kits and emergency supplies", SHELTER: "Shelter and household items", FIELD_MEDICAL: "Field and military medical",
+  IMMUNISATION: "Immunisation", KITS: "Kits and emergency supplies", SHELTER: "Shelter and household items", FIELD_MEDICAL: "Field and military medical", LOGISTICS_SERVICES: "Logistics and services (packaging)",
 };
 
 /** A readable label for a stored commodity group; an unknown value is shown as it is. */

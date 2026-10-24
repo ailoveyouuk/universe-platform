@@ -100,6 +100,7 @@ export const WEIGHT_ESTIMATE_DEFAULTS_KG: Record<string, number> = {
   KITS: 150,
   SHELTER: 500,
   FIELD_MEDICAL: 250,
+  LOGISTICS_SERVICES: 600,
 };
 const DEFAULT_WEIGHT_FALLBACK_KG = 30; // used if productCategory itself is unset/unrecognized
 

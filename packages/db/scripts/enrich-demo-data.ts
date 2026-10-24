@@ -52,6 +52,7 @@ const CATALOGUE: Record<string, CatalogueProfile> = {
   "Kits and Emergency Supplies": { hs: ["300650", "901890", "300650"], unspsc: ["42170000", "42000000", "42171600"], units: ["Kit", "Kit", "Pack of 5"] },
   "Shelter and Household Items": { hs: ["630612", "630140", "732393"], unspsc: ["30000000", "52000000", "27110000"], units: ["Each", "Bale of 10", "Set"] },
   "Field and Military Medical": { hs: ["940690", "940620", "902300"], unspsc: ["42000000", "42180000", "30000000"], units: ["Each", "Pack of 10", "Set"] },
+  "Logistics and Services": { hs: ["441520", "481910", "481920"], unspsc: ["24100000", "24100000", "24100000"], units: ["Each", "Bundle of 25", "Box of 500"] },
 };
 const FALLBACK = CATALOGUE["Medical Devices"];
 
@@ -154,6 +155,7 @@ const RECORD_PROFILES: Record<string, RecordProfile> = {
   "Kits and Emergency Supplies": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 36 }), regClass: () => "Class I (kit)", intended: (n) => `Pre-packed supplies for emergency and programme response (${n}).`, brands: ["KitReady", "RapidAid", "ReliefPack", "FieldCare"], pack: ["1 kit", "Pack of 5 kits", "Pallet of 4 kits"] },
   "Shelter and Household Items": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 120 }), regClass: () => "General goods", intended: (n) => `Emergency shelter and household needs (${n}).`, brands: ["ShelterPro", "HavenWorks", "SafeRoof", "CampReady"], pack: ["Bale of 10", "Set of 8", "Roll of 50 m"] },
   "Field and Military Medical": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 60 }), regClass: (n) => (/tourniquet|haemostatic|chest seal/.test(lc(n)) ? "Class IIa" : "Class I"), intended: (n) => `Deployed and combat casualty care (${n}).`, brands: ["FieldMed", "TacMed Systems", "Sentinel Care", "Redline Medical"], pack: ["1 unit", "Pack of 10", "Crate of 5"] },
+  "Logistics and Services": { storage: () => ({ cls: "AMBIENT", cold: false, shelf: 120 }), regClass: () => "General goods", intended: (n) => `Packaging and handling of medical consignments (${n}).`, brands: ["PackWell", "PalletPro", "ShipSafe", "CartonCo"], pack: ["Stack of 10", "Bundle of 25", "Box of 500"] },
 };
 const PHARMA: Record<string, { inn: string; strength: string; form: string }> = {
   "amoxicillin tablets": { inn: "Amoxicillin", strength: "500 mg", form: "Tablet" },

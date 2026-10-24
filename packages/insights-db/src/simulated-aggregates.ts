@@ -28,14 +28,14 @@ const monthStart = (monthsAgo: number) => {
 
 const CATEGORIES = [
   "Laboratory Consumables", "Diagnostics", "Medical Devices", "Pharmaceuticals", "Personal Protective Equipment", "Cold Chain", "Reagents", "Surgical Supplies", "Wound Care", "Imaging",
-  // Added 2026-10-24 (same names as the catalogue groups in supplier-scope.ts; "Logistics and Services" is a service group with no products).
-  "Reproductive Health", "Nutrition", "Vector Control", "Water, Sanitation and Hygiene", "Immunisation", "Kits and Emergency Supplies", "Shelter and Household Items", "Field and Military Medical",
+  // Added 2026-10-24 (same names as the catalogue groups in supplier-scope.ts; "Logistics and Services" is packaging goods only).
+  "Reproductive Health", "Nutrition", "Vector Control", "Water, Sanitation and Hygiene", "Immunisation", "Kits and Emergency Supplies", "Shelter and Household Items", "Field and Military Medical", "Logistics and Services",
 ];
 const ORIGINS = ["IN", "CN", "DE", "GB", "FR", "BE", "NL", "TR", "ZA", "KE", "VN", "BD", "PK"];
 const DESTINATIONS = ["KE", "UG", "TZ", "NG", "GH", "ZA", "ET", "MZ", "ZM", "BD", "PK", "IN"];
 const INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP"];
 const BASE_PRICE: Record<string, number> = { "Laboratory Consumables": 6, Diagnostics: 28, "Medical Devices": 85, Pharmaceuticals: 4, "Personal Protective Equipment": 9, "Cold Chain": 140, Reagents: 55, "Surgical Supplies": 22, "Wound Care": 7, Imaging: 320,
-  "Reproductive Health": 0.4, Nutrition: 1.8, "Vector Control": 3.2, "Water, Sanitation and Hygiene": 2.5, Immunisation: 1.6, "Kits and Emergency Supplies": 180, "Shelter and Household Items": 14, "Field and Military Medical": 650 };
+  "Reproductive Health": 0.4, Nutrition: 1.8, "Vector Control": 3.2, "Water, Sanitation and Hygiene": 2.5, Immunisation: 1.6, "Kits and Emergency Supplies": 180, "Shelter and Household Items": 14, "Field and Military Medical": 650, "Logistics and Services": 18 };
 
 export async function seedSimulatedAggregates() {
   const r = rng(20261017);
@@ -62,7 +62,7 @@ export async function seedSimulatedAggregates() {
   const destPool = ["KE", "UG", "TZ", "NG", "GH", "ZA", "ET", "MZ", "ZM", "BD", "PK", "IN", "MW", "ZW", "SN", "CM", "CD", "RW", "SS", "SD", "NP", "MM", "KH", "HT", "YE", "AF", "SL", "LR", "ML", "BF"].filter((c) => byCode.has(c));
   const GROUPS = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"];
   // Eight commodity groups added 2026-10-24; they get their own top-up lanes (below) so the original rows stay as they are.
-  const NEW_GROUPS = ["REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL"];
+  const NEW_GROUPS = ["REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL", "LOGISTICS_SERVICES"];
   const LANE_INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP", "FOB"];
   const haveLogistics = new Set((await insightsPrisma.aggregatedLogisticsMetric.groupBy({ by: ["commodityGroup"], where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })).map((g) => g.commodityGroup));
   const seededLogistics = (await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })) >= SEEDED_THRESHOLD;

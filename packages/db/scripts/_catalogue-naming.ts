@@ -26,5 +26,5 @@ export function imagingHs(name: string): string | null {
   return null;
 }
 
-// Groups added on 2026-10-24 take their nouns and specs from the noun-specific item tables (Logistics and Services has no products).
+// Groups added on 2026-10-24 take their nouns and specs from the noun-specific item tables (Logistics and Services holds packaging goods only; services are not catalogue items).
 for (const [group, items] of Object.entries(GROUP_ITEMS)) NAMING[group] = { nouns: items.map((i) => i.noun), specs: [...new Set(items.flatMap((i) => [...i.a, ...i.b]))] };

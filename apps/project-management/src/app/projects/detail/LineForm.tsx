@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS } from "@universe/types";
+import { PRODUCT_GROUPS_NON_PHARMA, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { RegisterStrip } from "../../../components/RegisterStrip";
@@ -10,8 +10,8 @@ import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { apiClient } from "../../../lib/apiClient";
 
-// The six original groups stay the ones offered when creating a catalogue product here; the line itself can use every commodity group.
-const NEW_PRODUCT_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "PHARMACEUTICALS", "LABORATORY"] as const;
+// A new catalogue product here is filed under one of the catalogue groups (the commodity group on the line is a coarser tag and is not the product category).
+const NEW_PRODUCT_CATEGORIES = PRODUCT_GROUPS_NON_PHARMA;
 const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 const PAYMENT_STATUSES = ["NOT_STARTED", "PARTIALLY_PAID", "PAID", "OVERDUE"] as const;
 const QUALIFICATION_PATHWAYS = ["WHO_PQ", "SRA", "ERP", "ISO13485", "ISO9001", "WHOPES", "GHTF", "OTHER"] as const;
@@ -475,7 +475,6 @@ export function LineForm({
               <div style={{ marginTop: 10 }}>
                 <ProductCreateForm
                   initialName={newProductName}
-                  defaultCategory={form.productCategory ?? undefined}
                   categoryOptions={[...NEW_PRODUCT_CATEGORIES]}
                   onCreated={(p) => { handleSelectProduct(p); setShowCreateProduct(false); }}
                   onUseExisting={async (id) => { const d = await apiClient.getProductCatalogEntry(id); handleSelectProduct({ id: d.id, name: d.name, category: d.category, hasPendingAmendment: d.hasPendingAmendment }); setShowCreateProduct(false); }}

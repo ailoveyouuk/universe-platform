@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ProductCatalogMatch } from "@universe/types";
+import { PRODUCT_GROUPS_NON_PHARMA, type ProductCatalogMatch } from "@universe/types";
 import { Button } from "@universe/ui";
 import { PRODUCT_DATABASE_URL, ProductCreateForm } from "../../../components/ProductCreateForm";
 
-const NON_PHARMA_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "LABORATORY"];
+const NON_PHARMA_CATEGORIES = PRODUCT_GROUPS_NON_PHARMA;
 
 /**
  * Add Product — reached from the landing page's "+ Add Product" button. Writes to the shared, central catalogue

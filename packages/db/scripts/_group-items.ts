@@ -82,6 +82,14 @@ export const GROUP_ITEMS: Record<string, GroupItem[]> = {
     { noun: "trauma simulator", a: ["adult manikin", "paediatric manikin"], b: ["with wounds", "basic"], hs: "902300", unspsc: "42000000", unit: "Each", pack: ["1 unit"] },
     { noun: "evacuation litter", a: ["poleless", "with poles"], b: ["4 handle", "6 handle"], hs: "940290", unspsc: "42000000", unit: "Each", pack: ["1 unit", "Carton of 5"] },
   ],
+  // Physical packaging and handling goods only: freight, warehousing, servicing and testing are services, not catalogue products.
+  "Logistics and Services": [
+    { noun: "wooden pallet", a: ["EUR 1200 x 800 mm", "ISPM 15 heat-treated 1200 x 1000 mm"], b: ["four-way entry", "two-way entry"], hs: "441520", unspsc: "24100000", unit: "Each", pack: ["Stack of 10", "Stack of 20"] },
+    { noun: "plywood packing case", a: ["600 x 400 x 400 mm", "1200 x 800 x 800 mm"], b: ["nailed", "hinged lid"], hs: "441510", unspsc: "24100000", unit: "Each", pack: ["Bundle of 10"] },
+    { noun: "corrugated shipping carton", a: ["double wall 600 x 400 x 400 mm", "triple wall 800 x 600 x 600 mm"], b: ["flat-packed", "printed fragile marking"], hs: "481910", unspsc: "24100000", unit: "Each", pack: ["Bundle of 25", "Bundle of 50"] },
+    { noun: "folding carton", a: ["small 100 x 60 x 40 mm", "medium 200 x 120 x 80 mm"], b: ["plain white", "printed"], hs: "481920", unspsc: "24100000", unit: "Each", pack: ["Box of 500", "Box of 1000"] },
+    { noun: "paper shipping sack", a: ["multiwall 25 kg", "multiwall 50 kg"], b: ["valve", "open mouth"], hs: "481930", unspsc: "24100000", unit: "Each", pack: ["Bale of 500"] },
+  ],
 };
 
 export const itemFor = (category: string, noun: string): GroupItem | undefined => GROUP_ITEMS[category.split(".")[0]]?.find((i) => i.noun === noun);

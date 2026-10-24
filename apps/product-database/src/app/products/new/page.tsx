@@ -2,11 +2,11 @@
 
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { UNIT_OPTIONS, type CreateProductMasterInput } from "@universe/types";
+import { PRODUCT_GROUPS_NON_PHARMA, UNIT_OPTIONS, type CreateProductMasterInput } from "@universe/types";
 import { Button, Select, UnitSelect } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 
-const NON_PHARMA_CATEGORIES = ["CONSUMABLES", "DEVICES", "REAGENTS", "EQUIPMENT", "LABORATORY"] as const;
+const NON_PHARMA_CATEGORIES = PRODUCT_GROUPS_NON_PHARMA;
 
 /**
  * Add Product — replicated 2026-10-14 from Project Management's
@@ -140,7 +140,7 @@ export default function AddProductPage() {
                 <Select
                   value={category}
                   onChange={setCategory}
-                  options={NON_PHARMA_CATEGORIES.map((c) => ({ value: c, label: c.replace(/_/g, " ") }))}
+                  options={NON_PHARMA_CATEGORIES.map((c) => ({ value: c, label: c }))}
                   allLabel="Select a category"
                   ariaLabel="Product category"
                 />

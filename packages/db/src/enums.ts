@@ -57,6 +57,7 @@ export const ProductCategory = {
   KITS: "KITS",
   SHELTER: "SHELTER",
   FIELD_MEDICAL: "FIELD_MEDICAL",
+  LOGISTICS_SERVICES: "LOGISTICS_SERVICES",
 } as const;
 export type ProductCategory = (typeof ProductCategory)[keyof typeof ProductCategory];
 

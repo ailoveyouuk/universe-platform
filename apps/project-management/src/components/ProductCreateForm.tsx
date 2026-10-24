@@ -155,7 +155,7 @@ export function ProductCreateForm({
             {lockedCategory ? <input style={inputStyle} value={lockedCategory} disabled /> : (
               <select className="u-native-select" style={inputStyle} value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option value="">Select a category</option>
-                {(categoryOptions ?? []).map((c) => <option key={c} value={c}>{c.replace(/_/g, " ")}</option>)}
+                {(categoryOptions ?? []).map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             )}
           </label>
