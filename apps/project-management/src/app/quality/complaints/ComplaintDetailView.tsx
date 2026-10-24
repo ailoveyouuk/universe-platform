@@ -166,7 +166,7 @@ export function ComplaintDetailView({ id }: { id: string }) {
         {c.attachments.map((a) => (
           <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border)", flexWrap: "wrap", fontSize: 14 }}>
             <div style={{ flex: 1, minWidth: 220 }}>
-              <button type="button" onClick={async () => { try { const { downloadUrl } = await apiClient.getStandaloneDocumentDownloadUrl(a.documentId); window.open(downloadUrl, "_blank", "noopener"); } catch { setErr("Could not open that file."); } }} style={{ background: "none", border: 0, padding: 0, color: "var(--u-brand, #4A2E8C)", cursor: "pointer", font: "inherit", textAlign: "left" }}>{a.fileName ?? a.title}</button>
+              <button type="button" onClick={async () => { try { const { downloadUrl } = await apiClient.getStandaloneDocumentDownloadUrl(a.documentId); window.open(downloadUrl, "_blank", "noopener"); } catch { setErr("Could not open that file."); } }} style={{ background: "none", border: 0, padding: 0, color: "var(--u-brand-violet)", cursor: "pointer", font: "inherit", textAlign: "left" }}>{a.fileName ?? a.title}</button>
               {a.note && <div style={{ ...muted, fontSize: 12.5 }}>{a.note}</div>}
               <div style={{ ...muted, fontSize: 12 }}>{a.addedByName ?? "—"} · {fmtDateTime(a.createdAt)}{a.fileSizeBytes ? ` · ${a.fileSizeBytes >= 1048576 ? (a.fileSizeBytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(a.fileSizeBytes / 1024)) + " KB"}` : ""}</div>
             </div>
@@ -223,7 +223,7 @@ function NextStep({ c, busy, userOpts, stage }: { c: ComplaintDetail; busy: bool
 function ReasonButton({ label: text, busy, onGo }: { label: string; busy: boolean; onGo: (reason: string) => void }) {
   const [open, setOpen] = useState(false); const [r, setR] = useState("");
   if (!open) return <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{text}</Button>;
-  return <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><input autoFocus value={r} onChange={(e) => setR(e.target.value)} placeholder="Reason (recorded)" style={{ ...inputStyle, width: 280 }} /><Button size="sm" variant="primary" disabled={busy || !r.trim()} onClick={() => { onGo(r.trim()); setOpen(false); setR(""); }}>{text}</Button><Button size="sm" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button></div>;
+  return <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><input autoFocus value={r} onChange={(e) => setR(e.target.value)} placeholder="Reason (recorded)" aria-label="Reason (recorded)" style={{ ...inputStyle, width: 280 }} /><Button size="sm" variant="primary" disabled={busy || !r.trim()} onClick={() => { onGo(r.trim()); setOpen(false); setR(""); }}>{text}</Button><Button size="sm" variant="secondary" onClick={() => setOpen(false)}>Cancel</Button></div>;
 }
 
 function TriageForm({ c, busy, userOpts, onSave }: { c: ComplaintDetail; busy: boolean; userOpts: { value: string; label: string }[]; onSave: (b: object) => void }) {
@@ -313,12 +313,12 @@ function RegulatorForm({ busy, onSave }: { busy: boolean; onSave: (b: object) =>
 
 function PartnerResponseForm({ busy, onSave }: { busy: boolean; onSave: (t: string) => void }) {
   const [t, setT] = useState("");
-  return <div><textarea value={t} onChange={(e) => setT(e.target.value)} placeholder="Record what the partner said" style={{ ...inputStyle, minHeight: 56, marginBottom: 8 }} /><Button size="sm" variant="secondary" disabled={busy || !t.trim()} onClick={() => { onSave(t.trim()); setT(""); }}>Record response</Button></div>;
+  return <div><textarea value={t} onChange={(e) => setT(e.target.value)} placeholder="Record what the partner said" aria-label="Record what the partner said" style={{ ...inputStyle, minHeight: 56, marginBottom: 8 }} /><Button size="sm" variant="secondary" disabled={busy || !t.trim()} onClick={() => { onSave(t.trim()); setT(""); }}>Record response</Button></div>;
 }
 
 function EffectivenessForm({ busy, onSave }: { busy: boolean; onSave: (t: string) => void }) {
   const [t, setT] = useState("");
-  return <div style={{ marginTop: 8 }}><textarea value={t} onChange={(e) => setT(e.target.value)} placeholder="Did the fix work? What did you check?" style={{ ...inputStyle, minHeight: 56, marginBottom: 8 }} /><Button size="sm" variant="primary" disabled={busy || !t.trim()} onClick={() => onSave(t.trim())}>Record effectiveness check</Button></div>;
+  return <div style={{ marginTop: 8 }}><textarea value={t} onChange={(e) => setT(e.target.value)} placeholder="Did the fix work? What did you check?" aria-label="Did the fix work? What did you check?" style={{ ...inputStyle, minHeight: 56, marginBottom: 8 }} /><Button size="sm" variant="primary" disabled={busy || !t.trim()} onClick={() => onSave(t.trim())}>Record effectiveness check</Button></div>;
 }
 
 function ActionForm({ busy, userOpts, onSave }: { busy: boolean; userOpts: { value: string; label: string }[]; onSave: (b: object) => void }) {
@@ -330,7 +330,7 @@ function ActionForm({ busy, userOpts, onSave }: { busy: boolean; userOpts: { val
         <Field label="Owner"><Select value={owner} onChange={setOwner} options={userOpts} allLabel="Choose…" ariaLabel="Owner" /></Field>
         <Field label="Due"><input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={inputStyle} /></Field>
       </div>
-      <Field label="Action"><input value={d} onChange={(e) => setD(e.target.value)} style={inputStyle} placeholder="What must be done" /></Field>
+      <Field label="Action"><input value={d} onChange={(e) => setD(e.target.value)} style={inputStyle} placeholder="What must be done" aria-label="What must be done" /></Field>
       <Button size="sm" variant="secondary" disabled={busy || !d.trim() || !owner || !due} onClick={() => { onSave({ type, description: d.trim(), ownerId: owner, dueDate: new Date(due).toISOString() }); setD(""); setDue(""); }}>Add action</Button>
     </div>
   );
@@ -363,7 +363,7 @@ function NoteForm({ busy, onSave }: { busy: boolean; onSave: (b: object) => void
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
       <Select value={kind} onChange={setKind} options={[{ value: "NOTE", label: "Note" }, { value: "COMMUNICATION_OUT", label: "Sent to them" }, { value: "COMMUNICATION_IN", label: "Received from them" }]} ariaLabel="Entry type" />
-      <input value={t} onChange={(e) => setT(e.target.value)} placeholder="Add to the timeline…" style={{ ...inputStyle, flex: 1, minWidth: 220 }} maxLength={500} />
+      <input value={t} onChange={(e) => setT(e.target.value)} placeholder="Add to the timeline…" aria-label="Add to the timeline…" style={{ ...inputStyle, flex: 1, minWidth: 220 }} maxLength={500} />
       <Button size="sm" variant="secondary" disabled={busy || !t.trim()} onClick={() => { onSave({ kind, summary: t.trim() }); setT(""); }}>Add</Button>
     </div>
   );

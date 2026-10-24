@@ -89,7 +89,7 @@ function ComplaintList() {
       {showNew && <NewComplaintForm onDone={() => { setShowNew(false); load(); }} onCancel={() => setShowNew(false)} />}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search reference, title, stakeholder, batch…" style={{ ...inputStyle, maxWidth: 320 }} />
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search reference, title, stakeholder, batch…" aria-label="Search reference, title, stakeholder, batch…" style={{ ...inputStyle, maxWidth: 320 }} />
         <Select value={status} onChange={(v) => { setStatus(v); setPage(0); }} options={toOptions(COMPLAINT_STATUSES)} allLabel="Any status" ariaLabel="Status" />
         <Select value={direction} onChange={(v) => { setDirection(v); setPage(0); }} options={COMPLAINT_DIRECTIONS.map((d) => ({ value: d, label: DIRECTION_LABEL[d] }))} allLabel="Both directions" ariaLabel="Direction" />
         <Select value={severity} onChange={(v) => { setSeverity(v); setPage(0); }} options={toOptions(COMPLAINT_SEVERITIES)} allLabel="Any severity" ariaLabel="Severity" />
@@ -188,7 +188,7 @@ function NewComplaintForm({ onDone, onCancel }: { onDone: () => void; onCancel: 
         </Field>
         <Field label="Project"><Select value={projectId} onChange={setProjectId} options={projects.map((p) => ({ value: p.id, label: `${p.referenceNumber} · ${p.title}` }))} allLabel="Not linked" ariaLabel="Project" /></Field>
         <Field label="Batch" hint={batch ? `Linked to ${batch.batchNumber}` : "Type a batch number to search"}>
-          <input value={batchQ} onChange={(e) => setBatchQ(e.target.value)} style={inputStyle} placeholder="Batch number" />
+          <input value={batchQ} onChange={(e) => setBatchQ(e.target.value)} style={inputStyle} placeholder="Batch number" aria-label="Batch number" />
           {batchHits.length > 0 && <div style={{ border: "1px solid var(--u-border)", borderRadius: 8, marginTop: 4 }}>{batchHits.map((b) => <div key={b.id} role="button" tabIndex={0} onClick={() => { setBatch(b); setBatchQ(b.batchNumber); setBatchHits([]); }} onKeyDown={(e) => e.key === "Enter" && (setBatch(b), setBatchQ(b.batchNumber), setBatchHits([]))} style={{ padding: "6px 10px", cursor: "pointer" }}>{b.batchNumber}</div>)}</div>}
         </Field>
       </div>

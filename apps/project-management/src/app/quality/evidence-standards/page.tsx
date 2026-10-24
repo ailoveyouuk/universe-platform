@@ -275,7 +275,7 @@ function StandardForm({
 
       <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
         Name
-        <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. GDP Wholesale Dealer's Authorisation" />
+        <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. GDP Wholesale Dealer's Authorisation" aria-label="e.g. GDP Wholesale Dealer's Authorisation" />
       </label>
 
       <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>

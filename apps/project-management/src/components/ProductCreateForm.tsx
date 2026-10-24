@@ -108,7 +108,7 @@ export function ProductCreateForm({
 
   const label = (t: string, opt = false) => (<span>{t}{opt && <span style={{ color: "var(--u-ink-secondary)", fontWeight: 400 }}> (optional)</span>}</span>);
   const tab = (m: typeof mode, t: string) => (
-    <button type="button" onClick={() => { setMode(m); setError(null); }} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRadius: 6, border: "1px solid var(--u-border)", background: mode === m ? "var(--u-brand-violet)" : "transparent", color: mode === m ? "#fff" : "var(--u-ink)" }}>{t}</button>
+    <button type="button" onClick={() => { setMode(m); setError(null); }} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer", borderRadius: 6, border: "1px solid var(--u-border)", background: mode === m ? "var(--u-brand-violet)" : "transparent", color: mode === m ? "var(--u-brand-violet-on)" : "var(--u-ink)" }}>{t}</button>
   );
 
   return (
@@ -142,11 +142,11 @@ export function ProductCreateForm({
           ) : null}
         </div>
       )}
-      {mode === "newFamily" && <label>{label("Family name (generic product)")}<input style={inputStyle} value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} placeholder="e.g. Amoxicillin capsules" /></label>}
+      {mode === "newFamily" && <label>{label("Family name (generic product)")}<input style={inputStyle} value={newFamilyName} onChange={(e) => setNewFamilyName(e.target.value)} placeholder="e.g. Amoxicillin capsules" aria-label="e.g. Amoxicillin capsules" /></label>}
       {mode === "standalone" && <label>{label("Product name")}<input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} /></label>}
 
       {mode !== "standalone" && (
-        <label>{label("Variant label")}<input style={inputStyle} value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} placeholder="e.g. 500 mg, 20 tablets" /></label>
+        <label>{label("Variant label")}<input style={inputStyle} value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} placeholder="e.g. 500 mg, 20 tablets" aria-label="e.g. 500 mg, 20 tablets" /></label>
       )}
 
       {!family && (
@@ -168,7 +168,7 @@ export function ProductCreateForm({
         <label>{label("Generic name (INN)", true)}<input style={inputStyle} value={inn} onChange={(e) => setInn(e.target.value)} /></label>
         <label>{label("Strength", true)}<input style={inputStyle} value={strength} onChange={(e) => setStrength(e.target.value)} /></label>
         <label>{label("Dosage form", true)}<input style={inputStyle} value={dosageForm} onChange={(e) => setDosageForm(e.target.value)} /></label>
-        <label>{label("Pack size", true)}<input style={inputStyle} value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="e.g. 20 tablets" /></label>
+        <label>{label("Pack size", true)}<input style={inputStyle} value={packSize} onChange={(e) => setPackSize(e.target.value)} placeholder="e.g. 20 tablets" aria-label="e.g. 20 tablets" /></label>
         <label>{label("Standard unit", true)}<input style={inputStyle} value={standardUnit} onChange={(e) => setStandardUnit(e.target.value)} /></label>
       </div>
 
@@ -197,7 +197,7 @@ export function ProductCreateForm({
         <label>{label("UNSPSC code", true)}<input style={inputStyle} value={unspscCode} onChange={(e) => setUnspscCode(e.target.value)} /></label>
         <label>{label("Manufacturer part number", true)}<input style={inputStyle} value={mpn} onChange={(e) => setMpn(e.target.value)} /></label>
       </div>
-      <label>{label("Expected quality documentation", true)}<textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={docs} onChange={(e) => setDocs(e.target.value)} placeholder="e.g. WHO PQ listing, GMP certificate, Certificate of Analysis, ISO 13485" /></label>
+      <label>{label("Expected quality documentation", true)}<textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={docs} onChange={(e) => setDocs(e.target.value)} placeholder="e.g. WHO PQ listing, GMP certificate, Certificate of Analysis, ISO 13485" aria-label="e.g. WHO PQ listing, GMP certificate, Certificate of Analysis, ISO 13485" /></label>
       <label>{label("Contributor shown to other organisations", true)}
         <select className="u-native-select" style={inputStyle} value={contributor} onChange={(e) => setContributor(e.target.value as "" | "show" | "hide")}>
           <option value="">Follow my organisation&rsquo;s setting (anonymous unless you share with Universe)</option>

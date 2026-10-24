@@ -221,7 +221,7 @@ export function ProductPicker({
       {scope && onScopeChange && !selectedId && (
         <div role="group" aria-label="Product source" style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
           {([["ALL", "All"], ["APPROVED", `Approved by ${orgName ?? "us"}`], ["CATALOGUE", "Universe catalogue"]] as const).map(([v, l]) => (
-            <button key={v} type="button" onClick={() => onScopeChange(v)} style={{ padding: "3px 9px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, border: "1px solid var(--u-border)", background: scope === v ? "var(--u-brand-violet)" : "transparent", color: scope === v ? "#fff" : "var(--u-ink)" }}>{l}</button>
+            <button key={v} type="button" onClick={() => onScopeChange(v)} style={{ padding: "3px 9px", fontSize: 11.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, border: "1px solid var(--u-border)", background: scope === v ? "var(--u-brand-violet)" : "transparent", color: scope === v ? "var(--u-brand-violet-on)" : "var(--u-ink)" }}>{l}</button>
           ))}
         </div>
       )}

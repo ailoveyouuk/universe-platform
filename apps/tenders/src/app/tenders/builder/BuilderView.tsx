@@ -129,7 +129,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
     <Card title="Overview">
       <ErrorNote message={s.err} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 16, marginTop: s.err ? 12 : 0 }}>
-        <Field label="Title" wide><input style={inputStyle} value={f.title} onChange={(e) => set("title", e.target.value)} maxLength={300} placeholder="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" /></Field>
+        <Field label="Title" wide><input style={inputStyle} value={f.title} onChange={(e) => set("title", e.target.value)} maxLength={300} placeholder="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" aria-label="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" /></Field>
         <Field label="Summary" wide hint="What you are buying and why. Organisations read this before opting in."><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
         <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))} /></Field>
         {f.tenderType === "FRAMEWORK" && <>
@@ -269,7 +269,7 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
         {rows.map((r, i) => (
           <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12, position: "relative" }}>
             <Field label={r.kind === "GATE" ? "Gate" : r.metric === "MANUAL" ? "Criterion scored by evaluators" : r.metric === "PRICE" ? "Price (calculated)" : r.metric === "PAST_PERFORMANCE" ? "Past performance (calculated)" : "Lead time (calculated)"} wide>
-              <input style={inputStyle} value={r.title} readOnly={r.metric !== "MANUAL"} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} />
+              <input style={inputStyle} value={r.title} readOnly={r.metric !== "MANUAL"} onChange={(e) => upd(i, { title: e.target.value })} placeholder={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} aria-label={r.kind === "GATE" ? "e.g. Valid WHO prequalification" : "e.g. Sustainability"} />
             </Field>
             {r.kind === "SCORED" && <Field label="Weight (%)"><input type="number" min={0} max={100} step={0.5} style={inputStyle} value={r.weight ?? ""} onChange={(e) => setRows((x) => withWeight(x, i, e.target.value === "" ? 0 : Number(e.target.value)))} /></Field>}
             {r.metric === "MANUAL" && <Field label="Bidders respond by"><Select value={r.responseFormat} onChange={(v) => upd(i, { responseFormat: v as TenderCriterionRecord["responseFormat"] })} options={[{ value: "EITHER", label: "Upload or typed answer" }, { value: "UPLOAD", label: "Upload only" }, { value: "TEXT", label: "Typed answer only" }]} /></Field>}
@@ -316,7 +316,7 @@ function Eligibility({ detail, onSaved }: { detail: TenderDetailForIssuer; onSav
             <strong style={{ fontSize: 13.5 }}>{RULE_LABEL[r.ruleType]}</strong>
             {r.ruleType === "ORG_TYPE" && <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{["MANUFACTURER", "SUPPLIER", "PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY"].map((t) => <label key={t} style={{ display: "flex", gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={r.ruleValue.split(",").includes(t)} onChange={() => toggle(i, t)} />{ORG_TYPE_LABEL[t]}</label>)}</div>}
             {r.ruleType === "COUNTRY" && <CountryMultiSelect value={r.ruleValue.split(",").filter(Boolean)} onChange={(c) => upd(i, { ruleValue: c.join(",") })} options={countries} />}
-            {r.ruleType === "CATEGORY" && <input style={inputStyle} value={r.ruleValue} onChange={(e) => upd(i, { ruleValue: e.target.value })} placeholder="e.g. Pharmaceuticals or Pharmaceuticals.Antimalarials (comma separated)" />}
+            {r.ruleType === "CATEGORY" && <input style={inputStyle} value={r.ruleValue} onChange={(e) => upd(i, { ruleValue: e.target.value })} placeholder="e.g. Pharmaceuticals or Pharmaceuticals.Antimalarials (comma separated)" aria-label="e.g. Pharmaceuticals or Pharmaceuticals.Antimalarials (comma separated)" />}
             {r.ruleType === "QUALIFICATION" && <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>{QUALIFICATIONS.map((q) => <label key={q.value} style={{ display: "flex", gap: 6, fontSize: 13.5 }}><input type="checkbox" checked={r.ruleValue.split(",").includes(q.value)} onChange={() => toggle(i, q.value)} />{q.label}</label>)}</div>}
             {r.ruleType === "MIN_SUPPLIER_RATING" && (
               <div style={{ display: "grid", gap: 8 }}>
@@ -350,7 +350,7 @@ export function Invitations({ detail, onSaved }: { detail: TenderDetailForIssuer
     <Card title="Invitations">
       <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5, lineHeight: 1.5 }}>Invited organisations are told when you publish and can bid even if they do not meet the eligibility rules. An invited-only tender is visible to nobody else.</p>
       <ErrorNote message={s.err} />
-      <Field label="Find a registered organisation"><input style={inputStyle} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type at least two letters" /></Field>
+      <Field label="Find a registered organisation"><input style={inputStyle} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Type at least two letters" aria-label="Type at least two letters" /></Field>
       {hits.length > 0 && <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)" }}>
         {hits.filter((h) => !invitedIds.has(h.id) && !chosen.some((c) => c.id === h.id)).map((h) => (
           <li key={h.id}><button type="button" onClick={() => { setChosen((c) => [...c, h]); setQ(""); setHits([]); }} style={{ width: "100%", textAlign: "left", padding: "8px 12px", border: "none", background: "none", cursor: "pointer", font: "inherit", color: "var(--u-ink)" }}>{h.name} <span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{ORG_TYPE_LABEL[h.type] ?? h.type}</span></button></li>))}

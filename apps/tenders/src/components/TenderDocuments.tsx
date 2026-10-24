@@ -94,7 +94,7 @@ export function DocumentsPanel({ tenderId, documents, published, onChanged }: { 
           Uploading a new version keeps the old one as history so bidders can see what changed. PDF, Office, CSV, text, image, DWG and ZIP files up to 50 MB.
         </p>
         <div style={{ display: "grid", gap: 10 }}>
-          {!replacing && <Field label="Title"><input style={inputStyle} value={f.title} maxLength={300} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Technical specification" /></Field>}
+          {!replacing && <Field label="Title"><input style={inputStyle} value={f.title} maxLength={300} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Technical specification" aria-label="Technical specification" /></Field>}
           {!replacing && <Field label="Type"><Select ariaLabel="Document type" value={f.docType} onChange={(v) => setF({ ...f, docType: v })} options={Object.entries(TENDER_DOC_TYPE_LABELS).map(([value, label]) => ({ value, label }))} /></Field>}
           <Field label={replacing ? "What changed (optional)" : "Description (optional)"}><input style={inputStyle} value={f.description} maxLength={1000} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
           <Field label="File"><input ref={fileRef} type="file" style={inputStyle} /></Field>

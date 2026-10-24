@@ -898,7 +898,7 @@ export default function NewPartnerPage() {
             </fieldset>
             <label>
               Payment Terms
-              <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" />
+              <input style={inputStyle} value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} placeholder="e.g. Net 30" aria-label="e.g. Net 30" />
             </label>
             <div>
               <span style={{ display: "block", marginBottom: 6, fontSize: 13.5, color: "var(--u-ink)" }}>
@@ -1359,7 +1359,7 @@ export default function NewPartnerPage() {
               </label>
               <label>
                 Currency
-                <input style={inputStyle} value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)} placeholder="e.g. GBP" />
+                <input style={inputStyle} value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value)} placeholder="e.g. GBP" aria-label="e.g. GBP" />
               </label>
             </div>
             <label>

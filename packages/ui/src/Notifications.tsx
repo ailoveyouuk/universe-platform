@@ -107,7 +107,7 @@ export function NotificationRow({
             {text}
           </Link>
         ) : (
-          <div onClick={() => onOpen?.(n)}>{text}</div>
+          <button type="button" onClick={() => onOpen?.(n)} style={{ display: "block", width: "100%", textAlign: "left", border: "none", background: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}>{text}</button>
         )}
       </div>
     </li>
@@ -310,7 +310,7 @@ export function NotificationsView({ api, LinkComponent }: { api: NotificationsAp
   }
 
   return (
-    <main style={{ padding: "24px clamp(16px, 4vw, 32px)", maxWidth: 820 }}>
+    <div style={{ padding: "24px clamp(16px, 4vw, 32px)", maxWidth: 820 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Notifications &amp; actions</h1>
         <button type="button" onClick={() => api.markAllNotificationsRead().then(load)} style={{ border: "1px solid var(--u-border)", background: "var(--u-surface)", borderRadius: "var(--u-radius-md)", padding: "7px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
@@ -343,6 +343,6 @@ export function NotificationsView({ api, LinkComponent }: { api: NotificationsAp
           </ul>
         </section>
       ))}
-    </main>
+    </div>
   );
 }

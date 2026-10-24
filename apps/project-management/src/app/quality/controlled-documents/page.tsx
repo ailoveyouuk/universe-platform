@@ -260,7 +260,7 @@ function DocumentForm({
         </label>
         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)" }}>
           Version
-          <input style={inputStyle} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. 2.0" />
+          <input style={inputStyle} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="e.g. 2.0" aria-label="e.g. 2.0" />
         </label>
       </div>
       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)", display: "block", marginTop: 10, maxWidth: 240 }}>

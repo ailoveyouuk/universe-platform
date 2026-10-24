@@ -75,5 +75,5 @@ export default function SupplierHomePage() {
 }
 
 function chip(active: boolean): React.CSSProperties {
-  return { border: "1px solid var(--u-border)", borderRadius: 999, padding: "4px 12px", fontSize: 13, cursor: "pointer", background: active ? "var(--u-brand-violet)" : "var(--u-surface)", color: active ? "#fff" : "var(--u-ink)" };
+  return { border: "1px solid var(--u-border)", borderRadius: 999, padding: "4px 12px", fontSize: 13, cursor: "pointer", background: active ? "var(--u-brand-violet)" : "var(--u-surface)", color: active ? "var(--u-brand-violet-on)" : "var(--u-ink)" };
 }

@@ -289,7 +289,7 @@ function AddTemperatureLogForm({ batchId, onSaved }: { batchId: string; onSaved:
         </label>
         <label style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>
           Reading summary
-          <input style={inputStyle} value={readingSummary} onChange={(e) => setReadingSummary(e.target.value)} placeholder="e.g. 2–8°C maintained throughout transit" />
+          <input style={inputStyle} value={readingSummary} onChange={(e) => setReadingSummary(e.target.value)} placeholder="e.g. 2–8°C maintained throughout transit" aria-label="e.g. 2–8°C maintained throughout transit" />
         </label>
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--u-ink)" }}>

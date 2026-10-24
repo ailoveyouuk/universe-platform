@@ -663,7 +663,7 @@ export function DemoAccessSection({ organizationId }: { organizationId: string }
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 12 }}>
         <div style={{ minWidth: 280 }}>
           <Field label="Email address">
-            <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" />
+            <input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" aria-label="name@example.org" />
           </Field>
         </div>
         <Button

@@ -54,7 +54,7 @@ export function ScorecardSettingsPanel() {
           <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "8px 0" }}>Platform defaults: {SCORECARD_THRESHOLDS.basis}. Public holidays are not counted.</p>
           {s.canEdit ? (
             <>
-              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for the change (optional, recorded)" style={{ ...inputStyle, width: "100%", maxWidth: 420, marginBottom: 10, display: "block" }} />
+              <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for the change (optional, recorded)" aria-label="Reason for the change (optional, recorded)" style={{ ...inputStyle, width: "100%", maxWidth: 420, marginBottom: 10, display: "block" }} />
               {err && <div role="alert" style={{ color: "var(--u-status-critical-text)", fontSize: 13, marginBottom: 8 }}>{err}</div>}
               <div style={{ display: "flex", gap: 10 }}>
                 <Button size="sm" variant="primary" disabled={busy} onClick={save}>Save</Button>

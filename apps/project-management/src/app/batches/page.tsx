@@ -330,7 +330,7 @@ function NewBatchForm({ onCreated, onCancel }: { onCreated: () => void; onCancel
 
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
           Storage conditions
-          <input style={inputStyle} value={storageConditions} onChange={(e) => setStorageConditions(e.target.value)} placeholder="e.g. 2–8°C" />
+          <input style={inputStyle} value={storageConditions} onChange={(e) => setStorageConditions(e.target.value)} placeholder="e.g. 2–8°C" aria-label="e.g. 2–8°C" />
         </label>
       </div>
 

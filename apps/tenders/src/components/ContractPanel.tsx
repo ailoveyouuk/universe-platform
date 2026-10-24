@@ -131,7 +131,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
           ))}
           {awaiting && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginTop: 6 }}>
-              <div style={{ flex: "1 1 160px" }}><Field label={`Signatory for ${issuer ? "your organisation" : "your organisation"}`}><input style={inputStyle} value={sg.signerName} maxLength={200} onChange={(e) => setSg({ ...sg, signerName: e.target.value })} placeholder="Full name" /></Field></div>
+              <div style={{ flex: "1 1 160px" }}><Field label={`Signatory for ${issuer ? "your organisation" : "your organisation"}`}><input style={inputStyle} value={sg.signerName} maxLength={200} onChange={(e) => setSg({ ...sg, signerName: e.target.value })} placeholder="Full name" aria-label="Full name" /></Field></div>
               <div style={{ flex: "1 1 140px" }}><Field label="Role"><input style={inputStyle} value={sg.signerRole} maxLength={200} onChange={(e) => setSg({ ...sg, signerRole: e.target.value })} /></Field></div>
               <div><Field label="Signed on"><input type="date" style={inputStyle} value={sg.signedOn} onChange={(e) => setSg({ ...sg, signedOn: e.target.value })} /></Field></div>
               <Button variant="secondary" disabled={busy || !sg.signerName.trim() || !sg.signedOn} onClick={async () => { if (await act(() => apiClient.addContractSignatory(c.id, { signerName: sg.signerName, signerRole: sg.signerRole || undefined, signedOn: iso(sg.signedOn)! }))) setSg({ ...sg, signerName: "", signerRole: "" }); }}>Record signatory</Button>
