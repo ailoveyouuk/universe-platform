@@ -1012,3 +1012,18 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - `packages/ui/src/theme.ts` holds the logic; an inline script in each app's `<head>` sets `data-theme` before first paint (no flash). Pages only ever carry `data-theme="light"` or `"dark"`, which `tokens.css` reads.
 - Verified live on Project Management: Light, Dark and Device each apply and persist across pages and reloads; Device resolves to dark on a dark-mode computer and to light when the OS reports light (simulated); menu closes on Escape. A real OS-setting change while the page is open was not exercised (the listener is standard `matchMedia` change handling). Commit 6b41fa0.
 - Preference is per browser, not per account; a per-account setting would need a user-profile field (not built).
+
+## 2026-10-24 — Accessibility is now the standard for all building; platform-wide scan
+- Standard: `docs/ACCESSIBILITY-STANDARD.md` (12 rules, enforcement, definition of done); `CLAUDE.md` at repo root makes it a standing requirement, with the BUILD-LOG and backup rules.
+- Enforcement: `scripts/a11y-lint.mjs` runs in CI ("Accessibility lint", `npm run lint:a11y`): stray `<main>`, images without alt, bright status colours as text, hard-coded white/black text, placeholder-only inputs, click handlers on non-interactive elements, positive tabIndex. Exceptions need `// a11y-ok: reason`. First run found 31 issues (nested main in Notifications, clickable div, input names, white-on-violet), all fixed.
+- Live scanner: `scripts/a11y/scan.js` crawls an app in hidden frames, light and dark, checking contrast, landmarks, headings, names, labels, alt, ids, tables.
+- Crawl results and fixes: PM 24 pages (unlabelled selects, risk chip contrast, heading skips); Tenders 20 pages (unlabelled country search, h2 to h4 skips, fallback states with no h1); Product Database 14 pages (heading skips, dead /products breadcrumb); Admin 13 pages clean. Supplier portal is not deployed, so lint and code review only. Real screen-reader walk-through still needs a person.
+- Commits 274846f, 1f51a10, 399dc36.
+
+## 2026-10-24 — Simulated supplier signals and coverage audit
+- `audit:demo-coverage` (read-only, workflow "Audit demo coverage") reports row counts per table for Universe Demo plus a platform-wide section.
+- `seed:demo-supplier-signals` (DRY_RUN default, applied): 1,413 supplier enquiries (1,060 quoted) across 60 suppliers, and 12 demo suppliers linked to simulated platform organisations with 2-4 closed, scored tender-performance contracts each (stub tenders `SIM-PERF-nnn`, archived). Verified live on Evergreen Laboratory Services 2312.
+- Baseline readiness assessment: `docs/BASELINE-READINESS.md`. Not ready yet; tender ecosystem data, organisation directory profiles and the supplier portal deployment decision come first; Reset sandbox still to be built.
+
+## 2026-10-24 — Backup policy change
+- `Universe/current/` on the LaCie drive is a complete, always-current mirror (each new source tar is extracted over it). Dated folders are snapshots and always contain the source archive, docs, the whole `infra/sql` folder and COMMIT.txt. SQL Lewis must run by hand also goes loose in the `Universe/` root.
