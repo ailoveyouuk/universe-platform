@@ -988,6 +988,7 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 
 ## 2026-10-24 — One red-to-green colour rule for every score
 - New `scoreColor(fraction)` / `scoreColor100(score)` in `@universe/ui`: a continuous spectrum, red at 0 through amber to green at 1 (hue 0 to 120), so 80% reads mostly green and 20% mostly red. Returns null for no data (neutral fallback).
-- Applied to: partner scorecard (overall bar, every measure bar and value, headline tiles, trend bars), Quality list (Score, On time, In full, OTIF), project stage tiles (OTIF, lines priced, lines delivered), logistics efficiency tiles (score out of 10), tender performance scores (Tenders app and Admin). Status wording ("Action needed", "Needs attention") is unchanged.
+- **Clarified the same evening:** the gradient applies to the gauge bars only (the long line under a figure). The dot and the status wording ("Strong", "Needs attention", "Action needed") keep the system's status colour. `StatTile` indicators take an optional `barColor` for this.
+- Applied to the bars of: partner scorecard (overall, every measure, headline tiles, trend), project stage tiles (OTIF, lines priced, lines delivered) and logistics efficiency tiles.
 - Not changed: time-urgency and money tiles (days left, margin, balances), which are not scores.
 

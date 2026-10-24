@@ -4,7 +4,7 @@ import { OrgName } from "./OrgName";
 import { useEffect, useState } from "react";
 import { FEEDBACK_LABELS } from "@universe/types";
 import type { ContractPaymentView, QualityEvidence, PaymentPracticeSummary, PerformanceRecordView, SupplierPerformanceSummary, TenderContractView } from "@universe/types";
-import { Button, Pill, Select, scoreColor100 } from "@universe/ui";
+import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { Field, fmtDate, inputStyle } from "../lib/ui";
 
@@ -68,7 +68,7 @@ export function PerformanceCard({ p, issuer, busy, act }: { p: PerformanceRecord
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <h4 style={{ margin: 0, fontSize: 15 }}>Performance record</h4>
         <BandPill band={p.band} />
-        {p.overallScore !== null && <strong style={{ fontSize: 15, color: scoreColor100(p.overallScore) ?? undefined }}>{p.overallScore}/100</strong>}
+        {p.overallScore !== null && <strong style={{ fontSize: 15 }}>{p.overallScore}/100</strong>}
         <span style={{ fontSize: 13, ...muted }}>Based on {p.coverage}% of the weighting · closed {fmtDate(p.closedAt)}</span>
         {p.withdrawn && <Pill tone="critical">Withdrawn by platform staff</Pill>}
       </div>

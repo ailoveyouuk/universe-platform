@@ -50,7 +50,7 @@ export function StatTile({
   /** Small qualifier shown before the figure, e.g. "approx." */
   note?: string;
   /** Colour-coded quick-read indicator under the figure (e.g. a score band); `fraction` (0–1) fills a thin gauge. */
-  indicator?: { color: string; label: string; fraction?: number };
+  indicator?: { color: string; label: string; fraction?: number; /** Colour of the gauge bar only (e.g. a red-to-green score gradient); dot and label keep `color`. */ barColor?: string };
 }) {
   const color = TONE_COLORS[tone];
   const Tag = (onClick ? "button" : "div") as "button" | "div";
@@ -87,7 +87,7 @@ export function StatTile({
         <span style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {indicator.fraction !== undefined && (
             <span aria-hidden style={{ display: "block", height: 6, borderRadius: "var(--u-radius-pill)", backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
-              <span style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.color, borderRadius: "var(--u-radius-pill)" }} />
+              <span style={{ display: "block", height: "100%", width: `${Math.max(4, Math.min(1, indicator.fraction) * 100)}%`, backgroundColor: indicator.barColor ?? indicator.color, borderRadius: "var(--u-radius-pill)" }} />
             </span>
           )}
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: indicator.color }}>

@@ -35,7 +35,7 @@ export const LINE_FILTER_TEST: Record<string, (l: L) => boolean> = {
   owing: (l) => (num(l.supplierRemainingBalance) ?? 0) > 0.005,
 };
 
-export interface Tile { key: string; label: string; value: string | number; icon: ReactNode; tone?: StatTileTone; note?: string; indicator?: { color: string; label: string; fraction?: number } }
+export interface Tile { key: string; label: string; value: string | number; icon: ReactNode; tone?: StatTileTone; note?: string; indicator?: { color: string; label: string; fraction?: number; barColor?: string } }
 
 const GREEN = "var(--u-status-good)";
 const AMBER = "var(--u-status-warning)";
@@ -100,7 +100,7 @@ export function buildStageTiles(p: ProjectDetail, fin: ProjectFinancialSummary |
 
   const out = (tiles: Tile[]) => tiles.slice(0, 4);
   const otifPct = f.judged.length ? Math.round((f.otifOk / f.judged.length) * 100) : null;
-  const otifTile: Tile = { key: "otif", label: "On time, in full", value: otifPct === null ? "—" : `${otifPct}%`, icon: <TrendingUpIcon size={20} />, tone: otifPct === null ? "neutral" : otifPct >= 90 ? "good" : otifPct >= 75 ? "warning" : "critical", indicator: otifPct === null ? { color: AMBER, label: "Awaiting deliveries" } : { color: scoreColor100(otifPct) ?? AMBER, label: `${f.otifOk} of ${f.judged.length} lines`, fraction: otifPct / 100 } };
+  const otifTile: Tile = { key: "otif", label: "On time, in full", value: otifPct === null ? "—" : `${otifPct}%`, icon: <TrendingUpIcon size={20} />, tone: otifPct === null ? "neutral" : otifPct >= 90 ? "good" : otifPct >= 75 ? "warning" : "critical", indicator: otifPct === null ? { color: AMBER, label: "Awaiting deliveries" } : { barColor: scoreColor100(otifPct) ?? undefined, color: otifPct >= 90 ? GREEN : otifPct >= 75 ? AMBER : RED, label: `${f.otifOk} of ${f.judged.length} lines`, fraction: otifPct / 100 } };
 
   // At most four tiles per stage, most relevant first. Identification has no data worth a tile yet.
   switch (p.status) {
@@ -109,7 +109,7 @@ export function buildStageTiles(p: ProjectDetail, fin: ProjectFinancialSummary |
     case "IN_PROGRESS":
       return out([
         deadline("Days to submission"),
-        { key: "priced", label: "Lines priced", value: `${f.priced}/${lineCount}`, icon: <ClipboardCheckIcon size={20} />, tone: lineCount > 0 && f.priced === lineCount ? "good" : "warning", indicator: lineCount ? { color: scoreColor(f.priced / lineCount) ?? AMBER, label: f.priced === lineCount ? "All priced" : `${lineCount - f.priced} to price`, fraction: f.priced / lineCount } : undefined },
+        { key: "priced", label: "Lines priced", value: `${f.priced}/${lineCount}`, icon: <ClipboardCheckIcon size={20} />, tone: lineCount > 0 && f.priced === lineCount ? "good" : "warning", indicator: lineCount ? { barColor: scoreColor(f.priced / lineCount) ?? undefined, color: f.priced === lineCount ? GREEN : AMBER, label: f.priced === lineCount ? "All priced" : `${lineCount - f.priced} to price`, fraction: f.priced / lineCount } : undefined },
         ...(showMoney ? [value] : []),
         flags > 0 || !showMoney ? flagTile : marginTile,
       ]);
@@ -126,7 +126,7 @@ export function buildStageTiles(p: ProjectDetail, fin: ProjectFinancialSummary |
     case "AWARDED": {
       const next = daysFromToday(f.upcoming, now);
       return out([
-        { key: "delivered", label: "Lines delivered", value: `${f.delivered.length}/${lineCount}`, icon: <CheckCircleIcon size={20} />, tone: lineCount > 0 && f.delivered.length === lineCount ? "good" : "brand", indicator: lineCount ? { color: scoreColor(f.delivered.length / lineCount) ?? GREEN, label: `${lineCount - f.delivered.length} outstanding`, fraction: f.delivered.length / lineCount } : undefined },
+        { key: "delivered", label: "Lines delivered", value: `${f.delivered.length}/${lineCount}`, icon: <CheckCircleIcon size={20} />, tone: lineCount > 0 && f.delivered.length === lineCount ? "good" : "brand", indicator: lineCount ? { barColor: scoreColor(f.delivered.length / lineCount) ?? undefined, color: GREEN, label: `${lineCount - f.delivered.length} outstanding`, fraction: f.delivered.length / lineCount } : undefined },
         { key: "next", label: "Next delivery", value: f.upcoming ? fmtDate(f.upcoming) : "—", icon: <CalendarIcon size={20} />, tone: next !== null && next < 0 ? "critical" : next !== null && next <= 7 ? "warning" : "neutral", indicator: next === null ? undefined : next < 0 ? { color: RED, label: `${-next} days late` } : { color: next <= 7 ? AMBER : GREEN, label: next === 0 ? "Today" : `In ${plural(next, "day")}` } },
         otifTile,
         { key: "supplierpay", label: "Supplier payments due", value: f.supplierOwing, icon: <ClockIcon size={20} />, tone: f.supplierOwing > 0 ? "warning" : "good", indicator: { color: f.supplierOwing > 0 ? AMBER : GREEN, label: f.supplierOwing > 0 ? "Lines with a balance" : "Settled" } },

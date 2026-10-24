@@ -43,7 +43,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
   if (failed) return null;
   if (!sc) return <section style={{ marginTop: 28, color: "var(--u-ink-secondary)", fontSize: 13 }}>Loading performance…</section>;
   const band = BAND[sc.scoreBand];
-  const bandColor = scoreColor100(sc.overallScore) ?? STATUS_COLOR[band.tone];
+  const bandColor = STATUS_COLOR[band.tone];
 
   return (
     <section style={{ marginTop: 28 }} aria-label="Performance and benchmarking">
@@ -60,7 +60,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
             {sc.overallScore !== null && <span style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>/ 100</span>}
           </span>
           <span aria-hidden style={{ display: "block", height: 6, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden" }}>
-            <span style={{ display: "block", height: "100%", width: `${sc.overallScore ?? 0}%`, backgroundColor: bandColor }} />
+            <span style={{ display: "block", height: "100%", width: `${sc.overallScore ?? 0}%`, backgroundColor: scoreColor100(sc.overallScore) ?? bandColor }} />
           </span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: bandColor }}>
             <span aria-hidden style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: bandColor }} />{band.label}
@@ -76,7 +76,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
         </div>
         {sc.headline.map((m) => (
           <StatTile key={m.key} label={m.label} value={m.display} icon={iconFor(m)} tone={toneFor(m.status)} active={openKey === m.key} onClick={() => pick(m)}
-            indicator={{ color: scoreColor100(m.score) ?? STATUS_COLOR[m.status], label: STATUS_LABEL[m.status], fraction: m.score === null ? undefined : m.score / 100 }} />
+            indicator={{ color: STATUS_COLOR[m.status], barColor: scoreColor100(m.score) ?? undefined, label: STATUS_LABEL[m.status], fraction: m.score === null ? undefined : m.score / 100 }} />
         ))}
       </div>
 
@@ -124,7 +124,7 @@ export function PartnerScorecardPanel({ partnerId }: { partnerId: string }) {
                       {m.label}
                       {m.weight > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: "var(--u-ink-secondary)" }}>weight {m.weight}</span>}
                     </span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor100(m.score) ?? STATUS_COLOR[m.status] }}>{m.display}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: STATUS_COLOR[m.status] }}>{m.display}</span>
                   </div>
                   {m.score !== null && (
                     <span aria-hidden style={{ display: "block", height: 4, borderRadius: 999, backgroundColor: "var(--u-surface-alt)", overflow: "hidden", margin: "8px 0 6px" }}>
