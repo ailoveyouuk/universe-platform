@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NAMING, imagingHs } from "./_catalogue-naming";
+import { itemFor, nounSpecs } from "./_group-items";
 import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, restrictionKey, type TransportMode } from "../src/index";
 
 /**
@@ -80,9 +81,10 @@ async function enrichCatalogue() {
       .map((r) => {
         if (!/^[0-9a-f-]{36}$/i.test(r.id)) throw new Error(`Unexpected id ${r.id}`);
         const profile = CATALOGUE[r.category.split(".")[0]] ?? FALLBACK;
-        const hs = (r.category.startsWith("Imaging") ? imagingHs(r.name) : null) ?? pickBy(profile.hs, r.id);
-        const unspsc = pickBy(profile.unspsc, r.id + "u");
-        const unit = pickBy(profile.units, r.id + "s").replace(/'/g, "''");
+        const item = itemFor(r.category, r.name.split(",")[0]);
+        const hs = (r.category.startsWith("Imaging") ? imagingHs(r.name) : null) ?? item?.hs ?? pickBy(profile.hs, r.id);
+        const unspsc = item?.unspsc ?? pickBy(profile.unspsc, r.id + "u");
+        const unit = (item?.unit ?? pickBy(profile.units, r.id + "s")).replace(/'/g, "''");
         seq += 1 + (hash(r.id) % 7);
         const mpn = `MPN-${hash(r.id + "m").toString(36).toUpperCase().padStart(7, "0")}`;
         const q = (v: string, f: string) => (isGap(r.id, f) ? "NULL" : `'${v}'`);
@@ -189,7 +191,7 @@ async function enrichProductRecords() {
         const reviewDays = (hash(r.id + "rv") % 700) - 60; // some overdue, most in the next two years
         const review = new Date(now + reviewDays * 86400000).toISOString().slice(0, 10);
         const g = (f: string, v: string | null) => (recGap(r.id, f) ? null : v);
-        return `('${r.id}',${lit(g("storage", st.cls))},${st.cold ? 1 : 0},${g("shelf", String(st.shelf)) === null ? "NULL" : st.shelf},${lit(profile.hazard ? profile.hazard(noun) : null)},${controlled},${lit(g("inn", pharma?.inn ?? null))},${lit(g("strength", pharma?.strength ?? null))},${lit(g("form", pharma?.form ?? null))},${lit(g("brand", pickBy(profile.brands, r.id + "br")))},${lit(g("pack", pickBy(profile.pack, r.id + "pk")))},${lit(g("regclass", profile.regClass(noun)))},${lit(g("intended", profile.intended(noun)))},${lit(g("review", review))})`;
+        return `('${r.id}',${lit(g("storage", st.cls))},${st.cold ? 1 : 0},${g("shelf", String(st.shelf)) === null ? "NULL" : st.shelf},${lit(profile.hazard ? profile.hazard(noun) : null)},${controlled},${lit(g("inn", pharma?.inn ?? null))},${lit(g("strength", pharma?.strength ?? null))},${lit(g("form", pharma?.form ?? null))},${lit(g("brand", pickBy(profile.brands, r.id + "br")))},${lit(g("pack", pickBy(itemFor(r.category, noun)?.pack ?? profile.pack, r.id + "pk")))},${lit(g("regclass", profile.regClass(noun)))},${lit(g("intended", profile.intended(noun)))},${lit(g("review", review))})`;
       })
       .join(",");
     await prisma.$executeRawUnsafe(
@@ -390,7 +392,7 @@ async function enrichFamilies() {
     let label = `${spec1}, ${spec2}`;
     // keep variant labels distinct inside the family: rotate the second spec, then fall back to pack size
     if (g.used.has(label) && naming) {
-      for (const alt of naming.specs) { if (alt !== spec1 && !g.used.has(`${spec1}, ${alt}`)) { spec2 = alt; label = `${spec1}, ${alt}`; break; } }
+      for (const alt of nounSpecs(r.category, noun) ?? naming.specs) { if (alt !== spec1 && !g.used.has(`${spec1}, ${alt}`)) { spec2 = alt; label = `${spec1}, ${alt}`; break; } }
     }
     if (g.used.has(label) && r.packSize) label = `${label}, ${r.packSize}`;
     g.used.add(label);

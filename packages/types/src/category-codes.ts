@@ -95,6 +95,7 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
   ],
   // ---- Added 2026-10-24 after the buyer category analysis (docs/CATALOGUE-CATEGORY-ANALYSIS.md). Headings only, kept narrow so existing groups do not gain codes. ----
   "Reproductive Health": [
+    { code: "901890", note: "Intrauterine contraceptive devices (within the medical instruments heading)", basis: "JUDGEMENT" },
     { code: "4014", note: "Hygienic or pharmaceutical articles of vulcanised rubber, including condoms", basis: "JUDGEMENT" },
     { code: "300660", note: "Chemical contraceptive preparations", basis: "JUDGEMENT" },
   ],
@@ -135,10 +136,14 @@ export const CATEGORY_HS_MAP: Record<string, CategoryCode[]> = {
     { code: "7323", note: "Table, kitchen or household articles of iron or steel", basis: "JUDGEMENT" },
     { code: "8201", note: "Hand tools: spades, shovels, picks, axes", basis: "JUDGEMENT" },
     { code: "5607", note: "Twine, cordage, ropes", basis: "JUDGEMENT" },
+    { code: "8206", note: "Tools of two or more headings put up in sets for retail sale", basis: "JUDGEMENT" },
   ],
   "Field and Military Medical": [
     { code: "9406", note: "Prefabricated buildings (field hospital modules)", basis: "JUDGEMENT" },
     { code: "9023", note: "Instruments for demonstration, including training simulators", basis: "JUDGEMENT" },
+    { code: "901890", note: "Medical instruments (tourniquets, trauma equipment)", basis: "WCO" },
+    { code: "3005", note: "Wadding, gauze and dressings (haemostatic dressings, chest seals)", basis: "WCO" },
+    { code: "9402", note: "Medical furniture, stretchers and litters", basis: "WCO" },
   ],
   "Logistics and Services": [
     { code: "4415", note: "Wooden pallets and packing cases", basis: "JUDGEMENT" },

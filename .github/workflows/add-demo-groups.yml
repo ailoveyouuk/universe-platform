@@ -9,6 +9,10 @@ on:
         description: "Products per group"
         default: "150"
         type: string
+      reset:
+        description: "Remove this script's earlier products in these groups first (refuses if anything else references them)"
+        default: false
+        type: boolean
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -32,4 +36,5 @@ jobs:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
           PER_GROUP: ${{ inputs.per_group }}
+          RESET: ${{ inputs.reset }}
           PRISMA_TX_TIMEOUT_MS: "120000"
