@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { PRODUCT_GROUPS_NON_PHARMA, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS } from "@universe/types";
+import { PRODUCT_GROUPS_NON_PHARMA, catalogueGroupForCommodity, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
 import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { RegisterStrip } from "../../../components/RegisterStrip";
@@ -291,7 +291,7 @@ export function LineForm({
     }
     const handle = setTimeout(() => {
       apiClient
-        .searchProductCatalogScoped(productQuery, form.productCategory ?? undefined, productScope)
+        .searchProductCatalogScoped(productQuery, catalogueGroupForCommodity(form.productCategory), productScope)
         .then(setProductOptions)
         .catch(() => setProductOptions([]));
     }, 250);

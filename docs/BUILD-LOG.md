@@ -950,3 +950,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Console 404s traced: no favicon
 - The 404s seen in the browser console on every page were the browser asking for a favicon, which no app had. Added a Universe icon (`public/favicon.svg`, violet and magenta from the palette) and `icons` metadata to all five apps (Admin, Product Database, Project Management, Supplier Portal, Tenders). A 500 seen once on the Product Database record page is being traced separately.
+
+## 2026-10-24 — Walkthrough finding: line catalogue search returned nothing
+- On a project line the catalogue search passed the line's commodity group as the catalogue category filter. The two lists differ (CONSUMABLES vs "Laboratory Consumables"), so searches came back empty for every group except Pharmaceuticals (matched by case-insensitive name). New `catalogueGroupForCommodity` maps each commodity group to its single catalogue group where one exists (the six coarse originals add no filter). The 500 once seen on the Product Database record could not be reproduced (all calls 200) and coincided with an API redeploy.

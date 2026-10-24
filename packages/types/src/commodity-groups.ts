@@ -20,3 +20,16 @@ export function commodityGroupLabel(value: string | null | undefined): string {
   if (!value) return "";
   return (COMMODITY_GROUP_LABEL as Record<string, string>)[value] ?? value;
 }
+
+/**
+ * The catalogue group a commodity group corresponds to, where there is exactly one. The six original commodity groups are coarse and span several
+ * catalogue groups, so they map to nothing (no filter). Used to narrow the catalogue search on a project line; the two lists are otherwise unrelated.
+ */
+const CATALOGUE_GROUP_FOR_COMMODITY: Record<string, string> = {
+  PHARMACEUTICALS: "Pharmaceuticals", REPRODUCTIVE_HEALTH: "Reproductive Health", NUTRITION: "Nutrition", VECTOR_CONTROL: "Vector Control",
+  WASH: "Water, Sanitation and Hygiene", IMMUNISATION: "Immunisation", KITS: "Kits and Emergency Supplies", SHELTER: "Shelter and Household Items",
+  FIELD_MEDICAL: "Field and Military Medical", LOGISTICS_SERVICES: "Logistics and Services",
+};
+export function catalogueGroupForCommodity(value: string | null | undefined): string | undefined {
+  return value ? CATALOGUE_GROUP_FOR_COMMODITY[value] : undefined;
+}
