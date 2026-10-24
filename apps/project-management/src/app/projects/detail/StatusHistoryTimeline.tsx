@@ -43,9 +43,9 @@ export function StatusHistoryTimeline({ history }: { history: ProjectStatusHisto
 
   return (
     <div style={{ marginTop: 16 }}>
-      <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+      <h2 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
         Status History
-      </h3>
+      </h2>
       <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
         {history.map((entry, i) => {
           const isLast = i === history.length - 1;

@@ -1027,3 +1027,4 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 
 ## 2026-10-24 — Backup policy change
 - `Universe/current/` on the LaCie drive is a complete, always-current mirror (each new source tar is extracted over it). Dated folders are snapshots and always contain the source archive, docs, the whole `infra/sql` folder and COMMIT.txt. SQL Lewis must run by hand also goes loose in the `Universe/` root.
+- Live re-scan after deploy (2026-10-24): Admin 13 pages, Tenders 20 pages, Project Management 24 pages, all clean in light and dark except one heading skip on project detail (Status History h3 to h2, fixed in the following commit). Product Database re-scan follows the same deploy.
