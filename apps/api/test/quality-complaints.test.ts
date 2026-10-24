@@ -193,6 +193,24 @@ describe("Quality complaints", () => {
     expect(d.byPartner.some((p) => p.partnerId === partnerId)).toBe(true);
   });
 
+  it("attaches evidence files, keeps them on archive, and refuses files from another organisation", async () => {
+    const c = await log();
+    const mkDoc = (organizationId: string, name: string) => withTenantContext(organizationId, (tx) => tx.projectDocument.create({ data: { organizationId, type: "EVIDENCE", title: name, url: `https://example.invalid/${name}`, fileName: name, mimeType: "image/png", fileSizeBytes: 1234 } }));
+    const mine = await mkDoc(org, `crushed-${suffix}.png`);
+    const theirs = await mkDoc(other, `foreign-${suffix}.png`);
+    const withFile = await svc.addAttachment(logU(), c.id, { documentId: mine.id, note: "Photo of the crushed cartons" });
+    expect(withFile.attachments).toHaveLength(1);
+    expect(withFile.attachments[0]).toMatchObject({ fileName: `crushed-${suffix}.png`, note: "Photo of the crushed cartons" });
+    expect(withFile.events.some((e) => e.kind === "ATTACHMENT")).toBe(true);
+    await expect(svc.addAttachment(logU(), c.id, { documentId: mine.id })).rejects.toThrow(/already attached/);
+    await expect(svc.addAttachment(logU(), c.id, { documentId: theirs.id })).rejects.toThrow(/not found/);
+    const removed = await svc.archiveAttachment(logU(), c.id, withFile.attachments[0].id);
+    expect(removed.attachments).toHaveLength(0);
+    const kept = await withTenantContext(org, (tx) => tx.qualityComplaintDocument.count({ where: { complaintId: c.id } }));
+    expect(kept).toBe(1);
+    await expect(svc.addAttachment(as(org, randomUUID(), ["quality.complaints.view"]), c.id, { documentId: mine.id })).rejects.toThrow();
+  });
+
   it("never deletes: there is no delete path, and closed complaints cannot be edited", async () => {
     const c = await toResolved();
     await svc.close(appU(), c.id, { closureSummary: "x" });

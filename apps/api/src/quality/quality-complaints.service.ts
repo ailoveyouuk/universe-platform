@@ -10,7 +10,7 @@ import { tenantScope } from "../common/tenant-scoped";
 import { completeActionsFor, createNotifications, usersWithPermission } from "../notifications/notify";
 import { addWorkingDays } from "../tenders/evaluation";
 import type {
-  CloseComplaintDto, ComplaintNoteDto, CreateComplaintActionDto, CreateComplaintDto, EffectivenessDto, PartnerResponseDto, RaiseRiskDto,
+  CloseComplaintDto, ComplaintAttachmentDto, ComplaintNoteDto, CreateComplaintActionDto, CreateComplaintDto, EffectivenessDto, PartnerResponseDto, RaiseRiskDto,
   RegulatorDecisionDto, ResolveComplaintDto, SaveInvestigationDto, SourceReviewDto, TriageComplaintDto, UpdateComplaintActionDto, UpdateComplaintDto,
 } from "./dto/complaint.dto";
 
@@ -119,6 +119,9 @@ export class QualityComplaintsService {
     const events = await tx.qualityComplaintEvent.findMany({ where: { complaintId: r.id, ...tenantScope(user.organizationId) }, orderBy: { createdAt: "asc" } });
     const actors = [...new Set(events.map((e) => e.actorUserId).filter((x): x is string => !!x && !names.has(x)))];
     if (actors.length) for (const u of await tx.user.findMany({ where: { id: { in: actors } }, select: { id: true, forename: true, surname: true } })) names.set(u.id, `${u.forename} ${u.surname}`);
+    const attRows = await tx.qualityComplaintDocument.findMany({ where: { complaintId: r.id, archivedAt: null, ...tenantScope(user.organizationId) }, include: { document: { select: { title: true, fileName: true, mimeType: true, fileSizeBytes: true } } }, orderBy: { createdAt: "asc" } });
+    const attUsers = [...new Set(attRows.map((a) => a.createdById).filter((x): x is string => !!x && !names.has(x)))];
+    if (attUsers.length) for (const u of await tx.user.findMany({ where: { id: { in: attUsers } }, select: { id: true, forename: true, surname: true } })) names.set(u.id, `${u.forename} ${u.surname}`);
     const risks = await tx.riskAssessment.findMany({ where: { subjectType: "COMPLAINT", subjectId: r.id, ...tenantScope(user.organizationId) }, select: { id: true, title: true, severity: true, status: true } });
     const seePersonal = has(user, VIEW);
     const list = this.toListItem(r, names);
@@ -143,6 +146,7 @@ export class QualityComplaintsService {
       effectivenessCheckedAt: iso(r.effectivenessCheckedAt), effectivenessNotes: r.effectivenessNotes,
       closedByName: names.get(r.closedById ?? "") ?? null, closureOverrideReason: r.closureOverrideReason, reopenCount: r.reopenCount,
       events: events.map((e) => ({ id: e.id, kind: e.kind, summary: e.summary, body: e.body, actorName: names.get(e.actorUserId ?? "") ?? null, createdAt: e.createdAt.toISOString() })),
+      attachments: attRows.map((a) => ({ id: a.id, documentId: a.documentId, fileName: a.document.fileName, title: a.document.title, mimeType: a.document.mimeType, fileSizeBytes: a.document.fileSizeBytes, note: a.note, addedByName: names.get(a.createdById ?? "") ?? null, createdAt: a.createdAt.toISOString() })),
       actions: r.actions.map((a) => actionRecord(a, names, now)),
       risks,
       can: { edit: has(user, LOG) && !["CLOSED", "WITHDRAWN"].includes(r.status), investigate: has(user, INVESTIGATE), approve: has(user, APPROVE), seePersonal },
@@ -492,6 +496,34 @@ export class QualityComplaintsService {
     return withTenantContext(user.organizationId, async (tx) => {
       const r = await this.load(tx, user, id);
       await this.event(tx, user, id, dto.kind, dto.summary, dto.body);
+      return this.toDetail(tx, user, r);
+    });
+  }
+
+  /** Attaches an already-uploaded standalone document (photo, report, correspondence) to the complaint as evidence. */
+  async addAttachment(user: RequestUser, id: string, dto: ComplaintAttachmentDto): Promise<ComplaintDetail> {
+    assertHasPermission(user, LOG);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const r = await this.load(tx, user, id);
+      const doc = await tx.projectDocument.findFirst({ where: { id: dto.documentId, archivedAt: null, ...tenantScope(user.organizationId) }, select: { id: true, title: true, fileName: true } });
+      if (!doc) throw new BadRequestException("That file was not found in your organisation.");
+      const dup = await tx.qualityComplaintDocument.findFirst({ where: { complaintId: id, documentId: doc.id, archivedAt: null }, select: { id: true } });
+      if (dup) throw new ConflictException("That file is already attached to this complaint.");
+      await tx.qualityComplaintDocument.create({ data: { organizationId: user.organizationId, complaintId: id, documentId: doc.id, note: dto.note?.trim() || null, createdById: user.id } });
+      await this.event(tx, user, id, "ATTACHMENT", `Evidence attached: ${doc.fileName ?? doc.title}`, dto.note?.trim() || null);
+      return this.toDetail(tx, user, r);
+    });
+  }
+
+  /** Removes an attachment from view. The file and the link are kept (archive, not delete) and the timeline records it. */
+  async archiveAttachment(user: RequestUser, id: string, attachmentId: string): Promise<ComplaintDetail> {
+    assertHasPermission(user, LOG);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const r = await this.load(tx, user, id);
+      const a = await tx.qualityComplaintDocument.findFirst({ where: { id: attachmentId, complaintId: id, archivedAt: null, ...tenantScope(user.organizationId) }, include: { document: { select: { title: true, fileName: true } } } });
+      if (!a) throw new NotFoundException("Attachment not found.");
+      await tx.qualityComplaintDocument.update({ where: { id: a.id }, data: { archivedAt: new Date(), archivedById: user.id } });
+      await this.event(tx, user, id, "ATTACHMENT", `Evidence removed from view: ${a.document.fileName ?? a.document.title}`);
       return this.toDetail(tx, user, r);
     });
   }

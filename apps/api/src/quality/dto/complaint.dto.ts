@@ -91,6 +91,11 @@ export class ComplaintNoteDto {
   @IsOptional() @IsString() body?: string;
 }
 
+export class ComplaintAttachmentDto {
+  @IsString() documentId!: string;
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+}
+
 export class CreateComplaintActionDto {
   @IsIn(COMPLAINT_ACTION_TYPES as readonly string[]) type!: string;
   @IsString() description!: string;

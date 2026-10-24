@@ -187,6 +187,7 @@ datasource db {
 model Organization {
   userAccessGrants UserOrganizationAccess[]
   qualityScorecardSettings QualityScorecardSettings?
+  qualityComplaintDocuments QualityComplaintDocument[]
   qualityComplaints QualityComplaint[]
   qualityComplaintEvents QualityComplaintEvent[]
   qualityComplaintActions QualityComplaintAction[]
@@ -1618,6 +1619,7 @@ model ProjectDocument {
   stakeholderEvidenceRecords StakeholderEvidenceRecord[]
   /// Added 2026-10-07/08 (follow-up frontend pass) — Gap 7.
   controlledDocuments        ControlledDocument[]
+  complaintAttachments       QualityComplaintDocument[]
 
   @@index([organizationId])
   @@map("project_documents")
@@ -4069,6 +4071,7 @@ model QualityComplaint {
 
   events                QualityComplaintEvent[]
   actions               QualityComplaintAction[]
+  attachments           QualityComplaintDocument[]
 
   @@unique([organizationId, referenceNumber])
   @@index([organizationId, status])
@@ -4097,6 +4100,29 @@ model QualityComplaintEvent {
   @@index([complaintId, createdAt])
   @@index([organizationId])
   @@map("quality_complaint_events")
+}
+
+/// Evidence files attached to a complaint (photos, correspondence, test reports). Added 2026-10-24.
+/// Links a complaint to a standalone ProjectDocument; archive-not-delete.
+model QualityComplaintDocument {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  complaintId    String
+  complaint      QualityComplaint @relation(fields: [complaintId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  documentId     String
+  document       ProjectDocument  @relation(fields: [documentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Free-text note on what the file shows.
+  note           String?          @db.NVarChar(500)
+  createdById    String?
+  createdAt      DateTime         @default(now())
+  archivedAt     DateTime?
+  archivedById   String?
+
+  @@index([complaintId])
+  @@index([organizationId])
+  @@index([documentId])
+  @@map("quality_complaint_documents")
 }
 
 /// Corrective, preventive and containment actions raised by a complaint. Each open action is also an action item for its owner.

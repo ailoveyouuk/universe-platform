@@ -19,6 +19,10 @@ CREATE SECURITY POLICY rls.QualityComplaintPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_complaint_actions AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_complaint_actions AFTER UPDATE,
 
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_complaint_documents,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_complaint_documents AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_complaint_documents AFTER UPDATE,
+
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_scorecard_settings,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_scorecard_settings AFTER INSERT,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.quality_scorecard_settings AFTER UPDATE

@@ -3740,6 +3740,7 @@ export interface ComplaintListItem {
 }
 
 export interface ComplaintEventRecord { id: string; kind: string; summary: string; body: string | null; actorName: string | null; createdAt: string }
+export interface ComplaintAttachmentRecord { id: string; documentId: string; fileName: string | null; title: string; mimeType: string | null; fileSizeBytes: number | null; note: string | null; addedByName: string | null; createdAt: string }
 export interface ComplaintActionRecord {
   id: string; type: string; description: string; ownerId: string; ownerName: string | null; dueDate: string; status: string;
   completedAt: string | null; completionNotes: string | null; overdue: boolean;
@@ -3780,6 +3781,7 @@ export interface ComplaintDetail extends ComplaintListItem {
   effectivenessCheckDueAt: string | null; effectivenessCheckedAt: string | null; effectivenessNotes: string | null;
   closedByName: string | null; closureOverrideReason: string | null; reopenCount: number;
   events: ComplaintEventRecord[];
+  attachments: ComplaintAttachmentRecord[];
   actions: ComplaintActionRecord[];
   /** Risk-register entries raised from this complaint. */
   risks: { id: string; title: string; severity: string; status: string }[];

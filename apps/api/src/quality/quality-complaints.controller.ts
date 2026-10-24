@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { QualityComplaintsService } from "./quality-complaints.service";
 import {
-  CloseComplaintDto, ComplaintNoteDto, CreateComplaintActionDto, CreateComplaintDto, EffectivenessDto, PartnerResponseDto, RaiseRiskDto, ReasonDto,
+  CloseComplaintDto, ComplaintAttachmentDto, ComplaintNoteDto, CreateComplaintActionDto, CreateComplaintDto, EffectivenessDto, PartnerResponseDto, RaiseRiskDto, ReasonDto,
   RegulatorDecisionDto, ResolveComplaintDto, SaveInvestigationDto, SourceReviewDto, TriageComplaintDto, UpdateComplaintActionDto, UpdateComplaintDto,
 } from "./dto/complaint.dto";
 
@@ -48,6 +48,8 @@ export class QualityComplaintsController {
   @Post(":id/withdraw") withdraw(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: ReasonDto) { return this.complaints.withdraw(user, id, dto.reason); }
   @Post(":id/reopen") reopen(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: ReasonDto) { return this.complaints.reopen(user, id, dto.reason); }
   @Post(":id/notes") note(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: ComplaintNoteDto) { return this.complaints.addNote(user, id, dto); }
+  @Post(":id/attachments") attach(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: ComplaintAttachmentDto) { return this.complaints.addAttachment(user, id, dto); }
+  @Delete(":id/attachments/:attachmentId") removeAttachment(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("attachmentId") attachmentId: string) { return this.complaints.archiveAttachment(user, id, attachmentId); }
   @Post(":id/actions") addAction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: CreateComplaintActionDto) { return this.complaints.addAction(user, id, dto); }
   @Patch(":id/actions/:actionId") updateAction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("actionId") actionId: string, @Body() dto: UpdateComplaintActionDto) { return this.complaints.updateAction(user, id, actionId, dto); }
   @Post(":id/risk") risk(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: RaiseRiskDto) { return this.complaints.raiseRisk(user, id, dto); }

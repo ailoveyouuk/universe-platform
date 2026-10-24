@@ -161,6 +161,21 @@ export function ComplaintDetailView({ id }: { id: string }) {
         <div style={{ ...muted, fontSize: 12.5, marginTop: 8 }}>Upheld complaints also count against the stakeholder on the performance scorecard.</div>
       </Card>
 
+      <Card title="Evidence and attachments">
+        {c.attachments.length === 0 && <div style={muted}>No files attached yet.</div>}
+        {c.attachments.map((a) => (
+          <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid var(--u-border, #eee)", flexWrap: "wrap", fontSize: 14 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <button type="button" onClick={async () => { try { const { downloadUrl } = await apiClient.getStandaloneDocumentDownloadUrl(a.documentId); window.open(downloadUrl, "_blank", "noopener"); } catch { setErr("Could not open that file."); } }} style={{ background: "none", border: 0, padding: 0, color: "var(--u-brand, #4A2E8C)", cursor: "pointer", font: "inherit", textAlign: "left" }}>{a.fileName ?? a.title}</button>
+              {a.note && <div style={{ ...muted, fontSize: 12.5 }}>{a.note}</div>}
+              <div style={{ ...muted, fontSize: 12 }}>{a.addedByName ?? "—"} · {fmtDateTime(a.createdAt)}{a.fileSizeBytes ? ` · ${a.fileSizeBytes >= 1048576 ? (a.fileSizeBytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(a.fileSizeBytes / 1024)) + " KB"}` : ""}</div>
+            </div>
+            {can.edit && <Button size="sm" variant="secondary" disabled={busy} onClick={() => confirm("Remove this file from the complaint? It is kept on record.") && act(() => apiClient.removeComplaintAttachment(id, a.id))}>Remove</Button>}
+          </div>
+        ))}
+        {can.edit && <AttachmentForm busy={busy} onAttach={(documentId, note) => act(() => apiClient.addComplaintAttachment(id, { documentId, note }))} onError={setErr} />}
+      </Card>
+
       <Card title="Timeline">
         {can.edit && <NoteForm busy={busy} onSave={(b) => stage("notes", b)} />}
         {[...c.events].reverse().map((e) => (
@@ -321,6 +336,28 @@ function ActionForm({ busy, userOpts, onSave }: { busy: boolean; userOpts: { val
   );
 }
 
+function AttachmentForm({ busy, onAttach, onError }: { busy: boolean; onAttach: (documentId: string, note?: string) => Promise<boolean>; onError: (m: string) => void }) {
+  const [file, setFile] = useState<File | null>(null); const [note, setNote] = useState(""); const [stage, setStage] = useState<string | null>(null);
+  async function go() {
+    if (!file) return;
+    try {
+      setStage("Uploading…");
+      const ct = file.type || "application/octet-stream";
+      const { uploadUrl, blobName } = await apiClient.requestStandaloneDocumentUploadUrl({ fileName: file.name, contentType: ct });
+      await apiClient.uploadDocumentFile(uploadUrl, file);
+      const doc = await apiClient.confirmStandaloneDocumentUpload({ blobName, fileName: file.name, type: "EVIDENCE", title: file.name, fileSizeBytes: file.size, mimeType: ct });
+      setStage("Attaching…");
+      if (await onAttach(doc.id, note.trim() || undefined)) { setFile(null); setNote(""); }
+    } catch (e) { onError(e instanceof Error ? e.message : "Upload failed."); } finally { setStage(null); }
+  }
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
+      <Field label="Add a file"><input type="file" aria-label="Evidence file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field>
+      <Field label="What it shows (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} style={inputStyle} /></Field>
+      <Button variant="primary" disabled={busy || !file || !!stage} onClick={go}>{stage ?? "Attach"}</Button>
+    </div>
+  );
+}
 function NoteForm({ busy, onSave }: { busy: boolean; onSave: (b: object) => void }) {
   const [kind, setKind] = useState("NOTE"); const [t, setT] = useState("");
   return (
