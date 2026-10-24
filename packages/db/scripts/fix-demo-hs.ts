@@ -49,7 +49,7 @@ async function main() {
     if (!dryRun) await prisma.productMaster.update({ where: { id }, data: { category: next } });
   }
   // Simulated published tenders whose evaluation or award dates fall before closing (SIM-TND-004 was seeded with a later closing time): move them after it.
-  const tenders = await prisma.tender.findMany({ where: { isSimulated: true, status: "PUBLISHED", closingAt: { not: null } }, select: { id: true, referenceNumber: true, closingAt: true, evaluationDueAt: true, awardDueAt: true } });
+  const tenders = await prisma.tender.findMany({ where: { isSimulated: true, isPublished: true, closingAt: { not: null } }, select: { id: true, referenceNumber: true, closingAt: true, evaluationDueAt: true, awardDueAt: true } });
   console.log(`tenders checked: ${tenders.map((t) => t.referenceNumber).join(", ")}`);
   for (const t of tenders) {
     const close = t.closingAt!.getTime();
