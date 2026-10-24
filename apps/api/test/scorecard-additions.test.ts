@@ -17,7 +17,7 @@ describe("Partner scorecard: quote price, trend and the list scores", () => {
   beforeAll(async () => {
     org = (await createOrganizationWithDefaultRoles({ name: `Sc ${suffix}`, slug: `sc-${suffix}` })).id;
     await withPlatformStaffContext(async (tx) => {
-      const mk = async (n: string) => (await tx.partner.create({ data: { organizationId: org, name: `${n} ${suffix}`, normalizedName: `${n.toLowerCase()} ${suffix}`, approvalStatus: "APPROVED", roles: { create: { organizationId: org, roleType: "SUPPLIER", isActive: true } } } })).id;
+      const mk = async (n: string) => (await tx.partner.create({ data: { organizationId: org, name: `${n} ${suffix}`, normalizedName: `${n.toLowerCase()} ${suffix}`, approvalStatus: "APPROVED", roles: { create: { roleType: "SUPPLIER", isActive: true } } } })).id;
       cheap = await mk("Cheap"); dear = await mk("Dear");
       const project = await tx.project.create({ data: { organizationId: org, referenceNumber: `SC-${suffix}`, title: "Quotes", category: "PROCUREMENT", projectType: "PHARMACEUTICAL" } });
       const line = await tx.projectLine.create({ data: { organizationId: org, projectId: project.id, clientProductDescription: "Gloves", supplierId: dear } });
