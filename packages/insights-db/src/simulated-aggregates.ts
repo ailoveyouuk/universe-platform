@@ -64,6 +64,13 @@ export async function seedSimulatedAggregates() {
   // Eight commodity groups added 2026-10-24; they get their own top-up lanes (below) so the original rows stay as they are.
   const NEW_GROUPS = ["REPRODUCTIVE_HEALTH", "NUTRITION", "VECTOR_CONTROL", "WASH", "IMMUNISATION", "KITS", "SHELTER", "FIELD_MEDICAL", "LOGISTICS_SERVICES"];
   const LANE_INCOTERMS = ["EXW", "FCA", "CIF", "DAP", "DDP", "FOB"];
+  // Optional clean-up (2026-10-24): remove SIMULATED logistics rows of the named commodity groups so they can be re-seeded at the right volume.
+  // Only rows flagged isSimulated are ever touched. Comma-separated commodity group codes, e.g. "LOGISTICS_SERVICES".
+  const resetGroups = (process.env.RESET_LOGISTICS_GROUPS ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (resetGroups.length) {
+    const del = await insightsPrisma.aggregatedLogisticsMetric.deleteMany({ where: { isSimulated: true, commodityGroup: { in: resetGroups } } });
+    console.log(`Removed ${del.count} simulated logistics rows for ${resetGroups.join(", ")}`);
+  }
   const haveLogistics = new Set((await insightsPrisma.aggregatedLogisticsMetric.groupBy({ by: ["commodityGroup"], where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })).map((g) => g.commodityGroup));
   const seededLogistics = (await insightsPrisma.aggregatedLogisticsMetric.count({ where: { isSimulated: true, sourceHash: { startsWith: "s2" } } })) >= SEEDED_THRESHOLD;
   const logisticsGroups = seededLogistics ? NEW_GROUPS.filter((g) => !haveLogistics.has(g)) : [...GROUPS, ...NEW_GROUPS];
@@ -86,6 +93,8 @@ export async function seedSimulatedAggregates() {
           for (let ln = 0; ln < lanes; ln++) {
             const incoterm = LANE_INCOTERMS[Math.floor(r() * LANE_INCOTERMS.length)];
             const group = logisticsGroups[Math.floor(r() * logisticsGroups.length)];
+            // A top-up keeps each group's volume in line with the original groups (about 1/7 of the full lane set per added group).
+            if (seededLogistics && r() > Math.min(1, logisticsGroups.length / 7)) continue;
             const cohort = pickHashes(6 + Math.floor(r() * 5)).map((h) => "s2" + h.slice(2));
             for (const sourceHash of cohort) {
               const perHash = 1 + Math.floor(r() * 3);

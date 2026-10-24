@@ -10,6 +10,11 @@ name: Seed demo benchmarks
 # read-only by design, so this cannot run from the API.
 on:
   workflow_dispatch:
+    inputs:
+      reset_logistics_groups:
+        description: "Optional: delete SIMULATED logistics rows for these commodity groups first (comma separated, e.g. LOGISTICS_SERVICES), then re-seed them"
+        default: ""
+        type: string
 
 jobs:
   seed:
@@ -29,4 +34,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
+          RESET_LOGISTICS_GROUPS: ${{ inputs.reset_logistics_groups }}
           PRISMA_TX_TIMEOUT_MS: "120000"
