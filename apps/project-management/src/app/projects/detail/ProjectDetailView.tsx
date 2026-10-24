@@ -293,14 +293,14 @@ export function ProjectDetailView() {
   const showDaysRemaining = useMemo(() => (project ? isDaysRemainingRelevant(project) : false), [project]);
   const showLines = useMemo(() => (project ? isLinesSectionRelevant(project) : false), [project]);
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No project specified.</main>;
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
-  if (!project) return <main style={{ padding: 32 }}>Loading…</main>;
+  if (!id) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No project specified.</div>;
+  if (error) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</div>;
+  if (!project) return <div style={{ padding: 32 }}>Loading…</div>;
 
   const isPharma = project.projectType === "PHARMACEUTICAL";
 
   return (
-    <main style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
           <h1 style={{ marginBottom: 4, fontFamily: "var(--u-font-display)", color: "var(--u-ink)" }}>{project.title}</h1>
@@ -990,7 +990,7 @@ export function ProjectDetailView() {
 
       <RiskRegister subjectType="PROJECT" subjectId={project.id} />
       <AuditHistory tableName="projects" recordId={project.id} />
-    </main>
+    </div>
   );
 }
 

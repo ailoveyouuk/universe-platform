@@ -68,14 +68,14 @@ export default function BatchDetailPage() {
     }
   }
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No batch specified.</main>;
-  if (error && !batch) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
-  if (!batch) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</main>;
+  if (!id) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No batch specified.</div>;
+  if (error && !batch) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</div>;
+  if (!batch) return <div style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</div>;
 
   const unreviewedExcursions = batch.temperatureLogs.filter((l) => l.hasExcursion && !l.reviewed);
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
       <Link href="/batches" style={{ textDecoration: "none" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--u-ink-secondary)", marginBottom: 14 }}>
           <ChevronLeftIcon size={14} /> Back to Batches
@@ -239,7 +239,7 @@ export default function BatchDetailPage() {
 
       <RiskRegister subjectType="PRODUCT_BATCH" subjectId={batch.id} />
       <AuditHistory tableName="product_batches" recordId={batch.id} />
-    </main>
+    </div>
   );
 }
 

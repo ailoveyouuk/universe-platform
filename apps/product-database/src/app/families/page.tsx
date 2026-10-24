@@ -36,7 +36,7 @@ export default function FamiliesPage() {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Product families</h1>
@@ -94,6 +94,6 @@ export default function FamiliesPage() {
           <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</Button>
         </div>
       )}
-    </main>
+    </div>
   );
 }

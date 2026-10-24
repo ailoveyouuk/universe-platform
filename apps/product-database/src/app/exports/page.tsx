@@ -51,7 +51,7 @@ export default function ExportsPage() {
   const admin = caps?.wholeCatalogue === true;
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1100, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Data exports</h1>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", maxWidth: 760 }}>
         You can always export what your organisation added. The shared Universe catalogue is a platform asset, so a wider export needs a global admin&rsquo;s approval. Every export is recorded in your audit trail.
@@ -127,6 +127,6 @@ export default function ExportsPage() {
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

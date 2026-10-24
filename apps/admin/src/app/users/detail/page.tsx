@@ -3,7 +3,7 @@ import { UserDetailView } from "./UserDetailView";
 
 export default function UserDetailPage() {
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
       <UserDetailView />
     </Suspense>
   );

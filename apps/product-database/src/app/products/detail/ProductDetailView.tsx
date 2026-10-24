@@ -161,14 +161,14 @@ export function ProductDetailView() {
     apiClient.searchProductBatchesPage({ productMasterId: detail.id, page: 1, pageSize: 100 }).then((r) => setBatchList(r.items)).catch(() => setBatchList([]));
   }, [detail?.id]);
 
-  if (!id) return <main style={{ padding: 32 }}>No product selected.</main>;
-  if (!detail) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>{error ?? "Loading…"}</main>;
+  if (!id) return <div style={{ padding: 32 }}>No product selected.</div>;
+  if (!detail) return <div style={{ padding: 32, color: "var(--u-ink-secondary)" }}>{error ?? "Loading…"}</div>;
 
   const lc = lifecycleMeta(detail.lifecycleStatus);
   const setF = (k: keyof UpdateProductMasterInput, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ minWidth: 0 }}>
@@ -290,7 +290,7 @@ export function ProductDetailView() {
         {tab === "Usage" && <UsageTab productId={detail.id} />}
         {tab === "History" && <HistoryTab productId={detail.id} />}
       </div>
-    </main>
+    </div>
   );
 }
 

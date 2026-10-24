@@ -28,7 +28,7 @@ export default function AdminHomePage() {
   const invited = userCounts?.invited;
 
   return (
-    <main style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
       <h1>Universe Admin</h1>
       <p style={{ color: "var(--u-ink-secondary)", maxWidth: 620, margin: "4px 0 16px" }}>
         Onboard organisations, manage their people and roles, and review what has changed.
@@ -89,6 +89,6 @@ export default function AdminHomePage() {
         )}
       </Section>
 
-    </main>
+    </div>
   );
 }

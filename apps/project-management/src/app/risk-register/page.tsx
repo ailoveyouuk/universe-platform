@@ -183,7 +183,7 @@ export default function RiskRegisterPage() {
   }
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
@@ -320,7 +320,7 @@ export default function RiskRegisterPage() {
           />
         </>
       )}
-    </main>
+    </div>
   );
 }
 

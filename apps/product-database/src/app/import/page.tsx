@@ -137,7 +137,7 @@ export default function ImportPage() {
   }
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 900, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 900, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Reference-Data Import</h1>
       <p style={{ color: "var(--u-ink-secondary)", marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>
         Bulk-seed or enrich the shared product catalogue from a structured reference-data source. Safe to re-run: matching rows
@@ -239,6 +239,6 @@ export default function ImportPage() {
           )}
         </div>
       )}
-    </main>
+    </div>
   );
 }

@@ -149,7 +149,7 @@ export default function ProjectsPage() {
   const visible = result?.items ?? [];
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Projects</h1>
         <Link href="/projects/new" style={{ textDecoration: "none" }}>
@@ -328,7 +328,7 @@ export default function ProjectsPage() {
           />
         </>
       )}
-    </main>
+    </div>
   );
 }
 

@@ -38,7 +38,7 @@ export default function RegulatoryPage() {
   useEffect(() => { apiClient.getRegulatoryDashboard().then(setD).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   const n = (v: number) => v.toLocaleString("en-GB");
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory status</h1>
         <Button
@@ -146,6 +146,6 @@ export default function RegulatoryPage() {
           <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", marginTop: 20 }}>Shows recorded registrations and notices only. The daily regulatory watch (openFDA, MHRA) is advisory; see Regulatory watch.</p>
         </>
       )}
-    </main>
+    </div>
   );
 }

@@ -90,7 +90,7 @@ export default function AddProductPage() {
   }
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 640 }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 640 }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: "0 0 6px" }}>
         Add Product
       </h1>
@@ -209,7 +209,7 @@ export default function AddProductPage() {
           </Button>
         </div>
       </form>
-    </main>
+    </div>
   );
 }
 

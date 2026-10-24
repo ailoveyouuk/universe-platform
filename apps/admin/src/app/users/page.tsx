@@ -6,7 +6,7 @@ import { UsersView } from "../../components/UsersView";
 export default function UsersPage() {
   // useSearchParams needs a Suspense boundary in a static export.
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
       <UsersView />
     </Suspense>
   );

@@ -26,9 +26,9 @@ export default function PerformanceAdminPage() {
   useEffect(() => { if (staff) load(); }, [staff, load]);
   const run = async (fn: () => Promise<unknown>) => { setBusy(true); setErr(null); try { await fn(); setOpen(null); setReason(""); load(); } catch (e) { setErr(e instanceof Error ? e.message : "Something went wrong."); } finally { setBusy(false); } };
 
-  if (me && !staff) return <main style={{ padding: 32 }}><h1>Performance records</h1><p>This page is for platform staff.</p></main>;
+  if (me && !staff) return <div style={{ padding: 32 }}><h1>Performance records</h1><p>This page is for platform staff.</p></div>;
   return (
-    <main style={{ padding: 32, maxWidth: 1100 }}>
+    <div style={{ padding: 32, maxWidth: 1100 }}>
       <h1>Performance records</h1>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, maxWidth: 720 }}>Records created when tender contracts close. Withdraw one only for evident error or abuse; the reason goes on the tender&apos;s audit timeline and the record stops counting in supplier aggregates until restored.</p>
       {err && <Notice tone="error">{err}</Notice>}
@@ -56,6 +56,6 @@ export default function PerformanceAdminPage() {
           </div>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

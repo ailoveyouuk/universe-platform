@@ -30,8 +30,8 @@ export function FamilyDetailView() {
   }, [id]);
   useEffect(load, [load]);
 
-  if (!id) return <main style={{ padding: 32 }}>No family selected.</main>;
-  if (!f) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>{err ?? "Loading…"}</main>;
+  if (!id) return <div style={{ padding: 32 }}>No family selected.</div>;
+  if (!f) return <div style={{ padding: 32, color: "var(--u-ink-secondary)" }}>{err ?? "Loading…"}</div>;
 
   function startEdit() {
     if (!f) return;
@@ -54,7 +54,7 @@ export function FamilyDetailView() {
   const tone = f.compliance.status === "BLOCKED" ? "critical" : f.compliance.status === "WARNING" ? "warning" : "good";
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ minWidth: 0 }}>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0, overflowWrap: "anywhere" }}>{f.name}</h1>
@@ -132,7 +132,7 @@ export function FamilyDetailView() {
         {tab === "Documents" && <DocumentsTab familyId={f.id} />}
         {tab === "History" && <FamilyHistory familyId={f.id} />}
       </div>
-    </main>
+    </div>
   );
 }
 

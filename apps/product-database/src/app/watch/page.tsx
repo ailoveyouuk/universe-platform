@@ -79,7 +79,7 @@ export default function WatchPage() {
   );
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24, margin: 0 }}>Regulatory watch</h1>
       <p style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>A daily automated check of public regulator feeds for recalls and safety alerts. Matches to products in the catalogue are advisory flags for platform staff to confirm; nothing is blocked automatically. This supports, but does not replace, formal regulatory intelligence.</p>
       {err && <p style={{ color: "var(--u-status-critical-text)" }}>{err}</p>}
@@ -175,6 +175,6 @@ export default function WatchPage() {
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }

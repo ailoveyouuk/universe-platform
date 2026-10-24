@@ -686,7 +686,7 @@ export default function NewPartnerPage() {
   }
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 760 }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 760 }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: "0 0 20px" }}>
         New Stakeholder
       </h1>
@@ -1409,7 +1409,7 @@ export default function NewPartnerPage() {
           onAdd={(match) => linkToRegistryMatch(match)}
         />
       )}
-    </main>
+    </div>
   );
 }
 

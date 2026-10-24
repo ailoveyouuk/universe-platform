@@ -151,9 +151,9 @@ export function OrganizationDetailView() {
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load organisation"));
   }, [id]);
 
-  if (!id) return <main style={{ padding: 32 }}><p>No organisation selected. <Link href="/organizations">Back to organisations</Link></p></main>;
-  if (error && !org) return <main style={{ padding: 32 }}><Notice tone="error">{error}</Notice><Link href="/organizations">Back to organisations</Link></main>;
-  if (!org || !form) return <main style={{ padding: 32 }}>Loading…</main>;
+  if (!id) return <div style={{ padding: 32 }}><p>No organisation selected. <Link href="/organizations">Back to organisations</Link></p></div>;
+  if (error && !org) return <div style={{ padding: 32 }}><Notice tone="error">{error}</Notice><Link href="/organizations">Back to organisations</Link></div>;
+  if (!org || !form) return <div style={{ padding: 32 }}>Loading…</div>;
 
   const patch = buildPatch(org, form, isPlatform);
   const dirty = Object.keys(patch).length > 0;
@@ -181,7 +181,7 @@ export function OrganizationDetailView() {
   const readOnlyIdentity = !isPlatform;
 
   return (
-    <main style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: tab === "profile" ? 960 : 1100 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: tab === "profile" ? 960 : 1100 }}>
       <p style={{ margin: 0, fontSize: 13 }}>
         <Link href="/organizations">← Organisations</Link>
       </p>
@@ -388,6 +388,6 @@ export function OrganizationDetailView() {
       <AuditHistory tableName="organizations" recordId={org.id} />
       </>
       )}
-    </main>
+    </div>
   );
 }

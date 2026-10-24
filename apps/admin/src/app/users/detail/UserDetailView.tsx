@@ -43,9 +43,9 @@ export function UserDetailView() {
       .catch((e) => setLoadError(e instanceof Error ? e.message : "Failed to load user"));
   }, [id]);
 
-  if (!id) return <main style={{ padding: 32 }}><p>No user selected. <Link href="/users">Back to users</Link></p></main>;
-  if (loadError) return <main style={{ padding: 32 }}><Notice tone="error">{loadError}</Notice><Link href="/users">Back to users</Link></main>;
-  if (!user) return <main style={{ padding: 32 }}>Loading…</main>;
+  if (!id) return <div style={{ padding: 32 }}><p>No user selected. <Link href="/users">Back to users</Link></p></div>;
+  if (loadError) return <div style={{ padding: 32 }}><Notice tone="error">{loadError}</Notice><Link href="/users">Back to users</Link></div>;
+  if (!user) return <div style={{ padding: 32 }}>Loading…</div>;
 
   const profileDirty =
     form.forename !== user.forename ||
@@ -71,7 +71,7 @@ export function UserDetailView() {
   const reload = async () => adopt(await apiClient.getUser(id));
 
   return (
-    <main style={{ padding: 32, maxWidth: 860 }}>
+    <div style={{ padding: 32, maxWidth: 860 }}>
       <p style={{ margin: 0, fontSize: 13 }}>
         <Link href="/users">← Users</Link>
       </p>
@@ -248,6 +248,6 @@ export function UserDetailView() {
       </Section>
 
       <AuditHistory tableName="users" recordId={user.id} />
-    </main>
+    </div>
   );
 }

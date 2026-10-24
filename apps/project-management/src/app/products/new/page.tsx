@@ -23,7 +23,7 @@ export default function AddProductPage() {
   const [formKey, setFormKey] = useState(0);
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 720 }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 720 }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: "0 0 6px" }}>Add Product</h1>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13.5, marginBottom: 20 }}>
         Adds {isPharma ? "a pharmaceutical" : "a non-pharmaceutical"} product to the shared Universe catalogue as a variant of a product family, so it is the same record in project lines, Quality Assurance approvals and the Product Database.
@@ -47,6 +47,6 @@ export default function AddProductPage() {
         onCancel={() => router.push("/")}
       />
       <p style={{ fontSize: 12, marginTop: 16 }}><Link href="/">Back to Dashboard</Link></p>
-    </main>
+    </div>
   );
 }

@@ -87,18 +87,18 @@ export default function NewOrganizationPage() {
 
   if (me && !isPlatformStaff) {
     return (
-      <main style={{ padding: 32, maxWidth: 560 }}>
+      <div style={{ padding: 32, maxWidth: 560 }}>
         <h1>Create Organisation</h1>
         <p style={{ color: "var(--u-status-critical-text)" }}>
           Onboarding a new organisation is platform-staff only during the pilot — your account
           doesn&apos;t have that role. This would also be rejected server-side if submitted.
         </p>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main style={{ padding: 32, maxWidth: 560 }}>
+    <div style={{ padding: 32, maxWidth: 560 }}>
       <h1>Create Organisation</h1>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>
         Provisions a new tenant. There is no default/&quot;house&quot; organisation on Universe —
@@ -275,7 +275,7 @@ export default function NewOrganizationPage() {
           {submitting ? "Creating…" : "Create Organisation"}
         </button>
       </form>
-    </main>
+    </div>
   );
 }
 

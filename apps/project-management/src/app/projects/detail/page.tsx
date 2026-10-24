@@ -5,7 +5,7 @@ import { ProjectDetailView } from "./ProjectDetailView";
 // wrapped in Suspense — see https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
 export default function ProjectDetailPage() {
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
       <ProjectDetailView />
     </Suspense>
   );

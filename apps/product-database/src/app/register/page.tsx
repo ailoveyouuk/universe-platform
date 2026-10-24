@@ -54,7 +54,7 @@ function RegisterView() {
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE)) : 1;
 
   return (
-    <main style={{ padding: "24px clamp(12px, 3vw, 32px)", maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ padding: "24px clamp(12px, 3vw, 32px)", maxWidth: 1200, margin: "0 auto" }}>
       <h1 style={{ margin: "0 0 4px", fontSize: 24 }}>Medicines register</h1>
       <p style={{ margin: "0 0 16px", color: "var(--u-ink-secondary)", fontSize: 13.5 }}>Authorised medicines from the EMA and the UK MHRA. Open an entry for its leaflet links and the catalogue products matched to it.</p>
 
@@ -140,7 +140,7 @@ function RegisterView() {
         </>
       )}
       {summary && <p style={{ margin: "20px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{summary.attribution}</p>}
-    </main>
+    </div>
   );
 }
 

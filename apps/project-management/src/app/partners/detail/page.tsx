@@ -271,9 +271,9 @@ export default function PartnerDetailPage() {
     }
   }
 
-  if (!id) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No stakeholder specified.</main>;
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
-  if (!partner) return <main style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</main>;
+  if (!id) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>No stakeholder specified.</div>;
+  if (error) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</div>;
+  if (!partner) return <div style={{ padding: 32, color: "var(--u-ink-secondary)" }}>Loading…</div>;
 
   const activeRoleTypes = partner.roles.filter((r) => r.isActive).map((r) => r.roleType);
   const applicableStandards = standards.filter((s) => s.appliesToStakeholderTypes.some((t) => activeRoleTypes.includes(t)));
@@ -288,7 +288,7 @@ export default function PartnerDetailPage() {
     (me?.permissions.includes("partners.approve") ?? false);
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 860, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span
@@ -650,7 +650,7 @@ export default function PartnerDetailPage() {
       <RiskRegister subjectType="PARTNER" subjectId={partner.id} />
       <ApprovalHistory partnerId={partner.id} />
       <AuditHistory tableName="partners" recordId={partner.id} />
-    </main>
+    </div>
   );
 }
 

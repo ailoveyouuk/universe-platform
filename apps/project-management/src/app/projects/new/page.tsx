@@ -56,7 +56,7 @@ export default function NewProjectPage() {
   }
 
   return (
-    <main style={{ padding: 32, maxWidth: 640 }}>
+    <div style={{ padding: 32, maxWidth: 640 }}>
       <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: "0 0 20px" }}>New Project</h1>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <label>
@@ -198,7 +198,7 @@ export default function NewProjectPage() {
           {submitting ? "Creating…" : "Create Project"}
         </Button>
       </form>
-    </main>
+    </div>
   );
 }
 

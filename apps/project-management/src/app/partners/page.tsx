@@ -135,7 +135,7 @@ export default function PartnersPage() {
   const recentByCategory: Record<string, PartnerListItem[]> = overview?.recent ?? {};
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Stakeholders</h1>
@@ -309,7 +309,7 @@ export default function PartnersPage() {
           />
         </>
       )}
-    </main>
+    </div>
   );
 }
 

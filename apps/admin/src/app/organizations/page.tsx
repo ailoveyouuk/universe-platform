@@ -59,7 +59,7 @@ export default function OrganizationsPage() {
   }, [organizations]);
 
   return (
-    <main style={{ padding: 32 }}>
+    <div style={{ padding: 32 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Organisations</h1>
         {isPlatformStaff && <Link href="/organizations/new">+ Create Organisation</Link>}
@@ -139,7 +139,7 @@ export default function OrganizationsPage() {
           </tbody>
         </table>
       )}
-    </main>
+    </div>
   );
 }
 

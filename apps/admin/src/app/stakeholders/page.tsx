@@ -65,11 +65,11 @@ export default function StakeholdersPage() {
   }
 
   if (me && !isPlatform) {
-    return <main style={{ padding: 32 }}>Stakeholder access is managed by Universe platform staff.</main>;
+    return <div style={{ padding: 32 }}>Stakeholder access is managed by Universe platform staff.</div>;
   }
 
   return (
-    <main style={{ padding: 32, maxWidth: 900 }}>
+    <div style={{ padding: 32, maxWidth: 900 }}>
       <h1 style={{ marginTop: 0 }}>Stakeholder access</h1>
       <p style={{ color: "var(--u-ink-secondary)" }}>
         Give a prospective organisation a place to explore the whole platform. They sign in with the email you add here and see only{" "}
@@ -152,6 +152,6 @@ export default function StakeholdersPage() {
           </table>
         )}
       </Section>
-    </main>
+    </div>
   );
 }

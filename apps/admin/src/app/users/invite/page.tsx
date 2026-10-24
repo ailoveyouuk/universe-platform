@@ -17,7 +17,7 @@ import { useCurrentUser } from "../../../lib/AuthContext";
  */
 export default function InviteUserPage() {
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
       <InviteUserForm />
     </Suspense>
   );
@@ -83,7 +83,7 @@ function InviteUserForm() {
   }
 
   return (
-    <main style={{ padding: 32, maxWidth: 560 }}>
+    <div style={{ padding: 32, maxWidth: 560 }}>
       <h1>Invite a User</h1>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>
         This adds them to the allowed list with an organisation and role. They gain access the
@@ -175,7 +175,7 @@ function InviteUserForm() {
           {submitting ? "Inviting…" : "Invite User"}
         </button>
       </form>
-    </main>
+    </div>
   );
 }
 

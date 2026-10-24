@@ -49,12 +49,12 @@ export function DossierView() {
     apiClient.getProductDossier(id).then(setDossier).catch((e) => setError(e instanceof Error ? e.message : "Could not build the dossier."));
   }, [id]);
 
-  if (error) return <main style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</main>;
-  if (!dossier) return <main style={{ padding: 32 }}>{id ? "Building the dossier…" : "No product selected."}</main>;
+  if (error) return <div style={{ padding: 32, color: "var(--u-status-critical-text)" }}>{error}</div>;
+  if (!dossier) return <div style={{ padding: 32 }}>{id ? "Building the dossier…" : "No product selected."}</div>;
   const p = dossier.product;
 
   return (
-    <main style={{ padding: "28px 32px 48px", maxWidth: 1000, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 48px", maxWidth: 1000, margin: "0 auto" }}>
       <style>{`@media print { .no-print, nav, aside { display: none !important; } main { padding: 0 !important; max-width: none !important; } }`}</style>
       <div className="no-print" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
         <Link href={`/products/detail?id=${p.id}`} style={{ fontSize: 13 }}>Back to product</Link>
@@ -137,6 +137,6 @@ export function DossierView() {
         />
         {dossier.history.length > 100 && <p style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>Showing the latest 100 of {dossier.history.length}; the JSON download has them all.</p>}
       </Section>
-    </main>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { OrganizationDetailView } from "./OrganizationDetailView";
 // pattern as apps/project-management/src/app/projects/detail/page.tsx.
 export default function OrganizationDetailPage() {
   return (
-    <Suspense fallback={<main style={{ padding: 32 }}>Loading…</main>}>
+    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
       <OrganizationDetailView />
     </Suspense>
   );
