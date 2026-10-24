@@ -17,9 +17,13 @@ async function main() {
   const approvedPair = new Set(approvals.map((a) => `${a.productMasterId}|${a.manufacturerId}`));
   const partners = new Map((await prisma.partner.findMany({ where: { organizationId: orgId }, select: { id: true, countryCode: true, roles: { select: { roleType: true } } } })).map((p) => [p.id, p]));
   const batches = new Map((await withTenantContext(orgId, (tx) => tx.productBatch.findMany({ where: { organizationId: orgId }, select: { id: true, productMasterId: true, manufacturerId: true, manufacturedDate: true, expiryDate: true } }))).map((b) => [b.id, b]));
-  const projects = await withTenantContext(orgId, (tx) => tx.project.findMany({ where: { referenceNumber: { startsWith: "SIM-" } }, select: { id: true, referenceNumber: true, status: true, startDate: true, dueDate: true, submissionDate: true, deliveryCountryCode: true, freightMode: true, incoterm: true, freightForwarderId: true, clientId: true }, orderBy: { id: "asc" } }));
+  const projects = await withTenantContext(orgId, (tx) => tx.project.findMany({ where: { referenceNumber: { startsWith: "SIM-" } }, select: { id: true, referenceNumber: true, sourceTenderId: true, status: true, startDate: true, dueDate: true, submissionDate: true, deliveryCountryCode: true, freightMode: true, incoterm: true, freightForwarderId: true, clientId: true }, orderBy: { id: "asc" } }));
+  // Projects that track a tender bid (sourceTenderId) are still being bid for: no freight, supplier, PO or warehouse details exist yet by design.
+  const tracking = new Set(projects.filter((p) => p.sourceTenderId).map((p) => p.id));
   bump("projects", projects.length);
+  if (tracking.size) bump("tender-tracking projects (supply-chain fields not expected)", tracking.size);
   for (const p of projects) {
+    if (tracking.has(p.id)) continue;
     if (!p.deliveryCountryCode) bump("project: no delivery country");
     if (!p.freightMode) bump("project: no freight mode");
     if (!p.incoterm) bump("project: no incoterm");
@@ -36,6 +40,7 @@ async function main() {
         bump("lines");
         lineMap.set(l.id, { actual: l.actualDeliveryDate });
         const proj = pmap.get(l.projectId)!;
+        if (tracking.has(l.projectId)) continue;
         if (!l.productMasterId) bump("line: no product");
         if (!l.manufacturerId) bump("line: no manufacturer");
         if (!l.supplierId) bump("line: no supplier");

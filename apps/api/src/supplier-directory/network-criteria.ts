@@ -2,7 +2,7 @@ import type { NetworkSearchCriteria } from "@universe/types";
 
 /** What a saved supplier search is matched against: one published organisation, with only valid (unexpired) certifications. */
 export interface NetworkSubject {
-  name: string; type: string; description: string | null; principalManufacturers: string | null;
+  name: string; type: string; /** Every role held; falls back to type. */ types?: string[]; description: string | null; principalManufacturers: string | null;
   scope: string[]; countryCodes: string[]; certificationTypes: string[];
   whoPrequalified: boolean; localManufacturer: boolean; yearsInOperation: number | null; warehousing: string | null;
 }
@@ -11,7 +11,7 @@ export interface NetworkSubject {
 export function matchesNetworkCriteria(c: NetworkSearchCriteria, o: NetworkSubject): boolean {
   const q = c.q?.trim().toLowerCase();
   if (q && ![o.name, o.description, o.principalManufacturers].some((v) => (v ?? "").toLowerCase().includes(q))) return false;
-  if (c.type && o.type !== c.type) return false;
+  if (c.type && !(o.types?.length ? o.types : [o.type]).includes(c.type)) return false;
   if (c.scope?.length && !c.scope.some((s) => o.scope.includes(s))) return false;
   if (c.country?.length && !c.country.some((s) => o.countryCodes.includes(s.toUpperCase()))) return false;
   if (c.certType?.length && !c.certType.every((t) => o.certificationTypes.includes(t))) return false;

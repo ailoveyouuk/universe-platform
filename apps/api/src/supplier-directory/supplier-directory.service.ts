@@ -6,6 +6,7 @@ import { StakeholderRegistryService } from "../stakeholder-registry/stakeholder-
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { NetworkSearchResult, OrgDirectoryProfile } from "@universe/types";
+import { orgTypesOf } from "@universe/types";
 import type {
   CreateSupplierProductDto,
   SetCountryPresenceDto,
@@ -73,7 +74,7 @@ export class SupplierDirectoryService {
     if (q) and.push({ OR: [{ description: { contains: q } }, { organization: { name: { contains: q } } }, { principalManufacturersRepresented: { contains: q } }] });
     const where: any = {
       publishedAt: { not: null },
-      ...(f.type ? { organization: { type: f.type } } : {}),
+      ...(f.type ? { organization: { OR: [{ type: f.type }, { additionalTypes: { contains: `,${f.type},` } }] } } : {}),
       ...(f.minYears ? { yearsInOperation: { gte: f.minYears } } : {}),
       ...(f.warehousing ? { warehousingCapability: f.warehousing } : {}),
       ...(and.length ? { AND: and } : {}),
@@ -82,12 +83,13 @@ export class SupplierDirectoryService {
       const rows = await tx.supplierProfile.findMany({
         where,
         take: 1000,
-        include: { organization: { select: { id: true, name: true, type: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: notExpired, select: { type: true } } } } },
+        include: { organization: { select: { id: true, name: true, type: true, additionalTypes: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: notExpired, select: { type: true } } } } },
       });
       const all = rows.map((r: any) => ({
         id: r.organization.id as string,
         name: r.organization.name as string,
         type: r.organization.type as string,
+        types: orgTypesOf({ type: r.organization.type, additionalTypes: r.organization.additionalTypes }),
         description: (r.description ?? null) as string | null,
         countryCodes: [...new Set<string>([...r.organization.countryPresence, ...r.organization.supplierCountryPresence].map((c: any) => c.countryCode))].sort(),
         scope: r.organization.scopeOfSupply.map((x: any) => x.scopeSubId) as string[],
@@ -99,7 +101,7 @@ export class SupplierDirectoryService {
         for (const o of all) for (const k of new Set(pick(o))) m.set(k, (m.get(k) ?? 0) + 1);
         return [...m].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
       };
-      const facets = { countries: tally((o) => o.countryCodes), scope: tally((o) => o.scope), certifications: tally((o) => o.certificationTypes), types: tally((o) => [o.type]) };
+      const facets = { countries: tally((o) => o.countryCodes), scope: tally((o) => o.scope), certifications: tally((o) => o.certificationTypes), types: tally((o) => o.types) };
       const stats = { suppliers: all.length, countries: facets.countries.length, categories: facets.scope.length, certified: all.filter((o: any) => o.certificationTypes.length > 0).length };
       const sorters: Record<string, (a: (typeof all)[number], b: (typeof all)[number]) => number> = {
         name: (a, b) => a.name.localeCompare(b.name),

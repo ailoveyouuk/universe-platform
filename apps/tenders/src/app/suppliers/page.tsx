@@ -150,7 +150,7 @@ export default function FindSuppliersPage() {
           <div key={o.id} style={{ padding: "14px 20px", borderTop: i ? "1px solid var(--u-border)" : "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <strong style={{ fontSize: 15 }}><OrgName id={o.id} name={o.name} /></strong>
-              <span style={muted}>{ORG_TYPES[o.type] ?? o.type}{o.yearsInOperation ? ` · ${o.yearsInOperation} years` : ""}</span>
+              <span style={muted}>{(o.types?.length ? o.types : [o.type]).map((t) => ORG_TYPES[t] ?? t).join(" · ")}{o.yearsInOperation ? ` · ${o.yearsInOperation} years` : ""}</span>
             </div>
             {o.description && <p style={{ margin: "4px 0 0", fontSize: 13.5, color: "var(--u-ink-secondary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{o.description}</p>}
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>

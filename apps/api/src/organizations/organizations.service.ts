@@ -14,6 +14,7 @@ import type {
   ManufacturerProfileSummary,
   DataInsightsUserProfileSummary,
 } from "@universe/types";
+import { parseAdditionalTypes } from "@universe/types";
 import { assertPlatformStaff, assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import type { CreateOrganizationDto } from "./dto/create-organization.dto";
@@ -79,6 +80,7 @@ export class OrganizationsService {
       slug: o.slug,
       status: o.status as OrganizationSummary["status"],
       type: o.type as OrganizationSummary["type"],
+      additionalTypes: parseAdditionalTypes(o.additionalTypes),
       logoUrl: o.logoUrl,
       primaryColor: o.primaryColor,
       secondaryColor: o.secondaryColor,
@@ -152,6 +154,7 @@ export class OrganizationsService {
 
   /** Fields an org admin holding org.profile.manage may change for their own org. */
   private static readonly ORG_EDITABLE_FIELDS = [
+    "additionalTypes",
     "legalName",
     "legalEntityType",
     "countryOfRegistrationCode",
@@ -180,6 +183,7 @@ export class OrganizationsService {
       slug: o.slug,
       status: o.status as OrganizationDetail["status"],
       type: o.type as OrganizationDetail["type"],
+      additionalTypes: parseAdditionalTypes(o.additionalTypes),
       logoUrl: o.logoUrl,
       logoIconUrl: o.logoIconUrl ?? null,
       primaryColor: o.primaryColor,
@@ -224,6 +228,12 @@ export class OrganizationsService {
     assertCanManageOrg(caller, organizationId, "org.profile.manage");
     const isPlatform = caller.platformStaffRole !== "NONE";
 
+    // additionalTypes arrives as a list and is stored delimited (",SUPPLIER,FUNDER_DONOR,"); the primary type is never repeated in it.
+    if (Array.isArray(dto.additionalTypes)) {
+      const current = await prisma.organization.findUnique({ where: { id: organizationId }, select: { type: true } });
+      const list = [...new Set(dto.additionalTypes)].filter((t) => t !== current?.type);
+      (dto as any).additionalTypes = list.length ? `,${list.join(",")},` : null;
+    }
     const allFields = [...OrganizationsService.PLATFORM_ONLY_FIELDS, ...OrganizationsService.ORG_EDITABLE_FIELDS] as readonly string[];
     const touched = allFields.filter((f) => (dto as any)[f] !== undefined);
     if (!isPlatform) {

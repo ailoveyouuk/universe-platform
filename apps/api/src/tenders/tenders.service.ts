@@ -10,7 +10,7 @@ import {
   chipsFor, evaluateEligibility, matchesSavedSearch,
   type EligibilityResult, type OrgProfile, type RuleLike, type SavedCriteria,
 } from "./eligibility";
-import { EXCLUSION_GROUNDS, scopeSubsForProduct } from "@universe/types";
+import { EXCLUSION_GROUNDS, orgTypesOf, scopeSubsForProduct } from "@universe/types";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 import type {
   CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
@@ -78,7 +78,7 @@ export class TendersService {
 
   /** What the registry holds about an organisation, for the eligibility checks (never self-declared on the tender). */
   async loadProfile(tx: Tx, organizationId: string): Promise<OrgProfile> {
-    const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { type: true, countryOfRegistrationCode: true } });
+    const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { type: true, additionalTypes: true, countryOfRegistrationCode: true } });
     const presence = await tx.organizationCountryPresence.findMany({ where: { organizationId }, select: { countryCode: true } });
     const supplied = await tx.supplierCountryPresence.findMany({ where: { organizationId }, select: { countryCode: true } });
     const products = await tx.supplierProduct.findMany({ where: { organizationId, isPublished: true }, select: { productMaster: { select: { category: true } } } });
@@ -96,7 +96,7 @@ export class TendersService {
       jsonArray(mfr.otherCertifications).forEach((c) => qualifications.add(c));
     }
     return {
-      organizationId, orgType: org?.type ?? "", countries: [...countries], categories: [...categories],
+      organizationId, orgType: org?.type ?? "", orgTypes: org ? orgTypesOf({ type: org.type, additionalTypes: org.additionalTypes }) : [], countries: [...countries], categories: [...categories],
       qualifications: [...qualifications], hasProfileEvidence: !!mfr || products.length > 0,
       performance: await supplierAggregate(organizationId),
     };

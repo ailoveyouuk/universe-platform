@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsArray, IsBoolean, IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 
 /**
  * Admin app "edit organisation" (added 2026-10-16). Every field optional;
@@ -19,6 +19,9 @@ export class UpdateOrganizationDto {
   @IsOptional() @IsIn(["PILOT", "ACTIVE", "SUSPENDED"]) status?: string;
 
   @IsOptional() @IsBoolean() shareIdentityWithUniverse?: boolean;
+
+  /** Other roles the organisation also holds (an organisation may be, say, a supplier and a procurement agent). */
+  @IsOptional() @IsArray() @IsIn(["PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY", "MANUFACTURER", "SUPPLIER", "FUNDER_DONOR", "DATA_INSIGHTS_USER"], { each: true }) additionalTypes?: string[];
 
   @IsOptional() @IsString() @MaxLength(200) legalName?: string | null;
   @IsOptional()

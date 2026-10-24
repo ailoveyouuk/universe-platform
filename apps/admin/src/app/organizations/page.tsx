@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { orgTypesOf } from "@universe/types";
 import type { OrganizationSummary } from "@universe/types";
 import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, Pill, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
@@ -107,7 +108,7 @@ export default function OrganizationsPage() {
                   <Link href={`/organizations/detail?id=${o.id}`} style={{ fontWeight: 600 }}>{o.name}</Link>
                 </td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{o.slug}</td>
-                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{ORG_TYPE_LABELS[o.type] ?? o.type}</td>
+                <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>{orgTypesOf(o).map((t) => ORG_TYPE_LABELS[t] ?? t).join(" · ")}</td>
                 <td style={{ padding: 8, color: "var(--u-ink-secondary)" }}>
                   {o.countryOfRegistrationCode
                     ? countries.find((c) => c.code === o.countryOfRegistrationCode)?.name ?? o.countryOfRegistrationCode

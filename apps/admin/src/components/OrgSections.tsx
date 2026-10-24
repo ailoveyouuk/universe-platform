@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { orgTypesOf } from "@universe/types";
 import type {
   OrganizationAccessList,
   DataInsightsUserProfileSummary,
@@ -443,8 +444,8 @@ function SaveBar({ saving, error, saved, onSave }: { saving: boolean; error: str
  * Suppliers manage their own public profile in the Supplier Portal (not built
  * yet), so there is nothing to edit here for SUPPLIER; MANUFACTURER's detail
  * is its sites (ManufacturerSitesSection). */
-export function CategoryProfileSection({ org }: { org: OrganizationDetail }) {
-  switch (org.type) {
+function profileSectionFor(org: OrganizationDetail, type: string) {
+  switch (type) {
     case "PROCUREMENT_SERVICE_AGENT":
       return (
         <Section title="Procurement agent profile">
@@ -472,6 +473,10 @@ export function CategoryProfileSection({ org }: { org: OrganizationDetail }) {
     default:
       return null;
   }
+}
+
+export function CategoryProfileSection({ org }: { org: OrganizationDetail }) {
+  return <>{orgTypesOf(org).map((t) => <Fragment key={t}>{profileSectionFor(org, t)}</Fragment>)}</>;
 }
 
 // ---------------------------------------------------------------------------

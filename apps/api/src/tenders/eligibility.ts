@@ -17,6 +17,8 @@ export interface RuleLike { id: string; ruleType: string; ruleValue: string; exp
 export interface OrgProfile {
   organizationId: string;
   orgType: string;
+  /** Every role the organisation holds (primary first); when absent only orgType counts. An organisation that is both a supplier and an agent meets either. */
+  orgTypes?: string[];
   /** ISO codes the organisation is registered in or operates in or distributes to. */
   countries: string[];
   /** Product categories it makes or supplies ("Laboratory Consumables.Cryovial"). */
@@ -43,7 +45,8 @@ function evaluateRule(rule: RuleLike, p: OrgProfile): { status: CheckStatus; req
   const custom = rule.explanation?.trim() || null;
   switch (rule.ruleType) {
     case "ORG_TYPE": {
-      const ok = values.map(norm).includes(norm(p.orgType));
+      const held = (p.orgTypes?.length ? p.orgTypes : [p.orgType]).map(norm);
+      const ok = values.map(norm).some((v) => held.includes(v));
       const nice = values.map((v) => v.toLowerCase().replace(/_/g, " ")).join(" or ");
       return { status: ok ? "MET" : "NOT_MET", requirement: `Organisation type: ${nice}`, action: ok ? null : custom ?? `This tender is open to ${nice} organisations only.` };
     }

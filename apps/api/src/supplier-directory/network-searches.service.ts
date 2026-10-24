@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
 import type { NetworkSavedSearchRecord, NetworkSearchCriteria } from "@universe/types";
+import { orgTypesOf } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import { createNotifications, usersWithPermission } from "../notifications/notify";
@@ -74,12 +75,12 @@ export class NetworkSearchesService {
         const notExpired = { archivedAt: null, OR: [{ expiresOn: null }, { expiresOn: { gte: new Date() } }] };
         const p = await tx.supplierProfile.findUnique({
           where: { organizationId },
-          include: { organization: { select: { id: true, name: true, type: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: notExpired, select: { type: true } }, manufacturerProfile: { select: { whoPrequalified: true, isLocalManufacturer: true } } } } },
+          include: { organization: { select: { id: true, name: true, type: true, additionalTypes: true, scopeOfSupply: { where: { archivedAt: null }, select: { scopeSubId: true } }, countryPresence: { select: { countryCode: true } }, supplierCountryPresence: { select: { countryCode: true } }, certifications: { where: notExpired, select: { type: true } }, manufacturerProfile: { select: { whoPrequalified: true, isLocalManufacturer: true } } } } },
         });
         if (!p || !p.publishedAt) return;
         const o = p.organization;
         const subject: NetworkSubject = {
-          name: o.name, type: o.type, description: p.description ?? null, principalManufacturers: p.principalManufacturersRepresented ?? null,
+          name: o.name, type: o.type, types: orgTypesOf({ type: o.type, additionalTypes: o.additionalTypes }), description: p.description ?? null, principalManufacturers: p.principalManufacturersRepresented ?? null,
           scope: o.scopeOfSupply.map((x: any) => x.scopeSubId),
           countryCodes: [...new Set<string>([...o.countryPresence, ...o.supplierCountryPresence].map((c: any) => c.countryCode))],
           certificationTypes: [...new Set<string>(o.certifications.map((c: any) => c.type))],

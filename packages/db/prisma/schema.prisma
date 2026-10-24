@@ -214,6 +214,9 @@ model Organization {
   /// which app(s) it's steered toward — not an access-control boundary by
   /// itself (RLS/role permissions still do the actual enforcing).
   type                      String   @default("PROCUREMENT_SERVICE_AGENT")
+  /// Other roles the organisation also holds (2026-10-24), e.g. a supplier that is also a procurement agent. Delimited like deliveryCountryCodes
+  /// (",SUPPLIER,FUNDER_DONOR,"), never contains the primary type. Eligibility, the directory and the profile sections read every role.
+  additionalTypes           String?  @db.NVarChar(200)
   /// Added 2026-09-26 — drives the personalized "powered by Universe"
   /// header every app shows (see @universe/ui's OrgHeader): the org's own
   /// logo when set, falling back to its name in text when not (most orgs

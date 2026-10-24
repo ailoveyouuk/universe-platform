@@ -215,6 +215,17 @@ export interface UpdateRoleInput {
   permissionKeys?: string[];
 }
 
+export type OrganizationTypeValue = "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
+export const ORGANIZATION_TYPE_VALUES: OrganizationTypeValue[] = ["PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY", "MANUFACTURER", "SUPPLIER", "FUNDER_DONOR", "DATA_INSIGHTS_USER"];
+/** Splits the stored ",A,B," form into a list; tolerant of null and stray spaces. */
+export function parseAdditionalTypes(raw: string | null | undefined): OrganizationTypeValue[] {
+  return (raw ?? "").split(",").map((x) => x.trim()).filter((x): x is OrganizationTypeValue => (ORGANIZATION_TYPE_VALUES as string[]).includes(x));
+}
+/** Every role an organisation holds: its primary type first, then the additional ones. */
+export function orgTypesOf(o: { type: string; additionalTypes?: string[] | string | null }): string[] {
+  const extra = Array.isArray(o.additionalTypes) ? o.additionalTypes : parseAdditionalTypes(o.additionalTypes);
+  return [o.type, ...extra.filter((t) => t !== o.type)];
+}
 export interface OrganizationSummary {
   id: string;
   name: string;
@@ -224,6 +235,8 @@ export interface OrganizationSummary {
    * PROCUREMENT_SERVICE_AGENT — expanded 2026-09-26, see Organization.type's
    * doc comment in schema.prisma. */
   type: "PROCUREMENT_SERVICE_AGENT" | "TENDERING_PURCHASING_BODY" | "MANUFACTURER" | "SUPPLIER" | "FUNDER_DONOR" | "DATA_INSIGHTS_USER";
+  /** Other roles the organisation also holds (2026-10-24); never includes `type`. Absent on older responses. */
+  additionalTypes?: OrganizationTypeValue[];
   /** Added 2026-09-26 — see Organization.logoUrl's doc comment. */
   logoUrl: string | null;
   /** Added 2026-09-26 — see Organization.primaryColor's doc comment. */
@@ -298,6 +311,8 @@ export interface OrganizationDetail extends OrganizationSummary {
  * enforced server-side in OrganizationsService.update; an org admin holding
  * org.profile.manage may change the rest for their own organisation. */
 export interface UpdateOrganizationInput {
+  /** Other roles the organisation also holds; the primary type is dropped if included. */
+  additionalTypes?: OrganizationTypeValue[];
   shareIdentityWithUniverse?: boolean;
   name?: string;
   slug?: string;
@@ -2364,6 +2379,8 @@ export interface NetworkOrganization {
   id: string;
   name: string;
   type: string;
+  /** Every role the organisation holds, primary first. */
+  types?: string[];
   description: string | null;
   countryCodes: string[];
   scope: string[];

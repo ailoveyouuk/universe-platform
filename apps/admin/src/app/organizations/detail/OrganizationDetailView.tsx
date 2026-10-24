@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { OrganizationDetail, UpdateOrganizationInput } from "@universe/types";
+import { ORGANIZATION_TYPE_VALUES, orgTypesOf } from "@universe/types";
+import type { OrganizationDetail, OrganizationTypeValue, UpdateOrganizationInput } from "@universe/types";
 import { Button, CountrySelect, Select } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -48,6 +49,7 @@ type FormState = {
   secondaryColor: string;
   welcomeMessage: string;
   notes: string;
+  additionalTypes: string[];
 };
 
 function toForm(o: OrganizationDetail): FormState {
@@ -70,6 +72,7 @@ function toForm(o: OrganizationDetail): FormState {
     secondaryColor: o.secondaryColor ?? "",
     welcomeMessage: o.welcomeMessage ?? "",
     notes: o.notes ?? "",
+    additionalTypes: [...(o.additionalTypes ?? [])].sort(),
   };
 }
 
@@ -99,6 +102,7 @@ function buildPatch(original: OrganizationDetail, form: FormState, isPlatform: b
   for (const key of NULLABLE_TEXT) {
     if (form[key] !== base[key]) patch[key] = form[key] === "" ? null : form[key];
   }
+  if (form.additionalTypes.join(",") !== base.additionalTypes.join(",")) patch.additionalTypes = form.additionalTypes;
   if (isPlatform) {
     for (const key of ["name", "slug", "status"] as const) {
       if (form[key] !== base[key]) patch[key] = form[key];
@@ -108,6 +112,8 @@ function buildPatch(original: OrganizationDetail, form: FormState, isPlatform: b
   }
   return patch as UpdateOrganizationInput;
 }
+
+const holdsAny = (o: OrganizationDetail, types: string[]) => orgTypesOf(o).some((t) => types.includes(t));
 
 type OrgTab = "profile" | "users" | "roles" | "activity";
 const TABS: { key: OrgTab; label: string }[] = [
@@ -188,7 +194,7 @@ export function OrganizationDetailView() {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>{org.name}</h1>
         <StatusChip status={org.status} />
-        <span style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>{ORG_TYPE_LABELS[org.type] ?? org.type}</span>
+        <span style={{ color: "var(--u-ink-secondary)", fontSize: 13 }}>{orgTypesOf(org).map((t) => ORG_TYPE_LABELS[t] ?? t).join(" · ")}</span>
       </div>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "6px 0 0" }}>
         {org.activeUserCount} active of {org.userCount} users ·{" "}
@@ -305,6 +311,24 @@ export function OrganizationDetailView() {
           </Field>
         </FormGrid>
 
+        <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Roles on the platform</h3>
+        <p style={{ margin: "0 0 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>
+          Main role: <strong>{ORG_TYPE_LABELS[org.type] ?? org.type}</strong>. Tick any other role this organisation also holds (for example a supplier that is also a procurement agent) so it is found, matched and eligible for opportunities in every role.
+        </p>
+        <fieldset style={{ border: "none", padding: 0, margin: 0, display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+          <legend style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Also acts as</legend>
+          {ORGANIZATION_TYPE_VALUES.filter((t) => t !== org.type).map((t) => (
+            <label key={t} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={form.additionalTypes.includes(t)}
+                onChange={(e) => set({ additionalTypes: (e.target.checked ? [...form.additionalTypes, t] : form.additionalTypes.filter((x) => x !== t)).sort() as OrganizationTypeValue[] })}
+              />
+              {ORG_TYPE_LABELS[t] ?? t}
+            </label>
+          ))}
+        </fieldset>
+
         <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Primary contact</h3>
         <FormGrid>
           <Field label="Name">
@@ -376,13 +400,13 @@ export function OrganizationDetailView() {
         </div>
       </Section>
 
-      {org.type !== "FUNDER_DONOR" && org.type !== "DATA_INSIGHTS_USER" && <DirectoryProfileSection organizationId={org.id} />}
+      {holdsAny(org, ["SUPPLIER", "MANUFACTURER", "PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY"]) && <DirectoryProfileSection organizationId={org.id} />}
       <CountryPresenceSection organizationId={org.id} />
-      {org.type !== "FUNDER_DONOR" && org.type !== "DATA_INSIGHTS_USER" && <ScopeCertificationsSection organizationId={org.id} />}
+      {holdsAny(org, ["SUPPLIER", "MANUFACTURER", "PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY"]) && <ScopeCertificationsSection organizationId={org.id} />}
       <DemoAccessSection organizationId={org.id} />
       <CategoryProfileSection org={org} />
-      {org.type === "MANUFACTURER" && <ManufacturerProfileSection organizationId={org.id} />}
-      {org.type === "MANUFACTURER" && <ManufacturerSitesSection organizationId={org.id} />}
+      {orgTypesOf(org).includes("MANUFACTURER") && <ManufacturerProfileSection organizationId={org.id} />}
+      {orgTypesOf(org).includes("MANUFACTURER") && <ManufacturerSitesSection organizationId={org.id} />}
       <ContributorVisibilitySection org={org} onChanged={(o) => setOrg({ ...org, ...o })} />
       <ConsentSection organizationId={org.id} />
       <AuditHistory tableName="organizations" recordId={org.id} />
