@@ -3915,3 +3915,5 @@ export interface MiniCompetitionView {
 export interface MiniInvitationView {
   id: string; reference: string; status: MiniQuoteStatus; closesAt: string; open: boolean; requestNotes: string | null; deliveryCountryCode: string | null; requiredBy: string | null; quotedAt: string | null; totalValue: number | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[];
 }
+
+export * from "./project-line-input";
