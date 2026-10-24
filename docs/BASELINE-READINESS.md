@@ -33,3 +33,7 @@ Not yet. Build data sets 1 and 2 (and decide on 3), then re-run both audits, agr
 - Tender documents, bid files and signed contract copies now exist as real stored PDFs for the simulated tenders; tender lines are topic-coherent.
 - Organisations can hold several roles, so a supplier that is also a procurement service agent is no longer missed by eligibility, search or saved searches.
 - Audits re-run clean. Remaining before baseline: mini-competitions, price reviews and variations for the new tenders; Insights using real data in anonymised views; Reset sandbox mechanism (needs your approval, demo organisation only); a real screen-reader pass by a person.
+
+## Update, 2026-10-25 (later): contract life-cycle data
+- Three simulated frameworks now carry mini-competitions, variations and price reviews (SIM-FWK-001, 002, and 003 issued by Universe Demo). Supplier Portal dropped.
+- Remaining before baseline: Insights approach (Lewis to decide), Reset sandbox mechanism (Lewis to approve), real screen-reader pass.

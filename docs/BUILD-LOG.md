@@ -1044,3 +1044,10 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - Known small item: SIM-ECO-05 clarification question still mentions "liquid sodium hypochlorite for line 2" (lines are now tablet, soap, hygiene kit).
 - Supplier Portal: recommendation not to deploy as a separate app; supplier work lives in Project Management and the read-only directory is Find suppliers. Awaiting Lewis's decision on relabelling the switcher slot.
 - Commits a25b67f to e273387.
+
+## 2026-10-25 — Outstanding baseline items: contract life-cycle data, leftovers, Supplier Portal dropped
+- SIM-ECO-05 clarification reworded to match its items; SIM-FWK-002 title corrected (applied via `fix:demo-tender-products`, now also idempotently covers both).
+- Supplier Portal removed from the app switcher (Lewis's decision: rolled into other apps). The `apps/supplier-portal` code and API module are kept, not deleted; it was never deployed.
+- `seed:demo-contract-lifecycle` (workflow "Seed demo contract lifecycle", applied): for each awarded simulated framework with two active agreements and no existing history, adds a run and awarded mini-competition (two quotes, winner, call-off awaiting the supplier), three contract variations (accepted and applied, rejected with reason, one waiting) and three price reviews (accepted, rejected, one waiting for an answer). Events are appended to the hash chain after the current tail.
+- `seed:demo-framework` now takes reference, product offset, title and `ISSUER=demo`. New frameworks: SIM-FWK-002 (issued by Andean Care Alliance 106, Universe Demo is a supplier with a price review to answer) and SIM-FWK-003 (issued by Universe Demo, so the issuer side of mini-competitions, variations and price reviews can be shown). Tender documents and contract files added to both with `seed:demo-tender-files`. Verified live on SIM-FWK-002 and SIM-FWK-003.
+- Open items: Insights (not built, "coming soon" slot), Reset sandbox mechanism, real screen-reader pass, SIM-FWK lines are generic medicines rather than a themed set.
