@@ -1,4 +1,4 @@
-import { prisma } from "../src/index";
+import { prisma, withPlatformStaffContext } from "../src/index";
 import { imagingHs } from "./_catalogue-naming";
 
 /**
@@ -49,15 +49,17 @@ async function main() {
     if (!dryRun) await prisma.productMaster.update({ where: { id }, data: { category: next } });
   }
   // Simulated published tenders whose evaluation or award dates fall before closing (SIM-TND-004 was seeded with a later closing time): move them after it.
-  const tenders = await prisma.tender.findMany({ where: { isSimulated: true, isPublished: true, closingAt: { not: null } }, select: { id: true, referenceNumber: true, closingAt: true, evaluationDueAt: true, awardDueAt: true } });
-  console.log(`tenders checked: ${tenders.map((t) => t.referenceNumber).join(", ")}`);
-  for (const t of tenders) {
-    const close = t.closingAt!.getTime();
-    if ((t.evaluationDueAt && t.evaluationDueAt.getTime() <= close) || (t.awardDueAt && t.awardDueAt.getTime() <= close)) {
-      console.log(`dates: ${t.referenceNumber}: evaluation ${t.evaluationDueAt?.toISOString()} / award ${t.awardDueAt?.toISOString()} -> after closing ${t.closingAt!.toISOString()}`);
-      if (!dryRun) await prisma.tender.update({ where: { id: t.id }, data: { evaluationDueAt: new Date(close + 7 * 86400000), awardDueAt: new Date(close + 13 * 86400000) } });
+  await withPlatformStaffContext(async (tx) => {
+    const tenders = await tx.tender.findMany({ where: { isSimulated: true, isPublished: true, closingAt: { not: null } }, select: { id: true, referenceNumber: true, closingAt: true, evaluationDueAt: true, awardDueAt: true } });
+    console.log(`tenders checked: ${tenders.map((t) => t.referenceNumber).join(", ")}`);
+    for (const t of tenders) {
+      const close = t.closingAt!.getTime();
+      if ((t.evaluationDueAt && t.evaluationDueAt.getTime() <= close) || (t.awardDueAt && t.awardDueAt.getTime() <= close)) {
+        console.log(`dates: ${t.referenceNumber}: evaluation ${t.evaluationDueAt?.toISOString()} / award ${t.awardDueAt?.toISOString()} -> after closing ${t.closingAt!.toISOString()}`);
+        if (!dryRun) await tx.tender.update({ where: { id: t.id }, data: { evaluationDueAt: new Date(close + 7 * 86400000), awardDueAt: new Date(close + 13 * 86400000) } });
+      }
     }
-  }
+  });
   console.log(`${dryRun ? "DRY RUN " : ""}hand-entered: ${nHs} HS codes, ${nCat} categories`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
