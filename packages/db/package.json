@@ -32,6 +32,7 @@
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "audit:demo-coverage": "tsx scripts/audit-demo-coverage.ts",
+    "seed:demo-supplier-signals": "tsx scripts/seed-demo-supplier-signals.ts",
     "audit:catalogue": "tsx scripts/audit-demo-catalogue.ts",
     "check:hs": "tsx scripts/check-hs-mapping.ts",
     "link:demo-pharma": "tsx scripts/link-demo-pharma.ts",

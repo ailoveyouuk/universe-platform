@@ -48,6 +48,19 @@ async function main() {
   });
   const asAwardee = await withPlatformStaffContext((tx) => tx.tenderPerformanceRecord.count({ where: { awardedOrganizationId: orgId } }));
   const sim = await withPlatformStaffContext((tx) => tx.organization.count({ where: { isSimulated: true, isDemo: false } }));
+  const wide = await withPlatformStaffContext(async (tx) => {
+    const t = await tx.tender.groupBy({ by: ["status"], where: { isSimulated: true }, _count: { _all: true } });
+    const tp = await tx.tender.count({ where: { isSimulated: true, isPublished: true, archivedAt: null } });
+    return {
+      tendersByStatus: t.map((x) => [x.status, x._count._all]), publishedVisible: tp,
+      supplierProfiles: await tx.supplierProfile.count(), manufacturerProfiles: await tx.manufacturerProfile.count(), funderProfiles: await tx.funderProfile.count(),
+      tenderingBodyProfiles: await tx.tenderingBodyProfile.count(), procurementAgentProfiles: await tx.procurementAgentProfile.count(),
+      registryEntries: await tx.stakeholderRegistryEntry.count(), registryLinked: await tx.stakeholderRegistryEntry.count({ where: { linkedOrganizationId: { not: null } } }),
+      performanceRecords: await tx.tenderPerformanceRecord.count(), contracts: await tx.tenderContract.count(), awards: await tx.tenderAward.count(),
+      callOffs: await tx.tenderCallOff.count(), bids: await tx.tenderBid.count(), organisationsSimulated: await tx.organization.count({ where: { isSimulated: true } }),
+    };
+  });
+  console.log("\n== Platform-wide simulated data ==\n" + JSON.stringify(wide, null, 1));
   console.log(`Performance records where demo is the awarded supplier: ${asAwardee}; simulated non-demo organisations: ${sim}`);
 }
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
