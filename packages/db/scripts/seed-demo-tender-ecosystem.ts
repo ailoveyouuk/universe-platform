@@ -50,7 +50,7 @@ async function main() {
     const byType = await Promise.all(["FUNDER", "TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT"].map((type) => tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, type }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 14, select: { id: true, name: true, type: true } })));
     const issuers: { id: string; name: string; type: string }[] = [];
     for (let i = 0; i < 14; i++) for (const list of byType) if (list[i]) issuers.push(list[i]);   // interleave so issuers differ in type
-    const sellers = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true, category: true } });
+    const sellers = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 60, select: { id: true, name: true } });
     const products = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 60, select: { id: true, name: true } });
     if (issuers.length < 10 || sellers.length < 12 || products.length < 40) throw new Error(`Not enough simulated organisations or products (issuers ${issuers.length}, sellers ${sellers.length}, products ${products.length}).`);
     console.log(`Issuer pool ${issuers.length}, seller pool ${sellers.length}, products ${products.length}.`);
