@@ -59,7 +59,7 @@ async function main() {
       summary: "Simulated competitive request for quotation for three items delivered to Nairobi, with a standstill period before contract award. Several organisations have bid.",
       tenderType: "RFQ", visibility: "INVITED_ONLY", visibleToAll: false, isPublished: true, status: "PUBLISHED", publishedAt: pub,
       deliveryCountryCodes: "KE", currency: "USD", incoterm: "DAP", clientName: "Simulated client",
-      clarificationDeadline: new Date(now.getTime() + 2 * DAY), closingAt: new Date(now.getTime() + (DEMO_FRESH ? 20 : 5) * DAY), evaluationDueAt: new Date(now.getTime() + 12 * DAY), awardDueAt: new Date(now.getTime() + 18 * DAY),
+      clarificationDeadline: new Date(now.getTime() + 2 * DAY), closingAt: new Date(now.getTime() + (DEMO_FRESH ? 20 : 5) * DAY), evaluationDueAt: new Date(now.getTime() + (DEMO_FRESH ? 27 : 12) * DAY), awardDueAt: new Date(now.getTime() + (DEMO_FRESH ? 33 : 18) * DAY),
       bidValidityDays: 90, timeZone: "Europe/London", isSimulated: true,
       standstillEnabled: true, standstillWorkingDays: 8, requireIntegrityPledge: true, requireExclusionDeclaration: true,
       ...(SINGLE_EVALUATOR ? { allowSingleEvaluator: true, singleEvaluatorReason: "Below the organisation's financial threshold (simulated)." } : {}),
