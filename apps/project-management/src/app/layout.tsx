@@ -3,6 +3,7 @@ import "@universe/ui/src/tokens.css";
 import { AppShell } from "../components/AppShell";
 
 export const metadata = {
+  icons: { icon: "/favicon.svg" },
   title: "Project Management — Universe",
   description: "Universe project management",
 };

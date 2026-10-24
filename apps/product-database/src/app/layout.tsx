@@ -3,6 +3,7 @@ import "@universe/ui/src/tokens.css";
 import { AppShell } from "../components/AppShell";
 
 export const metadata = {
+  icons: { icon: "/favicon.svg" },
   title: "Product Database — Universe",
   description: "Universe platform shared product catalogue",
 };

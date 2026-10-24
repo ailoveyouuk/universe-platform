@@ -3,6 +3,7 @@ import "@universe/ui/src/tokens.css";
 import { AppShell } from "../components/AppShell";
 
 export const metadata = {
+  icons: { icon: "/favicon.svg" },
   title: "Supplier Portal — Universe",
   description: "Everything awaiting your organisation as a supplier on Universe",
 };

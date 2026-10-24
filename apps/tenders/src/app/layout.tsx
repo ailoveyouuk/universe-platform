@@ -3,6 +3,7 @@ import "@universe/ui/src/tokens.css";
 import { AppShell } from "../components/AppShell";
 
 export const metadata = {
+  icons: { icon: "/favicon.svg" },
   title: "Tender Issuance — Universe",
   description: "Issue, publish and manage tenders on Universe",
 };

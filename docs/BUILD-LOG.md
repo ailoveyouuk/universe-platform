@@ -947,3 +947,6 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 
 ## 2026-10-24 — Walkthrough finding: raw commodity group codes
 - Live walkthrough found the New Project line form, project detail line summary and Quality screen showing raw codes (LOGISTICS_SERVICES) instead of readable names. All three now use `commodityGroupLabel`. Logistics and CO2 page re-checked after the benchmark correction on desktop, tablet and phone: no horizontal overflow; Logistics and Services top countries now about 125 shipments each (the rest of the groups range up to the low thousands overall).
+
+## 2026-10-24 — Console 404s traced: no favicon
+- The 404s seen in the browser console on every page were the browser asking for a favicon, which no app had. Added a Universe icon (`public/favicon.svg`, violet and magenta from the palette) and `icons` metadata to all five apps (Admin, Product Database, Project Management, Supplier Portal, Tenders). A 500 seen once on the Product Database record page is being traced separately.
