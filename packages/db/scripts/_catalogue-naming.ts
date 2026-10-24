@@ -12,3 +12,14 @@ export const NAMING: Record<string, { nouns: string[]; specs: string[] }> = {
   Imaging: { nouns: ["X-ray film", "ultrasound gel", "imaging cassette", "contrast medium", "lead apron", "ultrasound probe cover"], specs: ["35x43 cm", "24x30 cm", "digital", "ISO 13485", "sterile", "pack of 100"] },
 };
 
+
+/** HS code for a simulated Imaging product, from its noun (2026-10-24): consumables carry consumable codes, accessories carry the apparatus code. */
+export function imagingHs(name: string): string | null {
+  const n = name.toLowerCase();
+  if (/x-ray film/.test(n)) return "370110";
+  if (/gel/.test(n)) return "300670";
+  if (/contrast/.test(n)) return "300630";
+  if (/cassette|lead apron/.test(n)) return "902290";
+  if (/probe cover/.test(n)) return "901812";
+  return null;
+}

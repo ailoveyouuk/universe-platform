@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NAMING } from "./_catalogue-naming";
+import { NAMING, imagingHs } from "./_catalogue-naming";
 import { prisma, withPlatformStaffContext, withTenantContext, computeLogisticsMetric, restrictionKey, type TransportMode } from "../src/index";
 
 /**
@@ -59,7 +59,7 @@ function gtin13(n: number): string {
 async function enrichCatalogue() {
   const rows = await prisma.productMaster.findMany({
     where: { isSimulated: true, OR: [{ gtin: null }, { hsCode: null }, { unspscCode: null }, { standardUnit: null }, { canonicalManufacturerPartNumber: null }] },
-    select: { id: true, category: true },
+    select: { id: true, category: true, name: true },
     orderBy: { id: "asc" },
   });
   console.log(`Catalogue: ${rows.length} simulated entries with at least one empty identifier field`);
@@ -71,7 +71,7 @@ async function enrichCatalogue() {
       .map((r) => {
         if (!/^[0-9a-f-]{36}$/i.test(r.id)) throw new Error(`Unexpected id ${r.id}`);
         const profile = CATALOGUE[r.category.split(".")[0]] ?? FALLBACK;
-        const hs = pickBy(profile.hs, r.id);
+        const hs = (r.category.startsWith("Imaging") ? imagingHs(r.name) : null) ?? pickBy(profile.hs, r.id);
         const unspsc = pickBy(profile.unspsc, r.id + "u");
         const unit = pickBy(profile.units, r.id + "s").replace(/'/g, "''");
         seq += 1 + (hash(r.id) % 7);

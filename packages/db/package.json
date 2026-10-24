@@ -35,6 +35,7 @@
     "check:hs": "tsx scripts/check-hs-mapping.ts",
     "link:demo-pharma": "tsx scripts/link-demo-pharma.ts",
     "fix:catalogue": "tsx scripts/fix-demo-catalogue.ts",
+    "fix:hs": "tsx scripts/fix-demo-hs.ts",
     "diag:regulatory": "tsx scripts/diag-regulatory-dashboard.ts",
     "recohere:demo": "tsx scripts/recohere-demo-data.ts",
     "fix:demo-consistency": "tsx scripts/fix-demo-sim-consistency.ts",
