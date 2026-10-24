@@ -82,6 +82,41 @@ export class TenderBidProjectsService {
     return bid;
   }
 
+
+  /** Cuts the project's lines to what was awarded (at the awarded share of each quantity) and moves it to AWARDED. */
+  private async applyAward(tx: any, project: any, tlines: any[], lines: { tenderLineId: string; sharePercent: number }[]) {
+    const plines = await tx.projectLine.findMany({ where: { projectId: project.id, sourceTenderLineId: { not: null } } });
+    for (const pl of plines) {
+      const al = lines.find((x) => x.tenderLineId === pl.sourceTenderLineId);
+      const tl = tlines.find((x: any) => x.id === pl.sourceTenderLineId);
+      if (!al) await tx.projectLine.update({ where: { id: pl.id }, data: { archivedAt: new Date() } });
+      else await tx.projectLine.update({ where: { id: pl.id }, data: { archivedAt: null, ...(tl?.quantity != null ? { quantity: Math.round(Number(tl.quantity) * Number(al.sharePercent) / 100) } : {}) } });
+    }
+    await this.move(tx, project, "AWARDED", null, { reasonForCancellation: null }, `Awarded ${new Date().toISOString().slice(0, 10)}: ${lines.length} item${lines.length === 1 ? "" : "s"}.`);
+  }
+
+  /** Brings a project that was created after the tender had already moved on (for example on demand, once a bid exists) up to the tender's real state. */
+  private async reconcile(tx: any, project: any, tenderId: string, userId: string | null) {
+    const orgId = project.organizationId as string;
+    const [tender, bid, award, debrief, part] = await Promise.all([
+      tx.tender.findUnique({ where: { id: tenderId } }),
+      tx.tenderBid.findUnique({ where: { tenderId_organizationId: { tenderId, organizationId: orgId } } }),
+      tx.tenderAward.findFirst({ where: { tenderId, awardedOrganizationId: orgId } }),
+      tx.tenderDebrief.findFirst({ where: { tenderId, bidderOrganizationId: orgId } }),
+      tx.tenderParticipation.findUnique({ where: { tenderId_organizationId: { tenderId, organizationId: orgId } } }),
+    ]);
+    if (award) {
+      const lines = (await tx.tenderAwardLine.findMany({ where: { awardId: award.id } })).map((l: any) => ({ tenderLineId: l.tenderLineId, sharePercent: Number(l.sharePercent) }));
+      return this.applyAward(tx, project, await tx.tenderLine.findMany({ where: { tenderId } }), lines);
+    }
+    if (tender?.status === "CANCELLED" && PRE_AWARD.includes(project.status)) return this.move(tx, project, "CANCELLED", userId, { reasonForCancellation: `Tender cancelled by the issuer: ${tender.cancelledReason ?? ""}`.slice(0, 500) });
+    if (debrief && ["NOT_AWARDED", "NOT_COMPLIANT"].includes(debrief.outcome)) return this.move(tx, project, "UNAWARDED", userId, { reasonForCancellation: debrief.outcome === "NOT_COMPLIANT" ? "The bid did not pass every gate." : "Another bid was awarded." });
+    if (bid?.status === "SUBMITTED") { await this.copyPrices(tx, project, tenderId); return this.move(tx, project, "SUBMITTED", userId, { submissionDate: bid.submittedAt ?? new Date() }); }
+    if (bid?.status === "DRAFT") { await this.copyPrices(tx, project, tenderId); return this.move(tx, project, "IN_PROGRESS", userId); }
+    if (part?.withdrawnAt) return this.move(tx, project, "DECLINED", userId, { reasonForCancellation: "Withdrew interest in the tender." });
+    return project;
+  }
+
   private async safely(label: string, fn: () => Promise<unknown>) {
     try { await fn(); } catch (e) { console.error(`Tender bid project sync failed (${label})`, e); }
   }
@@ -96,6 +131,7 @@ export class TenderBidProjectsService {
     if (["CANCELLED"].includes(t.status)) throw new ConflictException("This tender has been cancelled.");
     return withPlatformStaffContext(async (tx: any) => {
       const r = await this.ensure(tx, user.organizationId, tenderId, user.id);
+      if (r.created) await this.reconcile(tx, r.project, tenderId, user.id);
       return { projectId: r.project.id as string, created: r.created };
     });
   }
@@ -162,14 +198,7 @@ export class TenderBidProjectsService {
       const tlines = await tx.tenderLine.findMany({ where: { tenderId } });
       for (const a of awards) {
         const { project } = await this.ensure(tx, a.organizationId, tenderId, null, "SUBMITTED");
-        const plines = await tx.projectLine.findMany({ where: { projectId: project.id, sourceTenderLineId: { not: null } } });
-        for (const pl of plines) {
-          const al = a.lines.find((x) => x.tenderLineId === pl.sourceTenderLineId);
-          const tl = tlines.find((x: any) => x.id === pl.sourceTenderLineId);
-          if (!al) await tx.projectLine.update({ where: { id: pl.id }, data: { archivedAt: new Date() } });
-          else await tx.projectLine.update({ where: { id: pl.id }, data: { archivedAt: null, ...(tl?.quantity != null ? { quantity: Math.round(Number(tl.quantity) * Number(al.sharePercent) / 100) } : {}) } });
-        }
-        await this.move(tx, project, "AWARDED", null, { reasonForCancellation: null }, `Awarded ${new Date().toISOString().slice(0, 10)}: ${a.lines.length} item${a.lines.length === 1 ? "" : "s"}.`);
+        await this.applyAward(tx, project, tlines, a.lines);
       }
       const awarded = new Set(awards.map((a) => a.organizationId));
       const bidders = new Set(outcomes.map((o) => o.organizationId));
