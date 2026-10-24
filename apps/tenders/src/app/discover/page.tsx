@@ -103,7 +103,7 @@ export default function DiscoverPage() {
         {CHIPS.map((c) => <button key={c} type="button" onClick={() => set({ chip: f.chip === c ? "" : c })} className="u-touch" style={CROSS_LINK}><Pill tone={f.chip === c ? "brand" : "neutral"}>{CHIP_LABEL[c] ?? c}</Pill></button>)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, alignItems: "end" }}>
-        <SearchInput value={f.keyword} onChange={(v) => set({ keyword: v })} placeholder="Search title, summary or reference" />
+        <SearchInput value={f.keyword} onChange={(v) => set({ keyword: v })} placeholder="Search title, summary, reference or items" />
         <Select value={f.type} onChange={(v) => set({ type: v })} allLabel="Any type" options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))} ariaLabel="Tender type" />
         <CountrySelect value={f.country} onChange={(v) => set({ country: v })} options={countries} />
         <Select value={f.category} onChange={(v) => set({ category: v })} allLabel="Any category" options={SCOPE_TAXONOMY.map((g) => ({ value: g.group, label: g.group }))} ariaLabel="Product category" />

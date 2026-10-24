@@ -80,6 +80,9 @@ describe("Tender eligibility logic", () => {
     expect(matchesSavedSearch({ countries: ["TZ"] }, t)).toBe(false);
     expect(matchesSavedSearch({ types: ["RFP"] }, t)).toBe(false);
     expect(matchesSavedSearch({}, t)).toBe(true);
+    // A keyword also finds what is being bought, via the line descriptions.
+    expect(matchesSavedSearch({ keyword: "lumefantrine" }, t)).toBe(false);
+    expect(matchesSavedSearch({ keyword: "lumefantrine" }, { ...t, lineText: "Artemether/lumefantrine 20/120 mg" })).toBe(true);
   });
 });
 

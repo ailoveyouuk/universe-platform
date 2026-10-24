@@ -915,3 +915,7 @@ Lewis ran `rls-one-paste-2026-10-22.sql` in the Azure portal Query editor agains
 ## 2026-10-24 — Tender publish alerts now covered end to end
 - New CI test `tender-publish-alerts.test.ts` (real RLS database): publishing a tender alerts only organisations with an alert-enabled saved search that matches (country, keyword), with the right title and link; no alert for non-matching country or type, alerts switched off, or no saved search; the issuer's own search never alerts itself; invited organisations get the invitation notice, not a search match; a demonstration issuer alerts nobody.
 - No product bug found. Note for searches: the keyword matches the tender title and summary only, not line descriptions.
+
+## 2026-10-24 — Tender keyword search now covers line descriptions
+- A keyword in Discover, in a saved search, in "Tenders for you" and in publish alerts now also matches the tender's line item descriptions (what is being bought), not just title, summary and reference. Discover search box reads "Search title, summary, reference or items".
+- Tests: unit check in `tenders.test.ts`; the publish-alerts test now matches on a line description only (title no longer contains the keyword).

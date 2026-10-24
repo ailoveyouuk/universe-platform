@@ -109,6 +109,8 @@ export interface TenderForMatch {
   issuerName?: string; currency?: string | null;
   /** Scope-of-supply categories the tender's catalogue lines fall into. */
   scopeSubs?: string[];
+  /** The descriptions of the tender's line items, so a keyword also finds what is being bought. */
+  lineText?: string;
 }
 
 /** Does a published tender fit a saved search? (Eligibility is checked separately when onlyEligible is set.) */
@@ -124,7 +126,7 @@ export function matchesSavedSearch(c: SavedCriteria, t: TenderForMatch, orgScope
   if (c.scopeMatch && !(orgScope && (t.scopeSubs ?? []).some((x) => orgScope.has(x)))) return false;
   if (c.keyword?.trim()) {
     const k = c.keyword.trim().toLowerCase();
-    if (!`${t.title} ${t.summary ?? ""}`.toLowerCase().includes(k)) return false;
+    if (!`${t.title} ${t.summary ?? ""} ${t.lineText ?? ""}`.toLowerCase().includes(k)) return false;
   }
   return true;
 }
