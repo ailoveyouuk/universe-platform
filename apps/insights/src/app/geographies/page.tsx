@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LogisticsRouteSummary } from "@universe/types";
+import type { InsightsReferenceCountry, LogisticsRouteSummary } from "@universe/types";
 import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint } from "@universe/ui";
 import { readParam } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
@@ -14,13 +14,19 @@ import { SourceNote } from "../../components/SourceNote";
 import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
-type Layer = "made" | "delivered" | "flows" | "efficiency";
+type Layer = "made" | "delivered" | "flows" | "efficiency" | "restrictions" | "registrations" | "notices";
 type Measure = "shipments" | "co2" | "score";
 const LAYERS: { key: Layer; label: string; hint: string }[] = [
   { key: "made", label: "Where it is made", hint: "Each spot is a country of manufacture, sized by shipments." },
   { key: "delivered", label: "Where it is delivered", hint: "Each spot is a delivery country, sized by shipments." },
   { key: "flows", label: "Busiest flows", hint: "Dashed lines join the fifteen busiest manufacture-to-delivery pairs." },
   { key: "efficiency", label: "Efficiency by delivery country", hint: "Spots are coloured by the average efficiency score of what arrives there." },
+];
+// Shared regulatory reference layers (counts per country from the Universe catalogue; not any organisation's records).
+const REF_LAYERS: { key: Layer; label: string; hint: string; color: string; unit: string; pick: (r: InsightsReferenceCountry) => number }[] = [
+  { key: "restrictions", label: "Export restrictions", hint: "Each spot is a country with active export or hoarding restrictions on medicines, sized by how many.", color: "var(--u-accent-magenta)", unit: "active restrictions", pick: (r) => r.exportRestrictions },
+  { key: "registrations", label: "Product registrations", hint: "Each spot is a country where products hold an active registration, sized by how many.", color: "var(--u-module-product-database)", unit: "active registrations", pick: (r) => r.registrations },
+  { key: "notices", label: "Safety notices", hint: "Each spot is a country named in open safety notices and recalls, sized by how many.", color: "var(--u-module-tender-issuance)", unit: "open safety notices", pick: (r) => r.safetyNotices },
 ];
 const MEASURES: { key: Measure; label: string }[] = [{ key: "shipments", label: "Shipments" }, { key: "co2", label: "CO2e per shipment" }, { key: "score", label: "Efficiency score" }];
 const REGIONS = Object.keys(REGION_LABEL);
@@ -36,6 +42,8 @@ export default function GeographiesPage() {
   const f = useInsightsFilters();
   const [all, setAll] = useState<LogisticsRouteSummary[] | null>(null);
   const [layer, setLayer] = useState<Layer>("flows");
+  const [ref, setRef] = useState<InsightsReferenceCountry[] | null>(null);
+  useEffect(() => { apiClient.insightsReferenceCountries().then(setRef).catch(() => setRef([])); }, []);
   const [measure, setMeasure] = useState<Measure>("shipments");
   const [selected, setSelected] = useState<string | null>(null);
   const [pair, setPair] = useState<{ from: string; to: string } | null>(null);
@@ -65,6 +73,8 @@ export default function GeographiesPage() {
     const place = (code: string, id: string, label: string, color: string, value: number, lines?: { text: string }[]) => {
       const c = idx.get(code); if (c && c.latitude !== null && c.longitude !== null) points.push({ id, latitude: c.latitude, longitude: c.longitude, label, color, value, tooltipLines: lines });
     };
+    const refLayer = REF_LAYERS.find((l) => l.key === layer);
+    if (refLayer) for (const r of ref ?? []) { const n = refLayer.pick(r); if (n > 0) place(r.countryCode, `r:${r.countryCode}`, `${nameOf(r.countryCode)} — ${fmt(n)} ${refLayer.unit}`, refLayer.color, n); }
     if (layer === "made" || layer === "flows") made.forEach((m) => place(m.code, `m:${m.code}`, `${nameOf(m.code)} — made`, "var(--u-brand-violet)", m.shipments));
     if (layer === "delivered" || layer === "flows") delivered.forEach((d) => place(d.code, `d:${d.code}`, `${nameOf(d.code)} — delivered`, "var(--u-accent-magenta)", d.shipments));
     if (layer === "efficiency") {
@@ -87,8 +97,9 @@ export default function GeographiesPage() {
     }
     return { points, arcs };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layer, rows, made, delivered, idx]);
-  const legend: WorldMapLegendEntry[] = layer === "efficiency"
+  }, [layer, rows, made, delivered, idx, ref]);
+  const refActive = REF_LAYERS.find((l) => l.key === layer);
+  const legend: WorldMapLegendEntry[] = refActive ? [{ color: refActive.color, label: `Country with ${refActive.unit}` }] : layer === "efficiency"
     ? (["GREEN", "YELLOW", "AMBER", "RED"] as const).map((b) => ({ color: SCORE_BAND_COLORS[b], label: `${BAND_WORD[b]} (${{ GREEN: "8–10", YELLOW: "6–7", AMBER: "4–5", RED: "1–3" }[b]})` }))
     : [
       ...(layer !== "delivered" ? [{ color: "var(--u-brand-violet)", label: "Made" }] : []),
@@ -165,13 +176,18 @@ export default function GeographiesPage() {
         <div role="group" aria-label="Map layer" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {LAYERS.map((l) => <button key={l.key} type="button" className="u-touch" style={pill(layer === l.key)} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
         </div>
-        <p style={sub}>{LAYERS.find((l) => l.key === layer)?.hint} Select a spot to see that country in the panel beside or below the map.</p>
+        <div role="group" aria-label="Regulatory reference layers" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>Regulatory reference</span>
+          {REF_LAYERS.map((l) => <button key={l.key} type="button" className="u-touch" style={pill(layer === l.key)} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
+        </div>
+        <p style={sub}>{[...LAYERS, ...REF_LAYERS].find((l) => l.key === layer)?.hint} Select a spot to see that country in the panel beside or below the map.</p>
         <div className="geo-split">
           <WorldMap points={map.points} arcs={map.arcs} legend={legend} maxHeight={460} focus={mapFocus} highlightId={selected ? map.points.find((p) => p.id.endsWith(`:${selected}`))?.id ?? null : null}
-            emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} onPointClick={(p) => pick(p.id.split(":")[1] ?? null)} />
+            emptyMessage={refActive ? (ref === null ? "Loading…" : "No country has enough entries to show for this layer yet.") : loading ? "Loading…" : "No route has enough contributors to show for this selection."} onPointClick={(p) => pick(p.id.split(":")[1] ?? null)} />
           <div ref={panelRef} style={{ scrollMarginTop: 70 }}><Card title={selected ? nameOf(selected) : "Country detail"} action={selected ? <button type="button" className="u-touch" style={pill(false)} onClick={() => setSelected(null)}>Clear</button> : undefined}>
             {!selected || !detail ? <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Select a spot on the map, or a country in the lists below, to see what it makes, what it receives, where it trades and how it ships.</p> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {(() => { const rc = ref?.find((r) => r.countryCode === selected); return rc ? <p style={{ margin: 0, fontSize: 13.5 }}>Regulatory reference: {[rc.exportRestrictions ? `${fmt(rc.exportRestrictions)} active export restrictions` : "", rc.registrations ? `${fmt(rc.registrations)} active registrations` : "", rc.safetyNotices ? `${fmt(rc.safetyNotices)} open safety notices` : ""].filter(Boolean).join(", ")}.</p> : null; })()}
                 <p style={{ margin: 0, fontSize: 13.5 }}>{detail.madeN ? `Makes goods for ${fmt(detail.madeN)} shipments. ` : "Not a country of manufacture here. "}{detail.recvN ? `Receives ${fmt(detail.recvN)} shipments.` : "Not a delivery country here."}</p>
                 <p style={{ margin: 0, fontSize: 13.5 }}>Average distance <strong>{fmt(detail.t.avgDistance)} km</strong> · efficiency <strong>{detail.t.avgScore.toFixed(1)}/10</strong> ({BAND_WORD[bandForScore(detail.t.avgScore)]}){detail.t.avgDays !== null && <> · about <strong>{Math.round(detail.t.avgDays)} days</strong></>}</p>
                 <div>
@@ -202,7 +218,7 @@ export default function GeographiesPage() {
             )}
           </Card></div>
         </div>
-      <SourceNote keys={["logistics", "regions"]} />
+      <SourceNote keys={refActive ? ["reference", "regions"] : ["logistics", "regions"]} />
       </section>
 
       <LogisticsTrend title="Flows over time" commodity={f.commodity} mode={f.mode} exportName="geographies-over-time" initialMetric="shipments" initialSplit="mode" />

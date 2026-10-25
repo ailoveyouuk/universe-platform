@@ -48,5 +48,6 @@ export class InsightsController {
     @Query("transportMode") transportMode?: string,
   ) { return this.insights.logisticsTrend({ manufactureCountryCode: manufactureCountryCode || undefined, destinationCountryCode: destinationCountryCode || undefined, transportMode: transportMode || undefined }, u.inDemoOrganization === true); }
   @Get("sourcing/trend") sourcingTrend(@CurrentUser() u: RequestUser, @Query("manufactureCountryCode") manufactureCountryCode?: string) { return this.insights.sourcingTrend(manufactureCountryCode, u.inDemoOrganization === true); }
+  @Get("reference/countries") referenceCountries(@CurrentUser() u: RequestUser) { return this.insights.referenceCountries(u.inDemoOrganization === true); }
   @Get("logistics/ratings") logisticsRatings(@CurrentUser() u: RequestUser) { return this.insights.logisticsRatings(u.inDemoOrganization === true); }
 }

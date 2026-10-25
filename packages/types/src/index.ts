@@ -3995,6 +3995,8 @@ export * from "./project-line-input";
 // ---- Insights app (2026-10-25). All anonymised aggregates; a figure only appears when at least five distinct organisations contributed. ----
 export interface InsightsFreshness { prices: string | null; sourcing: string | null; logistics: string | null }
 export interface InsightsPricedCategory { category: string; sourceCount: number; observations: number; latestMonth: string }
+/** Shared regulatory reference counts for one country, for the Insights map layers. Counts only: no product, holder, organisation or notice text. A count under the minimum is left out. */
+export interface InsightsReferenceCountry { countryCode: string; exportRestrictions: number; registrations: number; safetyNotices: number }
 /** One month of shipping figures for one mode and commodity group. Every row has at least the minimum number of organisations behind it. */
 export interface InsightsLogisticsTrendPoint { month: string; transportMode: string | null; commodityGroup: string | null; sourceCount: number; shipmentCount: number; avgDistanceKm: number; avgCo2TotalKg: number; avgDurationDays: number | null; avgEfficiencyScore: number }
 /** Sourcing relationships on record at the end of a month (running total) for one product group. */

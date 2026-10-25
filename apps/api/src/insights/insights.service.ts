@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getFreightRates, getFreightMovement, getServicePrices, getServiceMovement, getDailyActivity, getLogisticsTrend, getSourcingTrend, getPricingTrend, listPricedCategories } from "@universe/insights-db";
 import { canonicalCommodityGroup } from "@universe/types";
+import { prisma } from "@universe/db";
+import { noticeCountries, referenceCountries } from "./reference-layers";
 import type { PricingDimension } from "@universe/insights-db";
-import type { InsightsOverview, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsFxSeries, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import type { InsightsOverview, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
@@ -107,5 +109,24 @@ export class InsightsService {
 
   async sourcingTrend(manufactureCountryCode: string | undefined, showSimulated: boolean): Promise<InsightsSourcingTrendPoint[]> {
     return (await getSourcingTrend(manufactureCountryCode || undefined, showSimulated)).map((r) => ({ month: new Date(r.month).toISOString().slice(0, 7), category: r.category, sourceCount: Number(r.sourceCount), approvalCount: Number(r.approvalCount) }));
+  }
+
+  /**
+   * Shared regulatory reference data by country (export restrictions, active registrations, open safety notices). This is catalogue reference data, not
+   * any organisation's own data, so it is read from the main database; only counts leave here, never a product, holder, contributor or notice text.
+   */
+  async referenceCountries(showSimulated: boolean): Promise<InsightsReferenceCountry[]> {
+    const sim = showSimulated ? {} : { isSimulated: false };
+    const [rs, regs, notes] = await Promise.all([
+      prisma.exportRestriction.groupBy({ by: ["restrictingCountryCode"], where: { status: "ACTIVE", ...sim }, _count: { _all: true } }),
+      prisma.productRegulatoryRegistration.groupBy({ by: ["countryCode"], where: { status: "ACTIVE", isArchived: false, countryCode: { not: null }, OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }], ...sim }, _count: { _all: true } }),
+      prisma.productSafetyNotice.findMany({ where: { status: "OPEN", isArchived: false, ...sim }, select: { countryCodes: true } }),
+    ]);
+    const tally = (pairs: [string, number][]) => pairs.reduce((m, [c, n]) => m.set(c, (m.get(c) ?? 0) + n), new Map<string, number>());
+    return referenceCountries(
+      tally(rs.map((r) => [r.restrictingCountryCode.toUpperCase(), r._count._all])),
+      tally(regs.flatMap((r) => (r.countryCode ? [[r.countryCode.toUpperCase(), r._count._all] as [string, number]] : []))),
+      tally(notes.flatMap((n) => noticeCountries(n.countryCodes).map((c) => [c, 1] as [string, number]))),
+    );
   }
 }

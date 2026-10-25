@@ -55,5 +55,10 @@ export const SOURCES = {
     short: "Counts of actions recorded in Universe each day by sharing organisations; counts only, never content.",
     full: "Daily activity counts how many times each kind of action was recorded in Universe that day by organisations that share data: projects started, project lines added, supplier quote requests, product batches recorded, tenders published and bids submitted. Only counts are kept, never what was in them, and a figure appears only when at least five organisations contributed. The change shown compares the latest day with the average of the seven days before it.",
   },
+  reference: {
+    title: "Regulatory reference layers",
+    short: "Export restrictions, active registrations and open safety notices held in the Universe catalogue, as counts per country.",
+    full: "These layers count shared catalogue reference data, not any organisation's own records: active export or hoarding restrictions by the country that imposes them (such as the UK Department of Health and Social Care list), active product registrations by the country they apply to, and open safety notices and recalls that name the country. They are advisory and may lag the issuing authority. Only counts are shown, never a product, holder, contributor or notice text, and a country appears only when at least five items stand behind the figure.",
+  },
 } satisfies Record<string, SourceDef>;
 export type SourceKey = keyof typeof SOURCES;
