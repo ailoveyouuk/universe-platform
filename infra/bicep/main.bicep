@@ -286,6 +286,17 @@ module supplierPortalSwa 'modules/staticWebApp.bicep' = {
   }
 }
 
+// Insights — added 2026-10-25 (Lewis: a dedicated app on its own Static Web App). After deploy-infra.yml creates it: set SWA_TOKEN_INSIGHTS (secret)
+// and INSIGHTS_URL (variable, its https hostname), register that URL as a redirect URI on the CIAM app registration, then add the hostname as the
+// fallback for "insights" in packages/ui/src/AppSwitcher.tsx so the switcher links to it.
+module insightsSwa 'modules/staticWebApp.bicep' = {
+  name: 'insightsSwa'
+  params: {
+    name: '${namePrefix}-insights'
+    location: staticWebAppLocation
+  }
+}
+
 output apiFqdn string = api.outputs.fqdn
 output acrLoginServer string = registry.outputs.loginServer
 output sqlServerFqdn string = sql.outputs.serverFqdn
@@ -297,3 +308,4 @@ output adminUrl string = adminSwa.outputs.defaultHostname
 output productDatabaseUrl string = productDatabaseSwa.outputs.defaultHostname
 output tendersUrl string = tendersSwa.outputs.defaultHostname
 output supplierPortalUrl string = supplierPortalSwa.outputs.defaultHostname
+output insightsUrl string = insightsSwa.outputs.defaultHostname
