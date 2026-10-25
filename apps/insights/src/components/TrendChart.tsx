@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtMoney } from "../lib/format";
+import { fmtMoney, fmtMoneyIn } from "../lib/format";
 import { ChartTooltip, useChartTip } from "./ChartTip";
 
 export interface TrendPoint { label: string; avg: number; min: number; max: number; sources: number }
@@ -23,10 +23,10 @@ export function TrendChart({ points, currency, title }: { points: TrendPoint[]; 
   const line = points.map((p, i) => `${i ? "L" : "M"}${x(i)},${y(p.avg)}`).join(" ");
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => y0 + t * (y1 - y0));
   const first = points[0], last = points[points.length - 1];
-  const summary = `${title}. Average price in ${currency} went from ${fmtMoney(first.avg)} in ${first.label} to ${fmtMoney(last.avg)} in ${last.label}. The range across contributors in ${last.label} was ${fmtMoney(last.min)} to ${fmtMoney(last.max)}.`;
+  const summary = `${title}. Average price in ${currency} went from ${fmtMoneyIn(first.avg, currency)} in ${first.label} to ${fmtMoneyIn(last.avg, currency)} in ${last.label}. The range across contributors in ${last.label} was ${fmtMoneyIn(last.min, currency)} to ${fmtMoneyIn(last.max, currency)}.`;
   const every = Math.max(1, Math.ceil(points.length / 8));
   const colW = points.length > 1 ? (W - L - R) / (points.length - 1) : W - L - R;
-  const tipFor = (p: TrendPoint, i: number) => ({ key: p.label, x: x(i), y: y(p.avg), vw: W, vh: H, title: p.label, rows: [{ label: "Average", value: `${fmtMoney(p.avg)} ${currency}` }, { label: "Lowest", value: fmtMoney(p.min) }, { label: "Highest", value: fmtMoney(p.max) }, { label: "Organisations", value: String(p.sources) }] });
+  const tipFor = (p: TrendPoint, i: number) => ({ key: p.label, x: x(i), y: y(p.avg), vw: W, vh: H, title: p.label, rows: [{ label: "Average", value: fmtMoneyIn(p.avg, currency) }, { label: "Lowest", value: fmtMoneyIn(p.min, currency) }, { label: "Highest", value: fmtMoneyIn(p.max, currency) }, { label: "Organisations", value: String(p.sources) }] });
   return (
     <div style={{ position: "relative" }}>
       <svg role="group" aria-label={summary} viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block", touchAction: "manipulation" }} onClick={close}>
@@ -55,7 +55,7 @@ export function TrendChart({ points, currency, title }: { points: TrendPoint[]; 
             <caption style={{ textAlign: "left", color: "var(--u-ink-secondary)", padding: "4px 0" }}>{title}, prices in {currency}</caption>
             <thead><tr>{["Month", "Average", "Lowest", "Highest", "Organisations"].map((h) => <th key={h} scope="col" style={{ textAlign: h === "Month" ? "left" : "right", padding: "6px 10px", borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}</tr></thead>
             <tbody>{points.map((p) => (
-              <tr key={p.label}><th scope="row" style={{ textAlign: "left", padding: "6px 10px", fontWeight: 500 }}>{p.label}</th>{[fmtMoney(p.avg), fmtMoney(p.min), fmtMoney(p.max), String(p.sources)].map((c, i) => <td key={i} style={{ textAlign: "right", padding: "6px 10px" }}>{c}</td>)}</tr>
+              <tr key={p.label}><th scope="row" style={{ textAlign: "left", padding: "6px 10px", fontWeight: 500 }}>{p.label}</th>{[fmtMoneyIn(p.avg, currency), fmtMoneyIn(p.min, currency), fmtMoneyIn(p.max, currency), String(p.sources)].map((c, i) => <td key={i} style={{ textAlign: "right", padding: "6px 10px" }}>{c}</td>)}</tr>
             ))}</tbody>
           </table>
         </div>

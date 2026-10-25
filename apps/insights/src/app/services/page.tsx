@@ -9,7 +9,7 @@ import { DataTable, emptyTableState, type Col, type TableState } from "../../com
 import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
-import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
+import { fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
 import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
@@ -19,7 +19,7 @@ const PROCUREMENT_LABEL: Record<string, string> = { CONSULTING: "Consulting serv
 const SHORT_BASIS: Record<string, string> = { PER_DAY: "per day", PER_HOUR: "per hour", PER_MONTH: "per month", PER_UNIT: "per unit", LUMP_SUM: "fixed fee", PERCENT_OF_GOODS: "of goods value" };
 const key = (c: string, b: string) => `${c}|${b}`;
 function change(index: number) { const c = index - 100; const a = Math.abs(c).toFixed(1); return Math.abs(c) < 0.05 ? { text: "No change", arrow: "▬", value: 0 } : c > 0 ? { text: `+${a}%`, arrow: "▲", value: c } : { text: `−${a}%`, arrow: "▼", value: c }; }
-const price = (v: number, basis: string) => (basis === "PERCENT_OF_GOODS" ? `${v.toFixed(1)}%` : fmtMoney(v));
+const price = (v: number, basis: string, ccy: string) => (basis === "PERCENT_OF_GOODS" ? `${v.toFixed(1)}%` : fmtMoneyIn(v, ccy));
 
 export default function ServicesPage() {
   const [prices, setPrices] = useState<InsightsServicePrice[] | null>(null);
@@ -60,8 +60,8 @@ export default function ServicesPage() {
     { key: "group", header: "Group", value: (r) => r.cat?.group ?? "Other", filter: true },
     { key: "service", header: "Service", value: (r) => r.cat?.label ?? r.p.serviceCategory, render: (r) => <button type="button" className="u-touch" onClick={(e) => { e.stopPropagation(); pick(r.k); }} aria-pressed={r.k === sel} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--u-ink)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}>{r.cat?.label ?? r.p.serviceCategory}</button> },
     { key: "basis", header: "Priced", value: (r) => servicePricingBasisLabel(r.p.pricingBasis), filter: true },
-    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.p.avgPrice, render: (r) => <><strong>{price(r.p.avgPrice, r.p.pricingBasis)}</strong> {SHORT_BASIS[r.p.pricingBasis] ?? ""}</> },
-    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.p.minPrice, r.p.pricingBasis)} to ${price(r.p.maxPrice, r.p.pricingBasis)}` },
+    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.p.avgPrice, render: (r) => <><strong>{price(r.p.avgPrice, r.p.pricingBasis, currency)}</strong> {SHORT_BASIS[r.p.pricingBasis] ?? ""}</> },
+    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.p.minPrice, r.p.pricingBasis, currency)} to ${price(r.p.maxPrice, r.p.pricingBasis, currency)}` },
     { key: "trend", header: "Trend", value: () => null, render: (r) => (r.series ? <Spark points={r.series.points} lo={sparkLo} hi={sparkHi} /> : <span style={{ color: "var(--u-ink-secondary)" }}>–</span>) },
     { key: "change", header: "Change", align: "right", value: (r) => (r.series ? Number((r.series.points[r.series.points.length - 1]!.index - 100).toFixed(1)) : null), render: (r) => { if (!r.series) return <span style={{ color: "var(--u-ink-secondary)" }}>–</span>; const ch = change(r.series.points[r.series.points.length - 1]!.index); return <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}><span aria-hidden>{ch.arrow} </span>{ch.text}<span style={{ display: "block", fontSize: 11.5, fontWeight: 400, color: "var(--u-ink-secondary)" }}>since {monthLabel(r.series.points[0]!.month)}</span></span>; } },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.p.sourceCount },
@@ -70,8 +70,8 @@ export default function ServicesPage() {
   type RegionRow = InsightsServicePrice;
   const regionCols: Col<RegionRow>[] = [
     { key: "region", header: "Delivered in", value: (r) => regionLabel(r.deliveryRegion) },
-    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.avgPrice, render: (r) => `${price(r.avgPrice, r.pricingBasis)} ${SHORT_BASIS[r.pricingBasis] ?? ""}` },
-    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.minPrice, r.pricingBasis)} to ${price(r.maxPrice, r.pricingBasis)}` },
+    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.avgPrice, render: (r) => `${price(r.avgPrice, r.pricingBasis, currency)} ${SHORT_BASIS[r.pricingBasis] ?? ""}` },
+    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.minPrice, r.pricingBasis, currency)} to ${price(r.maxPrice, r.pricingBasis, currency)}` },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 

@@ -9,7 +9,7 @@ import { MovementChart, type MovementLine } from "../../components/MovementChart
 import { MODE_NAME } from "../../components/ModeDotPlot";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
-import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
+import { fmtMoney, fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
@@ -61,8 +61,8 @@ export default function DistancesPage() {
     { key: "lane", header: "Lane", value: lane },
     { key: "mode", header: "Mode", value: (r) => MODE_NAME[r.freightMode] ?? r.freightMode, filter: true },
     { key: "km", header: "Distance (km)", align: "right", value: (r) => Math.round(r.avgDistanceKm), render: (r) => fmt(r.avgDistanceKm) },
-    { key: "tonne", header: "Per tonne", align: "right", value: (r) => r.avgCostPerTonne, render: (r) => <>{fmtMoney(r.avgCostPerTonne)}<span style={{ display: "block", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{fmtMoney(r.minCostPerTonne)} to {fmtMoney(r.maxCostPerTonne)}</span></> },
-    { key: "tkm", header: "Per tonne-km", value: (r) => r.avgCostPerTonneKm, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgCostPerTonneKm / maxKmRate) * 100)}%`, maxWidth: 110, borderRadius: 4, background: FILL[r.freightMode] ?? "var(--u-ink-secondary)" }} /><span>{r.avgCostPerTonneKm.toFixed(3)}</span></div> },
+    { key: "tonne", header: `Per tonne (${currency})`, align: "right", value: (r) => r.avgCostPerTonne, render: (r) => <>{fmtMoneyIn(r.avgCostPerTonne, r.currency)}<span style={{ display: "block", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{fmtMoneyIn(r.minCostPerTonne, r.currency)} to {fmtMoneyIn(r.maxCostPerTonne, r.currency)}</span></> },
+    { key: "tkm", header: `Per tonne-km (${currency})`, value: (r) => r.avgCostPerTonneKm, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgCostPerTonneKm / maxKmRate) * 100)}%`, maxWidth: 110, borderRadius: 4, background: FILL[r.freightMode] ?? "var(--u-ink-secondary)" }} /><span>{currency} {r.avgCostPerTonneKm.toFixed(3)}</span></div> },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
   const scroll = (r: React.RefObject<HTMLElement>) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -85,7 +85,7 @@ export default function DistancesPage() {
       marks: list.map((r) => ({
         key: `${r.freightMode}|${r.originRegion}|${r.destinationRegion}`, mode: r.freightMode, value: r.avgCostPerTonne, size: r.shipments,
         tipTitle: `${label}, ${MODE_NAME[r.freightMode] ?? r.freightMode}`,
-        tipRows: [{ label: "Cost per tonne", value: `${fmtMoney(r.avgCostPerTonne)} ${currency}` }, { label: "Distance", value: `${Math.round(r.avgDistanceKm).toLocaleString("en-GB")} km` }, { label: "Shipments", value: r.shipments.toLocaleString("en-GB") }],
+        tipRows: [{ label: "Cost per tonne", value: fmtMoneyIn(r.avgCostPerTonne, currency) }, { label: "Distance", value: `${Math.round(r.avgDistanceKm).toLocaleString("en-GB")} km` }, { label: "Shipments", value: r.shipments.toLocaleString("en-GB") }],
         aria: `${label}, ${MODE_NAME[r.freightMode] ?? r.freightMode}: ${fmtMoney(r.avgCostPerTonne)} ${currency} per tonne over ${Math.round(r.avgDistanceKm).toLocaleString("en-GB")} km, ${r.shipments.toLocaleString("en-GB")} shipments`,
       })),
     })).sort((a, b) => Math.max(...b.marks.map((m) => m.value)) - Math.max(...a.marks.map((m) => m.value)));
@@ -144,8 +144,8 @@ export default function DistancesPage() {
       <StatTileGrid>
         <StatTile label="Average distance (km)" value={loading ? "…" : total.shipments ? fmt(total.avgDistance) : "—"} icon={<GlobeIcon size={18} />} onClick={() => scroll(bandsRef)} />
         <StatTile label="Days in transit per 1,000 km" value={loading ? "…" : daysPer1000 !== null ? daysPer1000.toFixed(1) : "—"} icon={<ClockIcon size={18} />} tone="neutral" onClick={() => scroll(bandsRef)} />
-        <StatTile label={`Freight cost per tonne${currency ? ` (${currency})` : ""}`} value={loading ? "…" : perTonne !== null ? fmtMoney(perTonne) : "—"} icon={<TrendingUpIcon size={18} />} tone="neutral" onClick={() => scroll(rateRef)} />
-        <StatTile label={`Freight cost per tonne-km${currency ? ` (${currency})` : ""}`} value={loading ? "…" : perTonneKm !== null ? perTonneKm.toFixed(3) : "—"} icon={<GaugeIcon size={18} />} tone="neutral" onClick={() => scroll(moveRef)} />
+        <StatTile label={`Freight cost per tonne${currency ? ` (${currency})` : ""}`} value={loading ? "…" : perTonne !== null ? fmtMoneyIn(perTonne, currency) : "—"} icon={<TrendingUpIcon size={18} />} tone="neutral" onClick={() => scroll(rateRef)} />
+        <StatTile label={`Freight cost per tonne-km${currency ? ` (${currency})` : ""}`} value={loading ? "…" : perTonneKm !== null ? `${currency} ${perTonneKm.toFixed(3)}` : "—"} icon={<GaugeIcon size={18} />} tone="neutral" onClick={() => scroll(moveRef)} />
       </StatTileGrid>
 
       <section ref={bandsRef} aria-labelledby="d-bands" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
@@ -163,7 +163,7 @@ export default function DistancesPage() {
                     <td style={td}>{b.t.shipments ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(3, b.share * 100)}%`, maxWidth: 140, borderRadius: 4, background: "var(--u-org-accent, var(--u-brand-violet))" }} /><span>{Math.round(b.share * 100)}% <span style={{ color: "var(--u-ink-secondary)" }}>({fmt(b.t.shipments)})</span></span></div> : <span style={{ color: "var(--u-ink-secondary)" }}>–</span>}</td>
                     <td style={{ ...td, textAlign: "right" }}>{b.t.avgDays !== null ? b.t.avgDays.toFixed(0) : "–"}</td>
                     <td style={{ ...td, textAlign: "right" }}>{b.t.shipments ? fmt(b.t.avgCo2) : "–"}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{b.cost !== null ? fmtMoney(b.cost) : "–"}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{b.cost !== null ? fmtMoneyIn(b.cost, currency) : "–"}</td>
                   </tr>
                 ))}</tbody>
               </table>

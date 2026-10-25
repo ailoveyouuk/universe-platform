@@ -6,7 +6,7 @@ import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
-import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
+import { fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
 import { DataTable, type Col } from "../../components/DataTable";
 import { TrendChart } from "../../components/TrendChart";
 
@@ -48,9 +48,9 @@ export default function PricesPage() {
 
   const priceCols: Col<(typeof shownRows)[number]>[] = [
     { key: "label", header: DIMENSIONS.find((d) => d.value === by)?.label ?? "Split", value: (r) => (by === "incoterm" ? r.label ?? "Not stated" : regionLabel(r.label)) },
-    { key: "avg", header: "Average", value: (r) => r.avgPrice, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><div aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgPrice / maxAvg) * 100)}%`, maxWidth: 140, background: "var(--u-org-accent, var(--u-brand-violet))", borderRadius: 4 }} /><span>{fmtMoney(r.avgPrice)}</span></div> },
-    { key: "min", header: "Lowest", align: "right", value: (r) => r.minPrice, render: (r) => fmtMoney(r.minPrice) },
-    { key: "max", header: "Highest", align: "right", value: (r) => r.maxPrice, render: (r) => fmtMoney(r.maxPrice) },
+    { key: "avg", header: `Average (${currency})`, value: (r) => r.avgPrice, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><div aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgPrice / maxAvg) * 100)}%`, maxWidth: 140, background: "var(--u-org-accent, var(--u-brand-violet))", borderRadius: 4 }} /><span>{fmtMoneyIn(r.avgPrice, r.currency)}</span></div> },
+    { key: "min", header: `Lowest (${currency})`, align: "right", value: (r) => r.minPrice, render: (r) => fmtMoneyIn(r.minPrice, r.currency) },
+    { key: "max", header: `Highest (${currency})`, align: "right", value: (r) => r.maxPrice, render: (r) => fmtMoneyIn(r.maxPrice, r.currency) },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 
