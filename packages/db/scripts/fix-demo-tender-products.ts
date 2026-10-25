@@ -70,7 +70,20 @@ async function main() {
       if (picks.length < 3) { console.log(`${ref}: not enough matching products.`); continue; }
       const same = ft.lines.slice(0, 3).every((l, i) => l.productMasterId === picks[i].id);
       console.log(`${ref}: ${same ? "already correct" : picks.map((x) => x.name).join(" | ")}`);
-      if (!same && !dryRun) for (let i = 0; i < 3; i++) await tx.tenderLine.update({ where: { id: ft.lines[i].id }, data: { productMasterId: picks[i].id, description: picks[i].name } });
+      if (!dryRun) {
+        if (!same) for (let i = 0; i < 3; i++) await tx.tenderLine.update({ where: { id: ft.lines[i].id }, data: { productMasterId: picks[i].id, description: picks[i].name } });
+        const cur = await tx.tenderDocument.findFirst({ where: { tenderId: ft.id, title: "Technical specification", supersededAt: null, archivedAt: null } });
+        if (cur && cur.version === 1) {
+          const buf = makePdf("Technical specification", [`Reference: ${ft.referenceNumber}`, `Tender: ${ft.title}`, "", "Version 2 - items corrected to match the tender", "", ...ft.lines.slice(0, 3).map((l, i) => `  ${l.lineNumber}. ${picks[i].name} - ${l.quantity ?? ""} ${l.unit ?? ""} to ${l.destinationCountryCode ?? ""}`), "", "SIMULATED DOCUMENT - generated for demonstration only."]);
+          const blobName = `tender-docs/${ft.id}/${randomUUID()}-technical-specification.pdf`;
+          const c = svc!.getContainerClient(`org-${ft.organizationId}`);
+          await c.createIfNotExists();
+          await c.getBlockBlobClient(blobName).uploadData(buf, { blobHTTPHeaders: { blobContentType: "application/pdf" } });
+          const key = cur.documentKey ?? cur.id;
+          await tx.tenderDocument.update({ where: { id: cur.id }, data: { supersededAt: new Date(), documentKey: key } });
+          await tx.tenderDocument.create({ data: { organizationId: ft.organizationId, tenderId: ft.id, title: "Technical specification", docType: "SPECIFICATION", description: cur.description, blobName, fileName: "technical-specification.pdf", fileSizeBytes: buf.length, mimeType: "application/pdf", version: cur.version + 1, documentKey: key } });
+        }
+      }
     }
     // SIM-FWK-002 was created with a title that did not match its (medicine) lines.
     const fwk = await tx.tender.findMany({ where: { referenceNumber: "SIM-FWK-002", title: { contains: "nutrition and sanitation" } }, select: { id: true } });
