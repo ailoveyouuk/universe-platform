@@ -46,7 +46,7 @@ export async function seedSimulatedAggregates() {
     while (set.size < n) set.add(hashes[Math.floor(r() * hashes.length)]);
     return [...set];
   };
-  const result = { logistics: 0, pricing: 0, sourcing: 0, freight: 0, services: 0, skipped: [] as string[] };
+  const result = { logistics: 0, pricing: 0, sourcing: 0, freight: 0, services: 0, activity: 0, skipped: [] as string[] };
 
   const countries = await prisma.country.findMany({ select: { code: true, latitude: true, longitude: true, regionCode: true } });
   const byCode = new Map(countries.map((c) => [c.code, c]));
@@ -241,5 +241,25 @@ export async function seedSimulatedAggregates() {
       result.services = sv.length;
     }
   } catch (e) { if (missing(e)) result.skipped.push("services (table missing: run infra/sql/insights-freight-services.sql first)"); else throw e; }
+  // --- Daily activity (2026-10-25). Tops up the last 21 days (inserts only days not already present; never deletes). Needs infra/sql/insights-daily-activity.sql. ---
+  try {
+    const ra = rng(20261027);
+    const base: Record<string, number> = { PROJECTS_STARTED: 3, LINES_ADDED: 14, SUPPLIER_ENQUIRIES: 9, BATCHES_RECORDED: 6, TENDERS_PUBLISHED: 2, BIDS_SUBMITTED: 4 };
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    const have = new Set((await insightsPrisma.aggregatedDailyActivity.findMany({ where: { isSimulated: true, day: { gte: new Date(today.getTime() - 21 * 86_400_000) } }, select: { day: true, metric: true, sourceHash: true } })).map((x) => `${x.day.toISOString().slice(0, 10)}|${x.metric}|${x.sourceHash}`));
+    const rows: { day: Date; metric: string; eventCount: number; sourceHash: string; isSimulated: boolean }[] = [];
+    for (let back = 0; back < 21; back++) {
+      const day = new Date(today.getTime() - back * 86_400_000);
+      const weekend = [0, 6].includes(day.getUTCDay());
+      for (const [metric, b] of Object.entries(base)) {
+        for (const sourceHash of pickHashes(6 + Math.floor(ra() * 6))) {
+          const n = Math.max(0, Math.round(b * (weekend ? 0.25 : 1) * (0.5 + ra() * 1.1) + (back === 0 ? b * 0.3 : 0)));
+          if (n > 0 && !have.has(`${day.toISOString().slice(0, 10)}|${metric}|${sourceHash}`)) rows.push({ day, metric, eventCount: n, sourceHash, isSimulated: true });
+        }
+      }
+    }
+    for (const c of chunks(rows, 500)) await insightsPrisma.aggregatedDailyActivity.createMany({ data: c });
+    result.activity = rows.length;
+  } catch (e) { if (missing(e)) result.skipped.push("activity (table missing: run infra/sql/insights-daily-activity.sql first)"); else throw e; }
   return result;
 }

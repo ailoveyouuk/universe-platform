@@ -1,5 +1,7 @@
 import { insightsPrisma, Prisma } from "./index";
 import { computePricingMovement, type PricingMovementSeries } from "./movement";
+import { rankActivity } from "./activity";
+import type { InsightsActivity } from "@universe/types";
 
 /**
  * Statistical-disclosure-control floor (2026-09-24 decision — see
@@ -369,4 +371,17 @@ export function getServiceMovement(showSimulated = false): Promise<PricingMoveme
       GROUP BY serviceCategory, pricingBasis, deliveryRegion, currency, effectiveMonth, sourceHash`;
     return computePricingMovement(rows.map((r) => ({ ...r, priceSum: Number(r.priceSum), priceCount: Number(r.priceCount) })));
   });
+}
+
+/** The most active metrics across Universe (2026-10-25). Only days where at least five organisations contributed are returned; simulated rows only to demo requests. */
+export async function getDailyActivity(showSimulated = false, limit = 4): Promise<InsightsActivity> {
+  const rows = await insightsPrisma.$queryRaw<{ day: Date; metric: string; events: number; organisations: number }[]>`
+    SELECT day, metric, SUM(eventCount) AS events, COUNT(DISTINCT sourceHash) AS organisations
+    FROM aggregated_daily_activity
+    WHERE day >= DATEADD(day, -30, CAST(GETUTCDATE() AS date))
+    ${showSimulated ? Prisma.empty : Prisma.sql`AND isSimulated = 0`}
+    GROUP BY day, metric
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+  `;
+  return rankActivity(rows.map((r) => ({ day: new Date(r.day).toISOString().slice(0, 10), metric: r.metric, events: Number(r.events), organisations: Number(r.organisations) })), limit);
 }

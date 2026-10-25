@@ -32,6 +32,7 @@ export default function SupplierHomePage() {
   const money = (n: number) => n.toLocaleString("en-GB", { maximumFractionDigits: 0 });
   return (
     <Page>
+      {me?.forename && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Welcome back, {me.forename}.</p>}
       <Heading title="Supplier Portal" sub="Everything waiting on your organisation, most urgent first." />
       <ErrorNote message={err} />
       {!d && !err && <div style={{ color: "var(--u-ink-secondary)" }}>Loading…</div>}

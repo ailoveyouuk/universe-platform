@@ -460,3 +460,55 @@ export async function runServicePriceAggregationPipeline(since: Date = new Date(
   }
   return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
 }
+
+
+/**
+ * Daily activity (2026-10-25): per consented organisation and day, how many times each kind of event happened. Counts only, never content. Re-runnable:
+ * each (day, metric, organisation hash) row is set to the latest count, so overlapping windows never double-count. The five-organisation floor is
+ * applied when the figures are read (src/query.ts getDailyActivity).
+ */
+export async function runDailyActivityAggregationPipeline(sinceDays = 2) {
+  const start = new Date(Date.now() - sinceDays * 86_400_000);
+  start.setUTCHours(0, 0, 0, 0);
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } }, select: { organizationId: true } });
+    return rows.map((r) => r.organizationId);
+  });
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+  let rowsWritten = 0;
+  for (const organizationId of consentedOrgIds) {
+    const sourceHash = hashOrganizationId(organizationId);
+    const counts = await withTenantContext(organizationId, async (tx) => {
+      const [projects, lines, enquiries, batches, tenders, bids] = await Promise.all([
+        tx.project.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+        tx.projectLine.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+        tx.supplierEnquiry.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+        tx.productBatch.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+        tx.tender.findMany({ where: { publishedAt: { gte: start } }, select: { publishedAt: true } }),
+        tx.tenderBid.findMany({ where: { submittedAt: { gte: start } }, select: { submittedAt: true } }),
+      ]);
+      return [
+        ["PROJECTS_STARTED", projects.map((r) => r.createdAt)],
+        ["LINES_ADDED", lines.map((r) => r.createdAt)],
+        ["SUPPLIER_ENQUIRIES", enquiries.map((r) => r.createdAt)],
+        ["BATCHES_RECORDED", batches.map((r) => r.createdAt)],
+        ["TENDERS_PUBLISHED", tenders.map((r) => r.publishedAt as Date)],
+        ["BIDS_SUBMITTED", bids.map((r) => r.submittedAt as Date)],
+      ] as [string, Date[]][];
+    });
+    for (const [metric, dates] of counts) {
+      const byDay = new Map<string, number>();
+      for (const d of dates) { if (d) byDay.set(dayKey(d), (byDay.get(dayKey(d)) ?? 0) + 1); }
+      for (const [k, eventCount] of byDay) {
+        const day = new Date(`${k}T00:00:00.000Z`);
+        await insightsPrisma.aggregatedDailyActivity.upsert({
+          where: { day_metric_sourceHash: { day, metric, sourceHash } },
+          create: { day, metric, sourceHash, eventCount, isSimulated: false },
+          update: { eventCount },
+        });
+        rowsWritten++;
+      }
+    }
+  }
+  return { organizationsProcessed: consentedOrgIds.length, rowsWritten };
+}

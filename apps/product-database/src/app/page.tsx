@@ -12,6 +12,7 @@ import { matchPill, sourcePill, SCOPE_TAXONOMY } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useRouter } from "next/navigation";
 import { useCountries } from "../lib/useCountries";
+import { useCurrentUser } from "../lib/AuthContext";
 import { saveExport } from "../lib/download";
 import {
   AddMenu,
@@ -65,6 +66,7 @@ const SOURCE_STANDARDS = ["INTERNAL", "HS_CODE", "WHO_EML", "UNSPSC", "GS1_GTIN"
 
 export default function ProductCatalogPage() {
   const router = useRouter();
+  const me = useCurrentUser();
   const [items, setItems] = useState<ProductCatalogMatch[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +237,7 @@ export default function ProductCatalogPage() {
     <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
+          {me?.forename && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Welcome back, {me.forename}.</p>}
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Product Catalogue</h1>
           <p style={{ color: "var(--u-ink-secondary)", marginTop: 6, fontSize: 14 }}>
             The shared ProductMaster catalogue — every product any organisation on Universe has added, picked, or imported. Browse,

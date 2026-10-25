@@ -23,6 +23,7 @@ export class InsightsController {
   @Get("prices/categories") categories(@CurrentUser() u: RequestUser) { return this.insights.priceCategories(u.inDemoOrganization === true); }
   @Get("prices/trend") trend(@CurrentUser() u: RequestUser, @Query("category") category = "") { return this.insights.priceTrend(category, u.inDemoOrganization === true); }
   @Get("prices/movement") movement(@CurrentUser() u: RequestUser) { return this.insights.priceMovement(u.inDemoOrganization === true); }
+  @Get("activity") activity(@CurrentUser() u: RequestUser) { return this.insights.activity(u.inDemoOrganization === true); }
   @Get("freight/rates") freightRates(@CurrentUser() u: RequestUser) { return this.insights.freightRates(u.inDemoOrganization === true); }
   @Get("freight/movement") freightMovement(@CurrentUser() u: RequestUser) { return this.insights.freightMovement(u.inDemoOrganization === true); }
   @Get("services/prices") servicePrices(@CurrentUser() u: RequestUser, @Query("byRegion") byRegion = "") { return this.insights.servicePrices(byRegion === "true", u.inDemoOrganization === true); }

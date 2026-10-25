@@ -2,6 +2,7 @@ export * from "./pharma-links";
 export * from "./supplier-scope";
 export * from "./commodity-groups";
 export * from "./service-categories";
+export * from "./insights-activity";
 export * from "./category-codes";
 /**
  * Shared, hand-written types used across apps for shapes that don't map

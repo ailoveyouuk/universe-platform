@@ -259,3 +259,20 @@ model AggregatedServicePrice {
   @@index([serviceCategory, effectiveMonth])
   @@map("aggregated_service_prices")
 }
+
+/// Daily activity across Universe (2026-10-25): how many times a kind of event happened for one organisation on one day. Counts only, no content.
+/// Written per organisation (sourceHash), published only as totals where at least five organisations contributed (floor applied in src/query.ts).
+model AggregatedDailyActivity {
+  id          String   @id @default(uuid())
+  day         DateTime @db.Date
+  /// One of INSIGHTS_ACTIVITY_METRICS (packages/types).
+  metric      String
+  eventCount  Int
+  sourceHash  String
+  isSimulated Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([day, metric, sourceHash])
+  @@index([metric, day])
+  @@map("aggregated_daily_activity")
+}

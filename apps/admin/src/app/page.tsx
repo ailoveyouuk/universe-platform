@@ -29,6 +29,7 @@ export default function AdminHomePage() {
 
   return (
     <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
+      {me?.forename && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Welcome back, {me.forename}.</p>}
       <h1>Universe Admin</h1>
       <p style={{ color: "var(--u-ink-secondary)", maxWidth: 620, margin: "4px 0 16px" }}>
         Onboard organisations, manage their people and roles, and review what has changed.

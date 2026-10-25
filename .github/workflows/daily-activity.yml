@@ -1,0 +1,38 @@
+name: Daily activity
+
+# Daily (2026-10-25). Feeds the "Most active across Universe" tiles on the Insights Overview.
+# 1. Real: counts what consenting, non-demo organisations did in the last two days (counts only) into universe-insights.
+# 2. Simulated: tops up the last 21 days of simulated activity for demo organisations (inserts missing days only, deletes nothing).
+# Needs repository secrets DEMO_LOAD_DATABASE_URL, INSIGHTS_LOAD_DATABASE_URL and INSIGHTS_HASH_SECRET.
+# Needs infra/sql/insights-daily-activity.sql to have been run once on universe-insights.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  activity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - run: npm run build --workspace=@universe/db
+      - name: Real activity
+        run: npm run aggregate:daily-activity --workspace=@universe/insights-db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
+          INSIGHTS_HASH_SECRET: ${{ secrets.INSIGHTS_HASH_SECRET }}
+          PRISMA_TX_TIMEOUT_MS: "120000"
+      - name: Simulated top-up
+        run: npm run seed:simulated --workspace=@universe/insights-db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

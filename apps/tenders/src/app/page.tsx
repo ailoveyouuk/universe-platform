@@ -38,6 +38,7 @@ export default function TenderDashboardPage() {
   const attention = d ? d.attention.overdueEvaluation + d.attention.overdueAward + d.attention.unansweredQuestions : 0;
   return (
     <Page>
+      {me?.forename && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Welcome back, {me.forename}.</p>}
       <Heading title="Tender Issuance" sub="Build, publish and manage your organisation's tenders." actions={<Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link>} />
       <ErrorNote message={err} />
       {!d && !err && <div style={{ color: "var(--u-ink-secondary)" }}>Loading…</div>}
