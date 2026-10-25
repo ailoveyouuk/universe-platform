@@ -101,8 +101,8 @@ export function SectionTrend({ title, metrics, metric, onMetric, filters, loadin
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); const a = document.createElement("a"); a.href = url; a.download = `${exportName}-${cur.id}.csv`; a.click(); URL.revokeObjectURL(url);
   };
   return (
-    <Card title={title}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <Card title={title} style={{ minWidth: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0, maxWidth: "100%" }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", justifyContent: "space-between" }}>
           <div role="group" aria-label={`Measure shown in ${title}`} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {metrics.map((m) => <button key={m.id} type="button" className="u-touch" aria-pressed={m.id === cur.id} style={pill(m.id === cur.id)} onClick={() => onMetric(m.id)}>{m.label}</button>)}
@@ -112,9 +112,9 @@ export function SectionTrend({ title, metrics, metric, onMetric, filters, loadin
         {loading ? <p style={{ margin: 0 }}>Loading…</p> : <MetricLineChart metric={cur} title={`${title}: ${cur.label}`} />}
         {cur.blurb && <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>{cur.blurb}</p>}
         {!loading && months.length > 0 && (
-          <details>
+          <details style={{ minWidth: 0, maxWidth: "100%" }}>
             <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }} id={headId}>Show these figures as a table</summary>
-            <div style={{ overflowX: "auto", marginTop: 8 }}>
+            <div style={{ overflowX: "auto", marginTop: 8, maxWidth: "100%" }} tabIndex={0} role="region" aria-label={`${cur.label} table`}>
               <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: 320 }}>
                 <caption style={{ textAlign: "left", fontSize: 12.5, color: "var(--u-ink-secondary)", paddingBottom: 4 }}>{cur.label} by month ({cur.unit})</caption>
                 <thead><tr><th scope="col" style={{ textAlign: "left", padding: "4px 12px 4px 0", borderBottom: "1px solid var(--u-border)" }}>Month</th>{lines.map((l) => <th key={l.id} scope="col" style={{ textAlign: "right", padding: "4px 0 4px 12px", borderBottom: "1px solid var(--u-border)" }}>{l.name}</th>)}</tr></thead>
