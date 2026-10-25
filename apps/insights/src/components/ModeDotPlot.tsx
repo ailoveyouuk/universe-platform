@@ -46,7 +46,7 @@ export function ModeDotPlot({ rows, axisLabel, tick, ariaLabel, activeMode, onSe
     measure(); const ro = new ResizeObserver(measure); ro.observe(el); return () => ro.disconnect();
   }, []);
   const { tip, bind, close, activeKey } = useChartTip();
-  const L = W < 480 ? 112 : 200;
+  const L = W < 480 ? 112 : W < 900 ? 200 : 250;
   const H = T + rows.length * ROW + B;
   const g = useMemo(() => {
     const vals = rows.flatMap((r) => r.marks.map((m) => m.value)).filter((v) => v > 0);
