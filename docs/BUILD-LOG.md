@@ -1162,3 +1162,12 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Docs:** Methodology updated (currencies, new data-set row, "Exchange rates" source in `lib/sources.ts`, source notes on the three lenses).
 - **Live checks:** Currencies page shows live ECB data (USD to EUR 0.89342, +3.7% over the year); Prices with EUR: 157 USD becomes EUR 140 at 0.89342, rate table and chart present; scan light and dark clean.
 - **Open:** schedule the nightly aggregation; saved views do not yet store the currency choice; a "Show costs in" lens on Commodities is not needed (indexes carry no currency).
+
+## 2026-10-25 — Insights: an "over time" trend chart in every section; saved views keep the currency choice
+- **Request (Lewis):** close off the not-yet-covered items; trend charts essential for all Insights metrics, as standard in each section, toggleable and filterable.
+- **Shared component:** `components/SectionTrend.tsx` (`MetricLineChart` + panel): switch for what to measure, section filters, hover/tap/keyboard tooltips, spoken summary, "Show these figures as a table", CSV download, source note. Lines differ by dash as well as colour.
+- **New feeds:** `GET /insights/logistics/trend` (month x mode x commodity group, optional country pair; 5-organisation floor in SQL; the two commodity spellings merged weighted by shipments) and `GET /insights/sourcing/trend` (running total by month and product group, optional country).
+- **Sections:** Shipping modes, Geographies, Logistics and CO2 (shipments, distance, days, CO2e, efficiency; split all / mode / product group; page filters apply), Distances (distance and days by mode, beside the existing freight cost index), Sourcing (relationships and organisations on record by month, by product group and country), Prices (average, range, organisations; converts by month through the currency lens). Commodities and Services already had toggled index charts (segment, group, sort).
+- **Sourcing time:** sourcing rows have no month of their own, so the trend uses the month recorded; the simulated rows are spread over 18 months by an idempotent update (simulated only, nothing deleted).
+- **Saved views** now store and restore the currency lens (target, mode, date) on Prices, Services and Distances.
+- **Not done, on purpose:** nightly aggregation of prices, sourcing, logistics, freight and services. The pipelines append rows, so a schedule needs a last-successful-run record (a small table, SQL for Lewis) to avoid double counting. Indexes carry no currency, so nothing to convert there.
