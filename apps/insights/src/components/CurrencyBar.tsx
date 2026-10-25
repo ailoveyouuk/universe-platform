@@ -60,7 +60,7 @@ export function CurrencyBar({ fx, months, target, mode, asOf, monthly = true }: 
           </p>
           <table style={{ borderCollapse: "collapse", fontSize: 13, maxWidth: 560 }}>
             <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Exchange rate of {fx.source} in {fx.ccy}, when logged and on the conversion date</caption>
-            <thead><tr><th scope="col" style={{ textAlign: "left", padding: "4px 10px 4px 0", fontWeight: 600 }}>Rate</th><th scope="col" style={{ textAlign: "right", padding: "4px 0 4px 10px", fontWeight: 600 }}>1 {fx.source} in {fx.ccy}</th><th scope="col" style={{ textAlign: "right", padding: "4px 0 4px 10px", fontWeight: 600 }}>Against conversion date</th></tr></thead>
+            <thead><tr><th scope="col" style={{ textAlign: "left", padding: "4px 10px 4px 0", fontWeight: 600 }}>Rate</th><th scope="col" style={{ textAlign: "right", padding: "4px 0 4px 10px", fontWeight: 600 }}>1 {fx.source} in {fx.ccy}</th><th scope="col" style={{ textAlign: "right", padding: "4px 0 4px 10px", fontWeight: 600 }}>Change to conversion date</th></tr></thead>
             <tbody>{rows.map((r) => <tr key={r.label} style={{ borderTop: "1px solid var(--u-border)" }}><th scope="row" style={{ textAlign: "left", padding: "5px 10px 5px 0", fontWeight: 500 }}>{r.label}</th><td style={{ textAlign: "right", padding: "5px 0 5px 10px" }}>{rateText(r.rate)}</td><td style={{ textAlign: "right", padding: "5px 0 5px 10px" }}>{r.rate !== null && dateRate !== null && r.label.startsWith("When") ? `${((dateRate / r.rate - 1) * 100 >= 0 ? "+" : "−")}${Math.abs((dateRate / r.rate - 1) * 100).toFixed(1)}%` : "–"}</td></tr>)}</tbody>
           </table>
           <details>
