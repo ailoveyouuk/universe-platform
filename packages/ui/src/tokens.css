@@ -636,8 +636,8 @@ a:focus-visible {
   }
 }
 
-/* A row of exactly four stat tiles sits two by two on tablet-portrait widths instead of three plus a lone tile (2026-10-24). */
-@media (min-width: 600px) and (max-width: 940px) {
+/* A row of exactly four stat tiles sits two by two on tablet widths (portrait and landscape, with the side menu open) instead of three plus a lone tile (2026-10-24; widened to 1081px on 2026-10-25 after a 1024px landscape check). */
+@media (min-width: 600px) and (max-width: 1081px) {
   .u-stat-grid:has(> :nth-child(4):last-child) {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
