@@ -139,9 +139,9 @@ export function BidBuilder() {
             {!l.noBid && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                 <Field label={l.servicePricingBasis ? priceLabel(l.servicePricingBasis, l.unit, ccy) : `Unit price (${ccy || "currency"})`}><input type="number" min="0" step="0.0001" disabled={locked} style={inputStyle} value={l.unitPrice ?? ""} onChange={(e) => upd(i, { unitPrice: e.target.value })} /></Field>
-                <Field label="Lead time (days)"><input type="number" min="0" disabled={locked} style={inputStyle} value={l.leadTimeDays ?? ""} onChange={(e) => upd(i, { leadTimeDays: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
-                <Field label="Country of origin"><CountrySelect value={l.countryOfOrigin ?? ""} onChange={(c) => upd(i, { countryOfOrigin: c || null })} options={countries} /></Field>
-                <Field label="Manufacturer (optional)"><input disabled={locked} style={inputStyle} value={l.manufacturerName ?? ""} onChange={(e) => upd(i, { manufacturerName: e.target.value })} /></Field>
+                <Field label={l.servicePricingBasis ? "Days until you can start" : "Lead time (days)"}><input type="number" min="0" disabled={locked} style={inputStyle} value={l.leadTimeDays ?? ""} onChange={(e) => upd(i, { leadTimeDays: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
+                {!l.servicePricingBasis && <Field label="Country of origin"><CountrySelect value={l.countryOfOrigin ?? ""} onChange={(c) => upd(i, { countryOfOrigin: c || null })} options={countries} /></Field>}
+                {!l.servicePricingBasis && <Field label="Manufacturer (optional)"><input disabled={locked} style={inputStyle} value={l.manufacturerName ?? ""} onChange={(e) => upd(i, { manufacturerName: e.target.value })} /></Field>}
               </div>
             )}
           </div>

@@ -46,3 +46,18 @@ describe("bid template for service lines", () => {
     expect(String(ws.getCell("B6").value)).toMatch(/one unit of the Unit column/);
   });
 });
+
+import { checkBid } from "../src/tenders/bid-completeness";
+describe("bid completeness for service lines", () => {
+  const base = { allowTextSubmission: true, bidValidityDays: 90, bidCurrency: "USD", validityConfirmed: true, criteria: [], addenda: [] };
+  it("does not ask a service for a country of origin, but still asks for a lead time", () => {
+    const ok = checkBid({ ...base, lines: [{ noBid: false, unitPrice: 400, leadTimeDays: 14, countryOfOrigin: null, isService: true }] });
+    expect(ok.every((c) => c.ok)).toBe(true);
+    const missing = checkBid({ ...base, lines: [{ noBid: false, unitPrice: 400, leadTimeDays: null, countryOfOrigin: null, isService: true }] });
+    expect(missing.find((c) => !c.ok)?.label).toBe("Give a lead time for each priced item (1 missing)");
+  });
+  it("still asks goods for a country of origin", () => {
+    const r = checkBid({ ...base, lines: [{ noBid: false, unitPrice: 4, leadTimeDays: 10, countryOfOrigin: null }] });
+    expect(r.find((c) => !c.ok)?.label).toMatch(/country of origin/);
+  });
+});

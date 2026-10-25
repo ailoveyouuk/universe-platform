@@ -4,7 +4,7 @@ export interface BidCheckInput {
   bidValidityDays: number | null;
   bidCurrency: string | null;
   validityConfirmed: boolean;
-  lines: { lotNumber?: number | null; noBid: boolean; unitPrice: number | null; leadTimeDays: number | null; countryOfOrigin: string | null }[];
+  lines: { lotNumber?: number | null; noBid: boolean; unitPrice: number | null; leadTimeDays: number | null; countryOfOrigin: string | null; /** A service line has no origin country. */ isService?: boolean }[];
   criteria: { title: string; isMandatory: boolean; responseFormat: string; text: string | null; fileCount: number }[];
   addenda: { requiresAcknowledgement: boolean; acknowledged: boolean }[];
 }
@@ -25,8 +25,10 @@ export function checkBid(i: BidCheckInput): ChecklistItem[] {
     out.push({ ok: partial.length === 0, label: partial.length > 0 ? `A lot must be bid in full: price every item in lot ${partial.join(", ")} or mark the whole lot "not bidding"` : "Each lot is either bid in full or not bid" });
   }
 
-  const incomplete = priced.filter((l) => l.unitPrice !== null && l.unitPrice > 0 && (l.leadTimeDays === null || !l.countryOfOrigin)).length;
-  out.push({ ok: incomplete === 0, label: incomplete > 0 ? `Give a lead time and country of origin for each priced item (${incomplete} missing)` : "Lead time and country of origin given" });
+  const incomplete = priced.filter((l) => l.unitPrice !== null && l.unitPrice > 0 && (l.leadTimeDays === null || (!l.isService && !l.countryOfOrigin))).length;
+  const allServices = priced.length > 0 && priced.every((l) => l.isService);
+  const what = allServices ? "a lead time" : "a lead time and country of origin (goods only)";
+  out.push({ ok: incomplete === 0, label: incomplete > 0 ? `Give ${what} for each priced item (${incomplete} missing)` : allServices ? "Lead time given" : "Lead time and country of origin given" });
 
   const mandatory = i.criteria.filter((c) => c.isMandatory);
   const answered = (c: BidCheckInput["criteria"][number]) => {
