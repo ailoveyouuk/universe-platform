@@ -31,3 +31,7 @@ export interface InsightsActivityMetric {
   series: InsightsActivityDay[];
 }
 export interface InsightsActivity { day: string | null; metrics: InsightsActivityMetric[] }
+
+/** Daily exchange rate history for one pair (2026-10-25): units of `to` per 1 unit of `from`, one point per published day, oldest first. */
+export interface InsightsFxPoint { date: string; rate: number }
+export interface InsightsFxSeries { from: string; to: string; start: string; end: string; points: InsightsFxPoint[]; source: string; available: boolean }

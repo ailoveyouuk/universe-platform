@@ -9,6 +9,8 @@ import { DataTable, emptyTableState, type Col, type TableState } from "../../com
 import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
+import { CurrencyBar } from "../../components/CurrencyBar";
+import { useFxLens, useFxView, type FxView } from "../../lib/fx";
 import { fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
 import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
@@ -19,7 +21,8 @@ const PROCUREMENT_LABEL: Record<string, string> = { CONSULTING: "Consulting serv
 const SHORT_BASIS: Record<string, string> = { PER_DAY: "per day", PER_HOUR: "per hour", PER_MONTH: "per month", PER_UNIT: "per unit", LUMP_SUM: "fixed fee", PERCENT_OF_GOODS: "of goods value" };
 const key = (c: string, b: string) => `${c}|${b}`;
 function change(index: number) { const c = index - 100; const a = Math.abs(c).toFixed(1); return Math.abs(c) < 0.05 ? { text: "No change", arrow: "▬", value: 0 } : c > 0 ? { text: `+${a}%`, arrow: "▲", value: c } : { text: `−${a}%`, arrow: "▼", value: c }; }
-const price = (v: number, basis: string, ccy: string) => (basis === "PERCENT_OF_GOODS" ? `${v.toFixed(1)}%` : fmtMoneyIn(v, ccy));
+const price = (v: number, basis: string, fx: FxView) => (basis === "PERCENT_OF_GOODS" ? `${v.toFixed(1)}%` : fmtMoneyIn(fx.conv(v), fx.ccy));
+const cv = (v: number, basis: string, fx: FxView) => (basis === "PERCENT_OF_GOODS" ? v : Math.round(fx.conv(v) * 100) / 100);
 
 export default function ServicesPage() {
   const [prices, setPrices] = useState<InsightsServicePrice[] | null>(null);
@@ -41,6 +44,9 @@ export default function ServicesPage() {
   useEffect(() => { if (currencies.length && !currencies.includes(currency)) setCurrency(currencies.includes("USD") ? "USD" : currencies[0]!); }, [currencies, currency]);
 
   const mvOf = useMemo(() => { const m = new Map<string, InsightsPriceMovement>(); for (const s of mv ?? []) if (s.segmentBy === null && s.currency === currency) m.set(s.category, s); return m; }, [mv, currency]);
+  const lens = useFxLens();
+  const mvMonths = useMemo(() => [...new Set((mv ?? []).filter((s) => s.currency === currency).flatMap((s) => s.points.map((q) => q.month)))].sort(), [mv, currency]);
+  const fx = useFxView(currency, mvMonths);
   const rows = useMemo(() => (prices ?? []).filter((p) => p.currency === currency).map((p) => ({ p, k: key(p.serviceCategory, p.pricingBasis), cat: serviceCategoryByCode(p.serviceCategory), series: mvOf.get(key(p.serviceCategory, p.pricingBasis)) ?? null })), [prices, currency, mvOf]);
   const withMove = rows.filter((r) => r.series);
   const moves = withMove.map((r) => ({ r, ch: change(r.series!.points[r.series!.points.length - 1]!.index) }));
@@ -60,8 +66,8 @@ export default function ServicesPage() {
     { key: "group", header: "Group", value: (r) => r.cat?.group ?? "Other", filter: true },
     { key: "service", header: "Service", value: (r) => r.cat?.label ?? r.p.serviceCategory, render: (r) => <button type="button" className="u-touch" onClick={(e) => { e.stopPropagation(); pick(r.k); }} aria-pressed={r.k === sel} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--u-ink)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}>{r.cat?.label ?? r.p.serviceCategory}</button> },
     { key: "basis", header: "Priced", value: (r) => servicePricingBasisLabel(r.p.pricingBasis), filter: true },
-    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.p.avgPrice, render: (r) => <><strong>{price(r.p.avgPrice, r.p.pricingBasis, currency)}</strong> {SHORT_BASIS[r.p.pricingBasis] ?? ""}</> },
-    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.p.minPrice, r.p.pricingBasis, currency)} to ${price(r.p.maxPrice, r.p.pricingBasis, currency)}` },
+    { key: "avg", header: "Typical cost", align: "right", value: (r) => cv(r.p.avgPrice, r.p.pricingBasis, fx), render: (r) => <><strong>{price(r.p.avgPrice, r.p.pricingBasis, fx)}</strong> {SHORT_BASIS[r.p.pricingBasis] ?? ""}</> },
+    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.p.minPrice, r.p.pricingBasis, fx)} to ${price(r.p.maxPrice, r.p.pricingBasis, fx)}` },
     { key: "trend", header: "Trend", value: () => null, render: (r) => (r.series ? <Spark points={r.series.points} lo={sparkLo} hi={sparkHi} /> : <span style={{ color: "var(--u-ink-secondary)" }}>–</span>) },
     { key: "change", header: "Change", align: "right", value: (r) => (r.series ? Number((r.series.points[r.series.points.length - 1]!.index - 100).toFixed(1)) : null), render: (r) => { if (!r.series) return <span style={{ color: "var(--u-ink-secondary)" }}>–</span>; const ch = change(r.series.points[r.series.points.length - 1]!.index); return <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}><span aria-hidden>{ch.arrow} </span>{ch.text}<span style={{ display: "block", fontSize: 11.5, fontWeight: 400, color: "var(--u-ink-secondary)" }}>since {monthLabel(r.series.points[0]!.month)}</span></span>; } },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.p.sourceCount },
@@ -70,8 +76,8 @@ export default function ServicesPage() {
   type RegionRow = InsightsServicePrice;
   const regionCols: Col<RegionRow>[] = [
     { key: "region", header: "Delivered in", value: (r) => regionLabel(r.deliveryRegion) },
-    { key: "avg", header: "Typical cost", align: "right", value: (r) => r.avgPrice, render: (r) => `${price(r.avgPrice, r.pricingBasis, currency)} ${SHORT_BASIS[r.pricingBasis] ?? ""}` },
-    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.minPrice, r.pricingBasis, currency)} to ${price(r.maxPrice, r.pricingBasis, currency)}` },
+    { key: "avg", header: "Typical cost", align: "right", value: (r) => cv(r.avgPrice, r.pricingBasis, fx), render: (r) => `${price(r.avgPrice, r.pricingBasis, fx)} ${SHORT_BASIS[r.pricingBasis] ?? ""}` },
+    { key: "range", header: "Range", align: "right", value: (r) => `${price(r.minPrice, r.pricingBasis, fx)} to ${price(r.maxPrice, r.pricingBasis, fx)}` },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 
@@ -89,10 +95,11 @@ export default function ServicesPage() {
       <ErrorNote message={err} />
       {currencies.length > 1 && (
         <div role="group" aria-label="Currency" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5, fontWeight: 600 }}>
-          Currency (not converted)
+          Agreed in
           {currencies.map((c) => <button key={c} type="button" className="u-touch" style={pill(currency === c)} aria-pressed={currency === c} onClick={() => { setCurrency(c); setSel(""); }}>{c}</button>)}
         </div>
       )}
+      <CurrencyBar fx={fx} months={mvMonths} target={lens.target} mode={lens.mode} asOf={lens.asOf} monthly={false} />
       <StatTileGrid>
         <StatTile label="Types of service with a cost" value={loading ? "…" : rows.length} icon={<GridIcon size={18} />} />
         <StatTile label="Cost increases" value={loading ? "…" : rising} icon={<TrendingUpIcon size={18} />} tone="neutral" />
@@ -107,10 +114,10 @@ export default function ServicesPage() {
           <Card><p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No type of service has costs from at least five organisations yet. Costs appear here once organisations record services on their projects (choose the Services product category on a line).</p></Card>
         ) : (
           <Card>
-            <DataTable<ServiceRow> rows={rows} rowKey={(r) => r.k} columns={serviceCols} caption={`Cost, range and movement by type of service, in ${currency}`} exportName={`service-costs-${currency}`} selectedKey={sel} state={tableState} onState={setTableState} />
+            <DataTable<ServiceRow> rows={rows} rowKey={(r) => r.k} columns={serviceCols} caption={`Cost, range and movement by type of service, in ${fx.ccy}`} exportName={`service-costs-${currency}`} selectedKey={sel} state={tableState} onState={setTableState} />
           </Card>
         )}
-      <SourceNote keys={["services"]} />
+      <SourceNote keys={["services", "fx"]} />
       </section>
 
       <section ref={detailRef} aria-labelledby="s-detail" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
@@ -123,7 +130,7 @@ export default function ServicesPage() {
             </Card>
             <Card title="Cost by region of delivery">
               {byRegion === null ? <p style={{ margin: 0 }}>Loading…</p> : regionRows.length === 0 ? <p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No region has costs from at least five organisations yet.</p> : (
-                <DataTable<RegionRow> rows={regionRows} rowKey={(r) => r.deliveryRegion ?? "none"} columns={regionCols} caption={`Cost of ${cur.cat?.label} by region of delivery, in ${currency}`} exportName={`service-${cur.k}-by-region`} />
+                <DataTable<RegionRow> rows={regionRows} rowKey={(r) => r.deliveryRegion ?? "none"} columns={regionCols} caption={`Cost of ${cur.cat?.label} by region of delivery, in ${fx.ccy}`} exportName={`service-${cur.k}-by-region`} />
               )}
             </Card>
             <Card title="Cost movement over time">
@@ -131,7 +138,7 @@ export default function ServicesPage() {
             </Card>
           </>
         )}
-      <SourceNote keys={["services"]} />
+      <SourceNote keys={["services", "fx"]} />
       </section>
     </Page>
   );

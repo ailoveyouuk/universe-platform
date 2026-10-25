@@ -42,6 +42,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/distances", label: "Distances", icon: () => <GaugeIcon size={19} />, inNav: true },
   { href: "/services", label: "Services", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/prices", label: "Prices", icon: () => <TrendingUpIcon size={19} />, inNav: true },
+  { href: "/currency", label: "Currencies", icon: () => <TrendingUpIcon size={19} />, inNav: true },
   { href: "/sourcing", label: "Sourcing", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/logistics", label: "Logistics and CO2", icon: () => <ThermometerIcon size={19} />, inNav: true },
   { href: "/search", label: "Search Insights", icon: () => <SearchIcon size={19} />, inNav: true },

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { prisma } from "@universe/db";
+import { SUPPORTED_CURRENCIES } from "@universe/types";
+import { buildSeries, needsFetch, type FxDay, type FxPoint } from "./fx-series";
 
 /**
  * Daily FX conversion for pricing across the platform -- see
@@ -190,6 +192,42 @@ export class ExchangeRatesService {
       return null;
     }
     return round2(amountInBase * rate);
+  }
+
+  /**
+   * Daily rate history for one currency pair (2026-10-25, for Insights): units of `to` per 1 unit of `from`, for each published day in the range.
+   * Days come from the same ExchangeRateSnapshot cache the price conversion uses; if the range is not covered yet it is fetched from Frankfurter in
+   * ONE time-series call and every day stored (add-only), so the history builds up as a shared record. Returns null (never throws) if the feed is down
+   * and nothing is stored.
+   */
+  async getSeries(from: string, to: string, startRaw: Date, endRaw: Date): Promise<{ points: FxPoint[]; source: string } | null> {
+    const base = ExchangeRatesService.DEFAULT_BASE_CURRENCY;
+    const supported = SUPPORTED_CURRENCIES as readonly string[];
+    if (!supported.includes(from) || !supported.includes(to)) return null;
+    const start = this.toCalendarDate(startRaw), end = this.toCalendarDate(endRaw);
+    const startS = this.formatDateParam(start), endS = this.formatDateParam(end);
+    const load = async (): Promise<FxDay[]> => {
+      const rows = await prisma.exchangeRateSnapshot.findMany({ where: { baseCurrencyCode: base, date: { gte: start, lte: end } }, orderBy: { date: "asc" } });
+      return rows.map((r) => ({ date: this.formatDateParam(r.date), rates: JSON.parse(r.ratesJson) as Record<string, number> }));
+    };
+    let days = await load();
+    if (needsFetch(days.map((d) => d.date), startS, endS)) {
+      try {
+        const res = await fetch(`${this.FRANKFURTER_BASE_URL}/${startS}..${endS}?from=${base}`);
+        if (res.ok) {
+          const body = (await res.json()) as { rates: Record<string, Record<string, number>> };
+          const have = new Set(days.map((d) => d.date));
+          const fresh = Object.entries(body.rates ?? {}).filter(([d]) => !have.has(d)).map(([d, rates]) => ({ date: new Date(`${d}T00:00:00Z`), baseCurrencyCode: base, ratesJson: JSON.stringify(rates), source: "frankfurter" }));
+          for (let i = 0; i < fresh.length; i += 100) {
+            try { await prisma.exchangeRateSnapshot.createMany({ data: fresh.slice(i, i + 100) }); }
+            catch (err) { this.logger.warn(`Storing exchange rate history failed: ${(err as Error).message}`); }
+          }
+          days = await load();
+        } else this.logger.warn(`Frankfurter returned HTTP ${res.status} for range ${startS}..${endS}`);
+      } catch (err) { this.logger.warn(`Failed to fetch exchange rate history: ${(err as Error).message}`); }
+    }
+    if (!days.length) return null;
+    return { points: buildSeries(days, from, to), source: "European Central Bank daily reference rates, via Frankfurter" };
   }
 }
 

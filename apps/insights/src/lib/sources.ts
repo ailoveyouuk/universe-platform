@@ -45,6 +45,11 @@ export const SOURCES = {
     short: "Regions: WHO regions; countries: ISO 3166.",
     full: "World regions follow the six WHO regions. Countries are identified by their ISO 3166 codes. Currencies are identified by their ISO 4217 codes.",
   },
+  fx: {
+    title: "Exchange rates and currency conversion",
+    short: "Daily ECB reference rates (via Frankfurter), the same rates Project Management locks prices to. Costs are shown as agreed unless you convert them.",
+    full: "Costs are stored and first shown in the currency they were agreed in. If you choose another currency, each figure is converted with the daily European Central Bank reference rate (obtained through Frankfurter), the same rates Project Management locks project prices to. You can convert at the rate when the cost was logged (the monthly average rate, because Insights keeps months and not exact days) or at the rate on any date you choose. Weekends and holidays use the last published rate. The rate used is always shown, and original amounts are kept. The ECB publishes rates for about thirty major currencies, so other currencies cannot be converted.",
+  },
   activity: {
     title: "Daily activity",
     short: "Counts of actions recorded in Universe each day by sharing organisations; counts only, never content.",
