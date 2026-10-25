@@ -228,8 +228,8 @@ export default function GeographiesPage() {
         <h2 id="g-league" style={h2}>Which delivery countries are served most and least efficiently?</h2>
         <p style={sub}>Average efficiency score of what arrives, for delivery countries with at least thirty shipments. Select a country to see it on the map.</p>
         <RankedTileGrid>
-          <RankedTile label="Most efficient" icon={<GaugeIcon size={18} />} tone="var(--u-status-good)" rows={league.best} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
-          <RankedTile label="Least efficient" icon={<GaugeIcon size={18} />} tone="var(--u-status-critical)" rows={league.worst} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
+          <RankedTile label="Most efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.best} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
+          <RankedTile label="Least efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.worst} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
         </RankedTileGrid>
       </section>
     </Page>
