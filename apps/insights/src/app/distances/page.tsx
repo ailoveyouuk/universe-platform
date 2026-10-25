@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsFreightRate, InsightsPriceMovement, LogisticsRouteSummary } from "@universe/types";
 import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon, WorldMap, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
 import { CostScatter, type CostPoint } from "../../components/CostScatter";
+import { DataTable, type Col } from "../../components/DataTable";
 import { MovementChart, type MovementLine } from "../../components/MovementChart";
 import { MODE_NAME } from "../../components/ModeScatter";
+import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
@@ -54,6 +56,14 @@ export default function DistancesPage() {
   const perTonne = wavg((r) => r.avgCostPerTonne), perTonneKm = wavg((r) => r.avgCostPerTonneKm);
   const daysPer1000 = total.avgDays !== null && total.avgDistance > 0 ? (total.avgDays / total.avgDistance) * 1000 : null;
   const loading = routes === null || rates === null;
+  const laneCols: Col<InsightsFreightRate>[] = [
+    { key: "lane", header: "Lane", value: lane },
+    { key: "mode", header: "Mode", value: (r) => MODE_NAME[r.freightMode] ?? r.freightMode, filter: true },
+    { key: "km", header: "Distance (km)", align: "right", value: (r) => Math.round(r.avgDistanceKm), render: (r) => fmt(r.avgDistanceKm) },
+    { key: "tonne", header: "Per tonne", align: "right", value: (r) => r.avgCostPerTonne, render: (r) => <>{fmtMoney(r.avgCostPerTonne)}<span style={{ display: "block", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{fmtMoney(r.minCostPerTonne)} to {fmtMoney(r.maxCostPerTonne)}</span></> },
+    { key: "tkm", header: "Per tonne-km", value: (r) => r.avgCostPerTonneKm, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgCostPerTonneKm / maxKmRate) * 100)}%`, maxWidth: 110, borderRadius: 4, background: FILL[r.freightMode] ?? "var(--u-ink-secondary)" }} /><span>{r.avgCostPerTonneKm.toFixed(3)}</span></div> },
+    { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
+  ];
   const scroll = (r: React.RefObject<HTMLElement>) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   // ---- distance bands
@@ -91,6 +101,16 @@ export default function DistancesPage() {
     const c = idx.get(code); if (!c || c.latitude === null || c.longitude === null) return [];
     return [{ id: code, latitude: c.latitude, longitude: c.longitude, label: c.name, color: "var(--u-org-accent, var(--u-brand-violet))", value: 1 }];
   });
+
+  const longCols: Col<(typeof long)[number]>[] = [
+    { key: "from", header: "From", value: (e) => idx.get(e.a)?.name ?? e.a },
+    { key: "to", header: "To", value: (e) => idx.get(e.b)?.name ?? e.b },
+    { key: "mode", header: "Mode", value: (e) => MODE_NAME[e.md] ?? e.md, filter: true },
+    { key: "km", header: "Distance (km)", align: "right", value: (e) => Math.round(e.km), render: (e) => fmt(e.km) },
+    { key: "n", header: "Shipments", align: "right", value: (e) => e.n, render: (e) => e.n.toLocaleString("en-GB") },
+  ];
+
+  useViewBridge(() => ({ mode, currency }), (s) => { if (s.mode !== undefined) setMode(s.mode); if (s.currency) setCurrency(s.currency); });
 
   return (
     <Page>
@@ -150,21 +170,8 @@ export default function DistancesPage() {
               <CostScatter points={points} currency={currency} />
               <details style={{ marginTop: 10 }} open>
                 <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
-                <div style={{ overflowX: "auto", marginTop: 8 }}>
-                  <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 560 }}>
-                    <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Freight cost by lane and mode in {currency}, highest cost per tonne-kilometre first</caption>
-                    <thead><tr><th scope="col" style={th}>Lane</th><th scope="col" style={th}>Mode</th><th scope="col" style={{ ...th, textAlign: "right" }}>Distance (km)</th><th scope="col" style={{ ...th, textAlign: "right" }}>Per tonne</th><th scope="col" style={th}>Per tonne-km</th><th scope="col" style={{ ...th, textAlign: "right" }}>Organisations</th></tr></thead>
-                    <tbody>{card.map((r) => (
-                      <tr key={`${r.freightMode}${r.originRegion}${r.destinationRegion}`} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                        <th scope="row" style={{ ...td, textAlign: "left", fontWeight: 500 }}>{lane(r)}</th>
-                        <td style={td}>{MODE_NAME[r.freightMode] ?? r.freightMode}</td>
-                        <td style={{ ...td, textAlign: "right" }}>{fmt(r.avgDistanceKm)}</td>
-                        <td style={{ ...td, textAlign: "right" }}>{fmtMoney(r.avgCostPerTonne)}<span style={{ display: "block", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>{fmtMoney(r.minCostPerTonne)} to {fmtMoney(r.maxCostPerTonne)}</span></td>
-                        <td style={td}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgCostPerTonneKm / maxKmRate) * 100)}%`, maxWidth: 110, borderRadius: 4, background: FILL[r.freightMode] ?? "var(--u-ink-secondary)" }} /><span>{r.avgCostPerTonneKm.toFixed(3)}</span></div></td>
-                        <td style={{ ...td, textAlign: "right" }}>{r.sourceCount}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+                <div style={{ marginTop: 8 }}>
+                  <DataTable<InsightsFreightRate> rows={card} rowKey={(r) => `${r.freightMode}|${r.originRegion}|${r.destinationRegion}`} columns={laneCols} caption={`Freight cost by lane and mode in ${currency}`} exportName={`freight-cost-by-lane-${currency}`} />
                 </div>
               </details>
             </>
@@ -200,12 +207,8 @@ export default function DistancesPage() {
           {long.length > 0 && (
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
-              <div style={{ overflowX: "auto", marginTop: 8 }}>
-                <table style={{ borderCollapse: "collapse", width: "100%" }}>
-                  <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Longest corridors by average distance</caption>
-                  <thead><tr><th scope="col" style={th}>From to</th><th scope="col" style={th}>Mode</th><th scope="col" style={{ ...th, textAlign: "right" }}>Distance (km)</th><th scope="col" style={{ ...th, textAlign: "right" }}>Shipments</th></tr></thead>
-                  <tbody>{long.map((e) => <tr key={`${e.a}${e.b}${e.md}`} style={{ borderBottom: "1px solid var(--u-border)" }}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 500 }}>{idx.get(e.a)?.name ?? e.a} to {idx.get(e.b)?.name ?? e.b}</th><td style={td}>{MODE_NAME[e.md] ?? e.md}</td><td style={{ ...td, textAlign: "right" }}>{fmt(e.km)}</td><td style={{ ...td, textAlign: "right" }}>{e.n.toLocaleString("en-GB")}</td></tr>)}</tbody>
-                </table>
+              <div style={{ marginTop: 8 }}>
+                <DataTable<(typeof long)[number]> rows={long} rowKey={(e) => `${e.a}${e.b}${e.md}`} columns={longCols} caption="Longest corridors by average distance" exportName="longest-corridors" />
               </div>
             </details>
           )}

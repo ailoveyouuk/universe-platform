@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsPriceTrendPoint, InsightsPricedCategory } from "@universe/types";
+import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
 import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
+import { DataTable, type Col } from "../../components/DataTable";
 import { TrendChart } from "../../components/TrendChart";
 
 const DIMENSIONS: { value: InsightsPriceDimension; label: string }[] = [
@@ -43,6 +45,16 @@ export default function PricesPage() {
   const maxAvg = Math.max(1, ...shownRows.map((r) => r.avgPrice));
   const selected = cats?.find((c) => c.category === category);
 
+  const priceCols: Col<(typeof shownRows)[number]>[] = [
+    { key: "label", header: DIMENSIONS.find((d) => d.value === by)?.label ?? "Split", value: (r) => (by === "incoterm" ? r.label ?? "Not stated" : regionLabel(r.label)) },
+    { key: "avg", header: "Average", value: (r) => r.avgPrice, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><div aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgPrice / maxAvg) * 100)}%`, maxWidth: 140, background: "var(--u-org-accent, var(--u-brand-violet))", borderRadius: 4 }} /><span>{fmtMoney(r.avgPrice)}</span></div> },
+    { key: "min", header: "Lowest", align: "right", value: (r) => r.minPrice, render: (r) => fmtMoney(r.minPrice) },
+    { key: "max", header: "Highest", align: "right", value: (r) => r.maxPrice, render: (r) => fmtMoney(r.maxPrice) },
+    { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
+  ];
+
+  useViewBridge(() => ({ category, by, currency }), (s) => { if (s.category) setCategory(s.category); if (s.by) setBy(s.by); if (s.currency) setCurrency(s.currency); });
+
   return (
     <Page>
       <Heading title="Prices" sub="What products in each group cost at source: the supplier or manufacturer price before any margin, from real purchases recorded by organisations on Universe. Names are never shown." />
@@ -71,21 +83,7 @@ export default function PricesPage() {
       </Card>
       <Card title={`Price by ${DIMENSIONS.find((d) => d.value === by)?.label.toLowerCase()}`}>
         {!rows ? <p>Loading…</p> : shownRows.length === 0 ? <p style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Not enough contributors in any split of this group to show a breakdown.</p> : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 13.5, width: "100%" }}>
-              <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Average price in {currency} for {category}</caption>
-              <thead><tr><th scope="col" style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--u-border)" }}>{DIMENSIONS.find((d) => d.value === by)?.label}</th><th scope="col" style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--u-border)", minWidth: 160 }}>Average</th>{["Lowest", "Highest", "Organisations"].map((h) => <th key={h} scope="col" style={{ textAlign: "right", padding: "6px 10px", borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}</tr></thead>
-              <tbody>{shownRows.map((r) => (
-                <tr key={`${r.label}-${r.currency}`}>
-                  <th scope="row" style={{ textAlign: "left", padding: "7px 10px", fontWeight: 500 }}>{by === "incoterm" ? r.label ?? "Not stated" : regionLabel(r.label)}</th>
-                  <td style={{ padding: "7px 10px" }}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgPrice / maxAvg) * 100)}%`, maxWidth: 140, background: "var(--u-org-accent, var(--u-brand-violet))", borderRadius: 4 }} /><span>{fmtMoney(r.avgPrice)}</span></div></td>
-                  <td style={{ padding: "7px 10px", textAlign: "right" }}>{fmtMoney(r.minPrice)}</td>
-                  <td style={{ padding: "7px 10px", textAlign: "right" }}>{fmtMoney(r.maxPrice)}</td>
-                  <td style={{ padding: "7px 10px", textAlign: "right" }}>{r.sourceCount}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-          </div>
+          <DataTable<(typeof shownRows)[number]> rows={shownRows} rowKey={(r) => `${r.label}-${r.currency}`} columns={priceCols} caption={`Average price in ${currency} for ${category}`} exportName={`prices-${category}-by-${by}`} />
         )}
       </Card>
     </Page>

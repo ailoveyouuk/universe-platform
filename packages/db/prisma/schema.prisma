@@ -337,6 +337,7 @@ model Organization {
   scopeOfSupply               OrganizationScope[]
   certifications              OrganizationCertification[]
   networkSavedSearches        NetworkSavedSearch[]
+  insightsUserItems           InsightsUserItem[]
   funderProfile               FunderProfile?
   dataInsightsUserProfile     DataInsightsUserProfile?
   /// The inverse side of TenderingBodyProfile.procurementAgentOrganization —
@@ -4725,4 +4726,26 @@ model ProductPharmaLink {
   @@index([status])
   @@index([isSimulated])
   @@map("product_pharma_links")
+}
+
+/// Per-person Insights personalisation (2026-10-25): saved views (a page plus its filters) and the highlights a person pins to their Overview.
+/// Owned by the person (userId) inside their organisation (row-level security by organizationId). Archive-not-delete: removing a view sets archivedAt.
+model InsightsUserItem {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId         String
+  /// VIEW (saved view) or PIN (a highlight shown on the Overview).
+  kind           String       @db.NVarChar(10)
+  name           String       @db.NVarChar(120)
+  /// VIEW: the route, e.g. /services. PIN: the highlight id, e.g. commodities.biggest.
+  target         String       @db.NVarChar(120)
+  stateJson      String?      @db.NVarChar(4000)
+  position       Int          @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, userId, kind])
+  @@map("insights_user_items")
 }

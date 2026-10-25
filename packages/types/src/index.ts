@@ -4003,3 +4003,7 @@ export interface InsightsServicePrice { serviceCategory: string; pricingBasis: s
 export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }
+
+/** Insights personalisation (2026-10-25): a saved view (a page and its filters) or a highlight pinned to the Overview. */
+export interface InsightsUserItem { id: string; kind: "VIEW" | "PIN"; name: string; target: string; state: Record<string, unknown> | null; position: number; createdAt: string }
+export interface SaveInsightsUserItemInput { kind: "VIEW" | "PIN"; name: string; target: string; state?: Record<string, unknown> | null }

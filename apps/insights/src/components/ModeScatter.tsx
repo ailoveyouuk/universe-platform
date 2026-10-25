@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChartTooltip, useChartTip } from "./ChartTip";
 
 export interface ScatterPoint { id: string; label: string; mode: string; days: number; co2: number; shipments: number; commodity: string }
 
@@ -23,6 +24,7 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
     measure(); const ro = new ResizeObserver(measure); ro.observe(el); return () => ro.disconnect();
   }, []);
   const H = W < 480 ? 320 : 360;
+  const { tip, bind, close, activeKey } = useChartTip();
   const g = useMemo(() => {
     if (!points.length) return null;
     const maxDays = Math.max(...points.map((p) => p.days)) * 1.08;
@@ -36,7 +38,7 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
   }, [points, W, H]);
   if (!g) return <div ref={box}><p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No route has enough contributors to show yet.</p></div>;
   return (
-    <div ref={box} style={{ width: "100%" }}><svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Chart of average days in transit against average CO2e per shipment, one mark per product group and transport mode. The same figures are in the table below." style={{ display: "block" }}>
+    <div ref={box} style={{ width: "100%", position: "relative" }}><svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Chart of average days in transit against average CO2e per shipment, one mark per product group and transport mode. The same figures are in the table below." style={{ display: "block", touchAction: "manipulation" }} onClick={close}>
       {g.yTicks.map((t) => <g key={t}><line x1={L} x2={W - R} y1={g.y(t)} y2={g.y(t)} stroke="var(--u-border)" strokeWidth={1} /><text x={L - 8} y={g.y(t) + 4} textAnchor="end" fontSize={11} fill="var(--u-ink-secondary)">{t.toLocaleString("en-GB")}</text></g>)}
       {g.xTicks.map((t) => <g key={t}><line x1={g.x(t)} x2={g.x(t)} y1={T} y2={H - B} stroke="var(--u-border)" strokeWidth={1} strokeDasharray="2 4" /><text x={g.x(t)} y={H - B + 16} textAnchor="middle" fontSize={11} fill="var(--u-ink-secondary)">{t}</text></g>)}
       <text x={(L + W - R) / 2} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--u-ink-secondary)">Average days in transit</text>
@@ -46,12 +48,14 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
         const label = `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}: about ${Math.round(p.days)} days, ${Math.round(p.co2).toLocaleString("en-GB")} kg CO2e per shipment, ${p.shipments.toLocaleString("en-GB")} shipments`;
         const common = { fill: FILL[p.mode] ?? "var(--u-ink-secondary)", fillOpacity: dim ? 0.18 : 0.78, stroke: "var(--u-surface-raised)", strokeWidth: 1.5 };
         return (
-          <g key={p.id} tabIndex={0} role="button" aria-label={label} onClick={() => onSelect(p)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(p); } }} style={{ cursor: "pointer" }}>
-            <title>{label}</title>
+          <g key={p.id} tabIndex={0} role="button" aria-label={label} style={{ cursor: "pointer", outlineOffset: 2 }}
+            {...(() => { const b = bind({ key: p.id, x: cx, y: cy - r, vw: W, vh: H, title: `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}`, rows: [{ label: "Average days", value: String(Math.round(p.days)) }, { label: "kg CO2e per shipment", value: Math.round(p.co2).toLocaleString("en-GB") }, { label: "Shipments", value: p.shipments.toLocaleString("en-GB") }] }); return { ...b, onClick: (e: React.MouseEvent) => { b.onClick(e); onSelect(p); }, onKeyDown: (e: React.KeyboardEvent) => { b.onKeyDown(e); if (e.key === "Enter" || e.key === " ") onSelect(p); } }; })()}>
+            <circle cx={cx} cy={cy} r={Math.max(r, 14)} fill="transparent" />
+            {activeKey === p.id && <circle cx={cx} cy={cy} r={r + 4} fill="none" stroke="var(--u-ink)" strokeWidth={2} />}
             {p.mode === "AIR" ? <rect x={cx - r} y={cy - r} width={r * 2} height={r * 2} rx={2} {...common} /> : p.mode === "LAND" ? <polygon points={`${cx},${cy - r * 1.15} ${cx + r * 1.1},${cy + r * 0.85} ${cx - r * 1.1},${cy + r * 0.85}`} {...common} /> : <circle cx={cx} cy={cy} r={r} {...common} />}
           </g>
         );
       })}
-    </svg></div>
+    </svg><ChartTooltip tip={tip} onClose={close} /></div>
   );
 }

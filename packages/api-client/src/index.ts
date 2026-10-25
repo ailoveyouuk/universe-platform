@@ -1,4 +1,4 @@
-import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
+import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
@@ -1792,6 +1792,18 @@ export class UniverseApiClient {
   }
   insightsServicePrices(byRegion = false): Promise<InsightsServicePrice[]> {
     return this.request(`/insights/services/prices${byRegion ? "?byRegion=true" : ""}`);
+  }
+  insightsItems(): Promise<InsightsUserItem[]> {
+    return this.request("/insights/me/items");
+  }
+  insightsSaveItem(body: SaveInsightsUserItemInput): Promise<{ id: string | null; already: boolean }> {
+    return this.request("/insights/me/items", { method: "POST", body: JSON.stringify(body) });
+  }
+  insightsRenameItem(id: string, name: string): Promise<{ updated: boolean }> {
+    return this.request(`/insights/me/items/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+  }
+  insightsRemoveItem(id: string): Promise<{ removed: boolean }> {
+    return this.request(`/insights/me/items/${id}`, { method: "DELETE" });
   }
   insightsServiceMovement(): Promise<InsightsPriceMovement[]> {
     return this.request("/insights/services/movement");

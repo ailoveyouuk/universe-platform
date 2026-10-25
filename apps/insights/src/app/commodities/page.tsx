@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsPriceMovement, LogisticsRouteSummary, ProductSourcingSummary } from "@universe/types";
 import { COMMODITY_GROUPS, catalogueGroupForCommodity, commodityGroupLabel } from "@universe/types";
 import { StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type WorldMapPoint } from "@universe/ui";
+import { DataTable, type Col } from "../../components/DataTable";
 import { MovementChart, type MovementLine } from "../../components/MovementChart";
 import { Spark } from "../../components/Spark";
+import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
@@ -85,6 +87,25 @@ export default function CommoditiesPage() {
     return { t, modes };
   }, [code, routes]);
 
+  const boardCols: Col<(typeof board)[number]>[] = [
+    { key: "group", header: "Product group", value: (r) => r.s.category, render: (r) => <button type="button" className="u-touch" onClick={(e) => { e.stopPropagation(); pick(r.s.category); }} aria-pressed={r.s.category === group} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--u-ink)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}>{r.s.category}</button> },
+    { key: "trend", header: "Trend", value: () => null, render: (r) => <Spark points={r.s.points} lo={sparkLo} hi={sparkHi} /> },
+    { key: "change", header: "Change", align: "right", value: (r) => Number((r.last.index - 100).toFixed(1)), render: (r) => <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}><span aria-hidden>{r.ch.arrow} </span>{r.ch.text}<span style={{ display: "block", fontSize: 11.5, fontWeight: 400, color: "var(--u-ink-secondary)" }}>since {monthLabel(r.s.points[0]!.month)}</span></span> },
+    { key: "orgs", header: "Organisations", align: "right", value: (r) => r.last.sourceCount },
+  ];
+  const indexRows = selected ? [{ k: "all", name: "All regions", s: selected.s }, ...segments.map((s) => ({ k: s.segment ?? "", name: regionLabel(s.segment), s }))].map((x) => ({ ...x, last: x.s.points[x.s.points.length - 1]! })) : [];
+  const indexCols: Col<(typeof indexRows)[number]>[] = [
+    { key: "scope", header: seg ? (seg === "manufactureRegion" ? "Made in" : "Delivered to") : "Scope", value: (r) => r.name },
+    { key: "change", header: "Change", align: "right", value: (r) => Number((r.last.index - 100).toFixed(1)), render: (r) => { const c = change(r.last.index); return <><span aria-hidden>{c.arrow} </span>{c.text}</>; } },
+    { key: "idx", header: "Latest index", align: "right", value: (r) => Number(r.last.index.toFixed(1)) },
+    { key: "months", header: "Months", align: "right", value: (r) => r.s.points.length },
+    { key: "orgs", header: "Organisations", align: "right", value: (r) => r.last.sourceCount },
+  ];
+
+  useViewBridge(() => ({ currency, sort, group, seg }), (s) => { if (s.currency) setCurrency(s.currency); if (s.sort) setSort(s.sort); if (s.group !== undefined) setGroup(s.group); if (s.seg !== undefined) setSeg(s.seg); });
+  const wantGroup = useRef(readParam("group"));
+  useEffect(() => { if (wantGroup.current && board.length) { const g = wantGroup.current; wantGroup.current = ""; if (board.some((b) => b.s.category === g)) pick(g); } }, [board]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <Page>
       <Heading title="Commodities" sub="How the cost of each product group is moving, where it is made and how it travels. Cost prices only: what suppliers and manufacturers charged before any margin. Anonymised; a figure is only shown when at least five organisations are behind it." />
@@ -111,20 +132,7 @@ export default function CommoditiesPage() {
             {([["rise", "Biggest rise first"], ["fall", "Biggest fall first"], ["name", "A to Z"]] as const).map(([k, l]) => <button key={k} type="button" className="u-touch" style={pill(sort === k)} aria-pressed={sort === k} onClick={() => setSort(k)}>{l}</button>)}
           </div>
           {loading ? <p style={{ margin: 0 }}>Loading…</p> : board.length === 0 ? <p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No product group has enough like-for-like purchases from at least five organisations yet.</p> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 480 }}>
-                <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Change in cost price by product group, in {currency}</caption>
-                <thead><tr><th scope="col" style={th}>Product group</th><th scope="col" style={th}>Trend</th><th scope="col" style={{ ...th, textAlign: "right" }}>Change</th><th scope="col" style={{ ...th, textAlign: "right" }}>Organisations</th></tr></thead>
-                <tbody>{board.map(({ s, last, ch }) => (
-                  <tr key={s.category} style={{ borderBottom: "1px solid var(--u-border)", background: s.category === group ? "var(--u-surface-alt)" : undefined }}>
-                    <th scope="row" style={{ ...td, textAlign: "left", fontWeight: 600 }}><button type="button" className="u-touch" onClick={() => pick(s.category)} aria-pressed={s.category === group} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--u-ink)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}>{s.category}</button></th>
-                    <td style={td}><Spark points={s.points} lo={sparkLo} hi={sparkHi} /></td>
-                    <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}><span aria-hidden>{ch.arrow} </span>{ch.text}<span style={{ display: "block", fontSize: 11.5, fontWeight: 400, color: "var(--u-ink-secondary)" }}>since {monthLabel(s.points[0]!.month)}</span></td>
-                    <td style={{ ...td, textAlign: "right" }}>{last.sourceCount}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
+            <DataTable<(typeof board)[number]> rows={board} rowKey={(r) => r.s.category} columns={boardCols} caption={`Change in cost price by product group, in ${currency}`} exportName={`commodity-cost-movement-${currency}`} selectedKey={group} />
           )}
         </Card>
       </section>
@@ -143,14 +151,8 @@ export default function CommoditiesPage() {
               {seg && segments.length > 4 && <p style={{ ...sub, marginTop: 8 }}>The chart shows the four regions with the highest movement; all {segments.length} are in the table.</p>}
               <details style={{ marginTop: 10 }}>
                 <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
-                <div style={{ overflowX: "auto", marginTop: 8 }}>
-                  <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13.5 }}>
-                    <caption style={{ textAlign: "left", color: "var(--u-ink-secondary)", padding: "4px 0" }}>Cost index for {selected.s.category} (100 = {monthLabel(selected.s.points[0]!.month)}), {currency}</caption>
-                    <thead><tr><th scope="col" style={th}>{seg ? (seg === "manufactureRegion" ? "Made in" : "Delivered to") : "Scope"}</th><th scope="col" style={{ ...th, textAlign: "right" }}>Change</th><th scope="col" style={{ ...th, textAlign: "right" }}>Latest index</th><th scope="col" style={{ ...th, textAlign: "right" }}>Months</th><th scope="col" style={{ ...th, textAlign: "right" }}>Organisations</th></tr></thead>
-                    <tbody>{[{ k: "all", name: "All regions", s: selected.s }, ...segments.map((s) => ({ k: s.segment ?? "", name: regionLabel(s.segment), s }))].map(({ k, name, s }) => { const last = s.points[s.points.length - 1]!; const c = change(last.index); return (
-                      <tr key={k} style={{ borderBottom: "1px solid var(--u-border)" }}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 500 }}>{name}</th><td style={{ ...td, textAlign: "right" }}><span aria-hidden>{c.arrow} </span>{c.text}</td><td style={{ ...td, textAlign: "right" }}>{last.index.toFixed(1)}</td><td style={{ ...td, textAlign: "right" }}>{s.points.length}</td><td style={{ ...td, textAlign: "right" }}>{last.sourceCount}</td></tr>
-                    ); })}</tbody>
-                  </table>
+                <div style={{ marginTop: 8 }}>
+                  <DataTable<(typeof indexRows)[number]> rows={indexRows} rowKey={(r) => r.k} columns={indexCols} caption={`Cost index for ${selected.s.category} (100 = ${monthLabel(selected.s.points[0]!.month)}), ${currency}`} exportName={`cost-index-${selected.s.category}`} />
                 </div>
               </details>
             </Card>

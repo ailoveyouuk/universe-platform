@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LogisticsRouteSummary } from "@universe/types";
 import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint } from "@universe/ui";
+import { readParam } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, useInsightsFilters } from "../../lib/filters";
 import { groupShipments, totalsOf } from "../../lib/geo";
@@ -127,6 +128,7 @@ export default function GeographiesPage() {
   const loading = all === null;
   const focusCountry = (id: string) => { setMapFocus({ id, nonce: Date.now() }); setSelected(id.split(":")[1] ?? null); };
 
+  useEffect(() => { const c = readParam("country"); if (c) setSelected(c.toUpperCase()); }, []);
   return (
     <Page>
       <style>{`.geo-split{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}@media (max-width:1100px){.geo-split{grid-template-columns:minmax(0,1fr)}}`}</style>

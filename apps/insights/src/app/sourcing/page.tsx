@@ -1,8 +1,10 @@
 "use client";
 
+import { DataTable, type Col } from "../../components/DataTable";
 import { useEffect, useMemo, useState } from "react";
 import type { ProductSourcingSummary } from "@universe/types";
 import { WorldMap, type WorldMapPoint } from "@universe/ui";
+import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
@@ -32,6 +34,14 @@ export default function SourcingPage() {
   });
   const total = byCountry.reduce((a, e) => a + e.approvals, 0);
 
+  const countryCols: Col<(typeof byCountry)[number]>[] = [
+    { key: "country", header: "Country", value: (e) => countries.find((c) => c.code === e.code)?.name ?? e.code },
+    { key: "approvals", header: "Approved sourcing relationships", align: "right", value: (e) => e.approvals, render: (e) => e.approvals.toLocaleString() },
+    { key: "groups", header: "Product groups", align: "right", value: (e) => e.groups.size },
+  ];
+
+  useViewBridge(() => ({ group }), (s) => { if (s.group !== undefined) setGroup(s.group); });
+
   return (
     <Page>
       <Heading title="Sourcing" sub="Where products are made, based on the manufacturers organisations have approved for sourcing. No organisation or manufacturer is named." />
@@ -50,15 +60,7 @@ export default function SourcingPage() {
       </Card>
       <Card title="The same data as a table">
         {byCountry.length === 0 ? <p style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Nothing to show for this selection.</p> : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 13.5, width: "100%" }}>
-              <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Approved sourcing relationships by country of manufacture</caption>
-              <thead><tr>{["Country", "Approved sourcing relationships", "Product groups"].map((h, i) => <th key={h} scope="col" style={{ textAlign: i ? "right" : "left", padding: "6px 10px", borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}</tr></thead>
-              <tbody>{byCountry.map((e) => (
-                <tr key={e.code}><th scope="row" style={{ textAlign: "left", padding: "7px 10px", fontWeight: 500 }}>{countries.find((c) => c.code === e.code)?.name ?? e.code}</th><td style={{ textAlign: "right", padding: "7px 10px" }}>{e.approvals.toLocaleString()}</td><td style={{ textAlign: "right", padding: "7px 10px" }}>{e.groups.size}</td></tr>
-              ))}</tbody>
-            </table>
-          </div>
+          <DataTable<(typeof byCountry)[number]> rows={byCountry} rowKey={(e) => e.code} columns={countryCols} caption="Approved sourcing relationships by country of manufacture" exportName="sourcing-by-country" />
         )}
       </Card>
     </Page>

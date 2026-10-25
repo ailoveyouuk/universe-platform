@@ -29,6 +29,7 @@ import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
 import { useBranding } from "../lib/useBranding";
 import { apiClient } from "../lib/apiClient";
+import { ViewBar } from "./ViewBar";
 import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 
 /** Route → nav + breadcrumb metadata, in one place so adding a page means
@@ -43,6 +44,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/prices", label: "Prices", icon: () => <TrendingUpIcon size={19} />, inNav: true },
   { href: "/sourcing", label: "Sourcing", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/logistics", label: "Logistics and CO2", icon: () => <ThermometerIcon size={19} />, inNav: true },
+  { href: "/search", label: "Search Insights", icon: () => <SearchIcon size={19} />, inNav: true },
   { href: "/methodology", label: "Methodology", icon: () => <InfoIcon size={19} />, inNav: true },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },
 ];
@@ -306,7 +308,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </header>
 
             <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
-              <AppAccessGate appKey="insights" appLabel="Insights" apps={me.apps}>{children}</AppAccessGate>
+              <AppAccessGate appKey="insights" appLabel="Insights" apps={me.apps}>
+                {!restricted && !["/", "/methodology", "/notifications", "/search"].includes(pathname.replace(/\/$/, "") || "/") && <ViewBar path={pathname.replace(/\/$/, "") || "/"} pageLabel={ROUTES.find((r) => r.href === pathname.replace(/\/$/, ""))?.label ?? "Insights"} labelFor={(p) => ROUTES.find((r) => r.href === p)?.label ?? "Insights"} />}
+                {children}
+              </AppAccessGate>
             </main>
           </div>
         </div>
