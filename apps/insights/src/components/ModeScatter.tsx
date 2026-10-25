@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export interface ScatterPoint { id: string; label: string; mode: string; days: number; co2: number; shipments: number; commodity: string }
 
 const FILL: Record<string, string> = { AIR: "var(--u-accent-magenta)", SEA: "var(--u-brand-violet)", LAND: "var(--u-status-good)" };
 export const MODE_NAME: Record<string, string> = { AIR: "Air", SEA: "Sea", LAND: "Land" };
-const W = 680, H = 360, L = 66, R = 18, T = 14, B = 48;
+const L = 66, R = 18, T = 14, B = 48;
 
 /**
  * Speed against CO2: one mark per product group and transport mode. Across is average days in transit, up is average CO2e per shipment on a log
@@ -14,6 +14,15 @@ const W = 680, H = 360, L = 66, R = 18, T = 14, B = 48;
  * apart without relying on colour (circle sea, square air, triangle land). Every mark is keyboard-focusable and the page also offers a table.
  */
 export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterPoint[]; activeMode: string; onSelect: (p: ScatterPoint) => void }) {
+  // Drawn at the width it is shown at, so the text stays a readable size on a phone instead of shrinking with the picture.
+  const box = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(680);
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const measure = () => setW(Math.max(280, Math.round(el.clientWidth)));
+    measure(); const ro = new ResizeObserver(measure); ro.observe(el); return () => ro.disconnect();
+  }, []);
+  const H = W < 480 ? 320 : 360;
   const g = useMemo(() => {
     if (!points.length) return null;
     const maxDays = Math.max(...points.map((p) => p.days)) * 1.08;
@@ -21,13 +30,13 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
     const maxN = Math.max(...points.map((p) => p.shipments));
     const x = (d: number) => L + (d / maxDays) * (W - L - R);
     const y = (c: number) => T + (1 - (Math.log10(c) - lo) / (hi - lo)) * (H - T - B);
-    const xTicks = Array.from({ length: 6 }, (_, i) => Math.round((maxDays / 5) * i));
+    const xTicks = Array.from({ length: W < 480 ? 5 : 6 }, (_, i) => Math.round((maxDays / (W < 480 ? 4 : 5)) * i));
     const yTicks: number[] = []; for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) yTicks.push(10 ** e);
     return { x, y, xTicks, yTicks, maxN };
-  }, [points]);
-  if (!g) return <p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No route has enough contributors to show yet.</p>;
+  }, [points, W, H]);
+  if (!g) return <div ref={box}><p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No route has enough contributors to show yet.</p></div>;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Chart of average days in transit against average CO2e per shipment, one mark per product group and transport mode. The same figures are in the table below." style={{ width: "100%", height: "auto", display: "block" }}>
+    <div ref={box} style={{ width: "100%" }}><svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Chart of average days in transit against average CO2e per shipment, one mark per product group and transport mode. The same figures are in the table below." style={{ display: "block" }}>
       {g.yTicks.map((t) => <g key={t}><line x1={L} x2={W - R} y1={g.y(t)} y2={g.y(t)} stroke="var(--u-border)" strokeWidth={1} /><text x={L - 8} y={g.y(t) + 4} textAnchor="end" fontSize={11} fill="var(--u-ink-secondary)">{t.toLocaleString("en-GB")}</text></g>)}
       {g.xTicks.map((t) => <g key={t}><line x1={g.x(t)} x2={g.x(t)} y1={T} y2={H - B} stroke="var(--u-border)" strokeWidth={1} strokeDasharray="2 4" /><text x={g.x(t)} y={H - B + 16} textAnchor="middle" fontSize={11} fill="var(--u-ink-secondary)">{t}</text></g>)}
       <text x={(L + W - R) / 2} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--u-ink-secondary)">Average days in transit</text>
@@ -43,6 +52,6 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
           </g>
         );
       })}
-    </svg>
+    </svg></div>
   );
 }
