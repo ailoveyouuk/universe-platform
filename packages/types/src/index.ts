@@ -75,7 +75,34 @@ export interface CreateProjectInput {
   firstLine?: CreateProjectLineInput;
 }
 
+/** The apps a person can be given access to (2026-10-25). Keys match UNIVERSE_APPS in @universe/ui. */
+export const UNIVERSE_APP_KEYS = ["project-management", "product-database", "tender-issuance", "insights", "admin"] as const;
+export type UniverseAppKey = (typeof UNIVERSE_APP_KEYS)[number];
+export const UNIVERSE_APP_LABELS: Record<UniverseAppKey, string> = {
+  "project-management": "Project Management",
+  "product-database": "Product Database",
+  "tender-issuance": "Tender Issuance",
+  insights: "Insights",
+  admin: "Admin",
+};
+/** Stored form `,a,b,` to list. null/empty = no restriction (every app). */
+export function parseAppAccess(raw: string | null | undefined): UniverseAppKey[] | null {
+  if (!raw) return null;
+  const list = raw.split(",").map((x) => x.trim()).filter((x): x is UniverseAppKey => (UNIVERSE_APP_KEYS as readonly string[]).includes(x));
+  return list.length ? list : null;
+}
+export function encodeAppAccess(list: string[] | null | undefined): string | null {
+  const keys = (list ?? []).filter((x) => (UNIVERSE_APP_KEYS as readonly string[]).includes(x));
+  return keys.length ? `,${[...new Set(keys)].join(",")},` : null;
+}
+/** True when the person may use the app. null (no restriction) allows everything. */
+export function canUseApp(apps: string[] | null | undefined, key: string): boolean {
+  return !apps || apps.includes(key);
+}
+
 export interface AuthenticatedUser {
+  /** Apps this person may use; null = every app (2026-10-25). Platform staff are never restricted. */
+  apps?: string[] | null;
   id: string;
   /** The organisation the app is currently acting as — for platform staff,
    * the one chosen in the header switcher. */
@@ -167,6 +194,8 @@ export interface GrantStakeholderAccessInput {
 export interface UserDetail extends UserSummary {
   jobTitle: string | null;
   platformStaffRole: "NONE" | "SUPPORT" | "SUPER_ADMIN";
+  /** Apps this person may use; null = every app. */
+  appAccess: string[] | null;
   /** True once the user has signed in and been linked to their Entra identity. */
   linkedToIdentity: boolean;
   invitedByName: string | null;
@@ -181,6 +210,8 @@ export interface UpdateUserInput {
   surname?: string;
   jobTitle?: string | null;
   platformStaffRole?: "NONE" | "SUPPORT" | "SUPER_ADMIN";
+  /** Apps this person may use; null clears the restriction (every app). */
+  appAccess?: string[] | null;
 }
 
 /** One entry in the global permission catalogue (GET /permissions). */
@@ -3953,3 +3984,11 @@ export interface MiniInvitationView {
 }
 
 export * from "./project-line-input";
+
+// ---- Insights app (2026-10-25). All anonymised aggregates; a figure only appears when at least five distinct organisations contributed. ----
+export interface InsightsFreshness { prices: string | null; sourcing: string | null; logistics: string | null }
+export interface InsightsPricedCategory { category: string; sourceCount: number; observations: number; latestMonth: string }
+export interface InsightsPriceTrendPoint { month: string; currency: string; sourceCount: number; minPrice: number; maxPrice: number; avgPrice: number }
+export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
+export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
+export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; minimumContributors: number; freshness: InsightsFreshness }

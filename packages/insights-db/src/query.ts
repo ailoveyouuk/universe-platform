@@ -226,3 +226,66 @@ export async function getAggregatedProductSourcing(showSimulated = false): Promi
   return rows;
 }
 
+
+// ---------------------------------------------------------------------------
+// Insights app reads (2026-10-25). Same rules as every read above: the minimum-cohort floor is applied in SQL (HAVING), and simulated rows only
+// reach demo requests. Nothing here returns a hash, an organisation or a single contributor's row.
+// ---------------------------------------------------------------------------
+
+export interface PricedCategory { category: string; sourceCount: number; observations: number; latestMonth: Date }
+
+/** Product groups that have enough distinct contributors, overall, to be shown at all. */
+export async function listPricedCategories(showSimulated = false): Promise<PricedCategory[]> {
+  const rows = await insightsPrisma.$queryRaw<{ category: string; sourceCount: number; observations: number; latestMonth: Date }[]>`
+    SELECT category, COUNT(DISTINCT sourceHash) AS sourceCount, COUNT(*) AS observations, MAX(effectiveMonth) AS latestMonth
+    FROM aggregated_product_prices
+    ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+    GROUP BY category
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY category ASC
+  `;
+  return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), observations: Number(r.observations) }));
+}
+
+export interface PricingTrendPoint { effectiveMonth: Date; currency: string; sourceCount: number; minPrice: number; maxPrice: number; avgPrice: number }
+
+/** Price by month for one product group (all regions together), one series per currency. Months with too few contributors are left out. */
+export async function getPricingTrend(category: string, showSimulated = false): Promise<PricingTrendPoint[]> {
+  const rows = await insightsPrisma.$queryRaw<PricingTrendPoint[]>`
+    SELECT effectiveMonth, currency, COUNT(DISTINCT sourceHash) AS sourceCount, MIN(unitPrice) AS minPrice, MAX(unitPrice) AS maxPrice, AVG(unitPrice) AS avgPrice
+    FROM aggregated_product_prices
+    WHERE category = ${category}${showSimulated ? Prisma.empty : Prisma.sql` AND isSimulated = 0`}
+    GROUP BY effectiveMonth, currency
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY effectiveMonth ASC
+  `;
+  return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), minPrice: Number(r.minPrice), maxPrice: Number(r.maxPrice), avgPrice: Number(r.avgPrice) }));
+}
+
+export type PricingDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
+export interface PricingBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
+
+/** Price for one product group split by one dimension, over the whole period. The dimension is chosen from a fixed list, never interpolated from input. */
+export async function getPricingBreakdown(category: string, by: PricingDimension, showSimulated = false): Promise<PricingBreakdownRow[]> {
+  const col = by === "destinationRegion" ? Prisma.sql`destinationRegion` : by === "manufactureRegion" ? Prisma.sql`manufactureRegion` : Prisma.sql`incoterm`;
+  const rows = await insightsPrisma.$queryRaw<{ label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }[]>`
+    SELECT ${col} AS label, currency, COUNT(DISTINCT sourceHash) AS sourceCount, COUNT(*) AS observations, MIN(unitPrice) AS minPrice, MAX(unitPrice) AS maxPrice, AVG(unitPrice) AS avgPrice
+    FROM aggregated_product_prices
+    WHERE category = ${category}${showSimulated ? Prisma.empty : Prisma.sql` AND isSimulated = 0`}
+    GROUP BY ${col}, currency
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY avgPrice DESC
+  `;
+  return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), observations: Number(r.observations), minPrice: Number(r.minPrice), maxPrice: Number(r.maxPrice), avgPrice: Number(r.avgPrice) }));
+}
+
+/** When the aggregates were last refreshed (newest row), so the app can say how fresh the data is. */
+export async function getInsightsFreshness(showSimulated = false): Promise<{ prices: Date | null; sourcing: Date | null; logistics: Date | null }> {
+  const f = showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`;
+  const [p, s, l] = await Promise.all([
+    insightsPrisma.$queryRaw<{ d: Date | null }[]>`SELECT MAX(createdAt) AS d FROM aggregated_product_prices ${f}`,
+    insightsPrisma.$queryRaw<{ d: Date | null }[]>`SELECT MAX(createdAt) AS d FROM aggregated_product_sourcing ${f}`,
+    insightsPrisma.$queryRaw<{ d: Date | null }[]>`SELECT MAX(createdAt) AS d FROM aggregated_logistics_metrics ${f}`,
+  ]);
+  return { prices: p[0]?.d ?? null, sourcing: s[0]?.d ?? null, logistics: l[0]?.d ?? null };
+}

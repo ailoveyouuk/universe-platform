@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GridIcon, LockIcon, ChevronRightIcon } from "./icons";
+import { useAllowedApps } from "./appAccess";
 
 /**
  * The Universe platform's app registry — one entry per app in the build
@@ -107,7 +108,15 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     href: appUrl("NEXT_PUBLIC_APP_URL_ADMIN", "https://orange-tree-06a3f710f.6.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_ADMIN",
   },
-  { key: "insights", label: "Insights", accent: "var(--u-module-insights)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS" },
+  {
+    key: "insights",
+    label: "Insights",
+    accent: "var(--u-module-insights)",
+    // Live once the Insights Static Web App exists and its hostname is set as a fallback here or via NEXT_PUBLIC_APP_URL_INSIGHTS.
+    status: "available",
+    href: appUrl("NEXT_PUBLIC_APP_URL_INSIGHTS"),
+    envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS",
+  },
 ];
 
 /**
@@ -169,9 +178,12 @@ export function AppSwitcher({
     };
   }, []);
 
+  // Per-person app access (2026-10-25): when an administrator has limited this person to some apps, the others are not listed at all.
+  const allowed = useAllowedApps();
+  const visibleApps = allowed ? UNIVERSE_APPS.filter((a) => a.key === currentApp || allowed.includes(a.key)) : UNIVERSE_APPS;
   const panel = (
     <div style={{ padding: 6, display: "flex", flexDirection: "column", gap: 1 }}>
-      {UNIVERSE_APPS.map((app) => (
+      {visibleApps.map((app) => (
         <AppRow key={app.key} app={app} isCurrent={app.key === currentApp} />
       ))}
     </div>

@@ -39,3 +39,4 @@ export { scoreColor, scoreColor100 } from "./scoreColor";
 export { statusText } from "./statusText";
 export * from "./theme";
 export { ThemeToggle } from "./ThemeToggle";
+export * from "./appAccess";

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { UNIVERSE_APP_KEYS, UNIVERSE_APP_LABELS } from "@universe/types";
 import type { RoleSummary, UserDetail } from "@universe/types";
 import { Button, Select } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
@@ -22,7 +23,8 @@ export function UserDetailView() {
 
   const [form, setForm] = useState({ forename: "", surname: "", jobTitle: "", platformStaffRole: "NONE" as UserDetail["platformStaffRole"] });
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [busy, setBusy] = useState<null | "profile" | "roles" | "status">(null);
+  const [busy, setBusy] = useState<null | "profile" | "roles" | "apps" | "status">(null);
+  const [selectedApps, setSelectedApps] = useState<string[]>([...UNIVERSE_APP_KEYS]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -30,6 +32,7 @@ export function UserDetailView() {
     setUser(u);
     setForm({ forename: u.forename, surname: u.surname, jobTitle: u.jobTitle ?? "", platformStaffRole: u.platformStaffRole });
     setSelectedRoles(u.roleIds);
+    setSelectedApps(u.appAccess ?? [...UNIVERSE_APP_KEYS]);
   }
 
   useEffect(() => {
@@ -52,9 +55,11 @@ export function UserDetailView() {
     form.surname !== user.surname ||
     form.jobTitle !== (user.jobTitle ?? "") ||
     (meIsPlatform && form.platformStaffRole !== user.platformStaffRole);
+  const currentApps = user.appAccess ?? [...UNIVERSE_APP_KEYS];
+  const appsDirty = [...selectedApps].sort().join() !== [...currentApps].sort().join();
   const rolesDirty = [...selectedRoles].sort().join() !== [...user.roleIds].sort().join();
 
-  async function act<T>(kind: "profile" | "roles" | "status", fn: () => Promise<T>, okMsg: string) {
+  async function act<T>(kind: "profile" | "roles" | "apps" | "status", fn: () => Promise<T>, okMsg: string) {
     setBusy(kind);
     setError(null);
     setNotice(null);
@@ -185,6 +190,43 @@ export function UserDetailView() {
             }
           >
             {busy === "roles" ? "Saving…" : "Save roles"}
+          </Button>
+        </div>
+      </Section>
+
+      <Section title="Apps" hint="Choose which Universe apps this person can use. Everyone starts with all of them; turn an app off to hide it from their app switcher and block them from it.">
+        <fieldset style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+          <legend style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Apps this person can use</legend>
+          {UNIVERSE_APP_KEYS.map((k) => (
+            <label key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+              <input
+                type="checkbox"
+                checked={selectedApps.includes(k)}
+                disabled={user.platformStaffRole !== "NONE" || (isSelf && k === "admin")}
+                onChange={() => setSelectedApps((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))}
+              />
+              {UNIVERSE_APP_LABELS[k]}
+              {isSelf && k === "admin" && <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>You cannot remove your own access to Admin.</span>}
+            </label>
+          ))}
+        </fieldset>
+        {user.platformStaffRole !== "NONE" && <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>Platform staff can always use every app.</p>}
+        {selectedApps.length === 0 && <p role="alert" style={{ fontSize: 13, margin: "8px 0 0" }}>Choose at least one app.</p>}
+        <div style={{ marginTop: 16 }}>
+          <Button
+            variant="primary"
+            disabled={!appsDirty || selectedApps.length === 0 || busy !== null}
+            onClick={() =>
+              act(
+                "apps",
+                async () => {
+                  adopt(await apiClient.updateUser(id, { appAccess: selectedApps.length === UNIVERSE_APP_KEYS.length ? null : selectedApps }));
+                },
+                "App access updated.",
+              )
+            }
+          >
+            {busy === "apps" ? "Saving…" : "Save app access"}
           </Button>
         </div>
       </Section>

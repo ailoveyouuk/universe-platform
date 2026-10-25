@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
+import { AppAccessGate,
   DownloadIcon,
   Sidebar,
   Logo,
@@ -297,7 +297,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </header>
 
             <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
-              {children}
+              <AppAccessGate appKey="product-database" appLabel="Product Database" apps={me.apps}>{children}</AppAccessGate>
             </main>
           </div>
         </div>

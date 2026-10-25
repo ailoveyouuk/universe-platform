@@ -21,6 +21,7 @@ import { EvidenceModule } from "./evidence/evidence.module";
 import { ControlledDocumentsModule } from "./controlled-documents/controlled-documents.module";
 import { ProductBatchesModule } from "./batches/product-batches.module";
 import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights.module";
+import { InsightsModule } from "./insights/insights.module";
 import { ProductSourcingInsightsModule } from "./product-sourcing-insights/product-sourcing-insights.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { BrandingModule } from "./branding/branding.module";
@@ -53,6 +54,7 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     ProductBatchesModule,
     LogisticsInsightsModule,
     ProductSourcingInsightsModule,
+    InsightsModule,
     ContactsModule,
     BrandingModule,
     NotificationsModule,

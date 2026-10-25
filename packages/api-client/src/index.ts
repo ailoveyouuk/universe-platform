@@ -1,3 +1,4 @@
+import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
@@ -1768,6 +1769,23 @@ export class UniverseApiClient {
 
   getGlobalProductSourcing(): Promise<ProductSourcingSummary[]> {
     return this.request("/product-sourcing-insights/global");
+  }
+
+  // ---- Insights app (2026-10-25) ----
+  insightsOverview(): Promise<InsightsOverview> {
+    return this.request("/insights/overview");
+  }
+  insightsPriceCategories(): Promise<InsightsPricedCategory[]> {
+    return this.request("/insights/prices/categories");
+  }
+  insightsPriceTrend(category: string): Promise<InsightsPriceTrendPoint[]> {
+    return this.request(`/insights/prices/trend?category=${encodeURIComponent(category)}`);
+  }
+  insightsPriceBreakdown(category: string, by: InsightsPriceDimension): Promise<InsightsPriceBreakdownRow[]> {
+    return this.request(`/insights/prices/breakdown?category=${encodeURIComponent(category)}&by=${by}`);
+  }
+  insightsSourcing(): Promise<ProductSourcingSummary[]> {
+    return this.request("/insights/sourcing");
   }
 }
 

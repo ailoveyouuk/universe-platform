@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
+import { encodeAppAccess, parseAppAccess } from "@universe/types";
 import type { PagedResult, UserCounts, UserDetail, UserOption, UserSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -43,6 +44,7 @@ function toDetail(u: any): UserDetail {
     ...toSummary(u),
     jobTitle: u.jobTitle ?? null,
     platformStaffRole: u.platformStaffRole as UserDetail["platformStaffRole"],
+    appAccess: parseAppAccess(u.appAccess),
     linkedToIdentity: !!u.entraObjectId,
     invitedByName: u.invitedBy ? `${u.invitedBy.forename} ${u.invitedBy.surname}` : null,
     createdAt: u.createdAt.toISOString(),
@@ -260,9 +262,21 @@ export class UsersService {
 
       const fields = ["forename", "surname", "jobTitle", "platformStaffRole"] as const;
       const changes = diffForAudit(target, dto, fields);
-      if (changes.length === 0) return toDetail(target);
       const data: Record<string, unknown> = {};
       for (const c of changes) data[c.field] = (dto as any)[c.field];
+
+      // App access (2026-10-25): which apps this person can use. Same authority as editing the user; an organisation admin cannot lock
+      // themselves out of Admin, and a restriction must leave at least one app.
+      if (dto.appAccess !== undefined) {
+        const encoded = encodeAppAccess(dto.appAccess);
+        if (dto.appAccess && dto.appAccess.length && !encoded) throw new BadRequestException("Choose at least one app, or clear the restriction.");
+        if (caller.id === id && caller.platformStaffRole === "NONE" && encoded && !encoded.includes(",admin,")) throw new ForbiddenException("You cannot remove your own access to Admin.");
+        if ((target.appAccess ?? null) !== encoded) {
+          data.appAccess = encoded;
+          changes.push({ field: "appAccess", oldValue: target.appAccess ?? null, newValue: encoded } as any);
+        }
+      }
+      if (changes.length === 0) return toDetail(target);
 
       const updated = await tx.user.update({ where: { id }, data, include });
       await recordFieldChanges(tx, {

@@ -1,0 +1,19 @@
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { EntraAuthGuard } from "../auth/entra-auth.guard";
+import type { RequestUser } from "../auth/entra-auth.guard";
+import { CurrentUser } from "../common/current-user.decorator";
+import { InsightsAccessGuard } from "./insights-access.guard";
+import { InsightsService } from "./insights.service";
+
+/** The Insights app's reads (2026-10-25). Sign-in plus the Insights app permission; every figure is an anonymised aggregate. */
+@Controller("insights")
+@UseGuards(EntraAuthGuard, InsightsAccessGuard)
+export class InsightsController {
+  constructor(private readonly insights: InsightsService) {}
+
+  @Get("overview") overview(@CurrentUser() u: RequestUser) { return this.insights.overview(u.inDemoOrganization === true); }
+  @Get("prices/categories") categories(@CurrentUser() u: RequestUser) { return this.insights.priceCategories(u.inDemoOrganization === true); }
+  @Get("prices/trend") trend(@CurrentUser() u: RequestUser, @Query("category") category = "") { return this.insights.priceTrend(category, u.inDemoOrganization === true); }
+  @Get("prices/breakdown") breakdown(@CurrentUser() u: RequestUser, @Query("category") category = "", @Query("by") by = "destinationRegion") { return this.insights.priceBreakdown(category, by, u.inDemoOrganization === true); }
+  @Get("sourcing") sourcing(@CurrentUser() u: RequestUser) { return this.insights.sourcingByCategory(u.inDemoOrganization === true); }
+}
