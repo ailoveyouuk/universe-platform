@@ -37,3 +37,6 @@ Not yet. Build data sets 1 and 2 (and decide on 3), then re-run both audits, agr
 ## Update, 2026-10-25 (later): contract life-cycle data
 - Three simulated frameworks now carry mini-competitions, variations and price reviews (SIM-FWK-001, 002, and 003 issued by Universe Demo). Supplier Portal dropped.
 - Remaining before baseline: Insights approach (Lewis to decide), Reset sandbox mechanism (Lewis to approve), real screen-reader pass.
+
+## Decision, 2026-10-25: no Reset sandbox
+Lewis decided Reset sandbox is not needed: the demo is ring-fenced from real data (simulated rows are hidden from real organisations and demo writes cannot reach live data). Stakeholder edits stay inside Universe Demo. If the demo ever needs restoring, the idempotent seed workflows can rebuild missing data; nothing is deleted. This closes the last pre-baseline item apart from Insights.
