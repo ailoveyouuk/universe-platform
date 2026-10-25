@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CURRENCY_OPTIONS, serviceCategoryLabel, servicePricingBasisLabel } from "@universe/types";
+import { CURRENCY_OPTIONS, serviceCategoryLabel } from "@universe/types";
+
+/** Short label for a service price field: "Price per day (USD)", "Fixed fee (USD)", "Fee as a percentage of goods value". */
+const priceLabel = (basis: string, unit: string | null, ccy: string) => basis === "LUMP_SUM" ? `Fixed fee (${ccy || "currency"})` : basis === "PERCENT_OF_GOODS" ? "Fee as a percentage of the value of goods" : `Price per ${unit && unit !== "unit" ? unit : basis === "PER_DAY" ? "day" : basis === "PER_HOUR" ? "hour" : basis === "PER_MONTH" ? "month" : "unit"} (${ccy || "currency"})`;
 import type { TenderBidWorkspace } from "@universe/types";
 import { Button, CountrySelect, CurrencySelect, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
@@ -135,7 +138,7 @@ export function BidBuilder() {
             <label style={{ display: "flex", gap: 6, fontSize: 13, margin: "6px 0" }}><input type="checkbox" disabled={locked} checked={l.noBid} onChange={(e) => upd(i, { noBid: e.target.checked })} /> I am not bidding for this item</label>
             {!l.noBid && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-                <Field label={l.servicePricingBasis ? `Price ${servicePricingBasisLabel(l.servicePricingBasis).toLowerCase()} (${ccy || "currency"})` : `Unit price (${ccy || "currency"})`}><input type="number" min="0" step="0.0001" disabled={locked} style={inputStyle} value={l.unitPrice ?? ""} onChange={(e) => upd(i, { unitPrice: e.target.value })} /></Field>
+                <Field label={l.servicePricingBasis ? priceLabel(l.servicePricingBasis, l.unit, ccy) : `Unit price (${ccy || "currency"})`}><input type="number" min="0" step="0.0001" disabled={locked} style={inputStyle} value={l.unitPrice ?? ""} onChange={(e) => upd(i, { unitPrice: e.target.value })} /></Field>
                 <Field label="Lead time (days)"><input type="number" min="0" disabled={locked} style={inputStyle} value={l.leadTimeDays ?? ""} onChange={(e) => upd(i, { leadTimeDays: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
                 <Field label="Country of origin"><CountrySelect value={l.countryOfOrigin ?? ""} onChange={(c) => upd(i, { countryOfOrigin: c || null })} options={countries} /></Field>
                 <Field label="Manufacturer (optional)"><input disabled={locked} style={inputStyle} value={l.manufacturerName ?? ""} onChange={(e) => upd(i, { manufacturerName: e.target.value })} /></Field>
