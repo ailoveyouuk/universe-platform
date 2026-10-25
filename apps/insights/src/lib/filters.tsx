@@ -26,9 +26,9 @@ export function useInsightsFilters(): InsightsFilters {
 const MODES = [{ key: "", label: "All modes" }, { key: "AIR", label: "Air" }, { key: "SEA", label: "Sea" }, { key: "LAND", label: "Land" }];
 
 /** The shared filter bar. `commodities` is the list of product groups that actually have data. */
-export function InsightsFilterBar({ commodities, extra }: { commodities: string[]; extra?: React.ReactNode }) {
+export function InsightsFilterBar({ commodities, extra, hideMode }: { commodities: string[]; extra?: React.ReactNode; hideMode?: boolean }) {
   const f = useInsightsFilters();
-  const active = f.commodity || f.mode;
+  const active = f.commodity || (!hideMode && f.mode);
   return (
     <div role="group" aria-label="Filters for every chart on this page" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "10px 12px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)" }}>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 600, color: "var(--u-ink)" }}>
@@ -38,11 +38,11 @@ export function InsightsFilterBar({ commodities, extra }: { commodities: string[
           {commodities.map((c) => <option key={c} value={c}>{commodityGroupLabel(c)}</option>)}
         </select>
       </label>
-      <div role="group" aria-label="Transport mode" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {!hideMode && <div role="group" aria-label="Transport mode" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {MODES.map((m) => <button key={m.label} type="button" className="u-touch" style={pill(f.mode === m.key)} aria-pressed={f.mode === m.key} onClick={() => setInsightsFilters({ mode: m.key })}>{m.label}</button>)}
-      </div>
+      </div>}
       {extra}
-      {active && <button type="button" className="u-touch" style={pill(false)} onClick={() => setInsightsFilters({ commodity: "", mode: "" })}>Clear filters</button>}
+      {active && <button type="button" className="u-touch" style={pill(false)} onClick={() => setInsightsFilters(hideMode ? { commodity: "" } : { commodity: "", mode: "" })}>Clear filters</button>}
     </div>
   );
 }
