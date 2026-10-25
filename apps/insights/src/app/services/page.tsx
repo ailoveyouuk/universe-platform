@@ -4,7 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsPriceMovement, InsightsServicePrice } from "@universe/types";
 import { serviceCategoryByCode, servicePricingBasisLabel } from "@universe/types";
 import { StatTile, StatTileGrid, GridIcon, TrendingUpIcon } from "@universe/ui";
-import { MovementChart, type MovementLine } from "../../components/MovementChart";
+import type { MovementLine } from "../../components/MovementChart";
+import { SectionTrend } from "../../components/SectionTrend";
+import { indexMetrics } from "../../lib/indexTrend";
 import { DataTable, emptyTableState, type Col, type TableState } from "../../components/DataTable";
 import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
@@ -59,7 +61,8 @@ export default function ServicesPage() {
   const pick = (k: string) => { setSel(k); if (typeof window !== "undefined" && window.innerWidth <= 1100) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); };
   const cur = rows.find((r) => r.k === sel);
   const regionRows = (byRegion ?? []).filter((p) => p.currency === currency && key(p.serviceCategory, p.pricingBasis) === sel).sort((a, b) => b.avgPrice - a.avgPrice);
-  const lines: MovementLine[] = cur?.series ? [{ id: cur.k, name: cur.cat?.label ?? cur.p.serviceCategory, color: "var(--u-brand-violet)", points: cur.series.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount })) }] : [];
+  const [metric, setMetric] = useState("index");
+  const lines: MovementLine[] = cur?.series ? [{ id: cur.k, name: cur.cat?.label ?? cur.p.serviceCategory, color: "var(--u-brand-violet)", points: cur.series.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount, month: p.month })) }] : [];
 
   type ServiceRow = (typeof rows)[number];
   const serviceCols: Col<ServiceRow>[] = [
@@ -81,7 +84,7 @@ export default function ServicesPage() {
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 
-  useViewBridge(() => ({ currency, sel, table: tableState , lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.currency) setCurrency(s.currency); if (s.sel !== undefined) setSel(s.sel); if (s.table) setTableState(s.table); });
+  useViewBridge(() => ({ currency, sel, table: tableState, metric, lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.metric) setMetric(s.metric); if (s.currency) setCurrency(s.currency); if (s.sel !== undefined) setSel(s.sel); if (s.table) setTableState(s.table); });
   const wantService = useRef(readParam("service"));
   useEffect(() => {
     if (!wantService.current || rows.length === 0) return;
@@ -133,9 +136,7 @@ export default function ServicesPage() {
                 <DataTable<RegionRow> rows={regionRows} rowKey={(r) => r.deliveryRegion ?? "none"} columns={regionCols} caption={`Cost of ${cur.cat?.label} by region of delivery, in ${fx.ccy}`} exportName={`service-${cur.k}-by-region`} />
               )}
             </Card>
-            <Card title="Cost movement over time">
-              {mv === null ? <p style={{ margin: 0 }}>Loading…</p> : <MovementChart lines={lines} title={`${cur.cat?.label} cost index`} />}
-            </Card>
+            <SectionTrend title="Cost movement over time" metrics={indexMetrics(lines, `${cur.cat?.label ?? "This service"}.`)} metric={metric} onMetric={setMetric} loading={mv === null} sources={["services", "fx"]} exportName={`service-${cur.k}-cost-index`} />
           </>
         )}
       <SourceNote keys={["services", "fx"]} />

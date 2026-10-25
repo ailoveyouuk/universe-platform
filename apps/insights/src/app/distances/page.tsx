@@ -6,7 +6,9 @@ import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon
 import { ModeDotPlot, ModeLegend, type DotRow } from "../../components/ModeDotPlot";
 import { DataTable, type Col } from "../../components/DataTable";
 import { LogisticsTrend } from "../../components/LogisticsTrend";
-import { MovementChart, type MovementLine } from "../../components/MovementChart";
+import type { MovementLine } from "../../components/MovementChart";
+import { SectionTrend } from "../../components/SectionTrend";
+import { indexMetrics } from "../../lib/indexTrend";
 import { MODE_NAME } from "../../components/ModeDotPlot";
 import { CurrencyBar } from "../../components/CurrencyBar";
 import { setFxLens, useFxLens, useFxView } from "../../lib/fx";
@@ -41,6 +43,7 @@ export default function DistancesPage() {
   const [err, setErr] = useState<string | null>(null);
   const [mode, setMode] = useState("");
   const [currency, setCurrency] = useState("");
+  const [trendMetric, setTrendMetric] = useState("index");
   const bandsRef = useRef<HTMLElement>(null), rateRef = useRef<HTMLElement>(null), moveRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -72,6 +75,13 @@ export default function DistancesPage() {
     { key: "tkm", header: `Per tonne-km (${ccy})`, value: (r) => r.avgCostPerTonneKm, render: (r) => <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(4, (r.avgCostPerTonneKm / maxKmRate) * 100)}%`, maxWidth: 110, borderRadius: 4, background: FILL[r.freightMode] ?? "var(--u-ink-secondary)" }} /><span>{ccy} {r.avgCostPerTonneKm.toFixed(3)}</span></div> },
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
+  const bandCols: Col<(typeof bands)[number]>[] = [
+    { key: "band", header: "Distance", value: (b) => b.label },
+    { key: "share", header: "Share of shipments", value: (b) => Math.round(b.share * 1000) / 10, render: (b) => b.t.shipments ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(3, b.share * 100)}%`, maxWidth: 140, borderRadius: 4, background: "var(--u-org-accent, var(--u-brand-violet))" }} /><span>{Math.round(b.share * 100)}% <span style={{ color: "var(--u-ink-secondary)" }}>({fmt(b.t.shipments)})</span></span></div> : <span style={{ color: "var(--u-ink-secondary)" }}>–</span> },
+    { key: "days", header: "Days", align: "right", value: (b) => (b.t.avgDays !== null ? Math.round(b.t.avgDays) : null), render: (b) => (b.t.avgDays !== null ? b.t.avgDays.toFixed(0) : "–") },
+    { key: "co2", header: "kg CO2e each", align: "right", value: (b) => (b.t.shipments ? Math.round(b.t.avgCo2) : null), render: (b) => (b.t.shipments ? fmt(b.t.avgCo2) : "–") },
+    { key: "cost", header: `Freight per tonne${ccy ? ` (${ccy})` : ""}`, align: "right", value: (b) => (b.cost !== null ? Math.round(b.cost * 100) / 100 : null), render: (b) => (b.cost !== null ? fmtMoneyIn(b.cost, ccy) : "–") },
+  ];
   const scroll = (r: React.RefObject<HTMLElement>) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   // ---- distance bands
@@ -101,7 +111,7 @@ export default function DistancesPage() {
   const maxKmRate = Math.max(1e-9, ...card.map((r) => r.avgCostPerTonneKm));
 
   // ---- freight cost movement by mode
-  const lines: MovementLine[] = (mv ?? []).filter((s) => s.segmentBy === null && s.currency === currency && (!mode || s.category === mode)).map((s) => ({ id: s.category, name: `${MODE_NAME[s.category] ?? s.category} freight`, color: FILL[s.category] ?? "var(--u-ink)", dash: DASH[s.category], points: s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount })) }));
+  const lines: MovementLine[] = (mv ?? []).filter((s) => s.segmentBy === null && s.currency === currency && (!mode || s.category === mode)).map((s) => ({ id: s.category, name: `${MODE_NAME[s.category] ?? s.category} freight`, color: FILL[s.category] ?? "var(--u-ink)", dash: DASH[s.category], points: s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount, month: p.month })) }));
 
   // ---- longest corridors on the map
   const long = useMemo(() => {
@@ -130,7 +140,7 @@ export default function DistancesPage() {
     { key: "n", header: "Shipments", align: "right", value: (e) => e.n, render: (e) => e.n.toLocaleString("en-GB") },
   ];
 
-  useViewBridge(() => ({ mode, currency , lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.mode !== undefined) setMode(s.mode); if (s.currency) setCurrency(s.currency); });
+  useViewBridge(() => ({ mode, currency, trendMetric, lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.trendMetric) setTrendMetric(s.trendMetric); if (s.mode !== undefined) setMode(s.mode); if (s.currency) setCurrency(s.currency); });
 
   return (
     <Page>
@@ -161,21 +171,7 @@ export default function DistancesPage() {
         <p style={sub}>Shipments grouped by how far they travel: how much of the volume sits in each band, how long it takes, how much CO2e a shipment carries and what freight costs per tonne.</p>
         <Card>
           {loading ? <p style={{ margin: 0 }}>Loading…</p> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 560 }}>
-                <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Shipments, days in transit, CO2e and freight cost per tonne by distance band</caption>
-                <thead><tr><th scope="col" style={th}>Distance</th><th scope="col" style={th}>Share of shipments</th><th scope="col" style={{ ...th, textAlign: "right" }}>Days</th><th scope="col" style={{ ...th, textAlign: "right" }}>kg CO2e each</th><th scope="col" style={{ ...th, textAlign: "right" }}>Freight per tonne{ccy ? ` (${ccy})` : ""}</th></tr></thead>
-                <tbody>{bands.map((b) => (
-                  <tr key={b.id} style={{ borderBottom: "1px solid var(--u-border)" }}>
-                    <th scope="row" style={{ ...td, textAlign: "left", fontWeight: 600 }}>{b.label}</th>
-                    <td style={td}>{b.t.shipments ? <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span aria-hidden style={{ height: 8, width: `${Math.max(3, b.share * 100)}%`, maxWidth: 140, borderRadius: 4, background: "var(--u-org-accent, var(--u-brand-violet))" }} /><span>{Math.round(b.share * 100)}% <span style={{ color: "var(--u-ink-secondary)" }}>({fmt(b.t.shipments)})</span></span></div> : <span style={{ color: "var(--u-ink-secondary)" }}>–</span>}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{b.t.avgDays !== null ? b.t.avgDays.toFixed(0) : "–"}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{b.t.shipments ? fmt(b.t.avgCo2) : "–"}</td>
-                    <td style={{ ...td, textAlign: "right" }}>{b.cost !== null ? fmtMoneyIn(b.cost, ccy) : "–"}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
+            <DataTable<(typeof bands)[number]> rows={bands} rowKey={(b) => b.id} columns={bandCols} caption="Shipments, days in transit, CO2e and freight cost per tonne by distance band" exportName="distance-bands" />
           )}
         </Card>
       <SourceNote keys={["freight", "logistics", "fx"]} />
@@ -208,21 +204,7 @@ export default function DistancesPage() {
       <section ref={moveRef} aria-labelledby="d-move" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
         <h2 id="d-move" style={h2}>Is freight getting dearer?</h2>
         <p style={sub}>Like-for-like movement in freight cost per tonne-kilometre, by mode: the same lanes and shipment sizes compared month on month, so a change in what was shipped does not look like a rate change. 100 is the first month shown.</p>
-        <Card>
-          {mv === null ? <p style={{ margin: 0 }}>Loading…</p> : <MovementChart lines={lines} title="Freight cost index" />}
-          {lines.length > 0 && (
-            <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
-              <div style={{ overflowX: "auto", marginTop: 8 }}>
-                <table style={{ borderCollapse: "collapse", width: "100%" }}>
-                  <caption style={{ textAlign: "left", color: "var(--u-ink-secondary)", padding: "4px 0" }}>Freight cost index by mode (100 = first month shown)</caption>
-                  <thead><tr><th scope="col" style={th}>Mode</th><th scope="col" style={{ ...th, textAlign: "right" }}>From</th><th scope="col" style={{ ...th, textAlign: "right" }}>Latest index</th><th scope="col" style={{ ...th, textAlign: "right" }}>Change</th></tr></thead>
-                  <tbody>{lines.map((l) => { const last = l.points[l.points.length - 1]!; const c = last.index - 100; return <tr key={l.id} style={{ borderBottom: "1px solid var(--u-border)" }}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 500 }}>{l.name}</th><td style={{ ...td, textAlign: "right" }}>{l.points[0]!.label}</td><td style={{ ...td, textAlign: "right" }}>{last.index.toFixed(1)}</td><td style={{ ...td, textAlign: "right" }}><span aria-hidden>{c > 0.05 ? "▲ " : c < -0.05 ? "▼ " : "▬ "}</span>{Math.abs(c) < 0.05 ? "No change" : `${c > 0 ? "+" : "−"}${Math.abs(c).toFixed(1)}%`}</td></tr>; })}</tbody>
-                </table>
-              </div>
-            </details>
-          )}
-        </Card>
+        <SectionTrend title="Freight cost over time" metrics={indexMetrics(lines, "Freight cost per tonne-kilometre, by mode.")} metric={trendMetric} onMetric={setTrendMetric} loading={mv === null} sources={["freightMovement"]} exportName="freight-cost-index" />
       <SourceNote keys={["freightMovement"]} />
       </section>
 

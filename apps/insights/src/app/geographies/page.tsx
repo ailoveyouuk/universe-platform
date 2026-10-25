@@ -9,6 +9,7 @@ import { InsightsFilterBar, useInsightsFilters } from "../../lib/filters";
 import { groupShipments, totalsOf } from "../../lib/geo";
 import { REGION_LABEL } from "../../lib/format";
 import { useCountries } from "../../lib/useCountries";
+import { DataTable, type Col } from "../../components/DataTable";
 import { SourceNote } from "../../components/SourceNote";
 import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
@@ -117,6 +118,19 @@ export default function GeographiesPage() {
     return { val, max, has: (k: string) => (cells.get(k)?.length ?? 0) > 0, n: (k: string) => totalsOf(cells.get(k) ?? []).shipments };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, measure, idx]);
+  const gridRows = useMemo(() => {
+    const out: { id: string; from: string; to: string; shipments: number; co2: number; score: number }[] = [];
+    for (const f of REGIONS) for (const t of REGIONS) { const rs = base.filter((r) => regionOf(r.manufactureCountryCode) === f && regionOf(r.destinationCountryCode) === t); const x = totalsOf(rs); if (x.shipments) out.push({ id: `${f}>${t}`, from: REGION_LABEL[f] ?? f, to: REGION_LABEL[t] ?? t, shipments: x.shipments, co2: x.avgCo2, score: x.avgScore }); }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, idx]);
+  const gridCols: Col<(typeof gridRows)[number]>[] = [
+    { key: "from", header: "Made in", value: (r) => r.from, filter: true },
+    { key: "to", header: "Delivered to", value: (r) => r.to, filter: true },
+    { key: "ship", header: "Shipments", align: "right", value: (r) => r.shipments, render: (r) => fmt(r.shipments) },
+    { key: "co2", header: "kg CO2e per shipment", align: "right", value: (r) => Math.round(r.co2), render: (r) => fmt(r.co2) },
+    { key: "score", header: "Efficiency score (of 10)", align: "right", value: (r) => Math.round(r.score * 10) / 10, render: (r) => r.score.toFixed(1) },
+  ];
   const cellText = (v: number) => (measure === "shipments" ? fmt(v) : measure === "co2" ? `${fmt(v)} kg` : `${v.toFixed(1)}/10`);
 
   // ---- efficiency league
@@ -228,6 +242,12 @@ export default function GeographiesPage() {
               </tbody>
             </table>
           </div>
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Show the grid as a table</summary>
+            <div style={{ marginTop: 8 }}>
+              <DataTable<(typeof gridRows)[number]> rows={gridRows} rowKey={(r) => r.id} columns={gridCols} caption="Shipments, CO2e and efficiency by region of manufacture and region of delivery" exportName="geographies-region-grid" />
+            </div>
+          </details>
         </Card>
       <SourceNote keys={["logistics", "regions"]} />
       </section>

@@ -5,7 +5,9 @@ import type { InsightsPriceMovement, LogisticsRouteSummary, ProductSourcingSumma
 import { COMMODITY_GROUPS, catalogueGroupForCommodity, commodityGroupLabel } from "@universe/types";
 import { StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type WorldMapPoint } from "@universe/ui";
 import { DataTable, type Col } from "../../components/DataTable";
-import { MovementChart, type MovementLine } from "../../components/MovementChart";
+import type { MovementLine } from "../../components/MovementChart";
+import { SectionTrend } from "../../components/SectionTrend";
+import { indexMetrics } from "../../lib/indexTrend";
 import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
@@ -67,8 +69,8 @@ export default function CommoditiesPage() {
   const hasSeg = (k: "manufactureRegion" | "destinationRegion") => (mv ?? []).some((s) => s.category === group && s.currency === currency && s.segmentBy === k);
 
   const lines: MovementLine[] = selected ? [
-    { id: "all", name: `${group}, all regions`, color: "var(--u-ink)", points: selected.s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount })) },
-    ...segments.slice(0, 4).map((s, i) => ({ id: s.segment ?? String(i), name: regionLabel(s.segment), color: SEG_STYLE[i]!.stroke, dash: SEG_STYLE[i]!.dash, points: s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount })) })),
+    { id: "all", name: `${group}, all regions`, color: "var(--u-ink)", points: selected.s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount, month: p.month })) },
+    ...segments.slice(0, 4).map((s, i) => ({ id: s.segment ?? String(i), name: regionLabel(s.segment), color: SEG_STYLE[i]!.stroke, dash: SEG_STYLE[i]!.dash, points: s.points.map((p) => ({ label: monthLabel(p.month), index: p.index, sources: p.sourceCount, month: p.month })) })),
   ] : [];
 
   // where it is made, for the chosen group
@@ -103,7 +105,8 @@ export default function CommoditiesPage() {
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.last.sourceCount },
   ];
 
-  useViewBridge(() => ({ currency, sort, group, seg }), (s) => { if (s.currency) setCurrency(s.currency); if (s.sort) setSort(s.sort); if (s.group !== undefined) setGroup(s.group); if (s.seg !== undefined) setSeg(s.seg); });
+  useViewBridge(() => ({ currency, sort, group, seg, metric }), (s) => { if (s.metric) setMetric(s.metric); if (s.currency) setCurrency(s.currency); if (s.sort) setSort(s.sort); if (s.group !== undefined) setGroup(s.group); if (s.seg !== undefined) setSeg(s.seg); });
+  const [metric, setMetric] = useState("index");
   const wantGroup = useRef(readParam("group"));
   useEffect(() => { if (wantGroup.current && board.length) { const g = wantGroup.current; wantGroup.current = ""; if (board.some((b) => b.s.category === g)) pick(g); } }, [board]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -143,21 +146,19 @@ export default function CommoditiesPage() {
         <h2 id="c-detail" style={h2}>{selected ? selected.s.category : "Product group detail"}</h2>
         {!selected ? <p style={sub}>Select a product group above to see its cost movement by region, where it is made and how it travels.</p> : (
           <>
-            <Card title="Cost movement over time">
-              <div role="group" aria-label="Compare regions" style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            <SectionTrend title="Cost movement over time" metrics={indexMetrics(lines, `${selected.s.category}.`)} metric={metric} onMetric={setMetric} sources={["cost"]} exportName={`cost-index-${selected.s.category}`}
+              filters={<div role="group" aria-label="Compare regions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button type="button" className="u-touch" style={pill(seg === "")} aria-pressed={seg === ""} onClick={() => setSeg("")}>All regions together</button>
                 {hasSeg("manufactureRegion") && <button type="button" className="u-touch" style={pill(seg === "manufactureRegion")} aria-pressed={seg === "manufactureRegion"} onClick={() => setSeg("manufactureRegion")}>Compare where it is made</button>}
                 {hasSeg("destinationRegion") && <button type="button" className="u-touch" style={pill(seg === "destinationRegion")} aria-pressed={seg === "destinationRegion"} onClick={() => setSeg("destinationRegion")}>Compare where it is delivered</button>}
+              </div>} />
+            {seg && segments.length > 4 && <p style={{ ...sub, marginTop: -8 }}>The chart shows the four regions with the highest movement; all {segments.length} are in the table below.</p>}
+            <details>
+              <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the index as a table with every region</summary>
+              <div style={{ marginTop: 8 }}>
+                <DataTable<(typeof indexRows)[number]> rows={indexRows} rowKey={(r) => r.k} columns={indexCols} caption={`Cost index for ${selected.s.category} (100 = ${monthLabel(selected.s.points[0]!.month)}), ${currency}`} exportName={`cost-index-${selected.s.category}`} />
               </div>
-              <MovementChart lines={lines} title={`${selected.s.category} cost index`} />
-              {seg && segments.length > 4 && <p style={{ ...sub, marginTop: 8 }}>The chart shows the four regions with the highest movement; all {segments.length} are in the table.</p>}
-              <details style={{ marginTop: 10 }}>
-                <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
-                <div style={{ marginTop: 8 }}>
-                  <DataTable<(typeof indexRows)[number]> rows={indexRows} rowKey={(r) => r.k} columns={indexCols} caption={`Cost index for ${selected.s.category} (100 = ${monthLabel(selected.s.points[0]!.month)}), ${currency}`} exportName={`cost-index-${selected.s.category}`} />
-                </div>
-              </details>
-            </Card>
+            </details>
             <Card title="Where it is made">
               {src === null ? <p style={{ margin: 0 }}>Loading…</p> : <WorldMap points={points} maxHeight={340} emptyMessage="No country has enough contributors to show for this group yet." />}
               {countryRows.length > 0 && <p style={{ ...sub, marginTop: 8 }}>{countryRows.slice(0, 5).map((r) => `${countries.find((c) => c.code === r.manufactureCountryCode)?.name ?? r.manufactureCountryCode} (${r.approvalCount.toLocaleString("en-GB")})`).join(", ")}{countryRows.length > 5 ? ` and ${countryRows.length - 5} more` : ""}. Numbers are approved sourcing relationships.</p>}

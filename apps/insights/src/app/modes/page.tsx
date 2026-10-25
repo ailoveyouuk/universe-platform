@@ -9,6 +9,7 @@ import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, setInsightsFilters, useInsightsFilters } from "../../lib/filters";
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
+import { DataTable, type Col } from "../../components/DataTable";
 import { SourceNote } from "../../components/SourceNote";
 import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
@@ -102,6 +103,13 @@ export default function ModesPage() {
     return { arcs, points };
   }, [rows, mode, idx]);
 
+  const speedCols: Col<(typeof points)[number]>[] = [
+    { key: "group", header: "Product group", value: (p) => p.label, filter: true },
+    { key: "mode", header: "Mode", value: (p) => MODE_NAME[p.mode] ?? p.mode, filter: true },
+    { key: "days", header: "Average days", align: "right", value: (p) => Math.round(p.days), render: (p) => p.days.toFixed(0) },
+    { key: "co2", header: "kg CO2e per shipment", align: "right", value: (p) => Math.round(p.co2), render: (p) => fmt(p.co2) },
+    { key: "ship", header: "Shipments", align: "right", value: (p) => p.shipments, render: (p) => fmt(p.shipments) },
+  ];
   const pickMode = (m: string) => setMode((cur) => (cur === m ? "" : m));
   const measures: { label: string; value: (m: (typeof MODES)[number]) => number | null; show: (v: number) => string }[] = [
     { label: "Shipments", value: (m) => byMode[m].shipments, show: fmt },
@@ -163,12 +171,8 @@ export default function ModesPage() {
           <ModeDotPlot rows={dotRows} activeMode={mode} axisLabel="kg CO2e per shipment (log scale)" tick={(v) => v.toLocaleString("en-GB")} ariaLabel="Chart of average CO2e per shipment for each product group, one mark per transport mode. Days in transit are in each mark's details and in the table below." onSelect={(id) => setInsightsFilters({ commodity: id })} />
           <details style={{ marginTop: 12 }}>
             <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Show the data as a table</summary>
-            <div style={{ overflowX: "auto", marginTop: 8 }}>
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 480 }}>
-                <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>Average days in transit and CO2e per shipment by product group and mode</caption>
-                <thead><tr>{["Product group", "Mode", "Average days", "kg CO2e per shipment", "Shipments"].map((h, i) => <th key={h} scope="col" style={{ ...th, textAlign: i > 1 ? "right" : "left" }}>{h}</th>)}</tr></thead>
-                <tbody>{[...points].sort((a, b) => a.label.localeCompare(b.label) || a.mode.localeCompare(b.mode)).map((p) => <tr key={p.id} style={{ borderBottom: "1px solid var(--u-border)" }}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 500 }}>{p.label}</th><td style={td}>{MODE_NAME[p.mode]}</td><td style={{ ...td, textAlign: "right" }}>{p.days.toFixed(0)}</td><td style={{ ...td, textAlign: "right" }}>{fmt(p.co2)}</td><td style={{ ...td, textAlign: "right" }}>{fmt(p.shipments)}</td></tr>)}</tbody>
-              </table>
+            <div style={{ marginTop: 8 }}>
+              <DataTable<(typeof points)[number]> rows={points} rowKey={(p) => p.id} columns={speedCols} caption="Average days in transit and CO2e per shipment by product group and mode" exportName="modes-speed-vs-co2" />
             </div>
           </details>
         </Card>

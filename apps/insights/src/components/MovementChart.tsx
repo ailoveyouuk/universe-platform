@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChartTooltip, useChartTip } from "./ChartTip";
 
-export interface MovementPoint { label: string; index: number; sources: number }
+export interface MovementPoint { label: string; index: number; sources: number; /** YYYY-MM, used when the line is shown in the shared trend panel. */ month?: string }
 export interface MovementLine { id: string; name: string; color: string; dash?: string; points: MovementPoint[] }
 const L = 46, R = 14, T = 12, B = 30;
 
