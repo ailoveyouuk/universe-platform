@@ -105,7 +105,7 @@ export default function LogisticsPage() {
         <StatTileGrid>
           {MODES.map((m) => {
             const t = totals((rows ?? []).filter((r) => !m.key || r.transportMode === m.key));
-            return <StatTile key={m.label} label={m.label} value={rows ? `${fmt(t.shipments)} shipments` : "…"} icon={<ClockIcon size={18} />} tone={m.key ? "brand" : "neutral"} active={mode === m.key} onClick={() => setMode(m.key)}
+            return <StatTile key={m.label} label={`${m.label}: shipments`} value={rows ? fmt(t.shipments) : "…"} icon={<ClockIcon size={18} />} tone={m.key ? "brand" : "neutral"} active={mode === m.key} onClick={() => setMode(m.key)}
               indicator={rows && t.shipments ? { color: SCORE_BAND_COLORS[bandForScore(t.avgScore)], barColor: scoreColor(t.avgScore / 10) ?? undefined, label: `${fmt(t.avgCo2)} kg CO2e each · ${t.avgScore.toFixed(1)}/10`, fraction: t.avgScore / 10 } : undefined} />;
           })}
         </StatTileGrid>
