@@ -2,12 +2,13 @@
 
 import { DataTable, type Col } from "../../components/DataTable";
 import { useEffect, useMemo, useState } from "react";
-import type { ProductSourcingSummary } from "@universe/types";
+import type { InsightsSourcingTrendPoint, ProductSourcingSummary } from "@universe/types";
 import { WorldMap, type WorldMapPoint } from "@universe/ui";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
+import { SectionTrend, trendStyle, type TrendMetric } from "../../components/SectionTrend";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
 
 export default function SourcingPage() {
@@ -15,6 +16,10 @@ export default function SourcingPage() {
   const [group, setGroup] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const countries = useCountries();
+  const [country, setCountry] = useState("");
+  const [metric, setMetric] = useState("approvals");
+  const [trend, setTrend] = useState<InsightsSourcingTrendPoint[] | null>(null);
+  useEffect(() => { setTrend(null); apiClient.insightsSourcingTrend(country || undefined).then(setTrend).catch(() => setTrend([])); }, [country]);
 
   useEffect(() => { apiClient.insightsSourcing().then(setRows).catch((e) => setErr(e instanceof Error ? e.message : "Could not load sourcing.")); }, []);
   const groups = useMemo(() => [...new Set((rows ?? []).map((r) => r.category))].sort(), [rows]);
@@ -41,7 +46,19 @@ export default function SourcingPage() {
     { key: "groups", header: "Product groups", align: "right", value: (e) => e.groups.size },
   ];
 
-  useViewBridge(() => ({ group }), (s) => { if (s.group !== undefined) setGroup(s.group); });
+  const trendMetrics: TrendMetric[] = useMemo(() => {
+    const rowsT = (trend ?? []).filter((r) => !group || r.category === group);
+    const cats = group ? [group] : [...rowsT.reduce((m, r) => m.set(r.category, Math.max(m.get(r.category) ?? 0, r.approvalCount)), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k]) => k);
+    const mk = (id: string, label: string, unit: string, blurb: string, val: (r: InsightsSourcingTrendPoint) => number): TrendMetric => ({ id, label, unit, fmt: (v) => Math.round(v).toLocaleString("en-GB"), zero: true, blurb, lines: cats.map((c, i) => ({ id: c, name: c, ...trendStyle(i), points: rowsT.filter((r) => r.category === c).map((r) => ({ month: r.month, value: val(r) })) })) });
+    const suffix = group ? "" : " Showing the five largest product groups.";
+    return [
+      mk("approvals", "Sourcing relationships", "approved", `Approved sourcing relationships on record by the end of each month (a running total).${suffix}`, (r) => r.approvalCount),
+      mk("orgs", "Organisations", "organisations", `Organisations that had contributed sourcing by the end of each month (a running total).${suffix}`, (r) => r.sourceCount),
+    ];
+  }, [trend, group]);
+  const countryOptions = useMemo(() => [...new Set((rows ?? []).map((r) => r.manufactureCountryCode).filter((c): c is string => !!c))].map((c) => ({ code: c, name: countries.find((x) => x.code === c)?.name ?? c })).sort((a, b) => a.name.localeCompare(b.name)), [rows, countries]);
+
+  useViewBridge(() => ({ group, country, metric }), (s) => { if (s.group !== undefined) setGroup(s.group); if (s.country !== undefined) setCountry(s.country); if (s.metric) setMetric(s.metric); });
 
   return (
     <Page>
@@ -59,6 +76,8 @@ export default function SourcingPage() {
       <Card title="Countries of manufacture">
         <WorldMap points={points} maxHeight={380} emptyMessage="No country has enough contributors to show yet." />
       </Card>
+      <SectionTrend title="Sourcing over time" metrics={trendMetrics} metric={metric} onMetric={setMetric} loading={trend === null} sources={["sourcing"]} exportName="sourcing-over-time"
+        filters={<Field label="Country of manufacture"><select className="u-native-select" style={{ ...inputStyle, width: "auto", minWidth: 170 }} value={country} onChange={(e) => setCountry(e.target.value)}><option value="">All countries</option>{countryOptions.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></Field>} />
       <Card title="The same data as a table">
         {byCountry.length === 0 ? <p style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Nothing to show for this selection.</p> : (
           <DataTable<(typeof byCountry)[number]> rows={byCountry} rowKey={(e) => e.code} columns={countryCols} caption="Approved sourcing relationships by country of manufacture" exportName="sourcing-by-country" />

@@ -41,5 +41,12 @@ export class InsightsController {
   ) {
     return this.insights.logisticsRoutes({ manufactureCountryCode, destinationCountryCode, transportMode, incoterm, commodityGroup }, u.inDemoOrganization === true);
   }
+  @Get("logistics/trend") logisticsTrend(
+    @CurrentUser() u: RequestUser,
+    @Query("manufactureCountryCode") manufactureCountryCode?: string,
+    @Query("destinationCountryCode") destinationCountryCode?: string,
+    @Query("transportMode") transportMode?: string,
+  ) { return this.insights.logisticsTrend({ manufactureCountryCode: manufactureCountryCode || undefined, destinationCountryCode: destinationCountryCode || undefined, transportMode: transportMode || undefined }, u.inDemoOrganization === true); }
+  @Get("sourcing/trend") sourcingTrend(@CurrentUser() u: RequestUser, @Query("manufactureCountryCode") manufactureCountryCode?: string) { return this.insights.sourcingTrend(manufactureCountryCode, u.inDemoOrganization === true); }
   @Get("logistics/ratings") logisticsRatings(@CurrentUser() u: RequestUser) { return this.insights.logisticsRatings(u.inDemoOrganization === true); }
 }

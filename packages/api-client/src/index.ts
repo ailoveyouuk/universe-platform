@@ -1,4 +1,4 @@
-import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
+import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
@@ -1822,6 +1822,13 @@ export class UniverseApiClient {
   }
   insightsLogisticsRoutes(filters?: LogisticsFilters): Promise<LogisticsRouteSummary[]> {
     return this.request(`/insights/logistics/routes${this.logisticsQueryString(filters)}`);
+  }
+  insightsLogisticsTrend(filters: { manufactureCountryCode?: string; destinationCountryCode?: string; transportMode?: string } = {}): Promise<InsightsLogisticsTrendPoint[]> {
+    const q = new URLSearchParams(); for (const [k, v] of Object.entries(filters)) if (v) q.set(k, v);
+    return this.request(`/insights/logistics/trend${q.toString() ? `?${q.toString()}` : ""}`);
+  }
+  insightsSourcingTrend(manufactureCountryCode?: string): Promise<InsightsSourcingTrendPoint[]> {
+    return this.request(`/insights/sourcing/trend${manufactureCountryCode ? `?manufactureCountryCode=${encodeURIComponent(manufactureCountryCode)}` : ""}`);
   }
   insightsLogisticsRatings(): Promise<StakeholderRatingSummary[]> {
     return this.request("/insights/logistics/ratings");

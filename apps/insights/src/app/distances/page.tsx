@@ -5,10 +5,11 @@ import type { InsightsFreightRate, InsightsPriceMovement, LogisticsRouteSummary 
 import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon, WorldMap, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
 import { ModeDotPlot, ModeLegend, type DotRow } from "../../components/ModeDotPlot";
 import { DataTable, type Col } from "../../components/DataTable";
+import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { MovementChart, type MovementLine } from "../../components/MovementChart";
 import { MODE_NAME } from "../../components/ModeDotPlot";
 import { CurrencyBar } from "../../components/CurrencyBar";
-import { useFxLens, useFxView } from "../../lib/fx";
+import { setFxLens, useFxLens, useFxView } from "../../lib/fx";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { fmtMoney, fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
@@ -129,7 +130,7 @@ export default function DistancesPage() {
     { key: "n", header: "Shipments", align: "right", value: (e) => e.n, render: (e) => e.n.toLocaleString("en-GB") },
   ];
 
-  useViewBridge(() => ({ mode, currency }), (s) => { if (s.mode !== undefined) setMode(s.mode); if (s.currency) setCurrency(s.currency); });
+  useViewBridge(() => ({ mode, currency , lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.mode !== undefined) setMode(s.mode); if (s.currency) setCurrency(s.currency); });
 
   return (
     <Page>
@@ -201,6 +202,8 @@ export default function DistancesPage() {
         </Card>
       <SourceNote keys={["freight", "logistics", "fx"]} />
       </section>
+
+      <LogisticsTrend title="Distance and time over time" mode={mode} exportName="distances-over-time" initialMetric="distance" initialSplit="mode" metrics={["distance", "days"]} />
 
       <section ref={moveRef} aria-labelledby="d-move" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
         <h2 id="d-move" style={h2}>Is freight getting dearer?</h2>

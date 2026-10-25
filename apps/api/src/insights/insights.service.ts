@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getFreightRates, getFreightMovement, getServicePrices, getServiceMovement, getDailyActivity, getPricingTrend, listPricedCategories } from "@universe/insights-db";
+import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getFreightRates, getFreightMovement, getServicePrices, getServiceMovement, getDailyActivity, getLogisticsTrend, getSourcingTrend, getPricingTrend, listPricedCategories } from "@universe/insights-db";
 import { canonicalCommodityGroup } from "@universe/types";
 import type { PricingDimension } from "@universe/insights-db";
-import type { InsightsOverview, InsightsActivity, InsightsFxSeries, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import type { InsightsOverview, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsFxSeries, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
 import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
@@ -84,5 +84,28 @@ export class InsightsService {
 
   logisticsRatings(showSimulated: boolean): Promise<StakeholderRatingSummary[]> {
     return this.logistics.getGlobalStakeholderRatings(showSimulated);
+  }
+
+  /**
+   * Monthly shipping figures by mode and commodity group. The two spellings of a commodity group are merged here (weighted by shipments); merging only
+   * adds organisations to a cell, so every row still has at least the minimum number behind it.
+   */
+  async logisticsTrend(filters: { manufactureCountryCode?: string; destinationCountryCode?: string; transportMode?: string }, showSimulated: boolean): Promise<InsightsLogisticsTrendPoint[]> {
+    const merged = new Map<string, InsightsLogisticsTrendPoint & { _d: number }>();
+    for (const r of await getLogisticsTrend(filters, showSimulated)) {
+      const month = new Date(r.effectiveMonth).toISOString().slice(0, 7), group = canonicalCommodityGroup(r.commodityGroup);
+      const key = `${month}|${r.transportMode}|${group}`, n = Number(r.shipmentCount), cur = merged.get(key);
+      if (!cur) { merged.set(key, { month, transportMode: r.transportMode, commodityGroup: group, sourceCount: Number(r.sourceCount), shipmentCount: n, avgDistanceKm: r.avgDistanceKm, avgCo2TotalKg: r.avgCo2TotalKg, avgDurationDays: r.avgDurationDays, avgEfficiencyScore: r.avgEfficiencyScore, _d: r.avgDurationDays === null ? 0 : n }); continue; }
+      const t = cur.shipmentCount + n, w = (a: number, b: number) => (a * cur.shipmentCount + b * n) / t;
+      const dn = r.avgDurationDays === null ? 0 : n, dt = cur._d + dn;
+      cur.avgDurationDays = dt === 0 ? null : (((cur.avgDurationDays ?? 0) * cur._d) + (r.avgDurationDays ?? 0) * dn) / dt;
+      cur.avgDistanceKm = w(cur.avgDistanceKm, r.avgDistanceKm); cur.avgCo2TotalKg = w(cur.avgCo2TotalKg, r.avgCo2TotalKg); cur.avgEfficiencyScore = w(cur.avgEfficiencyScore, r.avgEfficiencyScore);
+      cur.shipmentCount = t; cur.sourceCount = Math.max(cur.sourceCount, Number(r.sourceCount)); cur._d = dt;
+    }
+    return [...merged.values()].map(({ _d, ...p }) => p).sort((a, b) => a.month.localeCompare(b.month));
+  }
+
+  async sourcingTrend(manufactureCountryCode: string | undefined, showSimulated: boolean): Promise<InsightsSourcingTrendPoint[]> {
+    return (await getSourcingTrend(manufactureCountryCode || undefined, showSimulated)).map((r) => ({ month: new Date(r.month).toISOString().slice(0, 7), category: r.category, sourceCount: Number(r.sourceCount), approvalCount: Number(r.approvalCount) }));
   }
 }

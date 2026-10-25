@@ -10,6 +10,7 @@ import { InsightsFilterBar, setInsightsFilters, useInsightsFilters } from "../..
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
+import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 const MODES = ["SEA", "AIR", "LAND"] as const;
@@ -122,6 +123,8 @@ export default function ModesPage() {
         <StatTile label="Air CO2e compared with sea, per shipment" value={loading ? "…" : premium ? `${premium.toFixed(0)} times` : "—"} icon={<ThermometerIcon size={18} />} tone="neutral" onClick={() => setMode("")} />
         <StatTile label="Average days in transit" value={loading ? "…" : total.avgDays !== null ? total.avgDays.toFixed(0) : "—"} icon={<ClockIcon size={18} />} tone="neutral" onClick={() => setMode("")} />
       </StatTileGrid>
+
+      <LogisticsTrend title="Shipping modes over time" commodity={f.commodity} mode={mode} exportName="modes-over-time" initialMetric="shipments" initialSplit="mode" />
 
       <section aria-labelledby="m-compare" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="m-compare" style={h2}>How do the modes compare?</h2>

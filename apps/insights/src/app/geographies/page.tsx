@@ -10,6 +10,7 @@ import { groupShipments, totalsOf } from "../../lib/geo";
 import { REGION_LABEL } from "../../lib/format";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
+import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 type Layer = "made" | "delivered" | "flows" | "efficiency";
@@ -189,6 +190,8 @@ export default function GeographiesPage() {
         </div>
       <SourceNote keys={["logistics", "regions"]} />
       </section>
+
+      <LogisticsTrend title="Flows over time" commodity={f.commodity} mode={f.mode} exportName="geographies-over-time" initialMetric="shipments" initialSplit="mode" />
 
       <section aria-labelledby="g-grid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="g-grid" style={h2}>Region to region</h2>

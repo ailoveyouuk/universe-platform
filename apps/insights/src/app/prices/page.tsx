@@ -6,11 +6,11 @@ import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
-import { fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
+import { fmtMoney, fmtMoneyIn, regionLabel } from "../../lib/format";
 import { DataTable, type Col } from "../../components/DataTable";
-import { TrendChart } from "../../components/TrendChart";
+import { SectionTrend, trendStyle, type TrendMetric } from "../../components/SectionTrend";
 import { CurrencyBar } from "../../components/CurrencyBar";
-import { useFxLens, useFxView } from "../../lib/fx";
+import { setFxLens, useFxLens, useFxView } from "../../lib/fx";
 
 const DIMENSIONS: { value: InsightsPriceDimension; label: string }[] = [
   { value: "destinationRegion", label: "Where it is delivered" },
@@ -46,7 +46,13 @@ export default function PricesPage() {
   const lens = useFxLens();
   const trendRows = (trend ?? []).filter((p) => p.currency === currency);
   const fx = useFxView(currency, trendRows.map((p) => p.month));
-  const points = trendRows.map((p) => ({ label: monthLabel(p.month), avg: fx.conv(p.avgPrice, p.month), min: fx.conv(p.minPrice, p.month), max: fx.conv(p.maxPrice, p.month), sources: p.sourceCount }));
+  const [metric, setMetric] = useState("average");
+  const line = (id: string, name: string, i: number, val: (p: InsightsPriceTrendPoint) => number, conv = true) => ({ id, name, ...trendStyle(i), points: trendRows.map((p) => ({ month: p.month, value: conv ? fx.conv(val(p), p.month) : val(p) })) });
+  const trendMetrics: TrendMetric[] = [
+    { id: "average", label: "Average price", unit: fx.ccy, fmt: fmtMoney, blurb: "The average cost price per unit before margin, month by month.", lines: [line("avg", "Average", 0, (p) => p.avgPrice)] },
+    { id: "range", label: "Price range", unit: fx.ccy, fmt: fmtMoney, blurb: "The lowest, average and highest cost price in each month.", lines: [line("max", "Highest", 1, (p) => p.maxPrice), line("avg", "Average", 0, (p) => p.avgPrice), line("min", "Lowest", 2, (p) => p.minPrice)] },
+    { id: "orgs", label: "Organisations", unit: "organisations", fmt: (v) => String(Math.round(v)), zero: true, blurb: "How many organisations are behind the figures in each month.", lines: [line("orgs", "Organisations", 3, (p) => p.sourceCount, false)] },
+  ];
   const shownRows = (rows ?? []).filter((r) => r.currency === currency);
   const maxAvg = Math.max(1, ...shownRows.map((r) => r.avgPrice));
   const selected = cats?.find((c) => c.category === category);
@@ -59,7 +65,7 @@ export default function PricesPage() {
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 
-  useViewBridge(() => ({ category, by, currency }), (s) => { if (s.category) setCategory(s.category); if (s.by) setBy(s.by); if (s.currency) setCurrency(s.currency); });
+  useViewBridge(() => ({ category, by, currency, metric , lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.metric) setMetric(s.metric); if (s.category) setCategory(s.category); if (s.by) setBy(s.by); if (s.currency) setCurrency(s.currency); });
 
   return (
     <Page>
@@ -85,9 +91,7 @@ export default function PricesPage() {
         {selected && <p style={{ margin: "12px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>{selected.sourceCount} organisations have contributed {selected.observations.toLocaleString()} price points to this group. A figure is only shown when at least five different organisations are behind it.</p>}
       </Card>
       <CurrencyBar fx={fx} months={trendRows.map((p) => p.month)} target={lens.target} mode={lens.mode} asOf={lens.asOf} />
-      <Card title="Price over time">
-        {!trend ? <p>Loading…</p> : <TrendChart points={points} currency={fx.ccy} title={`${category} price over time`} />}
-      </Card>
+      <SectionTrend title={`${category || "Price"} over time`} metrics={trendMetrics} metric={metric} onMetric={setMetric} loading={!trend} sources={["cost", "fx"]} exportName={`prices-${category}`} />
       <Card title={`Price by ${DIMENSIONS.find((d) => d.value === by)?.label.toLowerCase()}`}>
         {!rows ? <p>Loading…</p> : shownRows.length === 0 ? <p style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Not enough contributors in any split of this group to show a breakdown.</p> : (
           <DataTable<(typeof shownRows)[number]> rows={shownRows} rowKey={(r) => `${r.label}-${r.currency}`} columns={priceCols} caption={`Average price in ${fx.ccy} for ${category}`} exportName={`prices-${category}-by-${by}`} />

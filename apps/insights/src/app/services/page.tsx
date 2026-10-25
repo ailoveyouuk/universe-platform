@@ -10,7 +10,7 @@ import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { CurrencyBar } from "../../components/CurrencyBar";
-import { useFxLens, useFxView, type FxView } from "../../lib/fx";
+import { setFxLens, useFxLens, useFxView, type FxView } from "../../lib/fx";
 import { fmtMoneyIn, monthLabel, regionLabel } from "../../lib/format";
 import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
@@ -81,7 +81,7 @@ export default function ServicesPage() {
     { key: "orgs", header: "Organisations", align: "right", value: (r) => r.sourceCount },
   ];
 
-  useViewBridge(() => ({ currency, sel, table: tableState }), (s) => { if (s.currency) setCurrency(s.currency); if (s.sel !== undefined) setSel(s.sel); if (s.table) setTableState(s.table); });
+  useViewBridge(() => ({ currency, sel, table: tableState , lens: { target: lens.target, mode: lens.mode, asOf: lens.asOf } }), (s) => { if (s.lens) setFxLens(s.lens); if (s.currency) setCurrency(s.currency); if (s.sel !== undefined) setSel(s.sel); if (s.table) setTableState(s.table); });
   const wantService = useRef(readParam("service"));
   useEffect(() => {
     if (!wantService.current || rows.length === 0) return;

@@ -191,6 +191,9 @@ export async function seedSimulatedAggregates() {
     for (const c of chunks(rows, 400)) await insightsPrisma.aggregatedProductSourcing.createMany({ data: c });
     result.sourcing = rows.length;
   }
+  // Sourcing rows have no month of their own, so the trend uses the month recorded. Spread the SIMULATED rows over the last 18 months, once and the same
+  // way every time (a fixed anchor, so running this again changes nothing). Real rows are never touched, and nothing is deleted.
+  await insightsPrisma.$executeRaw`UPDATE aggregated_product_sourcing SET createdAt = DATEADD(day, 14, DATEADD(month, -(ABS(CHECKSUM(id)) % 18), '2026-10-01')) WHERE isSimulated = 1`;
   // --- Freight cost and service cost (2026-10-25). Need the two tables from infra/sql/insights-freight-services.sql. ---
   const missing = (e: unknown) => /Invalid object name|does not exist/i.test(e instanceof Error ? e.message : String(e));
   try {

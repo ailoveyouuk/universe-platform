@@ -10,6 +10,7 @@ import {
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
+import { LogisticsTrend } from "../../components/LogisticsTrend";
 import { Card, ErrorNote, Heading, Page, pill, inputStyle } from "../../lib/ui";
 
 const TOP_ROUTE_COUNT = 10;
@@ -113,6 +114,8 @@ export default function LogisticsPage() {
         </StatTileGrid>
       <SourceNote keys={["logistics", "efficiency"]} />
       </section>
+
+      <LogisticsTrend title="Routes over time" mode={mode} commodity={filters.commodityGroup} manufactureCountryCode={filters.manufactureCountryCode} destinationCountryCode={filters.destinationCountryCode} exportName="logistics-over-time" initialMetric="co2" initialSplit="mode" />
 
       <section aria-labelledby="ratings" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="ratings" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 }}>Stakeholders by efficiency rating</h2>

@@ -385,3 +385,55 @@ export async function getDailyActivity(showSimulated = false, limit = 4): Promis
   `;
   return rankActivity(rows.map((r) => ({ day: new Date(r.day).toISOString().slice(0, 10), metric: r.metric, events: Number(r.events), organisations: Number(r.organisations) })), limit);
 }
+
+
+// ---------------------------------------------------------------------------
+// Trend reads for the Insights sections (2026-10-25). Same floor and simulated gating as every read above.
+// ---------------------------------------------------------------------------
+
+export interface LogisticsTrendFilters { manufactureCountryCode?: string; destinationCountryCode?: string; transportMode?: string; commodityGroup?: string }
+export interface LogisticsTrendRow { effectiveMonth: Date; transportMode: string | null; commodityGroup: string | null; sourceCount: number; shipmentCount: number; avgDistanceKm: number; avgCo2TotalKg: number; avgDurationDays: number | null; avgEfficiencyScore: number }
+
+/** Monthly shipping figures by mode and commodity group (optionally narrowed to a country pair). Rows below the floor are dropped in SQL. */
+export async function getLogisticsTrend(filters: LogisticsTrendFilters = {}, showSimulated = false): Promise<LogisticsTrendRow[]> {
+  const conditions: Prisma.Sql[] = [];
+  if (!showSimulated) conditions.push(Prisma.sql`isSimulated = 0`);
+  if (filters.manufactureCountryCode) conditions.push(Prisma.sql`manufactureCountryCode = ${filters.manufactureCountryCode}`);
+  if (filters.destinationCountryCode) conditions.push(Prisma.sql`destinationCountryCode = ${filters.destinationCountryCode}`);
+  if (filters.transportMode) conditions.push(Prisma.sql`transportMode = ${filters.transportMode}`);
+  const where = conditions.length > 0 ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}` : Prisma.empty;
+  return insightsPrisma.$queryRaw<LogisticsTrendRow[]>`
+    SELECT effectiveMonth, transportMode, commodityGroup,
+      COUNT(DISTINCT sourceHash) AS sourceCount,
+      COUNT(*) AS shipmentCount,
+      AVG(CAST(distanceKm AS FLOAT)) AS avgDistanceKm,
+      AVG(CAST(co2TotalKg AS FLOAT)) AS avgCo2TotalKg,
+      AVG(CAST(durationDays AS FLOAT)) AS avgDurationDays,
+      AVG(CAST(efficiencyScore AS FLOAT)) AS avgEfficiencyScore
+    FROM aggregated_logistics_metrics
+    ${where}
+    GROUP BY effectiveMonth, transportMode, commodityGroup
+    HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY effectiveMonth
+  `;
+}
+
+export interface SourcingTrendRow { month: Date; category: string; sourceCount: number; approvalCount: number }
+
+/**
+ * Sourcing relationships on record by month. Sourcing rows carry no "effective month", so the month a contribution was recorded is used and each
+ * month shows the running total up to its end. A cell appears only once at least the minimum number of organisations are behind it.
+ */
+export async function getSourcingTrend(manufactureCountryCode: string | undefined, showSimulated = false): Promise<SourcingTrendRow[]> {
+  const sim = showSimulated ? Prisma.empty : Prisma.sql` AND s.isSimulated = 0`;
+  const simM = showSimulated ? Prisma.empty : Prisma.sql` WHERE isSimulated = 0`;
+  const cc = manufactureCountryCode ? Prisma.sql` AND s.manufactureCountryCode = ${manufactureCountryCode}` : Prisma.empty;
+  return insightsPrisma.$queryRaw<SourcingTrendRow[]>`
+    WITH m AS (SELECT DISTINCT DATEFROMPARTS(YEAR(createdAt), MONTH(createdAt), 1) AS month FROM aggregated_product_sourcing${simM})
+    SELECT m.month AS month, s.category AS category, COUNT(DISTINCT s.sourceHash) AS sourceCount, COUNT(*) AS approvalCount
+    FROM m JOIN aggregated_product_sourcing s ON s.createdAt < DATEADD(month, 1, m.month)${sim}${cc}
+    GROUP BY m.month, s.category
+    HAVING COUNT(DISTINCT s.sourceHash) >= ${MINIMUM_COHORT_SIZE}
+    ORDER BY m.month
+  `;
+}
