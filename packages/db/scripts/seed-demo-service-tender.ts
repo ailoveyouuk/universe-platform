@@ -12,6 +12,7 @@ const DAY = 86400000, HOUR = 3600000;
 const REF = process.env.TENDER_REF || "SIM-SVC-001";
 const OFFSET = Number(process.env.PRODUCT_OFFSET || 0);           // picks different products for further tenders
 const TITLE = process.env.TENDER_TITLE || "Programme support and equipment services (simulated RFQ)";
+const ISSUER_NAME = process.env.ISSUER_NAME || "Andean Care Alliance 106";   // "Universe Demo" makes the demo organisation the issuer, so Lewis can run the whole issuer side in the app
 const SINGLE_EVALUATOR = (process.env.SINGLE_EVALUATOR ?? "false") === "true"; // allow one evaluator (chair only), for walkthroughs
 const DEMO_FRESH = (process.env.DEMO_FRESH ?? "false") === "true";           // Universe Demo is only invited: no interest, no bid (to try registering interest live)
 const SUBMIT_DEMO = (process.env.SUBMIT_DEMO ?? "false") === "true";           // also submit Universe Demo's bid
@@ -26,6 +27,7 @@ const SERVICES = [
 const COMPETITORS = [
   { tag: "A", prices: [455, 3900, 310], leads: [14, 30, 7], origin: "KE", mfr: "" },
   { tag: "B", prices: [520, 3500, 285], leads: [21, 45, 10], origin: "KE", mfr: "" },
+  { tag: "C", prices: [440, 4100, 330], leads: [10, 28, 6], origin: "KE", mfr: "" },
 ] as const;
 const UD = { tag: "UD", prices: [480, 3650, 295], leads: [18, 35, 8], origin: "GB", mfr: "" };
 const TEXTS = [
@@ -44,13 +46,14 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 async function main() {
   await withPlatformStaffContext(async (tx) => {
     const demo = await tx.organization.findFirst({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } });
-    const issuer = await tx.organization.findFirst({ where: { name: "Andean Care Alliance 106", isSimulated: true }, select: { id: true, name: true } });
+    const issuer = await tx.organization.findFirst({ where: { name: ISSUER_NAME, OR: [{ isSimulated: true }, { isDemo: true }] }, select: { id: true, name: true } });
     if (!demo || !issuer) throw new Error("Universe Demo or Andean Care Alliance 106 not found.");
-    const rivals = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, id: { not: issuer.id }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 2, select: { id: true, name: true } });
-    if (rivals.length < 2) throw new Error("Need two simulated supplier organisations.");
+    const rivals = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, status: { not: "SUSPENDED" }, id: { not: issuer.id }, type: { in: ["SUPPLIER", "MANUFACTURER"] } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 3, select: { id: true, name: true } });
+    const demoIssues = issuer.id === demo.id;
+    if (rivals.length < 3) throw new Error("Need three simulated supplier organisations.");
     const existing = await tx.tender.findFirst({ where: { organizationId: issuer.id, referenceNumber: REF }, select: { id: true } });
     if (existing) { console.log(`${REF} already exists (${existing.id}); nothing to do.`); return; }
-    console.log(`Issuer ${issuer.name}; bidders: Universe Demo (draft), ${rivals.slice(0, 2).map((r, i) => `${r.name} (${COMPETITORS[i].tag})`).join(", ")}.`);
+    console.log(`Issuer ${issuer.name}; bidders: ${demoIssues ? "" : "Universe Demo (draft), "}${(demoIssues ? rivals : rivals.slice(0, 2)).map((r, i) => `${r.name} (${COMPETITORS[i].tag})`).join(", ")}.`);
     if (dryRun) { console.log(`DRY RUN: would create ${REF} with 3 invitations, 2 submitted competing bids and a draft bid for Universe Demo.`); return; }
 
     const now = new Date();
@@ -79,7 +82,7 @@ async function main() {
 
     type Ev = { at: Date; kind: string; summary: string; org: string; cp: string | null; actor: string; details?: unknown };
     const events: Ev[] = [{ at: new Date(pub.getTime() - 26 * HOUR), kind: "CREATED", summary: `Draft ${REF} created`, org: issuer.id, cp: null, actor: issuer.id }];
-    const bidders = [{ id: demo.id, ...UD }, ...rivals.map((r, i) => ({ id: r.id, ...COMPETITORS[i] }))];
+    const bidders = [...(demoIssues ? [] : [{ id: demo.id, ...UD }]), ...(demoIssues ? rivals : rivals.slice(0, 2)).map((r, i) => ({ id: r.id, ...COMPETITORS[i] }))];
     bidders.forEach((b, i) => events.push({ at: new Date(pub.getTime() - 25 * HOUR + i * 60000), kind: "INVITED", summary: "An organisation was invited", org: issuer.id, cp: b.id, actor: issuer.id }));
     events.push({ at: pub, kind: "PUBLISHED", summary: `Published ${REF}`, org: issuer.id, cp: null, actor: issuer.id, details: { simulated: true, title: t.title } });
     bidders.filter((b) => !(DEMO_FRESH && b.tag === "UD")).forEach((b, i) => events.push({ at: new Date(pub.getTime() + (2 + i) * HOUR), kind: "INTEREST_EXPRESSED", summary: "An organisation expressed interest", org: issuer.id, cp: b.id, actor: b.id, details: { integrityPledge: true, exclusionDeclared: true, exclusionGrounds: [] } }));

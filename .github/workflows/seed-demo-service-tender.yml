@@ -8,6 +8,18 @@ on:
         description: "Reference for the new simulated tender"
         default: "SIM-SVC-001"
         type: string
+      tender_title:
+        description: "Title"
+        default: "Programme support and equipment services (simulated RFQ)"
+        type: string
+      issuer_name:
+        description: "Issuing organisation (Universe Demo makes the demo organisation the issuer, with no bid from it)"
+        default: "Andean Care Alliance 106"
+        type: string
+      single_evaluator:
+        description: "Allow a single evaluator (for walkthroughs)"
+        default: false
+        type: boolean
       dry_run:
         description: "Dry run (writes nothing). Untick to apply."
         default: true
@@ -31,4 +43,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
           TENDER_REF: ${{ inputs.tender_ref }}
+          TENDER_TITLE: ${{ inputs.tender_title }}
+          ISSUER_NAME: ${{ inputs.issuer_name }}
+          SINGLE_EVALUATOR: ${{ inputs.single_evaluator }}
           PRISMA_TX_TIMEOUT_MS: "120000"
