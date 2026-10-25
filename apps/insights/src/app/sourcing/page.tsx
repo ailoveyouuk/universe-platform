@@ -7,6 +7,7 @@ import { WorldMap, type WorldMapPoint } from "@universe/ui";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
 
 export default function SourcingPage() {
@@ -63,6 +64,7 @@ export default function SourcingPage() {
           <DataTable<(typeof byCountry)[number]> rows={byCountry} rowKey={(e) => e.code} columns={countryCols} caption="Approved sourcing relationships by country of manufacture" exportName="sourcing-by-country" />
         )}
       </Card>
+    <SourceNote keys={["sourcing", "regions"]} />
     </Page>
   );
 }

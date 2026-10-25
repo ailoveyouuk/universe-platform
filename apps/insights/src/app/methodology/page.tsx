@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { InsightsOverview } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
+import { SOURCES } from "../../lib/sources";
 import { Card, Heading, Page, fmtDate } from "../../lib/ui";
 
 export default function MethodologyPage() {
@@ -26,6 +27,13 @@ export default function MethodologyPage() {
           <li>Sourcing is shown at country of manufacture level, because that is the question people ask.</li>
         </ul>
       </Card>
+      <section id="sources" style={{ scrollMarginTop: 12 }}>
+        <Card title="Where each figure comes from">
+          <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+            {Object.values(SOURCES).map((d) => <div key={d.title}><dt style={{ fontWeight: 700, fontSize: 14 }}>{d.title}</dt><dd style={{ margin: "2px 0 0", fontSize: 14, lineHeight: 1.55 }}>{d.full}</dd></div>)}
+          </dl>
+        </Card>
+      </section>
       <Card title="Demonstration data">
         <p style={p}>In the Universe Demo account every figure is simulated. Real organisations never see simulated data, and simulated data never reaches real accounts.</p>
       </Card>

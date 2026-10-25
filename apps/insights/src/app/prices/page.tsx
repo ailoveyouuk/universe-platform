@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsPriceTrendPoint, InsightsPricedCategory } from "@universe/types";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Field, Heading, Page, inputStyle } from "../../lib/ui";
 import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
 import { DataTable, type Col } from "../../components/DataTable";
@@ -86,6 +87,7 @@ export default function PricesPage() {
           <DataTable<(typeof shownRows)[number]> rows={shownRows} rowKey={(r) => `${r.label}-${r.currency}`} columns={priceCols} caption={`Average price in ${currency} for ${category}`} exportName={`prices-${category}-by-${by}`} />
         )}
       </Card>
+    <SourceNote keys={["cost", "regions"]} />
     </Page>
   );
 }

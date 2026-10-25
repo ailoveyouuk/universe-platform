@@ -7,6 +7,7 @@ import type { InsightsActivity, InsightsOverview } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { removeInsightsItem, useInsightsItems } from "../lib/views";
+import { SourceNote } from "../components/SourceNote";
 import { ActivityTile } from "../components/ActivityTile";
 import { ErrorNote, Page, fmtDate, pill } from "../lib/ui";
 
@@ -83,6 +84,7 @@ export default function InsightsHome() {
             {act.metrics.map((m, i) => <ActivityTile key={m.id} m={m} color={TILE_COLORS[i % TILE_COLORS.length]!} isLatestToday={m.day === today} />)}
           </div>
         )}
+        <SourceNote keys={["activity"]} />
       </section>
 
       <section aria-labelledby="areas" style={{ display: "flex", flexDirection: "column", gap: 10 }}>

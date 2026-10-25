@@ -9,6 +9,7 @@ import { InsightsFilterBar, useInsightsFilters } from "../../lib/filters";
 import { groupShipments, totalsOf } from "../../lib/geo";
 import { REGION_LABEL } from "../../lib/format";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 type Layer = "made" | "delivered" | "flows" | "efficiency";
@@ -186,6 +187,7 @@ export default function GeographiesPage() {
             )}
           </Card></div>
         </div>
+      <SourceNote keys={["logistics", "regions"]} />
       </section>
 
       <section aria-labelledby="g-grid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -224,6 +226,7 @@ export default function GeographiesPage() {
             </table>
           </div>
         </Card>
+      <SourceNote keys={["logistics", "regions"]} />
       </section>
 
       <section aria-labelledby="g-league" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -233,6 +236,7 @@ export default function GeographiesPage() {
           <RankedTile label="Most efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.best} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
           <RankedTile label="Least efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.worst} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
         </RankedTileGrid>
+      <SourceNote keys={["logistics", "efficiency"]} />
       </section>
     </Page>
   );

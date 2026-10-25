@@ -10,6 +10,7 @@ import { Spark } from "../../components/Spark";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 const h2: React.CSSProperties = { margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 };
@@ -94,8 +95,8 @@ export default function ServicesPage() {
       )}
       <StatTileGrid>
         <StatTile label="Types of service with a cost" value={loading ? "…" : rows.length} icon={<GridIcon size={18} />} />
-        <StatTile label="Getting dearer" value={loading ? "…" : rising} icon={<TrendingUpIcon size={18} />} tone="neutral" />
-        <StatTile label="Getting cheaper" value={loading ? "…" : falling} icon={<TrendingUpIcon size={18} />} tone="neutral" />
+        <StatTile label="Cost increases" value={loading ? "…" : rising} icon={<TrendingUpIcon size={18} />} tone="neutral" />
+        <StatTile label="Cost decreases" value={loading ? "…" : falling} icon={<TrendingUpIcon size={18} />} tone="neutral" />
         <StatTile label={biggest ? `Biggest move: ${biggest.r.cat?.label ?? biggest.r.p.serviceCategory}` : "Biggest move"} value={loading ? "…" : biggest ? biggest.ch.text : "—"} icon={<TrendingUpIcon size={18} />} tone="neutral" onClick={biggest ? () => pick(biggest.r.k) : undefined} />
       </StatTileGrid>
 
@@ -109,6 +110,7 @@ export default function ServicesPage() {
             <DataTable<ServiceRow> rows={rows} rowKey={(r) => r.k} columns={serviceCols} caption={`Cost, range and movement by type of service, in ${currency}`} exportName={`service-costs-${currency}`} selectedKey={sel} state={tableState} onState={setTableState} />
           </Card>
         )}
+      <SourceNote keys={["services"]} />
       </section>
 
       <section ref={detailRef} aria-labelledby="s-detail" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
@@ -129,6 +131,7 @@ export default function ServicesPage() {
             </Card>
           </>
         )}
+      <SourceNote keys={["services"]} />
       </section>
     </Page>
   );

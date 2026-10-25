@@ -4,15 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import type { LogisticsRouteSummary } from "@universe/types";
 import { commodityGroupLabel } from "@universe/types";
 import { RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, ThermometerIcon, TrendingUpIcon, ClockIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
-import { ModeScatter, MODE_NAME, type ScatterPoint } from "../../components/ModeScatter";
+import { ModeDotPlot, ModeLegend, MODE_FILL, MODE_NAME, type DotRow } from "../../components/ModeDotPlot";
 import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, setInsightsFilters, useInsightsFilters } from "../../lib/filters";
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 const MODES = ["SEA", "AIR", "LAND"] as const;
-const FILL: Record<string, string> = { AIR: "var(--u-accent-magenta)", SEA: "var(--u-brand-violet)", LAND: "var(--u-status-good)" };
+const FILL = MODE_FILL;
 const fmt = (n: number) => Math.round(n).toLocaleString("en-GB");
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const h2: React.CSSProperties = { margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 };
@@ -38,7 +39,7 @@ export default function ModesPage() {
   const premium = byMode.SEA.avgCo2 > 0 && byMode.AIR.shipments ? byMode.AIR.avgCo2 / byMode.SEA.avgCo2 : null;
 
   // ---- speed against CO2: one mark per product group and mode
-  const points: ScatterPoint[] = useMemo(() => {
+  const points: { id: string; label: string; commodity: string; mode: string; days: number; co2: number; shipments: number }[] = useMemo(() => {
     const m = new Map<string, LogisticsRouteSummary[]>();
     for (const r of rows) if (r.transportMode && r.commodityGroup && r.avgDurationDays !== null) { const k = `${r.commodityGroup}|${r.transportMode}`; m.set(k, [...(m.get(k) ?? []), r]); }
     return [...m.entries()].map(([k, list]) => {
@@ -46,6 +47,19 @@ export default function ModesPage() {
       return { id: k, label: commodityGroupLabel(commodity), commodity, mode: md, days: t.avgDays ?? 0, co2: t.avgCo2, shipments: t.shipments };
     }).filter((p) => p.shipments > 0 && p.co2 > 0);
   }, [rows]);
+
+  const dotRows: DotRow[] = useMemo(() => {
+    const by = new Map<string, typeof points>();
+    for (const p of points) by.set(p.commodity, [...(by.get(p.commodity) ?? []), p]);
+    return [...by.entries()].map(([commodity, list]) => ({
+      id: commodity, label: list[0]!.label,
+      marks: list.map((p) => ({
+        key: p.id, mode: p.mode, value: p.co2, size: p.shipments, tipTitle: `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}`,
+        tipRows: [{ label: "kg CO2e per shipment", value: Math.round(p.co2).toLocaleString("en-GB") }, { label: "Average days", value: String(Math.round(p.days)) }, { label: "Shipments", value: p.shipments.toLocaleString("en-GB") }],
+        aria: `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}: about ${Math.round(p.days)} days, ${Math.round(p.co2).toLocaleString("en-GB")} kg CO2e per shipment, ${p.shipments.toLocaleString("en-GB")} shipments`,
+      })),
+    })).sort((a, b) => Math.max(...b.marks.map((m) => m.value)) - Math.max(...a.marks.map((m) => m.value)));
+  }, [points]);
 
   // ---- which mode carries which goods
   const mix = useMemo(() => {
@@ -135,17 +149,15 @@ export default function ModesPage() {
             </table>
           </div>
         </Card>
+      <SourceNote keys={["logistics"]} />
       </section>
 
       <section aria-labelledby="m-speed" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="m-speed" style={h2}>What does speed cost in CO2?</h2>
-        <p style={sub}>Each mark is one product group shipped one way. Further left is faster; lower is cleaner. Size shows shipments. Select a mark to filter the page to that product group.</p>
+        <p style={sub}>Each row is a product group and each mark a transport mode; further left is cleaner. Select a mark to see its days in transit and CO2, or to filter the page to that product group.</p>
         <Card>
-          <div role="group" aria-label="Key to marks" style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12.5, marginBottom: 8 }}>
-            {MODES.map((m) => <span key={m} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>{m === "AIR" ? <rect x="1" y="1" width="12" height="12" rx="2" fill={FILL[m]} /> : m === "LAND" ? <polygon points="7,1 13,12 1,12" fill={FILL[m]} /> : <circle cx="7" cy="7" r="6" fill={FILL[m]} />}</svg>{MODE_NAME[m]}</span>)}
-          </div>
-          <ModeScatter points={points} activeMode={mode} onSelect={(p) => setInsightsFilters({ commodity: p.commodity })} />
+          <ModeLegend note="Larger mark: more shipments. The line joins the modes for the same product group." />
+          <ModeDotPlot rows={dotRows} activeMode={mode} axisLabel="kg CO2e per shipment (log scale)" tick={(v) => v.toLocaleString("en-GB")} ariaLabel="Chart of average CO2e per shipment for each product group, one mark per transport mode. Days in transit are in each mark's details and in the table below." onSelect={(id) => setInsightsFilters({ commodity: id })} />
           <details style={{ marginTop: 12 }}>
             <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Show the data as a table</summary>
             <div style={{ overflowX: "auto", marginTop: 8 }}>
@@ -157,6 +169,7 @@ export default function ModesPage() {
             </div>
           </details>
         </Card>
+      <SourceNote keys={["logistics"]} />
       </section>
 
       <section aria-labelledby="m-mix" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -182,6 +195,7 @@ export default function ModesPage() {
           )}
           <div role="group" aria-label="Key" style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12.5, marginTop: 12 }}>{MODES.map((m) => <span key={m} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span aria-hidden style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: FILL[m] }} />{MODE_NAME[m]}</span>)}</div>
         </Card>
+      <SourceNote keys={["logistics"]} />
       </section>
 
       <section aria-labelledby="m-league" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -191,6 +205,7 @@ export default function ModesPage() {
           <RankedTile label="Biggest air premium (times the sea CO2e)" icon={<ThermometerIcon size={18} />} tone="var(--u-brand-violet)" rows={league.air} limit={5} onRowClick={(r) => setInsightsFilters({ commodity: r.id })} formatValue={(v) => `${v.toFixed(0)} times`} emptyMessage="Not enough shipments to compare yet." />
           <RankedTile label="Longest sea transit (days)" icon={<ClockIcon size={18} />} tone="var(--u-brand-violet)" rows={league.sea} limit={5} onRowClick={(r) => setInsightsFilters({ commodity: r.id })} formatValue={(v) => `${v.toFixed(0)} days`} emptyMessage="Not enough shipments to compare yet." />
         </RankedTileGrid>
+      <SourceNote keys={["logistics", "efficiency"]} />
       </section>
 
       <section aria-labelledby="m-map" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -201,6 +216,7 @@ export default function ModesPage() {
         </div>
         <p style={sub}>The twenty busiest routes, drawn in the colour of their mode: sea violet, air magenta, land green.</p>
         <WorldMap points={map.points} arcs={map.arcs} legend={MODES.map((m) => ({ color: FILL[m], label: MODE_NAME[m] }))} maxHeight={440} emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} />
+      <SourceNote keys={["logistics", "regions"]} />
       </section>
     </Page>
   );

@@ -12,6 +12,7 @@ import { apiClient } from "../../lib/apiClient";
 import { monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 const h2: React.CSSProperties = { margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 };
@@ -119,8 +120,8 @@ export default function CommoditiesPage() {
 
       <StatTileGrid>
         <StatTile label="Product groups with a cost trend" value={loading ? "…" : board.length} icon={<TrendingUpIcon size={18} />} onClick={() => setSort("name")} />
-        <StatTile label="Getting dearer" value={loading ? "…" : rising} icon={<TrendingUpIcon size={18} />} tone="neutral" active={sort === "rise"} onClick={() => setSort("rise")} />
-        <StatTile label="Getting cheaper" value={loading ? "…" : falling} icon={<TrendingUpIcon size={18} />} tone="neutral" active={sort === "fall"} onClick={() => setSort("fall")} />
+        <StatTile label="Cost increases" value={loading ? "…" : rising} icon={<TrendingUpIcon size={18} />} tone="neutral" active={sort === "rise"} onClick={() => setSort("rise")} />
+        <StatTile label="Cost decreases" value={loading ? "…" : falling} icon={<TrendingUpIcon size={18} />} tone="neutral" active={sort === "fall"} onClick={() => setSort("fall")} />
         <StatTile label={biggest ? `Biggest move: ${biggest.s.category}` : "Biggest move"} value={loading ? "…" : biggest ? biggest.ch.text : "—"} icon={<TrendingUpIcon size={18} />} tone="neutral" onClick={biggest ? () => pick(biggest.s.category) : undefined} />
       </StatTileGrid>
 
@@ -135,6 +136,7 @@ export default function CommoditiesPage() {
             <DataTable<(typeof board)[number]> rows={board} rowKey={(r) => r.s.category} columns={boardCols} caption={`Change in cost price by product group, in ${currency}`} exportName={`commodity-cost-movement-${currency}`} selectedKey={group} />
           )}
         </Card>
+      <SourceNote keys={["cost"]} />
       </section>
 
       <section ref={detailRef} aria-labelledby="c-detail" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
@@ -173,6 +175,7 @@ export default function CommoditiesPage() {
             </Card>
           </>
         )}
+      <SourceNote keys={["cost", "logistics"]} />
       </section>
     </Page>
   );

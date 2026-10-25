@@ -3,15 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsFreightRate, InsightsPriceMovement, LogisticsRouteSummary } from "@universe/types";
 import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon, WorldMap, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
-import { CostScatter, type CostPoint } from "../../components/CostScatter";
+import { ModeDotPlot, ModeLegend, type DotRow } from "../../components/ModeDotPlot";
 import { DataTable, type Col } from "../../components/DataTable";
 import { MovementChart, type MovementLine } from "../../components/MovementChart";
-import { MODE_NAME } from "../../components/ModeScatter";
+import { MODE_NAME } from "../../components/ModeDotPlot";
 import { readParam, useViewBridge } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { fmtMoney, monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 const h2: React.CSSProperties = { margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 };
@@ -76,7 +77,19 @@ export default function DistancesPage() {
   }), [rows, rateRows, total.shipments]);
 
   // ---- scatter and rate card
-  const points: CostPoint[] = rateRows.map((r) => ({ id: `${r.freightMode}|${r.originRegion}|${r.destinationRegion}`, label: lane(r), mode: r.freightMode, km: r.avgDistanceKm, cost: r.avgCostPerTonne, shipments: r.shipments }));
+  const dotRows: DotRow[] = useMemo(() => {
+    const byLane = new Map<string, InsightsFreightRate[]>();
+    for (const r of rateRows) { const k = lane(r); byLane.set(k, [...(byLane.get(k) ?? []), r]); }
+    return [...byLane.entries()].map(([label, list]) => ({
+      id: label, label,
+      marks: list.map((r) => ({
+        key: `${r.freightMode}|${r.originRegion}|${r.destinationRegion}`, mode: r.freightMode, value: r.avgCostPerTonne, size: r.shipments,
+        tipTitle: `${label}, ${MODE_NAME[r.freightMode] ?? r.freightMode}`,
+        tipRows: [{ label: "Cost per tonne", value: `${fmtMoney(r.avgCostPerTonne)} ${currency}` }, { label: "Distance", value: `${Math.round(r.avgDistanceKm).toLocaleString("en-GB")} km` }, { label: "Shipments", value: r.shipments.toLocaleString("en-GB") }],
+        aria: `${label}, ${MODE_NAME[r.freightMode] ?? r.freightMode}: ${fmtMoney(r.avgCostPerTonne)} ${currency} per tonne over ${Math.round(r.avgDistanceKm).toLocaleString("en-GB")} km, ${r.shipments.toLocaleString("en-GB")} shipments`,
+      })),
+    })).sort((a, b) => Math.max(...b.marks.map((m) => m.value)) - Math.max(...a.marks.map((m) => m.value)));
+  }, [rateRows, currency]); // eslint-disable-line react-hooks/exhaustive-deps
   const card = [...rateRows].sort((a, b) => b.avgCostPerTonneKm - a.avgCostPerTonneKm);
   const maxKmRate = Math.max(1e-9, ...card.map((r) => r.avgCostPerTonneKm));
 
@@ -157,17 +170,19 @@ export default function DistancesPage() {
             </div>
           )}
         </Card>
+      <SourceNote keys={["freight", "logistics"]} />
       </section>
 
       <section ref={rateRef} aria-labelledby="d-rates" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
         <h2 id="d-rates" style={h2}>Freight cost by lane</h2>
-        <p style={sub}>Each mark is a lane (one region to another) and a transport mode. Sea is far cheaper per tonne than air over the same distance; the table gives the exact rates and the cost per tonne-kilometre.</p>
+        <p style={sub}>Each row is a lane (one region to another) and each mark a transport mode, further right meaning dearer. Sea is far cheaper per tonne than air over the same distance; the table gives the exact rates and the cost per tonne-kilometre.</p>
         <Card>
           {rates === null ? <p style={{ margin: 0 }}>Loading…</p> : rateRows.length === 0 ? (
             <p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>No lane has freight cost from at least five organisations yet. Freight cost appears here once organisations record the freight price on their projects.</p>
           ) : (
             <>
-              <CostScatter points={points} currency={currency} />
+              <ModeLegend note="Larger mark: more shipments. The line joins the modes on the same lane." />
+              <ModeDotPlot rows={dotRows} axisLabel={`${currency} per tonne (log scale)`} tick={(v) => fmtMoney(v)} ariaLabel={`Chart of freight cost per tonne in ${currency} for each lane, one mark per transport mode. The same figures are in the table below.`} />
               <details style={{ marginTop: 10 }} open>
                 <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 600 }}>Show the data as a table</summary>
                 <div style={{ marginTop: 8 }}>
@@ -177,6 +192,7 @@ export default function DistancesPage() {
             </>
           )}
         </Card>
+      <SourceNote keys={["freight", "logistics"]} />
       </section>
 
       <section ref={moveRef} aria-labelledby="d-move" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
@@ -197,6 +213,7 @@ export default function DistancesPage() {
             </details>
           )}
         </Card>
+      <SourceNote keys={["freightMovement"]} />
       </section>
 
       <section aria-labelledby="d-long" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -213,6 +230,7 @@ export default function DistancesPage() {
             </details>
           )}
         </Card>
+      <SourceNote keys={["logistics"]} />
       </section>
     </Page>
   );

@@ -9,6 +9,7 @@ import {
 } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
+import { SourceNote } from "../../components/SourceNote";
 import { Card, ErrorNote, Heading, Page, pill, inputStyle } from "../../lib/ui";
 
 const TOP_ROUTE_COUNT = 10;
@@ -98,6 +99,7 @@ export default function LogisticsPage() {
           <StatTile label="Average efficiency score" value={rows && all.shipments ? `${all.avgScore.toFixed(1)}/10` : rows ? "—" : "…"} icon={<GaugeIcon size={18} />} tone="neutral" onClick={() => drillTo("efficient")}
             indicator={rows && all.shipments ? { color: SCORE_BAND_COLORS[band], barColor: scoreColor(all.avgScore / 10) ?? undefined, label: BAND_WORD[band] ?? "", fraction: all.avgScore / 10 } : undefined} />
         </StatTileGrid>
+      <SourceNote keys={["logistics"]} />
       </section>
 
       <section aria-labelledby="modes" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -109,6 +111,7 @@ export default function LogisticsPage() {
               indicator={rows && t.shipments ? { color: SCORE_BAND_COLORS[bandForScore(t.avgScore)], barColor: scoreColor(t.avgScore / 10) ?? undefined, label: `${fmt(t.avgCo2)} kg CO2e each · ${t.avgScore.toFixed(1)}/10`, fraction: t.avgScore / 10 } : undefined} />;
           })}
         </StatTileGrid>
+      <SourceNote keys={["logistics", "efficiency"]} />
       </section>
 
       <section aria-labelledby="ratings" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -124,6 +127,7 @@ export default function LogisticsPage() {
             ))}
           </StatTileGrid>
         )}
+      <SourceNote keys={["efficiency"]} />
       </section>
 
       <section aria-labelledby="where" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -135,6 +139,7 @@ export default function LogisticsPage() {
         <p style={{ margin: "0 2px", fontSize: 12, color: "var(--u-ink-secondary)" }}>Shipments by country. Select a country to find it on the map; select a spot on the map to filter the routes to that country.</p>
         <WorldMap focus={mapFocus} highlightId={mapFocus?.id ?? null} points={map.points} arcs={map.arcs} legend={legend} maxHeight={420} emptyMessage="No route has enough contributors to show yet."
           onPointClick={(p) => { const [kind, code] = p.id.split(":"); if (kind === "mfg") setFilter("manufactureCountryCode", code); else if (kind === "dest") setFilter("destinationCountryCode", code); }} />
+      <SourceNote keys={["logistics", "regions"]} />
       </section>
 
       <div ref={listRef} style={{ scrollMarginTop: 70 }}>
