@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LogisticsRouteSummary } from "@universe/types";
 import { commodityGroupLabel } from "@universe/types";
-import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, ThermometerIcon, TrendingUpIcon, ClockIcon, WorldMap, bandForScore, scoreColor, type RankedRow, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
+import { RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, ThermometerIcon, TrendingUpIcon, ClockIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
 import { ModeScatter, MODE_NAME, type ScatterPoint } from "../../components/ModeScatter";
 import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, setInsightsFilters, useInsightsFilters } from "../../lib/filters";
@@ -88,7 +88,6 @@ export default function ModesPage() {
   }, [rows, mode, idx]);
 
   const pickMode = (m: string) => setMode((cur) => (cur === m ? "" : m));
-  const modeTone = (m: (typeof MODES)[number]) => (byMode[m].shipments ? { color: SCORE_BAND_COLORS[bandForScore(byMode[m].avgScore)], barColor: scoreColor(byMode[m].avgScore / 10) ?? undefined, label: `${byMode[m].avgScore.toFixed(1)}/10 efficiency`, fraction: byMode[m].avgScore / 10 } : undefined);
   const measures: { label: string; value: (m: (typeof MODES)[number]) => number | null; show: (v: number) => string }[] = [
     { label: "Shipments", value: (m) => byMode[m].shipments, show: fmt },
     { label: "Average distance (km)", value: (m) => byMode[m].avgDistance, show: fmt },
@@ -136,9 +135,6 @@ export default function ModesPage() {
             </table>
           </div>
         </Card>
-        <StatTileGrid>
-          {MODES.map((m) => <StatTile key={m} label={`${MODE_NAME[m]} efficiency`} value={byMode[m].shipments ? `${byMode[m].avgScore.toFixed(1)}/10` : "—"} icon={<GaugeIcon size={18} />} tone="neutral" active={mode === m} onClick={() => pickMode(m)} indicator={modeTone(m)} />)}
-        </StatTileGrid>
       </section>
 
       <section aria-labelledby="m-speed" style={{ display: "flex", flexDirection: "column", gap: 10 }}>

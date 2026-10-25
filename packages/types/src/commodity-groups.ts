@@ -15,6 +15,16 @@ export const COMMODITY_GROUP_LABEL: Record<CommodityGroup, string> = {
   IMMUNISATION: "Immunisation", KITS: "Kits and emergency supplies", SHELTER: "Shelter and household items", FIELD_MEDICAL: "Field and military medical", LOGISTICS_SERVICES: "Logistics and services (packaging)",
 };
 
+/**
+ * Older rows hold a commodity group as a title-case word ("Pharmaceuticals") rather than the code ("PHARMACEUTICALS"). This returns the code when the
+ * value is one of ours in any case or spelling, and the value unchanged otherwise (so a real extra group such as "Imaging" stays as it is).
+ */
+export function canonicalCommodityGroup(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const code = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return (COMMODITY_GROUPS as readonly string[]).includes(code) ? code : value;
+}
+
 /** A readable label for a stored commodity group; an unknown value is shown as it is. */
 export function commodityGroupLabel(value: string | null | undefined): string {
   if (!value) return "";

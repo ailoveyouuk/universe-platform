@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingTrend, listPricedCategories } from "@universe/insights-db";
+import { canonicalCommodityGroup } from "@universe/types";
 import type { PricingDimension } from "@universe/insights-db";
 import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsPriceBreakdownRow, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
@@ -46,8 +47,14 @@ export class InsightsService {
     return this.sourcing.getGlobalSourcing(showSimulated);
   }
 
-  logisticsRoutes(filters: LogisticsFilters, showSimulated: boolean): Promise<LogisticsRouteSummary[]> {
-    return this.logistics.getGlobalRoutes(filters, showSimulated);
+  /**
+   * Routes with the commodity group written one way (older rows hold "Pharmaceuticals", newer ones "PHARMACEUTICALS"). The commodity filter is applied
+   * here, after tidying, so both spellings are found. Merging spellings only adds organisations to a group, so the five-organisation floor still holds.
+   */
+  async logisticsRoutes(filters: LogisticsFilters, showSimulated: boolean): Promise<LogisticsRouteSummary[]> {
+    const { commodityGroup, ...rest } = filters;
+    const rows = (await this.logistics.getGlobalRoutes(rest, showSimulated)).map((r) => ({ ...r, commodityGroup: canonicalCommodityGroup(r.commodityGroup) }));
+    return commodityGroup ? rows.filter((r) => r.commodityGroup === canonicalCommodityGroup(commodityGroup)) : rows;
   }
 
   logisticsRatings(showSimulated: boolean): Promise<StakeholderRatingSummary[]> {
