@@ -57,7 +57,7 @@ export default function InsightsHome() {
       <section aria-labelledby="hero" style={{ backgroundColor: "var(--u-brand-violet)", backgroundImage: "linear-gradient(120deg, var(--u-brand-violet) 0%, var(--u-accent-magenta) 140%)", color: "var(--u-on-accent)", borderRadius: "var(--u-radius-lg)", padding: "clamp(20px, 4vw, 34px)", display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           {me?.forename && <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 600 }}>Welcome back, {me.forename}.</p>}
-          <h1 id="hero" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: "clamp(26px, 4vw, 36px)", lineHeight: 1.15 }}>What the market is doing, right now.</h1>
+          <h1 id="hero" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: "clamp(26px, 4vw, 36px)", lineHeight: 1.15 }}>What the sector is doing, right now.</h1>
           <p style={{ margin: "8px 0 0", fontSize: 15, maxWidth: 640 }}>Costs, sourcing and shipping across every organisation on Universe, always anonymous.</p>
         </div>
         <form role="search" onSubmit={(e) => { e.preventDefault(); go(q); }} style={{ display: "flex", gap: 8, flexWrap: "wrap", maxWidth: 640 }}>
