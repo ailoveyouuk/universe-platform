@@ -45,3 +45,9 @@ Each slice is deployed, live-tested in both themes, logged and backed up before 
 1. Hosting: separate Static Web App (created `universe-pilot-insights`).
 2. Access: per-person app toggles in Admin (Users > Apps), default every app. Built for all apps, not only Insights.
 3. First release: slice 1 built (shell, Prices, Sourcing, Methodology). Tender market and Supplier landscape come in slices 3 and 4 as designed.
+
+## Privacy rule (Lewis, 2026-10-25)
+- Insights is built on the standard anonymised collection of everything across the whole platform (prices, sourcing, logistics, tenders and so on). That is the default and is all anyone sees.
+- Anything that identifies an organisation (its name, or data traceable to it) may appear in Insights only if that organisation has consented. The consent is the existing organisation setting `shareIdentityWithUniverse` (default off), with the per-product override already on catalogue products.
+- Slice 1 complies: it shows only anonymised aggregates behind the five-contributor floor and has no identifiable view.
+- Build rule for later slices: any screen or endpoint that could show an identifiable organisation must filter to consenting organisations in the server query, show them clearly labelled as shared by that organisation, and never fall back to showing identity when consent is absent. The new tender-market and supplier-landscape tables follow the same split: anonymised rows for everyone, a separate identifiable layer only for consenting organisations.
