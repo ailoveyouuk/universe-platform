@@ -1,4 +1,5 @@
 import { normaliseHs } from "./category-codes";
+import { SERVICE_CATEGORIES, SERVICE_GROUPS } from "./service-categories";
 
 /**
  * Supplier scope of supply (2026-10-23): what a supplier ticks when describing what it can supply. Two levels only: one of the nineteen
@@ -141,6 +142,28 @@ export const SCOPE_TAXONOMY: ScopeGroup[] = [
 ];
 
 /**
+ * Services as a supplier scope (2026-10-25, Lewis): services are not catalogue products, so they are a scope group of their own that sits beside the
+ * product groups only where a supplier declares what it offers or a buyer looks for one (SUPPLIER_SCOPE_TAXONOMY). The product catalogue, the Product
+ * Database categories and the product HS map keep using SCOPE_TAXONOMY, which stays product-only. One subcategory per service group (the nine groups in
+ * service-categories.ts); the terms carry the finer service types and their examples so a free-text search lands on the right one.
+ */
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export const SERVICES_SCOPE_GROUP: ScopeGroup = {
+  group: "Services",
+  subs: SERVICE_GROUPS.map((g) => ({
+    id: `svc-${slug(g)}`, label: g, hs: [],
+    terms: SERVICE_CATEGORIES.filter((c) => c.group === g).flatMap((c) => [c.label.toLowerCase(), ...c.examples.map((e) => e.toLowerCase())]),
+  })),
+};
+/** Everything a supplier can declare it offers: the product groups and the services. */
+export const SUPPLIER_SCOPE_TAXONOMY: ScopeGroup[] = [...SCOPE_TAXONOMY, SERVICES_SCOPE_GROUP];
+/** The scope subcategory a service type falls under, for matching a service line to suppliers that declared it. */
+export function scopeSubForServiceCategory(code: string): string | null {
+  const c = SERVICE_CATEGORIES.find((x) => x.code === code);
+  return c ? `svc-${slug(c.group)}` : null;
+}
+
+/**
  * WHO ATC classification prefixes to pharmaceutical subcategories (2026-10-23). ATC is the right key for the pharmaceutical subcategories
  * because HS cannot tell an antibiotic from an antimalarial. Longest matching prefix wins. The EMA register supplies an ATC code per
  * medicine, so a catalogue product linked to a register entry can be placed by it. A medicine with no match here is left to the name terms.
@@ -167,10 +190,10 @@ export function scopeSubForAtc(atc: string | null | undefined): string | null {
 }
 
 export function scopeSubsForGroup(group: string): ScopeSub[] {
-  return SCOPE_TAXONOMY.find((g) => g.group === group)?.subs ?? [];
+  return SUPPLIER_SCOPE_TAXONOMY.find((g) => g.group === group)?.subs ?? [];
 }
 export function scopeSubById(id: string): { group: string; sub: ScopeSub } | null {
-  for (const g of SCOPE_TAXONOMY) { const sub = g.subs.find((s) => s.id === id); if (sub) return { group: g.group, sub }; }
+  for (const g of SUPPLIER_SCOPE_TAXONOMY) { const sub = g.subs.find((s) => s.id === id); if (sub) return { group: g.group, sub }; }
   return null;
 }
 

@@ -40,3 +40,18 @@ describe("supplier scope taxonomy", () => {
     expect(scopeSubById("nope")).toBeNull();
   });
 });
+
+describe("services as a supplier scope", () => {
+  it("adds one Services group beside the product groups, one subcategory per service group, without changing the product taxonomy", async () => {
+    const t = await import("@universe/types");
+    expect(t.SCOPE_TAXONOMY.map((g) => g.group)).not.toContain("Services");
+    expect(t.SUPPLIER_SCOPE_TAXONOMY.map((g) => g.group)).toContain("Services");
+    expect(t.SERVICES_SCOPE_GROUP.subs.length).toBe(t.SERVICE_GROUPS.length);
+    const ids = t.SUPPLIER_SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => s.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("places every service type under a scope subcategory that exists", async () => {
+    const t = await import("@universe/types");
+    for (const c of t.SERVICE_CATEGORIES) { const id = t.scopeSubForServiceCategory(c.code); expect(id, c.code).toBeTruthy(); expect(t.scopeSubById(id!)?.group).toBe("Services"); }
+  });
+});

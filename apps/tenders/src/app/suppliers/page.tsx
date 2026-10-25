@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { NetworkSavedSearchRecord, NetworkSearchResult } from "@universe/types";
-import { SCOPE_TAXONOMY } from "@universe/types";
+import { SUPPLIER_SCOPE_TAXONOMY } from "@universe/types";
 import { Button, BuildingIcon, CheckCircleIcon, CountryMultiSelect, GlobeIcon, Pill, SearchInput, Select, ShieldIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
@@ -21,7 +21,7 @@ const CERTS: Record<string, string> = {
   MIA: "Manufacturer's licence (MIA)", WDA: "Wholesale licence (WDA)", EUDAMED_REGISTRATION: "EUDAMED registration", CE_MDR_CERTIFICATE: "CE / MDR certificate",
   DEVICE_REGISTRATION: "Device registration", COMPANY_REGISTRATION: "Company registration", IATA_DGR_CERTIFICATION: "IATA DGR", AEO_ACCREDITATION: "AEO accreditation", BUSINESS_INSURANCE: "Business insurance",
 };
-const SUB_LABEL: Record<string, string> = Object.fromEntries(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => [s.id, s.label])));
+const SUB_LABEL: Record<string, string> = Object.fromEntries(SUPPLIER_SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => [s.id, s.label])));
 const muted = { color: "var(--u-ink-secondary)", fontSize: 13 } as const;
 const bare = { border: "none", background: "none", padding: 0, cursor: "pointer" } as const;
 const PAGE = 50;
@@ -56,7 +56,7 @@ export default function FindSuppliersPage() {
     return () => clearTimeout(t);
   }, [f]);
 
-  const subs = useMemo(() => SCOPE_TAXONOMY.find((g) => g.group === group)?.subs ?? [], [group]);
+  const subs = useMemo(() => SUPPLIER_SCOPE_TAXONOMY.find((g) => g.group === group)?.subs ?? [], [group]);
   const nameOf = (code: string) => countries.find((c) => c.code === code)?.name ?? code;
   const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const activeCount = f.scope.length + f.countries.length + f.certs.length + [f.q, f.type, f.minYears, f.warehousing].filter(Boolean).length + [f.whoPq, f.localMfr, f.certified].filter(Boolean).length;
@@ -104,7 +104,7 @@ export default function FindSuppliersPage() {
         {/* Own full-width row so the longer placeholder is not clipped in a narrow grid column (2026-10-24). */}
         <div style={{ gridColumn: "1 / -1", display: "flex" }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, description or manufacturers" /></div>
         <Select value={f.type} onChange={(v) => set({ type: v })} allLabel="Any type" options={Object.entries(ORG_TYPES).map(([value, label]) => ({ value, label }))} ariaLabel="Organisation type" />
-        <Select value={group} onChange={setGroup} allLabel="Pick a category group…" options={SCOPE_TAXONOMY.map((g) => ({ value: g.group, label: g.group }))} ariaLabel="Category group" />
+        <Select value={group} onChange={setGroup} allLabel="Pick a category group…" options={SUPPLIER_SCOPE_TAXONOMY.map((g) => ({ value: g.group, label: g.group }))} ariaLabel="Category group" />
         <CountryMultiSelect value={f.countries} onChange={(v) => set({ countries: v })} options={countries} ariaLabel="Countries of operation" />
         <Select value={f.sort} onChange={(v) => set({ sort: v })} options={[{ value: "name", label: "Name A to Z" }, { value: "years", label: "Most experienced" }, { value: "categories", label: "Most categories" }, { value: "countries", label: "Most countries" }, { value: "certifications", label: "Most certifications" }]} ariaLabel="Sort" />
         <Button variant="secondary" onClick={() => setMore(!more)}>{more ? "Fewer filters" : "More filters"}</Button>

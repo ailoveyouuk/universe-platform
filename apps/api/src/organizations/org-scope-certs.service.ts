@@ -2,14 +2,14 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { BlobStorageService } from "../documents/blob-storage.service";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
-import { SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
+import { SUPPLIER_SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
 import type { CertificationStatus, OrganizationCard, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import type { SaveOrganizationCertificationDto } from "./dto/org-scope-certs.dto";
 
-const VALID_SCOPE_IDS = new Set(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => s.id)));
+const VALID_SCOPE_IDS = new Set(SUPPLIER_SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => s.id)));
 const EXPIRING_DAYS = 90;
 const CERT_AUDIT_FIELDS = ["type", "title", "reference", "issuingBody", "issuedOn", "expiresOn", "notes"];
 

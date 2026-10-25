@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { SCOPE_TAXONOMY } from "@universe/types";
+import { SUPPLIER_SCOPE_TAXONOMY } from "@universe/types";
 import type { OrganizationCertificationSummary, OrganizationScopeSummary, SaveOrganizationCertificationInput } from "@universe/types";
 import { Button, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
@@ -29,7 +29,7 @@ const CERT_TYPES: { value: string; label: string }[] = [
   ["OTHER", "Other"],
 ].map(([value, label]) => ({ value, label }));
 const TYPE_LABEL = Object.fromEntries(CERT_TYPES.map((t) => [t.value, t.label]));
-const SUB_LABEL = Object.fromEntries(SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => [s.id, s.label])));
+const SUB_LABEL = Object.fromEntries(SUPPLIER_SCOPE_TAXONOMY.flatMap((g) => g.subs.map((s) => [s.id, s.label])));
 
 const STATUS_STYLE: Record<string, { label: string; color: string }> = {
   VALID: { label: "Valid", color: "var(--u-status-good-text)" },
@@ -135,7 +135,7 @@ export function ScopeCertificationsSection({ organizationId }: { organizationId:
           <p>Loading…</p>
         ) : (
           <>
-            {SCOPE_TAXONOMY.map((g) => (
+            {SUPPLIER_SCOPE_TAXONOMY.map((g) => (
               <div key={g.group} style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{g.group}</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))", gap: "6px 16px" }}>
