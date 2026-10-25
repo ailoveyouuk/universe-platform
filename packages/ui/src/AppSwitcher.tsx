@@ -114,7 +114,7 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     accent: "var(--u-module-insights)",
     // Live once the Insights Static Web App exists and its hostname is set as a fallback here or via NEXT_PUBLIC_APP_URL_INSIGHTS.
     status: "available",
-    href: appUrl("NEXT_PUBLIC_APP_URL_INSIGHTS"),
+    href: appUrl("NEXT_PUBLIC_APP_URL_INSIGHTS", "https://calm-sea-0bb7a750f.5.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_INSIGHTS",
   },
 ];
