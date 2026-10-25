@@ -4007,7 +4007,7 @@ export interface InsightsPriceMovementPoint { month: string; index: number; sour
 export interface InsightsPriceMovement { category: string; segmentBy: "manufactureRegion" | "destinationRegion" | null; segment: string | null; currency: string; points: InsightsPriceMovementPoint[] }
 export interface InsightsFreightRate { freightMode: string; originRegion: string | null; destinationRegion: string | null; currency: string; sourceCount: number; shipments: number; avgDistanceKm: number; avgCostPerTonne: number; minCostPerTonne: number; maxCostPerTonne: number; avgCostPerTonneKm: number }
 export interface InsightsServicePrice { serviceCategory: string; pricingBasis: string; deliveryRegion: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
-export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
+export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm" | "freightMode" | "orderSize";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }
 

@@ -9,7 +9,7 @@ import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
 
-const DIMENSIONS: PricingDimension[] = ["destinationRegion", "manufactureRegion", "incoterm"];
+const DIMENSIONS: PricingDimension[] = ["destinationRegion", "manufactureRegion", "incoterm", "freightMode", "orderSize"];
 const iso = (d: Date | null) => (d ? new Date(d).toISOString() : null);
 
 /**
@@ -66,7 +66,7 @@ export class InsightsService {
 
   async priceBreakdown(category: string, by: string, showSimulated: boolean): Promise<InsightsPriceBreakdownRow[]> {
     if (!category.trim()) throw new BadRequestException("Choose a product group.");
-    if (!DIMENSIONS.includes(by as PricingDimension)) throw new BadRequestException("Choose destinationRegion, manufactureRegion or incoterm.");
+    if (!DIMENSIONS.includes(by as PricingDimension)) throw new BadRequestException("Choose destinationRegion, manufactureRegion, incoterm, freightMode or orderSize.");
     return getPricingBreakdown(category, by as PricingDimension, showSimulated);
   }
 

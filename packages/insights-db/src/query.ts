@@ -265,12 +265,14 @@ export async function getPricingTrend(category: string, showSimulated = false): 
   return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), minPrice: Number(r.minPrice), maxPrice: Number(r.maxPrice), avgPrice: Number(r.avgPrice) }));
 }
 
-export type PricingDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
+export type PricingDimension = "destinationRegion" | "manufactureRegion" | "incoterm" | "freightMode" | "orderSize";
 export interface PricingBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 
 /** Price for one product group split by one dimension, over the whole period. The dimension is chosen from a fixed list, never interpolated from input. */
 export async function getPricingBreakdown(category: string, by: PricingDimension, showSimulated = false): Promise<PricingBreakdownRow[]> {
-  const col = by === "destinationRegion" ? Prisma.sql`destinationRegion` : by === "manufactureRegion" ? Prisma.sql`manufactureRegion` : Prisma.sql`incoterm`;
+  // Order size is grouped into fixed bands of units per order line; every other dimension is a plain column. The choice is from this fixed list only.
+  const sizeBand = Prisma.sql`CASE WHEN quantity IS NULL THEN NULL WHEN quantity < 100 THEN '1 to 99' WHEN quantity < 1000 THEN '100 to 999' WHEN quantity < 5000 THEN '1,000 to 4,999' ELSE '5,000 or more' END`;
+  const col = by === "destinationRegion" ? Prisma.sql`destinationRegion` : by === "manufactureRegion" ? Prisma.sql`manufactureRegion` : by === "freightMode" ? Prisma.sql`freightMode` : by === "orderSize" ? sizeBand : Prisma.sql`incoterm`;
   const rows = await insightsPrisma.$queryRaw<{ label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }[]>`
     SELECT ${col} AS label, currency, COUNT(DISTINCT sourceHash) AS sourceCount, COUNT(*) AS observations, MIN(unitPrice) AS minPrice, MAX(unitPrice) AS maxPrice, AVG(unitPrice) AS avgPrice
     FROM aggregated_product_prices
