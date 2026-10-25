@@ -25,6 +25,7 @@ export default function InsightsHome() {
         </StatTileGrid>
       </section>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: 14 }}>
+        <Card title="Geographies"><p style={{ margin: "0 0 10px", fontSize: 14 }}>See where goods are made and delivered on a map you can switch between layers, how regions trade with each other, and which countries are served most efficiently.</p><Link href="/geographies">Explore geographies</Link></Card>
         <Card title="Prices"><p style={{ margin: "0 0 10px", fontSize: 14 }}>See what each product group costs, how it has moved month by month, and how it differs by where it is made, where it is delivered and the delivery terms.</p><Link href="/prices">Explore prices</Link></Card>
         <Card title="Sourcing"><p style={{ margin: "0 0 10px", fontSize: 14 }}>See which countries manufacture each product group, on a map and as a table.</p><Link href="/sourcing">Explore sourcing</Link></Card>
         <Card title="Logistics and CO2"><p style={{ margin: "0 0 10px", fontSize: 14 }}>See the busiest and the most CO2-efficient routes from where goods are made to where they are delivered, by transport mode.</p><Link href="/logistics">Explore logistics</Link></Card>
