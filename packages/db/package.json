@@ -20,6 +20,7 @@
     "seed:demo-bid": "tsx scripts/seed-demo-bid.ts",
     "seed:demo-tender-events": "tsx scripts/seed-demo-tender-events.ts",
     "flag:demo-organisation": "tsx scripts/flag-demo-organisation.ts",
+    "verify:demo-chains": "tsx scripts/verify-demo-chains.ts",
     "verify:tender-chain": "tsx scripts/verify-tender-chain.ts",
     "grant:demo-access": "tsx scripts/grant-demo-organisation-access.ts",
     "advance:demo-tender": "tsx scripts/advance-demo-tender.ts",
