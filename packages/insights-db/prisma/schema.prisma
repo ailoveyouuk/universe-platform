@@ -276,3 +276,13 @@ model AggregatedDailyActivity {
   @@index([metric, day])
   @@map("aggregated_daily_activity")
 }
+
+/// Last successful run of each scheduled aggregation pipeline (2026-10-25). The pipelines append rows, so each nightly run reads only what changed since
+/// the previous successful run; this table holds that moment so nothing is counted twice. Not published anywhere.
+model AggregationRun {
+  pipeline  String   @id
+  lastRunAt DateTime
+  updatedAt DateTime @default(now())
+
+  @@map("aggregation_runs")
+}

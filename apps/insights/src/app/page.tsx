@@ -126,7 +126,7 @@ export default function InsightsHome() {
         <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 14.5 }}>About Insights</summary>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10, maxWidth: 820, fontSize: 14, lineHeight: 1.6 }}>
           <p style={{ margin: 0 }}>Every organisation on Universe buys, ships and manages health supplies and services. Insights pools what they all do, strips out who did it, and shows the pattern: what goods and services really cost, where they are made, how far and how fast they travel, and what that does to the planet.</p>
-          <p style={{ margin: 0 }}>A figure only appears when at least five organisations are behind it, and prices are always the cost before any margin. Tables can be searched, sorted, filtered and downloaded, and every point on a chart can be hovered, tapped or reached with the keyboard. <Link href="/methodology">How we protect privacy</Link></p>
+          <p style={{ margin: 0 }}>A figure only appears when at least five organisations are behind it, and prices are always the cost before any margin. Tables can be searched, sorted and filtered, and every point on a chart can be hovered, tapped or reached with the keyboard. <Link href="/methodology">How we protect privacy</Link></p>
         </div>
       </details>
 

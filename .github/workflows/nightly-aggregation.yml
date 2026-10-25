@@ -1,0 +1,38 @@
+name: Nightly aggregation
+
+# Nightly (2026-10-25). Adds the day's new prices, logistics, sourcing, freight and service costs from consenting, non-demo organisations to universe-insights.
+# Each pipeline reads only what changed since its own last successful run (recorded in aggregation_runs), so nothing is counted twice.
+# The very first run only records the starting point. To also load something from an earlier time, run it by hand with "since" set (ISO date-time).
+# Needs repository secrets DEMO_LOAD_DATABASE_URL, INSIGHTS_LOAD_DATABASE_URL and INSIGHTS_HASH_SECRET.
+# Needs infra/sql/insights-aggregation-runs.sql to have been run once on universe-insights.
+on:
+  schedule:
+    - cron: "7 2 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Optional ISO date-time to start from if a pipeline has no record yet (e.g. 2026-10-20T00:00:00Z)"
+        required: false
+        default: ""
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - run: npm run build --workspace=@universe/db
+      - name: Nightly aggregation
+        run: npm run aggregate:nightly --workspace=@universe/insights-db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
+          INSIGHTS_HASH_SECRET: ${{ secrets.INSIGHTS_HASH_SECRET }}
+          NIGHTLY_SINCE: ${{ github.event.inputs.since }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

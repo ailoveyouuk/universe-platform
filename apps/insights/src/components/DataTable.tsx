@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { inputStyle, pill } from "../lib/ui";
+import { ALLOW_DOWNLOADS, inputStyle, pill } from "../lib/ui";
 
 /**
  * The one table every Insights lens uses (2026-10-25): search across every column, a drop-down filter on the columns that have a handful of
@@ -101,7 +101,7 @@ export function DataTable<T>({ rows, columns, rowKey, caption, exportName, state
             ))}
           </div>
         </details>
-        <button type="button" className="u-touch" style={pill(false)} onClick={download} disabled={shown.length === 0}>Download CSV</button>
+        {ALLOW_DOWNLOADS && <button type="button" className="u-touch" style={pill(false)} onClick={download} disabled={shown.length === 0}>Download CSV</button>}
       </div>
 
       <div aria-live="polite" style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>

@@ -47,3 +47,6 @@ export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).
 
 /** Style for the small pill buttons used as switches and filters across Insights (selected = filled with the accent colour). */
 export const pill = (active: boolean): CSSProperties => ({ padding: "6px 14px", borderRadius: 8, border: active ? "1px solid var(--u-org-accent, var(--u-brand-violet))" : "1px solid var(--u-border)", background: active ? "var(--u-org-accent, var(--u-brand-violet))" : "var(--u-surface-raised)", color: active ? "var(--u-on-accent)" : "var(--u-ink)", font: "inherit", fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer" });
+
+/** Downloads are switched off for now (Lewis, 2026-10-25): the aim is to build a habit of using Insights, not of taking its data away. Flip to true to show every Download CSV button again. */
+export const ALLOW_DOWNLOADS = false;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChartTooltip, useChartTip } from "./ChartTip";
 import { SourceNote } from "./SourceNote";
 import type { SourceKey } from "../lib/sources";
-import { Card, pill } from "../lib/ui";
+import { ALLOW_DOWNLOADS, Card, pill } from "../lib/ui";
 import { monthLabel } from "../lib/format";
 
 export interface TrendPoint { month: string; value: number }
@@ -121,7 +121,7 @@ export function SectionTrend({ title, metrics, metric, onMetric, filters, loadin
                 <tbody>{months.map((m) => <tr key={m}><th scope="row" style={{ textAlign: "left", fontWeight: 500, padding: "3px 12px 3px 0" }}>{monthLabel(m)}</th>{lines.map((l) => { const p = l.points.find((q) => q.month === m); return <td key={l.id} style={{ textAlign: "right", padding: "3px 0 3px 12px" }}>{p ? cur.fmt(p.value) : "–"}</td>; })}</tr>)}</tbody>
               </table>
             </div>
-            <button type="button" className="u-touch" style={{ ...pill(false), marginTop: 8 }} onClick={download}>Download as CSV</button>
+            {ALLOW_DOWNLOADS && <button type="button" className="u-touch" style={{ ...pill(false), marginTop: 8 }} onClick={download}>Download as CSV</button>}
           </details>
         )}
         <SourceNote keys={sources} />

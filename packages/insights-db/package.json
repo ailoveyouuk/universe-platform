@@ -15,6 +15,7 @@
     "audit:prices": "tsx scripts/audit-insights-prices.ts",
     "aggregate:freight": "tsx scripts/run-freight-aggregation.ts",
     "aggregate:services": "tsx scripts/run-service-aggregation.ts",
+    "aggregate:nightly": "tsx scripts/run-nightly.ts",
     "aggregate:daily-activity": "tsx scripts/run-daily-activity.ts",
     "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts",
     "aggregate:product-sourcing": "tsx scripts/run-product-sourcing-aggregation.ts"

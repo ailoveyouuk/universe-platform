@@ -98,7 +98,7 @@ export default function MethodologyPage() {
           <li><strong>Wide ranges are on a log scale.</strong> Air freight costs many times more than sea, so some charts use a logarithmic axis. Each gridline is ten times the one before. Exact values are always in the table beside the chart.</li>
           <li><strong>Costs keep their own currency.</strong> Costs are shown in the currency they were agreed in, with the currency code, and are never added together across currencies. If you choose to see them in another currency, each figure is converted with the ECB daily reference rate (the same rates Project Management locks prices to): either the rate when it was logged, which is the monthly average because Insights keeps months and never exact days, or the rate on a date you choose, today by default. Figures that average across months use the date you choose. The rates used, and a chart of the daily rate, are shown beside the figures, original amounts are kept, and weekends and holidays use the last published rate. Only the roughly thirty currencies the ECB publishes can be converted.</li>
           <li><strong>Estimates are flagged.</strong> Where a weight or distance is estimated rather than recorded, the calculation says so.</li>
-          <li><strong>Every point can be read exactly.</strong> Hover, tap or focus a point on any chart for its value, and every chart has the same figures as a table you can search, sort, filter and download.</li>
+          <li><strong>Every point can be read exactly.</strong> Hover, tap or focus a point on any chart for its value, and every chart has the same figures as a table you can search, sort and filter.</li>
         </ul>
       </Section>
 
