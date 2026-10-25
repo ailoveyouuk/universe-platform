@@ -22,7 +22,7 @@ export default function MethodologyPage() {
         <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6 }}>
           <li>Prices are grouped by month, not by day, and by world region, not by country.</li>
           <li>Prices are never converted between currencies. Choose a currency to compare like with like.</li>
-          <li>Every price is a cost price: what the supplier or manufacturer charged before any margin was added. Selling prices, margins, freight charges invoiced to clients and service fees are never included.</li>
+          <li>Every price is a cost price: what the supplier or manufacturer charged before any margin was added. Selling prices, margins and anything invoiced to clients are never included. The same holds for freight (what the forwarder charged) and services (what the service supplier charged): cost before any margin. Price movements are shown as like-for-like indexes, never as a single organisation's price.</li>
           <li>Sourcing is shown at country of manufacture level, because that is the question people ask.</li>
         </ul>
       </Card>

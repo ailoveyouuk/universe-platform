@@ -1,4 +1,4 @@
-import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
+import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
@@ -1783,6 +1783,18 @@ export class UniverseApiClient {
   }
   insightsPriceMovement(): Promise<InsightsPriceMovement[]> {
     return this.request("/insights/prices/movement");
+  }
+  insightsFreightRates(): Promise<InsightsFreightRate[]> {
+    return this.request("/insights/freight/rates");
+  }
+  insightsFreightMovement(): Promise<InsightsPriceMovement[]> {
+    return this.request("/insights/freight/movement");
+  }
+  insightsServicePrices(byRegion = false): Promise<InsightsServicePrice[]> {
+    return this.request(`/insights/services/prices${byRegion ? "?byRegion=true" : ""}`);
+  }
+  insightsServiceMovement(): Promise<InsightsPriceMovement[]> {
+    return this.request("/insights/services/movement");
   }
   insightsPriceBreakdown(category: string, by: InsightsPriceDimension): Promise<InsightsPriceBreakdownRow[]> {
     return this.request(`/insights/prices/breakdown?category=${encodeURIComponent(category)}&by=${by}`);

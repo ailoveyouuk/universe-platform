@@ -1,4 +1,4 @@
-import { COMMODITY_GROUPS } from "@universe/types";
+import { COMMODITY_GROUPS, SERVICE_CATEGORY_CODES, SERVICE_PRICING_BASIS_CODES } from "@universe/types";
 import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
 
 const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
@@ -42,6 +42,9 @@ export class ProjectLineDto {
   @IsOptional() @IsString() manufacturerId?: string;
   @IsOptional() @IsString() quotedManufacturerName?: string | null;
   @IsOptional() @IsInt() quotedLeadTimeDays?: number | null;
+  /** Services lines (productCategory SERVICES), 2026-10-25. */
+  @IsOptional() @IsIn(SERVICE_CATEGORY_CODES) serviceCategory?: string | null;
+  @IsOptional() @IsIn(SERVICE_PRICING_BASIS_CODES) servicePricingBasis?: string | null;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientPoNumber?: string;
   @IsOptional() @IsString() clientPoReceiptDate?: string;

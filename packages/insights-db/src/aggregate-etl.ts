@@ -70,7 +70,7 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
     // freightInvoice* or grossMargin. apps/api/test/insights-cost-only.test.ts fails the build if this file names any of them.
     const priceRows = await withTenantContext(organizationId, async (tx) =>
       tx.projectLine.findMany({
-        where: { supplierPriceLockedAt: { gte: since }, supplierUnitPrice: { not: null }, supplierPaymentCurrency: { not: null }, productMasterId: { not: null } },
+        where: { supplierPriceLockedAt: { gte: since }, supplierUnitPrice: { not: null }, supplierPaymentCurrency: { not: null }, productMasterId: { not: null }, NOT: { productCategory: "SERVICES" } }, // services have their own pool (runServicePriceAggregationPipeline)
         select: {
           supplierUnitPrice: true,
           supplierPaymentCurrency: true,
@@ -362,3 +362,101 @@ export async function runProductSourcingAggregationPipeline(since: Date = new Da
   return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
 }
 
+
+
+/** Size bands for freight: rates fall steeply with shipment size, so they are only compared within a band. */
+export function weightBandFor(totalKg: number): "LT_1T" | "T1_5" | "T5_20" | "GT_20T" {
+  return totalKg < 1000 ? "LT_1T" : totalKg < 5000 ? "T1_5" : totalKg < 20000 ? "T5_20" : "GT_20T";
+}
+
+/**
+ * Freight COST aggregation (added 2026-10-25, Lewis: anonymised cost prices for goods, freight and services, before any margin).
+ * One AggregatedFreightCost row per consenting organisation's project whose freight price was locked since `since`.
+ * COST ONLY: reads Project.freightCost (the core price the forwarder charges) and its currency; never the freight margin, the freight
+ * invoice or any client figure (apps/api/test/insights-cost-only.test.ts fails the build if this file names one). The cost is divided by
+ * the cargo weight and distance recorded by the logistics measurement, and only projects whose weights are measured (none estimated) are
+ * used, so a per-tonne rate is never built on a guess. Region level; no project, forwarder or amount is kept.
+ */
+export async function runFreightCostAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } }, select: { organizationId: true } });
+    return rows.map((r) => r.organizationId);
+  });
+  let written = 0;
+  for (const organizationId of consentedOrgIds) {
+    const sourceHash = hashOrganizationId(organizationId);
+    const projects = await withTenantContext(organizationId, async (tx) =>
+      tx.project.findMany({
+        where: { freightPriceLockedAt: { gte: since }, freightCost: { not: null }, freightCurrency: { not: null }, freightMode: { not: null } },
+        select: { freightCost: true, freightCurrency: true, freightMode: true, incoterm: true, freightPriceLockedAt: true, lines: { select: { logisticsMetric: { select: { weightKgUsed: true, weightEstimated: true, distanceKm: true, manufactureCountryCode: true, destinationCountryCode: true } } } } },
+      }),
+    );
+    for (const p of projects) {
+      const metrics = p.lines.map((l) => l.logisticsMetric).filter((m): m is NonNullable<typeof m> => !!m && m.weightKgUsed !== null);
+      if (!metrics.length || metrics.some((m) => m.weightEstimated) || p.freightCost === null || !p.freightCurrency || !p.freightMode || !p.freightPriceLockedAt) continue;
+      const totalKg = metrics.reduce((a, m) => a + Number(m.weightKgUsed), 0);
+      if (totalKg <= 0) continue;
+      const avgKm = metrics.reduce((a, m) => a + Number(m.weightKgUsed) * Number(m.distanceKm), 0) / totalKg;
+      if (avgKm <= 0) continue;
+      const heaviest = [...metrics].sort((a, b) => Number(b.weightKgUsed) - Number(a.weightKgUsed))[0]!;
+      const costPerTonne = Number(p.freightCost) / (totalKg / 1000);
+      await insightsPrisma.aggregatedFreightCost.create({
+        data: {
+          freightMode: p.freightMode,
+          incoterm: p.incoterm ?? null,
+          originRegion: await resolveRegion(heaviest.manufactureCountryCode ?? null),
+          destinationRegion: await resolveRegion(heaviest.destinationCountryCode ?? null),
+          weightBand: weightBandFor(totalKg),
+          distanceKm: Math.round(avgKm * 10) / 10,
+          costPerTonne: Math.round(costPerTonne * 100) / 100,
+          costPerTonneKm: Math.round((costPerTonne / avgKm) * 10000) / 10000,
+          currency: p.freightCurrency,
+          effectiveMonth: truncateToMonth(p.freightPriceLockedAt),
+          sourceHash,
+        },
+      });
+      written += 1;
+    }
+  }
+  return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
+}
+
+/**
+ * Service COST aggregation (added 2026-10-25). Services (consultancy, technical assistance, advisory, equipment servicing and the rest of
+ * SERVICE_CATEGORIES in @universe/types) are their own category, separate from goods and from freight. One AggregatedServicePrice row per
+ * consenting organisation's Services line whose supplier price was locked since `since`: the supplier's price per basis unit (day, month,
+ * unit, fixed fee...) BEFORE any margin (supplierUnitPrice; never the sales price or margin fields). Region of delivery only.
+ */
+export async function runServicePriceAggregationPipeline(since: Date = new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+  const consentedOrgIds = await withPlatformStaffContext(async (tx) => {
+    const rows = await tx.dataSharingConsent.findMany({ where: { revokedAt: null, organization: { isDemo: false, isSimulated: false } }, select: { organizationId: true } });
+    return rows.map((r) => r.organizationId);
+  });
+  let written = 0;
+  for (const organizationId of consentedOrgIds) {
+    const sourceHash = hashOrganizationId(organizationId);
+    const lines = await withTenantContext(organizationId, async (tx) =>
+      tx.projectLine.findMany({
+        where: { productCategory: "SERVICES", supplierPriceLockedAt: { gte: since }, supplierUnitPrice: { not: null }, supplierPaymentCurrency: { not: null }, serviceCategory: { not: null }, servicePricingBasis: { not: null } },
+        select: { supplierUnitPrice: true, supplierPaymentCurrency: true, supplierPriceLockedAt: true, serviceCategory: true, servicePricingBasis: true, quantity: true, destinationCountryCode: true, project: { select: { deliveryCountryCode: true } } },
+      }),
+    );
+    for (const l of lines) {
+      if (l.supplierUnitPrice === null || !l.supplierPaymentCurrency || !l.supplierPriceLockedAt || !l.serviceCategory || !l.servicePricingBasis) continue;
+      await insightsPrisma.aggregatedServicePrice.create({
+        data: {
+          serviceCategory: l.serviceCategory,
+          pricingBasis: l.servicePricingBasis,
+          unitPrice: l.supplierUnitPrice,
+          currency: l.supplierPaymentCurrency,
+          effectiveMonth: truncateToMonth(l.supplierPriceLockedAt),
+          deliveryRegion: await resolveRegion(l.destinationCountryCode?.trim() || l.project?.deliveryCountryCode || null),
+          quantity: l.quantity ?? null,
+          sourceHash,
+        },
+      });
+      written += 1;
+    }
+  }
+  return { organizationsProcessed: consentedOrgIds.length, rowsWritten: written };
+}

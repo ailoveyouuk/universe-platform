@@ -5,6 +5,7 @@ import type { InsightsPriceMovement, LogisticsRouteSummary, ProductSourcingSumma
 import { COMMODITY_GROUPS, catalogueGroupForCommodity, commodityGroupLabel } from "@universe/types";
 import { StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type WorldMapPoint } from "@universe/ui";
 import { MovementChart, type MovementLine } from "../../components/MovementChart";
+import { Spark } from "../../components/Spark";
 import { apiClient } from "../../lib/apiClient";
 import { monthLabel, regionLabel } from "../../lib/format";
 import { totalsOf } from "../../lib/geo";
@@ -22,13 +23,6 @@ type Sort = "rise" | "fall" | "name";
 function change(index: number) {
   const c = index - 100; const abs = Math.abs(c).toFixed(1);
   return Math.abs(c) < 0.05 ? { text: "No change", arrow: "▬", value: 0 } : c > 0 ? { text: `+${abs}%`, arrow: "▲", value: c } : { text: `−${abs}%`, arrow: "▼", value: c };
-}
-
-/** Every row is drawn on the same scale, so a small move looks small. */
-function Spark({ points, lo, hi }: { points: { index: number }[]; lo: number; hi: number }) {
-  const W = 96, H = 26; const span = hi - lo || 1;
-  const d = points.map((p, i) => `${i ? "L" : "M"}${(i * (W - 4)) / Math.max(1, points.length - 1) + 2},${H - 3 - ((p.index - lo) / span) * (H - 6)}`).join(" ");
-  return <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden style={{ display: "block" }}><path d={d} fill="none" stroke="var(--u-brand-violet)" strokeWidth={2} strokeLinejoin="round" /></svg>;
 }
 
 export default function CommoditiesPage() {

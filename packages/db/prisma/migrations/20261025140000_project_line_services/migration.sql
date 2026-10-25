@@ -1,0 +1,19 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+ALTER TABLE [dbo].[project_lines] ADD [serviceCategory] NVARCHAR(40) NULL;
+ALTER TABLE [dbo].[project_lines] ADD [servicePricingBasis] NVARCHAR(20) NULL;
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

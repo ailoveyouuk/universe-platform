@@ -39,3 +39,16 @@ describe("Insights is fed cost prices only", () => {
     expect(etl).not.toContain("productPriceHistory");
   });
 });
+
+describe("Insights freight and service pools are cost only (2026-10-25)", () => {
+  const etl = readFileSync(join(__dirname, "../../../packages/insights-db/src/aggregate-etl.ts"), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  it("freight reads the core freight price, never the margin or the client invoice", () => {
+    expect(etl).toContain("freightCost");
+    expect(etl).not.toMatch(/freightMargin|freightInvoice|freightTotalCostReportingCcy|freightInsuranceCost/);
+  });
+  it("services read the supplier price of Services lines only", () => {
+    expect(etl).toMatch(/productCategory: "SERVICES"/);
+    expect(etl).toContain("supplierUnitPrice");
+    expect(etl).not.toMatch(/unitSalesPrice|clientPaymentAmount|productMargin/);
+  });
+});

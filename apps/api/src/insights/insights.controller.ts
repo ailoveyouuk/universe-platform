@@ -15,6 +15,10 @@ export class InsightsController {
   @Get("prices/categories") categories(@CurrentUser() u: RequestUser) { return this.insights.priceCategories(u.inDemoOrganization === true); }
   @Get("prices/trend") trend(@CurrentUser() u: RequestUser, @Query("category") category = "") { return this.insights.priceTrend(category, u.inDemoOrganization === true); }
   @Get("prices/movement") movement(@CurrentUser() u: RequestUser) { return this.insights.priceMovement(u.inDemoOrganization === true); }
+  @Get("freight/rates") freightRates(@CurrentUser() u: RequestUser) { return this.insights.freightRates(u.inDemoOrganization === true); }
+  @Get("freight/movement") freightMovement(@CurrentUser() u: RequestUser) { return this.insights.freightMovement(u.inDemoOrganization === true); }
+  @Get("services/prices") servicePrices(@CurrentUser() u: RequestUser, @Query("byRegion") byRegion = "") { return this.insights.servicePrices(byRegion === "true", u.inDemoOrganization === true); }
+  @Get("services/movement") serviceMovement(@CurrentUser() u: RequestUser) { return this.insights.serviceMovement(u.inDemoOrganization === true); }
   @Get("prices/breakdown") breakdown(@CurrentUser() u: RequestUser, @Query("category") category = "", @Query("by") by = "destinationRegion") { return this.insights.priceBreakdown(category, by, u.inDemoOrganization === true); }
   @Get("sourcing") sourcing(@CurrentUser() u: RequestUser) { return this.insights.sourcingByCategory(u.inDemoOrganization === true); }
   @Get("logistics/routes") logisticsRoutes(

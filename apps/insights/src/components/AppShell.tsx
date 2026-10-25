@@ -38,6 +38,8 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/geographies", label: "Geographies", icon: () => <GlobeIcon size={19} />, inNav: true },
   { href: "/modes", label: "Shipping modes", icon: () => <GaugeIcon size={19} />, inNav: true },
   { href: "/commodities", label: "Commodities", icon: () => <GridIcon size={19} />, inNav: true },
+  { href: "/distances", label: "Distances", icon: () => <GaugeIcon size={19} />, inNav: true },
+  { href: "/services", label: "Services", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/prices", label: "Prices", icon: () => <TrendingUpIcon size={19} />, inNav: true },
   { href: "/sourcing", label: "Sourcing", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/logistics", label: "Logistics and CO2", icon: () => <ThermometerIcon size={19} />, inNav: true },

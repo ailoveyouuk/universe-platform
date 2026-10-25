@@ -206,3 +206,56 @@ model AggregatedProductSourcing {
   @@index([category, manufactureCountryCode])
   @@map("aggregated_product_sourcing")
 }
+
+// ---------------------------------------------------------------------------
+// Freight cost (added 2026-10-25, Lewis: cost prices for goods, freight and services, anonymised). One row per consenting
+// organisation's project freight contract: the core freight price (Project.freightCost, the amount the forwarder charges BEFORE any
+// margin; never the freight margin or the client freight invoice) divided by the cargo's real weight and distance, so rates can be compared
+// across shipment sizes and lanes. Only projects whose line weights are measured (not estimated) are used.
+// Region level, like prices. NOT stored here, ever: organizationId, project, forwarder, any free text or the raw contract amount.
+// ---------------------------------------------------------------------------
+model AggregatedFreightCost {
+  id                String   @id @default(uuid())
+  freightMode       String
+  incoterm          String?
+  originRegion      String?
+  destinationRegion String?
+  /// LT_1T | T1_5 | T5_20 | GT_20T: rates fall steeply with size, so they are only compared within a size band.
+  weightBand        String
+  distanceKm        Decimal  @db.Decimal(10, 1)
+  /// COST ONLY: freight price before margin, per tonne.
+  costPerTonne      Decimal  @db.Decimal(18, 2)
+  costPerTonneKm    Decimal  @db.Decimal(18, 4)
+  currency          String   @db.Char(3)
+  effectiveMonth    DateTime
+  sourceHash        String
+  isSimulated       Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  @@index([freightMode, effectiveMonth])
+  @@map("aggregated_freight_costs")
+}
+
+// ---------------------------------------------------------------------------
+// Service cost (added 2026-10-25): what a supplier charged for a service BEFORE any margin (ProjectLine.supplierUnitPrice on a Services
+// line), with the kind of service and the unit it is priced in. Services are separate from goods and from freight. Region of delivery
+// only. NOT stored here, ever: organizationId, project, supplier, description or any free text.
+// ---------------------------------------------------------------------------
+model AggregatedServicePrice {
+  id             String   @id @default(uuid())
+  serviceCategory String
+  /// PER_DAY | PER_HOUR | PER_MONTH | PER_UNIT | LUMP_SUM | PERCENT_OF_GOODS: prices are only compared within one basis.
+  pricingBasis   String
+  /// COST PRICE ONLY: the supplier's price per basis unit before any margin.
+  unitPrice      Decimal  @db.Decimal(18, 2)
+  currency       String   @db.Char(3)
+  effectiveMonth DateTime
+  deliveryRegion String?
+  quantity       Int?
+  sourceHash     String
+  isSimulated    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([serviceCategory, effectiveMonth])
+  @@map("aggregated_service_prices")
+}

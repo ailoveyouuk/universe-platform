@@ -13,12 +13,15 @@
     "aggregate": "tsx src/aggregate-etl.ts",
     "seed:simulated": "tsx scripts/seed-simulated-aggregates.ts",
     "audit:prices": "tsx scripts/audit-insights-prices.ts",
+    "aggregate:freight": "tsx scripts/run-freight-aggregation.ts",
+    "aggregate:services": "tsx scripts/run-service-aggregation.ts",
     "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts",
     "aggregate:product-sourcing": "tsx scripts/run-product-sourcing-aggregation.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
-    "@universe/db": "*"
+    "@universe/db": "*",
+    "@universe/types": "*"
   },
   "devDependencies": {
     "prisma": "^5.20.0",

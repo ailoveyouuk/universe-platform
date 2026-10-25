@@ -1,6 +1,7 @@
 export * from "./pharma-links";
 export * from "./supplier-scope";
 export * from "./commodity-groups";
+export * from "./service-categories";
 export * from "./category-codes";
 /**
  * Shared, hand-written types used across apps for shapes that don't map
@@ -529,6 +530,9 @@ export interface ProjectLineSummary {
   /** What the bidder quoted on the tender bid (tender-sourced projects). */
   quotedManufacturerName: string | null;
   quotedLeadTimeDays: number | null;
+  /** Services lines only (productCategory SERVICES): the kind of service and how its price is stated. */
+  serviceCategory: string | null;
+  servicePricingBasis: string | null;
   supplierId: string | null;
   supplierName: string | null;
   clientPoNumber: string | null;
@@ -736,6 +740,8 @@ export interface ProjectLineInput {
   manufacturerId?: string | null;
   quotedManufacturerName?: string | null;
   quotedLeadTimeDays?: number | null;
+  serviceCategory?: string | null;
+  servicePricingBasis?: string | null;
   supplierId?: string | null;
   clientPoNumber?: string | null;
   clientPoReceiptDate?: string | null;
@@ -3992,6 +3998,8 @@ export interface InsightsPriceTrendPoint { month: string; currency: string; sour
 export interface InsightsPriceMovementPoint { month: string; index: number; sourceCount: number; matchedItems: number }
 /** Like-for-like cost-price index (starts at 100) for a product group, optionally for one region of manufacture or delivery. A ratio, never a price. */
 export interface InsightsPriceMovement { category: string; segmentBy: "manufactureRegion" | "destinationRegion" | null; segment: string | null; currency: string; points: InsightsPriceMovementPoint[] }
+export interface InsightsFreightRate { freightMode: string; originRegion: string | null; destinationRegion: string | null; currency: string; sourceCount: number; shipments: number; avgDistanceKm: number; avgCostPerTonne: number; minCostPerTonne: number; maxCostPerTonne: number; avgCostPerTonneKm: number }
+export interface InsightsServicePrice { serviceCategory: string; pricingBasis: string; deliveryRegion: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }

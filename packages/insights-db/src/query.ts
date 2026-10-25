@@ -301,3 +301,72 @@ export async function getPricingMovement(showSimulated = false): Promise<Pricing
   `;
   return computePricingMovement(rows.map((r) => ({ ...r, priceSum: Number(r.priceSum), priceCount: Number(r.priceCount) })));
 }
+
+// ---------------------------------------------------------------------------
+// Freight cost and service cost reads (2026-10-25). Same rules as every read above: minimum-cohort floor in SQL, simulated rows only for demo
+// requests, cost only. Until the two tables have been created in the insights database (infra/sql/insights-freight-services.sql) these return
+// nothing rather than failing, so the rest of the app keeps working.
+// ---------------------------------------------------------------------------
+const tableMissing = (e: unknown) => /Invalid object name|does not exist|no such table/i.test(e instanceof Error ? e.message : String(e));
+async function orEmpty<T>(run: () => Promise<T[]>): Promise<T[]> {
+  try { return await run(); } catch (e) { if (tableMissing(e)) return []; throw e; }
+}
+
+export interface FreightRateRow { freightMode: string; originRegion: string | null; destinationRegion: string | null; currency: string; sourceCount: number; shipments: number; avgDistanceKm: number; avgCostPerTonne: number; minCostPerTonne: number; maxCostPerTonne: number; avgCostPerTonneKm: number }
+
+/** Freight cost per tonne and per tonne-km, by mode and lane (region to region), over the whole period. */
+export function getFreightRates(showSimulated = false): Promise<FreightRateRow[]> {
+  return orEmpty(async () => {
+    const rows = await insightsPrisma.$queryRaw<FreightRateRow[]>`
+      SELECT freightMode, originRegion, destinationRegion, currency, COUNT(DISTINCT sourceHash) AS sourceCount, COUNT(*) AS shipments, AVG(distanceKm) AS avgDistanceKm,
+             AVG(costPerTonne) AS avgCostPerTonne, MIN(costPerTonne) AS minCostPerTonne, MAX(costPerTonne) AS maxCostPerTonne, AVG(costPerTonneKm) AS avgCostPerTonneKm
+      FROM aggregated_freight_costs
+      ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+      GROUP BY freightMode, originRegion, destinationRegion, currency
+      HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+      ORDER BY avgCostPerTonne DESC`;
+    return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), shipments: Number(r.shipments), avgDistanceKm: Number(r.avgDistanceKm), avgCostPerTonne: Number(r.avgCostPerTonne), minCostPerTonne: Number(r.minCostPerTonne), maxCostPerTonne: Number(r.maxCostPerTonne), avgCostPerTonneKm: Number(r.avgCostPerTonneKm) }));
+  });
+}
+
+/** Like-for-like movement of freight cost per tonne-km, per mode (and per origin and destination region). Items: size band and lane. */
+export function getFreightMovement(showSimulated = false): Promise<PricingMovementSeries[]> {
+  return orEmpty(async () => {
+    const rows = await insightsPrisma.$queryRaw<{ category: string; attributes: string; manufactureRegion: string | null; destinationRegion: string | null; currency: string; effectiveMonth: Date; sourceHash: string; priceSum: number; priceCount: number }[]>`
+      SELECT freightMode AS category, weightBand AS attributes, originRegion AS manufactureRegion, destinationRegion, currency, effectiveMonth, sourceHash, SUM(costPerTonneKm) AS priceSum, COUNT(*) AS priceCount
+      FROM aggregated_freight_costs
+      ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+      GROUP BY freightMode, weightBand, originRegion, destinationRegion, currency, effectiveMonth, sourceHash`;
+    return computePricingMovement(rows.map((r) => ({ ...r, priceSum: Number(r.priceSum), priceCount: Number(r.priceCount) })));
+  });
+}
+
+export interface ServicePriceRow { serviceCategory: string; pricingBasis: string; deliveryRegion: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
+
+/** Service cost by kind of service and pricing basis; `byRegion` also splits by region of delivery. */
+export function getServicePrices(byRegion: boolean, showSimulated = false): Promise<ServicePriceRow[]> {
+  return orEmpty(async () => {
+    const region = byRegion ? Prisma.sql`deliveryRegion` : Prisma.sql`CAST(NULL AS NVARCHAR(1000))`;
+    const group = byRegion ? Prisma.sql`serviceCategory, pricingBasis, deliveryRegion, currency` : Prisma.sql`serviceCategory, pricingBasis, currency`;
+    const rows = await insightsPrisma.$queryRaw<ServicePriceRow[]>`
+      SELECT serviceCategory, pricingBasis, ${region} AS deliveryRegion, currency, COUNT(DISTINCT sourceHash) AS sourceCount, COUNT(*) AS observations, MIN(unitPrice) AS minPrice, MAX(unitPrice) AS maxPrice, AVG(unitPrice) AS avgPrice
+      FROM aggregated_service_prices
+      ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+      GROUP BY ${group}
+      HAVING COUNT(DISTINCT sourceHash) >= ${MINIMUM_COHORT_SIZE}
+      ORDER BY serviceCategory ASC`;
+    return rows.map((r) => ({ ...r, sourceCount: Number(r.sourceCount), observations: Number(r.observations), minPrice: Number(r.minPrice), maxPrice: Number(r.maxPrice), avgPrice: Number(r.avgPrice) }));
+  });
+}
+
+/** Like-for-like movement of service cost. A series is one kind of service in one pricing basis ("CODE|BASIS"); items are regions of delivery. */
+export function getServiceMovement(showSimulated = false): Promise<PricingMovementSeries[]> {
+  return orEmpty(async () => {
+    const rows = await insightsPrisma.$queryRaw<{ category: string; attributes: string | null; manufactureRegion: string | null; destinationRegion: string | null; currency: string; effectiveMonth: Date; sourceHash: string; priceSum: number; priceCount: number }[]>`
+      SELECT serviceCategory + '|' + pricingBasis AS category, CAST(NULL AS NVARCHAR(1000)) AS attributes, CAST(NULL AS NVARCHAR(1000)) AS manufactureRegion, deliveryRegion AS destinationRegion, currency, effectiveMonth, sourceHash, SUM(unitPrice) AS priceSum, COUNT(*) AS priceCount
+      FROM aggregated_service_prices
+      ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+      GROUP BY serviceCategory, pricingBasis, deliveryRegion, currency, effectiveMonth, sourceHash`;
+    return computePricingMovement(rows.map((r) => ({ ...r, priceSum: Number(r.priceSum), priceCount: Number(r.priceCount) })));
+  });
+}

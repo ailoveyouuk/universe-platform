@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getPricingTrend, listPricedCategories } from "@universe/insights-db";
+import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getFreightRates, getFreightMovement, getServicePrices, getServiceMovement, getPricingTrend, listPricedCategories } from "@universe/insights-db";
 import { canonicalCommodityGroup } from "@universe/types";
 import type { PricingDimension } from "@universe/insights-db";
-import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsFreightRate, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
 
@@ -40,6 +40,14 @@ export class InsightsService {
   async priceMovement(showSimulated: boolean): Promise<InsightsPriceMovement[]> {
     return (await getPricingMovement(showSimulated)).map((s) => ({ category: s.category, segmentBy: s.segmentBy, segment: s.segment, currency: s.currency, points: s.points.map((p) => ({ month: new Date(p.effectiveMonth).toISOString().slice(0, 7), index: p.index, sourceCount: p.sourceCount, matchedItems: p.matchedItems })) }));
   }
+
+  private movementDto(rows: Awaited<ReturnType<typeof getPricingMovement>>): InsightsPriceMovement[] {
+    return rows.map((s) => ({ category: s.category, segmentBy: s.segmentBy, segment: s.segment, currency: s.currency, points: s.points.map((p) => ({ month: new Date(p.effectiveMonth).toISOString().slice(0, 7), index: p.index, sourceCount: p.sourceCount, matchedItems: p.matchedItems })) }));
+  }
+  async freightRates(showSimulated: boolean): Promise<InsightsFreightRate[]> { return getFreightRates(showSimulated); }
+  async freightMovement(showSimulated: boolean): Promise<InsightsPriceMovement[]> { return this.movementDto(await getFreightMovement(showSimulated)); }
+  async servicePrices(byRegion: boolean, showSimulated: boolean): Promise<InsightsServicePrice[]> { return getServicePrices(byRegion, showSimulated); }
+  async serviceMovement(showSimulated: boolean): Promise<InsightsPriceMovement[]> { return this.movementDto(await getServiceMovement(showSimulated)); }
 
   async priceBreakdown(category: string, by: string, showSimulated: boolean): Promise<InsightsPriceBreakdownRow[]> {
     if (!category.trim()) throw new BadRequestException("Choose a product group.");

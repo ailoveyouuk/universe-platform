@@ -1,4 +1,5 @@
 import { prisma, computeLogisticsMetric, type TransportMode } from "@universe/db";
+import { SERVICE_CATEGORIES } from "@universe/types";
 import { insightsPrisma } from "./index";
 
 /**
@@ -45,7 +46,7 @@ export async function seedSimulatedAggregates() {
     while (set.size < n) set.add(hashes[Math.floor(r() * hashes.length)]);
     return [...set];
   };
-  const result = { logistics: 0, pricing: 0, sourcing: 0, skipped: [] as string[] };
+  const result = { logistics: 0, pricing: 0, sourcing: 0, freight: 0, services: 0, skipped: [] as string[] };
 
   const countries = await prisma.country.findMany({ select: { code: true, latitude: true, longitude: true, regionCode: true } });
   const byCode = new Map(countries.map((c) => [c.code, c]));
@@ -190,5 +191,55 @@ export async function seedSimulatedAggregates() {
     for (const c of chunks(rows, 400)) await insightsPrisma.aggregatedProductSourcing.createMany({ data: c });
     result.sourcing = rows.length;
   }
+  // --- Freight cost and service cost (2026-10-25). Need the two tables from infra/sql/insights-freight-services.sql. ---
+  const missing = (e: unknown) => /Invalid object name|does not exist/i.test(e instanceof Error ? e.message : String(e));
+  try {
+    if ((await insightsPrisma.aggregatedFreightCost.count({ where: { isSimulated: true } })) >= 200) result.skipped.push("freight");
+    else {
+      const rf = rng(20261025);
+      // Typical lane distances (km) between WHO regions, and base freight cost per tonne-km (USD, before margin) for a 5 to 20 tonne load.
+      const LANES: [string, string, number][] = [["SEARO", "AFRO", 7500], ["WPRO", "AFRO", 11000], ["EURO", "AFRO", 6000], ["AFRO", "AFRO", 3000], ["SEARO", "SEARO", 2500], ["WPRO", "SEARO", 4500], ["EURO", "SEARO", 8000], ["EURO", "EMRO", 4500], ["SEARO", "EMRO", 4500]];
+      const MODES: { mode: string; rate: number; drift: number; sameRegionOnly?: boolean }[] = [{ mode: "SEA", rate: 0.045, drift: -0.006 }, { mode: "AIR", rate: 0.62, drift: 0.004 }, { mode: "LAND", rate: 0.16, drift: 0.002, sameRegionOnly: true }];
+      const BANDS: [string, number, number][] = [["LT_1T", 2.6, 400], ["T1_5", 1.45, 2500], ["T5_20", 1, 11000], ["GT_20T", 0.82, 24000]];
+      const fr: any[] = [];
+      for (const [orig, dest, km] of LANES) for (const m of MODES) {
+        if (m.sameRegionOnly && orig !== dest) continue;
+        const laneFactor = 0.85 + rf() * 0.3;
+        for (const [band, bandMult] of BANDS.map((b) => [b[0], b[1]] as [string, number])) {
+          if (m.mode === "AIR" && band === "GT_20T") continue;
+          const itemBase = m.rate * bandMult * laneFactor * (km < 4000 ? 1.35 : 1);
+          for (let mo = 5; mo >= 0; mo--) {
+            const level = itemBase * (1 + m.drift * (5 - mo)) * (0.97 + rf() * 0.06);
+            for (const sourceHash of pickHashes(5 + Math.floor(rf() * 3))) {
+              const perKm = Math.round(level * (0.94 + rf() * 0.12) * 10000) / 10000;
+              fr.push({ freightMode: m.mode, incoterm: ["FCA", "CIF", "DAP"][Math.floor(rf() * 3)], originRegion: orig, destinationRegion: dest, weightBand: band, distanceKm: km, costPerTonneKm: perKm, costPerTonne: Math.round(perKm * km * 100) / 100, currency: "USD", effectiveMonth: monthStart(mo), sourceHash, isSimulated: true });
+            }
+          }
+        }
+      }
+      for (const c of chunks(fr, 90)) await insightsPrisma.aggregatedFreightCost.createMany({ data: c });
+      result.freight = fr.length;
+    }
+  } catch (e) { if (missing(e)) result.skipped.push("freight (table missing: run infra/sql/insights-freight-services.sql first)"); else throw e; }
+
+  try {
+    if ((await insightsPrisma.aggregatedServicePrice.count({ where: { isSimulated: true } })) >= 200) result.skipped.push("services");
+    else {
+      const rs = rng(20261026);
+      const BASE: Record<string, number> = { TECHNICAL_ASSISTANCE: 650, ADVISORY: 820, SUPPLY_CHAIN_ADVISORY: 720, STUDIES_EVALUATION: 45000, PROGRAMME_MANAGEMENT: 9000, TRAINING: 480, TESTING_INSPECTION: 280, QUALITY_AUDIT: 900, EQUIPMENT_INSTALLATION: 1200, EQUIPMENT_MAINTENANCE: 450, PROCUREMENT_AGENT: 4.5, WAREHOUSING: 12, CUSTOMS_HANDLING: 350, PACKING_KITTING: 6, COLD_CHAIN_SERVICES: 90, IT_DATA: 3500, FINANCIAL_PROFESSIONAL: 12000, FIELD_HEALTH_SERVICES: 18, WASTE_MANAGEMENT: 2.5, FACILITIES: 1800, COMMUNICATIONS: 15000, ADMIN_SUPPORT: 180 };
+      const REGIONS: [string, number][] = [["AFRO", 1], ["SEARO", 0.8], ["EMRO", 1.05], ["AMRO", 1.2], ["WPRO", 0.95]];
+      const sv: any[] = [];
+      for (const cat of SERVICE_CATEGORIES) {
+        const base = BASE[cat.code]; if (!base) continue;
+        const drift = (rs() - 0.35) * 0.008; // a gentle common trend, in either direction
+        for (const [region, mult] of REGIONS) for (let mo = 5; mo >= 0; mo--) {
+          const level = base * mult * (1 + drift * (5 - mo)) * (0.97 + rs() * 0.06);
+          for (const sourceHash of pickHashes(5 + Math.floor(rs() * 3))) sv.push({ serviceCategory: cat.code, pricingBasis: cat.bases[0], unitPrice: Math.round(level * (0.92 + rs() * 0.16) * 100) / 100, currency: "USD", effectiveMonth: monthStart(mo), deliveryRegion: region, quantity: 1 + Math.floor(rs() * 40), sourceHash, isSimulated: true });
+        }
+      }
+      for (const c of chunks(sv, 150)) await insightsPrisma.aggregatedServicePrice.createMany({ data: c });
+      result.services = sv.length;
+    }
+  } catch (e) { if (missing(e)) result.skipped.push("services (table missing: run infra/sql/insights-freight-services.sql first)"); else throw e; }
   return result;
 }

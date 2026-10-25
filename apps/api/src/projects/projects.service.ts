@@ -266,6 +266,8 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     manufacturerName: l.manufacturer?.name ?? null,
     quotedManufacturerName: l.quotedManufacturerName ?? null,
     quotedLeadTimeDays: l.quotedLeadTimeDays ?? null,
+    serviceCategory: l.serviceCategory ?? null,
+    servicePricingBasis: l.servicePricingBasis ?? null,
     supplierId: l.supplierId,
     supplierName: l.supplier?.name ?? null,
     clientPoNumber: l.clientPoNumber,
@@ -1661,6 +1663,11 @@ export class ProjectsService {
       goodsDeliveredToClientDate: Date | null;
     },
   ): Promise<void> {
+    // A service has no cargo, so it has no route, weight or CO2 figure.
+    if (line.productCategory === "SERVICES") {
+      await tx.projectLineLogisticsMetric.deleteMany({ where: { projectLineId: lineId } });
+      return;
+    }
     const manufactureCountryCode = line.countryOfManufactureCode;
     const destinationCountryCode = line.destinationCountryCode?.trim() || project.deliveryCountryCode;
     const mode: TransportMode | null =
