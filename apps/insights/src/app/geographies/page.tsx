@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LogisticsRouteSummary } from "@universe/types";
 import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
@@ -37,6 +37,9 @@ export default function GeographiesPage() {
   const [pair, setPair] = useState<{ from: string; to: string } | null>(null);
   const [mapFocus, setMapFocus] = useState<{ id: string; nonce: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // When the panel sits below the map (tablet and phone) bring it into view after a pick, so the choice visibly does something.
+  const pick = (code: string | null) => { setSelected(code); if (code && typeof window !== "undefined" && window.innerWidth <= 1100) setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50); };
 
   useEffect(() => { apiClient.insightsLogisticsRoutes({}).then(setAll).catch((e) => { setAll([]); setErr(e instanceof Error ? e.message : "Could not load geography data."); }); }, []);
   const idx = useMemo(() => new Map(countries.map((c) => [c.code, c])), [countries]);
@@ -144,11 +147,11 @@ export default function GeographiesPage() {
         <div role="group" aria-label="Map layer" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {LAYERS.map((l) => <button key={l.key} type="button" className="u-touch" style={pill(layer === l.key)} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
         </div>
-        <p style={sub}>{LAYERS.find((l) => l.key === layer)?.hint} Select a spot to see that country on the right.</p>
+        <p style={sub}>{LAYERS.find((l) => l.key === layer)?.hint} Select a spot to see that country in the panel beside or below the map.</p>
         <div className="geo-split">
           <WorldMap points={map.points} arcs={map.arcs} legend={legend} maxHeight={460} focus={mapFocus} highlightId={selected ? map.points.find((p) => p.id.endsWith(`:${selected}`))?.id ?? null : null}
-            emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} onPointClick={(p) => setSelected(p.id.split(":")[1] ?? null)} />
-          <Card title={selected ? nameOf(selected) : "Country detail"} action={selected ? <button type="button" className="u-touch" style={pill(false)} onClick={() => setSelected(null)}>Clear</button> : undefined}>
+            emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} onPointClick={(p) => pick(p.id.split(":")[1] ?? null)} />
+          <div ref={panelRef} style={{ scrollMarginTop: 70 }}><Card title={selected ? nameOf(selected) : "Country detail"} action={selected ? <button type="button" className="u-touch" style={pill(false)} onClick={() => setSelected(null)}>Clear</button> : undefined}>
             {!selected || !detail ? <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Select a spot on the map, or a country in the lists below, to see what it makes, what it receives, where it trades and how it ships.</p> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p style={{ margin: 0, fontSize: 13.5 }}>{detail.madeN ? `Makes goods for ${fmt(detail.madeN)} shipments. ` : "Not a country of manufacture here. "}{detail.recvN ? `Receives ${fmt(detail.recvN)} shipments.` : "Not a delivery country here."}</p>
@@ -179,7 +182,7 @@ export default function GeographiesPage() {
                 ))}
               </div>
             )}
-          </Card>
+          </Card></div>
         </div>
       </section>
 
