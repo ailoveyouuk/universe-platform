@@ -48,7 +48,7 @@ export function ModeScatter({ points, activeMode, onSelect }: { points: ScatterP
         const label = `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}: about ${Math.round(p.days)} days, ${Math.round(p.co2).toLocaleString("en-GB")} kg CO2e per shipment, ${p.shipments.toLocaleString("en-GB")} shipments`;
         const common = { fill: FILL[p.mode] ?? "var(--u-ink-secondary)", fillOpacity: dim ? 0.18 : 0.78, stroke: "var(--u-surface-raised)", strokeWidth: 1.5 };
         return (
-          <g key={p.id} tabIndex={0} role="button" aria-label={label} style={{ cursor: "pointer", outlineOffset: 2 }}
+          <g data-chart-hit key={p.id} tabIndex={0} role="button" aria-label={label} style={{ cursor: "pointer", outlineOffset: 2 }}
             {...(() => { const b = bind({ key: p.id, x: cx, y: cy - r, vw: W, vh: H, title: `${p.label}, ${MODE_NAME[p.mode] ?? p.mode}`, rows: [{ label: "Average days", value: String(Math.round(p.days)) }, { label: "kg CO2e per shipment", value: Math.round(p.co2).toLocaleString("en-GB") }, { label: "Shipments", value: p.shipments.toLocaleString("en-GB") }] }); return { ...b, onClick: (e: React.MouseEvent) => { b.onClick(e); onSelect(p); }, onKeyDown: (e: React.KeyboardEvent) => { b.onKeyDown(e); if (e.key === "Enter" || e.key === " ") onSelect(p); } }; })()}>
             <circle cx={cx} cy={cy} r={Math.max(r, 14)} fill="transparent" />
             {activeKey === p.id && <circle cx={cx} cy={cy} r={r + 4} fill="none" stroke="var(--u-ink)" strokeWidth={2} />}

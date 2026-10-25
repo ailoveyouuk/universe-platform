@@ -51,7 +51,7 @@ export function MovementChart({ lines, title }: { lines: MovementLine[]; title: 
           </g>
         ))}
         {activeKey && <line x1={x(activeKey)} x2={x(activeKey)} y1={T} y2={H - B} stroke="var(--u-ink-secondary)" strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />}
-        {labels.map((lb) => { const t = tipFor(lb); return <rect key={`hit-${lb}`} x={x(lb) - colW / 2} y={T} width={Math.max(24, colW)} height={H - T - B} fill="transparent" tabIndex={0} role="button" aria-label={`${lb}: ${t.rows.map((r) => `${r.label} ${r.value}`).join(", ")}`} style={{ cursor: "pointer", outlineOffset: -2 }} {...bind(t)} />; })}
+        {labels.map((lb) => { const t = tipFor(lb); return <rect data-chart-hit key={`hit-${lb}`} x={x(lb) - colW / 2} y={T} width={Math.max(24, colW)} height={H - T - B} fill="transparent" tabIndex={0} role="button" aria-label={`${lb}: ${t.rows.map((r) => `${r.label} ${r.value}`).join(", ")}`} style={{ cursor: "pointer", outlineOffset: -2 }} {...bind(t)} />; })}
         {labels.map((lb, i) => (i % every === 0 || i === labels.length - 1 ? <text key={lb} x={x(lb)} y={H - 10} textAnchor="middle" fontSize={11} fill="var(--u-ink-secondary)">{lb}</text> : null))}
       </svg>
       <ChartTooltip tip={tip} onClose={close} />

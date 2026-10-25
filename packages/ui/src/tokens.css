@@ -683,3 +683,6 @@ a:focus-visible {
   }
   .u-skip-link { border: 2px solid LinkText; }
 }
+
+/* Chart hit areas (Insights, 2026-10-25): a mouse click must not draw the large keyboard focus box around a whole chart column; keyboard focus still does. */
+[data-chart-hit]:focus:not(:focus-visible) { outline: none; }
