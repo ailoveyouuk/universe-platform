@@ -6,8 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
-import { CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, UnitSelect, XIcon } from "@universe/ui";
+import { SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, serviceCatalogueByCode, CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, UnitSelect, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
@@ -18,7 +18,7 @@ const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Item
 const codes = (s: string | null | undefined) => (s ?? "").split(",").filter(Boolean);
 const delimited = (a: string[]) => (a.length ? `,${a.join(",")},` : "");
 /** Only the fields the API accepts, with numeric strings (the API returns decimals as strings) turned into numbers. */
-const cleanLine = (l: TenderLineRecord): TenderLineRecord => ({ lotNumber: l.lotNumber ?? null, lotTitle: l.lotTitle ?? null, description: l.description.trim(), productMasterId: l.productMasterId ?? null, specification: l.specification ?? null, quantity: l.quantity === null || l.quantity === undefined || l.quantity === "" ? null : Number(l.quantity), unit: l.unit ?? null, destinationCountryCode: l.destinationCountryCode || null, requiredRegistration: l.requiredRegistration ?? null, minShelfLifePercent: l.minShelfLifePercent ?? null, coldChainRequired: !!l.coldChainRequired });
+const cleanLine = (l: TenderLineRecord): TenderLineRecord => ({ lotNumber: l.lotNumber ?? null, lotTitle: l.lotTitle ?? null, description: l.description.trim(), productMasterId: l.productMasterId ?? null, specification: l.specification ?? null, quantity: l.quantity === null || l.quantity === undefined || l.quantity === "" ? null : Number(l.quantity), unit: l.unit ?? null, destinationCountryCode: l.destinationCountryCode || null, requiredRegistration: l.requiredRegistration ?? null, minShelfLifePercent: l.minShelfLifePercent ?? null, coldChainRequired: !!l.coldChainRequired, ...(l.serviceCategory ? { serviceCategory: l.serviceCategory, servicePricingBasis: l.servicePricingBasis ?? null, serviceCode: l.serviceCode ?? null } : {}) });
 const cleanCriterion = (c: TenderCriterionRecord): TenderCriterionRecord => ({ title: c.title.trim(), description: c.description ?? null, kind: c.kind, weight: c.kind === "SCORED" ? Number(c.weight ?? 0) : null, isMandatory: c.isMandatory ?? true, responseFormat: c.responseFormat, acceptedFileTypes: c.acceptedFileTypes ?? null, metric: c.kind === "SCORED" ? c.metric ?? "MANUAL" : "MANUAL" });
 const cleanRule = (r: TenderRuleRecord): TenderRuleRecord => ({ ruleType: r.ruleType, ruleValue: r.ruleValue.trim(), explanation: r.explanation || null, isRequired: r.isRequired });
 const num = (v: string) => (v === "" ? null : Number(v));
@@ -198,7 +198,7 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
   const upd = (i: number, p: Partial<TenderLineRecord>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   return (
-    <Card title="Items" action={<Button size="sm" icon={<PlusIcon size={14} />} onClick={() => setLines((l) => [...l, blank()])}>Free-text item</Button>}>
+    <Card title="Items" action={<span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><Button size="sm" icon={<PlusIcon size={14} />} onClick={() => setLines((l) => [...l, blank()])}>Free-text item</Button><Button size="sm" icon={<PlusIcon size={14} />} onClick={() => setLines((l) => [...l, blank({ serviceCategory: SERVICE_CATEGORIES[0].code, servicePricingBasis: SERVICE_CATEGORIES[0].bases[0] })])}>Service</Button></span>}>
       <Field label="Add from the product catalogue" hint="Linking to the catalogue lets bidders and the platform check registrations, safety notices and shelf life.">
         <ProductPicker query={q} onQueryChange={setQ} options={opts} selectedId={null} onSelect={(p) => { const m = opts.find((o) => o.id === p.id); setLines((l) => [...l, blank({ description: p.name, productMasterId: p.id, unit: m?.standardUnit ?? null })]); setQ(""); setOpts([]); }} onClear={() => setQ("")} ariaLabel="Add a catalogue product" />
       </Field>
@@ -208,15 +208,37 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
         {lines.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No items yet. Add at least one to publish.</p>}
         {lines.map((l, i) => (
           <div key={i} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, position: "relative" }}>
-            <Field label={`Item ${i + 1}${l.productMasterId ? " (catalogue)" : ""}`} wide><input style={inputStyle} value={l.description} onChange={(e) => upd(i, { description: e.target.value })} maxLength={500} /></Field>
+            <Field label={`Item ${i + 1}${l.productMasterId ? " (catalogue)" : l.serviceCategory ? " (service)" : ""}`} wide><input style={inputStyle} value={l.description} onChange={(e) => upd(i, { description: e.target.value })} maxLength={500} /></Field>
+            {l.serviceCategory ? (
+              <>
+                <Field label="Standard service" wide hint="Starting from a standard service means every bidder quotes the same thing in the same unit.">
+                  <ServiceCataloguePicker value={l.serviceCode} category={l.serviceCategory} style={inputStyle} ariaLabel={`Standard service for item ${i + 1}`} onPick={(item) => upd(i, item ? { serviceCode: item.code, serviceCategory: item.category, servicePricingBasis: item.basis, unit: item.unit, description: l.description.trim() ? l.description : item.name } : { serviceCode: null })} />
+                </Field>
+                <Field label="Type of service">
+                  <select className="u-native-select" style={inputStyle} value={l.serviceCategory} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); const keep = l.serviceCode && serviceCatalogueByCode(l.serviceCode)?.category === e.target.value; upd(i, { serviceCategory: e.target.value, serviceCode: keep ? l.serviceCode : null, servicePricingBasis: c && !c.bases.includes((l.servicePricingBasis ?? "") as never) ? c.bases[0] : l.servicePricingBasis }); }}>
+                    {SERVICE_GROUPS.map((g) => <optgroup key={g} label={g}>{SERVICE_CATEGORIES.filter((c) => c.group === g).map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</optgroup>)}
+                  </select>
+                </Field>
+                <Field label="How bidders state the price">
+                  <select className="u-native-select" style={inputStyle} value={l.servicePricingBasis ?? ""} onChange={(e) => upd(i, { servicePricingBasis: e.target.value })}>
+                    {SERVICE_PRICING_BASES.map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
+                  </select>
+                </Field>
+                <Field label={SERVICE_PRICING_BASES.find((b) => b.code === l.servicePricingBasis)?.quantityLabel ?? "Quantity"}><input type="number" min={0} style={inputStyle} value={l.quantity ?? ""} onChange={(e) => upd(i, { quantity: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
+                <Field label="Where it is delivered"><CountrySelect value={l.destinationCountryCode ?? ""} onChange={(c) => upd(i, { destinationCountryCode: c || null })} options={countries} /></Field>
+              </>
+            ) : (
+              <>
             <Field label="Quantity"><input type="number" min={0} style={inputStyle} value={l.quantity ?? ""} onChange={(e) => upd(i, { quantity: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             <Field label="Unit"><UnitSelect value={l.unit ?? ""} onChange={(u) => upd(i, { unit: u || null })} options={UNIT_OPTIONS} ariaLabel="Unit" /></Field>
             <Field label="Destination"><CountrySelect value={l.destinationCountryCode ?? ""} onChange={(c) => upd(i, { destinationCountryCode: c || null })} options={countries} /></Field>
             <Field label="Required registration"><UnitSelect value={l.requiredRegistration ?? ""} onChange={(v) => upd(i, { requiredRegistration: v || null })} options={QUALIFICATION_OPTIONS} ariaLabel="Required registration" allLabel="None required" /></Field>
             <Field label="Minimum shelf life left (%)"><input type="number" min={0} max={100} style={inputStyle} value={l.minShelfLifePercent ?? ""} onChange={(e) => upd(i, { minShelfLifePercent: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
+              </>
+            )}
             <Field label="Lot (optional)"><input type="number" min={1} style={inputStyle} value={l.lotNumber ?? ""} onChange={(e) => upd(i, { lotNumber: e.target.value === "" ? null : Number(e.target.value) })} /></Field>
             {l.lotNumber ? <Field label={`Title of lot ${l.lotNumber}`} hint="Items with the same lot number share this title."><input style={inputStyle} value={l.lotTitle ?? ""} maxLength={200} onChange={(e) => { const v = e.target.value || null; const n = l.lotNumber; setLines((ls) => ls.map((x, j) => (j === i || x.lotNumber === n ? { ...x, lotTitle: v } : x))); }} /></Field> : null}
-            <Field label="Cold chain"><label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={l.coldChainRequired} onChange={(e) => upd(i, { coldChainRequired: e.target.checked })} /> Required</label></Field>
+            {!l.serviceCategory && <Field label="Cold chain"><label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13.5 }}><input type="checkbox" checked={l.coldChainRequired} onChange={(e) => upd(i, { coldChainRequired: e.target.checked })} /> Required</label></Field>}
             <Field label="Specification" wide><textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={l.specification ?? ""} onChange={(e) => upd(i, { specification: e.target.value || null })} /></Field>
             <button type="button" aria-label={`Remove item ${i + 1}`} onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} style={{ position: "absolute", top: 8, right: 8, border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)" }}><XIcon size={16} /></button>
           </div>

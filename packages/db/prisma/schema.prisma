@@ -1215,6 +1215,8 @@ model ProjectLine {
   /// For a Services line (productCategory SERVICES), 2026-10-25: the kind of service (SERVICE_CATEGORIES code) and how its price is stated (SERVICE_PRICING_BASES code). `quantity` then counts the pricing basis (days, months, units). Null for goods.
   serviceCategory          String?        @db.NVarChar(40)
   servicePricingBasis      String?        @db.NVarChar(20)
+  /// The standard service this line started from (SERVICE_CATALOGUE code), 2026-10-25. Optional: a service line may be free text.
+  serviceCode              String?        @db.NVarChar(40)
   /// Once a product is identified/matched against the shared catalog. Not
   /// required — plenty of lines will never be matched, especially early on.
   productMasterId          String?
@@ -3466,6 +3468,11 @@ model TenderLine {
   requiredRegistration   String?
   minShelfLifePercent    Int?
   coldChainRequired      Boolean @default(false)
+  /// A services line (2026-10-25): the kind of service (SERVICE_CATEGORIES code), how bidders state the price (SERVICE_PRICING_BASES code) and the
+  /// standard service it started from (SERVICE_CATALOGUE code). Null for goods. `quantity` then counts the pricing basis (days, months, units).
+  serviceCategory        String? @db.NVarChar(40)
+  servicePricingBasis    String? @db.NVarChar(20)
+  serviceCode            String? @db.NVarChar(40)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

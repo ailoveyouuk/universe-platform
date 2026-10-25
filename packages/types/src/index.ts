@@ -2,6 +2,7 @@ export * from "./pharma-links";
 export * from "./supplier-scope";
 export * from "./commodity-groups";
 export * from "./service-categories";
+export * from "./service-catalogue";
 export * from "./insights-activity";
 export * from "./category-codes";
 /**
@@ -534,6 +535,8 @@ export interface ProjectLineSummary {
   /** Services lines only (productCategory SERVICES): the kind of service and how its price is stated. */
   serviceCategory: string | null;
   servicePricingBasis: string | null;
+  /** The standard service (SERVICE_CATALOGUE code) the line started from. */
+  serviceCode?: string | null;
   supplierId: string | null;
   supplierName: string | null;
   clientPoNumber: string | null;
@@ -743,6 +746,7 @@ export interface ProjectLineInput {
   quotedLeadTimeDays?: number | null;
   serviceCategory?: string | null;
   servicePricingBasis?: string | null;
+  serviceCode?: string | null;
   supplierId?: string | null;
   clientPoNumber?: string | null;
   clientPoReceiptDate?: string | null;
@@ -3473,6 +3477,8 @@ export interface TenderListItem extends TenderRecord { interestedOrganisations: 
 export interface TenderLineRecord {
   id?: string; lineNumber?: number; lotNumber: number | null; lotTitle: string | null; description: string; productMasterId: string | null; specification: string | null;
   quantity: string | number | null; unit: string | null; destinationCountryCode: string | null; requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean;
+  /** Services lines: the kind of service, how the price is stated and the standard service it started from. Null for goods. */
+  serviceCategory?: string | null; servicePricingBasis?: string | null; serviceCode?: string | null;
 }
 export interface TenderCriterionRecord { id?: string; title: string; description: string | null; kind: "GATE" | "SCORED"; weight: string | number | null; isMandatory: boolean; responseFormat: "UPLOAD" | "TEXT" | "EITHER"; metric?: "MANUAL" | "PRICE" | "LEAD_TIME" | "PAST_PERFORMANCE"; acceptedFileTypes: string | null }
 export interface TenderRuleRecord { id?: string; ruleType: TenderRuleType; ruleValue: string; explanation: string | null; isRequired: boolean }
@@ -3596,6 +3602,8 @@ export interface TenderBidLineValue {
 export interface TenderBidWorkspaceLine extends TenderBidLineValue {
   lineNumber: number; lotNumber: number | null; lotTitle: string | null; description: string; quantity: string | null; unit: string | null; destinationCountryCode: string | null;
   requiredRegistration: string | null; minShelfLifePercent: number | null; coldChainRequired: boolean; specification: string | null;
+  /** Services lines: the kind of service and the basis the bidder states the price on. */
+  serviceCategory?: string | null; servicePricingBasis?: string | null;
 }
 export interface TenderBidFileRecord { id: string; fileName: string; fileSizeBytes: number | null; criterionId: string | null }
 export interface TenderBidWorkspaceCriterion {

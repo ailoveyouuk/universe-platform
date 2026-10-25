@@ -48,6 +48,7 @@ export class TenderBidProjectsService {
       projectNotes: `Tracking tender ${t.referenceNumber} issued by ${issuer?.name ?? "the issuer"}. Bid closes ${t.closingAt ? t.closingAt.toISOString().slice(0, 10) : "(date not set)"}.`,
       lines: { create: lines.map((l: any) => ({
         organizationId, clientProductDescription: l.description, productMasterId: l.productMasterId ?? undefined, sourceTenderLineId: l.id,
+        ...(l.serviceCategory ? { productCategory: "SERVICES", serviceCategory: l.serviceCategory, servicePricingBasis: l.servicePricingBasis ?? undefined, serviceCode: l.serviceCode ?? undefined } : {}),
         quantity: l.quantity != null ? Math.round(Number(l.quantity)) : undefined, ...(l.destinationCountryCode ? { destinationCountryCode: l.destinationCountryCode } : {}),
       })) },
     } });

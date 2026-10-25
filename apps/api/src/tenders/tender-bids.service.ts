@@ -88,7 +88,7 @@ export class TenderBidsService {
     const wsLines = lines.map((l) => {
       const b = bidLines.find((x) => x.tenderLineId === l.id);
       return {
-        tenderLineId: l.id, lineNumber: l.lineNumber, lotNumber: l.lotNumber, lotTitle: l.lotTitle, description: l.description, quantity: dec(l.quantity), unit: l.unit, destinationCountryCode: l.destinationCountryCode,
+        tenderLineId: l.id, lineNumber: l.lineNumber, lotNumber: l.lotNumber, lotTitle: l.lotTitle, description: l.description, quantity: dec(l.quantity), unit: l.unit, destinationCountryCode: l.destinationCountryCode, serviceCategory: l.serviceCategory ?? null, servicePricingBasis: l.servicePricingBasis ?? null,
         requiredRegistration: l.requiredRegistration, minShelfLifePercent: l.minShelfLifePercent, coldChainRequired: l.coldChainRequired, specification: l.specification,
         noBid: b?.noBid ?? false, unitPrice: dec(b?.unitPrice), leadTimeDays: b?.leadTimeDays ?? null, countryOfOrigin: b?.countryOfOrigin ?? null, manufacturerName: b?.manufacturerName ?? null, remarks: b?.remarks ?? null,
       };

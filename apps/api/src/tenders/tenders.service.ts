@@ -11,6 +11,7 @@ import {
   type EligibilityResult, type OrgProfile, type RuleLike, type SavedCriteria,
 } from "./eligibility";
 import { EXCLUSION_GROUNDS, orgTypesOf, scopeSubsForProduct } from "@universe/types";
+import { serviceBasisUnit, serviceCategoryPath, serviceLineProblem, serviceScopeSub } from "./service-lines";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 import type {
   CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
@@ -204,9 +205,10 @@ export class TendersService {
         const untitled = [...new Set(lotted.map((l) => l.lotNumber!))].filter((n) => !titles.has(n));
         if (untitled.length) throw new BadRequestException(`Give lot ${untitled.join(", ")} a title.`);
       }
+      for (const [i, l] of dto.lines.entries()) { const problem = serviceLineProblem(l, `Item ${i + 1}`); if (problem) throw new BadRequestException(problem); }
       await tx.tenderLine.deleteMany({ where: { tenderId: id } });
       for (const [i, l] of dto.lines.entries()) {
-        await tx.tenderLine.create({ data: { organizationId: user.organizationId, tenderId: id, lineNumber: i + 1, ...l, lotTitle: l.lotNumber ? titles.get(l.lotNumber) ?? null : null, destinationCountryCode: l.destinationCountryCode?.toUpperCase() } });
+        await tx.tenderLine.create({ data: { organizationId: user.organizationId, tenderId: id, lineNumber: i + 1, ...l, lotTitle: l.lotNumber ? titles.get(l.lotNumber) ?? null : null, destinationCountryCode: l.destinationCountryCode?.toUpperCase(), ...(l.serviceCategory ? (l.unit ? {} : { unit: serviceBasisUnit(l.servicePricingBasis) }) : { serviceCategory: null, servicePricingBasis: null, serviceCode: null }) } });
       }
       return tx.tenderLine.findMany({ where: { tenderId: id }, orderBy: { lineNumber: "asc" } });
     });
@@ -332,12 +334,14 @@ export class TendersService {
   /** "A new tender matches your saved search": runs after publication, across organisations, in a platform-staff context. */
   private async alertSavedSearches(user: RequestUser, t: { id: string; organizationId: string; referenceNumber: string; title: string; summary: string | null; tenderType: string; deliveryCountryCodes: string | null; currency?: string | null }, skip: Set<string>) {
     const { categories, scopeSubs, issuerName, lineText } = await withTenantContext(user.organizationId, async (tx) => {
-      const allLines = await tx.tenderLine.findMany({ where: { tenderId: t.id }, select: { productMasterId: true, description: true } });
+      const allLines = await tx.tenderLine.findMany({ where: { tenderId: t.id }, select: { productMasterId: true, description: true, serviceCategory: true } });
       const lines = allLines.filter((l) => l.productMasterId);
+      const svcCats = [...new Set(allLines.map((l) => (l.serviceCategory ? serviceCategoryPath(l.serviceCategory) : null)).filter((c): c is string => !!c))];
+      const svcSubs = [...new Set(allLines.map((l) => (l.serviceCategory ? serviceScopeSub(l.serviceCategory) : null)).filter((c): c is string => !!c))];
       const ids = [...new Set(lines.map((l) => l.productMasterId!))];
       const products = await tx.productMaster.findMany({ where: { id: { in: ids } }, select: { category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
       const org = await tx.organization.findUnique({ where: { id: t.organizationId }, select: { name: true } });
-      return { categories: [...new Set(products.map((p) => p.category))], scopeSubs: [...new Set(products.flatMap((p: any) => scopeSubsForProduct(p)))] as string[], issuerName: org?.name ?? "", lineText: allLines.map((l) => l.description).join(" ") };
+      return { categories: [...new Set([...products.map((p) => p.category), ...svcCats])], scopeSubs: [...new Set([...products.flatMap((p: any) => scopeSubsForProduct(p)), ...svcSubs])] as string[], issuerName: org?.name ?? "", lineText: allLines.map((l) => l.description).join(" ") };
     });
     const matched = await withPlatformStaffContext(async (tx) => {
       const searches = await tx.tenderSavedSearch.findMany({ where: { alertsEnabled: true, organizationId: { not: t.organizationId } }, take: 5000 });
@@ -480,15 +484,15 @@ export class TendersService {
         tx.tenderParticipation.findMany({ where: { organizationId: user.organizationId, tenderId: { in: ids }, withdrawnAt: null }, select: { tenderId: true } }),
         tx.tenderShortlist.findMany({ where: { organizationId: user.organizationId, tenderId: { in: ids } }, select: { tenderId: true } }),
         tx.tenderInvitation.findMany({ where: { invitedOrganizationId: user.organizationId, tenderId: { in: ids } }, select: { tenderId: true } }),
-        tx.tenderLine.findMany({ where: { tenderId: { in: ids }, productMasterId: { not: null } }, select: { tenderId: true, productMasterId: true } }),
+        tx.tenderLine.findMany({ where: { tenderId: { in: ids }, OR: [{ productMasterId: { not: null } }, { serviceCategory: { not: null } }] }, select: { tenderId: true, productMasterId: true, serviceCategory: true } }),
       ]);
       const pmCategory = new Map<string, string>();
-      for (const c of chunk([...new Set(lines.map((l) => l.productMasterId!))], 500)) {
+      for (const c of chunk([...new Set(lines.map((l) => l.productMasterId).filter((x): x is string => !!x))], 500)) {
         for (const p of await tx.productMaster.findMany({ where: { id: { in: c } }, select: { id: true, category: true } })) pmCategory.set(p.id, p.category);
       }
       const partSet = new Set(parts.map((p) => p.tenderId)), shortSet = new Set(shorts.map((p) => p.tenderId)), inviteSet = new Set(invites.map((p) => p.tenderId));
       const cats = new Map<string, Set<string>>();
-      for (const l of lines) { const c = pmCategory.get(l.productMasterId!); if (c) (cats.get(l.tenderId) ?? cats.set(l.tenderId, new Set()).get(l.tenderId)!).add(c); }
+      for (const l of lines) { const c = l.productMasterId ? pmCategory.get(l.productMasterId) : l.serviceCategory ? serviceCategoryPath(l.serviceCategory) : null; if (c) (cats.get(l.tenderId) ?? cats.set(l.tenderId, new Set()).get(l.tenderId)!).add(c); }
       const now = new Date();
       let rows = tenders.map((t) => {
         const result = evaluateEligibility(this.ruleView(t.rules), profile, { invited: inviteSet.has(t.id) });
@@ -739,6 +743,8 @@ export class TendersService {
     const declared = new Set<string>((await withTenantContext(user.organizationId, (tx) => tx.organizationScope.findMany({ where: { organizationId: user.organizationId, archivedAt: null } }))).map((r) => r.scopeSubId));
     if (declared.size === 0) return out;
     await withPlatformStaffContext(async (tx: any) => {
+      const svcLines = await tx.tenderLine.findMany({ where: { tenderId: { in: tenderIds }, serviceCategory: { not: null } }, select: { tenderId: true, serviceCategory: true } });
+      for (const l of svcLines) { const sub = serviceScopeSub(l.serviceCategory); if (sub && declared.has(sub)) out.set(l.tenderId, [...new Set([...(out.get(l.tenderId) ?? []), sub])]); }
       const lines = await tx.tenderLine.findMany({ where: { tenderId: { in: tenderIds }, productMasterId: { not: null } }, select: { tenderId: true, productMasterId: true } });
       const products = await tx.productMaster.findMany({ where: { id: { in: [...new Set<string>(lines.map((l: any) => l.productMasterId))] } }, select: { id: true, category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
       const subs = new Map<string, string[]>(products.map((p: any) => [p.id, scopeSubsForProduct(p)]));

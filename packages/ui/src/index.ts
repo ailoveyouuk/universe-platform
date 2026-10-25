@@ -21,6 +21,7 @@ export * from "./CountryMultiSelect";
 export * from "./CurrencySelect";
 export * from "./UnitSelect";
 export * from "./ProductPicker";
+export * from "./ServiceCataloguePicker";
 export * from "./AppSwitcher";
 export * from "./StatTile";
 export * from "./ScoreLegend";

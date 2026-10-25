@@ -2,9 +2,9 @@
 
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
-import { projectLineSummaryToInput, PRODUCT_GROUPS_NON_PHARMA, catalogueGroupForCommodity, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS, SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode } from "@universe/types";
+import { projectLineSummaryToInput, PRODUCT_GROUPS_NON_PHARMA, catalogueGroupForCommodity, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS, SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, serviceCatalogueByCode } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
-import { Button, CountrySelect, CurrencySelect, ProductPicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
+import { Button, CountrySelect, CurrencySelect, ProductPicker, ServiceCataloguePicker, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { RegisterStrip } from "../../../components/RegisterStrip";
 import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -444,8 +444,14 @@ export function LineForm({
         </Field>
         {form.productCategory === "SERVICES" && (
           <>
+            <Field label="Standard service" span={2}>
+              <ServiceCataloguePicker value={form.serviceCode} category={form.serviceCategory} style={inputStyle} onPick={(item) => {
+                update("serviceCode", item?.code ?? null);
+                if (item) { update("serviceCategory", item.category); update("servicePricingBasis", item.basis); if (!form.clientProductDescription?.trim()) update("clientProductDescription", item.name); }
+              }} />
+            </Field>
             <Field label="Type of service">
-              <select className="u-native-select" style={inputStyle} value={form.serviceCategory ?? ""} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); update("serviceCategory", e.target.value || null); if (c && !form.servicePricingBasis) update("servicePricingBasis", c.bases[0] ?? null); }}>
+              <select className="u-native-select" style={inputStyle} value={form.serviceCategory ?? ""} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); update("serviceCategory", e.target.value || null); if (form.serviceCode && serviceCatalogueByCode(form.serviceCode)?.category !== e.target.value) update("serviceCode", null); if (c && !form.servicePricingBasis) update("servicePricingBasis", c.bases[0] ?? null); }}>
                 <option value="">Select…</option>
                 {SERVICE_GROUPS.map((g) => (
                   <optgroup key={g} label={g}>{SERVICE_CATEGORIES.filter((c) => c.group === g).map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</optgroup>

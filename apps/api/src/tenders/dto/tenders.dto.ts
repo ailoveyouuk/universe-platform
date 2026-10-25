@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
-import { EVIDENCE_KINDS, EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES } from "@universe/types";
+import { EVIDENCE_KINDS, EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES, SERVICE_CATEGORY_CODES, SERVICE_PRICING_BASIS_CODES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
 export const TENDER_TYPES = ["RFQ", "RFP", "ITT", "OPEN_TENDER", "FRAMEWORK"] as const;
@@ -59,6 +59,10 @@ export class TenderLineDto {
   @IsOptional() @IsString() requiredRegistration?: string;
   @IsOptional() @IsInt() @Min(0) @Max(100) minShelfLifePercent?: number;
   @IsOptional() @IsBoolean() coldChainRequired?: boolean;
+  /** Services lines (2026-10-25): the kind of service, how its price is stated, and the standard service it started from. */
+  @IsOptional() @IsIn(SERVICE_CATEGORY_CODES) serviceCategory?: string | null;
+  @IsOptional() @IsIn(SERVICE_PRICING_BASIS_CODES) servicePricingBasis?: string | null;
+  @IsOptional() @IsString() @Length(1, 40) serviceCode?: string | null;
 }
 export class SetLinesDto { @IsArray() @ValidateNested({ each: true }) @Type(() => TenderLineDto) lines!: TenderLineDto[] }
 

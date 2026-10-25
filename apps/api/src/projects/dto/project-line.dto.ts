@@ -1,5 +1,5 @@
 import { COMMODITY_GROUPS, SERVICE_CATEGORY_CODES, SERVICE_PRICING_BASIS_CODES } from "@universe/types";
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Min } from "class-validator";
 
 const PRODUCT_CATEGORIES = COMMODITY_GROUPS;
 /** Added 2026-09-30, replacing the old supplierPaymentStatusPercent field —
@@ -45,6 +45,7 @@ export class ProjectLineDto {
   /** Services lines (productCategory SERVICES), 2026-10-25. */
   @IsOptional() @IsIn(SERVICE_CATEGORY_CODES) serviceCategory?: string | null;
   @IsOptional() @IsIn(SERVICE_PRICING_BASIS_CODES) servicePricingBasis?: string | null;
+  @IsOptional() @IsString() @Length(1, 40) serviceCode?: string | null;
   @IsOptional() @IsString() supplierId?: string;
   @IsOptional() @IsString() clientPoNumber?: string;
   @IsOptional() @IsString() clientPoReceiptDate?: string;

@@ -268,6 +268,7 @@ function toLineSummary(l: LineWithPartners): ProjectLineSummary {
     quotedLeadTimeDays: l.quotedLeadTimeDays ?? null,
     serviceCategory: l.serviceCategory ?? null,
     servicePricingBasis: l.servicePricingBasis ?? null,
+    serviceCode: l.serviceCode ?? null,
     supplierId: l.supplierId,
     supplierName: l.supplier?.name ?? null,
     clientPoNumber: l.clientPoNumber,

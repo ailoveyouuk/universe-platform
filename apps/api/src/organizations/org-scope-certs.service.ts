@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { BlobStorageService } from "../documents/blob-storage.service";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
-import { SUPPLIER_SCOPE_TAXONOMY, scopeSubsForProduct } from "@universe/types";
+import { SUPPLIER_SCOPE_TAXONOMY, scopeSubsForProduct, scopeSubForServiceCategory } from "@universe/types";
 import type { CertificationStatus, OrganizationCard, OrganizationCertificationSummary, OrganizationScopeSummary } from "@universe/types";
 import { assertCanManageOrg } from "../common/authorization";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -247,11 +247,11 @@ export class OrgScopeCertsService {
       const awardLines = await tx.tenderAwardLine.findMany({ where: { awardedOrganizationId: organizationId }, select: { tenderLineId: true } });
       const bidLineIds = Array.from(new Set(bidLines.filter((l: any) => submitted.has(l.bidId)).map((l: any) => l.tenderLineId)));
       const awardLineIds = Array.from(new Set(awardLines.map((l: any) => l.tenderLineId)));
-      const lines = await tx.tenderLine.findMany({ where: { id: { in: [...bidLineIds, ...awardLineIds] as string[] }, productMasterId: { not: null } }, select: { id: true, productMasterId: true } });
-      const productIds = Array.from(new Set(lines.map((l: any) => l.productMasterId)));
+      const lines = await tx.tenderLine.findMany({ where: { id: { in: [...bidLineIds, ...awardLineIds] as string[] } }, select: { id: true, productMasterId: true, serviceCategory: true } });
+      const productIds = Array.from(new Set(lines.map((l: any) => l.productMasterId).filter(Boolean)));
       const products = await tx.productMaster.findMany({ where: { id: { in: productIds as string[] } }, select: { id: true, category: true, hsCode: true, name: true, inn: true, brand: true, atcCode: true } });
       const subsByProduct = new Map<string, string[]>(products.map((p: any) => [p.id, scopeSubsForProduct(p)]));
-      const subsByLine = new Map<string, string[]>(lines.map((l: any) => [l.id, subsByProduct.get(l.productMasterId) ?? []]));
+      const subsByLine = new Map<string, string[]>(lines.map((l: any) => [l.id, l.serviceCategory ? [scopeSubForServiceCategory(l.serviceCategory)].filter((x): x is string => !!x) : subsByProduct.get(l.productMasterId) ?? []]));
       const tally = new Map<string, { bids: number; awards: number }>();
       const bump = (lineId: string, k: "bids" | "awards") => {
         for (const sub of subsByLine.get(lineId) ?? []) {
