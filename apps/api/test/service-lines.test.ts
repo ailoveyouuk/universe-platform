@@ -29,3 +29,20 @@ describe("service tender lines", () => {
     expect(serviceScopeSub("TRAINING")).toMatch(/^svc-/);
   });
 });
+
+import ExcelJS from "exceljs";
+import { buildFinancialTemplate } from "../src/tenders/bid-template";
+describe("bid template for service lines", () => {
+  it("shows one unit of the pricing basis and explains it", async () => {
+    const buf = await buildFinancialTemplate(
+      { id: "t1", referenceNumber: "R", title: "T", issuerName: "I", currency: "USD", bidValidityDays: 90, closingText: "soon" },
+      [{ id: "l1", lineNumber: 1, description: "Adviser", quantity: "120", unit: "day", servicePricingBasis: "PER_DAY" }, { id: "l2", lineNumber: 2, description: "Study", quantity: "1", unit: "fixed fee", servicePricingBasis: "LUMP_SUM" }, { id: "l3", lineNumber: 3, description: "Pack", quantity: "5", unit: "pack" }],
+      [], [{ code: "KE", name: "Kenya" }]);
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buf as never);
+    const ws = wb.getWorksheet("Financial offer")!;
+    expect(ws.getCell("E8").value).toBe("per day");
+    expect(ws.getCell("E9").value).toBe("fixed fee");
+    expect(ws.getCell("E10").value).toBe("pack");
+    expect(String(ws.getCell("B6").value)).toMatch(/one unit of the Unit column/);
+  });
+});

@@ -212,7 +212,7 @@ export class TenderBidsService {
       const closingText = t.closingAt ? `${t.closingAt.toISOString().slice(0, 16).replace("T", " ")} UTC` : "the closing time";
       return {
         tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, issuerName: issuer?.name ?? "", currency: t.currency!, bidValidityDays: t.bidValidityDays, closingText },
-        lines: lines.map((l) => ({ id: l.id, lineNumber: l.lineNumber, description: l.description, quantity: dec(l.quantity), unit: l.unit, lotNumber: l.lotNumber, lotTitle: l.lotTitle })),
+        lines: lines.map((l) => ({ id: l.id, lineNumber: l.lineNumber, description: l.description, quantity: dec(l.quantity), unit: l.unit, lotNumber: l.lotNumber, lotTitle: l.lotTitle, servicePricingBasis: l.servicePricingBasis ?? null })),
         criteria: criteria.map((x) => ({ id: x.id, title: x.title, description: x.description, kind: x.kind, weight: dec(x.weight), isMandatory: x.isMandatory, responseFormat: x.responseFormat })),
         countries, allowTextSubmission: t.allowTextSubmission,
       };

@@ -10,7 +10,7 @@ import JSZip from "jszip";
  * Sheet protection is a convenience only; every value is validated again on upload.
  */
 export interface TemplateTender { id: string; referenceNumber: string; title: string; issuerName: string; currency: string; bidValidityDays: number | null; closingText: string }
-export interface TemplateLine { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null; lotNumber?: number | null; lotTitle?: string | null }
+export interface TemplateLine { id: string; lineNumber: number; description: string; quantity: string | null; unit: string | null; lotNumber?: number | null; lotTitle?: string | null; servicePricingBasis?: string | null }
 export interface TemplateCriterion { id: string; title: string; description: string | null; kind: string; weight: string | null; isMandatory: boolean; responseFormat: string }
 export interface TemplateCountry { code: string; name: string }
 
@@ -35,7 +35,7 @@ export async function buildFinancialTemplate(t: TemplateTender, lines: TemplateL
   ws.getCell("B3").value = "Currency of all prices"; ws.getCell("C3").value = t.currency; ws.getCell("C3").font = { bold: true };
   ws.getCell("B4").value = `Bid valid for ${t.bidValidityDays ?? "the required number of"} days after closing? (Yes / No)`;
   ws.getCell("B5").value = "Notes (optional)";
-  ws.getCell("B6").value = "Complete only the shaded cells. Do not add, remove or reorder rows. Prices are per unit in the currency above."+(lines.some((l) => l.lotNumber) ? " Bid for a lot in full (price every item in it) or mark every item in it \"Yes\" under Not bidding." : "");
+  ws.getCell("B6").value = "Complete only the shaded cells. Do not add, remove or reorder rows. Prices are per unit in the currency above."+(lines.some((l) => l.servicePricingBasis) ? " For a service, the unit price is your rate for one unit of the Unit column (for example one day or one month), and the quantity counts those units." : "")+(lines.some((l) => l.lotNumber) ? " Bid for a lot in full (price every item in it) or mark every item in it \"Yes\" under Not bidding." : "");
   ws.getCell("B6").font = { italic: true, color: { argb: "FF666666" } };
   const hdr = ["", "Item", "Description", "Quantity", "Unit", "Not bidding? (Yes / No)", "Unit price", "Lead time (days)", "Country of origin", "Manufacturer (optional)", "Remarks (optional)", "Line total", "Lot"];
   hdr.forEach((h, i) => { const c = ws.getCell(HDR_ROW, i + 1); c.value = h; c.font = { bold: true }; c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } }; });
@@ -47,7 +47,7 @@ export async function buildFinancialTemplate(t: TemplateTender, lines: TemplateL
     const r = FIRST + i;
     ws.getCell(r, 1).value = l.id;
     ws.getCell(r, 2).value = l.lineNumber; ws.getCell(r, 3).value = l.description;
-    ws.getCell(r, 4).value = l.quantity === null ? null : Number(l.quantity); ws.getCell(r, 5).value = l.unit ?? "";
+    ws.getCell(r, 4).value = l.quantity === null ? null : Number(l.quantity); ws.getCell(r, 5).value = l.servicePricingBasis ? (l.servicePricingBasis === "LUMP_SUM" || l.servicePricingBasis === "PERCENT_OF_GOODS" ? l.unit ?? "" : `per ${l.unit ?? "unit"}`) : l.unit ?? "";
     open(`F${r}`).dataValidation = { type: "list", allowBlank: true, formulae: ['"Yes,No"'] };
     open(`G${r}`).dataValidation = { type: "decimal", operator: "greaterThanOrEqual", allowBlank: true, formulae: [0], showErrorMessage: true, errorTitle: "Unit price", error: "Enter a number, 0 or more." };
     open(`H${r}`).dataValidation = { type: "whole", operator: "between", allowBlank: true, formulae: [0, 3650], showErrorMessage: true, errorTitle: "Lead time", error: "Enter whole days, 0 to 3650." };

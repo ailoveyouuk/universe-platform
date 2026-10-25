@@ -1,0 +1,34 @@
+name: Seed demo service tender
+
+# A simulated services tender SIM-SVC-001: competitive RFQ for three standard services with two submitted competing bids and a draft bid for Universe Demo (2026-10-25). Dry run by default.
+on:
+  workflow_dispatch:
+    inputs:
+      tender_ref:
+        description: "Reference for the new simulated tender"
+        default: "SIM-SVC-001"
+        type: string
+      dry_run:
+        description: "Dry run (writes nothing). Untick to apply."
+        default: true
+        type: boolean
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Seed service tender (or dry run)
+        run: npm run seed:demo-service-tender --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          TENDER_REF: ${{ inputs.tender_ref }}
+          PRISMA_TX_TIMEOUT_MS: "120000"

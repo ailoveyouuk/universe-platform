@@ -30,6 +30,7 @@
     "seed:demo-lots": "tsx scripts/seed-demo-lots.ts",
     "seed:demo-framework": "tsx scripts/seed-demo-framework.ts",
     "seed:demo-competitive-tender": "tsx scripts/seed-demo-competitive-tender.ts",
+    "seed:demo-service-tender": "tsx scripts/seed-demo-service-tender.ts",
     "dedupe:demo-approvals": "tsx scripts/dedupe-demo-approvals.ts",
     "audit:demo": "tsx scripts/audit-demo-consistency.ts",
     "audit:demo-coverage": "tsx scripts/audit-demo-coverage.ts",
