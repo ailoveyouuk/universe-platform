@@ -48,7 +48,7 @@ export function MetricLineChart({ metric, title }: { metric: TrendMetric; title:
   if (metric.zero) lo = Math.min(0, lo);
   if (hi === lo) hi = lo + 1;
   const step = niceStep(hi - lo);
-  const y0 = metric.zero ? 0 : Math.floor((lo - (hi - lo) * 0.08) / step) * step, y1 = Math.ceil((hi + (hi - lo) * 0.05) / step) * step;
+  const y0 = metric.zero || (lo >= 0 && lo - (hi - lo) * 0.08 < 0) ? Math.min(0, Math.floor(lo / step) * step) : Math.floor((lo - (hi - lo) * 0.08) / step) * step, y1 = Math.ceil((hi + (hi - lo) * 0.05) / step) * step;
   const ticks: number[] = []; for (let v = y0; v <= y1 + step / 2; v += step) ticks.push(Math.round(v * 1e6) / 1e6);
   const x = (m: string) => L + (months.length === 1 ? (W - L - R) / 2 : (months.indexOf(m) * (W - L - R)) / (months.length - 1));
   const y = (v: number) => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
@@ -57,7 +57,7 @@ export function MetricLineChart({ metric, title }: { metric: TrendMetric; title:
   const tipFor = (m: string) => {
     const rows = lines.flatMap((l) => { const p = l.points.find((q) => q.month === m); return p ? [{ label: l.name, value: `${metric.fmt(p.value)} ${metric.unit}`.trim(), swatch: l.color }] : []; });
     const ys = lines.flatMap((l) => l.points.filter((q) => q.month === m).map((q) => y(q.value)));
-    return { key: m, x: x(m), y: Math.min(...ys), vw: W, vh: H, title: `${monthLabel(m)}: ${metric.label.toLowerCase()}`, rows };
+    return { key: m, x: x(m), y: Math.min(...ys), vw: W, vh: H, title: `${monthLabel(m)}: ${metric.label}`, rows };
   };
   const summary = `${title}. ` + lines.map((l) => { const a = l.points[0]!, b = l.points[l.points.length - 1]!; return `${l.name} went from ${metric.fmt(a.value)} in ${monthLabel(a.month)} to ${metric.fmt(b.value)} ${metric.unit} in ${monthLabel(b.month)}.`; }).join(" ");
   return (
