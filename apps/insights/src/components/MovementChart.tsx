@@ -27,7 +27,7 @@ export function MovementChart({ lines, title }: { lines: MovementLine[]; title: 
   const pad = Math.max(1, (hi - lo) * 0.15), y0 = lo - pad, y1 = hi + pad;
   const x = (label: string) => { const i = labels.indexOf(label); return L + (labels.length === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (labels.length - 1)); };
   const y = (v: number) => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round((y0 + t * (y1 - y0)) * 10) / 10);
+  const ticks = [...new Set([0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(y0 + t * (y1 - y0))))];
   const every = Math.max(1, Math.ceil(labels.length / (W < 480 ? 4 : 8)));
   const summary = `${title}. ` + lines.map((l) => { const a = l.points[0], b = l.points[l.points.length - 1]; return a && b ? `${l.name} went from 100 in ${a.label} to ${b.index.toFixed(1)} in ${b.label}.` : ""; }).join(" ");
   return (

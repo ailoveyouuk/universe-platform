@@ -24,8 +24,9 @@ function change(index: number) {
   return Math.abs(c) < 0.05 ? { text: "No change", arrow: "▬", value: 0 } : c > 0 ? { text: `+${abs}%`, arrow: "▲", value: c } : { text: `−${abs}%`, arrow: "▼", value: c };
 }
 
-function Spark({ points }: { points: { index: number }[] }) {
-  const W = 96, H = 26; const lo = Math.min(...points.map((p) => p.index)), hi = Math.max(...points.map((p) => p.index)); const span = hi - lo || 1;
+/** Every row is drawn on the same scale, so a small move looks small. */
+function Spark({ points, lo, hi }: { points: { index: number }[]; lo: number; hi: number }) {
+  const W = 96, H = 26; const span = hi - lo || 1;
   const d = points.map((p, i) => `${i ? "L" : "M"}${(i * (W - 4)) / Math.max(1, points.length - 1) + 2},${H - 3 - ((p.index - lo) / span) * (H - 6)}`).join(" ");
   return <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden style={{ display: "block" }}><path d={d} fill="none" stroke="var(--u-brand-violet)" strokeWidth={2} strokeLinejoin="round" /></svg>;
 }
@@ -60,6 +61,7 @@ export default function CommoditiesPage() {
   }, [mv, currency, sort]);
   const rising = board.filter((r) => r.ch.value > 0.5).length, falling = board.filter((r) => r.ch.value < -0.5).length;
   const biggest = [...board].sort((a, b) => Math.abs(b.ch.value) - Math.abs(a.ch.value))[0];
+  const sparkLo = Math.min(100, ...board.flatMap((r) => r.s.points.map((p) => p.index))), sparkHi = Math.max(100, ...board.flatMap((r) => r.s.points.map((p) => p.index)));
   const loading = mv === null;
 
   const pick = (g: string) => { setGroup(g); setSeg(""); if (typeof window !== "undefined" && window.innerWidth <= 1100) setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); };
@@ -122,7 +124,7 @@ export default function CommoditiesPage() {
                 <tbody>{board.map(({ s, last, ch }) => (
                   <tr key={s.category} style={{ borderBottom: "1px solid var(--u-border)", background: s.category === group ? "var(--u-surface-alt)" : undefined }}>
                     <th scope="row" style={{ ...td, textAlign: "left", fontWeight: 600 }}><button type="button" className="u-touch" onClick={() => pick(s.category)} aria-pressed={s.category === group} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 600, color: "var(--u-ink)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}>{s.category}</button></th>
-                    <td style={td}><Spark points={s.points} /></td>
+                    <td style={td}><Spark points={s.points} lo={sparkLo} hi={sparkHi} /></td>
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}><span aria-hidden>{ch.arrow} </span>{ch.text}<span style={{ display: "block", fontSize: 11.5, fontWeight: 400, color: "var(--u-ink-secondary)" }}>since {monthLabel(s.points[0]!.month)}</span></td>
                     <td style={{ ...td, textAlign: "right" }}>{last.sourceCount}</td>
                   </tr>
