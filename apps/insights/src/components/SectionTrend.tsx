@@ -72,7 +72,7 @@ export function MetricLineChart({ metric, title }: { metric: TrendMetric; title:
         ))}
         {activeKey && <line x1={x(activeKey)} x2={x(activeKey)} y1={T} y2={H - B} stroke="var(--u-ink-secondary)" strokeWidth={1} strokeDasharray="3 3" pointerEvents="none" />}
         {months.map((m) => { const t = tipFor(m); return <rect data-chart-hit key={`hit-${m}`} x={x(m) - colW / 2} y={T} width={Math.max(24, colW)} height={H - T - B} fill="transparent" tabIndex={0} role="button" aria-label={`${monthLabel(m)}: ${t.rows.map((r) => `${r.label} ${r.value}`).join(", ")}`} style={{ cursor: "pointer", outlineOffset: -2 }} {...bind(t)} />; })}
-        {months.map((m, i) => (i === months.length - 1 || (i % every === 0 && months.length - 1 - i >= every * 0.6)) ? <text key={m} x={x(m)} y={H - 10} textAnchor="middle" fontSize={11} fill="var(--u-ink-secondary)">{monthLabel(m)}</text> : null))}
+        {months.map((m, i) => (i === months.length - 1 || (i % every === 0 && months.length - 1 - i >= every * 0.6)) ? <text key={m} x={x(m)} y={H - 10} textAnchor="middle" fontSize={11} fill="var(--u-ink-secondary)">{monthLabel(m)}</text> : null)}
       </svg>
       <ChartTooltip tip={tip} onClose={close} />
       <ul style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", listStyle: "none", margin: "6px 0 0", padding: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
