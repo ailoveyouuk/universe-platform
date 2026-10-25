@@ -46,7 +46,7 @@ Each sub-category records its World Bank procurement type (consulting, non-consu
 
 ### Not done yet (needs your decision)
 - **Supplier scope of supply and tender matching:** suppliers declare scope under ten product groups. Services would need their own scope group (and a line type on tenders) so a consultancy can declare "technical assistance" and tenders can match it. Today two sub-categories ("Biomedical servicing and maintenance", "Sampling, inspection and testing") sit under the Logistics and Services scope group. Adding a Services scope group touches the supplier directory, tender discovery and the catalogue filters; proposed as the next step.
-- **Service catalogue or rate card:** a reference list of standard services (like the product catalogue) is not built; lines use the type and basis for now.
+- **Service catalogue (built 2026-10-25):** `packages/types/src/service-catalogue.ts` lists 66 standard services across the 22 categories, each with a default pricing basis and a unit (visit, sample, pallet per month). It is shared reference data kept in code, so changing it is a code change, not a screen. Lines store the catalogue `code` (`serviceCode`) and may still be free text. It holds no prices: a true rate card (indicative rates per service) would need real or simulated observed rates and stays open.
 
 ## Sources
 - World Bank Procurement Regulations for IPF Borrowers, 7th edition: https://thedocs.worldbank.org/en/doc/c84273d1b230aeb2b0b8134de5dc8cd7-0290012025/original/Procurement-Regulations-7th-Edition-Sep-2025.pdf
