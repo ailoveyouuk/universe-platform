@@ -26,6 +26,12 @@ describe("Insights is fed cost prices only", () => {
     }
     expect(hits).toEqual([]);
   });
+  it("no table in the insights database has a margin, sales, invoice or client money column", () => {
+    const schema = readFileSync(join(ROOT, "packages/insights-db/prisma/schema.prisma"), "utf8");
+    const fields = strip(schema).split("\n").map((l) => l.trim().split(/\s+/)[0] ?? "").filter((w) => /^[a-z]/.test(w));
+    const bad = fields.filter((f) => /margin|sales|invoice|client|markup/i.test(f));
+    expect(bad).toEqual([]);
+  });
   it("the pipeline reads the pre-margin supplier price", () => {
     const etl = strip(readFileSync(join(ROOT, "packages/insights-db/src/aggregate-etl.ts"), "utf8"));
     expect(etl).toContain("supplierUnitPrice");

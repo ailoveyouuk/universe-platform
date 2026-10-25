@@ -87,6 +87,7 @@ model AggregatedProductPrice {
   id                String   @id @default(uuid())
   category          String
   attributes        String?  @db.NVarChar(Max)
+  /// COST PRICE ONLY: the supplier/manufacturer price before any margin (ProjectLine.supplierUnitPrice). Never a selling price. Rule set by Lewis 2026-10-25.
   unitPrice         Decimal  @db.Decimal(18, 2)
   currency          String   @db.Char(3)
   effectiveMonth    DateTime
