@@ -56,7 +56,7 @@ async function main() {
     // The two later frameworks were created with whatever products came first alphabetically; give each three distinct products that suit its title.
     const FWK: Record<string, { group: string; words: string[] }> = {
       "SIM-FWK-002": { group: "Pharmaceuticals", words: ["artemether", "paracetamol", "amoxicillin"] },
-      "SIM-FWK-003": { group: "Pharmaceuticals", words: ["rehydration", "zinc", "ciprofloxacin"] },
+      "SIM-FWK-003": { group: "Pharmaceuticals", words: ["rehydration", "zinc", "amoxicillin"] },
     };
     for (const [ref, spec] of Object.entries(FWK)) {
       const ft = await tx.tender.findFirst({ where: { referenceNumber: ref, isSimulated: true }, include: { lines: { orderBy: { lineNumber: "asc" } } } });
