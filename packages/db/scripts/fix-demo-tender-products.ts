@@ -53,6 +53,25 @@ async function main() {
     const stale = await tx.tenderClarification.findMany({ where: { question: { contains: "sodium hypochlorite for line 2" }, tender: { referenceNumber: "SIM-ECO-05" } } });
     console.log(`${stale.length} clarification(s) to reword.`);
     if (!dryRun) for (const c of stale) await tx.tenderClarification.update({ where: { id: c.id }, data: { question: "Are other chlorine-based purification tablets acceptable in place of line 1, if they deliver the same available chlorine per litre?", answer: "Yes, provided they deliver the stated available chlorine per litre and carry the same registration in the destination country." } });
+    // The two later frameworks were created with whatever products came first alphabetically; give each three distinct products that suit its title.
+    const FWK: Record<string, { group: string; words: string[] }> = {
+      "SIM-FWK-002": { group: "Pharmaceuticals", words: ["artemether", "paracetamol", "amoxicillin"] },
+      "SIM-FWK-003": { group: "Pharmaceuticals", words: ["rehydration", "zinc", "ciprofloxacin"] },
+    };
+    for (const [ref, spec] of Object.entries(FWK)) {
+      const ft = await tx.tender.findFirst({ where: { referenceNumber: ref, isSimulated: true }, include: { lines: { orderBy: { lineNumber: "asc" } } } });
+      if (!ft || ft.lines.length < 3) continue;
+      const picks: { id: string; name: string }[] = [];
+      for (const w of spec.words) {
+        const hits = await tx.productMaster.findMany({ where: { isSimulated: true, isArchived: false, category: { startsWith: spec.group }, name: { contains: w } }, orderBy: [{ name: "asc" }, { id: "asc" }], take: 20, select: { id: true, name: true } });
+        const h = hits.find((x) => !picks.some((p) => p.id === x.id));
+        if (h) picks.push(h);
+      }
+      if (picks.length < 3) { console.log(`${ref}: not enough matching products.`); continue; }
+      const same = ft.lines.slice(0, 3).every((l, i) => l.productMasterId === picks[i].id);
+      console.log(`${ref}: ${same ? "already correct" : picks.map((x) => x.name).join(" | ")}`);
+      if (!same && !dryRun) for (let i = 0; i < 3; i++) await tx.tenderLine.update({ where: { id: ft.lines[i].id }, data: { productMasterId: picks[i].id, description: picks[i].name } });
+    }
     // SIM-FWK-002 was created with a title that did not match its (medicine) lines.
     const fwk = await tx.tender.findMany({ where: { referenceNumber: "SIM-FWK-002", title: { contains: "nutrition and sanitation" } }, select: { id: true } });
     console.log(`${fwk.length} framework title(s) to correct.`);
