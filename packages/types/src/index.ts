@@ -3989,6 +3989,9 @@ export * from "./project-line-input";
 export interface InsightsFreshness { prices: string | null; sourcing: string | null; logistics: string | null }
 export interface InsightsPricedCategory { category: string; sourceCount: number; observations: number; latestMonth: string }
 export interface InsightsPriceTrendPoint { month: string; currency: string; sourceCount: number; minPrice: number; maxPrice: number; avgPrice: number }
+export interface InsightsPriceMovementPoint { month: string; index: number; sourceCount: number; matchedItems: number }
+/** Like-for-like cost-price index (starts at 100) for a product group, optionally for one region of manufacture or delivery. A ratio, never a price. */
+export interface InsightsPriceMovement { category: string; segmentBy: "manufactureRegion" | "destinationRegion" | null; segment: string | null; currency: string; points: InsightsPriceMovementPoint[] }
 export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }

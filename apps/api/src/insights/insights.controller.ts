@@ -14,6 +14,7 @@ export class InsightsController {
   @Get("overview") overview(@CurrentUser() u: RequestUser) { return this.insights.overview(u.inDemoOrganization === true); }
   @Get("prices/categories") categories(@CurrentUser() u: RequestUser) { return this.insights.priceCategories(u.inDemoOrganization === true); }
   @Get("prices/trend") trend(@CurrentUser() u: RequestUser, @Query("category") category = "") { return this.insights.priceTrend(category, u.inDemoOrganization === true); }
+  @Get("prices/movement") movement(@CurrentUser() u: RequestUser) { return this.insights.priceMovement(u.inDemoOrganization === true); }
   @Get("prices/breakdown") breakdown(@CurrentUser() u: RequestUser, @Query("category") category = "", @Query("by") by = "destinationRegion") { return this.insights.priceBreakdown(category, by, u.inDemoOrganization === true); }
   @Get("sourcing") sourcing(@CurrentUser() u: RequestUser) { return this.insights.sourcingByCategory(u.inDemoOrganization === true); }
   @Get("logistics/routes") logisticsRoutes(

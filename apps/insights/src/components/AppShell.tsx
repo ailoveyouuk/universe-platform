@@ -37,6 +37,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/", label: "Overview", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/geographies", label: "Geographies", icon: () => <GlobeIcon size={19} />, inNav: true },
   { href: "/modes", label: "Shipping modes", icon: () => <GaugeIcon size={19} />, inNav: true },
+  { href: "/commodities", label: "Commodities", icon: () => <GridIcon size={19} />, inNav: true },
   { href: "/prices", label: "Prices", icon: () => <TrendingUpIcon size={19} />, inNav: true },
   { href: "/sourcing", label: "Sourcing", icon: () => <BuildingIcon size={19} />, inNav: true },
   { href: "/logistics", label: "Logistics and CO2", icon: () => <ThermometerIcon size={19} />, inNav: true },
@@ -82,7 +83,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const staff = (me?.platformStaffRole ?? "NONE") !== "NONE";
-  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (!r.needs || staff || !!me?.permissions.includes(r.needs))).map((r) => ({
+  // Someone who has not been given Insights sees only the explanation, so the page links are left out too.
+  const restricted = !!me?.apps?.length && !me.apps.includes("insights");
+  const navItems: NavItem[] = ROUTES.filter((r) => !restricted && r.inNav && (!r.needs || staff || !!me?.permissions.includes(r.needs))).map((r) => ({
     label: r.label,
     href: r.href,
     icon: r.icon(pathname === r.href),

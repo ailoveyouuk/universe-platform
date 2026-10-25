@@ -1,4 +1,4 @@
-import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
+import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsPriceBreakdownRow, InsightsPriceDimension } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
   TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
@@ -1780,6 +1780,9 @@ export class UniverseApiClient {
   }
   insightsPriceTrend(category: string): Promise<InsightsPriceTrendPoint[]> {
     return this.request(`/insights/prices/trend?category=${encodeURIComponent(category)}`);
+  }
+  insightsPriceMovement(): Promise<InsightsPriceMovement[]> {
+    return this.request("/insights/prices/movement");
   }
   insightsPriceBreakdown(category: string, by: InsightsPriceDimension): Promise<InsightsPriceBreakdownRow[]> {
     return this.request(`/insights/prices/breakdown?category=${encodeURIComponent(category)}&by=${by}`);

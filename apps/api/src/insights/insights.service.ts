@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingTrend, listPricedCategories } from "@universe/insights-db";
+import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingMovement, getPricingTrend, listPricedCategories } from "@universe/insights-db";
 import { canonicalCommodityGroup } from "@universe/types";
 import type { PricingDimension } from "@universe/insights-db";
-import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsPriceBreakdownRow, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsPriceBreakdownRow, InsightsPriceMovement, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
 import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
 
@@ -35,6 +35,10 @@ export class InsightsService {
   async priceTrend(category: string, showSimulated: boolean): Promise<InsightsPriceTrendPoint[]> {
     if (!category.trim()) throw new BadRequestException("Choose a product group.");
     return (await getPricingTrend(category, showSimulated)).map((p) => ({ month: new Date(p.effectiveMonth).toISOString().slice(0, 7), currency: p.currency, sourceCount: p.sourceCount, minPrice: p.minPrice, maxPrice: p.maxPrice, avgPrice: p.avgPrice }));
+  }
+
+  async priceMovement(showSimulated: boolean): Promise<InsightsPriceMovement[]> {
+    return (await getPricingMovement(showSimulated)).map((s) => ({ category: s.category, segmentBy: s.segmentBy, segment: s.segment, currency: s.currency, points: s.points.map((p) => ({ month: new Date(p.effectiveMonth).toISOString().slice(0, 7), index: p.index, sourceCount: p.sourceCount, matchedItems: p.matchedItems })) }));
   }
 
   async priceBreakdown(category: string, by: string, showSimulated: boolean): Promise<InsightsPriceBreakdownRow[]> {

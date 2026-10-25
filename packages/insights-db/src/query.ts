@@ -1,4 +1,5 @@
 import { insightsPrisma, Prisma } from "./index";
+import { computePricingMovement, type PricingMovementSeries } from "./movement";
 
 /**
  * Statistical-disclosure-control floor (2026-09-24 decision — see
@@ -288,4 +289,15 @@ export async function getInsightsFreshness(showSimulated = false): Promise<{ pri
     insightsPrisma.$queryRaw<{ d: Date | null }[]>`SELECT MAX(createdAt) AS d FROM aggregated_logistics_metrics ${f}`,
   ]);
   return { prices: p[0]?.d ?? null, sourcing: s[0]?.d ?? null, logistics: l[0]?.d ?? null };
+}
+
+
+export async function getPricingMovement(showSimulated = false): Promise<PricingMovementSeries[]> {
+  const rows = await insightsPrisma.$queryRaw<{ category: string; attributes: string | null; manufactureRegion: string | null; destinationRegion: string | null; currency: string; effectiveMonth: Date; sourceHash: string; priceSum: number; priceCount: number }[]>`
+    SELECT category, attributes, manufactureRegion, destinationRegion, currency, effectiveMonth, sourceHash, SUM(unitPrice) AS priceSum, COUNT(*) AS priceCount
+    FROM aggregated_product_prices
+    ${showSimulated ? Prisma.empty : Prisma.sql`WHERE isSimulated = 0`}
+    GROUP BY category, attributes, manufactureRegion, destinationRegion, currency, effectiveMonth, sourceHash
+  `;
+  return computePricingMovement(rows.map((r) => ({ ...r, priceSum: Number(r.priceSum), priceCount: Number(r.priceCount) })));
 }
