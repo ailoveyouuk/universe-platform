@@ -8,7 +8,7 @@ import { InsightsFilterBar, useInsightsFilters } from "../../lib/filters";
 import { groupShipments, totalsOf } from "../../lib/geo";
 import { REGION_LABEL } from "../../lib/format";
 import { useCountries } from "../../lib/useCountries";
-import { Card, ErrorNote, Heading, Page } from "../../lib/ui";
+import { Card, ErrorNote, Heading, Page, pill } from "../../lib/ui";
 
 type Layer = "made" | "delivered" | "flows" | "efficiency";
 type Measure = "shipments" | "co2" | "score";
@@ -130,7 +130,7 @@ export default function GeographiesPage() {
       <Heading title="Geographies" sub="Where goods are made, where they go, and how efficiently they get there. Anonymised across the platform; a figure is only shown when at least five organisations are behind it." actions={<ScoreLegend />} />
       <ErrorNote message={err} />
       <InsightsFilterBar commodities={commodities} />
-      {pair && <p style={{ margin: 0, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13.5 }}>Showing only goods made in <strong>{REGION_LABEL[pair.from]}</strong> and delivered to <strong>{REGION_LABEL[pair.to]}</strong>. <button type="button" className="u-tab u-touch" onClick={() => setPair(null)}>Show all regions</button></p>}
+      {pair && <p style={{ margin: 0, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13.5 }}>Showing only goods made in <strong>{REGION_LABEL[pair.from]}</strong> and delivered to <strong>{REGION_LABEL[pair.to]}</strong>. <button type="button" className="u-touch" style={pill(false)} onClick={() => setPair(null)}>Show all regions</button></p>}
 
       <StatTileGrid>
         <StatTile label="Shipments" value={loading ? "…" : fmt(tot.shipments)} icon={<TrendingUpIcon size={18} />} onClick={() => setLayer("flows")} />
@@ -142,13 +142,13 @@ export default function GeographiesPage() {
       <section aria-labelledby="g-map" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="g-map" style={h2}>Where does it flow?</h2>
         <div role="group" aria-label="Map layer" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {LAYERS.map((l) => <button key={l.key} type="button" className={layer === l.key ? "u-tab-active u-touch" : "u-tab u-touch"} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
+          {LAYERS.map((l) => <button key={l.key} type="button" className="u-touch" style={pill(layer === l.key)} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
         </div>
         <p style={sub}>{LAYERS.find((l) => l.key === layer)?.hint} Select a spot to see that country on the right.</p>
         <div className="geo-split">
           <WorldMap points={map.points} arcs={map.arcs} legend={legend} maxHeight={460} focus={mapFocus} highlightId={selected ? map.points.find((p) => p.id.endsWith(`:${selected}`))?.id ?? null : null}
             emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} onPointClick={(p) => setSelected(p.id.split(":")[1] ?? null)} />
-          <Card title={selected ? nameOf(selected) : "Country detail"} action={selected ? <button type="button" className="u-tab u-touch" onClick={() => setSelected(null)}>Clear</button> : undefined}>
+          <Card title={selected ? nameOf(selected) : "Country detail"} action={selected ? <button type="button" className="u-touch" style={pill(false)} onClick={() => setSelected(null)}>Clear</button> : undefined}>
             {!selected || !detail ? <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Select a spot on the map, or a country in the lists below, to see what it makes, what it receives, where it trades and how it ships.</p> : (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p style={{ margin: 0, fontSize: 13.5 }}>{detail.madeN ? `Makes goods for ${fmt(detail.madeN)} shipments. ` : "Not a country of manufacture here. "}{detail.recvN ? `Receives ${fmt(detail.recvN)} shipments.` : "Not a delivery country here."}</p>
@@ -187,7 +187,7 @@ export default function GeographiesPage() {
         <h2 id="g-grid" style={h2}>Region to region</h2>
         <p style={sub}>Rows are where goods are made, columns where they are delivered (WHO regions). Select a cell to narrow everything on this page to that pair.</p>
         <div role="group" aria-label="Measure shown in the grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {MEASURES.map((m) => <button key={m.key} type="button" className={measure === m.key ? "u-tab-active u-touch" : "u-tab u-touch"} aria-pressed={measure === m.key} onClick={() => setMeasure(m.key)}>{m.label}</button>)}
+          {MEASURES.map((m) => <button key={m.key} type="button" className="u-touch" style={pill(measure === m.key)} aria-pressed={measure === m.key} onClick={() => setMeasure(m.key)}>{m.label}</button>)}
         </div>
         <Card>
           <div style={{ overflowX: "auto" }}>

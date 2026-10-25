@@ -9,7 +9,7 @@ import {
 } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
-import { Card, ErrorNote, Heading, Page, inputStyle } from "../../lib/ui";
+import { Card, ErrorNote, Heading, Page, pill, inputStyle } from "../../lib/ui";
 
 const TOP_ROUTE_COUNT = 10;
 const MODES = [{ key: "", label: "All modes" }, { key: "AIR", label: "Air" }, { key: "SEA", label: "Sea" }, { key: "LAND", label: "Land" }];
@@ -140,8 +140,8 @@ export default function LogisticsPage() {
       <div ref={listRef} style={{ scrollMarginTop: 70 }}>
         <Card title="Routes" action={
           <div role="group" aria-label="Order routes by" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className={sortBy === "common" ? "u-tab-active u-touch" : "u-tab u-touch"} aria-pressed={sortBy === "common"} onClick={() => setSortBy("common")}>Most common</button>
-            <button type="button" className={sortBy === "efficient" ? "u-tab-active u-touch" : "u-tab u-touch"} aria-pressed={sortBy === "efficient"} onClick={() => setSortBy("efficient")}>Most CO2-efficient</button>
+            <button type="button" className="u-touch" style={pill(sortBy === "common")} aria-pressed={sortBy === "common"} onClick={() => setSortBy("common")}>Most common</button>
+            <button type="button" className="u-touch" style={pill(sortBy === "efficient")} aria-pressed={sortBy === "efficient"} onClick={() => setSortBy("efficient")}>Most CO2-efficient</button>
           </div>}>
           <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 100%), 1fr))", gap: 10, marginBottom: 14 }}>
             <select className="u-native-select" aria-label="Delivery terms (Incoterm)" style={inputStyle} value={filters.incoterm ?? ""} onChange={(e) => setFilter("incoterm", e.target.value)}>
@@ -154,7 +154,7 @@ export default function LogisticsPage() {
             <CountrySelect value={filters.destinationCountryCode ?? ""} onChange={(c) => setFilter("destinationCountryCode", c)} options={countries} ariaLabel="Destination country" placeholder="Destination country…" />
           </div>
           {(filters.incoterm || filters.commodityGroup || filters.manufactureCountryCode || filters.destinationCountryCode || mode) && (
-            <p style={{ margin: "0 0 12px" }}><button type="button" className="u-tab u-touch" onClick={() => { setFilters({}); setMode(""); }}>Clear all filters</button></p>
+            <p style={{ margin: "0 0 12px" }}><button type="button" className="u-touch" style={pill(false)} onClick={() => { setFilters({}); setMode(""); }}>Clear all filters</button></p>
           )}
           {rows === null && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Loading…</p>}
           {empty && <p style={{ margin: 0, color: "var(--u-ink-secondary)", fontSize: 14 }}>No route combination has enough contributing organisations to show anonymously for this selection.</p>}

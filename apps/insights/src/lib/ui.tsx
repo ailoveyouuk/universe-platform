@@ -44,3 +44,6 @@ export const Heading = ({ title, sub, actions }: { title: string; sub?: ReactNod
 export const ErrorNote = ({ message }: { message: string | null }) => message ? <div role="alert" style={{ position: "sticky", top: 8, zIndex: 20, padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", color: "var(--u-status-critical-text)", fontSize: 13.5, backgroundColor: "var(--u-surface)", boxShadow: "0 2px 10px rgba(0,0,0,0.12)" }}>{message}</div> : null;
 
 export const fmtDate = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Not available");
+
+/** Style for the small pill buttons used as switches and filters across Insights (selected = filled with the accent colour). */
+export const pill = (active: boolean): CSSProperties => ({ padding: "6px 14px", borderRadius: 8, border: active ? "1px solid var(--u-org-accent, var(--u-brand-violet))" : "1px solid var(--u-border)", background: active ? "var(--u-org-accent, var(--u-brand-violet))" : "var(--u-surface-raised)", color: active ? "var(--u-on-accent)" : "var(--u-ink)", font: "inherit", fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer" });

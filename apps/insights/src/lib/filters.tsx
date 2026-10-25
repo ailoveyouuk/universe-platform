@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { commodityGroupLabel } from "@universe/types";
-import { inputStyle } from "./ui";
+import { inputStyle, pill } from "./ui";
 
 /**
  * The filters every Insights lens shares (2026-10-25): product group and transport mode. Held in a tiny store and remembered for the browser
@@ -39,10 +39,10 @@ export function InsightsFilterBar({ commodities, extra }: { commodities: string[
         </select>
       </label>
       <div role="group" aria-label="Transport mode" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {MODES.map((m) => <button key={m.label} type="button" className={f.mode === m.key ? "u-tab-active u-touch" : "u-tab u-touch"} aria-pressed={f.mode === m.key} onClick={() => setInsightsFilters({ mode: m.key })}>{m.label}</button>)}
+        {MODES.map((m) => <button key={m.label} type="button" className="u-touch" style={pill(f.mode === m.key)} aria-pressed={f.mode === m.key} onClick={() => setInsightsFilters({ mode: m.key })}>{m.label}</button>)}
       </div>
       {extra}
-      {active && <button type="button" className="u-tab u-touch" onClick={() => setInsightsFilters({ commodity: "", mode: "" })}>Clear filters</button>}
+      {active && <button type="button" className="u-touch" style={pill(false)} onClick={() => setInsightsFilters({ commodity: "", mode: "" })}>Clear filters</button>}
     </div>
   );
 }
