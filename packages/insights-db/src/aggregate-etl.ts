@@ -16,8 +16,11 @@ import { MINIMUM_COHORT_SIZE } from "./query";
  * backend-launch-checklist.md. Run manually for now via `npm run aggregate
  * --workspace=@universe/insights-db`.
  *
- * APPEND-ONLY BY DESIGN: each run only reads ProductPriceHistory rows
- * created since the last run (default: the last 24 hours) and appends new
+ * PRICES ARE COST PRICES ONLY (2026-10-25): the price pool is fed from ProjectLine.supplierUnitPrice, the pre-margin price a
+ * supplier or manufacturer charged. No sales price, margin-bearing figure, freight invoice or service charge is ever read.
+ *
+ * APPEND-ONLY BY DESIGN: each run only reads project lines whose supplier price was locked
+ * since the last run (default: the last 24 hours) and appends new
  * aggregate rows. It never re-reads or rewrites older aggregate rows, so
  * there's no need to reconcile/upsert against what's already in the insights
  * database — a rerun with an overlapping window would double-count, so
@@ -61,54 +64,50 @@ export async function runAggregationPipeline(since: Date = new Date(Date.now() -
   for (const organizationId of consentedOrgIds) {
     const sourceHash = hashOrganizationId(organizationId);
 
+    // COST PRICE ONLY (Lewis, 2026-10-25). The anonymised price pool carries what the supplier or manufacturer charged BEFORE any margin is
+    // added: ProjectLine.supplierUnitPrice, in the currency it was agreed in. Nothing that includes a margin is ever read here, for goods,
+    // freight or services: never unitSalesPrice, salesTotalPriceReportingCcy, clientPaymentAmount, productMargin*, freightMargin*,
+    // freightInvoice* or grossMargin. apps/api/test/insights-cost-only.test.ts fails the build if this file names any of them.
     const priceRows = await withTenantContext(organizationId, async (tx) =>
-      tx.productPriceHistory.findMany({
-        where: { createdAt: { gte: since }, productMasterId: { not: null } },
-        include: {
+      tx.projectLine.findMany({
+        where: { supplierPriceLockedAt: { gte: since }, supplierUnitPrice: { not: null }, supplierPaymentCurrency: { not: null }, productMasterId: { not: null } },
+        select: {
+          supplierUnitPrice: true,
+          supplierPaymentCurrency: true,
+          supplierPriceLockedAt: true,
+          attributes: true,
+          quantity: true,
+          countryOfManufactureCode: true,
           productMaster: { select: { category: true } },
-          productLine: { select: { unitOfSupply: true } },
-          projectLine: {
-            select: {
-              attributes: true,
-              productMasterId: true,
-              countryOfManufactureCode: true,
-              quantity: true,
-              // incoterm/freightMode moved from ProjectLine to Project on
-              // 2026-10-03 (20261003090000_freight_to_project_level) — this
-              // pipeline had never been typechecked until the insights-db
-              // package got a "build" script (2026-10-08), so the stale
-              // field names on ProjectLine went undetected until now.
-              project: { select: { deliveryCountryCode: true, incoterm: true, freightMode: true } },
-            },
-          },
+          project: { select: { deliveryCountryCode: true, incoterm: true, freightMode: true } },
         },
       }),
     );
 
     for (const row of priceRows) {
-      if (!row.productMaster) continue; // productMasterId set but the row is gone — skip rather than guess
+      if (!row.productMaster || row.supplierUnitPrice === null || !row.supplierPaymentCurrency || !row.supplierPriceLockedAt) continue;
 
       // Every consented org's row is written unconditionally, even a single
       // org's single entry — see the model's own doc comment in
       // prisma/schema.prisma ("WRITE vs READ anonymization") for why. The
       // cohort-size floor lives entirely in src/query.ts, never here.
-      const manufactureRegion = await resolveRegion(row.projectLine?.countryOfManufactureCode ?? null);
-      const destinationRegion = await resolveRegion(row.projectLine?.project?.deliveryCountryCode ?? null);
-      const attributes = await sanitizeAttributes(row.productMaster.category, row.projectLine?.attributes ?? null);
+      const manufactureRegion = await resolveRegion(row.countryOfManufactureCode ?? null);
+      const destinationRegion = await resolveRegion(row.project?.deliveryCountryCode ?? null);
+      const attributes = await sanitizeAttributes(row.productMaster.category, row.attributes ?? null);
 
       await insightsPrisma.aggregatedProductPrice.create({
         data: {
           category: row.productMaster.category,
           attributes,
-          unitPrice: row.unitPrice,
-          currency: row.currency,
-          effectiveMonth: truncateToMonth(row.effectiveDate),
+          unitPrice: row.supplierUnitPrice,
+          currency: row.supplierPaymentCurrency,
+          effectiveMonth: truncateToMonth(row.supplierPriceLockedAt),
           manufactureRegion,
           destinationRegion,
-          incoterm: row.projectLine?.project?.incoterm ?? null,
-          freightMode: row.projectLine?.project?.freightMode ?? null,
-          quantity: row.projectLine?.quantity ?? null,
-          unitOfSupply: row.productLine?.unitOfSupply ?? null,
+          incoterm: row.project?.incoterm ?? null,
+          freightMode: row.project?.freightMode ?? null,
+          quantity: row.quantity ?? null,
+          unitOfSupply: null,
           sourceHash,
         },
       });

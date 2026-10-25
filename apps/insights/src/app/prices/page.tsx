@@ -45,7 +45,7 @@ export default function PricesPage() {
 
   return (
     <Page>
-      <Heading title="Prices" sub="What products in each group actually cost, from real purchases recorded by organisations on Universe. Names are never shown." />
+      <Heading title="Prices" sub="What products in each group cost at source: the supplier or manufacturer price before any margin, from real purchases recorded by organisations on Universe. Names are never shown." />
       <ErrorNote message={err} />
       <Card>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>

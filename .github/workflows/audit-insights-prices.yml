@@ -1,0 +1,25 @@
+name: Audit insights prices
+
+# Manual, read-only (2026-10-25). Counts the rows in the anonymised price pool by origin. Changes nothing.
+# Uses repository secret INSIGHTS_LOAD_DATABASE_URL.
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - run: npm run build --workspace=@universe/db
+      - name: Audit
+        run: npm run audit:prices --workspace=@universe/insights-db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}

@@ -12,6 +12,7 @@
     "studio": "prisma studio",
     "aggregate": "tsx src/aggregate-etl.ts",
     "seed:simulated": "tsx scripts/seed-simulated-aggregates.ts",
+    "audit:prices": "tsx scripts/audit-insights-prices.ts",
     "aggregate:logistics": "tsx scripts/run-logistics-aggregation.ts",
     "aggregate:product-sourcing": "tsx scripts/run-product-sourcing-aggregation.ts"
   },
