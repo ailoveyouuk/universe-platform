@@ -5,7 +5,7 @@ import { DocumentList } from "../../../components/TenderDocuments";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { EXCLUSION_GROUNDS, INCOTERM_NAMES, qualificationLabel } from "@universe/types";
+import { EXCLUSION_GROUNDS, INCOTERM_NAMES, qualificationLabel, serviceCategoryLabel, servicePricingBasisLabel } from "@universe/types";
 import type { TenderParticipantView } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
@@ -83,7 +83,7 @@ export function TenderView() {
       <Card title="Items required">
         {v.lines.map((l) => (
           <div key={l.id} style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
-            <strong>{l.lineNumber}. {l.description}</strong> <span style={muted}>{l.quantity} {l.unit}{l.destinationCountryCode ? ` · to ${l.destinationCountryCode}` : ""}</span>
+            <strong>{l.lineNumber}. {l.description}</strong> <span style={muted}>{l.quantity} {l.unit}{l.serviceCategory ? ` · ${serviceCategoryLabel(l.serviceCategory)}, priced ${servicePricingBasisLabel(l.servicePricingBasis).toLowerCase()}` : ""}{l.destinationCountryCode ? ` · to ${l.destinationCountryCode}` : ""}</span>
             <div style={{ fontSize: 13, ...muted }}>{[l.requiredRegistration && `Registration: ${qualificationLabel(l.requiredRegistration)}`, l.minShelfLifePercent && `Minimum ${l.minShelfLifePercent}% shelf life on delivery`, l.coldChainRequired && "Cold chain required", l.specification].filter(Boolean).join(" · ")}</div>
           </div>
         ))}

@@ -206,7 +206,7 @@ export function BidsPanel({ d }: { d: TenderDetailForIssuer }) {
           <button type="button" onClick={() => setOpenId(openId === b.bidId ? null : b.bidId)} style={{ border: "none", background: "none", padding: 0, color: "var(--u-accent)", cursor: "pointer", fontSize: 13 }}>{openId === b.bidId ? "Hide details" : "Show details"}</button>
           {openId === b.bidId && (
             <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
-              {b.lines.map((l) => <div key={l.tenderLineId} style={{ fontSize: 13.5 }}>{l.lineNumber}. {l.description}: {l.noBid ? <em>not bidding</em> : <>{b.bidCurrency} {l.unitPrice} per {l.unit} · {l.leadTimeDays} days · origin {l.countryOfOrigin}{l.manufacturerName ? ` · ${l.manufacturerName}` : ""}</>}</div>)}
+              {b.lines.map((l) => <div key={l.tenderLineId} style={{ fontSize: 13.5 }}>{l.lineNumber}. {l.description}: {l.noBid ? <em>not bidding</em> : <>{b.bidCurrency} {l.unitPrice} per {l.unit} · {l.leadTimeDays} days{l.countryOfOrigin ? ` · origin ${l.countryOfOrigin}` : ""}{l.manufacturerName ? ` · ${l.manufacturerName}` : ""}</>}</div>)}
               {b.responses.map((r) => (
                 <div key={r.criterionId} style={{ fontSize: 13.5 }}><strong>{r.criterionTitle}</strong>{r.text && <div style={{ whiteSpace: "pre-wrap" }}>{r.text}</div>}{r.files.map((f) => <div key={f.id}><button type="button" onClick={() => file(f.id)} style={{ border: "none", background: "none", padding: 0, color: "var(--u-accent)", cursor: "pointer" }}>{f.fileName}</button></div>)}</div>
               ))}
