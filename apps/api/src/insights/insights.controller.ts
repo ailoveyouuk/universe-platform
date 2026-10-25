@@ -16,4 +16,15 @@ export class InsightsController {
   @Get("prices/trend") trend(@CurrentUser() u: RequestUser, @Query("category") category = "") { return this.insights.priceTrend(category, u.inDemoOrganization === true); }
   @Get("prices/breakdown") breakdown(@CurrentUser() u: RequestUser, @Query("category") category = "", @Query("by") by = "destinationRegion") { return this.insights.priceBreakdown(category, by, u.inDemoOrganization === true); }
   @Get("sourcing") sourcing(@CurrentUser() u: RequestUser) { return this.insights.sourcingByCategory(u.inDemoOrganization === true); }
+  @Get("logistics/routes") logisticsRoutes(
+    @CurrentUser() u: RequestUser,
+    @Query("manufactureCountryCode") manufactureCountryCode?: string,
+    @Query("destinationCountryCode") destinationCountryCode?: string,
+    @Query("transportMode") transportMode?: string,
+    @Query("incoterm") incoterm?: string,
+    @Query("commodityGroup") commodityGroup?: string,
+  ) {
+    return this.insights.logisticsRoutes({ manufactureCountryCode, destinationCountryCode, transportMode, incoterm, commodityGroup }, u.inDemoOrganization === true);
+  }
+  @Get("logistics/ratings") logisticsRatings(@CurrentUser() u: RequestUser) { return this.insights.logisticsRatings(u.inDemoOrganization === true); }
 }

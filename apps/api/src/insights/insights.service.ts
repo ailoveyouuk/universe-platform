@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { MINIMUM_COHORT_SIZE, getInsightsFreshness, getPricingBreakdown, getPricingTrend, listPricedCategories } from "@universe/insights-db";
 import type { PricingDimension } from "@universe/insights-db";
-import type { InsightsOverview, InsightsPriceBreakdownRow, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import type { InsightsOverview, LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary, InsightsPriceBreakdownRow, InsightsPriceTrendPoint, InsightsPricedCategory, ProductSourcingSummary } from "@universe/types";
+import { LogisticsInsightsService } from "../logistics-insights/logistics-insights.service";
 import { ProductSourcingInsightsService } from "../product-sourcing-insights/product-sourcing-insights.service";
 
 const DIMENSIONS: PricingDimension[] = ["destinationRegion", "manufactureRegion", "incoterm"];
@@ -13,13 +14,14 @@ const iso = (d: Date | null) => (d ? new Date(d).toISOString() : null);
  */
 @Injectable()
 export class InsightsService {
-  constructor(private readonly sourcing: ProductSourcingInsightsService) {}
+  constructor(private readonly sourcing: ProductSourcingInsightsService, private readonly logistics: LogisticsInsightsService) {}
 
   async overview(showSimulated: boolean): Promise<InsightsOverview> {
-    const [cats, src, fresh] = await Promise.all([listPricedCategories(showSimulated), this.sourcing.getGlobalSourcing(showSimulated), getInsightsFreshness(showSimulated)]);
+    const [cats, src, fresh, routes] = await Promise.all([listPricedCategories(showSimulated), this.sourcing.getGlobalSourcing(showSimulated), getInsightsFreshness(showSimulated), this.logistics.getGlobalRoutes({}, showSimulated)]);
     return {
       pricedCategories: cats.length,
       sourcedCategories: new Set(src.map((r) => r.category)).size,
+      logisticsRoutes: routes.length,
       minimumContributors: MINIMUM_COHORT_SIZE,
       freshness: { prices: iso(fresh.prices), sourcing: iso(fresh.sourcing), logistics: iso(fresh.logistics) },
     };
@@ -42,5 +44,13 @@ export class InsightsService {
 
   sourcingByCategory(showSimulated: boolean): Promise<ProductSourcingSummary[]> {
     return this.sourcing.getGlobalSourcing(showSimulated);
+  }
+
+  logisticsRoutes(filters: LogisticsFilters, showSimulated: boolean): Promise<LogisticsRouteSummary[]> {
+    return this.logistics.getGlobalRoutes(filters, showSimulated);
+  }
+
+  logisticsRatings(showSimulated: boolean): Promise<StakeholderRatingSummary[]> {
+    return this.logistics.getGlobalStakeholderRatings(showSimulated);
   }
 }

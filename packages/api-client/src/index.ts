@@ -1787,6 +1787,12 @@ export class UniverseApiClient {
   insightsSourcing(): Promise<ProductSourcingSummary[]> {
     return this.request("/insights/sourcing");
   }
+  insightsLogisticsRoutes(filters?: LogisticsFilters): Promise<LogisticsRouteSummary[]> {
+    return this.request(`/insights/logistics/routes${this.logisticsQueryString(filters)}`);
+  }
+  insightsLogisticsRatings(): Promise<StakeholderRatingSummary[]> {
+    return this.request("/insights/logistics/ratings");
+  }
 }
 
 const ACTIVE_ORG_KEY = "universe.activeOrganizationId";

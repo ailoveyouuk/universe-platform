@@ -3991,4 +3991,4 @@ export interface InsightsPricedCategory { category: string; sourceCount: number;
 export interface InsightsPriceTrendPoint { month: string; currency: string; sourceCount: number; minPrice: number; maxPrice: number; avgPrice: number }
 export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
-export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; minimumContributors: number; freshness: InsightsFreshness }
+export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }

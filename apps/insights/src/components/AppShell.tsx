@@ -23,7 +23,7 @@ import {
   LogoutIcon,
   UserIcon,
   GlobalSearch,
-  SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, InfoIcon, AppAccessGate } from "@universe/ui";
+  SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, GaugeIcon, InfoIcon, AppAccessGate } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -37,6 +37,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/", label: "Overview", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/prices", label: "Prices", icon: () => <TrendingUpIcon size={19} />, inNav: true },
   { href: "/sourcing", label: "Sourcing", icon: () => <GlobeIcon size={19} />, inNav: true },
+  { href: "/logistics", label: "Logistics and CO2", icon: () => <GaugeIcon size={19} />, inNav: true },
   { href: "/methodology", label: "Methodology", icon: () => <InfoIcon size={19} />, inNav: true },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },
 ];
