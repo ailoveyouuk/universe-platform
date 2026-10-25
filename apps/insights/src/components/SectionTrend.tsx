@@ -107,7 +107,7 @@ export function SectionTrend({ title, metrics, metric, onMetric, filters, loadin
           <div role="group" aria-label={`Measure shown in ${title}`} style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {metrics.map((m) => <button key={m.id} type="button" className="u-touch" aria-pressed={m.id === cur.id} style={pill(m.id === cur.id)} onClick={() => onMetric(m.id)}>{m.label}</button>)}
           </div>
-          {filters && <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>{filters}</div>}
+          {filters && <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", minWidth: 0, maxWidth: "100%" }}>{filters}</div>}
         </div>
         {loading ? <p style={{ margin: 0 }}>Loading…</p> : <MetricLineChart metric={cur} title={`${title}: ${cur.label}`} />}
         {cur.blurb && <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>{cur.blurb}</p>}

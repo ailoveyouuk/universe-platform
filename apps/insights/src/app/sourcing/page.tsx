@@ -77,7 +77,7 @@ export default function SourcingPage() {
         <WorldMap points={points} maxHeight={380} emptyMessage="No country has enough contributors to show yet." />
       </Card>
       <SectionTrend title="Sourcing over time" metrics={trendMetrics} metric={metric} onMetric={setMetric} loading={trend === null} sources={["sourcing"]} exportName="sourcing-over-time"
-        filters={<Field label="Country of manufacture"><select className="u-native-select" style={{ ...inputStyle, width: "auto", minWidth: 170 }} value={country} onChange={(e) => setCountry(e.target.value)}><option value="">All countries</option>{countryOptions.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></Field>} />
+        filters={<Field label="Country of manufacture"><select className="u-native-select" style={{ ...inputStyle, width: "auto", minWidth: 170, maxWidth: "100%" }} value={country} onChange={(e) => setCountry(e.target.value)}><option value="">All countries</option>{countryOptions.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></Field>} />
       <Card title="The same data as a table">
         {byCountry.length === 0 ? <p style={{ color: "var(--u-ink-secondary)", fontSize: 14 }}>Nothing to show for this selection.</p> : (
           <DataTable<(typeof byCountry)[number]> rows={byCountry} rowKey={(e) => e.code} columns={countryCols} caption="Approved sourcing relationships by country of manufacture" exportName="sourcing-by-country" />

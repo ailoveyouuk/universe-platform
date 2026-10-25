@@ -68,7 +68,7 @@ export function LogisticsTrend({ title, commodity = "", mode = "", manufactureCo
 
   const splitFilter = hideSplit ? undefined : (
     <Field label="Split by">
-      <select className="u-native-select" style={{ ...inputStyle, width: "auto", minWidth: 150 }} value={split} onChange={(e) => setSplit(e.target.value as TrendSplit)}>
+      <select className="u-native-select" style={{ ...inputStyle, width: "auto", minWidth: 150, maxWidth: "100%" }} value={split} onChange={(e) => setSplit(e.target.value as TrendSplit)}>
         <option value="all">All together</option>
         <option value="mode">Transport mode</option>
         <option value="commodity">Product group</option>
