@@ -40,3 +40,8 @@ Each slice is deployed, live-tested in both themes, logged and backed up before 
 1. Hosting: a new Azure Static Web App for Insights (as the other apps), which needs its deploy token added as a repository secret like the others. Is that fine, or do you want me to ask for the resource to be created first?
 2. Who gets `insights.view` by default: all organisation members, or only certain roles?
 3. Is it right that the Tender market and Supplier landscape screens are in scope, or do you want pricing, sourcing and logistics only for the first release?
+
+## Decisions (2026-10-25)
+1. Hosting: separate Static Web App (created `universe-pilot-insights`).
+2. Access: per-person app toggles in Admin (Users > Apps), default every app. Built for all apps, not only Insights.
+3. First release: slice 1 built (shell, Prices, Sourcing, Methodology). Tender market and Supplier landscape come in slices 3 and 4 as designed.
