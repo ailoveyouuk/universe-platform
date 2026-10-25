@@ -60,4 +60,18 @@ describe("Project line edit contract", () => {
     expect(Number(again.supplierUnitPrice)).toBe(14.5);
     expect(again.productCategory).toBe("LOGISTICS_SERVICES");
   });
+
+  it("a Services line keeps its service type and pricing basis through the edit form's save, and has no route or CO2 figure", async () => {
+    const created = await projects.addLine(user(), projectId, { clientProductDescription: "Supply chain adviser", quantity: 20, productCategory: "SERVICES", serviceCategory: "SUPPLY_CHAIN_ADVISORY", servicePricingBasis: "PER_DAY", supplierUnitPrice: 650, countryOfManufactureCode: "GB" } as never);
+    const line = created.lines.find((l) => l.productCategory === "SERVICES")!;
+    expect(line.serviceCategory).toBe("SUPPLY_CHAIN_ADVISORY");
+    expect(line.servicePricingBasis).toBe("PER_DAY");
+    const dto = plainToInstance(ProjectLineDto, JSON.parse(JSON.stringify({ ...projectLineSummaryToInput(line), quantity: 25 })));
+    expect(await validate(dto, { whitelist: true, forbidNonWhitelisted: true })).toEqual([]);
+    const updated = await projects.updateLine(user(), projectId, line.id, dto);
+    const again = updated.lines.find((l) => l.id === line.id)!;
+    expect(again.quantity).toBe(25);
+    expect(again.serviceCategory).toBe("SUPPLY_CHAIN_ADVISORY");
+    expect(again.logisticsMetric ?? null).toBeNull();
+  });
 });
