@@ -4868,3 +4868,88 @@ model CrmInteraction {
   @@index([organizationId, occurredAt])
   @@map("crm_interactions")
 }
+
+/// CRM step 4 (2026-10-26): the CRM's own facts about a stakeholder contact (the person record itself stays in `contacts`, owned by Project Management).
+/// Created on first edit; a contact with no row is treated as ACTIVE with the default lawful basis. See docs/CRM-STANDARDS-AND-DATA-PROTECTION.md.
+model CrmContactProfile {
+  id                 String    @id @default(uuid())
+  organizationId     String
+  contactId          String    @unique
+  /// DECISION_MAKER | INFLUENCER | BUDGET_HOLDER | TECHNICAL | QUALITY | OPERATIONAL | OTHER
+  decisionRole       String?
+  /// LEGITIMATE_INTERESTS | CONTRACT | LEGAL_OBLIGATION | CONSENT | PUBLIC_TASK | VITAL_INTERESTS
+  lawfulBasis        String    @default("LEGITIMATE_INTERESTS")
+  lawfulBasisReason  String?   @db.NVarChar(500)
+  /// COMPANY | SOLE_TRADER | UNKNOWN (unknown is treated as an individual for electronic marketing rules)
+  subscriberType     String    @default("UNKNOWN")
+  /// ACTIVE | LEFT | RESTRICTED | OBJECTED | ANONYMISED
+  status             String    @default("ACTIVE")
+  leftAt             DateTime?
+  lastVerifiedAt     DateTime?
+  noticeSentAt       DateTime?
+  /// A reviewer chose to keep this person until this date; the retention queue ignores them until then.
+  retentionReviewDue DateTime?
+  anonymisedAt       DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([organizationId, status])
+  @@map("crm_contact_profiles")
+}
+
+/// A request from a person about their data (access, correction, erasure, restriction, objection). Statutory clock: one month, pausable and extendable.
+model CrmPrivacyRequest {
+  id                  String    @id @default(uuid())
+  organizationId      String
+  /// ACCESS | RECTIFY | ERASE | RESTRICT | OBJECT
+  type                String
+  contactId           String?
+  requesterName       String    @db.NVarChar(200)
+  requesterEmail      String?   @db.NVarChar(300)
+  receivedAt          DateTime
+  identityConfirmedAt DateTime?
+  dueAt               DateTime
+  clockStoppedAt      DateTime?
+  extendedUntil       DateTime?
+  /// OPEN | WAITING | COMPLETED | REFUSED
+  status              String    @default("OPEN")
+  decision            String?   @db.NVarChar(1000)
+  exemptionReason     String?   @db.NVarChar(500)
+  completedAt         DateTime?
+  createdById         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([organizationId, status, dueAt])
+  @@map("crm_privacy_requests")
+}
+
+/// People who must not be contacted again. Kept after erasure, so only a one-way hash of the email address is stored.
+model CrmSuppression {
+  id             String   @id @default(uuid())
+  organizationId String
+  emailHash      String
+  /// OBJECTION | ERASURE | OTHER
+  reason         String
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, emailHash])
+  @@map("crm_suppressions")
+}
+
+/// Who looked at, searched for, exported or anonymised personal data in the CRM. Append-only.
+model CrmAccessLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  userId         String
+  /// VIEW_PEOPLE | SEARCH_PERSON | EXPORT_COPY | EDIT_PROFILE | OBJECTION | ANONYMISE
+  action         String
+  contactId      String?
+  relationshipId String?
+  detail         String?  @db.NVarChar(300)
+  at             DateTime @default(now())
+
+  @@index([organizationId, at])
+  @@map("crm_access_log")
+}

@@ -1,18 +1,19 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
-import type { CrmInteractionInput, CrmRelationshipUpdate } from "@universe/types";
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import type { CrmInteractionInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
 import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
+import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { InteractionDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { AnonymiseDto, InteractionDto, PersonProfileDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -40,4 +41,21 @@ export class CrmController {
   logInteraction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: InteractionDto) { return this.interactions.create(user, id, dto as CrmInteractionInput); }
   @Patch("interactions/:id")
   updateInteraction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: InteractionDto) { return this.interactions.update(user, id, dto as Partial<CrmInteractionInput>); }
+
+  // ---- People and privacy (step 4) ----
+  @Get("relationships/:id/people") relationshipPeople(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.privacy.people(user, id); }
+  @Patch("contacts/:id/profile") profile(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: PersonProfileDto) { return this.privacy.updateProfile(user, id, dto as CrmPersonUpdate); }
+  @Post("contacts/:id/objection") @HttpCode(200) object(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.privacy.object(user, id); }
+  @Post("contacts/:id/anonymise") @HttpCode(200) anonymise(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: AnonymiseDto) { return this.privacy.anonymise(user, id, dto); }
+  @Get("contacts/:id/access-copy") accessCopy(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.privacy.accessCopy(user, id); }
+  @Post("contacts/:id/keep") @HttpCode(200) keep(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.privacy.keep(user, id).then(() => ({ ok: true })); }
+  @Get("privacy/summary") privacySummary(@CurrentUser() user: RequestUser) { return this.privacy.summary(user); }
+  @Get("privacy/find-person") findPerson(@CurrentUser() user: RequestUser, @Query("q") q: string) { return this.privacy.findPerson(user, q ?? ""); }
+  @Get("privacy/requests") requests(@CurrentUser() user: RequestUser, @Query("status") status?: string) { return this.privacy.requests(user, status); }
+  @Post("privacy/requests") createRequest(@CurrentUser() user: RequestUser, @Body() dto: PrivacyRequestDto) { return this.privacy.createRequest(user, dto as CrmPrivacyRequestInput); }
+  @Patch("privacy/requests/:id") updateRequest(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: PrivacyRequestUpdateDto) { return this.privacy.updateRequest(user, id, dto as CrmPrivacyRequestUpdate); }
+  @Get("privacy/retention") retention(@CurrentUser() user: RequestUser) { return this.privacy.retention(user); }
+  @Get("privacy/suppressions") suppressions(@CurrentUser() user: RequestUser) { return this.privacy.suppressions(user); }
+  @Post("privacy/suppressions") @HttpCode(200) suppress(@CurrentUser() user: RequestUser, @Body() dto: SuppressDto) { return this.privacy.suppress(user, dto.email).then(() => ({ ok: true })); }
+  @Get("privacy/access-log") accessLog(@CurrentUser() user: RequestUser) { return this.privacy.accessLog(user); }
 }

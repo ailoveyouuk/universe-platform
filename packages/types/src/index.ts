@@ -4210,3 +4210,40 @@ export interface CrmInteractionInput {
 }
 export type CrmInteractionPage = PagedResult<CrmInteraction>;
 export interface CrmFollowUp { id: string; title: string; body: string | null; dueDate: string | null; relationshipId: string; overdue: boolean }
+
+/** CRM step 4: contact profiles and the privacy console (UK GDPR). */
+export const CRM_DECISION_ROLES = ["DECISION_MAKER", "INFLUENCER", "BUDGET_HOLDER", "TECHNICAL", "QUALITY", "OPERATIONAL", "OTHER"] as const;
+export type CrmDecisionRole = (typeof CRM_DECISION_ROLES)[number];
+export const CRM_DECISION_ROLE_LABELS: Record<CrmDecisionRole, string> = { DECISION_MAKER: "Decision maker", INFLUENCER: "Influencer", BUDGET_HOLDER: "Budget holder", TECHNICAL: "Technical", QUALITY: "Quality", OPERATIONAL: "Operational", OTHER: "Other" };
+export const CRM_LAWFUL_BASES = ["LEGITIMATE_INTERESTS", "CONTRACT", "LEGAL_OBLIGATION", "CONSENT", "PUBLIC_TASK", "VITAL_INTERESTS"] as const;
+export type CrmLawfulBasis = (typeof CRM_LAWFUL_BASES)[number];
+export const CRM_LAWFUL_BASIS_LABELS: Record<CrmLawfulBasis, string> = { LEGITIMATE_INTERESTS: "Legitimate interests", CONTRACT: "Contract", LEGAL_OBLIGATION: "Legal obligation", CONSENT: "Consent", PUBLIC_TASK: "Public task", VITAL_INTERESTS: "Vital interests" };
+export const CRM_SUBSCRIBER_TYPES = ["COMPANY", "SOLE_TRADER", "UNKNOWN"] as const;
+export type CrmSubscriberType = (typeof CRM_SUBSCRIBER_TYPES)[number];
+export const CRM_SUBSCRIBER_TYPE_LABELS: Record<CrmSubscriberType, string> = { COMPANY: "Company", SOLE_TRADER: "Sole trader or partnership", UNKNOWN: "Not known (treated as an individual)" };
+export const CRM_CONTACT_STATUSES = ["ACTIVE", "LEFT", "RESTRICTED", "OBJECTED", "ANONYMISED"] as const;
+export type CrmContactStatus = (typeof CRM_CONTACT_STATUSES)[number];
+export const CRM_CONTACT_STATUS_LABELS: Record<CrmContactStatus, string> = { ACTIVE: "Active", LEFT: "Has left", RESTRICTED: "Use restricted", OBJECTED: "Objected", ANONYMISED: "Anonymised" };
+export interface CrmPerson {
+  id: string; relationshipId: string; name: string; title: string | null; email: string | null; phone: string | null;
+  decisionRole: CrmDecisionRole | null; lawfulBasis: CrmLawfulBasis; lawfulBasisReason: string | null; subscriberType: CrmSubscriberType; status: CrmContactStatus;
+  lastVerifiedAt: string | null; noticeSentAt: string | null; suppressed: boolean;
+}
+export interface CrmPersonUpdate {
+  decisionRole?: CrmDecisionRole | null; lawfulBasis?: CrmLawfulBasis; lawfulBasisReason?: string | null; subscriberType?: CrmSubscriberType;
+  status?: "ACTIVE" | "LEFT" | "RESTRICTED"; markVerified?: boolean; noticeSent?: boolean;
+}
+export const CRM_PRIVACY_REQUEST_TYPES = ["ACCESS", "RECTIFY", "ERASE", "RESTRICT", "OBJECT"] as const;
+export type CrmPrivacyRequestType = (typeof CRM_PRIVACY_REQUEST_TYPES)[number];
+export const CRM_PRIVACY_REQUEST_TYPE_LABELS: Record<CrmPrivacyRequestType, string> = { ACCESS: "Access to their data", RECTIFY: "Correct their data", ERASE: "Erase their data", RESTRICT: "Restrict use", OBJECT: "Object to use" };
+export interface CrmPrivacyRequestRow {
+  id: string; type: CrmPrivacyRequestType; contactId: string | null; requesterName: string; requesterEmail: string | null; receivedAt: string; identityConfirmedAt: string | null;
+  dueAt: string; clockStoppedAt: string | null; extendedUntil: string | null; status: "OPEN" | "WAITING" | "COMPLETED" | "REFUSED"; decision: string | null; exemptionReason: string | null; completedAt: string | null; overdue: boolean;
+}
+export interface CrmPrivacyRequestInput { type: CrmPrivacyRequestType; requesterName: string; requesterEmail?: string | null; receivedAt: string; contactId?: string | null }
+export interface CrmPrivacyRequestUpdate { identityConfirmed?: boolean; pauseClock?: boolean; resumeClock?: boolean; extendTwoMonths?: boolean; status?: "OPEN" | "WAITING" | "COMPLETED" | "REFUSED"; decision?: string | null; exemptionReason?: string | null }
+export interface CrmPersonMatch { contactId: string; name: string; email: string | null; partnerName: string | null; relationshipId: string | null; status: CrmContactStatus; interactions: number; mentions: number }
+export interface CrmRetentionItem { contactId: string; name: string; partnerName: string | null; relationshipId: string | null; reasons: string[] }
+export interface CrmAccessLogRow { id: string; userName: string | null; action: string; contactId: string | null; detail: string | null; at: string }
+export interface CrmPrivacySummary { openRequests: number; overdueRequests: number; retentionDue: number; suppressions: number }
+export interface CrmAccessCopy { generatedAt: string; contact: Record<string, unknown>; profile: Record<string, unknown> | null; interactions: Record<string, unknown>[]; mentions: Record<string, unknown>[]; projects: Record<string, unknown>[]; complaints: Record<string, unknown>[]; note: string }
