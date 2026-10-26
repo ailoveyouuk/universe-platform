@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
+import type { Prisma } from "@universe/db";
 import { CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
-type Tx = Parameters<Parameters<typeof withTenantContext>[1]>[0];
+type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
 export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; archived?: string; sort?: string; dir?: string }
 
@@ -58,7 +59,7 @@ export class CrmService {
     return run;
   }
 
-  private async ownerNames(tx: Parameters<Parameters<typeof withTenantContext>[1]>[0], ids: string[]) {
+  private async ownerNames(tx: Tx, ids: string[]) {
     const uniq = [...new Set(ids)];
     const users = uniq.length ? await tx.user.findMany({ where: { id: { in: uniq } }, select: { id: true, forename: true, surname: true } }) : [];
     return new Map(users.map((u) => [u.id, `${u.forename} ${u.surname}`.trim()]));
@@ -105,61 +106,92 @@ export class CrmService {
     };
   }
 
-  /** Every relationship for the organisation, shaped, newest data first. Capped so a very large organisation stays quick. */
-  private async all(user: RequestUser, archived: boolean) {
-    await this.ensureTracked(user);
-    return withTenantContext(user.organizationId, async (tx) => {
-      const rows = await tx.crmRelationship.findMany({
-        where: { organizationId: user.organizationId, archivedAt: archived ? { not: null } : null }, include: CrmService.include, take: 5000, orderBy: { createdAt: "desc" },
-      });
-      const owners = await this.ownerNames(tx, rows.map((r) => r.ownerUserId).filter((x): x is string => !!x));
-      const facts = await this.facts(tx, user, rows.map((r) => r.partnerId).filter((x): x is string => !!x));
-      return rows.map((r) => this.shape(r, owners, facts));
-    });
+  /**
+   * The database conditions behind health, so lists and tiles are filtered and counted by the database rather than by loading everything.
+   * They mirror crmHealth() exactly: at risk = rejected or suspended approval, or an expired current certificate; needs attention adds a
+   * pending approval, an overdue approval or relationship review, a certificate expiring within 60 days, and (for people who may see
+   * complaint data) an open quality complaint.
+   */
+  private healthWhere(level: "AT_RISK" | "ATTENTION", canComplaints: boolean, now = new Date()): Prisma.CrmRelationshipWhereInput {
+    const soon = new Date(now.getTime() + 60 * 86400000);
+    const atRisk: Prisma.CrmRelationshipWhereInput[] = [
+      { partner: { approvalStatus: { in: ["REJECTED", "SUSPENDED"] } } },
+      { partner: { certifications: { some: { status: "CURRENT", expiryDate: { lt: now } } } } },
+    ];
+    if (level === "AT_RISK") return { OR: atRisk };
+    return { OR: [
+      ...atRisk,
+      { partner: { approvalStatus: "PENDING" } },
+      { partner: { nextApprovalReviewDue: { lt: now } } },
+      { status: { notIn: ["ENDED", "PROSPECT"] }, nextReviewDue: { lt: now } },
+      { partner: { certifications: { some: { status: "CURRENT", expiryDate: { gte: now, lte: soon } } } } },
+      ...(canComplaints ? [{ partner: { qualityComplaints: { some: { archivedAt: null, status: { notIn: ["RESOLVED", "CLOSED", "WITHDRAWN"] } } } } } as Prisma.CrmRelationshipWhereInput] : []),
+    ] };
   }
+
+  private canSeeComplaints(user: RequestUser) { return user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view"); }
 
   async list(user: RequestUser, q: CrmListQuery): Promise<CrmRelationshipPage> {
     assertHasPermission(user, "crm.view");
-    const now = Date.now();
-    const all = await this.all(user, q.archived === "true");
-    const needle = q.q?.trim().toLowerCase();
-    let rows = all.filter((r) => {
-      if (needle && !`${r.name} ${r.summary ?? ""} ${r.ownerName ?? ""} ${r.roles.join(" ")} ${r.countryCode ?? ""}`.toLowerCase().includes(needle)) return false;
-      if (q.tier && r.tier !== q.tier) return false;
-      if (q.status && r.status !== q.status) return false;
-      if (q.role && !r.roles.includes(q.role)) return false;
-      if (q.owner === "none" ? r.ownerUserId : q.owner === "me" ? r.ownerUserId !== user.id : q.owner ? r.ownerUserId !== q.owner : false) return false;
-      if (q.health === "attention" ? r.health === "GOOD" || r.status === "ENDED" : q.health && r.health !== q.health) return false;
-      if (q.owner === "none" && r.status === "ENDED") return false;
-      if (q.review === "due" && !(r.nextReviewDue && new Date(r.nextReviewDue).getTime() < now && r.status !== "ENDED")) return false;
-      return true;
-    });
-    const dir = q.dir === "desc" ? -1 : 1;
-    const key: Record<string, (r: CrmRelationshipRow) => string | number> = {
-      name: (r) => r.name.toLowerCase(), tier: (r) => CRM_TIERS.indexOf(r.tier), status: (r) => CRM_STATUSES.indexOf(r.status),
-      health: (r) => CRM_HEALTH.indexOf(r.health), review: (r) => r.nextReviewDue ?? "9999", owner: (r) => (r.ownerName ?? "~").toLowerCase(),
-    };
-    const k = key[q.sort ?? "name"] ?? key.name!;
-    rows = [...rows].sort((a, b) => { const x = k(a), y = k(b); return (x < y ? -1 : x > y ? 1 : a.name.localeCompare(b.name)) * dir; });
+    await this.ensureTracked(user);
+    const now = new Date();
+    const canComplaints = this.canSeeComplaints(user);
     const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100);
     const page = Math.max(q.page ?? 1, 1);
-    return { items: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pageSize };
+    return withTenantContext(user.organizationId, async (tx) => {
+      const and: Prisma.CrmRelationshipWhereInput[] = [{ organizationId: user.organizationId, archivedAt: q.archived === "true" ? { not: null } : null }];
+      const needle = q.q?.trim();
+      if (needle) {
+        const owners = await tx.user.findMany({ where: { organizationId: user.organizationId, OR: [{ forename: { contains: needle } }, { surname: { contains: needle } }] }, select: { id: true }, take: 50 });
+        and.push({ OR: [{ partner: { name: { contains: needle } } }, { partner: { countryCode: { contains: needle } } }, { summary: { contains: needle } }, ...(owners.length ? [{ ownerUserId: { in: owners.map((o) => o.id) } }] : [])] });
+      }
+      if (q.tier) and.push({ tier: q.tier });
+      if (q.status) and.push({ status: q.status });
+      if (q.role) and.push({ partner: { roles: { some: { roleType: q.role, isActive: true } } } });
+      if (q.owner === "none") and.push({ ownerUserId: null, status: { not: "ENDED" } });
+      else if (q.owner === "me") and.push({ ownerUserId: user.id });
+      else if (q.owner) and.push({ ownerUserId: q.owner });
+      if (q.health === "attention") and.push({ status: { not: "ENDED" } }, this.healthWhere("ATTENTION", canComplaints, now));
+      else if (q.health === "AT_RISK") and.push({ status: { not: "ENDED" } }, this.healthWhere("AT_RISK", canComplaints, now));
+      if (q.review === "due") and.push({ status: { not: "ENDED" }, nextReviewDue: { lt: now } });
+      const where: Prisma.CrmRelationshipWhereInput = { AND: and };
+      const dir = q.dir === "desc" ? "desc" : "asc";
+      const orderBy: Prisma.CrmRelationshipOrderByWithRelationInput[] =
+        q.sort === "tier" ? [{ tier: dir }, { partner: { name: "asc" } }] : q.sort === "status" ? [{ status: dir }, { partner: { name: "asc" } }] :
+        q.sort === "review" ? [{ nextReviewDue: dir }, { partner: { name: "asc" } }] : [{ partner: { name: dir } }, { id: "asc" }];
+      const [total, rows] = await Promise.all([
+        tx.crmRelationship.count({ where }),
+        tx.crmRelationship.findMany({ where, include: CrmService.include, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
+      ]);
+      const owners = await this.ownerNames(tx, rows.map((r) => r.ownerUserId).filter((x): x is string => !!x));
+      const facts = await this.facts(tx, user, rows.map((r) => r.partnerId).filter((x): x is string => !!x));
+      return { items: rows.map((r) => this.shape(r, owners, facts)), total, page, pageSize };
+    });
   }
 
   async overview(user: RequestUser): Promise<CrmOverview> {
     assertHasPermission(user, "crm.view");
-    const now = Date.now();
-    const all = await this.all(user, false);
-    const byTier = Object.fromEntries(CRM_TIERS.map((t) => [t, 0])) as Record<CrmTier, number>;
-    const byStatus = Object.fromEntries(CRM_STATUSES.map((t) => [t, 0])) as Record<CrmStatus, number>;
-    for (const r of all) { byTier[r.tier]++; byStatus[r.status]++; }
-    const untracked = await withTenantContext(user.organizationId, (tx) => tx.partner.count({ where: { organizationId: user.organizationId, isArchived: false, crmRelationships: { none: {} } } }));
-    return {
-      total: all.length, active: byStatus.ACTIVE, byTier, byStatus, untracked,
-      needsAttention: all.filter((r) => r.health !== "GOOD" && r.status !== "ENDED").length,
-      reviewDue: all.filter((r) => r.status !== "ENDED" && r.nextReviewDue && new Date(r.nextReviewDue).getTime() < now).length,
-      unowned: all.filter((r) => !r.ownerUserId && r.status !== "ENDED").length,
-    };
+    await this.ensureTracked(user);
+    const now = new Date();
+    const canComplaints = this.canSeeComplaints(user);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const base: Prisma.CrmRelationshipWhereInput = { organizationId: user.organizationId, archivedAt: null };
+      const open: Prisma.CrmRelationshipWhereInput = { ...base, status: { not: "ENDED" } };
+      const [total, tiers, statuses, needsAttention, reviewDue, unowned, untracked] = await Promise.all([
+        tx.crmRelationship.count({ where: base }),
+        tx.crmRelationship.groupBy({ by: ["tier"], where: base, _count: { _all: true } }),
+        tx.crmRelationship.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
+        tx.crmRelationship.count({ where: { AND: [open, this.healthWhere("ATTENTION", canComplaints, now)] } }),
+        tx.crmRelationship.count({ where: { ...open, nextReviewDue: { lt: now } } }),
+        tx.crmRelationship.count({ where: { ...open, ownerUserId: null } }),
+        tx.partner.count({ where: { organizationId: user.organizationId, isArchived: false, crmRelationships: { none: {} } } }),
+      ]);
+      const byTier = Object.fromEntries(CRM_TIERS.map((t) => [t, 0])) as Record<CrmTier, number>;
+      const byStatus = Object.fromEntries(CRM_STATUSES.map((t) => [t, 0])) as Record<CrmStatus, number>;
+      for (const t of tiers) byTier[t.tier as CrmTier] = t._count._all;
+      for (const t of statuses) byStatus[t.status as CrmStatus] = t._count._all;
+      return { total, active: byStatus.ACTIVE, byTier, byStatus, untracked, needsAttention, reviewDue, unowned };
+    });
   }
 
   async one(user: RequestUser, id: string): Promise<CrmRelationshipRow> {
