@@ -1249,3 +1249,5 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Verified:** 11 tests (rule, guard behaviour with a fake request); live, Lewis's staff account still reaches every gated area (200s). A restricted non-staff person could not be tried live because no one with a restriction can sign in yet.
 - **Scheduled jobs:** shared `waitForDatabase` (packages/db) now starts the nightly aggregation, daily activity, regulatory watch, certificate reminders and pharma sync, so a paused serverless database no longer fails a run. The daily certificate-expiry reminders had been failing since 25 Oct (default 5-second transaction limit as the data grew); the workflow now sets PRISMA_TX_TIMEOUT_MS and a manual run succeeded. Nightly and daily activity re-run successfully.
 - **Open:** search results and notifications are not app-aware.
+
+- **Decision (Lewis, 2026-10-26):** SIM-SVC-002 stays at Evaluating, so the simulation shows tenders at different stages. Test records E2E-PACK-001 and SIM-FWK-001 still await his answer.
