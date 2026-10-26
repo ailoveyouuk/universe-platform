@@ -60,7 +60,7 @@ export function FormGrid({ children }: { children: ReactNode }) {
 }
 
 export function Notice({ tone, children }: { tone: "error" | "success" | "info"; children: ReactNode }) {
-  const color = tone === "error" ? "var(--u-status-critical)" : tone === "success" ? "var(--u-status-good)" : "var(--u-ink-secondary)";
+  const color = tone === "error" ? "var(--u-status-critical-text)" : tone === "success" ? "var(--u-status-good-text)" : "var(--u-ink-secondary)";
   return <p style={{ color, fontSize: 13, margin: "8px 0" }}>{children}</p>;
 }
 
