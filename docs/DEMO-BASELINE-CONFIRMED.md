@@ -21,6 +21,6 @@ Lewis asked (2026-10-26) that, if the simulated data covers the platform's funct
 - A person using a screen reader has not yet tested the apps.
 
 ## How it is protected
-- Repository tag `demo-baseline-2026-10-26` marks the code and seed scripts that produce it. The seed workflows are idempotent and run with a dry run first.
+- The baseline code and seed scripts are marked by commit `f71647b` (full: `f71647b5489285c699f322829a21450d9fc19ea6`) and by the LaCie backup folder `2026-10-26-bk88-demo-baseline-locked`. A GitHub tag could not be created from the working session (the connection does not allow new tags or branches); **suggested:** Lewis creates a tag `demo-baseline-2026-10-26` on that commit in GitHub (Releases > Draft a new release). The seed workflows are idempotent and run with a dry run first.
 - Rule from now: changes to demo data go through a logged seed script and are recorded in docs/BUILD-LOG.md; nothing is hard deleted.
 - Database point in time: the baseline stands as of 2026-10-26 11:20 UTC. Azure SQL keeps automatic point-in-time backups for a limited period; **suggested:** export a .bacpac of the `universe` and `universe-insights` databases from the Azure portal now, and keep it with the LaCie backups, so the baseline can be restored after the automatic window.
