@@ -181,6 +181,33 @@ describe("Framework call-off flow", () => {
     await expect(fw.awardCompetition(raiser, comp.id, { quoteId: ia.id, reason: "Again please" })).rejects.toThrow(/no longer open/);
   });
 
+  it("a scored mini-competition: issuer-set weights, supplier answers, pass/fail exclusion, scores with reasons, and no award until the winner is fully scored", async () => {
+    const scheme = { weights: { price: 40, leadTime: 20, quality: 40, desirable: 0, examples: 0, references: 0 }, requirements: [{ title: "ISO 9001", mandatory: true }], minExamples: 0, exampleYears: 3, minReferences: 0, qualityBrief: "Delivery plan" };
+    await expect(fw.openCompetition(raiser, tenderId, { lines: [{ tenderLineId: l1, quantity: 10 }], closesAt: new Date(Date.now() + 2 * DAY).toISOString(), scheme: { ...scheme, weights: { ...scheme.weights, price: 50 } } })).rejects.toThrow(/total 100/);
+    const opened = await fw.openCompetition(raiser, tenderId, { lines: [{ tenderLineId: l1, quantity: 10 }], closesAt: new Date(Date.now() + 2 * DAY).toISOString(), scheme });
+    const comp = opened.miniCompetitions.find((m) => m.scheme)!;
+    expect(comp.scheme!.weights.quality).toBe(40);
+    const ia = (await fw.view(uA, tenderId)).invitations.find((i) => i.scheme)!; const ib = (await fw.view(uB, tenderId)).invitations.find((i) => i.scheme)!;
+    expect(ia.scheme!.requirements[0].key).toBe("r1");
+    const lines = (p: number, d?: number) => [{ tenderLineId: l1, quotedPrice: p, leadTimeDays: d }];
+    await expect(fw.submitQuote(uA, ia.id, { lines: lines(9) })).rejects.toThrow(/lead time/);
+    await fw.submitQuote(uA, ia.id, { lines: lines(9, 10), responses: { requirements: { r1: { met: true } } } });
+    await fw.submitQuote(uB, ib.id, { lines: lines(12, 5), responses: { requirements: { r1: { met: false } } } });
+    await fw.closeCompetition(raiser, comp.id);
+    let m = (await fw.view(raiser, tenderId)).miniCompetitions.find((x) => x.id === comp.id)!;
+    const qa = m.quotes.find((q) => q.supplierName?.includes("SupA"))!; const qb = m.quotes.find((q) => q.supplierName?.includes("SupB"))!;
+    expect(qb.ranking).toMatchObject({ eligible: false, rank: null });
+    expect(qa.ranking).toMatchObject({ eligible: true, total: null });
+    await expect(fw.awardCompetition(raiser, comp.id, { quoteId: qb.id, reason: "Fastest delivery" })).rejects.toThrow(/pass\/fail/);
+    await expect(fw.awardCompetition(raiser, comp.id, { quoteId: qa.id, reason: "Cheapest" })).rejects.toThrow(/Score every/);
+    await expect(fw.scoreQuote(raiser, qa.id, { criterion: "examples", score: 3, reason: "No weight on this" })).rejects.toThrow(/no weight/);
+    await fw.scoreQuote(raiser, qa.id, { criterion: "quality", score: 4, reason: "Clear delivery plan" });
+    m = (await fw.view(raiser, tenderId)).miniCompetitions.find((x) => x.id === comp.id)!;
+    expect(m.quotes.find((q) => q.id === qa.id)!.ranking).toMatchObject({ rank: 1, total: 0.4 * 100 + 0.2 * 100 + 0.4 * 80 });
+    const won = await fw.awardCompetition(raiser, comp.id, { quoteId: qa.id, reason: "Highest score" });
+    expect(won.id).toBeTruthy();
+  });
+
   it("a mini-competition can be cancelled, a supplier can decline to quote, and one with fewer than two eligible suppliers is refused", async () => {
     const o = await fw.openCompetition(raiser, tenderId, { lines: [{ tenderLineId: l1, quantity: 10 }], closesAt: new Date(Date.now() + 2 * DAY).toISOString() });
     const comp = o.miniCompetitions.find((m) => m.status === "OPEN")!;
