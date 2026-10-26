@@ -10,6 +10,7 @@ import { effectiveStatus, TendersService } from "./tenders.service";
 import { TenderApprovalAuthority } from "./tender-approval-authority";
 import { awardRoute, checkApprover, isProposer } from "./tender-award-approval";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
+import { createNotifications, usersWithPermission } from "../notifications/notify";
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
 
@@ -49,10 +50,24 @@ export class TenderAwardService {
       assertHasPermission(user, withdraw ? "tenders.issue" : "tenders.award");
       if (!withdraw && !reason?.trim()) throw new BadRequestException("Give a reason for not approving the award.");
       await tx.tender.update({ where: { id: tenderId }, data: { pendingAwardJson: null, pendingAwardValue: null, pendingAwardSummary: null, pendingAwardById: null, pendingAwardAt: null } });
-      return { t, withdraw, summary: t.pendingAwardSummary };
+      return { t, withdraw, summary: t.pendingAwardSummary, proposerId: t.pendingAwardById };
     });
     await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: out.withdraw ? "AWARD_APPROVAL_WITHDRAWN" : "AWARD_APPROVAL_REJECTED", summary: out.withdraw ? "The proposed award was withdrawn" : `The proposed award was not approved: ${reason.trim().slice(0, 200)}`, details: { awardTo: out.summary } });
+    if (!out.withdraw) await this.notifyAward(user.organizationId, user.id, out.t, "REJECTED", out.proposerId, reason.trim());
     return this.evaluation.overview(user, tenderId);
+  }
+
+
+  /** Tells people in the issuing organisation about a held award: approvers when it is proposed, the proposer when it is decided. Best effort: never blocks the award. */
+  private async notifyAward(orgId: string, actorUserId: string, tender: { id: string; referenceNumber: string; title: string }, kind: "REQUESTED" | "APPROVED" | "REJECTED", proposerId?: string | null, reason?: string) {
+    try {
+      await withPlatformStaffContext(async (tx) => {
+        const recipients = kind === "REQUESTED" ? await usersWithPermission(tx, orgId, "tenders.award", actorUserId) : proposerId && proposerId !== actorUserId ? [proposerId] : [];
+        const title = kind === "REQUESTED" ? `Award waiting for your approval: ${tender.referenceNumber}` : kind === "APPROVED" ? `Award approved: ${tender.referenceNumber}` : `Award not approved: ${tender.referenceNumber}`;
+        const body = kind === "REQUESTED" ? `${tender.title}: an award above the proposer's approval limit needs a second authoriser.` : kind === "APPROVED" ? `${tender.title}: your proposed award was approved and has been made.` : `${tender.title}: your proposed award was not approved.${reason ? ` Reason: ${reason.slice(0, 200)}` : ""}`;
+        await createNotifications(tx, recipients.map((r) => ({ organizationId: orgId, recipientUserId: r, actorUserId, kind: "TENDER_AWARD_APPROVAL", category: "TENDER", title, body, link: `/tenders/evaluate?id=${tender.id}`, subjectType: "TENDER", subjectId: tender.id, requiresAction: kind === "REQUESTED" })));
+      });
+    } catch { /* notification is secondary to the decision */ }
   }
 
   private async performAward(user: RequestUser, tenderId: string, dto: AwardDto, approval: { proposerId: string } | null) {
@@ -155,12 +170,14 @@ export class TenderAwardService {
     });
     if ("held" in out) {
       await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_APPROVAL_REQUESTED", summary: "An award was proposed and is waiting for a second authoriser", details: { awardTo: out.summary, value: out.value, currency: out.t.currency } });
+      await this.notifyAward(user.organizationId, user.id, out.t, "REQUESTED");
       return this.evaluation.overview(user, tenderId);
     }
     for (const p of out.planned) {
       await appendTenderEvent({ organizationId: out.t.organizationId, counterpartyOrganizationId: p.orgId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_MADE", summary: "An award was made", details: { bidId: p.bidId, lines: p.lines.length, ...(approval ? { proposedBy: approval.proposerId, approvedBy: user.id } : {}) } });
     }
     await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "DEBRIEFS_RELEASED", summary: `Award recorded (${out.planned.length} supplier${out.planned.length === 1 ? "" : "s"}); outcomes released to ${out.allOrgIds.length} bidder${out.allOrgIds.length === 1 ? "" : "s"}` });
+    if (approval) await this.notifyAward(user.organizationId, user.id, out.t, "APPROVED", approval.proposerId);
     await this.bidProjects.onAward(tenderId, out.planned.map((p) => ({ organizationId: p.orgId, lines: p.lines })), out.rows.map((r) => ({ organizationId: r.organizationId, outcome: r.compliant ? "NOT_AWARDED" as const : "NOT_COMPLIANT" as const })));
     const awardedOrgs = new Set(out.planned.map((p) => p.orgId));
     await this.tenders.notifyOrgs(out.allOrgIds, (orgId) => ({ title: awardedOrgs.has(orgId) ? `Awarded: ${out.t.referenceNumber}` : `Outcome available: ${out.t.referenceNumber}`, body: awardedOrgs.has(orgId) ? `Your bid on ${out.t.title} has been successful.${out.standstillEndsAt ? " A standstill period applies before contract signature." : ""}` : `The award decision on ${out.t.title} has been made. Your debrief is available.`, link: `/bids/status?id=${tenderId}`, subjectId: tenderId }), "TENDER_AWARD", user.id);
