@@ -27,3 +27,4 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
+          PRISMA_TX_TIMEOUT_MS: "600000"
