@@ -24,3 +24,6 @@ Lewis asked (2026-10-26) that, if the simulated data covers the platform's funct
 - The baseline code and seed scripts are marked by commit `f71647b` (full: `f71647b5489285c699f322829a21450d9fc19ea6`) and by the LaCie backup folder `2026-10-26-bk88-demo-baseline-locked`. The GitHub tag `demo-baseline-2026-10-26` was created on that commit through the GitHub Releases page (the session cannot push tags). The seed workflows are idempotent and run with a dry run first.
 - Rule from now: changes to demo data go through a logged seed script and are recorded in docs/BUILD-LOG.md; nothing is hard deleted.
 - Database point in time: the baseline stands as of 2026-10-26 11:20 UTC. Azure SQL keeps automatic point-in-time backups for a limited period; **suggested:** export a .bacpac of the `universe` and `universe-insights` databases from the Azure portal now, and keep it with the LaCie backups, so the baseline can be restored after the automatic window.
+
+## Amendment 2026-10-26 (after the lock)
+Simulated Insights service cost rows were topped up (4,151 rows, 23 kind-and-basis pairs) so every standard service has an indicative cost on the Services rate card. Insights simulated data only; no tenant data changed. Script: `seed-simulated-service-pairs`.

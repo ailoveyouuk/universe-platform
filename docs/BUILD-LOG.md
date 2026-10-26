@@ -1272,3 +1272,9 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Result on the demo data:** 40 of 66 services have an indicative cost; 26 do not yet reach five contributors (the demo has few simulated service rows for those kinds of service).
 - **Verified:** typecheck, accessibility lint, CI and deploy green, live check, live accessibility scan clean in light and dark. Commit 90f99cf.
 - **Possible next step:** per-service (not per-kind) ranges would need the service code carried into the insights aggregates; deliberately not done because it would thin cohorts further.
+
+## 2026-10-26 — Simulated service cost top-up
+- **Request (Lewis):** top up the remaining services on the rate card.
+- **Cause:** the first simulated set priced each kind of service only on its first pricing basis, so 26 services (23 kind-and-basis pairs) had no indicative cost.
+- **Done:** new idempotent script `packages/insights-db/scripts/seed-simulated-service-pairs.ts` and workflow `seed-demo-service-pairs` (dry run by default). Dry run reported 23 pairs and 4,151 rows; the real run wrote 4,151 simulated rows (flagged isSimulated, demo organisations only, random hashes, five or more per month and region). Adds rows only; nothing deleted. All 66 standard services now show an indicative cost on the rate card. `audit-insights-prices` passed afterwards.
+- **Baseline note:** this is a deliberate addition to the locked demo baseline (simulated Insights service costs only; no tenant data changed).
