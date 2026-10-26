@@ -1337,3 +1337,4 @@ Read the remaining sources and sharpened the guide in `packages/types/src/tender
 - **Services catalogue:** four tiles (Services, In use, Not yet used, Switched off), search plus group, kind of service and pricing basis filters; each service expands to its description, group, kind, usual and other usual pricing bases, and where it is used. New staff-only `GET /service-catalogue/usage` (counts of project lines and tender items per service and the number of organisations, counts only). Edit and switch on/off sit inside the expanded row.
 - **CRM design:** `docs/CRM-APP-DESIGN.md` drafted (organisation-side relationship layer on top of existing stakeholders; seven decisions for Lewis).
 - Live check found and fixed one bug (coverage showed 4700%; it is already a percentage). Services page scanned clean in light and dark with a row expanded.
+- Performance records page scanned clean in light and dark with a record expanded; coverage now shows 47%.
