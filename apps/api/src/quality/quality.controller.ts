@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -9,7 +10,8 @@ import { PartnerPerformanceService } from "./partner-performance.service";
 import { QaQueueService } from "./qa-queue.service";
 
 @Controller("quality")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management", "product-database")
 export class QualityController {
   constructor(
     private readonly approvalsService: ProductSourceApprovalsService,

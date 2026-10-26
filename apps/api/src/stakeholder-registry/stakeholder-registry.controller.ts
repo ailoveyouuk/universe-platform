@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
@@ -12,7 +13,8 @@ import { StakeholderRegistryService } from "./stakeholder-registry.service";
  * not a sensitive endpoint to lock down further.
  */
 @Controller("stakeholder-registry")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class StakeholderRegistryController {
   constructor(private readonly stakeholderRegistryService: StakeholderRegistryService) {}
 

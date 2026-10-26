@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
@@ -6,7 +7,8 @@ import { rateLimit } from "../common/rate-limit";
 import { PharmaReferenceService } from "./pharma-reference.service";
 
 @Controller("pharma-reference")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("product-database", "project-management")
 export class PharmaReferenceController {
   constructor(private readonly ref: PharmaReferenceService) {}
   @Get("summary") summary(@CurrentUser() u: RequestUser) { return this.ref.summary(u.inDemoOrganization === true); }

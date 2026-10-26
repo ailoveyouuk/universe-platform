@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -22,7 +23,8 @@ import { DocumentsService } from "./documents.service";
  * or vice versa.
  */
 @Controller("documents")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class DocumentsStandaloneController {
   constructor(private readonly documentsService: DocumentsService) {}
 

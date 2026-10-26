@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
@@ -8,7 +9,8 @@ import { ScorecardRecordsService } from "./scorecard-records.service";
 import { UpdateScorecardSettingsDto } from "./dto/scorecard-settings.dto";
 
 @Controller("quality/partner-scorecard")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management", "product-database")
 export class PartnerScorecardController {
   constructor(private readonly scorecard: PartnerScorecardService, private readonly settings: ScorecardSettingsService, private readonly records: ScorecardRecordsService) {}
 

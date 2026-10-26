@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -32,7 +33,8 @@ function filtersFromQuery(query: Record<string, unknown>): LogisticsFilters {
  * view" per Lewis's request.
  */
 @Controller("logistics-insights")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class LogisticsInsightsController {
   constructor(private readonly logisticsInsightsService: LogisticsInsightsService) {}
 

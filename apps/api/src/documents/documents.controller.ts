@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -7,7 +8,8 @@ import { ConfirmUploadDto } from "./dto/confirm-upload.dto";
 import { DocumentsService } from "./documents.service";
 
 @Controller("projects/:projectId/documents")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -10,7 +11,8 @@ import { UpsertPartnerFinancialDetailDto } from "./dto/partner-financial-detail.
 import { PartnersService } from "./partners.service";
 
 @Controller("partners")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management", "product-database")
 export class PartnersController {
   constructor(private readonly partnersService: PartnersService) {}
 

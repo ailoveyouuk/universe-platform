@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -9,7 +10,8 @@ import { ControlledDocumentsService } from "./controlled-documents.service";
  * same reasoning as risk-assessments: an organisation's own document
  * register isn't nested under any one Partner/Project. */
 @Controller("controlled-documents")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class ControlledDocumentsController {
   constructor(private readonly controlledDocumentsService: ControlledDocumentsService) {}
 

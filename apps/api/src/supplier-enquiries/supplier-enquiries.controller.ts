@@ -1,4 +1,5 @@
 import { Body, Controller, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -12,7 +13,8 @@ import { SupplierEnquiriesService } from "./supplier-enquiries.service";
  * GET /projects/:id already returns) — see SupplierEnquiriesService's doc
  * comment. */
 @Controller("projects/:projectId/lines/:lineId/enquiries")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class SupplierEnquiriesController {
   constructor(private readonly supplierEnquiriesService: SupplierEnquiriesService) {}
 

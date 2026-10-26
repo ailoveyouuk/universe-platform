@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { rateLimit } from "../common/rate-limit";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -45,7 +46,8 @@ import { ProductCatalogService } from "./product-catalog.service";
  * ProductCatalogService.update()'s doc comment for the full design).
  */
 @Controller("product-catalog")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("product-database", "project-management", "tender-issuance")
 export class ProductCatalogController {
   constructor(
     private readonly productCatalogService: ProductCatalogService,

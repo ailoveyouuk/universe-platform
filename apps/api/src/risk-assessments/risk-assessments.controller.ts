@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -13,7 +14,8 @@ import { RiskAssessmentsService } from "./risk-assessments.service";
  * query params on GET, the same polymorphic-reference shape the schema
  * itself uses. */
 @Controller("risk-assessments")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class RiskAssessmentsController {
   constructor(private readonly riskAssessmentsService: RiskAssessmentsService) {}
 

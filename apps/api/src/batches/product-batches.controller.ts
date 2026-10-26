@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -10,7 +11,8 @@ import { ProductBatchesService } from "./product-batches.service";
  * same reasoning as RiskAssessmentsController: a batch is referenced from
  * many ProjectLines across many projects, not owned by one. */
 @Controller("batches")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management", "product-database")
 export class ProductBatchesController {
   constructor(private readonly batchesService: ProductBatchesService) {}
 

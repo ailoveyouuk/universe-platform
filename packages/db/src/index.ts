@@ -30,3 +30,4 @@ export * from "./regulatory-watch/export-restrictions";
 export * from "./regulatory-watch/restriction-lifted";
 export * from "./pharma-reference/parse";
 export * from "./pharma-reference/run";
+export * from "./wait-for-database";

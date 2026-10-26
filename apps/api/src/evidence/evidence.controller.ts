@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -12,7 +13,8 @@ import { EvidenceService } from "./evidence.service";
  * they're always read/written as a pair, same reasoning as quality.module.ts
  * grouping partner-performance + product-source-approvals. */
 @Controller()
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("project-management")
 export class EvidenceController {
   constructor(private readonly evidenceService: EvidenceService) {}
 

@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { TenderAwardService } from "./tender-award.service";
 import { TenderBidsService } from "./tender-bids.service";
 import { TenderContractsService } from "./tender-contracts.service";
@@ -21,7 +22,8 @@ import { TendersService } from "./tenders.service";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 @Controller("tenders")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("tender-issuance")
 export class TendersController {
   constructor(private readonly tenders: TendersService, private readonly compliance: TenderComplianceService, private readonly bids: TenderBidsService, private readonly evaluation: TenderEvaluationService, private readonly awards: TenderAwardService, private readonly docs: TenderDocumentsService, private readonly contracts: TenderContractsService, private readonly performance: TenderPerformanceService, private readonly framework: TenderFrameworkService, private readonly variations: TenderVariationsService, private readonly evidence: TenderEvidenceService, private readonly ocds: TenderOcdsService, private readonly bidProjects: TenderBidProjectsService) {}
 

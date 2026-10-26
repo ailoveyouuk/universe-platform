@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -12,7 +13,8 @@ import { ProductSourcingInsightsService } from "./product-sourcing-insights.serv
  * enforced at query time, same gate as /logistics-insights/global/routes.
  */
 @Controller("product-sourcing-insights")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("product-database")
 export class ProductSourcingInsightsController {
   constructor(private readonly productSourcingInsightsService: ProductSourcingInsightsService) {}
 
