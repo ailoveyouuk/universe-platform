@@ -321,9 +321,7 @@ export class TenderFrameworkService {
     const qlines = quotes.length ? await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: { in: quotes.map((q) => q.id) } } }) : [];
     const lineViews = (qid: string, quantities?: Map<string, number>) => qlines.filter((l) => l.quoteId === qid).map((l) => ({ tenderLineId: l.tenderLineId, description: desc(l.tenderLineId), quantity: Number(l.quantity), frameworkPrice: Number(l.frameworkPrice), quotedPrice: num(l.quotedPrice), leadTimeDays: l.leadTimeDays }));
     if (!owner) {
-      const cs = quotes.length ? await tx.tenderMiniCompetition.findMany({ where: { id: { in: quotes.map((q) => q.competitionId) } } }) : [];
-      const comps0 = new Map(cs.map((c) => [c.id, c.schemeJson]));
-      return { competitions: [] as unknown[], invitations: quotes.map((q) => ({ id: q.id, reference: q.reference, status: q.status, closesAt: q.closesAt, open: q.status !== "CANCELLED" && competitionOpen(q.closesAt, now), requestNotes: q.requestNotes, deliveryCountryCode: q.deliveryCountryCode, requiredBy: q.requiredBy, quotedAt: q.quotedAt, totalValue: num(q.totalValue), quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id), scheme: parseJson<QuoteScheme>(comps0.get(q.competitionId)), responses: parseJson<QuoteResponses>(q.responsesJson) })) };
+      return { competitions: [] as unknown[], invitations: quotes.map((q) => ({ id: q.id, reference: q.reference, status: q.status, closesAt: q.closesAt, open: q.status !== "CANCELLED" && competitionOpen(q.closesAt, now), requestNotes: q.requestNotes, deliveryCountryCode: q.deliveryCountryCode, requiredBy: q.requiredBy, quotedAt: q.quotedAt, totalValue: num(q.totalValue), quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id), scheme: parseJson<QuoteScheme>(q.schemeJson), responses: parseJson<QuoteResponses>(q.responsesJson) })) };
     }
     const comps = await tx.tenderMiniCompetition.findMany({ where: { tenderId }, orderBy: { createdAt: "desc" } });
     const ranked = new Map<string, Map<string, QuoteRanking>>();
@@ -371,7 +369,7 @@ export class TenderFrameworkService {
       const invited: string[] = [];
       for (const c of eligible) {
         const prices = await this.agreedPrices(tx, c, lineIds);
-        const q = await tx.tenderCallOffQuote.create({ data: { organizationId: user.organizationId, awardedOrganizationId: c.awardedOrganizationId, tenderId, competitionId: comp.id, contractId: c.id, reference, closesAt, requestNotes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null } });
+        const q = await tx.tenderCallOffQuote.create({ data: { organizationId: user.organizationId, awardedOrganizationId: c.awardedOrganizationId, tenderId, competitionId: comp.id, contractId: c.id, reference, closesAt, requestNotes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null, schemeJson: scheme ? JSON.stringify(scheme) : null } });
         for (const l of dto.lines) await tx.tenderCallOffQuoteLine.create({ data: { organizationId: user.organizationId, awardedOrganizationId: c.awardedOrganizationId, tenderId, quoteId: q.id, tenderLineId: l.tenderLineId, quantity: l.quantity, frameworkPrice: prices.get(l.tenderLineId)! } });
         invited.push(c.awardedOrganizationId);
       }
@@ -430,8 +428,7 @@ export class TenderFrameworkService {
       const given = new Map(dto.lines.map((l) => [l.tenderLineId, l]));
       const problems = quoteProblems(lines.map((l) => ({ label: tl.find((x) => x.id === l.tenderLineId)?.description ?? "an item", frameworkPrice: Number(l.frameworkPrice), quotedPrice: given.get(l.tenderLineId)?.quotedPrice })));
       if (dto.lines.some((l) => !lines.some((x) => x.tenderLineId === l.tenderLineId))) problems.push("The quote includes an item that was not requested.");
-      const comp = await tx.tenderMiniCompetition.findUnique({ where: { id: q.competitionId } });
-      const scheme = parseJson<QuoteScheme>(comp?.schemeJson);
+      const scheme = parseJson<QuoteScheme>(q.schemeJson);
       if (scheme && scheme.weights.leadTime > 0 && lines.some((l) => given.get(l.tenderLineId)?.leadTimeDays == null)) problems.push("Give a lead time in days for every item: it is part of how quotes are scored.");
       if (problems.length) throw new BadRequestException(problems.join(" "));
       let total = 0;

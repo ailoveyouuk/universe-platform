@@ -4571,6 +4571,8 @@ model TenderCallOffQuote {
   declineReason         String?   @db.NVarChar(1000)
   createdAt             DateTime  @default(now())
   /// The supplier's answers to the scheme: requirements met, similar contracts, references (QuoteResponses).
+  /// Copy of the competition's scoring scheme, so the invited supplier can read it (the competition row itself is private to the issuer).
+  schemeJson            String?   @db.NVarChar(Max)
   responsesJson         String?   @db.NVarChar(Max)
   /// The issuer's manual scores with reasons (QuoteScores).
   scoresJson            String?   @db.NVarChar(Max)
