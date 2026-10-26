@@ -156,7 +156,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <ActionsCard api={apiClient} LinkComponent={Link} />
+      <ActionsCard api={apiClient} LinkComponent={Link} currentApp="project-management" />
 
       <div className="u-stat-grid"
         style={{

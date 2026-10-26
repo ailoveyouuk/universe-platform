@@ -3201,6 +3201,27 @@ export type NotificationKind =
   | "STAKEHOLDER_APPROVAL";
 export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM" | "TENDER";
 
+/**
+ * Which app a notification or search result belongs to (2026-10-26). The first path segment of its in-app link decides (each app's top-level
+ * routes are listed here); a notification with no recognisable link falls back to its category. SYSTEM items belong to no app and always show.
+ */
+export const APP_ROUTE_PREFIXES: Partial<Record<UniverseAppKey, string[]>> = {
+  "tender-issuance": ["tenders", "bids", "contracts", "discover", "notices", "suppliers", "standards"],
+  "product-database": ["exports", "families", "import", "products", "register", "regulatory", "watch"],
+  "project-management": ["batches", "logistics", "partners", "projects", "quality", "risk-register"],
+  admin: ["activity", "organizations", "roles", "service-catalogue", "stakeholders", "users"],
+};
+export const APP_NOTIFICATION_CATEGORIES: Partial<Record<UniverseAppKey, NotificationCategory[]>> = {
+  "tender-issuance": ["TENDER"],
+  "project-management": ["PROJECT", "QUALITY", "LOGISTICS", "RISK"],
+};
+export function appForNotification(category: string, link: string | null | undefined): UniverseAppKey | null {
+  const seg = (link ?? "").replace(/^\//, "").split(/[/?#]/)[0];
+  if (seg) for (const [app, segs] of Object.entries(APP_ROUTE_PREFIXES)) if (segs!.includes(seg)) return app as UniverseAppKey;
+  for (const [app, cats] of Object.entries(APP_NOTIFICATION_CATEGORIES)) if (cats!.includes(category as NotificationCategory)) return app as UniverseAppKey;
+  return null;
+}
+
 /** One notification or action addressed to the signed-in user. */
 export interface NotificationItem {
   id: string;
@@ -3210,6 +3231,8 @@ export interface NotificationItem {
   body: string | null;
   /** In-app path, e.g. "/projects/detail?id=…". */
   link: string | null;
+  /** The app the link belongs to (null: no particular app). */
+  app: UniverseAppKey | null;
   actorName: string | null;
   requiresAction: boolean;
   /** Only set when requiresAction. */
@@ -3238,7 +3261,7 @@ export interface AssignProjectActionInput {
 
 // --- Global search (added 2026-10-17) -------------------------------------
 
-export type SearchResultType = "project" | "stakeholder" | "contact" | "batch" | "risk" | "product";
+export type SearchResultType = "project" | "stakeholder" | "contact" | "batch" | "risk" | "product" | "tender";
 
 export interface SearchResult {
   type: SearchResultType;
@@ -3248,7 +3271,7 @@ export interface SearchResult {
   /** In-app path within `app`. */
   link: string;
   /** Which app the path belongs to. */
-  app: "project-management" | "product-database";
+  app: "project-management" | "product-database" | "tender-issuance";
 }
 
 export interface SearchResponse {

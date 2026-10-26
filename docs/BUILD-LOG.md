@@ -1323,3 +1323,10 @@ Read the remaining sources and sharpened the guide in `packages/types/src/tender
 - **Still unread:** UNCITRAL Chapters VII–VIII (frameworks, challenge; Arts 66–67 cited by title only); World Bank paras 5.78–5.80 and Annexes (standstill taken from the Guide); ISO 37001 and ISO 20400 requirement text (paywalled; clause titles only); EU Directive articles beyond 18, 24, 27, 47, 55, 67, 69.
 - Standstill, challenge, feedback and bidder items now carry the regime-specific periods (UK 8 working days, EU 10/15 calendar days, World Bank 10 business days, debrief 3/5 business days).
 - New items: bid opening, responsiveness and no negotiation, bidder accuracy, framework call-off standstill.
+
+## 2026-10-26 — Search and notifications are app-aware
+
+- **Notifications:** each item now carries the app it belongs to (decided by its link's first path segment, else its category; SYSTEM items belong to none). For a person restricted in Admin > Users > Apps, the list, unread count, action counts, next-actions and mark-all-read exclude items from apps they do not have. Written as two positive branches so unlinked items are never dropped by a SQL NOT/NULL.
+- **Cross-app links:** a notification or action that belongs to another app opens in that app (same hostnames as the app switcher) instead of a path that does not exist in the current app. All apps pass `currentApp` to the bell, the notifications page and the dashboard actions card.
+- **Global search:** only searches the apps the person has (projects, stakeholders, contacts, batches and risks need Project Management; products need Product Database). **Tenders are now searchable** (own organisation's tenders, needs `tenders.issue`; reference or title). Search UI has a Tenders group.
+- Test: `notification-apps.test.ts` (mapping and the scope filter, pure). Not covered: tenders available to bid on are not in search yet (only the issuer's own tenders).

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BellIcon, CheckCircleIcon } from "./icons";
+import { UNIVERSE_APPS } from "./AppSwitcher";
 
 /* Structural copies of NotificationItem / NotificationSummary from
  * @universe/types (this package deliberately has no dependency on it). */
@@ -11,6 +12,8 @@ export interface NotificationRowData {
   title: string;
   body: string | null;
   link: string | null;
+  /** The app the link belongs to; absent or null means the current app. */
+  app?: string | null;
   actorName: string | null;
   requiresAction: boolean;
   actionStatus: "OPEN" | "DONE" | null;
@@ -64,9 +67,11 @@ export function NotificationRow({
   onOpen,
   onToggleDone,
   compact = false,
+  currentApp,
 }: {
   n: NotificationRowData;
   LinkComponent: any;
+  currentApp?: string;
   onOpen?: (n: NotificationRowData) => void;
   onToggleDone?: (n: NotificationRowData) => void;
   compact?: boolean;
@@ -102,7 +107,12 @@ export function NotificationRow({
         <span style={{ width: 8, height: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0, background: n.read ? "transparent" : "var(--u-org-accent, var(--u-brand-violet))" }} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {n.link ? (
+        {n.link && n.app && currentApp && n.app !== currentApp && UNIVERSE_APPS.find((a) => a.key === n.app)?.href ? (
+          // Belongs to another app: open it there (same hostnames the app switcher uses).
+          <a href={`${UNIVERSE_APPS.find((a) => a.key === n.app)!.href}${n.link}`} onClick={() => onOpen?.(n)} style={{ textDecoration: "none", display: "block" }}>
+            {text}
+          </a>
+        ) : n.link ? (
           <Link href={n.link} onClick={() => onOpen?.(n)} style={{ textDecoration: "none", display: "block" }}>
             {text}
           </Link>
@@ -116,7 +126,7 @@ export function NotificationRow({
 
 /** Header bell: unread badge, popover with Notifications / Actions tabs.
  * Polls the summary every minute and refreshes when opened. */
-export function NotificationBell({ api, LinkComponent, viewAllHref = "/notifications" }: { api: NotificationsApi; LinkComponent: any; viewAllHref?: string }) {
+export function NotificationBell({ api, LinkComponent, viewAllHref = "/notifications", currentApp }: { api: NotificationsApi; LinkComponent: any; viewAllHref?: string; currentApp?: string }) {
   const Link = LinkComponent;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"all" | "actions">("all");
@@ -211,7 +221,7 @@ export function NotificationBell({ api, LinkComponent, viewAllHref = "/notificat
             {items === null && !failed && <li style={{ padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>Loading…</li>}
             {failed && <li style={{ padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>Couldn’t load notifications.</li>}
             {items?.length === 0 && <li style={{ padding: 16, fontSize: 13, color: "var(--u-ink-secondary)" }}>{tab === "actions" ? "No open actions — you’re all caught up." : "Nothing yet."}</li>}
-            {items?.map((n) => <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} compact onOpen={openItem} onToggleDone={toggle} />)}
+            {items?.map((n) => <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} currentApp={currentApp} compact onOpen={openItem} onToggleDone={toggle} />)}
           </ul>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", borderTop: "1px solid var(--u-border)", fontSize: 12 }}>
             <button type="button" onClick={readAll} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)", padding: 0, fontSize: 12 }}>
@@ -228,7 +238,7 @@ export function NotificationBell({ api, LinkComponent, viewAllHref = "/notificat
 }
 
 /** Dashboard shortlist: the user's most pressing open actions, tick to complete. */
-export function ActionsCard({ api, LinkComponent, viewAllHref = "/notifications?tab=actions" }: { api: NotificationsApi; LinkComponent: any; viewAllHref?: string }) {
+export function ActionsCard({ api, LinkComponent, viewAllHref = "/notifications?tab=actions", currentApp }: { api: NotificationsApi; LinkComponent: any; viewAllHref?: string; currentApp?: string }) {
   const Link = LinkComponent;
   const [summary, setSummary] = useState<NotificationSummaryData | null>(null);
   const load = useCallback(() => api.getNotificationSummary().then(setSummary).catch(() => undefined), [api]);
@@ -258,7 +268,7 @@ export function ActionsCard({ api, LinkComponent, viewAllHref = "/notifications?
         {summary && summary.nextActions.length === 0 && (
           <li style={{ padding: "14px 16px", fontSize: 13, color: "var(--u-ink-secondary)", borderTop: "1px solid var(--u-border)" }}>Nothing waiting on you. Actions assigned to you on a project will appear here.</li>
         )}
-        {summary?.nextActions.map((n) => <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} onToggleDone={toggle} />)}
+        {summary?.nextActions.map((n) => <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} currentApp={currentApp} onToggleDone={toggle} />)}
       </ul>
     </section>
   );
@@ -273,7 +283,7 @@ const FILTERS: { key: "all" | "unread" | "actions" | "done"; label: string }[] =
 
 /** Full page: the signed-in user's notifications and actions, filterable.
  * Each app renders this at /notifications. */
-export function NotificationsView({ api, LinkComponent }: { api: NotificationsApi; LinkComponent: any }) {
+export function NotificationsView({ api, LinkComponent, currentApp }: { api: NotificationsApi; LinkComponent: any; currentApp?: string }) {
   const [filter, setFilter] = useState<"all" | "unread" | "actions" | "done">("actions");
   const [items, setItems] = useState<NotificationRowData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -338,7 +348,7 @@ export function NotificationsView({ api, LinkComponent }: { api: NotificationsAp
           <h3 style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", margin: "0 0 8px" }}>{label}</h3>
           <ul style={{ listStyle: "none", margin: 0, padding: 0, border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", background: "var(--u-surface)", overflow: "hidden" }}>
             {rows.map((n) => (
-              <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} onOpen={open} onToggleDone={toggle} />
+              <NotificationRow key={n.id} n={n} LinkComponent={LinkComponent} currentApp={currentApp} onOpen={open} onToggleDone={toggle} />
             ))}
           </ul>
         </section>

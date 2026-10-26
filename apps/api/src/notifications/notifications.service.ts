@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type { NotificationItem, NotificationSummary } from "@universe/types";
+import { APP_NOTIFICATION_CATEGORIES, APP_ROUTE_PREFIXES, appForNotification, canUseApp, UNIVERSE_APP_KEYS, type NotificationItem, type NotificationSummary } from "@universe/types";
 import { withTenantContext, type Prisma } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { createNotifications } from "./notify";
@@ -14,6 +14,7 @@ function toItem(n: Row): NotificationItem {
     title: n.title,
     body: n.body,
     link: n.link,
+    app: appForNotification(n.category, n.link),
     actorName: n.actor ? `${n.actor.forename} ${n.actor.surname}`.trim() : null,
     requiresAction: n.requiresAction,
     actionStatus: n.requiresAction ? ((n.actionStatus as "OPEN" | "DONE") ?? "OPEN") : null,
@@ -28,8 +29,26 @@ function toItem(n: Row): NotificationItem {
  * their organisation context — one user can never see another's items. */
 @Injectable()
 export class NotificationsService {
+  /** The person's own items, minus those that belong to an app they have not been given (Admin > Users > Apps). No restriction: everything. */
   private mine(user: RequestUser): Prisma.NotificationWhereInput {
-    return { recipientUserId: user.id, organizationId: user.organizationId };
+    const base: Prisma.NotificationWhereInput = { recipientUserId: user.id, organizationId: user.organizationId };
+    if (!user.apps) return base;
+    const prefixes: Prisma.NotificationWhereInput[] = [];
+    const cats: string[] = [];
+    for (const app of UNIVERSE_APP_KEYS) {
+      if (canUseApp(user.apps, app)) continue;
+      for (const seg of APP_ROUTE_PREFIXES[app] ?? []) prefixes.push({ link: { startsWith: `/${seg}` } });
+      cats.push(...(APP_NOTIFICATION_CATEGORIES[app] ?? []));
+    }
+    if (!prefixes.length && !cats.length) return base;
+    // Written as two positive branches so a null link is never caught in a NOT (SQL treats NOT NULL as unknown and would drop the row).
+    return {
+      ...base,
+      OR: [
+        { link: null, ...(cats.length ? { category: { notIn: cats } } : {}) },
+        { link: { not: null }, ...(prefixes.length ? { NOT: { OR: prefixes } } : {}) },
+      ],
+    };
   }
 
   async list(user: RequestUser, filter: "all" | "unread" | "actions" | "done" = "all", limit = 50): Promise<NotificationItem[]> {

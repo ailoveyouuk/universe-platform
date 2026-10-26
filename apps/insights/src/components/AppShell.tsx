@@ -265,7 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="u-app-header-right" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
                 <PlatformOrgSwitcher me={me} />
                 <GlobalSearch api={apiClient} LinkComponent={Link} currentApp="insights" />
-                <NotificationBell api={apiClient} LinkComponent={Link} />
+                <NotificationBell api={apiClient} LinkComponent={Link} currentApp="insights" />
                 <div
                   style={{
                     display: "flex",

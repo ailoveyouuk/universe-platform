@@ -25,8 +25,9 @@ const TYPE_LABEL: Record<string, string> = {
   batch: "Batches",
   risk: "Risks",
   product: "Products",
+  tender: "Tenders",
 };
-const ORDER = ["project", "stakeholder", "contact", "batch", "risk", "product"];
+const ORDER = ["project", "stakeholder", "contact", "batch", "risk", "product", "tender"];
 
 /**
  * Header search: opens a panel (click the icon, or press Ctrl/Cmd + K),
