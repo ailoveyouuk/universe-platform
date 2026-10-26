@@ -72,10 +72,17 @@ export class CrmService {
     const map: Facts = Object.assign(new Map<string, { open: number | null; expired: number; soon: number }>(), { canComplaints: user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view") });
     if (!partnerIds.length) return map;
     const now = new Date(); const soon = new Date(now.getTime() + 60 * 86400000);
-    const [certs, complaints] = await Promise.all([
-      tx.partnerCertification.findMany({ where: { organizationId: user.organizationId, partnerId: { in: partnerIds }, status: "CURRENT", expiryDate: { not: null, lte: soon } }, select: { partnerId: true, expiryDate: true }, take: 20000 }),
-      map.canComplaints ? tx.qualityComplaint.groupBy({ by: ["partnerId"], where: { organizationId: user.organizationId, partnerId: { in: partnerIds }, archivedAt: null, status: { notIn: ["RESOLVED", "CLOSED", "WITHDRAWN"] } }, _count: { _all: true } }) : Promise.resolve([]),
-    ]);
+    // SQL Server allows about 2,100 parameters in one query, so the stakeholder ids go in chunks.
+    const certs: { partnerId: string; expiryDate: Date | null }[] = [];
+    const complaints: { partnerId: string | null; _count: { _all: number } }[] = [];
+    for (let i = 0; i < partnerIds.length; i += 800) {
+      const ids = partnerIds.slice(i, i + 800);
+      const [c, q] = await Promise.all([
+        tx.partnerCertification.findMany({ where: { organizationId: user.organizationId, partnerId: { in: ids }, status: "CURRENT", expiryDate: { not: null, lte: soon } }, select: { partnerId: true, expiryDate: true }, take: 20000 }),
+        map.canComplaints ? tx.qualityComplaint.groupBy({ by: ["partnerId"], where: { organizationId: user.organizationId, partnerId: { in: ids }, archivedAt: null, status: { notIn: ["RESOLVED", "CLOSED", "WITHDRAWN"] } }, _count: { _all: true } }) : Promise.resolve([]),
+      ]);
+      certs.push(...c); complaints.push(...(q as typeof complaints));
+    }
     const slot = (id: string) => { let v = map.get(id); if (!v) { v = { open: map.canComplaints ? 0 : null, expired: 0, soon: 0 }; map.set(id, v); } return v; };
     for (const c of certs) { const v = slot(c.partnerId); if (c.expiryDate! < now) v.expired++; else v.soon++; }
     for (const c of complaints) if (c.partnerId) slot(c.partnerId).open = c._count._all;
