@@ -26,6 +26,10 @@ export class CrmService {
   constructor(private readonly scorecards: PartnerScorecardService) {}
 
   private tracking = new Map<string, Promise<number>>();
+  /** When each organisation was last checked for stakeholders without a relationship; the check is skipped for two minutes after it passes. */
+  private checkedAt = new Map<string, number>();
+  /** Overview figures for 45 seconds per organisation and view of complaints; cleared whenever a relationship is changed. */
+  private overviewCache = new Map<string, { at: number; value: CrmOverview }>();
 
   /**
    * Creates a relationship for every stakeholder that lacks one, 1,000 at a time. Two screens open at once (the list and the tiles) would
@@ -36,6 +40,7 @@ export class CrmService {
     const org = user.organizationId;
     const running = this.tracking.get(org);
     if (running) return running;
+    if (Date.now() - (this.checkedAt.get(org) ?? 0) < 120_000) return Promise.resolve(0);
     const run = (async () => {
       let created = 0;
       for (let round = 0; round < 40; round++) {
@@ -53,6 +58,7 @@ export class CrmService {
           if (!/unique|duplicate|P2002/i.test(String((e as Error)?.message ?? e))) throw e;
         }
       }
+      this.checkedAt.set(org, Date.now());
       return created;
     })().finally(() => this.tracking.delete(org));
     this.tracking.set(org, run);
@@ -174,7 +180,10 @@ export class CrmService {
     await this.ensureTracked(user);
     const now = new Date();
     const canComplaints = this.canSeeComplaints(user);
-    return withTenantContext(user.organizationId, async (tx) => {
+    const cacheKey = `${user.organizationId}:${canComplaints}`;
+    const hit = this.overviewCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < 45_000) return hit.value;
+    const value = await withTenantContext(user.organizationId, async (tx) => {
       const base: Prisma.CrmRelationshipWhereInput = { organizationId: user.organizationId, archivedAt: null };
       const open: Prisma.CrmRelationshipWhereInput = { ...base, status: { not: "ENDED" } };
       const [total, tiers, statuses, needsAttention, reviewDue, unowned, untracked] = await Promise.all([
@@ -192,6 +201,8 @@ export class CrmService {
       for (const t of statuses) byStatus[t.status as CrmStatus] = t._count._all;
       return { total, active: byStatus.ACTIVE, byTier, byStatus, untracked, needsAttention, reviewDue, unowned };
     });
+    this.overviewCache.set(cacheKey, { at: Date.now(), value });
+    return value;
   }
 
   async one(user: RequestUser, id: string): Promise<CrmRelationshipRow> {
@@ -246,6 +257,7 @@ export class CrmService {
       if (dto.healthOverride !== undefined) { data.healthOverride = dto.healthOverride; data.healthOverrideReason = dto.healthOverride ? dto.healthOverrideReason!.trim().slice(0, 500) : null; }
       if (dto.archived !== undefined) { data.archivedAt = dto.archived ? now : null; data.archivedById = dto.archived ? user.id : null; }
       await tx.crmRelationship.update({ where: { id }, data });
+      for (const k of [...this.overviewCache.keys()]) if (k.startsWith(`${user.organizationId}:`)) this.overviewCache.delete(k);
     });
     return this.one(user, id);
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
@@ -37,12 +37,22 @@ export default function RelationshipsPage() {
   useEffect(() => { setF(initialFilters()); setReady(true); }, []);
   useEffect(() => { apiClient.crmPeople().then(setPeople).catch(() => setPeople([])); }, []);
 
+  // Typing waits a moment before asking the server, so each keystroke is not a request.
+  const [dq, setDq] = useState("");
+  useEffect(() => { const t = setTimeout(() => setDq(f.q), 250); return () => clearTimeout(t); }, [f.q]);
+  const [busy, setBusy] = useState(false);
+  const seq = useRef(0);
+  const loadOverview = useCallback(() => { apiClient.crmOverview().then(setO).catch(() => undefined); }, []);
   const load = useCallback(() => {
     if (!ready) return;
-    apiClient.crmRelationships({ ...f, page, pageSize: pageSize === "all" ? 100 : pageSize, sort: "name" }).then((d) => { setData(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load relationships."));
-    apiClient.crmOverview().then(setO).catch(() => undefined);
-  }, [f, page, pageSize, ready]);
+    const mine = ++seq.current; setBusy(true);
+    apiClient.crmRelationships({ ...f, q: dq, page, pageSize: pageSize === "all" ? 100 : pageSize, sort: "name" })
+      .then((d) => { if (mine === seq.current) { setData(d); setErr(null); } })
+      .catch((e) => { if (mine === seq.current) setErr(e instanceof Error ? e.message : "Could not load relationships."); })
+      .finally(() => { if (mine === seq.current) setBusy(false); });
+  }, [f, dq, page, pageSize, ready]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (ready) loadOverview(); }, [ready, loadOverview]);
 
   const set = (patch: Partial<Filters>) => { setF((c) => ({ ...c, ...patch })); setPage(1); };
   const tileOn = (patch: Partial<Filters>) => Object.entries(patch).every(([k, v]) => f[k as keyof Filters] === v);
@@ -69,12 +79,12 @@ export default function RelationshipsPage() {
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.health} onChange={(v) => set({ health: v })} allLabel="Any health" options={[{ value: "attention", label: "Needs attention or worse" }, { value: "AT_RISK", label: CRM_HEALTH_LABELS.AT_RISK }]} ariaLabel="Filter by health" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.owner} onChange={(v) => set({ owner: v })} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }, ...people.map((p) => ({ value: p.id, label: p.name }))]} ariaLabel="Filter by owner" /></div>
-        <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
+        <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{busy ? "Loading…" : data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
         {data?.items.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
-          onSaved={(msg) => { setOk(msg); load(); }} onError={setErr} />)}
+          onSaved={(msg) => { setOk(msg); load(); loadOverview(); }} onError={setErr} />)}
         {data && data.items.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No relationships match these filters.</p>}
       </div>
 
