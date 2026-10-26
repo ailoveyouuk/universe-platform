@@ -5,6 +5,7 @@
  * unless NIGHTLY_SINCE (an ISO date-time) is given. One failing pipeline does not stop the others; the job fails at the end if any failed.
  *   cd packages/insights-db && npm run aggregate:nightly
  */
+import { prisma } from "@universe/db";
 import { insightsPrisma } from "../src/index";
 import { runAggregationPipeline, runLogisticsAggregationPipeline, runProductSourcingAggregationPipeline, runFreightCostAggregationPipeline, runServicePriceAggregationPipeline } from "../src/aggregate-etl";
 
@@ -16,7 +17,28 @@ const PIPELINES: { name: string; run: (since: Date) => Promise<{ organizationsPr
   { name: "services", run: runServicePriceAggregationPipeline },
 ];
 
+/**
+ * Waits for both databases to answer (2026-10-26). The serverless SQL databases pause when idle and take up to a minute or two to resume; the
+ * first connection after a pause fails with "Can't reach database server", which is what failed the 26 Oct run (all five pipelines inside 25 seconds,
+ * then fine an hour later). Trying again for up to ten minutes turns that into a slow start instead of a failed night.
+ */
+async function waitForDatabases() {
+  const probes: [string, () => Promise<unknown>][] = [["universe-insights", () => insightsPrisma.$queryRaw`SELECT 1 AS ok`], ["universe", () => prisma.$queryRaw`SELECT 1 AS ok`]];
+  for (const [name, probe] of probes) {
+    const deadline = Date.now() + 10 * 60_000;
+    for (let attempt = 1; ; attempt++) {
+      try { await probe(); if (attempt > 1) console.log(`aggregate:nightly ${name} answered on attempt ${attempt}.`); break; }
+      catch (e) {
+        if (Date.now() > deadline) throw e;
+        console.log(`aggregate:nightly ${name} not answering yet (attempt ${attempt}), waiting 20 seconds.`);
+        await new Promise((r) => setTimeout(r, 20_000));
+      }
+    }
+  }
+}
+
 async function main() {
+  await waitForDatabases();
   const override = process.env.NIGHTLY_SINCE ? new Date(process.env.NIGHTLY_SINCE) : null;
   if (override && Number.isNaN(override.getTime())) throw new Error("NIGHTLY_SINCE is not a valid date-time.");
   let failed = 0;
