@@ -83,7 +83,14 @@ export const UNIVERSE_APPS: UniverseAppEntry[] = [
     href: appUrl("NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT", "https://black-island-047de4e0f.5.azurestaticapps.net"),
     envVar: "NEXT_PUBLIC_APP_URL_PROJECT_MANAGEMENT",
   },
-  { key: "crm", label: "CRM", accent: "var(--u-module-crm)", status: "comingSoon", envVar: "NEXT_PUBLIC_APP_URL_CRM" },
+  {
+    key: "crm",
+    label: "CRM",
+    accent: "var(--u-module-crm)",
+    status: "available",
+    href: appUrl("NEXT_PUBLIC_APP_URL_CRM", "https://jolly-dune-0c822430f.5.azurestaticapps.net"),
+    envVar: "NEXT_PUBLIC_APP_URL_CRM",
+  },
   {
     key: "product-database",
     label: "Product Database",
