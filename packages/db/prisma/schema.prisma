@@ -4543,6 +4543,8 @@ model TenderMiniCompetition {
   cancelReason        String?   @db.NVarChar(1000)
   createdById         String
   createdAt           DateTime  @default(now())
+  /// The issuer's scoring scheme (weights, requirements, examples and references needed), fixed when the competition opens. Null = price only.
+  schemeJson          String?   @db.NVarChar(Max)
 
   @@index([tenderId])
   @@map("tender_mini_competitions")
@@ -4568,6 +4570,10 @@ model TenderCallOffQuote {
   quoteNotes            String?   @db.NVarChar(1000)
   declineReason         String?   @db.NVarChar(1000)
   createdAt             DateTime  @default(now())
+  /// The supplier's answers to the scheme: requirements met, similar contracts, references (QuoteResponses).
+  responsesJson         String?   @db.NVarChar(Max)
+  /// The issuer's manual scores with reasons (QuoteScores).
+  scoresJson            String?   @db.NVarChar(Max)
 
   @@index([competitionId])
   @@index([awardedOrganizationId])

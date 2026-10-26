@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
 import { EVIDENCE_KINDS, EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES, SERVICE_CATEGORY_CODES, SERVICE_PRICING_BASIS_CODES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
@@ -341,12 +341,17 @@ export class OpenMiniCompetitionDto {
   @IsOptional() @IsString() @Length(2, 2) deliveryCountryCode?: string;
   @IsOptional() @IsDateString() requiredBy?: string;
   @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+  /** The issuer's scoring scheme (weights, requirements, examples, references). Checked and cleaned in the service. Omit for a price-only competition. */
+  @IsOptional() @IsObject() scheme?: Record<string, unknown>;
 }
 export class MiniQuoteLineDto { @IsString() tenderLineId!: string; @IsNumber() @Min(0.0001) quotedPrice!: number; @IsOptional() @IsInt() @Min(0) @Max(1000) leadTimeDays?: number }
 export class MiniQuoteDto {
   @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => MiniQuoteLineDto) lines!: MiniQuoteLineDto[];
   @IsOptional() @IsString() @Length(0, 1000) notes?: string;
+  /** Answers to the scheme (requirements, examples, references). Checked and cleaned in the service. */
+  @IsOptional() @IsObject() responses?: Record<string, unknown>;
 }
+export class ScoreQuoteDto { @IsIn(["quality", "examples", "references"]) criterion!: "quality" | "examples" | "references"; @IsInt() @Min(0) @Max(5) score!: number; @IsString() @Length(5, 1000) reason!: string }
 export class MiniAwardDto { @IsString() quoteId!: string; @IsString() @Length(5, 1000) reason!: string }
 
 export class ProposeVariationDto {

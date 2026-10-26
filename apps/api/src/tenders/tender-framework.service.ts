@@ -2,9 +2,11 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { withTenantContext } from "@universe/db";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
-import type { ApprovalSettingsDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto } from "./dto/tenders.dto";
+import type { ApprovalSettingsDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, PriceReviewDto, PriceReviewResponseDto, RaiseCallOffDto, ScoreQuoteDto } from "./dto/tenders.dto";
 import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT_INDIVIDUAL_LIMIT, DEFAULT_SPLIT_WINDOW_DAYS, competitionOpen, effectivePrice, holdActive, holdEndsAt, MIN_COMPETITORS, quoteProblems, requiresSecondApproval } from "./tender-framework";
 import { appendTenderEvent } from "./tender-events";
+import { awardBlock, cleanResponses, cleanScheme, rankQuotes, schemeProblems, type QuoteInput } from "./quote-scoring";
+import type { QuoteRanking, QuoteResponses, QuoteScheme, QuoteScores } from "@universe/types";
 import { TendersService } from "./tenders.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderApprovalAuthority } from "./tender-approval-authority";
@@ -23,6 +25,10 @@ const OPEN_STATUSES = ["PENDING_APPROVAL", "AWAITING_SUPPLIER", "ACCEPTED"];
  * authoriser up to it, a second and different authoriser above it), and the supplier accepts or declines. The ceiling is a guide: it warns and is
  * recorded, but never blocks. Every step is written to the tender's hash-chained timeline.
  */
+const parseJson = <T,>(s: string | null | undefined): T | null => { if (!s) return null; try { return JSON.parse(s) as T; } catch { return null; } };
+/** Mean lead time over the quote's lines, or null if any line has none. */
+const avgLead = (ls: { leadTimeDays: number | null }[]) => (ls.length && ls.every((l) => l.leadTimeDays !== null) ? ls.reduce((a, l) => a + (l.leadTimeDays as number), 0) / ls.length : null);
+
 @Injectable()
 export class TenderFrameworkService {
   constructor(private readonly tenders: TendersService, private readonly performance: TenderPerformanceService, private readonly authority: TenderApprovalAuthority = new TenderApprovalAuthority()) {}
@@ -315,19 +321,25 @@ export class TenderFrameworkService {
     const qlines = quotes.length ? await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: { in: quotes.map((q) => q.id) } } }) : [];
     const lineViews = (qid: string, quantities?: Map<string, number>) => qlines.filter((l) => l.quoteId === qid).map((l) => ({ tenderLineId: l.tenderLineId, description: desc(l.tenderLineId), quantity: Number(l.quantity), frameworkPrice: Number(l.frameworkPrice), quotedPrice: num(l.quotedPrice), leadTimeDays: l.leadTimeDays }));
     if (!owner) {
-      return { competitions: [] as unknown[], invitations: quotes.map((q) => ({ id: q.id, reference: q.reference, status: q.status, closesAt: q.closesAt, open: q.status !== "CANCELLED" && competitionOpen(q.closesAt, now), requestNotes: q.requestNotes, deliveryCountryCode: q.deliveryCountryCode, requiredBy: q.requiredBy, quotedAt: q.quotedAt, totalValue: num(q.totalValue), quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id) })) };
+      const cs = quotes.length ? await tx.tenderMiniCompetition.findMany({ where: { id: { in: quotes.map((q) => q.competitionId) } } }) : [];
+      const comps0 = new Map(cs.map((c) => [c.id, c.schemeJson]));
+      return { competitions: [] as unknown[], invitations: quotes.map((q) => ({ id: q.id, reference: q.reference, status: q.status, closesAt: q.closesAt, open: q.status !== "CANCELLED" && competitionOpen(q.closesAt, now), requestNotes: q.requestNotes, deliveryCountryCode: q.deliveryCountryCode, requiredBy: q.requiredBy, quotedAt: q.quotedAt, totalValue: num(q.totalValue), quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id), scheme: parseJson<QuoteScheme>(comps0.get(q.competitionId)), responses: parseJson<QuoteResponses>(q.responsesJson) })) };
     }
     const comps = await tx.tenderMiniCompetition.findMany({ where: { tenderId }, orderBy: { createdAt: "desc" } });
+    const ranked = new Map<string, Map<string, QuoteRanking>>();
+    for (const c of comps) { const sc = parseJson<QuoteScheme>(c.schemeJson); if (sc && !(c.status === "OPEN" && competitionOpen(c.closesAt, now))) ranked.set(c.id, await this.rankings(tx, c.id, sc, now)); }
     return { invitations: [] as unknown[], competitions: comps.map((c) => {
       const cq = quotes.filter((q) => q.competitionId === c.id);
       const sealed = c.status === "OPEN" && competitionOpen(c.closesAt, now);
+      const scheme = parseJson<QuoteScheme>(c.schemeJson);
+      const ranks = scheme && !sealed ? ranked.get(c.id) : undefined;
       const lines = (JSON.parse(c.linesJson) as { tenderLineId: string; quantity: number }[]).map((l) => ({ tenderLineId: l.tenderLineId, description: desc(l.tenderLineId), quantity: l.quantity }));
       return {
-        id: c.id, reference: c.reference, status: c.status, closesAt: c.closesAt, sealed, notes: c.notes, requiredBy: c.requiredBy, deliveryCountryCode: c.deliveryCountryCode, lines,
+        id: c.id, reference: c.reference, status: c.status, closesAt: c.closesAt, sealed, notes: c.notes, requiredBy: c.requiredBy, deliveryCountryCode: c.deliveryCountryCode, lines, scheme,
         invited: cq.length, quotesReceived: cq.filter((q) => q.status === "QUOTED" || q.status === "WON" || q.status === "LOST").length,
         awardedQuoteId: c.awardedQuoteId, awardReason: c.awardReason, cancelReason: c.cancelReason,
         canAward: c.status === "OPEN" && !sealed && cq.some((q) => q.status === "QUOTED"),
-        quotes: sealed ? [] : cq.map((q) => ({ id: q.id, supplierName: names.get(q.awardedOrganizationId) ?? null, status: q.status, totalValue: num(q.totalValue), quotedAt: q.quotedAt, quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id) })),
+        quotes: sealed ? [] : cq.map((q) => ({ id: q.id, supplierName: names.get(q.awardedOrganizationId) ?? null, status: q.status, totalValue: num(q.totalValue), quotedAt: q.quotedAt, quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id), responses: parseJson<QuoteResponses>(q.responsesJson), scores: parseJson<QuoteScores>(q.scoresJson), ranking: ranks?.get(q.id) ?? null })),
       };
     }) };
   }
@@ -341,6 +353,8 @@ export class TenderFrameworkService {
     const now = new Date();
     if (!(closesAt.getTime() > now.getTime())) throw new BadRequestException("The closing time must be in the future.");
     if (closesAt.getTime() - now.getTime() > 90 * 86_400_000) throw new BadRequestException("The closing time can be at most 90 days away.");
+    const scheme = dto.scheme ? cleanScheme(dto.scheme) : null;
+    if (scheme) { const bad = schemeProblems(scheme); if (bad.length) throw new BadRequestException(bad.join(" ")); }
     const out = await withTenantContext(user.organizationId, async (tx) => {
       const t = await this.tenders.ownTender(tx, user, tenderId);
       if (t.tenderType !== "FRAMEWORK") throw new ConflictException("Mini-competitions are run on framework agreements.");
@@ -353,7 +367,7 @@ export class TenderFrameworkService {
       if (eligible.length < MIN_COMPETITORS) throw new BadRequestException(`A mini-competition needs at least ${MIN_COMPETITORS} framework suppliers that cover all of those items; ${eligible.length} do. Use a direct or rotation call-off instead.`);
       const n = (await tx.tenderMiniCompetition.count({ where: { tenderId } })) + 1;
       const reference = `MC-${t.referenceNumber}-${n}`;
-      const comp = await tx.tenderMiniCompetition.create({ data: { organizationId: user.organizationId, tenderId, reference, notes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null, closesAt, linesJson: JSON.stringify(dto.lines.map((l) => ({ tenderLineId: l.tenderLineId, quantity: l.quantity }))), createdById: user.id } });
+      const comp = await tx.tenderMiniCompetition.create({ data: { organizationId: user.organizationId, tenderId, reference, notes: dto.notes, deliveryCountryCode: dto.deliveryCountryCode?.toUpperCase(), requiredBy: dto.requiredBy ? new Date(dto.requiredBy) : null, closesAt, linesJson: JSON.stringify(dto.lines.map((l) => ({ tenderLineId: l.tenderLineId, quantity: l.quantity }))), schemeJson: scheme ? JSON.stringify(scheme) : null, createdById: user.id } });
       const invited: string[] = [];
       for (const c of eligible) {
         const prices = await this.agreedPrices(tx, c, lineIds);
@@ -416,6 +430,9 @@ export class TenderFrameworkService {
       const given = new Map(dto.lines.map((l) => [l.tenderLineId, l]));
       const problems = quoteProblems(lines.map((l) => ({ label: tl.find((x) => x.id === l.tenderLineId)?.description ?? "an item", frameworkPrice: Number(l.frameworkPrice), quotedPrice: given.get(l.tenderLineId)?.quotedPrice })));
       if (dto.lines.some((l) => !lines.some((x) => x.tenderLineId === l.tenderLineId))) problems.push("The quote includes an item that was not requested.");
+      const comp = await tx.tenderMiniCompetition.findUnique({ where: { id: q.competitionId } });
+      const scheme = parseJson<QuoteScheme>(comp?.schemeJson);
+      if (scheme && scheme.weights.leadTime > 0 && lines.some((l) => given.get(l.tenderLineId)?.leadTimeDays == null)) problems.push("Give a lead time in days for every item: it is part of how quotes are scored.");
       if (problems.length) throw new BadRequestException(problems.join(" "));
       let total = 0;
       for (const l of lines) {
@@ -423,7 +440,7 @@ export class TenderFrameworkService {
         total += Number(l.quantity) * g.quotedPrice;
         await tx.tenderCallOffQuoteLine.update({ where: { id: l.id }, data: { quotedPrice: g.quotedPrice, leadTimeDays: g.leadTimeDays ?? null } });
       }
-      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { status: "QUOTED", quotedAt: new Date(), totalValue: r2(total), quoteNotes: dto.notes ?? null, declineReason: null } });
+      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { status: "QUOTED", quotedAt: new Date(), totalValue: r2(total), quoteNotes: dto.notes ?? null, declineReason: null, ...(scheme ? { responsesJson: JSON.stringify(cleanResponses(dto.responses, scheme)), scoresJson: null } : {}) } });
       const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
       return { q, t: t!, total: r2(total) };
     });
@@ -446,6 +463,37 @@ export class TenderFrameworkService {
     return this.view(user, r.t.id);
   }
 
+  /** Ranks every submitted quote in a competition under its scheme. */
+  private async rankings(tx: Tx, competitionId: string, scheme: QuoteScheme, now: Date) {
+    const quotes = (await tx.tenderCallOffQuote.findMany({ where: { competitionId } })).filter((q) => q.status === "QUOTED" || q.status === "WON" || q.status === "LOST");
+    const ls = quotes.length ? await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: { in: quotes.map((q) => q.id) } } }) : [];
+    const inputs: QuoteInput[] = quotes.map((q) => ({ id: q.id, total: num(q.totalValue), avgLeadDays: avgLead(ls.filter((l) => l.quoteId === q.id)), responses: parseJson<QuoteResponses>(q.responsesJson), scores: parseJson<QuoteScores>(q.scoresJson) }));
+    return rankQuotes(scheme, inputs, now);
+  }
+
+  /** The issuer scores one judged criterion (quality, similar contracts, references) 0 to 5 with a written reason, after quoting has closed. Scores can be revised until the award. */
+  async scoreQuote(user: RequestUser, quoteId: string, dto: ScoreQuoteDto) {
+    assertHasPermission(user, "tenders.award");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, organizationId: user.organizationId } });
+      if (!q) throw new NotFoundException("Quote not found.");
+      const c = await tx.tenderMiniCompetition.findUnique({ where: { id: q.competitionId } });
+      const scheme = parseJson<QuoteScheme>(c?.schemeJson);
+      if (!c || !scheme) throw new ConflictException("This competition is judged on price only.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      if (competitionOpen(c.closesAt, new Date())) throw new ConflictException("Quotes are sealed until the closing time.");
+      if (q.status !== "QUOTED") throw new ConflictException("Only submitted quotes are scored.");
+      if (!(scheme.weights[dto.criterion] > 0)) throw new BadRequestException("That criterion has no weight in this competition.");
+      const scores = parseJson<QuoteScores>(q.scoresJson) ?? {};
+      scores[dto.criterion] = { score: dto.score, reason: dto.reason.trim() };
+      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { scoresJson: JSON.stringify(scores) } });
+      const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
+      return { q, t: t!, c };
+    });
+    await this.event(r.t, r.q.awardedOrganizationId, user, "MINI_COMP_SCORED", `A quote in ${r.c.reference} was scored on ${dto.criterion} (${dto.score} of 5): ${dto.reason.trim().slice(0, 200)}`, { quoteId: r.q.id, criterion: dto.criterion, score: dto.score });
+    return this.view(user, r.t.id);
+  }
+
   /** After quoting closes the owner chooses a winner and records why. The win becomes an ordinary call-off, so the approval limit and ceiling apply as usual. */
   async awardCompetition(user: RequestUser, competitionId: string, dto: MiniAwardDto) {
     assertHasPermission(user, "tenders.award");
@@ -460,6 +508,11 @@ export class TenderFrameworkService {
       const quotes = await tx.tenderCallOffQuote.findMany({ where: { competitionId: c.id } });
       const win = quotes.find((q) => q.id === dto.quoteId);
       if (!win || win.status !== "QUOTED") throw new BadRequestException("Choose one of the quotes that was submitted.");
+      const scheme = parseJson<QuoteScheme>(c.schemeJson);
+      if (scheme) {
+        const block = awardBlock(scheme, (await this.rankings(tx, c.id, scheme, now)).get(win.id));
+        if (block) throw new BadRequestException(block);
+      }
       const contract = await tx.tenderContract.findUnique({ where: { id: win.contractId } });
       if (!contract || contract.status !== "ACTIVE") throw new ConflictException("That supplier's framework agreement is no longer active.");
       const qlines = await tx.tenderCallOffQuoteLine.findMany({ where: { quoteId: win.id } });

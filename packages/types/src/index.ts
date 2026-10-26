@@ -3987,17 +3987,39 @@ export interface FrameworkView {
   miniCompetitions: MiniCompetitionView[];
   invitations: MiniInvitationView[];
 }
+/** How a mini-competition is judged, set by the issuer before it opens and shown to every invited supplier. Weights are percentages and total 100; a weight of 0 switches that criterion off. */
+export const QUOTE_WEIGHT_KEYS = ["price", "leadTime", "quality", "desirable", "examples", "references"] as const;
+export type QuoteWeightKey = (typeof QUOTE_WEIGHT_KEYS)[number];
+export const QUOTE_WEIGHT_LABEL: Record<QuoteWeightKey, string> = { price: "Price", leadTime: "Lead time", quality: "Quality of approach", desirable: "Desirable requirements met", examples: "Similar contracts", references: "References" };
+export interface QuoteRequirement { key: string; title: string; mandatory: boolean }
+export interface QuoteScheme {
+  weights: Record<QuoteWeightKey, number>;
+  /** Mandatory requirements are pass/fail; desirable ones are scored by the share the supplier meets. */
+  requirements: QuoteRequirement[];
+  /** Similar contracts completed within the last `exampleYears` years that a supplier must give (0 = none required). */
+  minExamples: number; exampleYears: number; minReferences: number;
+  /** What the issuer will look for when scoring quality, shown to suppliers. */
+  qualityBrief: string | null;
+}
+export interface QuoteExample { title: string; client: string; valueText: string | null; startedOn: string; completedOn: string; scope: string }
+export interface QuoteReference { forename: string; surname: string; organisation: string; role: string | null; email: string; phone: string; relationship: string; contactable: boolean }
+export interface QuoteResponses { requirements: Record<string, { met: boolean; note: string | null }>; examples: QuoteExample[]; references: QuoteReference[] }
+/** Evaluator scores, 0 to 5, each with the written reason that must be kept. */
+export type QuoteManualKey = "quality" | "examples" | "references";
+export type QuoteScores = Partial<Record<QuoteManualKey, { score: number; reason: string }>>;
+export interface QuoteRanking { eligible: boolean; problems: string[]; price: number | null; leadTime: number | null; desirable: number | null; manualMissing: QuoteManualKey[]; total: number | null; rank: number | null }
+
 export type MiniQuoteStatus = "INVITED" | "QUOTED" | "DECLINED" | "WON" | "LOST" | "CANCELLED";
 export interface MiniQuoteLineView { tenderLineId: string; description: string; quantity: number; frameworkPrice: number; quotedPrice: number | null; leadTimeDays: number | null }
 /** Owner's view of one competition. While quoting is open the quotes are sealed: only the count is shown. */
 export interface MiniCompetitionView {
   id: string; reference: string; status: "OPEN" | "AWARDED" | "CANCELLED"; closesAt: string; sealed: boolean; notes: string | null; requiredBy: string | null; deliveryCountryCode: string | null;
-  lines: { tenderLineId: string; description: string; quantity: number }[]; invited: number; quotesReceived: number; awardedQuoteId: string | null; awardReason: string | null; cancelReason: string | null; canAward: boolean;
-  quotes: { id: string; supplierName: string | null; status: MiniQuoteStatus; totalValue: number | null; quotedAt: string | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[] }[];
+  lines: { tenderLineId: string; description: string; quantity: number }[]; scheme: QuoteScheme | null; invited: number; quotesReceived: number; awardedQuoteId: string | null; awardReason: string | null; cancelReason: string | null; canAward: boolean;
+  quotes: { id: string; supplierName: string | null; status: MiniQuoteStatus; totalValue: number | null; quotedAt: string | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[]; responses: QuoteResponses | null; scores: QuoteScores | null; ranking: QuoteRanking | null }[];
 }
 /** A supplier's own invitation. It never shows other suppliers or their prices. */
 export interface MiniInvitationView {
-  id: string; reference: string; status: MiniQuoteStatus; closesAt: string; open: boolean; requestNotes: string | null; deliveryCountryCode: string | null; requiredBy: string | null; quotedAt: string | null; totalValue: number | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[];
+  id: string; reference: string; status: MiniQuoteStatus; closesAt: string; open: boolean; requestNotes: string | null; deliveryCountryCode: string | null; requiredBy: string | null; quotedAt: string | null; totalValue: number | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[]; scheme: QuoteScheme | null; responses: QuoteResponses | null;
 }
 
 export * from "./project-line-input";

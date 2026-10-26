@@ -182,7 +182,7 @@ import type {
   SearchResponse,
   NotificationSummary,
   AssignProjectActionInput,
-  ApprovalSettingsView, ContractListItem, FrameworkView,
+  ApprovalSettingsView, ContractListItem, FrameworkView, QuoteManualKey, QuoteResponses, QuoteScheme,
 } from "@universe/types";
 
 /**
@@ -427,11 +427,12 @@ export class UniverseApiClient {
   rejectCallOff(cid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/reject`, { method: "POST", body: JSON.stringify({ reason }) }); }
   cancelCallOff(cid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }); }
   respondCallOff(cid: string, accept: boolean, reason?: string): Promise<FrameworkView> { return this.request(`/tenders/call-offs/${cid}/respond`, { method: "POST", body: JSON.stringify({ accept, reason }) }); }
-  openMiniCompetition(id: string, body: { lines: { tenderLineId: string; quantity: number }[]; closesAt: string; deliveryCountryCode?: string; requiredBy?: string; notes?: string }): Promise<FrameworkView> { return this.request(`/tenders/${id}/mini-competitions`, { method: "POST", body: JSON.stringify(body) }); }
+  openMiniCompetition(id: string, body: { lines: { tenderLineId: string; quantity: number }[]; closesAt: string; deliveryCountryCode?: string; requiredBy?: string; notes?: string; scheme?: QuoteScheme }): Promise<FrameworkView> { return this.request(`/tenders/${id}/mini-competitions`, { method: "POST", body: JSON.stringify(body) }); }
   closeMiniCompetition(mid: string): Promise<FrameworkView> { return this.request(`/tenders/mini-competitions/${mid}/close`, { method: "POST" }); }
   cancelMiniCompetition(mid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/mini-competitions/${mid}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }); }
   awardMiniCompetition(mid: string, body: { quoteId: string; reason: string }): Promise<{ id: string; status: string; warnings: string[] }> { return this.request(`/tenders/mini-competitions/${mid}/award`, { method: "POST", body: JSON.stringify(body) }); }
-  submitMiniQuote(qid: string, body: { lines: { tenderLineId: string; quotedPrice: number; leadTimeDays?: number }[]; notes?: string }): Promise<FrameworkView> { return this.request(`/tenders/mini-quotes/${qid}/quote`, { method: "POST", body: JSON.stringify(body) }); }
+  scoreMiniQuote(qid: string, body: { criterion: QuoteManualKey; score: number; reason: string }): Promise<FrameworkView> { return this.request(`/tenders/mini-quotes/${qid}/score`, { method: "POST", body: JSON.stringify(body) }); }
+  submitMiniQuote(qid: string, body: { lines: { tenderLineId: string; quotedPrice: number; leadTimeDays?: number }[]; notes?: string; responses?: Omit<QuoteResponses, "requirements"> & { requirements: Record<string, { met: boolean; note?: string | null }> } }): Promise<FrameworkView> { return this.request(`/tenders/mini-quotes/${qid}/quote`, { method: "POST", body: JSON.stringify(body) }); }
   declineMiniQuote(qid: string, reason: string): Promise<FrameworkView> { return this.request(`/tenders/mini-quotes/${qid}/decline`, { method: "POST", body: JSON.stringify({ reason }) }); }
   createCallOffProject(cid: string): Promise<{ projectId: string }> { return this.request(`/tenders/call-offs/${cid}/project`, { method: "POST" }); }
   proposePriceReview(contractId: string, body: { tenderLineId: string; proposedPrice: number; reason: string }): Promise<FrameworkView> { return this.request(`/tenders/contracts/${contractId}/price-reviews`, { method: "POST", body: JSON.stringify(body) }); }

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { CALL_OFF_STATUS_LABEL, type CallOffView, type FrameworkView, type MiniCompetitionView, type MiniInvitationView } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
+import { emptyScheme, QuoteAssessment, ResponsesForm, SchemeEditor, SchemeSummary, draftFrom, schemeFormProblems, type ResponsesDraft } from "./QuoteScoringUi";
 import { Card, ErrorNote, Field, Heading, Page, fmtDate, inputStyle } from "../../../lib/ui";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
@@ -195,6 +196,7 @@ const qTone = (s: string) => (s === "WON" ? "good" : s === "DECLINED" || s === "
 function RunCompetition({ v, act, busy }: { v: FrameworkView; act: (fn: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
   const items = [...new Map(v.contracts.filter((c) => c.status === "ACTIVE").flatMap((c) => c.items).map((i) => [i.tenderLineId, i])).values()].sort((a, b) => a.lineNumber - b.lineNumber);
   const [qty, setQty] = useState<Record<string, string>>({}); const [notes, setNotes] = useState(""); const [by, setBy] = useState(""); const [closes, setCloses] = useState("");
+  const [judged, setJudged] = useState(false); const [scheme, setScheme] = useState(emptyScheme());
   const chosen = items.filter((i) => Number(qty[i.tenderLineId]) > 0);
   return (
     <Card title="Run a mini-competition">
@@ -205,7 +207,9 @@ function RunCompetition({ v, act, busy }: { v: FrameworkView; act: (fn: () => Pr
         <Field label="Needed by (optional)"><input type="date" style={inputStyle} value={by} onChange={(e) => setBy(e.target.value)} /></Field>
         <Field label="Notes for suppliers (optional)"><input style={inputStyle} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} /></Field>
       </div>
-      <div style={{ marginTop: 12 }}><Button variant="primary" disabled={busy || chosen.length === 0 || !closes} onClick={() => act(async () => { await apiClient.openMiniCompetition(v.tender.id, { lines: chosen.map((i) => ({ tenderLineId: i.tenderLineId, quantity: Number(qty[i.tenderLineId]) })), closesAt: new Date(closes).toISOString(), requiredBy: by || undefined, notes: notes || undefined }); setQty({}); setNotes(""); setBy(""); setCloses(""); })}>Invite suppliers to quote</Button></div>
+      <label style={{ display: "block", marginTop: 12, fontSize: 13.5 }}><input type="checkbox" checked={judged} onChange={(e) => setJudged(e.target.checked)} /> Judge quotes on more than price (lead time, quality, requirements, similar contracts, references)</label>
+      {judged && <SchemeEditor scheme={scheme} onChange={setScheme} />}
+      <div style={{ marginTop: 12 }}><Button variant="primary" disabled={busy || chosen.length === 0 || !closes || (judged && schemeFormProblems(scheme).length > 0)} onClick={() => act(async () => { await apiClient.openMiniCompetition(v.tender.id, { lines: chosen.map((i) => ({ tenderLineId: i.tenderLineId, quantity: Number(qty[i.tenderLineId]) })), closesAt: new Date(closes).toISOString(), requiredBy: by || undefined, notes: notes || undefined, scheme: judged ? scheme : undefined }); setJudged(false); setScheme(emptyScheme()); setQty({}); setNotes(""); setBy(""); setCloses(""); })}>Invite suppliers to quote</Button></div>
     </Card>
   );
 }
@@ -219,12 +223,14 @@ function Competition({ m, currency, act, busy, onWarn }: { m: MiniCompetitionVie
         <span style={muted}>{m.sealed ? `Closes ${when(m.closesAt)}` : `Closed ${when(m.closesAt)}`} · {m.invited} invited · {m.quotesReceived} quote{m.quotesReceived === 1 ? "" : "s"} received</span>
       </div>
       {m.lines.map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quantity}</div>)}
+      {m.scheme && <SchemeSummary scheme={m.scheme} />}
       {m.sealed && <div style={muted}>Quotes are sealed until the closing time. You can see how many have arrived, not who or what they are.</div>}
       {!m.sealed && m.quotes.map((q) => (
         <div key={q.id} style={{ padding: "6px 0", borderTop: "1px dotted var(--u-border)" }}>
-          {m.status === "OPEN" && q.status === "QUOTED" && <label style={{ marginRight: 8 }}><input type="radio" name={`pick-${m.id}`} checked={pick === q.id} onChange={() => setPick(q.id)} /> </label>}
+          {m.status === "OPEN" && q.status === "QUOTED" && (!m.scheme || (q.ranking?.eligible && q.ranking.manualMissing.length === 0)) && <label style={{ marginRight: 8 }}><input type="radio" name={`pick-${m.id}`} checked={pick === q.id} onChange={() => setPick(q.id)} /> </label>}
           <strong>{q.supplierName}</strong> <Pill tone={qTone(q.status)}>{q.status === "INVITED" ? "no answer" : q.status.toLowerCase()}</Pill> {q.totalValue != null && <strong>{money(q.totalValue, currency)}</strong>}
           {q.lines.filter((l) => l.quotedPrice != null).map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quotedPrice} (framework {l.frameworkPrice}){l.leadTimeDays != null ? ` · ${l.leadTimeDays} days` : ""}</div>)}
+          {m.scheme && q.status !== "DECLINED" && q.status !== "INVITED" && <QuoteAssessment scheme={m.scheme} responses={q.responses} scores={q.scores} ranking={q.ranking} canScore={m.status === "OPEN"} busy={busy} onScore={(criterion, score, reason) => act(() => apiClient.scoreMiniQuote(q.id, { criterion, score, reason }))} />}
           {q.quoteNotes && <div style={muted}>Note: {q.quoteNotes}</div>}{q.declineReason && <div style={muted}>Declined: {q.declineReason}</div>}
         </div>))}
       {m.awardReason && <div style={muted}>Why the winner was chosen: {m.awardReason}</div>}{m.cancelReason && <div style={muted}>Cancelled: {m.cancelReason}</div>}
@@ -243,7 +249,9 @@ function Invitation({ i, currency, act, busy }: { i: MiniInvitationView; currenc
   const [price, setPrice] = useState<Record<string, string>>(() => Object.fromEntries(i.lines.map((l) => [l.tenderLineId, l.quotedPrice != null ? String(l.quotedPrice) : ""])));
   const [lead, setLead] = useState<Record<string, string>>(() => Object.fromEntries(i.lines.map((l) => [l.tenderLineId, l.leadTimeDays != null ? String(l.leadTimeDays) : ""])));
   const [notes, setNotes] = useState(i.quoteNotes ?? ""); const [reason, setReason] = useState("");
-  const ready = i.lines.every((l) => Number(price[l.tenderLineId]) > 0 && Number(price[l.tenderLineId]) <= l.frameworkPrice);
+  const [draft, setDraft] = useState<ResponsesDraft | null>(() => (i.scheme ? draftFrom(i.scheme, i.responses) : null));
+  const needLead = !!i.scheme && i.scheme.weights.leadTime > 0;
+  const ready = i.lines.every((l) => Number(price[l.tenderLineId]) > 0 && Number(price[l.tenderLineId]) <= l.frameworkPrice && (!needLead || lead[l.tenderLineId] !== ""));
   return (
     <div style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -251,18 +259,20 @@ function Invitation({ i, currency, act, busy }: { i: MiniInvitationView; currenc
         <span style={muted}>{i.open ? `Closes ${when(i.closesAt)}` : `Closed ${when(i.closesAt)}`}{i.requiredBy ? ` · needed by ${fmtDate(i.requiredBy)}` : ""}</span>
       </div>
       {i.requestNotes && <div style={muted}>Notes from the buyer: {i.requestNotes}</div>}
+      {i.scheme && <SchemeSummary scheme={i.scheme} />}
       {i.lines.map((l) => (
         <div key={l.tenderLineId} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "4px 0" }}>
           <span style={{ flex: 1, minWidth: 200 }}>{l.description}: {l.quantity} <span style={muted}>(your framework price {l.frameworkPrice})</span></span>
           {i.open ? <>
             <input aria-label={`Quote for ${l.description}`} type="number" min={0} step="0.0001" max={l.frameworkPrice} style={{ ...inputStyle, width: 120 }} value={price[l.tenderLineId] ?? ""} onChange={(e) => setPrice((p) => ({ ...p, [l.tenderLineId]: e.target.value }))} />
-            <input aria-label={`Lead time in days for ${l.description}`} type="number" min={0} style={{ ...inputStyle, width: 110 }} placeholder="Days (optional)" value={lead[l.tenderLineId] ?? ""} onChange={(e) => setLead((p) => ({ ...p, [l.tenderLineId]: e.target.value }))} />
+            <input aria-label={`Lead time in days for ${l.description}`} type="number" min={0} style={{ ...inputStyle, width: 110 }} placeholder={needLead ? "Days (required)" : "Days (optional)"} value={lead[l.tenderLineId] ?? ""} onChange={(e) => setLead((p) => ({ ...p, [l.tenderLineId]: e.target.value }))} />
           </> : <span>{l.quotedPrice ?? "no quote"}</span>}
         </div>))}
+      {i.open && i.scheme && draft && <ResponsesForm scheme={i.scheme} draft={draft} onChange={setDraft} />}
       {i.open && <>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
           <input aria-label="Quote notes" style={{ ...inputStyle, flex: 1, minWidth: 220 }} placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} />
-          <Button size="sm" variant="primary" disabled={busy || !ready} onClick={() => act(() => apiClient.submitMiniQuote(i.id, { lines: i.lines.map((l) => ({ tenderLineId: l.tenderLineId, quotedPrice: Number(price[l.tenderLineId]), leadTimeDays: lead[l.tenderLineId] ? Number(lead[l.tenderLineId]) : undefined })), notes: notes || undefined }))}>{i.status === "QUOTED" ? "Replace my quote" : "Submit quote"}</Button>
+          <Button size="sm" variant="primary" disabled={busy || !ready} onClick={() => act(() => apiClient.submitMiniQuote(i.id, { lines: i.lines.map((l) => ({ tenderLineId: l.tenderLineId, quotedPrice: Number(price[l.tenderLineId]), leadTimeDays: lead[l.tenderLineId] ? Number(lead[l.tenderLineId]) : undefined })), notes: notes || undefined, responses: draft ?? undefined }))}>{i.status === "QUOTED" ? "Replace my quote" : "Submit quote"}</Button>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6, alignItems: "center" }}>
           <input aria-label="Reason for not quoting" style={{ ...inputStyle, width: 260 }} placeholder="Reason (to decline to quote)" value={reason} onChange={(e) => setReason(e.target.value)} />
