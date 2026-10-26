@@ -18,6 +18,7 @@ const GROUP_LABELS: Record<string, string> = {
   manufacturer: "Manufacturer marketplace",
   funder: "Funder",
   insights: "Insights",
+  crm: "CRM",
 };
 
 const APP_SCOPES = [
@@ -25,6 +26,7 @@ const APP_SCOPES = [
   { value: "project-management", label: "Project Management" },
   { value: "product-database", label: "Product Database" },
   { value: "insights", label: "Insights" },
+  { value: "crm", label: "CRM" },
 ];
 
 function groupOf(key: string): string {

@@ -25,7 +25,7 @@ describe("notification scope for a restricted person", () => {
     expect(svc.mine(user(null))).toEqual({ recipientUserId: "u1", organizationId: "o1" });
   });
   it("is the plain filter when every app that owns notifications is allowed", () => {
-    expect(svc.mine(user(["project-management", "product-database", "tender-issuance", "admin", "insights"]))).toEqual({ recipientUserId: "u1", organizationId: "o1" });
+    expect(svc.mine(user(["project-management", "product-database", "tender-issuance", "admin", "insights", "crm"]))).toEqual({ recipientUserId: "u1", organizationId: "o1" });
   });
   it("hides tender items from someone without Tender Issuance, but keeps unlinked and other items", () => {
     const w = svc.mine(user(["project-management", "product-database"])) as { OR: Array<Record<string, any>> };

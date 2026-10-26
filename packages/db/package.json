@@ -59,6 +59,7 @@
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
     "backfill:qa-roles": "tsx scripts/backfill-qa-roles.ts",
     "backfill:tender-permissions": "tsx scripts/backfill-tender-permissions.ts",
+    "backfill:crm-permissions": "tsx scripts/backfill-crm-permissions.ts",
     "backfill:complaint-permissions": "tsx scripts/backfill-complaint-permissions.ts",
     "backfill:finance-role": "tsx scripts/backfill-finance-role.ts",
     "grant:platform-staff": "tsx scripts/grant-platform-staff.ts",

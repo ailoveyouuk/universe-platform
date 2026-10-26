@@ -9,5 +9,5 @@ export class UpdateUserDto {
   @IsOptional() @IsString() @MaxLength(150) jobTitle?: string | null;
   @IsOptional() @IsIn(["NONE", "SUPPORT", "SUPER_ADMIN"]) platformStaffRole?: string;
   /** Apps this person may use; null clears the restriction (every app). */
-  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsIn(["project-management", "product-database", "tender-issuance", "insights", "admin"], { each: true }) appAccess?: string[] | null;
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsIn(["project-management", "product-database", "tender-issuance", "insights", "crm", "admin"], { each: true }) appAccess?: string[] | null;
 }

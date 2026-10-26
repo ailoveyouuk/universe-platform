@@ -1,7 +1,7 @@
 import { ArrayUnique, IsArray, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 
 /** The appScope values in use across the role templates (packages/db/src/organizations.ts). */
-export const ROLE_APP_SCOPES = ["*", "project-management", "product-database", "insights"] as const;
+export const ROLE_APP_SCOPES = ["*", "project-management", "product-database", "insights", "crm"] as const;
 
 export class CreateRoleDto {
   @IsUUID() organizationId!: string;

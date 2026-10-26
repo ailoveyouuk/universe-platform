@@ -24,6 +24,9 @@ const PERMISSIONS = [
   { key: "tenders.bid", description: "Express interest in and submit bids to tenders" },
   { key: "tenders.evaluate", description: "Score bids and record evaluation decisions on your organisation's tenders" },
   { key: "tenders.award", description: "Award tenders and manage the resulting contracts" },
+  // CRM (added 2026-10-26) — see CRM-APP-DESIGN.md.
+  { key: "crm.view", description: "See your organisation's stakeholder relationships in the CRM" },
+  { key: "crm.manage", description: "Set owners, tiers, status and review dates on relationships in the CRM" },
   { key: "projects.create", description: "Create projects" },
   { key: "projects.edit", description: "Edit project core fields" },
   { key: "projects.delete", description: "Delete projects" },

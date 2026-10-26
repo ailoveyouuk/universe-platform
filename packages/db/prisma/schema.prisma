@@ -573,6 +573,8 @@ model Partner {
   /// Added 2026-10-07 — Gaps 5/6. This partner acting as a batch's
   /// manufacturer of record.
   productBatchesAsManufacturer         ProductBatch[]
+  /// Added 2026-10-26 (CRM step 1): the organisation's relationship record for this stakeholder.
+  crmRelationships                     CrmRelationship[]
 
   @@index([organizationId])
   @@index([organizationId, normalizedName])
@@ -4790,4 +4792,44 @@ model ServiceCatalogueEntry {
 
   @@index([category])
   @@map("service_catalogue")
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// CRM (2026-10-26, step 1; design: docs/CRM-APP-DESIGN.md). One row per organisation and counterpart. A relationship sits on top
+// of the existing Partner (a stakeholder the organisation manages); it adds ownership, tier, status and review cadence, and
+// never copies stakeholder facts. Tenant-private (every row carries organizationId; row-level security in infra/sql/crm-rls.sql).
+// Nothing is deleted: a relationship is archived. counterpartyKey is "partner:<id>" or "org:<id>" so one counterpart can only
+// have one relationship per organisation (a plain unique, as SQL Server allows a single NULL in a unique column).
+// ---------------------------------------------------------------------------------------------------------------------
+model CrmRelationship {
+  id                         String    @id @default(uuid())
+  organizationId             String
+  partnerId                  String?
+  partner                    Partner?  @relation(fields: [partnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// A registered Universe organisation as the counterpart (used when there is no private stakeholder record). Not used in step 1.
+  counterpartyOrganizationId String?
+  counterpartyKey            String
+  ownerUserId                String?
+  /// STRATEGIC | KEY | STANDARD | WATCH
+  tier                       String    @default("STANDARD")
+  /// PROSPECT | ACTIVE | DORMANT | ON_HOLD | ENDED
+  status                     String    @default("ACTIVE")
+  summary                    String?   @db.NVarChar(2000)
+  reviewIntervalMonths       Int       @default(12)
+  lastReviewedAt             DateTime?
+  nextReviewDue              DateTime?
+  /// A manager's own judgement of health (GOOD | WATCH | AT_RISK) with the reason; the calculated health is separate.
+  healthOverride             String?
+  healthOverrideReason       String?   @db.NVarChar(500)
+  archivedAt                 DateTime?
+  archivedById               String?
+  createdById                String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  @@unique([organizationId, counterpartyKey])
+  @@index([organizationId, status])
+  @@index([organizationId, ownerUserId])
+  @@index([partnerId])
+  @@map("crm_relationships")
 }

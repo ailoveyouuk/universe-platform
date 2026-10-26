@@ -80,13 +80,14 @@ export interface CreateProjectInput {
 }
 
 /** The apps a person can be given access to (2026-10-25). Keys match UNIVERSE_APPS in @universe/ui. */
-export const UNIVERSE_APP_KEYS = ["project-management", "product-database", "tender-issuance", "insights", "admin"] as const;
+export const UNIVERSE_APP_KEYS = ["project-management", "product-database", "tender-issuance", "insights", "crm", "admin"] as const;
 export type UniverseAppKey = (typeof UNIVERSE_APP_KEYS)[number];
 export const UNIVERSE_APP_LABELS: Record<UniverseAppKey, string> = {
   "project-management": "Project Management",
   "product-database": "Product Database",
   "tender-issuance": "Tender Issuance",
   insights: "Insights",
+  crm: "CRM",
   admin: "Admin",
 };
 /** Stored form `,a,b,` to list. null/empty = no restriction (every app). */
@@ -3209,6 +3210,7 @@ export const APP_ROUTE_PREFIXES: Partial<Record<UniverseAppKey, string[]>> = {
   "tender-issuance": ["tenders", "bids", "contracts", "discover", "notices", "suppliers", "standards"],
   "product-database": ["exports", "families", "import", "products", "register", "regulatory", "watch"],
   "project-management": ["batches", "logistics", "partners", "projects", "quality", "risk-register"],
+  crm: ["relationships"],
   admin: ["activity", "organizations", "roles", "service-catalogue", "stakeholders", "users"],
 };
 export const APP_NOTIFICATION_CATEGORIES: Partial<Record<UniverseAppKey, NotificationCategory[]>> = {
@@ -4073,3 +4075,86 @@ export interface InsightsOverview { pricedCategories: number; sourcedCategories:
 /** Insights personalisation (2026-10-25): a saved view (a page and its filters) or a highlight pinned to the Overview. */
 export interface InsightsUserItem { id: string; kind: "VIEW" | "PIN"; name: string; target: string; state: Record<string, unknown> | null; position: number; createdAt: string }
 export interface SaveInsightsUserItemInput { kind: "VIEW" | "PIN"; name: string; target: string; state?: Record<string, unknown> | null }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// CRM (2026-10-26, step 1; docs/CRM-APP-DESIGN.md). A relationship sits on top of a stakeholder (Partner); it never copies
+// stakeholder facts, it adds ownership, tier, status and review cadence. Health is calculated, not typed.
+// ---------------------------------------------------------------------------------------------------------------------
+export const CRM_TIERS = ["STRATEGIC", "KEY", "STANDARD", "WATCH"] as const;
+export type CrmTier = (typeof CRM_TIERS)[number];
+export const CRM_TIER_LABELS: Record<CrmTier, string> = { STRATEGIC: "Strategic", KEY: "Key", STANDARD: "Standard", WATCH: "Watch" };
+export const CRM_STATUSES = ["PROSPECT", "ACTIVE", "DORMANT", "ON_HOLD", "ENDED"] as const;
+export type CrmStatus = (typeof CRM_STATUSES)[number];
+export const CRM_STATUS_LABELS: Record<CrmStatus, string> = { PROSPECT: "Prospect", ACTIVE: "Active", DORMANT: "Dormant", ON_HOLD: "On hold", ENDED: "Ended" };
+export const CRM_HEALTH = ["GOOD", "WATCH", "AT_RISK"] as const;
+export type CrmHealth = (typeof CRM_HEALTH)[number];
+export const CRM_HEALTH_LABELS: Record<CrmHealth, string> = { GOOD: "Healthy", WATCH: "Needs attention", AT_RISK: "At risk" };
+
+/** Facts the calculated health reads. Step 1 uses what already exists on the stakeholder; later steps add interactions and complaints. */
+export interface CrmHealthInputs {
+  approvalStatus: string | null;
+  nextApprovalReviewDue: string | null;
+  nextReviewDue: string | null;
+  status: string;
+}
+/** Calculated health with the reasons, so a person can see why. A manager's override, if set, is shown beside it, never instead of it. */
+export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHealth; reasons: string[] } {
+  const reasons: string[] = [];
+  let health: CrmHealth = "GOOD";
+  const rank = { GOOD: 0, WATCH: 1, AT_RISK: 2 } as const;
+  const raise = (h: CrmHealth, why: string) => { reasons.push(why); if (rank[h] > rank[health]) health = h; };
+  const past = (iso: string | null) => !!iso && new Date(iso).getTime() < now.getTime();
+  if (i.approvalStatus === "REJECTED" || i.approvalStatus === "SUSPENDED") raise("AT_RISK", `Stakeholder approval is ${i.approvalStatus.toLowerCase()}`);
+  else if (i.approvalStatus === "PENDING") raise("WATCH", "Stakeholder approval is pending");
+  if (past(i.nextApprovalReviewDue)) raise("WATCH", "Approval review is overdue");
+  if (i.status !== "ENDED" && i.status !== "PROSPECT" && past(i.nextReviewDue)) raise("WATCH", "Relationship review is overdue");
+  return { health, reasons };
+}
+
+export interface CrmRelationshipRow {
+  id: string;
+  partnerId: string | null;
+  name: string;
+  countryCode: string | null;
+  roles: string[];
+  approvalStatus: string | null;
+  riskTier: string | null;
+  tier: CrmTier;
+  status: CrmStatus;
+  ownerUserId: string | null;
+  ownerName: string | null;
+  summary: string | null;
+  reviewIntervalMonths: number;
+  lastReviewedAt: string | null;
+  nextReviewDue: string | null;
+  health: CrmHealth;
+  healthReasons: string[];
+  healthOverride: CrmHealth | null;
+  healthOverrideReason: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+}
+export interface CrmRelationshipPage { rows: CrmRelationshipRow[]; total: number; page: number; pageSize: number }
+export interface CrmOverview {
+  total: number;
+  active: number;
+  needsAttention: number;
+  reviewDue: number;
+  unowned: number;
+  byTier: Record<CrmTier, number>;
+  byStatus: Record<CrmStatus, number>;
+  /** Stakeholders that have no relationship record yet. */
+  untracked: number;
+}
+export interface CrmRelationshipUpdate {
+  tier?: CrmTier;
+  status?: CrmStatus;
+  ownerUserId?: string | null;
+  summary?: string | null;
+  reviewIntervalMonths?: number;
+  markReviewed?: boolean;
+  healthOverride?: CrmHealth | null;
+  healthOverrideReason?: string | null;
+  archived?: boolean;
+}
+export interface CrmPeopleOption { id: string; name: string }

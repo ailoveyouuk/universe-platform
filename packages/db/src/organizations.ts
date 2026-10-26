@@ -58,6 +58,7 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
       "projects.edit",
       "projects.delete",
       "tenders.view", "tenders.issue", "tenders.bid", "tenders.evaluate", "tenders.award",
+      "crm.view", "crm.manage",
       "projects.financials.view",
       "projects.financials.edit",
       // Added 2026-10-14 alongside PartnerFinancialDetail being wired up
@@ -81,6 +82,7 @@ export const DEFAULT_ROLE_TEMPLATE: { name: string; appScope: string; permission
     permissionKeys: [
       "tenders.view",
       "tenders.bid",
+      "crm.view",
       "projects.view",
       "projects.create",
       "projects.edit",
@@ -152,6 +154,7 @@ export const STAKEHOLDER_DEMO_PERMISSION_KEYS = [
   "projects.view", "projects.create", "projects.edit", "projects.delete",
   "projects.financials.view", "projects.financials.edit",
   "tenders.view", "tenders.issue", "tenders.bid", "tenders.evaluate", "tenders.award",
+  "crm.view", "crm.manage",
   "supplier.profile.manage", "supplier.products.manage", "supplier.leads.view",
   "manufacturer.profile.manage", "manufacturer.products.manage", "manufacturer.leads.view",
   "funder.grants.view", "insights.aggregate.view",
