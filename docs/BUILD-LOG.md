@@ -1251,3 +1251,7 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Open:** search results and notifications are not app-aware.
 
 - **Decision (Lewis, 2026-10-26):** SIM-SVC-002 stays at Evaluating, so the simulation shows tenders at different stages. Test records E2E-PACK-001 and SIM-FWK-001 still await his answer.
+
+## 2026-10-26 — Demo baseline confirmed and locked
+- **Request (Lewis):** archive the test project, close off, and if the data covers the platform sufficiently, lock it in as the confirmed demo data.
+- **Done:** E2E-PACK-001 archived (not deleted; SIM-FWK-001 is a genuine simulated framework, not a test record). Final audits clean. Record: docs/DEMO-BASELINE-CONFIRMED.md. Tag demo-baseline-2026-10-26. Suggested bacpac export of both databases (Lewis to run in the Azure portal).

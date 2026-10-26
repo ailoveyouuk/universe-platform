@@ -57,3 +57,6 @@ Ran the consistency, coverage, catalogue and Insights price audits against Unive
 
 ### Update, 2026-10-26 (later): fixes 1 and 2 applied
 Batch status now follows expiry (254 to EXPIRED, 66 to ACTIVE) and 698 delivered lines have the correct supplier on-time flag. Consistency audit re-run: zero anomalies. Remaining: test records (pending Lewis) and the deliberate SIM-SVC-002 award.
+
+## Confirmed 2026-10-26
+The demo data is confirmed as the baseline: see docs/DEMO-BASELINE-CONFIRMED.md. E2E-PACK-001 archived.
