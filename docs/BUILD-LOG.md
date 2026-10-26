@@ -1257,3 +1257,10 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Done:** E2E-PACK-001 archived (not deleted; SIM-FWK-001 is a genuine simulated framework, not a test record). Final audits clean. Record: docs/DEMO-BASELINE-CONFIRMED.md. Marked by commit f71647b and backup bk88 (a GitHub tag could not be created from the session; Lewis can tag that commit). Suggested bacpac export of both databases (Lewis to run in the Azure portal).
 
 - **Tag created (2026-10-26):** `demo-baseline-2026-10-26` now exists on commit f71647b (GitHub release "Confirmed demo baseline 2026-10-26", created via the Releases page at Lewis's request). Still open: the Azure .bacpac export of both databases (Lewis).
+
+## 2026-10-26 — Insights Data explorer
+- **Request (Lewis):** proceed to the Insights Data explorer.
+- **Built:** new Insights page `/explorer` (Data explorer in the side menu and in Search Insights). One table that puts figures from every lens side by side, with the shared table's search, drop-down filters, sort and column chooser. Switch between one row per **product group** (cost change, approved sourcing relationships, countries of manufacture, shipments, days in transit, CO2, sea/air/land share) and one row per **country** (made here, shipments sent and received, export restrictions, registrations, safety notices). Currency choice for cost, not converted.
+- **Privacy:** no new API or data. It reads only the existing anonymised endpoints, which already apply the five-organisation floor and the simulated ring-fence; a dash means not enough contributors. CSV downloads stay hidden by Lewis's decision. Saved views work (lens and currency).
+- **Verified:** typecheck, accessibility lint clean, CI and deploy green, live check of both views (19 product groups, 52 countries), live accessibility scan of the country view clean in light and dark. Commit d7c915a.
+- **Also today:** `.bacpac` exports of `universe` and `universe-insights` submitted by Lewis to storage account `universepilotdocs`, new private container `db-backups` (created from the portal at his request).
