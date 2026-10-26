@@ -16,7 +16,7 @@ async function main() {
   const approvals = await withTenantContext(orgId, (tx) => tx.productSourceApproval.findMany({ where: { organizationId: orgId, isArchived: false }, select: { productMasterId: true, manufacturerId: true, supplierId: true } }));
   const approvedPair = new Set(approvals.map((a) => `${a.productMasterId}|${a.manufacturerId}`));
   const partners = new Map((await prisma.partner.findMany({ where: { organizationId: orgId }, select: { id: true, countryCode: true, roles: { select: { roleType: true } } } })).map((p) => [p.id, p]));
-  const batches = new Map((await withTenantContext(orgId, (tx) => tx.productBatch.findMany({ where: { organizationId: orgId }, select: { id: true, productMasterId: true, manufacturerId: true, manufacturedDate: true, expiryDate: true } }))).map((b) => [b.id, b]));
+  const batches = new Map((await withTenantContext(orgId, (tx) => tx.productBatch.findMany({ where: { organizationId: orgId }, select: { id: true, productMasterId: true, manufacturerId: true, manufacturedDate: true, expiryDate: true, status: true } }))).map((b) => [b.id, b]));
   const projects = await withTenantContext(orgId, (tx) => tx.project.findMany({ where: { referenceNumber: { startsWith: "SIM-" } }, select: { id: true, referenceNumber: true, sourceTenderId: true, status: true, startDate: true, dueDate: true, submissionDate: true, deliveryCountryCode: true, freightMode: true, incoterm: true, freightForwarderId: true, clientId: true }, orderBy: { id: "asc" } }));
   // Projects that track a tender bid (sourceTenderId) are still being bid for: no freight, supplier, PO or warehouse details exist yet by design.
   const tracking = new Set(projects.filter((p) => p.sourceTenderId).map((p) => p.id));
@@ -55,6 +55,13 @@ async function main() {
         if (!l.clientPoNumber) bump("line: no client PO number");
         if (!l.warehouseReferenceNumber) bump("line: no warehouse reference");
         if (l.actualDeliveryDate && !l.internalInvoiceNumber) bump("line: no invoice number");
+        // Delivery measures (added 2026-10-26): a delivered line must carry the same on-time / in-full answers the app would compute from its dates and quantities.
+        if (l.actualDeliveryDate) {
+          if (l.quantityReceived === null || l.quantityReceived === undefined) bump("line: delivered but no quantity received (in full unknown)");
+          else if (l.quantity !== null && l.quantity !== undefined && l.supplierInFull !== (l.quantityReceived >= l.quantity)) bump("line: in-full flag does not match quantities");
+          if (l.projectedDeliveryDate && l.internalOnTime !== (l.actualDeliveryDate <= l.projectedDeliveryDate)) bump("line: on-time flag does not match dates");
+          if (l.goodsCollectedDate && l.supplierGad && l.supplierOnTime !== (l.goodsCollectedDate <= l.supplierGad)) bump("line: supplier on-time flag does not match dates");
+        }
         if (l.actualDeliveryDate && !l.productBatchId) bump("line: no batch link");
         else {
           const b = batches.get(l.productBatchId);
@@ -83,6 +90,12 @@ async function main() {
     const l = x.projectLineId ? lineMap.get(x.projectLineId) : null;
     if (l?.actual && x.receivedAt < l.actual) bump("complaint: received before the line was delivered");
     if (!l) bump("complaint: no line");
+  }
+  // Batch status against expiry (added 2026-10-26).
+  const now = new Date();
+  for (const b of batches.values()) {
+    if (b.expiryDate && b.expiryDate < now && b.status === "ACTIVE") bump("batch: ACTIVE but past its expiry date");
+    if (b.status === "EXPIRED" && (!b.expiryDate || b.expiryDate >= now)) bump("batch: EXPIRED but not past its expiry date");
   }
   console.log("AUDIT RESULTS");
   for (const [k, v] of Object.entries(c)) console.log(`  ${String(v).padStart(7)}  ${k}`);
