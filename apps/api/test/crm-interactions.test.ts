@@ -62,7 +62,7 @@ describe("CRM interactions", () => {
     expect(i.participants.map((p) => p.name)).toEqual(["viewer Tester"]);
     const page = await svc.list(u.viewer, relA, {});
     expect(page.items.map((x) => x.title)).toContain("Quarterly review");
-    const log = await prisma.fieldChangeLog.count({ where: { organizationId: orgA, tableName: "crm_interactions", recordId: i.id } });
+    const log = await withPlatformStaffContext((tx) => tx.fieldChangeLog.count({ where: { organizationId: orgA, tableName: "crm_interactions", recordId: i.id } }));
     expect(log).toBeGreaterThan(0);
   });
 
@@ -92,7 +92,7 @@ describe("CRM interactions", () => {
     const i = await svc.create(u.manager, relA, { type: "OTHER", occurredAt: today(), title: "To archive" });
     await svc.update(u.manager, i.id, { archived: true });
     expect((await svc.list(u.manager, relA, {})).items.map((x) => x.id)).not.toContain(i.id);
-    expect(await prisma.crmInteraction.count({ where: { id: i.id } })).toBe(1);
+    expect(await withPlatformStaffContext((tx) => tx.crmInteraction.count({ where: { id: i.id } }))).toBe(1);
     await expect(svc.list(u.other, relA, {})).rejects.toBeInstanceOf(NotFoundException);
     await expect(svc.create(u.other, relA, { type: "CALL", occurredAt: today(), title: "x" })).rejects.toBeInstanceOf(NotFoundException);
     expect((await svc.list(u.other, relB, {})).total).toBe(0);
