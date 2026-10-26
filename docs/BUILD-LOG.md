@@ -1315,3 +1315,11 @@ Lewis asked for every source not yet read to be read properly. Read this session
 - Sources now carry a three-level basis: read / partly read / principle only, shown on the standards page. A test blocks clause numbers on "principle only" sources.
 - Corrections made: removed an unverified EU standstill claim; replaced it with the UK rule (eight working days from publication of the contract award notice, with exemptions including framework call-offs), World Bank para 3.29 and UNCITRAL Art 22. Added concrete bid periods (EU open procedure 35 days, GPA 40 days, World Bank 30 business days). Removed a CCS7 citation for sealed quotes that the source did not support. Added items for assessment summary content, bidder challenge windows, anti-circumvention, documentary record, and contract modification.
 - Still not read: Remedies Directives; UNCITRAL operative wording; World Bank bid opening, abnormally-low-bid and debriefing text and Annexes III and X; ISO 37001 and 20400 requirement text (paywalled); UNCAC paragraphs 3–4. None are cited with clause numbers.
+
+## 2026-10-26 — Standards guide: second source read
+
+Read the remaining sources and sharpened the guide in `packages/types/src/tender-standards.ts`.
+- **Now read:** UNCAC Art. 9 (all three paragraphs); EU Remedies Directive Arts 2a–2f (new source `EUREM`); World Bank Beginners Guide to IPF, Nov 2023 (new source `WBGUIDE`); UNCITRAL 2011 Arts 2(r), 9, 11, 14, 15, 20, 21, 22, 23, 25, 26, 40, 42, 43; World Bank Regulations paras 5.40–5.48, 5.50, 5.64–5.67.
+- **Still unread:** UNCITRAL Chapters VII–VIII (frameworks, challenge; Arts 66–67 cited by title only); World Bank paras 5.78–5.80 and Annexes (standstill taken from the Guide); ISO 37001 and ISO 20400 requirement text (paywalled; clause titles only); EU Directive articles beyond 18, 24, 27, 47, 55, 67, 69.
+- Standstill, challenge, feedback and bidder items now carry the regime-specific periods (UK 8 working days, EU 10/15 calendar days, World Bank 10 business days, debrief 3/5 business days).
+- New items: bid opening, responsiveness and no negotiation, bidder accuracy, framework call-off standstill.
