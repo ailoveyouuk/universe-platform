@@ -36,6 +36,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/roles", label: "Roles", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/stakeholders", label: "Stakeholder access", icon: () => <UserIcon size={19} />, inNav: true },
   { href: "/performance", label: "Performance records", icon: () => <ShieldIcon size={19} />, inNav: true },
+  { href: "/service-catalogue", label: "Services catalogue", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/activity", label: "Activity", icon: () => <ClockIcon size={19} />, inNav: true },
 ];
 
@@ -78,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // and activity as tabs) instead of separate lists they would have to filter to their own organisation.
   const isStaff = me?.platformStaffRole !== "NONE";
   const HUB_ONLY = ["/users", "/roles", "/activity"];
-  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (r.href !== "/stakeholders" || isStaff) && (isStaff || !HUB_ONLY.includes(r.href)) && (isStaff || r.href !== "/performance")).map((r) => {
+  const navItems: NavItem[] = ROUTES.filter((r) => r.inNav && (r.href !== "/stakeholders" || isStaff) && (isStaff || !HUB_ONLY.includes(r.href)) && (isStaff || (r.href !== "/performance" && r.href !== "/service-catalogue"))).map((r) => {
     const own = !isStaff && r.href === "/organizations" && me?.organizationId;
     return {
       label: own ? "My organisation" : r.label,

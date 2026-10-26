@@ -61,3 +61,14 @@ describe("bid completeness for service lines", () => {
     expect(r.find((c) => !c.ok)?.label).toMatch(/country of origin/);
   });
 });
+
+import { catalogueEntryProblem } from "../src/service-catalogue/service-catalogue.service";
+describe("catalogue entry validation", () => {
+  const ok = { code: "SVC-TA-NEW", category: "TECHNICAL_ASSISTANCE", name: "New", basis: "PER_DAY", unit: "day", description: "A service." };
+  it("accepts a good entry", () => expect(catalogueEntryProblem(ok)).toBeNull());
+  it("rejects a bad code, unknown category and a basis the category does not use", () => {
+    expect(catalogueEntryProblem({ ...ok, code: "abc" })).toMatch(/code/);
+    expect(catalogueEntryProblem({ ...ok, category: "NOPE" })).toMatch(/kind of service/);
+    expect(catalogueEntryProblem({ ...ok, basis: "PERCENT_OF_GOODS" })).toMatch(/priced/);
+  });
+});

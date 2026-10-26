@@ -76,6 +76,7 @@ import type {
   ProjectExportCheckItem,
   WatchMatchSummary,
   ProductPharmaPanel,
+  ServiceCatalogueRow,
   PilLink,
   SafetyNoticeDashboard,
   CreateRegistrationInput,
@@ -1055,6 +1056,11 @@ export class UniverseApiClient {
   suggestProductPharmaLinks(productId: string): Promise<ProductPharmaPanel> {
     return this.request(`/product-catalog/${productId}/pharma/suggest`, { method: "POST", body: "{}" });
   }
+  /** Standard services catalogue (2026-10-26): active entries for pickers; staff get all entries and can add and edit. */
+  serviceCatalogue(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue"); }
+  serviceCatalogueAll(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue/all"); }
+  createServiceCatalogueEntry(body: Omit<ServiceCatalogueRow, "active">): Promise<ServiceCatalogueRow> { return this.request("/service-catalogue", { method: "POST", body: JSON.stringify(body) }); }
+  updateServiceCatalogueEntry(code: string, body: Partial<Omit<ServiceCatalogueRow, "code" | "category">>): Promise<ServiceCatalogueRow> { return this.request(`/service-catalogue/${code}`, { method: "PATCH", body: JSON.stringify(body) }); }
   linkProductToRegister(productId: string, pharmaReferenceId: string): Promise<ProductPharmaPanel> {
     return this.request(`/product-catalog/${productId}/pharma/link`, { method: "POST", body: JSON.stringify({ pharmaReferenceId }) });
   }

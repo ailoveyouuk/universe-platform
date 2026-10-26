@@ -104,3 +104,6 @@ export const serviceCatalogueProblems = (): string[] => {
   for (const c of SERVICE_CATEGORIES) if (!SERVICE_CATALOGUE.some((i) => i.category === c.code)) out.push(`${c.code} has no catalogue item`);
   return out;
 };
+
+/** A catalogue row as the API returns it; `active` is false once platform staff switch the service off. */
+export interface ServiceCatalogueRow extends ServiceCatalogueItem { active: boolean }

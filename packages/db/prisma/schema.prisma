@@ -4756,3 +4756,22 @@ model InsightsUserItem {
   @@index([organizationId, userId, kind])
   @@map("insights_user_items")
 }
+
+/// Standard services catalogue (2026-10-26). Shared reference data (no tenant), edited by platform staff in Admin. Seeded from
+/// SERVICE_CATALOGUE in @universe/types on first read. A code is never reused or deleted: an entry is switched off (active=false) so lines
+/// that already carry the code keep working while pickers stop offering it.
+model ServiceCatalogueEntry {
+  code        String   @id @db.NVarChar(40)
+  category    String   @db.NVarChar(40)
+  name        String   @db.NVarChar(200)
+  basis       String   @db.NVarChar(20)
+  unit        String   @db.NVarChar(80)
+  description String   @db.NVarChar(1000)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedById String?  @db.NVarChar(64)
+
+  @@index([category])
+  @@map("service_catalogue")
+}

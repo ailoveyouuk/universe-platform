@@ -7,6 +7,7 @@ import { SupplierDirectoryModule } from "./supplier-directory/supplier-directory
 import { TendersModule } from "./tenders/tenders.module";
 import { SupplierPortalModule } from "./supplier-portal/supplier-portal.module";
 import { PharmaReferenceModule } from "./pharma-reference/pharma-reference.module";
+import { ServiceCatalogueModule } from "./service-catalogue/service-catalogue.module";
 import { MeController } from "./me/me.controller";
 import { PartnersModule } from "./partners/partners.module";
 import { SupplierEnquiriesModule } from "./supplier-enquiries/supplier-enquiries.module";
@@ -40,6 +41,7 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     TendersModule,
     SupplierPortalModule,
     PharmaReferenceModule,
+    ServiceCatalogueModule,
     PartnersModule,
     SupplierEnquiriesModule,
     DocumentsModule,

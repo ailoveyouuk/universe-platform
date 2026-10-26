@@ -6,8 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
-import { SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, serviceCatalogueByCode, CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, UnitSelect, XIcon } from "@universe/ui";
+import { SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, useServiceCatalogue, UnitSelect, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
@@ -188,7 +188,9 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
 }
 
 // --------------------------------------------------------------------- items
+const loadCatalogue = () => apiClient.serviceCatalogue();
 function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
+  const catalogue = useServiceCatalogue(loadCatalogue);
   const countries = useCountries();
   const [lines, setLines] = useState<TenderLineRecord[]>(detail.lines.map(cleanLine));
   const [q, setQ] = useState(""); const [opts, setOpts] = useState<ProductCatalogMatch[]>([]);
@@ -212,10 +214,10 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
             {l.serviceCategory ? (
               <>
                 <Field label="Standard service" wide hint="Starting from a standard service means every bidder quotes the same thing in the same unit.">
-                  <ServiceCataloguePicker value={l.serviceCode} category={l.serviceCategory} style={inputStyle} ariaLabel={`Standard service for item ${i + 1}`} onPick={(item) => upd(i, item ? { serviceCode: item.code, serviceCategory: item.category, servicePricingBasis: item.basis, unit: item.unit, description: l.description.trim() ? l.description : item.name } : { serviceCode: null })} />
+                  <ServiceCataloguePicker items={catalogue.items} value={l.serviceCode} category={l.serviceCategory} style={inputStyle} ariaLabel={`Standard service for item ${i + 1}`} onPick={(item) => upd(i, item ? { serviceCode: item.code, serviceCategory: item.category, servicePricingBasis: item.basis, unit: item.unit, description: l.description.trim() ? l.description : item.name } : { serviceCode: null })} />
                 </Field>
                 <Field label="Type of service">
-                  <select className="u-native-select" style={inputStyle} value={l.serviceCategory} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); const keep = l.serviceCode && serviceCatalogueByCode(l.serviceCode)?.category === e.target.value; upd(i, { serviceCategory: e.target.value, serviceCode: keep ? l.serviceCode : null, servicePricingBasis: c && !c.bases.includes((l.servicePricingBasis ?? "") as never) ? c.bases[0] : l.servicePricingBasis }); }}>
+                  <select className="u-native-select" style={inputStyle} value={l.serviceCategory} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); const keep = l.serviceCode && catalogue.byCode(l.serviceCode)?.category === e.target.value; upd(i, { serviceCategory: e.target.value, serviceCode: keep ? l.serviceCode : null, servicePricingBasis: c && !c.bases.includes((l.servicePricingBasis ?? "") as never) ? c.bases[0] : l.servicePricingBasis }); }}>
                     {SERVICE_GROUPS.map((g) => <optgroup key={g} label={g}>{SERVICE_CATEGORIES.filter((c) => c.group === g).map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</optgroup>)}
                   </select>
                 </Field>

@@ -1,5 +1,8 @@
 import { SERVICE_CATEGORIES, scopeSubForServiceCategory, serviceCatalogueByCode } from "@universe/types";
 
+/** Finds a catalogue service by code; the database-backed lookup in production, the built-in list when none is given (tests). */
+export type CatalogueLookup = (code: string) => { category: string } | undefined;
+
 /**
  * Service tender lines (2026-10-25). A service line has no catalogue product, so it takes its place in matching from its service category:
  * the category path "Services.<group>" for category filters and saved searches, and the Services scope subcategory for suppliers that
@@ -15,7 +18,7 @@ export const serviceCategoryPath = (code: string): string | null => {
 export const serviceScopeSub = (code: string): string | null => scopeSubForServiceCategory(code);
 
 /** Why a service line cannot be saved as given, or null. A line is a service or a product, never both; a catalogue service must match the category. */
-export function serviceLineProblem(l: ServiceLineFields & { description?: string }, label: string): string | null {
+export function serviceLineProblem(l: ServiceLineFields & { description?: string }, label: string, lookup: CatalogueLookup = serviceCatalogueByCode as CatalogueLookup): string | null {
   if (!l.serviceCategory) {
     if (l.servicePricingBasis || l.serviceCode) return `${label}: choose a kind of service, or clear the pricing basis.`;
     return null;
@@ -23,7 +26,7 @@ export function serviceLineProblem(l: ServiceLineFields & { description?: string
   if (l.productMasterId) return `${label}: an item is either a product or a service, not both.`;
   if (!l.servicePricingBasis) return `${label}: say how the price is stated (per day, per month, fixed fee and so on).`;
   if (l.serviceCode) {
-    const item = serviceCatalogueByCode(l.serviceCode);
+    const item = lookup(l.serviceCode);
     if (!item) return `${label}: that standard service is not in the catalogue.`;
     if (item.category !== l.serviceCategory) return `${label}: the standard service does not belong to the chosen kind of service.`;
   }

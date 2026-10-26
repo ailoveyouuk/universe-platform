@@ -13,6 +13,7 @@ import {
 import { EXCLUSION_GROUNDS, orgTypesOf, scopeSubsForProduct } from "@universe/types";
 import { serviceBasisUnit, serviceCategoryPath, serviceLineProblem, serviceScopeSub } from "./service-lines";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
+import { ServiceCatalogueService } from "../service-catalogue/service-catalogue.service";
 import type {
   CreateTenderDto, InterestDto, InviteDto, SavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
@@ -40,7 +41,7 @@ export function effectiveStatus(t: { status: string; closingAt: Date | null }, n
  */
 @Injectable()
 export class TendersService {
-  constructor(private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService()) {}
+  constructor(private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService(), private readonly catalogue: ServiceCatalogueService = new ServiceCatalogueService()) {}
 
   // ---------------------------------------------------------------- helpers
 
@@ -205,7 +206,8 @@ export class TendersService {
         const untitled = [...new Set(lotted.map((l) => l.lotNumber!))].filter((n) => !titles.has(n));
         if (untitled.length) throw new BadRequestException(`Give lot ${untitled.join(", ")} a title.`);
       }
-      for (const [i, l] of dto.lines.entries()) { const problem = serviceLineProblem(l, `Item ${i + 1}`); if (problem) throw new BadRequestException(problem); }
+      const catalogueLookup = await this.catalogue.lookup(dto.lines.map((l) => l.serviceCode));
+      for (const [i, l] of dto.lines.entries()) { const problem = serviceLineProblem(l, `Item ${i + 1}`, catalogueLookup); if (problem) throw new BadRequestException(problem); }
       await tx.tenderLine.deleteMany({ where: { tenderId: id } });
       for (const [i, l] of dto.lines.entries()) {
         await tx.tenderLine.create({ data: { organizationId: user.organizationId, tenderId: id, lineNumber: i + 1, ...l, lotTitle: l.lotNumber ? titles.get(l.lotNumber) ?? null : null, destinationCountryCode: l.destinationCountryCode?.toUpperCase(), ...(l.serviceCategory ? (l.unit ? {} : { unit: serviceBasisUnit(l.servicePricingBasis) }) : { serviceCategory: null, servicePricingBasis: null, serviceCode: null }) } });
