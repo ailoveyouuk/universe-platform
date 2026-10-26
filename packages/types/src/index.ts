@@ -4247,3 +4247,23 @@ export interface CrmRetentionItem { contactId: string; name: string; partnerName
 export interface CrmAccessLogRow { id: string; userName: string | null; action: string; contactId: string | null; detail: string | null; at: string }
 export interface CrmPrivacySummary { openRequests: number; overdueRequests: number; retentionDue: number; suppressions: number }
 export interface CrmAccessCopy { generatedAt: string; contact: Record<string, unknown>; profile: Record<string, unknown> | null; interactions: Record<string, unknown>[]; mentions: Record<string, unknown>[]; projects: Record<string, unknown>[]; complaints: Record<string, unknown>[]; note: string }
+
+/** CRM step 5: opportunities and the pipeline. Values are cost-side figures only. */
+export const CRM_OPPORTUNITY_KINDS = ["TENDER", "SOURCING", "FRAMEWORK_CALL_OFF", "QUALIFICATION", "OTHER"] as const;
+export type CrmOpportunityKind = (typeof CRM_OPPORTUNITY_KINDS)[number];
+export const CRM_OPPORTUNITY_KIND_LABELS: Record<CrmOpportunityKind, string> = { TENDER: "Tender", SOURCING: "Sourcing", FRAMEWORK_CALL_OFF: "Framework call-off", QUALIFICATION: "Supplier qualification", OTHER: "Other" };
+export const CRM_OPPORTUNITY_STAGES = ["IDENTIFIED", "QUALIFYING", "ENGAGED", "SUBMITTED", "WON", "LOST", "WITHDRAWN"] as const;
+export type CrmOpportunityStage = (typeof CRM_OPPORTUNITY_STAGES)[number];
+export const CRM_OPPORTUNITY_STAGE_LABELS: Record<CrmOpportunityStage, string> = { IDENTIFIED: "Identified", QUALIFYING: "Qualifying", ENGAGED: "Engaged", SUBMITTED: "Submitted", WON: "Won", LOST: "Lost", WITHDRAWN: "Withdrawn" };
+export const CRM_OPEN_STAGES: CrmOpportunityStage[] = ["IDENTIFIED", "QUALIFYING", "ENGAGED", "SUBMITTED"];
+export interface CrmOpportunity {
+  id: string; relationshipId: string; relationshipName: string; title: string; kind: CrmOpportunityKind; stage: CrmOpportunityStage; stageChangedAt: string;
+  expectedValue: number | null; currency: string | null; expectedDate: string | null; ownerUserId: string | null; ownerName: string | null; notes: string | null; lostReason: string | null;
+  linkedType: string | null; linkedId: string | null; linkedLabel: string | null; createdAt: string; overdue: boolean;
+}
+export type CrmOpportunityPage = PagedResult<CrmOpportunity>;
+export interface CrmOpportunityInput {
+  relationshipId?: string; title?: string; kind?: CrmOpportunityKind; stage?: CrmOpportunityStage; expectedValue?: number | null; currency?: string | null; expectedDate?: string | null;
+  ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean;
+}
+export interface CrmPipelineSummary { byStage: Record<CrmOpportunityStage, { count: number; value: Record<string, number> }>; openCount: number; closingSoon: number }

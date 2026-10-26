@@ -4828,6 +4828,7 @@ model CrmRelationship {
   updatedAt                  DateTime  @updatedAt
 
   interactions               CrmInteraction[]
+  opportunities              CrmOpportunity[]
 
   @@unique([organizationId, counterpartyKey])
   @@index([organizationId, status])
@@ -4952,4 +4953,37 @@ model CrmAccessLog {
 
   @@index([organizationId, at])
   @@map("crm_access_log")
+}
+
+/// CRM step 5 (2026-10-26): a light pipeline of things that could become work with a stakeholder. Values are cost-side figures only (never a price carrying a margin).
+model CrmOpportunity {
+  id             String          @id @default(uuid())
+  organizationId String
+  relationshipId String
+  relationship   CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  title          String          @db.NVarChar(200)
+  /// TENDER | SOURCING | FRAMEWORK_CALL_OFF | QUALIFICATION | OTHER
+  kind           String
+  /// IDENTIFIED | QUALIFYING | ENGAGED | SUBMITTED | WON | LOST | WITHDRAWN
+  stage          String          @default("IDENTIFIED")
+  stageChangedAt DateTime        @default(now())
+  expectedValue  Decimal?        @db.Decimal(18, 2)
+  currency       String?         @db.Char(3)
+  expectedDate   DateTime?
+  ownerUserId    String?
+  notes          String?         @db.NVarChar(1000)
+  lostReason     String?         @db.NVarChar(500)
+  /// The real record once one exists: PROJECT today.
+  linkedType     String?
+  linkedId       String?
+  linkedLabel    String?         @db.NVarChar(300)
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  archivedAt     DateTime?
+  archivedById   String?
+
+  @@index([organizationId, stage])
+  @@index([organizationId, relationshipId])
+  @@map("crm_opportunities")
 }

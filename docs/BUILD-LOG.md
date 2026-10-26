@@ -1378,3 +1378,10 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 - Privacy page (managers): Requests with the statutory clock, Find a person (subject-access search, counts of notes mentioning them) with a downloadable copy (JSON, with a reminder to redact third-party information), Retention review (left over 24 months, not verified for 36 months, or relationship ended over 24 months; keep for a year or anonymise), Suppression list, Access log (opening people, searches, copies, edits, objections, anonymisations).
 - Tests: `crm-privacy.test.ts` (profile and audit, objection, anonymisation end to end, request clock, search and access copy). CI and the local test database now apply `crm-rls.sql`.
 - Needs Lewis: re-run `infra/sql/crm-rls.sql` (now covers all six CRM tables).
+
+## 2026-10-26 — CRM step 5 (opportunities and pipeline)
+- New table `crm_opportunities` (migration 20261026235000; added to `infra/sql/crm-rls.sql`, now seven CRM tables). An opportunity is something that could become work with a stakeholder: tender, sourcing, framework call-off, supplier qualification or other. Stages: identified, qualifying, engaged, submitted, won, lost, withdrawn. Optional cost-side value with currency (never a price carrying margin), expected date, owner, notes, and link to a project.
+- Rules: marking lost needs a reason; stage moves are timestamped; every change is audited; archive instead of delete; viewing needs `crm.view`, changing needs `crm.manage`; totals are kept per currency and never added across currencies.
+- UI: Opportunities tab in Relationship 360 (add, move stage, archive), new Pipeline page (stage tiles filter the list, per-currency totals), and an open-opportunities line on the Overview.
+- Tests: `crm-opportunities.test.ts` (DB-backed: pipeline totals, lost reason, audit, viewer blocked, archive, isolation). `npm run lint:a11y` clean.
+- Needs Lewis: re-run `infra/sql/crm-rls.sql` (now seven tables). Not yet built: automatic stage moves from tender events, "Log interaction" shortcuts from project/tender/complaint screens.

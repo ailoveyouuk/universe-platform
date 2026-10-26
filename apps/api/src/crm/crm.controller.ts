@@ -1,19 +1,20 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
-import type { CrmInteractionInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmInteractionInput, CrmOpportunityInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
 import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
+import { CrmOpportunitiesService } from "./crm-opportunities.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { AnonymiseDto, InteractionDto, PersonProfileDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -58,4 +59,13 @@ export class CrmController {
   @Get("privacy/suppressions") suppressions(@CurrentUser() user: RequestUser) { return this.privacy.suppressions(user); }
   @Post("privacy/suppressions") @HttpCode(200) suppress(@CurrentUser() user: RequestUser, @Body() dto: SuppressDto) { return this.privacy.suppress(user, dto.email).then(() => ({ ok: true })); }
   @Get("privacy/access-log") accessLog(@CurrentUser() user: RequestUser) { return this.privacy.accessLog(user); }
+
+  // ---- Opportunities (step 5) ----
+  @Get("opportunities")
+  listOpportunities(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
+    return this.opportunities.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
+  }
+  @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
+  @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
+  @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }
 }

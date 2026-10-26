@@ -1,4 +1,4 @@
-import type { CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1090,6 +1090,13 @@ export class UniverseApiClient {
   crmSuppressions(): Promise<{ total: number; recent: { id: string; reason: string; createdAt: string }[] }> { return this.request("/crm/privacy/suppressions"); }
   crmSuppress(email: string): Promise<{ ok: true }> { return this.request("/crm/privacy/suppressions", { method: "POST", body: JSON.stringify({ email }) }); }
   crmAccessLog(): Promise<CrmAccessLogRow[]> { return this.request("/crm/privacy/access-log"); }
+  crmOpportunities(q: Record<string, string | number | undefined> = {}): Promise<CrmOpportunityPage> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
+    return this.request(`/crm/opportunities${p.toString() ? `?${p}` : ""}`);
+  }
+  crmPipeline(): Promise<CrmPipelineSummary> { return this.request("/crm/pipeline"); }
+  createCrmOpportunity(body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request("/crm/opportunities", { method: "POST", body: JSON.stringify(body) }); }
+  updateCrmOpportunity(id: string, body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request(`/crm/opportunities/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   crmPeople(): Promise<CrmPeopleOption[]> { return this.request("/crm/people"); }
   crmRelationships(q: Record<string, string | number | undefined> = {}): Promise<CrmRelationshipPage> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));

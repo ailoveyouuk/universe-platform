@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview } from "@universe/types";
+import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -16,6 +16,8 @@ export default function Overview() {
   useEffect(() => { apiClient.crmOverview().then(setO).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the CRM.")); }, []);
   const [fu, setFu] = useState<CrmFollowUp[] | null>(null);
   useEffect(() => { apiClient.crmFollowUps().then(setFu).catch(() => setFu([])); }, []);
+  const [pl, setPl] = useState<CrmPipelineSummary | null>(null);
+  useEffect(() => { apiClient.crmPipeline().then(setPl).catch(() => setPl(null)); }, []);
   const link = (q: string) => `/relationships?${q}`;
   const tile = (label: string, value: number | undefined, icon: React.ReactNode, tone: "brand" | "good" | "warning" | "neutral" | "critical", q: string) => (
     <Link href={link(q)} style={{ textDecoration: "none", color: "inherit", display: "block" }} aria-label={`${label}: ${value ?? "loading"}. Open the list`}>
@@ -34,6 +36,9 @@ export default function Overview() {
       </StatTileGrid>
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
+      )}
+      {pl && (
+        <p style={{ margin: 0, fontSize: 13.5 }}><Link href="/pipeline">{pl.openCount} open opportunit{pl.openCount === 1 ? "y" : "ies"}</Link>{pl.closingSoon > 0 ? `, ${pl.closingSoon} expected within 30 days` : ""}.</p>
       )}
       {fu && fu.length > 0 && (
         <section aria-labelledby="my-follow-ups" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>

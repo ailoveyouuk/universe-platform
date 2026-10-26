@@ -5,9 +5,9 @@ import { Pill, UNIVERSE_APPS } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { fmtDate, humanise } from "../lib/ui";
 
-export type Tab360 = "overview" | "interactions" | "people" | "work" | "performance" | "compliance";
+export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "work" | "performance" | "compliance";
 export const TABS_360: { key: Tab360; label: string }[] = [
-  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "people", label: "People" }, { key: "work", label: "Work together" },
+  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "work", label: "Work together" },
   { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
 ];
 

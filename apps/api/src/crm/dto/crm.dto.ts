@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
-import { CRM_DECISION_ROLES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
+import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { CRM_DECISION_ROLES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
 
 export class UpdateRelationshipDto {
   @IsOptional() @IsIn([...CRM_TIERS]) tier?: string;
@@ -64,3 +64,18 @@ export class PrivacyRequestUpdateDto {
   @IsOptional() @IsString() @MaxLength(500) exemptionReason?: string | null;
 }
 export class SuppressDto { @IsString() @MaxLength(300) email!: string; }
+
+export class OpportunityDto {
+  @IsOptional() @IsString() @MaxLength(100) relationshipId?: string;
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
+  @IsOptional() @IsIn([...CRM_OPPORTUNITY_KINDS]) kind?: (typeof CRM_OPPORTUNITY_KINDS)[number];
+  @IsOptional() @IsIn([...CRM_OPPORTUNITY_STAGES]) stage?: (typeof CRM_OPPORTUNITY_STAGES)[number];
+  @IsOptional() @IsNumber() expectedValue?: number | null;
+  @IsOptional() @IsString() @MaxLength(3) currency?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) expectedDate?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) ownerUserId?: string | null;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string | null;
+  @IsOptional() @IsString() @MaxLength(500) lostReason?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) linkedProjectId?: string | null;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}
