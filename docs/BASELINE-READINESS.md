@@ -40,3 +40,14 @@ Not yet. Build data sets 1 and 2 (and decide on 3), then re-run both audits, agr
 
 ## Decision, 2026-10-25: no Reset sandbox
 Lewis decided Reset sandbox is not needed: the demo is ring-fenced from real data (simulated rows are hidden from real organisations and demo writes cannot reach live data). Stakeholder edits stay inside Universe Demo. If the demo ever needs restoring, the idempotent seed workflows can rebuild missing data; nothing is deleted. This closes the last pre-baseline item apart from Insights.
+
+## Audit re-run, 2026-10-26 (before step 2, demo baseline fixes)
+Ran the consistency, coverage, catalogue and Insights price audits against Universe Demo. The consistency audit gained two new checks (delivery measures against dates and quantities; batch status against expiry) because the earlier version could not see the problems Lewis flagged on 2026-10-19.
+
+**Clean:** supply-chain fields, approvals, batch links, dates, complaints (all zero anomalies in the original checks); Insights price rows are 100% simulated demo rows, none from real organisations; catalogue of 31,411 products with about 6% lacking UNSPSC and 4% lacking an HS code (the deliberate "few percent missing"), 8 cold-chain products without a storage class.
+
+**To fix (in order of effort):**
+1. **Batches, status against expiry:** 254 batches are ACTIVE but past their expiry date, and 66 are EXPIRED but not yet past it. Fix by setting status from the expiry date.
+2. **Supplier on-time flag:** 698 delivered lines have a supplier on-time flag that does not match their collected and committed dates (the app computes it from `goodsCollectedDate` against `supplierGad`). Recompute from the dates. This also corrects the odd 0% on-time-in-full on late-stage projects. No line is missing its received quantity, and the in-full and internal on-time flags all match.
+3. **Thin areas in Universe Demo:** no tender clarifications, addenda, tender evidence or performance responses; no quality-to-contract links; no network saved searches; no profile for Universe Demo itself (it is a procurement agent with an empty profile); one insights user item.
+4. **Test records:** E2E-PACK-001 and SIM-FWK-001 remain in the demo; tidy (archive) only with Lewis's OK. SIM-SVC-002 is deliberately left at Evaluating (award blocked by the approval limit).
