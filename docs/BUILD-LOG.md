@@ -1237,3 +1237,8 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Request (Lewis):** address the thin areas from the audit (clarifications, addenda, tender evidence, performance responses, quality-to-contract links, saved network searches, Universe Demo agent profile).
 - **Built and applied:** `packages/db/scripts/seed-demo-thin-areas.ts` + workflow (dry run default, idempotent, nothing deleted). Added 4 clarifications, 3 addenda with acknowledgements, 6 evidence rows on 2 active contracts, 6 quality links, 11 performance responses (8 replies, 2 disputes, 1 owner answer), 3 saved network searches and the procurement agent profile. Hash chains verified: 64 timelines, 0 broken. Coverage audit shows the previously empty areas populated (acknowledgements belong to the bidders, so the demo-owner count does not show them).
 - **Open:** batch status vs expiry (320), supplier on-time flags (698 lines), test records pending his OK.
+
+## 2026-10-26 — Baseline fixes applied, roadmap
+- **Request (Lewis, "yes please lets tidy up and review"):** applied the audit fixes and reviewed what is next.
+- **Fixes:** `seed:demo-baseline-fixes` (dry run first, idempotent): 254 batches ACTIVE to EXPIRED and 66 EXPIRED to ACTIVE (status follows expiry), supplier on-time set on 698 delivered lines (370 true, 328 false). Consistency audit re-run: zero anomalies.
+- **Roadmap:** docs/ROADMAP-2026-10-26.md (go-live gates, platform, per-app, demo data, suggested order). Test records untouched pending his OK.
