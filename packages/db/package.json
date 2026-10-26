@@ -40,6 +40,7 @@
     "seed:demo-tender-files": "tsx scripts/seed-demo-tender-files.ts",
     "seed:demo-tidy": "tsx scripts/seed-demo-tidy.ts",
     "seed:demo-contract-lifecycle": "tsx scripts/seed-demo-contract-lifecycle.ts",
+    "seed:demo-thin-areas": "tsx scripts/seed-demo-thin-areas.ts",
     "fix:demo-tender-products": "tsx scripts/fix-demo-tender-products.ts",
     "audit:catalogue": "tsx scripts/audit-demo-catalogue.ts",
     "check:hs": "tsx scripts/check-hs-mapping.ts",
