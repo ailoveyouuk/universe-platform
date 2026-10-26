@@ -12,7 +12,7 @@ export function RefChips({ item }: { item: GuidanceItem }) {
     <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
       {item.refs.map((r) => (
         <Link key={r.src + (r.at ?? "")} href={`/standards#${r.src}`} style={{ textDecoration: "none" }}>
-          <Pill tone={STANDARD_SOURCES[r.src].basis === "read" ? "brand" : "neutral"}>{STANDARD_SOURCES[r.src].short}{r.at ? `, ${r.at}` : ""}</Pill>
+          <Pill tone={STANDARD_SOURCES[r.src].basis === "principle" ? "neutral" : "brand"}>{STANDARD_SOURCES[r.src].short}{r.at ? `, ${r.at}` : ""}</Pill>
         </Link>))}
     </span>
   );

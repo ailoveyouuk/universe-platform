@@ -14,8 +14,12 @@ describe("tender standards guidance", () => {
     expect(guidanceFor("BID", "BIDDER").length).toBeGreaterThan(0);
     expect(guidanceFor("CALL_OFF", "BIDDER").length).toBeGreaterThan(0);
   });
-  it("only cites a paragraph or article where the source was actually read", () => {
-    for (const g of GUIDANCE) for (const r of g.refs) if (r.at && /^(para|paras)\b/.test(r.at)) expect(STANDARD_SOURCES[r.src].basis, `${g.id} ${r.src}`).toBe("read");
+  it("only gives a clause, article or paragraph for a source that was read at least in part", () => {
+    for (const g of GUIDANCE) for (const r of g.refs) if (r.at) expect(STANDARD_SOURCES[r.src].basis, `${g.id} ${r.src}`).not.toBe("principle");
+  });
+  it("every source has a note saying what was read, and the 'principle' ones carry no clause numbers", () => {
+    for (const s of Object.values(STANDARD_SOURCES)) expect(s.note.length, s.id).toBeGreaterThan(20);
+    for (const g of GUIDANCE) for (const r of g.refs) if (STANDARD_SOURCES[r.src].basis === "principle") expect(r.at, `${g.id} ${r.src}`).toBeUndefined();
   });
   it("links only to https pages", () => { for (const s of Object.values(STANDARD_SOURCES)) if (s.url) expect(s.url.startsWith("https://")).toBe(true); });
 });
