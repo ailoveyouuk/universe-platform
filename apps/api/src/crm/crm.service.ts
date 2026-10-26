@@ -24,23 +24,38 @@ export const counterpartyKeyForPartner = (partnerId: string) => `partner:${partn
 export class CrmService {
   constructor(private readonly scorecards: PartnerScorecardService) {}
 
-  /** Creates a relationship for every stakeholder that lacks one (up to 1,000 per call). Returns how many were created. */
-  private async ensureTracked(user: RequestUser): Promise<number> {
-    return withTenantContext(user.organizationId, async (tx) => {
-      const missing = await tx.partner.findMany({
-        where: { organizationId: user.organizationId, isArchived: false, crmRelationships: { none: {} } },
-        select: { id: true, approvalStatus: true }, take: 1000,
-      });
-      if (!missing.length) return 0;
-      const now = new Date();
-      await tx.crmRelationship.createMany({
-        data: missing.map((p) => ({
-          organizationId: user.organizationId, partnerId: p.id, counterpartyKey: counterpartyKeyForPartner(p.id),
-          status: startingStatus(p.approvalStatus), reviewIntervalMonths: 12, nextReviewDue: addMonths(now, 12),
-        })),
-      });
-      return missing.length;
-    });
+  private tracking = new Map<string, Promise<number>>();
+
+  /**
+   * Creates a relationship for every stakeholder that lacks one, 1,000 at a time. Two screens open at once (the list and the tiles) would
+   * otherwise both try to create the same rows, so one run per organisation at a time is shared, and a unique-key clash from another
+   * server instance is retried rather than failed. Returns how many were created.
+   */
+  private ensureTracked(user: RequestUser): Promise<number> {
+    const org = user.organizationId;
+    const running = this.tracking.get(org);
+    if (running) return running;
+    const run = (async () => {
+      let created = 0;
+      for (let round = 0; round < 40; round++) {
+        try {
+          const n = await withTenantContext(org, async (tx) => {
+            const missing = await tx.partner.findMany({ where: { organizationId: org, isArchived: false, crmRelationships: { none: {} } }, select: { id: true, approvalStatus: true }, take: 1000 });
+            if (!missing.length) return 0;
+            const now = new Date();
+            await tx.crmRelationship.createMany({ data: missing.map((p) => ({ organizationId: org, partnerId: p.id, counterpartyKey: counterpartyKeyForPartner(p.id), status: startingStatus(p.approvalStatus), reviewIntervalMonths: 12, nextReviewDue: addMonths(now, 12) })) });
+            return missing.length;
+          });
+          if (n === 0) break;
+          created += n;
+        } catch (e) {
+          if (!/unique|duplicate|P2002/i.test(String((e as Error)?.message ?? e))) throw e;
+        }
+      }
+      return created;
+    })().finally(() => this.tracking.delete(org));
+    this.tracking.set(org, run);
+    return run;
   }
 
   private async ownerNames(tx: Parameters<Parameters<typeof withTenantContext>[1]>[0], ids: string[]) {
