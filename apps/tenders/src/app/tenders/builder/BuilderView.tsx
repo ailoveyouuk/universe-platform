@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
 import { SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, useServiceCatalogue, UnitSelect, XIcon } from "@universe/ui";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, ServiceCostRange, useServiceCatalogue, UnitSelect, XIcon } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
@@ -189,6 +189,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
 
 // --------------------------------------------------------------------- items
 const loadCatalogue = () => apiClient.serviceCatalogue();
+const loadCostRange = (code: string) => apiClient.serviceCostRange(code);
 function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: () => void }) {
   const catalogue = useServiceCatalogue(loadCatalogue);
   const countries = useCountries();
@@ -215,6 +216,7 @@ function Items({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved: ()
               <>
                 <Field label="Standard service" wide hint="Starting from a standard service means every bidder quotes the same thing in the same unit.">
                   <ServiceCataloguePicker items={catalogue.items} value={l.serviceCode} category={l.serviceCategory} style={inputStyle} ariaLabel={`Standard service for item ${i + 1}`} onPick={(item) => upd(i, item ? { serviceCode: item.code, serviceCategory: item.category, servicePricingBasis: item.basis, unit: item.unit, description: l.description.trim() ? l.description : item.name } : { serviceCode: null })} />
+                  <ServiceCostRange code={l.serviceCode} load={loadCostRange} />
                 </Field>
                 <Field label="Type of service">
                   <select className="u-native-select" style={inputStyle} value={l.serviceCategory} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); const keep = l.serviceCode && catalogue.byCode(l.serviceCode)?.category === e.target.value; upd(i, { serviceCategory: e.target.value, serviceCode: keep ? l.serviceCode : null, servicePricingBasis: c && !c.bases.includes((l.servicePricingBasis ?? "") as never) ? c.bases[0] : l.servicePricingBasis }); }}>

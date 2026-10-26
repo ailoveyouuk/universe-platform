@@ -22,6 +22,7 @@ export * from "./CurrencySelect";
 export * from "./UnitSelect";
 export * from "./ProductPicker";
 export * from "./ServiceCataloguePicker";
+export * from "./ServiceCostRange";
 export * from "./AppSwitcher";
 export * from "./StatTile";
 export * from "./ScoreLegend";

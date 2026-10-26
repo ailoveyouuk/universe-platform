@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma } from "@universe/db";
-import { SERVICE_CATALOGUE, SERVICE_CATEGORIES } from "@universe/types";
+import { getServicePrices } from "@universe/insights-db";
+import { SERVICE_CATALOGUE, SERVICE_CATEGORIES, canUseApp, type ServiceCostRange } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 
 export interface CatalogueEntryInput { code?: string; category?: string; name?: string; basis?: string; unit?: string; description?: string; active?: boolean }
@@ -80,6 +81,19 @@ export class ServiceCatalogueService {
     const problem = catalogueEntryProblem(next);
     if (problem) throw new BadRequestException(problem);
     return prisma.serviceCatalogueEntry.update({ where: { code }, data: { name: next.name, basis: next.basis, unit: next.unit, description: next.description, ...(dto.active !== undefined ? { active: !!dto.active } : {}), updatedById: user.id }, select: ServiceCatalogueService.select });
+  }
+
+  /**
+   * Anonymised cost range beside a standard service (2026-10-26). Cost price only (before any margin), for the service's kind of service in
+   * its usual pricing basis, taken from the Insights aggregates, which already hold back anything with fewer than five contributing
+   * organisations. Shown to people who have been given Insights; everyone else gets an empty range. Simulated rows count only for demo users.
+   */
+  async costRange(user: RequestUser, code: string): Promise<ServiceCostRange> {
+    const entry = await prisma.serviceCatalogueEntry.findUnique({ where: { code }, select: { category: true, basis: true } });
+    if (!entry) throw new NotFoundException("That service is not in the catalogue.");
+    if (user.platformStaffRole === "NONE" && !canUseApp(user.apps, "insights")) return { basis: entry.basis, ranges: [] };
+    const rows = await getServicePrices(false, user.inDemoOrganization === true);
+    return { basis: entry.basis, ranges: rows.filter((r) => r.serviceCategory === entry.category && r.pricingBasis === entry.basis).map((r) => ({ currency: r.currency, minPrice: r.minPrice, maxPrice: r.maxPrice, avgPrice: r.avgPrice, sourceCount: r.sourceCount })) };
   }
 
   private assertStaff(user: RequestUser) {

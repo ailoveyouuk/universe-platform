@@ -4015,6 +4015,8 @@ export interface InsightsPriceMovementPoint { month: string; index: number; sour
 export interface InsightsPriceMovement { category: string; segmentBy: "manufactureRegion" | "destinationRegion" | null; segment: string | null; currency: string; points: InsightsPriceMovementPoint[] }
 export interface InsightsFreightRate { freightMode: string; originRegion: string | null; destinationRegion: string | null; currency: string; sourceCount: number; shipments: number; avgDistanceKm: number; avgCostPerTonne: number; minCostPerTonne: number; maxCostPerTonne: number; avgCostPerTonneKm: number }
 export interface InsightsServicePrice { serviceCategory: string; pricingBasis: string; deliveryRegion: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
+/** Anonymised cost-price range for a standard service (2026-10-26): what suppliers charged before any margin, for the service's kind and usual pricing basis. Only shown where at least the minimum number of organisations contributed. */
+export interface ServiceCostRange { basis: string; ranges: { currency: string; minPrice: number; maxPrice: number; avgPrice: number; sourceCount: number }[] }
 export type InsightsPriceDimension = "destinationRegion" | "manufactureRegion" | "incoterm" | "freightMode" | "orderSize";
 export interface InsightsPriceBreakdownRow { label: string | null; currency: string; sourceCount: number; observations: number; minPrice: number; maxPrice: number; avgPrice: number }
 export interface InsightsOverview { pricedCategories: number; sourcedCategories: number; logisticsRoutes: number; minimumContributors: number; freshness: InsightsFreshness }

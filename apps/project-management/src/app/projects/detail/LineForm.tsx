@@ -4,7 +4,7 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import type { PartnerOption, ProductApprovedSource, ProductBatchSummary, ProductCatalogDetail, ProductCatalogMatch, ProductSearchResult, ProjectLineInput, ProjectLineSummary } from "@universe/types";
 import { projectLineSummaryToInput, PRODUCT_GROUPS_NON_PHARMA, catalogueGroupForCommodity, COMMODITY_GROUPS, commodityGroupLabel, CURRENCY_OPTIONS, SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, serviceCatalogueByCode } from "@universe/types";
 import { ProductCreateForm, PRODUCT_DATABASE_URL } from "../../../components/ProductCreateForm";
-import { Button, CountrySelect, CurrencySelect, ProductPicker, ServiceCataloguePicker, useServiceCatalogue, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
+import { Button, CountrySelect, CurrencySelect, ProductPicker, ServiceCataloguePicker, ServiceCostRange, useServiceCatalogue, ProductSourceTag, type ProductPickerOption, type ProductPickerScope } from "@universe/ui";
 import { RegisterStrip } from "../../../components/RegisterStrip";
 import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
@@ -76,6 +76,7 @@ function carryOverFrom(previous: ProjectLineSummary | null | undefined, projectC
  * replaces, per the schema's own design intent.
  */
 const loadCatalogue = () => apiClient.serviceCatalogue();
+const loadCostRange = (code: string) => apiClient.serviceCostRange(code);
 export function LineForm({
   existing,
   isPharma,
@@ -451,6 +452,7 @@ export function LineForm({
                 update("serviceCode", item?.code ?? null);
                 if (item) { update("serviceCategory", item.category); update("servicePricingBasis", item.basis); if (!form.clientProductDescription?.trim()) update("clientProductDescription", item.name); }
               }} />
+              <ServiceCostRange code={form.serviceCode} load={loadCostRange} />
             </Field>
             <Field label="Type of service">
               <select className="u-native-select" style={inputStyle} value={form.serviceCategory ?? ""} onChange={(e) => { const c = serviceCategoryByCode(e.target.value); update("serviceCategory", e.target.value || null); if (form.serviceCode && catalogue.byCode(form.serviceCode)?.category !== e.target.value) update("serviceCode", null); if (c && !form.servicePricingBasis) update("servicePricingBasis", c.bases[0] ?? null); }}>
