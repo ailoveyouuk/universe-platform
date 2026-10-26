@@ -4096,6 +4096,11 @@ export interface CrmHealthInputs {
   nextApprovalReviewDue: string | null;
   nextReviewDue: string | null;
   status: string;
+  /** Open quality complaints against the stakeholder; null when the viewer may not see complaint data. */
+  openComplaints?: number | null;
+  /** Current certificates already past expiry, and those expiring within 60 days. */
+  certsExpired?: number;
+  certsExpiringSoon?: number;
 }
 /** Calculated health with the reasons, so a person can see why. A manager's override, if set, is shown beside it, never instead of it. */
 export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHealth; reasons: string[] } {
@@ -4107,6 +4112,9 @@ export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHe
   if (i.approvalStatus === "REJECTED" || i.approvalStatus === "SUSPENDED") raise("AT_RISK", `Stakeholder approval is ${i.approvalStatus.toLowerCase()}`);
   else if (i.approvalStatus === "PENDING") raise("WATCH", "Stakeholder approval is pending");
   if (past(i.nextApprovalReviewDue)) raise("WATCH", "Approval review is overdue");
+  if (i.certsExpired) raise("AT_RISK", `${i.certsExpired} certificate${i.certsExpired === 1 ? " has" : "s have"} expired`);
+  else if (i.certsExpiringSoon) raise("WATCH", `${i.certsExpiringSoon} certificate${i.certsExpiringSoon === 1 ? " expires" : "s expire"} within 60 days`);
+  if (i.openComplaints) raise("WATCH", `${i.openComplaints} open quality complaint${i.openComplaints === 1 ? "" : "s"}`);
   if (i.status !== "ENDED" && i.status !== "PROSPECT" && past(i.nextReviewDue)) raise("WATCH", "Relationship review is overdue");
   return { health, reasons };
 }
@@ -4131,10 +4139,13 @@ export interface CrmRelationshipRow {
   healthReasons: string[];
   healthOverride: CrmHealth | null;
   healthOverrideReason: string | null;
+  openComplaints: number | null;
+  certsExpired: number;
+  certsExpiringSoon: number;
   archivedAt: string | null;
   createdAt: string;
 }
-export interface CrmRelationshipPage { rows: CrmRelationshipRow[]; total: number; page: number; pageSize: number }
+export type CrmRelationshipPage = PagedResult<CrmRelationshipRow>;
 export interface CrmOverview {
   total: number;
   active: number;

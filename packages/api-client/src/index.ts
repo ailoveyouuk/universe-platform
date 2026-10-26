@@ -1073,6 +1073,7 @@ export class UniverseApiClient {
     return this.request(`/crm/relationships${p.toString() ? `?${p}` : ""}`);
   }
   crmRelationship(id: string): Promise<CrmRelationshipRow> { return this.request(`/crm/relationships/${id}`); }
+  crmScorecard(id: string): Promise<PartnerScorecard> { return this.request(`/crm/relationships/${id}/scorecard`); }
   updateCrmRelationship(id: string, body: CrmRelationshipUpdate): Promise<CrmRelationshipRow> { return this.request(`/crm/relationships/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   serviceCatalogueAll(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue/all"); }
   serviceCostRange(code: string): Promise<ServiceCostRange> { return this.request(`/service-catalogue/${code}/cost-range`); }

@@ -3,7 +3,10 @@ import { withTenantContext } from "@universe/db";
 import { CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
+import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
+type Tx = Parameters<Parameters<typeof withTenantContext>[1]>[0];
+type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
 export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; archived?: string; sort?: string; dir?: string }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
@@ -19,6 +22,8 @@ export const counterpartyKeyForPartner = (partnerId: string) => `partner:${partn
  */
 @Injectable()
 export class CrmService {
+  constructor(private readonly scorecards: PartnerScorecardService) {}
+
   /** Creates a relationship for every stakeholder that lacks one (up to 1,000 per call). Returns how many were created. */
   private async ensureTracked(user: RequestUser): Promise<number> {
     return withTenantContext(user.organizationId, async (tx) => {
@@ -44,16 +49,36 @@ export class CrmService {
     return new Map(users.map((u) => [u.id, `${u.forename} ${u.surname}`.trim()]));
   }
 
+  /**
+   * Facts the stakeholder side of Universe already holds, read in two grouped queries for the whole list (not one per row):
+   * open quality complaints (only for people allowed to see complaint data) and current certificates past or near expiry.
+   */
+  private async facts(tx: Tx, user: RequestUser, partnerIds: string[]): Promise<Facts> {
+    const map: Facts = Object.assign(new Map<string, { open: number | null; expired: number; soon: number }>(), { canComplaints: user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view") });
+    if (!partnerIds.length) return map;
+    const now = new Date(); const soon = new Date(now.getTime() + 60 * 86400000);
+    const [certs, complaints] = await Promise.all([
+      tx.partnerCertification.findMany({ where: { organizationId: user.organizationId, partnerId: { in: partnerIds }, status: "CURRENT", expiryDate: { not: null, lte: soon } }, select: { partnerId: true, expiryDate: true }, take: 20000 }),
+      map.canComplaints ? tx.qualityComplaint.groupBy({ by: ["partnerId"], where: { organizationId: user.organizationId, partnerId: { in: partnerIds }, archivedAt: null, status: { notIn: ["RESOLVED", "CLOSED", "WITHDRAWN"] } }, _count: { _all: true } }) : Promise.resolve([]),
+    ]);
+    const slot = (id: string) => { let v = map.get(id); if (!v) { v = { open: map.canComplaints ? 0 : null, expired: 0, soon: 0 }; map.set(id, v); } return v; };
+    for (const c of certs) { const v = slot(c.partnerId); if (c.expiryDate! < now) v.expired++; else v.soon++; }
+    for (const c of complaints) if (c.partnerId) slot(c.partnerId).open = c._count._all;
+    return map;
+  }
+
   private static readonly include = { partner: { select: { name: true, countryCode: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } } } as const;
 
-  private shape(r: any, owners: Map<string, string>): CrmRelationshipRow {
-    const calc = crmHealth({ approvalStatus: r.partner?.approvalStatus ?? null, nextApprovalReviewDue: r.partner?.nextApprovalReviewDue?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null, status: r.status });
+  private shape(r: any, owners: Map<string, string>, facts: Facts): CrmRelationshipRow {
+    const f = facts.get(r.partnerId ?? "") ?? { open: facts.canComplaints ? 0 : null, expired: 0, soon: 0 };
+    const calc = crmHealth({ openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon, approvalStatus: r.partner?.approvalStatus ?? null, nextApprovalReviewDue: r.partner?.nextApprovalReviewDue?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null, status: r.status });
     return {
       id: r.id, partnerId: r.partnerId, name: r.partner?.name ?? "Unknown", countryCode: r.partner?.countryCode ?? null,
       roles: (r.partner?.roles ?? []).map((x: { roleType: string }) => x.roleType), approvalStatus: r.partner?.approvalStatus ?? null, riskTier: r.partner?.riskTier ?? null,
       tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId, ownerName: r.ownerUserId ? owners.get(r.ownerUserId) ?? null : null,
       summary: r.summary, reviewIntervalMonths: r.reviewIntervalMonths, lastReviewedAt: r.lastReviewedAt?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null,
       health: calc.health, healthReasons: calc.reasons, healthOverride: (r.healthOverride as CrmHealth | null) ?? null, healthOverrideReason: r.healthOverrideReason,
+      openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon,
       archivedAt: r.archivedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
     };
   }
@@ -66,7 +91,8 @@ export class CrmService {
         where: { organizationId: user.organizationId, archivedAt: archived ? { not: null } : null }, include: CrmService.include, take: 5000, orderBy: { createdAt: "desc" },
       });
       const owners = await this.ownerNames(tx, rows.map((r) => r.ownerUserId).filter((x): x is string => !!x));
-      return rows.map((r) => this.shape(r, owners));
+      const facts = await this.facts(tx, user, rows.map((r) => r.partnerId).filter((x): x is string => !!x));
+      return rows.map((r) => this.shape(r, owners, facts));
     });
   }
 
@@ -95,7 +121,7 @@ export class CrmService {
     rows = [...rows].sort((a, b) => { const x = k(a), y = k(b); return (x < y ? -1 : x > y ? 1 : a.name.localeCompare(b.name)) * dir; });
     const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100);
     const page = Math.max(q.page ?? 1, 1);
-    return { rows: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pageSize };
+    return { items: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length, page, pageSize };
   }
 
   async overview(user: RequestUser): Promise<CrmOverview> {
@@ -119,8 +145,16 @@ export class CrmService {
     return withTenantContext(user.organizationId, async (tx) => {
       const r = await tx.crmRelationship.findFirst({ where: { id, organizationId: user.organizationId }, include: CrmService.include });
       if (!r) throw new NotFoundException("Relationship not found.");
-      return this.shape(r, await this.ownerNames(tx, r.ownerUserId ? [r.ownerUserId] : []));
+      return this.shape(r, await this.ownerNames(tx, r.ownerUserId ? [r.ownerUserId] : []), await this.facts(tx, user, r.partnerId ? [r.partnerId] : []));
     });
+  }
+
+  /** The stakeholder's existing quality scorecard (the same calculation Project Management shows), for the relationship detail. */
+  async scorecard(user: RequestUser, id: string) {
+    assertHasPermission(user, "crm.view");
+    const partnerId = await withTenantContext(user.organizationId, async (tx) => (await tx.crmRelationship.findFirst({ where: { id, organizationId: user.organizationId }, select: { partnerId: true } }))?.partnerId);
+    if (!partnerId) throw new NotFoundException("Relationship not found.");
+    return this.scorecards.get(user, partnerId);
   }
 
   /** Colleagues in the organisation who can own a relationship. */

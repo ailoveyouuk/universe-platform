@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
-import { AlertIcon, Button, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid } from "@universe/ui";
+import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
+import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, HEALTH_TONE, Heading, OkNote, Page, fmtDate, humanise, inputStyle } from "../../lib/ui";
 
-const PAGE_SIZE = 25;
 type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string };
 const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "" };
 const ROLE_OPTIONS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "WAREHOUSING"];
@@ -28,6 +27,7 @@ export default function RelationshipsPage() {
   const [f, setF] = useState<Filters>(EMPTY);
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
   const [data, setData] = useState<CrmRelationshipPage | null>(null);
   const [o, setO] = useState<CrmOverview | null>(null);
   const [people, setPeople] = useState<CrmPeopleOption[]>([]);
@@ -39,9 +39,9 @@ export default function RelationshipsPage() {
 
   const load = useCallback(() => {
     if (!ready) return;
-    apiClient.crmRelationships({ ...f, page, pageSize: PAGE_SIZE, sort: "name" }).then((d) => { setData(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load relationships."));
+    apiClient.crmRelationships({ ...f, page, pageSize: pageSize === "all" ? 100 : pageSize, sort: "name" }).then((d) => { setData(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load relationships."));
     apiClient.crmOverview().then(setO).catch(() => undefined);
-  }, [f, page, ready]);
+  }, [f, page, pageSize, ready]);
   useEffect(() => { load(); }, [load]);
 
   const set = (patch: Partial<Filters>) => { setF((c) => ({ ...c, ...patch })); setPage(1); };
@@ -73,17 +73,13 @@ export default function RelationshipsPage() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {data?.rows.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
+        {data?.items.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
           onSaved={(msg) => { setOk(msg); load(); }} onError={setErr} />)}
-        {data && data.rows.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No relationships match these filters.</p>}
+        {data && data.items.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No relationships match these filters.</p>}
       </div>
 
-      {data && pages > 1 && (
-        <nav aria-label="Pages" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-          <span style={{ fontSize: 13 }}>Page {page} of {pages}</span>
-          <Button size="sm" variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</Button>
-        </nav>
+      {data && data.total > 0 && (
+        <Pagination pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} page={page} pageCount={pages} onPageChange={setPage} totalCount={data.total} />
       )}
     </Page>
   );
@@ -92,6 +88,9 @@ export default function RelationshipsPage() {
 function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError }: { r: CrmRelationshipRow; open: boolean; onToggle: () => void; canManage: boolean; people: CrmPeopleOption[]; ownerName: string | null; onSaved: (m: string) => void; onError: (m: string | null) => void }) {
   const [draft, setDraft] = useState({ tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId ?? "", summary: r.summary ?? "", reviewIntervalMonths: r.reviewIntervalMonths, healthOverride: (r.healthOverride ?? "") as CrmHealth | "", healthOverrideReason: r.healthOverrideReason ?? "" });
   const [busy, setBusy] = useState(false);
+  const [card, setCard] = useState<PartnerScorecard | null | "none">(null);
+  useEffect(() => { if (open && card === null) apiClient.crmScorecard(r.id).then(setCard).catch(() => setCard("none")); }, [open, card, r.id]);
+  const pmHref = UNIVERSE_APPS.find((a) => a.key === "project-management")?.href;
   const save = async (extra: { markReviewed?: boolean; archived?: boolean } = {}, done = "Saved.") => {
     setBusy(true); onError(null);
     try {
@@ -119,6 +118,10 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
             <dt style={dt}>Health</dt>
             <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>}</dd>
             <dt style={dt}>Stakeholder approval</dt><dd style={dd}>{r.approvalStatus ? humanise(r.approvalStatus) : "Not known"}{r.riskTier ? ` · ${humanise(r.riskTier)} risk` : ""}</dd>
+            <dt style={dt}>Quality scorecard</dt>
+            <dd style={dd}>{card === null ? "Loading…" : card === "none" ? "Not available." : card.overallScore === null ? "Not enough data yet." : <><strong>{Math.round(card.overallScore)}</strong> out of 100, {humanise(card.scoreBand)}{card.attention.length ? `. Needs attention: ${card.attention.join(", ")}` : ""}. Based on {Math.round(card.coverage)}% of the measures.</>}</dd>
+            <dt style={dt}>Open complaints</dt><dd style={dd}>{r.openComplaints === null ? "Not shown (restricted to quality roles)" : r.openComplaints}</dd>
+            <dt style={dt}>Certificates</dt><dd style={dd}>{r.certsExpired ? `${r.certsExpired} expired` : "None expired"}{r.certsExpiringSoon ? `, ${r.certsExpiringSoon} expiring within 60 days` : ""}</dd>
             <dt style={dt}>Last reviewed</dt><dd style={dd}>{fmtDate(r.lastReviewedAt)}</dd>
             <dt style={dt}>Next review due</dt><dd style={dd}>{fmtDate(r.nextReviewDue)} (every {r.reviewIntervalMonths} months)</dd>
             <dt style={dt}>Since</dt><dd style={dd}>{fmtDate(r.createdAt)}</dd>
@@ -141,6 +144,7 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
               </div>
             </>
           ) : r.summary && <p style={{ margin: 0 }}>{r.summary}</p>}
+          {pmHref && r.partnerId && <p style={{ margin: 0 }}><a href={`${pmHref}/partners/detail?id=${r.partnerId}`}>Open the full stakeholder record in Project Management</a></p>}
         </div>
       )}
     </div>

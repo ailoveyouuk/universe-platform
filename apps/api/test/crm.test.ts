@@ -27,6 +27,17 @@ describe("CRM relationship health (calculated, with reasons)", () => {
   });
 });
 
+describe("CRM health reads the stakeholder data that already exists", () => {
+  it("flags expired and soon-to-expire certificates and open complaints", () => {
+    expect(crmHealth({ ...base, certsExpired: 1 }, now)).toEqual({ health: "AT_RISK", reasons: ["1 certificate has expired"] });
+    expect(crmHealth({ ...base, certsExpiringSoon: 2 }, now).reasons).toEqual(["2 certificates expire within 60 days"]);
+    expect(crmHealth({ ...base, openComplaints: 3 }, now)).toEqual({ health: "WATCH", reasons: ["3 open quality complaints"] });
+  });
+  it("ignores complaints the viewer may not see (null)", () => {
+    expect(crmHealth({ ...base, openComplaints: null }, now).health).toBe("GOOD");
+  });
+});
+
 describe("CRM relationship creation", () => {
   it("starts approved stakeholders as active and the rest as prospects", () => {
     expect(startingStatus("APPROVED")).toBe("ACTIVE");
