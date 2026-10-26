@@ -5,6 +5,7 @@ import { prisma, withPlatformStaffContext } from "../src/index";
  *   1. Batch status follows the expiry date: ACTIVE and past expiry become EXPIRED; EXPIRED and not past expiry become ACTIVE.
  *      QUARANTINED and WITHDRAWN batches are left alone.
  *   2. Delivered lines get the supplier on-time answer the app would compute: goods collected on or before the supplier's committed date.
+ *   3. The test project E2E-PACK-001 (left by the 24 Oct end-to-end walkthrough) is archived, with Lewis's OK (2026-10-26). Archived, not deleted.
  * DRY_RUN defaults to true. Idempotent.
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
@@ -34,6 +35,10 @@ async function main() {
       for (const c of chunks(toTrue, 500)) await tx.projectLine.updateMany({ where: { id: { in: c } }, data: { supplierOnTime: true } });
       for (const c of chunks(toFalse, 500)) await tx.projectLine.updateMany({ where: { id: { in: c } }, data: { supplierOnTime: false } });
     }
+
+    const test = await tx.project.findMany({ where: { organizationId: me, referenceNumber: "E2E-PACK-001", isArchived: false }, select: { id: true } });
+    console.log(`${dryRun ? "[dry run] would archive" : "archived"} ${test.length} test project(s) (E2E-PACK-001)`);
+    if (!dryRun && test.length) await tx.project.updateMany({ where: { id: { in: test.map((t) => t.id) } }, data: { isArchived: true, archivedAt: new Date() } });
   });
   await prisma.$disconnect();
 }
