@@ -1,4 +1,6 @@
-# CRM app: design for approval (draft 2026-10-26)
+# CRM app: design for approval (draft 2026-10-26, updated after the standards research)
+
+**Read with `CRM-STANDARDS-AND-DATA-PROTECTION.md`**, which sets the essential and desirable requirements from UK GDPR, the ICO, the Data (Use and Access) Act 2025, international standards and the established CRM platforms. Where this document and that one differ, that one wins on data protection.
 
 Written after the Tenders, Product Database, Admin, Project Management and Insights builds, so it reuses what exists rather than adding a parallel contact book. Items marked **[K]** are general professional knowledge that has not been read from the source in this project and should be confirmed with a specialist before any public claim. Items marked **[R]** were read from the source (see the Tenders standards guide for which sources those are).
 
@@ -49,14 +51,16 @@ A second, smaller use, for you as platform owner (pipeline of organisations join
 All tenant tables carry `organizationId` and get row-level security in `infra/sql`, like the Tender and Quality tables. Archive columns follow the existing pattern.
 
 - **`CrmRelationship`**: `organizationId`, one of `partnerId` or `counterpartyOrganizationId` (exactly one), `ownerUserId`, `tier` (STRATEGIC, KEY, STANDARD, WATCH), `status` (PROSPECT, ACTIVE, DORMANT, ON_HOLD, ENDED), `reviewIntervalMonths`, `nextReviewDue`, `healthOverride` (optional, with reason), `summary`, `archivedAt`. Unique per organisation and counterparty.
-- **`CrmContactProfile`**: extends `Contact` one-to-one: `decisionRole` (DECISION_MAKER, INFLUENCER, TECHNICAL, FINANCE, QUALITY, LOGISTICS, OTHER), `preferredChannel`, `language`, `timeZone`, `lawfulBasis` (see section 8), `lastVerifiedOn`, `status` (ACTIVE, LEFT_ORGANISATION, DO_NOT_CONTACT), `restrictedAt`. Existing `Contact` columns are not changed, so Project Management keeps working.
+- **`CrmContactProfile`**: extends `Contact` one-to-one: `decisionRole` (DECISION_MAKER, INFLUENCER, TECHNICAL, FINANCE, QUALITY, LOGISTICS, OTHER), `preferredChannel`, `language`, `timeZone`, `lawfulBasis` and `lawfulBasisReason` (section 8), `source` (how and where the contact was obtained), `privacyInfoSentOn`, `subscriberType` (COMPANY, SOLE_TRADER_OR_PARTNERSHIP, UNKNOWN, treated as an individual), `lastVerifiedOn`, `status` (ACTIVE, LEFT_ORGANISATION, DO_NOT_CONTACT), `objectedAt`, `restrictedAt`, `anonymisedAt`. Existing `Contact` columns are not changed, so Project Management keeps working.
 - **`CrmInteraction`**: `relationshipId`, `type` (MEETING, CALL, SITE_VISIT, AUDIT, VIDEO_CALL, CORRESPONDENCE, DECISION, OTHER), `occurredAt`, `summary`, `outcome`, `participantsInternal[]`, `participantContactIds[]`, `linkedType` plus `linkedId` (project, tender, bid, contract, complaint, batch, product), `confidential` flag (visible only to the owner and relationship managers), `createdById`. Edits are logged; no hard delete.
 - **`CrmOpportunity`**: `relationshipId`, `title`, `kind` (TENDER, SOURCING, FRAMEWORK_CALL_OFF, QUALIFICATION, OTHER), `stage` (IDENTIFIED, QUALIFYING, ENGAGED, SUBMITTED, WON, LOST, WITHDRAWN), `expectedValue` and currency (cost-side figures only, never margin-bearing prices), `expectedDate`, `linkedType`/`linkedId` once a real tender or project exists, `lostReason`.
 - **`CrmTag`** and **`CrmRelationshipTag`**: free segments an organisation defines.
 - **Follow-ups** reuse `Notification` actions (`requiresAction`, due date, assignee) with a new `subjectType` of `CRM_INTERACTION` or `CRM_RELATIONSHIP`, so they already show in every app's bell and the dashboard actions card. No new task table.
 - **Relationship health** is **calculated, not typed**, from data that already exists: scorecard score, open and overdue complaints, certificate expiry, approval review overdue, recent interaction age, tender performance. `healthOverride` exists only for a manager to record a judgement with a reason.
 
-Estimated new tables: 6 (plus RLS). No change to existing tables.
+Privacy tables added by the standards research: **`CrmPrivacyRequest`** (access, rectify, erase, restrict, object: received, identity confirmed, clock stopped, due, decision, exemption reasons, completed), **`CrmSuppression`** (objections and opt-outs, kept after erasure), **`CrmRetentionRule`** (per data category, with the justification), **`CrmAccessLog`** (who viewed, exported or anonymised a contact).
+
+Estimated new tables: 10 (plus RLS). No change to existing tables.
 
 ## 6. Screens
 
@@ -92,15 +96,18 @@ Estimated new tables: 6 (plus RLS). No change to existing tables.
 
 ## 8. Privacy and data protection
 
-A CRM is mostly personal data about people at other companies, so this section is the one most likely to need a specialist's review. **[K]** throughout; confirm with a data-protection adviser before real use.
+The full requirements, with the ICO and legislation basis for each, are in `CRM-STANDARDS-AND-DATA-PROTECTION.md` (references P1 to P7, R1 to R7, S1 to S5). In short:
 
-- **Lawful basis [K].** Business contact data held to run a supply relationship normally rests on legitimate interests (UK GDPR Article 6(1)(f)) or on performing a contract. Each contact carries a recorded basis. Marketing is out of scope, so PECR consent rules for email marketing are not triggered; if marketing is ever added it needs its own design.
-- **Principles [K].** Data minimisation (only business contact details, no personal social-media or home data), accuracy (the `lastVerifiedOn` field and a periodic verification prompt), storage limitation (a retention period per organisation, default proposed at 6 years after the relationship ends to match typical contract limitation periods; to be confirmed), integrity and confidentiality (RLS, role-gated access, audit log).
-- **Individuals' rights [K].** Access, rectification, restriction, objection and erasure must be supportable. The platform rule is "nothing is ever hard-deleted", which conflicts with erasure. **Decision needed (question 3):** the proposal is that personal fields are *anonymised in place* on a valid erasure request (name and contact details replaced, the business fact of the interaction kept), and the action is logged. That honours both rules.
-- **Visibility inside an organisation.** Interactions are visible to people with `crm.view`; a `confidential` interaction is visible only to its author, the relationship owner and holders of `crm.manage`. Notes are never shown to the counterparty.
-- **Cross-organisation.** Contact and interaction data is never written to the shared registry, the supplier directory, Insights or any other organisation's view. A counterparty that is itself a Universe organisation sees nothing of your CRM.
-- **No email logging for now.** Pulling email in needs sending and mailbox infrastructure that does not exist yet (a go-live item). Interactions are entered by hand in the first build.
-- **Access.** Two new permissions, `crm.view` and `crm.manage`, plus the app toggle; export of CRM data follows the existing rule that organisations may export what they add under their own account.
+- **Controller and processor.** Each organisation is the controller of its CRM data and Universe is its processor, so a data-processing agreement with the Article 28 terms and a sub-processor register are required. Universe never uses CRM content for its own purposes.
+- **Lawful basis and transparency.** A recorded basis and reason per contact (default legitimate interests, with a built-in assessment template), privacy information for contacts including those not collected from the person, and a records-of-processing export.
+- **Individual rights.** One privacy-request console: find everything about a person, export in a common electronic format within the one-month limit (with the stop-the-clock and extension rules), flag third-party names for redaction, rectify, restrict, object (absolute for marketing) with a suppression list that survives erasure, and erase.
+- **Erasure versus "nothing is ever deleted".** Personal fields are irreversibly anonymised in place on a valid request, the business fact remains, and the action is logged. The ICO's erasure guidance does not itself endorse anonymisation as a substitute, so this needs a data-protection adviser's confirmation.
+- **Retention.** A justified schedule per category with a review queue; the 6-year default is a starting position to justify, not a rule.
+- **Special category and criminal-offence data are not recorded.** Free-text notes carry a guard and a writing guide. Tenders holds screening results; the CRM only shows the outcome for individuals.
+- **Visibility.** Interactions are visible to people with `crm.view`; a confidential interaction is visible only to its author, the relationship owner and holders of `crm.manage`. Notes are never shown to the counterparty. Contact and interaction data never reaches the registry, the supplier directory, Insights or another organisation.
+- **Breaches.** Universe notifies the organisation promptly; the organisation decides on reporting within 72 hours where required.
+- **No email logging and no marketing for now.** If either is added later, `subscriberType` and the suppression list are already in place.
+- **Access.** `crm.view` and `crm.manage` plus the app toggle; export follows the existing rule that organisations may export what they add.
 
 ## 9. Standards this serves
 
@@ -113,7 +120,7 @@ How each source bears on relationship management, and what the CRM does about it
 | Manage relationships for sustainable procurement | ISO 20400 **[R, abstract only]** | Tier, review and performance feedback loop |
 | Control externally provided processes and keep evidence | ISO 9001:2015 clause 8.4 **[K]** | Same as above; interactions and decisions timestamped |
 | Handle complaints from and about partners consistently | Existing complaints module; ISO 10002 **[K]** | Complaints surface in health and the 360 view |
-| Protect personal data | UK GDPR and Data Protection Act 2018 **[K]** | Section 8 |
+| Protect personal data | UK GDPR, Data Protection Act 2018 and the Data (Use and Access) Act 2025 **[R, ICO guidance]** | Section 8 and the companion document |
 | Security baseline | Cyber Essentials Plus (the standing target) | Same controls as the rest of the platform |
 
 The CRM does not add a new standards guide; it uses the existing component to show relevant references on the review and onboarding screens, as the Tenders app does.
@@ -134,7 +141,9 @@ The CRM does not add a new standards guide; it uses the existing component to sh
 4. **Who owns a relationship by default?** The person who created the stakeholder, with the organisation's admin able to reassign?
 5. **Opportunity values:** cost-side figures only, as with Insights, or also expected contract value to the organisation?
 6. **Gifts and hospitality** as a recorded interaction type (an anti-bribery control from ISO 37001 titles), visible to compliance reviewers?
-7. **Retention default** for ended relationships (proposed 6 years), editable per organisation?
+7. **Retention default** for ended relationships (proposed 6 years, to be justified in writing), editable per organisation?
+8. **Controller and processor split** (each organisation controls its CRM data, Universe processes it) and a standard data-processing agreement?
+9. **Who is the data-protection contact** for Universe and, per organisation, for the CRM?
 
 ## 12. Proposed build order
 
@@ -145,5 +154,7 @@ The CRM does not add a new standards guide; it uses the existing component to sh
 5. **Opportunities and pipeline**, with automatic stage movement from tender events.
 6. **Overview dashboards, segments, reviews, search and notifications**; calculated health.
 7. **Demo data**: relationships for the 302 simulated organisations' counterparts in Universe Demo, a believable year of interactions, opportunities linked to existing tenders (SIM-ECO, SIM-SVC, SIM-FWK), through logged seed scripts so the confirmed demo baseline is only added to.
+
+**Privacy gate on every step:** no step ships unless it names the requirement(s) it satisfies in the companion document and adds no data category, sharing path or profiling that the DPIA screening does not cover. The privacy-request console, retention queue, suppression list and access log are built in step 4 with the contact profile, **before** any real data can be entered.
 
 Production steps for you: one SQL paste for the new tables' row-level security, one Static Web App deploy token secret and URL variable plus redirect URI for the new app (as for Insights).
