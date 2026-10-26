@@ -134,7 +134,7 @@ function RecordDetail({ d }: { d: StaffPerformanceDetail }) {
     <div>
       {d.contractTitle && <p style={{ margin: "8px 0 0", color: "var(--u-ink-secondary)" }}>{d.contractTitle}</p>}
       <p style={{ margin: "6px 0 0", color: "var(--u-ink-secondary)" }}>
-        Closed {fmtDate(d.closedAt)} · coverage {Math.round(d.coverage * 100)}% of the weighted measures · replies were open until {fmtDate(d.replyDeadline)}
+        Closed {fmtDate(d.closedAt)} · coverage {Math.round(d.coverage)}% of the weighted measures · replies were open until {fmtDate(d.replyDeadline)}
         {d.feedbackAverage !== null ? ` · owner feedback average ${d.feedbackAverage.toFixed(1)}/5` : ""}
       </p>
 
