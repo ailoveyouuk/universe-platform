@@ -596,8 +596,8 @@ describe("Tender service", () => {
     const done = await awards.approvePending(approverUser, t.id);
     expect(done.pendingAward).toBeNull();
     expect(done.awards).toHaveLength(2);
-    const rows = await withPlatformStaffContext((tx: any) => tx.tenderAward.findMany({ where: { tenderId: t.id } }));
-    expect(rows.every((r: any) => r.approvedById === ev1.id && r.awardedById === issuerUser)).toBe(true);
+    const awardRows = await withPlatformStaffContext((tx: any) => tx.tenderAward.findMany({ where: { tenderId: t.id } }));
+    expect(awardRows.every((r: any) => r.approvedById === ev1.id && r.awardedById === issuerUser)).toBe(true);
     expect(done.tender.awardedAt).toBeTruthy();
     expect(done.tender.standstillEndsAt).toBeTruthy();
     // each awarded supplier's bid project becomes AWARDED, with its line at the awarded share (60% and 40% of 1,000)
