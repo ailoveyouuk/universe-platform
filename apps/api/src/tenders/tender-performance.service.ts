@@ -287,6 +287,20 @@ export class TenderPerformanceService {
     });
   }
 
+  /** Platform staff: one record in full (measures, owner feedback, replies and disputes) for review before a withdrawal. */
+  async detailForStaff(user: RequestUser, recordId: string) {
+    if (user.platformStaffRole === "NONE") throw new ForbiddenException("Platform staff only.");
+    return withPlatformStaffContext(async (tx) => {
+      const rec = await tx.tenderPerformanceRecord.findUnique({ where: { id: recordId } });
+      if (!rec) throw new NotFoundException("Record not found.");
+      const view = (await this.shape(tx, [rec.contractId], "")).get(rec.contractId) as Record<string, unknown> | undefined;
+      const con = await tx.tenderContract.findUnique({ where: { id: rec.contractId }, select: { reference: true, title: true } });
+      const orgs = await tx.organization.findMany({ where: { id: { in: [rec.organizationId, rec.awardedOrganizationId] } }, select: { id: true, name: true } });
+      const nm = new Map(orgs.map((o) => [o.id, o.name]));
+      return { ...view, contractReference: con?.reference ?? null, contractTitle: con?.title ?? null, ownerName: nm.get(rec.organizationId) ?? null, supplierName: nm.get(rec.awardedOrganizationId) ?? null };
+    });
+  }
+
   /** Platform staff only: put a withdrawn record back. */
   async restore(user: RequestUser, recordId: string) {
     if (user.platformStaffRole === "NONE") throw new ForbiddenException("Only platform staff can restore a performance record.");

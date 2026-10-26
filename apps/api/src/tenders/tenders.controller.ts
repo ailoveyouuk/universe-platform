@@ -126,6 +126,7 @@ export class TendersController {
 
   // ---- performance records (step 6) and the manual payment log
   @Get("performance/staff") staffPerformance(@CurrentUser() u: RequestUser) { return this.performance.listForStaff(u); }
+  @Get("performance/:rid/staff") staffPerformanceDetail(@CurrentUser() u: RequestUser, @Param("rid") rid: string) { return this.performance.detailForStaff(u, rid); }
   @Post("performance/:rid/restore") restorePerformance(@CurrentUser() u: RequestUser, @Param("rid") rid: string) { return this.performance.restore(u, rid); }
   @Get("performance/mine") myPerformance(@CurrentUser() u: RequestUser) { return this.performance.mine(u); }
   @Get("performance/supplier/:orgId") supplierPerformance(@CurrentUser() u: RequestUser, @Param("orgId") orgId: string) { return this.performance.supplierSummary(u, orgId); }

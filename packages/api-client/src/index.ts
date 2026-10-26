@@ -40,7 +40,7 @@ import type {
   InviteUserInput,
   OrganizationSummary,
   OrganizationAccessList,
-  TenderContractsForTender, MyPerformanceItem, QualityEvidence, StaffPerformanceRow, SupplierPerformanceSummary, PaymentPracticeSummary,
+  TenderContractsForTender, MyPerformanceItem, QualityEvidence, StaffPerformanceRow, StaffPerformanceDetail, SupplierPerformanceSummary, PaymentPracticeSummary,
   OrganizationDetail,
   FieldChangeFeedPage,
   PermissionSummary,
@@ -416,6 +416,7 @@ export class UniverseApiClient {
   closeTenderContract(cid: string, body: { outcome: string; note: string; qualityChecked?: boolean; feedback?: { quality: number; communication: number; documentation: number; flexibility: number; wouldUseAgain: number; reasons?: Record<string, string>; comment?: string } }): Promise<TenderContractsForTender> { return this.request(`/tenders/contracts/${cid}/close`, { method: "POST", body: JSON.stringify(body) }); }
   contractQualityEvidence(cid: string): Promise<QualityEvidence> { return this.request(`/tenders/contracts/${cid}/quality`); }
   setContractQualityLinks(cid: string, body: { complaintIds: string[]; temperatureLogIds: string[] }): Promise<QualityEvidence> { return this.request(`/tenders/contracts/${cid}/quality`, { method: "PUT", body: JSON.stringify(body) }); }
+  staffPerformanceDetail(rid: string): Promise<StaffPerformanceDetail> { return this.request(`/tenders/performance/${rid}/staff`); }
   staffPerformanceRecords(): Promise<StaffPerformanceRow[]> { return this.request(`/tenders/performance/staff`); }
   withdrawPerformanceRecord(rid: string, reason: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/withdraw`, { method: "POST", body: JSON.stringify({ body: reason }) }); }
   restorePerformanceRecord(rid: string): Promise<{ ok: boolean }> { return this.request(`/tenders/performance/${rid}/restore`, { method: "POST" }); }
@@ -1062,6 +1063,7 @@ export class UniverseApiClient {
   }
   /** Standard services catalogue (2026-10-26): active entries for pickers; staff get all entries and can add and edit. */
   serviceCatalogue(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue"); }
+  serviceCatalogueUsage(): Promise<Record<string, { projectLines: number; tenderLines: number; organisations: number }>> { return this.request("/service-catalogue/usage"); }
   serviceCatalogueAll(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue/all"); }
   serviceCostRange(code: string): Promise<ServiceCostRange> { return this.request(`/service-catalogue/${code}/cost-range`); }
   createServiceCatalogueEntry(body: Omit<ServiceCatalogueRow, "active">): Promise<ServiceCatalogueRow> { return this.request("/service-catalogue", { method: "POST", body: JSON.stringify(body) }); }

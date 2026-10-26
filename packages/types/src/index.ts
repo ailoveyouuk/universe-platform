@@ -3554,6 +3554,7 @@ export interface PerformanceRecordView {
   replyDeadline: string; canRespond: boolean; withdrawn: boolean; withdrawnReason: string | null; openDisputes: number;
   responses: { id: string; kind: "REPLY" | "DISPUTE" | "ANSWER"; measureKey: string | null; body: string; own: boolean; createdAt: string }[];
 }
+export interface StaffPerformanceDetail extends PerformanceRecordView { contractReference: string | null; contractTitle: string | null; ownerName: string | null; supplierName: string | null }
 export interface StaffPerformanceRow { id: string; contractReference: string | null; ownerName: string | null; supplierName: string | null; outcome: string; closedAt: string; overallScore: number | null; band: string; disputes: number; withdrawn: boolean; withdrawnReason: string | null }
 export interface QualityEvidence {
   canComplaints: boolean; locked: boolean;

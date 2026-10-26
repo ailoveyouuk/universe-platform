@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { prisma } from "@universe/db";
+import { prisma, withPlatformStaffContext } from "@universe/db";
 import { getServicePrices } from "@universe/insights-db";
 import { SERVICE_CATALOGUE, SERVICE_CATEGORIES, canUseApp, type ServiceCostRange } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -48,6 +48,20 @@ export class ServiceCatalogueService {
     this.assertStaff(user);
     await this.ensureSeeded();
     return prisma.serviceCatalogueEntry.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }], select: ServiceCatalogueService.select });
+  }
+
+  /** Staff editor: where each service is used, counted across all organisations (counts only; nothing identifying leaves this method). */
+  async usage(user: RequestUser): Promise<Record<string, { projectLines: number; tenderLines: number; organisations: number }>> {
+    this.assertStaff(user);
+    return withPlatformStaffContext(async (tx) => {
+      const pl = await tx.projectLine.groupBy({ by: ["serviceCode", "organizationId"], where: { serviceCode: { not: null } }, _count: { _all: true } });
+      const tl = await tx.tenderLine.groupBy({ by: ["serviceCode", "organizationId"], where: { serviceCode: { not: null } }, _count: { _all: true } });
+      const out: Record<string, { projectLines: number; tenderLines: number; orgs: Set<string> }> = {};
+      const slot = (c: string) => (out[c] ??= { projectLines: 0, tenderLines: 0, orgs: new Set() });
+      for (const g of pl) { const o = slot(g.serviceCode!); o.projectLines += g._count._all; o.orgs.add(g.organizationId); }
+      for (const g of tl) { const o = slot(g.serviceCode!); o.tenderLines += g._count._all; o.orgs.add(g.organizationId); }
+      return Object.fromEntries(Object.entries(out).map(([c, v]) => [c, { projectLines: v.projectLines, tenderLines: v.tenderLines, organisations: v.orgs.size }]));
+    });
   }
 
   /** Codes that exist (active or not) for server-side line validation: an existing line keeps working after its service is switched off. */
