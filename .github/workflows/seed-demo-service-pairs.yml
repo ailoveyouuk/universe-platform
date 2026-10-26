@@ -1,0 +1,32 @@
+name: Seed demo service cost pairs
+
+# Manual run (2026-10-26). Tops up SIMULATED anonymised service cost rows in universe-insights for the 23 kind-and-basis pairs the first simulated
+# set did not cover, so every standard service has an indicative cost on the Insights Services rate card. Rows are flagged isSimulated (demo
+# organisations only). Adds rows only, skips a pair that already has simulated rows, deletes nothing. Dry run by default.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (true) only reports what would be added; false writes the rows"
+        default: "true"
+        type: string
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - run: npm run build --workspace=@universe/db
+      - name: Seed
+        run: npm run seed:service-pairs --workspace=@universe/insights-db
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          INSIGHTS_DATABASE_URL: ${{ secrets.INSIGHTS_LOAD_DATABASE_URL }}
