@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
 import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
@@ -98,6 +99,7 @@ export default function RelationshipsPage() {
 function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError }: { r: CrmRelationshipRow; open: boolean; onToggle: () => void; canManage: boolean; people: CrmPeopleOption[]; ownerName: string | null; onSaved: (m: string) => void; onError: (m: string | null) => void }) {
   const [draft, setDraft] = useState({ tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId ?? "", summary: r.summary ?? "", reviewIntervalMonths: r.reviewIntervalMonths, healthOverride: (r.healthOverride ?? "") as CrmHealth | "", healthOverrideReason: r.healthOverrideReason ?? "" });
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<Tab360>("overview");
   const [card, setCard] = useState<PartnerScorecard | null | "none">(null);
   useEffect(() => { if (open && card === null) apiClient.crmScorecard(r.id).then(setCard).catch(() => setCard("none")); }, [open, card, r.id]);
   const pmHref = UNIVERSE_APPS.find((a) => a.key === "project-management")?.href;
@@ -124,6 +126,14 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
       </button>
       {open && (
         <div id={`rel-${r.id}`} style={{ padding: "8px 14px 14px", borderTop: "1px solid var(--u-border)", display: "grid", gap: 14 }}>
+          <div role="tablist" aria-label={`${r.name} sections`} style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--u-border)", overflowX: "auto" }}>
+            {TABS_360.map((t) => { const on = tab === t.key; return (
+              <button key={t.key} type="button" role="tab" id={`tab-${r.id}-${t.key}`} aria-selected={on} aria-controls={`panel-${r.id}`} onClick={() => setTab(t.key)}
+                style={{ border: "none", background: "none", cursor: "pointer", padding: "8px 14px", fontSize: 13.5, fontWeight: on ? 700 : 500, whiteSpace: "nowrap", fontFamily: "inherit", color: on ? "var(--u-brand-violet)" : "var(--u-ink-secondary)", borderBottom: on ? "2px solid var(--u-brand-violet)" : "2px solid transparent", marginBottom: -1 }}>{t.label}</button>
+            ); })}
+          </div>
+          <div role="tabpanel" id={`panel-${r.id}`} aria-labelledby={`tab-${r.id}-${tab}`} style={{ display: "grid", gap: 14 }}>
+          {tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} /> : (<>
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 14px", margin: "6px 0 0" }}>
             <dt style={dt}>Health</dt>
             <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>}</dd>
@@ -155,6 +165,8 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
             </>
           ) : r.summary && <p style={{ margin: 0 }}>{r.summary}</p>}
           {pmHref && r.partnerId && <p style={{ margin: 0 }}><a href={`${pmHref}/partners/detail?id=${r.partnerId}`}>Open the full stakeholder record in Project Management</a></p>}
+          </>)}
+          </div>
         </div>
       )}
     </div>

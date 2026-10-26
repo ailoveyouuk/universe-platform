@@ -1360,3 +1360,8 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 - "Need attention" tile filter returns 341 (the first look was a slow list response, not a bug; the list lags the tiles by several seconds on the demo tenant of 3,012 stakeholders — worth watching).
 - Live accessibility scan (light and dark, Relationships with an expanded row): no issues. Overview not separately scanned beyond `npm run lint:a11y` (clean).
 - Fixes during live checks: concurrent tracking clash (lock + retry), SQL parameter limit (chunks of 800), transaction timeout (database-side filter/count/page).
+
+## 2026-10-26 — CRM speed and step 2 (Relationship 360)
+- Speed: the overview figures are cached for 45 seconds per organisation (cleared on any change), the "stakeholders without a relationship" check runs at most every 2 minutes, search typing is debounced, the tiles load once rather than on every filter change, and the list dims while loading and ignores out-of-date responses.
+- Access: unchanged and consistent with other apps; the admin gives access per app (Admin > Users > Apps) and the API enforces it.
+- Step 2: expanding a relationship shows tabs: Overview, People (contacts), Work together (projects by their part: client, supplier, manufacturer, freight forwarder), Performance (scorecard, complaints), Compliance (approval, certificates, company checks, approval history). Read-only from the owning apps; `GET /crm/relationships/:id/detail`. Contacts and projects need Project Management access (projects also `projects.view`); complaints need the quality permission. Test added (crm-detail.test.ts).

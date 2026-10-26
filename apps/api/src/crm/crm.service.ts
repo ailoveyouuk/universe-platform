@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
+import { canUseApp, CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import { PartnerScorecardService } from "../quality/partner-scorecard.service";
@@ -228,6 +228,51 @@ export class CrmService {
     return withTenantContext(user.organizationId, async (tx) => {
       const us = await tx.user.findMany({ where: { organizationId: user.organizationId, archivedAt: null, isSimulated: false }, select: { id: true, forename: true, surname: true }, orderBy: [{ forename: "asc" }], take: 200 });
       return us.map((u) => ({ id: u.id, name: `${u.forename} ${u.surname}`.trim() }));
+    });
+  }
+
+  /** Relationship 360: contacts, work together, complaints, certificates, company checks and approval history, all read from the owning apps' tables. */
+  async detail(user: RequestUser, id: string): Promise<CrmRelationshipDetail> {
+    assertHasPermission(user, "crm.view");
+    const staff = user.platformStaffRole !== "NONE";
+    const inPm = staff || canUseApp(user.apps, "project-management");
+    const seeContacts = inPm;
+    const seeProjects = inPm && (staff || user.permissions.includes("projects.view"));
+    const seeComplaints = this.canSeeComplaints(user);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const r = await tx.crmRelationship.findFirst({ where: { id, organizationId: user.organizationId }, select: { partnerId: true } });
+      if (!r) throw new NotFoundException("Relationship not found.");
+      const pid = r.partnerId;
+      const org = user.organizationId;
+      if (!pid) return { contacts: null, projects: null, complaints: null, certificates: [], checks: [], approvals: [], approvalStatus: null, lastApprovalReviewDate: null, nextApprovalReviewDue: null };
+      const projWhere: Prisma.ProjectWhereInput = { organizationId: org, archivedAt: null, OR: [{ clientId: pid }, { freightForwarderId: pid }, { lines: { some: { OR: [{ supplierId: pid }, { manufacturerId: pid }] } } }] };
+      const [partner, contacts, projTotal, projs, compTotal, comps, certs, checks, approvals] = await Promise.all([
+        tx.partner.findFirst({ where: { id: pid, organizationId: org }, select: { approvalStatus: true, lastApprovalReviewDate: true, nextApprovalReviewDue: true } }),
+        seeContacts ? tx.contact.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { name: "asc" }, take: 100, select: { id: true, name: true, title: true, email: true, phone: true } }) : Promise.resolve(null),
+        seeProjects ? tx.project.count({ where: projWhere }) : Promise.resolve(0),
+        seeProjects ? tx.project.findMany({ where: projWhere, orderBy: { createdAt: "desc" }, take: 25, select: { id: true, referenceNumber: true, title: true, status: true, dueDate: true, deliveryCountryCode: true, clientId: true, freightForwarderId: true } }) : Promise.resolve([]),
+        seeComplaints ? tx.qualityComplaint.count({ where: { organizationId: org, partnerId: pid, archivedAt: null } }) : Promise.resolve(0),
+        seeComplaints ? tx.qualityComplaint.findMany({ where: { organizationId: org, partnerId: pid, archivedAt: null }, orderBy: { receivedAt: "desc" }, take: 25, select: { id: true, referenceNumber: true, title: true, status: true, severity: true, receivedAt: true } }) : Promise.resolve([]),
+        tx.partnerCertification.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { expiryDate: "asc" }, take: 100, select: { id: true, type: true, referenceNumber: true, issuingBody: true, issuedDate: true, expiryDate: true, status: true } }),
+        tx.partnerCompanyCheck.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, checkType: true, customLabel: true, result: true, checkedDate: true } }),
+        tx.partnerApprovalHistory.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { actionDate: "desc" }, take: 20, select: { id: true, action: true, reason: true, actionDate: true } }),
+      ]);
+      // Which hat the stakeholder wore on each project: client and freight forwarder come from the header, supplier and manufacturer from the lines.
+      const lineRoles = new Map<string, Set<string>>();
+      if (projs.length) {
+        const lines = await tx.projectLine.findMany({ where: { projectId: { in: projs.map((p) => p.id) }, OR: [{ supplierId: pid }, { manufacturerId: pid }] }, select: { projectId: true, supplierId: true, manufacturerId: true }, take: 5000 });
+        for (const l of lines) { const set = lineRoles.get(l.projectId) ?? new Set<string>(); if (l.supplierId === pid) set.add("Supplier"); if (l.manufacturerId === pid) set.add("Manufacturer"); lineRoles.set(l.projectId, set); }
+      }
+      const iso = (d: Date | null) => d?.toISOString() ?? null;
+      return {
+        contacts,
+        projects: seeProjects ? { total: projTotal, items: projs.map((p) => ({ id: p.id, referenceNumber: p.referenceNumber, title: p.title, status: p.status, dueDate: iso(p.dueDate), deliveryCountryCode: p.deliveryCountryCode, involvement: [...(p.clientId === pid ? ["Client"] : []), ...(p.freightForwarderId === pid ? ["Freight forwarder"] : []), ...(lineRoles.get(p.id) ?? [])] })) } : null,
+        complaints: seeComplaints ? { total: compTotal, items: comps.map((c) => ({ id: c.id, referenceNumber: c.referenceNumber, title: c.title, status: c.status, severity: c.severity, receivedAt: c.receivedAt.toISOString() })) } : null,
+        certificates: certs.map((c) => ({ ...c, issuedDate: iso(c.issuedDate), expiryDate: iso(c.expiryDate) })),
+        checks: checks.map((c) => ({ ...c, checkedDate: iso(c.checkedDate) })),
+        approvals: approvals.map((a) => ({ ...a, actionDate: a.actionDate.toISOString() })),
+        approvalStatus: partner?.approvalStatus ?? null, lastApprovalReviewDate: iso(partner?.lastApprovalReviewDate ?? null), nextApprovalReviewDue: iso(partner?.nextApprovalReviewDue ?? null),
+      };
     });
   }
 

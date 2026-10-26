@@ -23,6 +23,7 @@ export class CrmController {
 
   @Get("relationships/:id") one(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.one(user, id); }
 
+  @Get("relationships/:id/detail") detail(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.detail(user, id); }
   @Get("relationships/:id/scorecard") scorecard(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.scorecard(user, id); }
 
   @Patch("relationships/:id")

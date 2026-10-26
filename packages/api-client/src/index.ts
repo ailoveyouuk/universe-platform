@@ -1,4 +1,4 @@
-import type { CrmOverview, CrmPeopleOption, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1067,6 +1067,7 @@ export class UniverseApiClient {
   serviceCatalogueUsage(): Promise<Record<string, { projectLines: number; tenderLines: number; organisations: number }>> { return this.request("/service-catalogue/usage"); }
   /** CRM (2026-10-26): relationships sit on top of stakeholders; the list creates any that are missing. */
   crmOverview(): Promise<CrmOverview> { return this.request("/crm/overview"); }
+  crmDetail(id: string): Promise<CrmRelationshipDetail> { return this.request(`/crm/relationships/${id}/detail`); }
   crmPeople(): Promise<CrmPeopleOption[]> { return this.request("/crm/people"); }
   crmRelationships(q: Record<string, string | number | undefined> = {}): Promise<CrmRelationshipPage> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));

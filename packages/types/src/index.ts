@@ -4169,3 +4169,22 @@ export interface CrmRelationshipUpdate {
   archived?: boolean;
 }
 export interface CrmPeopleOption { id: string; name: string }
+
+/** Relationship 360 (CRM step 2): read-only facts the other apps already hold about one stakeholder. Sections the viewer may not see are null. */
+export interface CrmDetailContact { id: string; name: string; title: string | null; email: string | null; phone: string | null }
+export interface CrmDetailProject { id: string; referenceNumber: string; title: string; status: string; dueDate: string | null; deliveryCountryCode: string | null; involvement: string[] }
+export interface CrmDetailComplaint { id: string; referenceNumber: string; title: string; status: string; severity: string | null; receivedAt: string }
+export interface CrmDetailCertificate { id: string; type: string; referenceNumber: string | null; issuingBody: string | null; issuedDate: string | null; expiryDate: string | null; status: string }
+export interface CrmDetailCheck { id: string; checkType: string; customLabel: string | null; result: string; checkedDate: string | null }
+export interface CrmDetailApproval { id: string; action: string; reason: string | null; actionDate: string }
+export interface CrmRelationshipDetail {
+  contacts: CrmDetailContact[] | null;
+  projects: { total: number; items: CrmDetailProject[] } | null;
+  complaints: { total: number; items: CrmDetailComplaint[] } | null;
+  certificates: CrmDetailCertificate[];
+  checks: CrmDetailCheck[];
+  approvals: CrmDetailApproval[];
+  approvalStatus: string | null;
+  lastApprovalReviewDate: string | null;
+  nextApprovalReviewDue: string | null;
+}
