@@ -3723,6 +3723,8 @@ export interface EvaluationOverview {
   lots: EvalLot[];
   awards: EvalAward[];
   complaints: { id: string; organizationId: string; body: string; status: string; response: string | null; lodgedAt: string; respondedAt: string | null }[];
+  /** An award proposed above the proposer's own approval limit, waiting for a second, different authoriser (issuers only). */
+  pendingAward: { requestedAt: string; requestedByName: string | null; summary: string | null; value: number | null; currency: string | null; requestedByYou: boolean; canApprove: boolean } | null;
 }
 export interface TenderStatusView {
   tender: {

@@ -71,7 +71,8 @@ export function EvaluateView() {
       {(o.phase === "SCORED" || o.phase === "AWARDED") && <Results o={o} />}
       {(o.phase === "SCORED" || o.phase === "AWARDED") && o.lots.length > 0 && <LotResults o={o} />}
       {(o.phase === "SCORED" || o.phase === "AWARDED") && o.bids.length > 0 && <PastPerformanceCard o={o} />}
-      {o.phase === "SCORED" && v.isIssuer && (o.lots.length > 0 ? <LotAwardForm o={o} id={id} act={act} busy={busy} /> : <AwardForm o={o} id={id} act={act} busy={busy} />)}
+      {o.phase === "SCORED" && v.isIssuer && o.pendingAward && <PendingAwardCard o={o} id={id} act={act} busy={busy} />}
+      {o.phase === "SCORED" && v.isIssuer && !o.pendingAward && (o.lots.length > 0 ? <LotAwardForm o={o} id={id} act={act} busy={busy} /> : <AwardForm o={o} id={id} act={act} busy={busy} />)}
       {o.phase === "AWARDED" && <Awarded o={o} id={id} act={act} busy={busy} />}
     </Page>
   );
@@ -201,6 +202,32 @@ function Results({ o }: { o: EvaluationOverview }) {
             <td>{b.total?.toLocaleString()}</td>{scored.map((c) => <td key={c.id}>{b.scores[c.id] ?? "–"}</td>)}<td><strong>{b.totalScore ?? "–"}</strong></td>
           </tr>))}</tbody>
       </table>
+    </Card>
+  );
+}
+
+/** An award above the proposer's own approval limit waits here for a second, different authoriser (2026-10-26). */
+function PendingAwardCard({ o, id, act, busy }: { o: EvaluationOverview; id: string; act: Act; busy: boolean }) {
+  const p = o.pendingAward!;
+  const [reason, setReason] = useState("");
+  const value = p.value === null ? null : `${p.currency ?? ""} ${p.value.toLocaleString()}`.trim();
+  return (
+    <Card title="Award waiting for a second authoriser">
+      <p role="status" style={{ marginTop: 0, fontSize: 14 }}>
+        {p.requestedByYou ? "You proposed" : `${p.requestedByName ?? "A colleague"} proposed`} awarding <strong>{p.summary ?? "the selected supplier(s)"}</strong>
+        {value ? <>, worth <strong>{value}</strong></> : null}, on {fmtDateTime(p.requestedAt)}. The value is above the proposer&rsquo;s own approval limit, so nothing has been awarded and no bidder has been told. A different person whose approval limit covers the value must approve it.
+      </p>
+      {p.requestedByYou ? (
+        <div><Button variant="secondary" disabled={busy} onClick={() => act(() => apiClient.rejectTenderAward(id, ""))}>Withdraw this proposal</Button></div>
+      ) : p.canApprove ? (
+        <>
+          <Field label="Reason, if you do not approve"><input aria-label="Reason, if you do not approve" style={inputStyle} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Required to reject" /></Field>
+          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Button variant="primary" disabled={busy} onClick={() => act(() => apiClient.approveTenderAward(id))}>Approve and record the award</Button>
+            <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => act(() => apiClient.rejectTenderAward(id, reason))}>Do not approve</Button>
+          </div>
+        </>
+      ) : <p style={{ margin: 0, fontSize: 13.5, ...muted }}>You do not have award authority, so you cannot approve this. Ask a colleague with award authority and a high enough approval limit.</p>}
     </Card>
   );
 }

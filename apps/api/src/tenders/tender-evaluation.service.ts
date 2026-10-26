@@ -118,7 +118,15 @@ export class TenderEvaluationService {
     // The real number of submitted bids, not the rows this viewer may see: before a conflict declaration an evaluator sees no bids, which must not read as "no bids".
     const submittedCount = await tx.tenderBid.count({ where: { tenderId: t.id, status: "SUBMITTED" } });
     const startProblems = this.startProblems(t, evaluators, submittedCount);
+    // An award held for a second authoriser (2026-10-26): shown to issuers only.
+    let pendingAward: { requestedAt: Date; requestedByName: string | null; summary: string | null; value: number | null; currency: string | null; requestedByYou: boolean; canApprove: boolean } | null = null;
+    if (isIssuer && t.pendingAwardAt) {
+      const proposer = t.pendingAwardById ? await tx.user.findUnique({ where: { id: t.pendingAwardById }, select: { id: true, forename: true, surname: true, email: true } }) : null;
+      const mine = t.pendingAwardById === user.id;
+      pendingAward = { requestedAt: t.pendingAwardAt, requestedByName: proposer ? fullName(proposer) : null, summary: t.pendingAwardSummary, value: num(t.pendingAwardValue), currency: t.currency, requestedByYou: mine, canApprove: !mine && (user.platformStaffRole !== "NONE" || user.permissions.includes("tenders.award")) };
+    }
     return {
+      pendingAward,
       tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, currency: t.currency, status: effectiveStatus(t), closingAt: t.closingAt, timeZone: t.timeZone, emergencyProcurement: t.emergencyProcurement, emergencyReason: t.emergencyReason, allowSingleEvaluator: t.allowSingleEvaluator, singleEvaluatorReason: t.singleEvaluatorReason, standstillEnabled: t.standstillEnabled, standstillWorkingDays: t.standstillWorkingDays, bidsOpenedAt: t.bidsOpenedAt, evaluationStartedAt: t.evaluationStartedAt, scoringFinalisedAt: t.scoringFinalisedAt, awardedAt: t.awardedAt, standstillEndsAt: t.standstillEndsAt },
       phase,
       viewer: { isIssuer, isEvaluator: !!me, role: me?.role ?? null, coiDeclared: !!me?.coiDeclaredAt, coiRequired: !!me && !me.coiDeclaredAt },

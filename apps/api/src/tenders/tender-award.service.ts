@@ -8,6 +8,7 @@ import { appendTenderEvent } from "./tender-events";
 import { TenderEvaluationService } from "./tender-evaluation.service";
 import { effectiveStatus, TendersService } from "./tenders.service";
 import { TenderApprovalAuthority } from "./tender-approval-authority";
+import { awardRoute, checkApprover, isProposer } from "./tender-award-approval";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
 const num = (v: { toString(): string } | null | undefined) => (v === null || v === undefined ? null : Number(v.toString()));
@@ -21,10 +22,44 @@ const num = (v: { toString(): string } | null | undefined) => (v === null || v =
 export class TenderAwardService {
   constructor(private readonly tenders: TendersService, private readonly evaluation: TenderEvaluationService, private readonly bidProjects: TenderBidProjectsService = new TenderBidProjectsService(), private readonly authority: TenderApprovalAuthority = new TenderApprovalAuthority()) {}
 
+  /** Proposes or makes an award. Above the proposer's own approval limit it is held for a second, different authoriser (see approvePending). */
   async award(user: RequestUser, tenderId: string, dto: AwardDto) {
     assertHasPermission(user, "tenders.issue");
+    return this.performAward(user, tenderId, dto, null);
+  }
+
+  /** The second authoriser approves the held award, which is then made exactly as proposed (checked again against the tender as it stands now). */
+  async approvePending(user: RequestUser, tenderId: string) {
+    assertHasPermission(user, "tenders.award");
+    const held = await withTenantContext(user.organizationId, async (tx) => {
+      const t = await this.tenders.ownTender(tx, user, tenderId);
+      if (!t.pendingAwardJson || !t.pendingAwardAt) throw new ConflictException("No award is waiting for approval.");
+      return { dto: JSON.parse(t.pendingAwardJson) as AwardDto, proposerId: t.pendingAwardById };
+    });
+    if (isProposer(user.id, held.proposerId)) throw new ForbiddenException("The second authoriser must be someone other than the person who proposed the award.");
+    return this.performAward(user, tenderId, held.dto, { proposerId: held.proposerId ?? "" });
+  }
+
+  /** The proposer withdraws the held award; anyone else with award authority rejects it and must say why. Nothing is awarded either way. */
+  async rejectPending(user: RequestUser, tenderId: string, reason: string) {
     const out = await withTenantContext(user.organizationId, async (tx) => {
       const t = await this.tenders.ownTender(tx, user, tenderId);
+      if (!t.pendingAwardAt) throw new ConflictException("No award is waiting for approval.");
+      const withdraw = isProposer(user.id, t.pendingAwardById);
+      assertHasPermission(user, withdraw ? "tenders.issue" : "tenders.award");
+      if (!withdraw && !reason?.trim()) throw new BadRequestException("Give a reason for not approving the award.");
+      await tx.tender.update({ where: { id: tenderId }, data: { pendingAwardJson: null, pendingAwardValue: null, pendingAwardSummary: null, pendingAwardById: null, pendingAwardAt: null } });
+      return { t, withdraw, summary: t.pendingAwardSummary };
+    });
+    await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: out.withdraw ? "AWARD_APPROVAL_WITHDRAWN" : "AWARD_APPROVAL_REJECTED", summary: out.withdraw ? "The proposed award was withdrawn" : `The proposed award was not approved: ${reason.trim().slice(0, 200)}`, details: { awardTo: out.summary } });
+    return this.evaluation.overview(user, tenderId);
+  }
+
+  private async performAward(user: RequestUser, tenderId: string, dto: AwardDto, approval: { proposerId: string } | null) {
+    const out = await withTenantContext(user.organizationId, async (tx) => {
+      const t = await this.tenders.ownTender(tx, user, tenderId);
+      if (!approval && t.pendingAwardAt) throw new ConflictException("An award is already waiting for a second authoriser. Withdraw it first to propose a different one.");
+      if (approval && !t.pendingAwardAt) throw new ConflictException("No award is waiting for approval.");
       if (!t.scoringFinalisedAt) throw new ConflictException("Finalise scoring before awarding.");
       if (t.awardedAt) throw new ConflictException("This tender has already been awarded.");
       const res = await this.evaluation.results(tx, tenderId);
@@ -52,8 +87,9 @@ export class TenderAwardService {
       if (dto.waiveStandstill && !(t.standstillEnabled && t.emergencyProcurement)) problems.push("The standstill can only be waived on an emergency procurement that has a standstill.");
       if (problems.length) throw new BadRequestException({ message: "The award cannot be recorded yet.", problems });
 
-      // Approval limit: once the organisation has confirmed its limits, the value being awarded must be within the awarder's own authority.
+      // Approval limit: once the organisation has confirmed its limits, an award above the proposer's own authority is held for a second, different authoriser.
       const auth = await this.authority.authorityOf(tx, user.organizationId, user.id, t.currency ?? null);
+      let approvedBy: string | null = null;
       if (auth.confirmed) {
         const [tlines, blines, bids] = await Promise.all([
           tx.tenderLine.findMany({ where: { tenderId } }), tx.tenderBidLine.findMany({ where: { bidId: { in: bidIds } } }), tx.tenderBid.findMany({ where: { id: { in: bidIds } }, select: { id: true, fxRate: true } }),
@@ -67,13 +103,26 @@ export class TenderAwardService {
           }
         }
         value = Math.round(value * 100) / 100;
-        if (!this.authority.within(auth, value)) throw new ForbiddenException(this.authority.explain(auth, value, t.currency ?? null, "This award"));
+        const within = this.authority.within(auth, value);
+        if (approval) {
+          const chk = checkApprover({ userId: user.id, proposerId: approval.proposerId, limitsConfirmed: true, withinOwnLimit: within });
+          if (!chk.ok) throw new ForbiddenException(within ? chk.reason : this.authority.explain(auth, value, t.currency ?? null, "This award"));
+          approvedBy = user.id;
+        } else if (awardRoute({ limitsConfirmed: true, withinOwnLimit: within }) === "NEEDS_SECOND_AUTHORISER") {
+          const summary = planned.map((p) => res.rows.find((r) => r.bidId === p.bidId)?.organizationName ?? "A bidder").join(", ").slice(0, 480);
+          await tx.tender.update({ where: { id: tenderId }, data: { pendingAwardJson: JSON.stringify(dto), pendingAwardValue: value, pendingAwardSummary: summary, pendingAwardById: user.id, pendingAwardAt: new Date() } });
+          return { held: true as const, t, value, summary };
+        }
+      } else if (approval) {
+        const chk = checkApprover({ userId: user.id, proposerId: approval.proposerId, limitsConfirmed: false, withinOwnLimit: true });
+        if (!chk.ok) throw new ForbiddenException(chk.reason);
+        approvedBy = user.id;
       }
 
       const now = new Date();
       const standstillEndsAt = t.standstillEnabled && !dto.waiveStandstill ? addWorkingDays(now, t.standstillWorkingDays ?? 8) : null;
       for (const p of planned) {
-        const aw = await tx.tenderAward.create({ data: { organizationId: user.organizationId, tenderId, bidId: p.bidId, awardedOrganizationId: p.orgId, reason: p.reason, awardedById: user.id } });
+        const aw = await tx.tenderAward.create({ data: { organizationId: user.organizationId, tenderId, bidId: p.bidId, awardedOrganizationId: p.orgId, reason: p.reason, awardedById: approval ? approval.proposerId : user.id, approvedById: approvedBy } });
         for (const l of p.lines) await tx.tenderAwardLine.create({ data: { organizationId: user.organizationId, awardedOrganizationId: p.orgId, tenderId, awardId: aw.id, tenderLineId: l.tenderLineId, sharePercent: l.sharePercent } });
       }
       // debriefs for every submitted bidder: a snapshot of their own scores
@@ -101,11 +150,15 @@ export class TenderAwardService {
           feedback: dto.feedback?.find((f) => f.bidId === r.bidId)?.text || null,
         } });
       }
-      await tx.tender.update({ where: { id: tenderId }, data: { status: "AWARDED", awardedAt: now, standstillEndsAt } });
+      await tx.tender.update({ where: { id: tenderId }, data: { status: "AWARDED", awardedAt: now, standstillEndsAt, pendingAwardJson: null, pendingAwardValue: null, pendingAwardSummary: null, pendingAwardById: null, pendingAwardAt: null } });
       return { t, planned, standstillEndsAt, allOrgIds: res.rows.map((r) => r.organizationId), rows: res.rows.map((r) => ({ organizationId: r.organizationId, compliant: r.compliant })) };
     });
+    if ("held" in out) {
+      await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_APPROVAL_REQUESTED", summary: "An award was proposed and is waiting for a second authoriser", details: { awardTo: out.summary, value: out.value, currency: out.t.currency } });
+      return this.evaluation.overview(user, tenderId);
+    }
     for (const p of out.planned) {
-      await appendTenderEvent({ organizationId: out.t.organizationId, counterpartyOrganizationId: p.orgId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_MADE", summary: "An award was made", details: { bidId: p.bidId, lines: p.lines.length } });
+      await appendTenderEvent({ organizationId: out.t.organizationId, counterpartyOrganizationId: p.orgId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "AWARD_MADE", summary: "An award was made", details: { bidId: p.bidId, lines: p.lines.length, ...(approval ? { proposedBy: approval.proposerId, approvedBy: user.id } : {}) } });
     }
     await appendTenderEvent({ organizationId: out.t.organizationId, tenderId, actorOrganizationId: user.organizationId, actorUserId: user.id, kind: "DEBRIEFS_RELEASED", summary: `Award recorded (${out.planned.length} supplier${out.planned.length === 1 ? "" : "s"}); outcomes released to ${out.allOrgIds.length} bidder${out.allOrgIds.length === 1 ? "" : "s"}` });
     await this.bidProjects.onAward(tenderId, out.planned.map((p) => ({ organizationId: p.orgId, lines: p.lines })), out.rows.map((r) => ({ organizationId: r.organizationId, outcome: r.compliant ? "NOT_AWARDED" as const : "NOT_COMPLIANT" as const })));

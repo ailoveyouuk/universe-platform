@@ -3427,6 +3427,12 @@ model Tender {
   scoringFinalisedAt    DateTime?
   awardedAt             DateTime?
   standstillEndsAt      DateTime?
+  /// An award waiting for a second authoriser (2026-10-26): the proposed award as submitted, its value, who proposed it and when. Cleared when approved, rejected or withdrawn.
+  pendingAwardJson      String?      @db.NVarChar(Max)
+  pendingAwardValue     Decimal?     @db.Decimal(18, 2)
+  pendingAwardSummary   String?      @db.NVarChar(500)
+  pendingAwardById      String?
+  pendingAwardAt        DateTime?
   termsAndConditions    String?      @db.NVarChar(Max)
   cancelledReason       String?      @db.NVarChar(1000)
   isSimulated           Boolean      @default(false)
@@ -3912,6 +3918,8 @@ model TenderAward {
   reason                String   @db.NVarChar(Max)
   awardedAt             DateTime @default(now())
   awardedById           String?
+  /// The second authoriser when the value was above the proposer's own limit (2026-10-26).
+  approvedById          String?
 
   @@unique([tenderId, bidId])
   @@index([tenderId])

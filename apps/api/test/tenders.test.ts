@@ -580,8 +580,24 @@ describe("Tender service", () => {
     for (const org of [capable, invitee]) await comp.recordScreening(iss, t.id, { organisationId: org, lists: [SCREENING_LISTS[0].value], outcome: "CLEAR", screenedOn: new Date().toISOString() } as never);
     await expect(awards.award(iss, t.id, { ...award, awards: award.awards.map((a) => ({ ...a, lines: [{ tenderLineId: full.lines[0].id, sharePercent: 70 }] })) })).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/more than 100/)]) } });
     await expect(awards.award(iss, t.id, { ...award, waiveStandstill: true })).rejects.toMatchObject({ response: { problems: expect.arrayContaining([expect.stringMatching(/emergency/)]) } });
-    const done = await awards.award(iss, t.id, award);
+    // second authoriser: once the organisation confirms its limits, an award above the proposer's own limit is held, not made
+    const setLimit = (individualLimit: number) => withPlatformStaffContext((tx: any) => tx.tenderApprovalSettings.upsert({ where: { organizationId: issuer }, create: { organizationId: issuer, individualLimit, limitCurrency: "USD", confirmedAt: new Date() }, update: { individualLimit, limitCurrency: "USD", confirmedAt: new Date() } }));
+    await setLimit(100);
+    const held = await awards.award(iss, t.id, award);
+    expect(held.tender.awardedAt).toBeFalsy();
+    expect(held.awards).toHaveLength(0);
+    expect(held.pendingAward).toMatchObject({ requestedByYou: true, canApprove: false });
+    await expect(awards.award(iss, t.id, award)).rejects.toThrow(/already waiting/);
+    const approverUser = { ...ev1, permissions: ["tenders.view", "tenders.issue", "tenders.award"] };
+    await expect(awards.approvePending({ ...iss, permissions: [...ISSUE, "tenders.award"] }, t.id)).rejects.toThrow(/someone other than/);
+    await expect(awards.approvePending(approverUser, t.id)).rejects.toThrow(/above your approval limit/);
+    await expect(awards.approvePending(ev2, t.id)).rejects.toThrow();
+    await setLimit(1_000_000_000);
+    const done = await awards.approvePending(approverUser, t.id);
+    expect(done.pendingAward).toBeNull();
     expect(done.awards).toHaveLength(2);
+    const rows = await withPlatformStaffContext((tx: any) => tx.tenderAward.findMany({ where: { tenderId: t.id } }));
+    expect(rows.every((r: any) => r.approvedById === ev1.id && r.awardedById === issuerUser)).toBe(true);
     expect(done.tender.awardedAt).toBeTruthy();
     expect(done.tender.standstillEndsAt).toBeTruthy();
     // each awarded supplier's bid project becomes AWARDED, with its line at the awarded share (60% and 40% of 1,000)

@@ -386,6 +386,8 @@ export class UniverseApiClient {
   moderateTenderScore(id: string, body: { bidId: string; criterionId: string; score: number; rationale?: string }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/moderation`, { method: "PUT", body: JSON.stringify(body) }); }
   finaliseTenderScoring(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/evaluation/finalise`, { method: "POST" }); }
   awardTender(id: string, body: { awards: { bidId: string; reason: string; lines?: { tenderLineId: string; sharePercent: number }[] }[]; feedback?: { bidId: string; text: string }[]; waiveStandstill?: boolean }): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/award`, { method: "POST", body: JSON.stringify(body) }); }
+  approveTenderAward(id: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/award/approve`, { method: "POST" }); }
+  rejectTenderAward(id: string, reason: string): Promise<EvaluationOverview> { return this.request(`/tenders/${id}/award/reject`, { method: "POST", body: JSON.stringify({ reason }) }); }
   updateTenderDebrief(id: string, bidId: string, feedback: string): Promise<unknown> { return this.request(`/tenders/${id}/debriefs/${bidId}`, { method: "PUT", body: JSON.stringify({ feedback }) }); }
   respondTenderComplaint(id: string, complaintId: string, body: { status: "UPHELD" | "REJECTED" | "RESOLVED"; response: string }): Promise<unknown> { return this.request(`/tenders/${id}/complaints/${complaintId}/respond`, { method: "POST", body: JSON.stringify(body) }); }
   tenderStatus(id: string): Promise<TenderStatusView> { return this.request(`/tenders/${id}/status`); }

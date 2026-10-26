@@ -17,7 +17,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import {
   AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, UpdateSavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
-import { AddEvidenceDto, ApprovalSettingsDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
+import { AddEvidenceDto, ApprovalSettingsDto, AwardReasonDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
@@ -92,6 +92,8 @@ export class TendersController {
   @Put(":id/evaluation/scores") saveScores(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: SaveScoresDto) { return this.evaluation.saveScores(u, id, dto); }
   @Put(":id/evaluation/moderation") moderate(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: ModerationDto) { return this.evaluation.moderate(u, id, dto); }
   @Post(":id/evaluation/finalise") finaliseScoring(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.evaluation.finalise(u, id); }
+  @Post(":id/award/approve") approveAward(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.awards.approvePending(u, id); }
+  @Post(":id/award/reject") rejectAward(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AwardReasonDto) { return this.awards.rejectPending(u, id, dto.reason ?? ""); }
   @Post(":id/award") award(@CurrentUser() u: RequestUser, @Param("id") id: string, @Body() dto: AwardDto) { return this.awards.award(u, id, dto); }
   @Put(":id/debriefs/:bidId") debriefFeedback(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("bidId") bidId: string, @Body() dto: DebriefFeedbackDto) { return this.awards.updateFeedback(u, id, bidId, dto.feedback); }
   @Post(":id/complaints/:complaintId/respond") respondComplaint(@CurrentUser() u: RequestUser, @Param("id") id: string, @Param("complaintId") cid: string, @Body() dto: ComplaintResponseDto) { return this.awards.respondComplaint(u, id, cid, dto.status, dto.response); }
