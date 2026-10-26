@@ -1292,3 +1292,19 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 ## 2026-10-26 — Award approval notifications
 
 When an award is held for a second authoriser, every other active user in the issuing organisation with `tenders.award` gets a "TENDER_AWARD_APPROVAL" notification (requires action) linking to the evaluation page. The proposer is notified when the award is approved or not approved (with the reason); a withdrawal notifies nobody. Sending is best effort and never blocks the decision. `notifyAward` in tender-award.service.ts; integration test asserts the proposer is told on approval. CI and Deploy API green on 6c2d51c.
+
+## 2026-10-26 — Quote scoring beyond price (framework mini-competitions)
+
+- **Issuer-set weights:** opening a mini-competition can now carry a scoring scheme (`TenderMiniCompetition.schemeJson`, copied to each invitation as `TenderCallOffQuote.schemeJson` because the competition row is private to the issuer). Six criteria with percentage weights totalling 100 (price, lead time, quality, desirable requirements, similar contracts, references; 0 switches one off). Fixed at opening; shown to suppliers.
+- **Supplier answers** (`responsesJson`): requirement yes/no with notes, up to five similar contracts (client, value text, dates, scope), up to five references (forename, surname, organisation, role, email, phone, relationship, may contact).
+- **Pass/fail:** mandatory requirement missed, too few similar contracts completed within the issuer's window (default 3 years), or too few complete references → quote excluded, reasons shown, not used as the price/lead-time benchmark.
+- **Scoring** (`apps/api/src/tenders/quote-scoring.ts`, pure, 13 unit tests): price and lead time calculated (best eligible = 100, others in proportion); desirable = share met; quality, similar contracts and references scored 0–5 by the issuer with a written reason (`scoresJson`, event MINI_COMP_SCORED). Total out of 100; tie to lower price. Award blocked until the chosen quote is eligible and fully scored; award reason still required. No scheme = unchanged price-only behaviour.
+- **Single scorer only:** independent multi-evaluator scoring with moderation is not built for mini-competitions.
+- Two migrations (add columns to existing tables; no RLS SQL). End-to-end test added; it caught that suppliers could not read the scheme (fixed by copying it to the invitation).
+
+## 2026-10-26 — Standards and good practice guide
+
+- `packages/types/src/tender-standards.ts`: 16 sources (each marked `read` or `principle`) and about 40 guidance items by stage (design, publish, bid, evaluate, award, contract, call-off) and audience (issuer, bidder), each with source references and an "In Universe" line. Paragraph numbers are cited only for sources actually read (UK Assessing Competitive Tenders guidance); a test enforces it. UNCITRAL 2011 clause numbers deliberately not cited (the fetched file was the 1994 text).
+- UI: collapsible `StandardsGuide` panel on the tender builder, bid editor, bid status, evaluation/award and framework pages; new `/standards` page in the navigation.
+- Guidance, not legal advice; Universe is described as supporting these frameworks, never as compliant with them.
+- Live check: both new views pass the a11y scan in light and dark.
