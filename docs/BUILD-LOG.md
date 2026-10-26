@@ -1354,3 +1354,9 @@ CRM hosting (same day): Azure refused a new Free Static Web App (limit of 10 per
 CRM live check (same day): signed in at the new address; 1,000 relationships created from the demo stakeholders and the list, health, complaints, certificates and scorecard all showed. The tiles stayed blank because the list and the tiles each tried to create the missing relationships at the same moment and one hit the unique key (500). Fixed: one creation run per organisation at a time, creating in batches of 1,000 until none are missing, and a unique clash is retried.
 Fix (same day): the first live run created relationships for every demo stakeholder, which pushed the health lookup past SQL Server's 2,100-parameter limit (500 error); stakeholder ids are now read in chunks of 800.
 Rewrite (same day): the list and tiles are now filtered, counted, sorted and paged by the database (health conditions mirror the calculated health exactly), and health detail is worked out only for the rows on screen, so they stay inside the 5-second database transaction limit at thousands of relationships. The health filter offers 'needs attention or worse' and 'at risk'.
+
+## 2026-10-26 — CRM step 1 verified live
+- Live at the CRM Static Web App against the real API: Overview (3,012 relationships, 2,713 active, 341 need attention, 0 reviews due) and Relationships list sign in and load.
+- "Need attention" tile filter returns 341 (the first look was a slow list response, not a bug; the list lags the tiles by several seconds on the demo tenant of 3,012 stakeholders — worth watching).
+- Live accessibility scan (light and dark, Relationships with an expanded row): no issues. Overview not separately scanned beyond `npm run lint:a11y` (clean).
+- Fixes during live checks: concurrent tracking clash (lock + retry), SQL parameter limit (chunks of 800), transaction timeout (database-side filter/count/page).
