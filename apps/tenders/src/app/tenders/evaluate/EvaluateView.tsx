@@ -9,6 +9,7 @@ import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { PastPerformance } from "../../../components/PerformancePanel";
 import { Card, ErrorNote, Field, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
+import { StandardsGuide } from "../../../components/StandardsGuide";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
 const PHASES: [string, string][] = [["CLOSED", "Closed"], ["OPENED", "Bids opened"], ["EVALUATING", "Evaluating"], ["SCORED", "Scored"], ["AWARDED", "Awarded"]];
@@ -39,6 +40,7 @@ export function EvaluateView() {
     <Page>
       <Heading title={`Evaluation · ${t.referenceNumber}`} sub={<>{t.title} · closes {fmtDateTime(t.closingAt, t.timeZone)}</>}
         actions={v.isIssuer ? <Link href={`/tenders/manage?id=${t.id}`} style={{ textDecoration: "none" }}><Button variant="secondary">Back to tender</Button></Link> : undefined} />
+      <StandardsGuide stages={["EVALUATE", "AWARD"]} audience="ISSUER" />
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {PHASES.map(([k, l]) => <Pill key={k} tone={ORDER.indexOf(k) < at ? "good" : ORDER.indexOf(k) === at ? "brand" : "neutral"}>{l}</Pill>)}
         {t.emergencyProcurement && <Pill tone="warning">Emergency procurement</Pill>}

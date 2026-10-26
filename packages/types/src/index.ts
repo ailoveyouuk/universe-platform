@@ -2,6 +2,7 @@ export * from "./pharma-links";
 export * from "./supplier-scope";
 export * from "./commodity-groups";
 export * from "./service-categories";
+export * from "./tender-standards";
 export * from "./service-catalogue";
 export * from "./insights-activity";
 export * from "./category-codes";

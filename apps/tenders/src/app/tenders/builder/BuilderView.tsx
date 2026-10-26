@@ -12,6 +12,7 @@ import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
 import { Card, ErrorNote, Field, Heading, ORG_TYPE_LABEL, Page, QUALIFICATIONS, RULE_LABEL, TYPE_LABEL, VISIBILITY_LABEL, browserZone, fmtDateTime, fromLocalInput, inputStyle, toLocalInput, zoneList } from "../../../lib/ui";
+import { StandardsGuide } from "../../../components/StandardsGuide";
 
 type Section = "overview" | "items" | "criteria" | "eligibility" | "documents" | "invitations" | "review";
 const SECTIONS: [Section, string][] = [["overview", "Overview"], ["items", "Items"], ["criteria", "Criteria"], ["eligibility", "Who can bid"], ["documents", "Documents"], ["invitations", "Invitations"], ["review", "Review and publish"]];
@@ -54,6 +55,7 @@ export function BuilderView() {
         actions={<Link href="/tenders" style={{ textDecoration: "none" }}><Button variant="ghost">Back to tenders</Button></Link>}
       />
       <ErrorNote message={err} />
+      <StandardsGuide stages={["DESIGN", "PUBLISH"]} audience="ISSUER" />
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {SECTIONS.map(([k, label], i) => {
           const locked = !created && k !== "overview";

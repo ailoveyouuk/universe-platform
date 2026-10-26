@@ -8,6 +8,7 @@ import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { emptyScheme, QuoteAssessment, ResponsesForm, SchemeEditor, SchemeSummary, draftFrom, schemeFormProblems, type ResponsesDraft } from "./QuoteScoringUi";
 import { Card, ErrorNote, Field, Heading, Page, fmtDate, inputStyle } from "../../../lib/ui";
+import { StandardsGuide } from "../../../components/StandardsGuide";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
 const money = (n: number, c: string | null) => `${c ?? ""} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`.trim();
@@ -31,6 +32,7 @@ export function FrameworkPage() {
     <Page>
       <Heading title={`Framework · ${t.referenceNumber}`} sub={t.title} actions={<Link href={owner ? `/tenders/manage?id=${t.id}` : `/bids/status?id=${t.id}`} style={{ textDecoration: "none" }}><Button variant="secondary">Back to tender</Button></Link>} />
       <ErrorNote message={err} />
+      <StandardsGuide stages="CALL_OFF" audience={owner ? "ISSUER" : "BIDDER"} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {t.termMonths && <Pill tone="neutral">{t.termMonths}-month term</Pill>}
         {t.method && <Pill tone="neutral">{t.method === "ROTATION" ? "Call-offs by rotation" : "Direct award to first-ranked supplier"}</Pill>}

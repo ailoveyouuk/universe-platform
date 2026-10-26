@@ -8,6 +8,7 @@ import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { ContractsPanel } from "../../../components/ContractPanel";
 import { Card, ErrorNote, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
+import { StandardsGuide } from "../../../components/StandardsGuide";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
 const OUTCOME = { AWARDED: "Awarded", NOT_AWARDED: "Not awarded", NOT_COMPLIANT: "Not compliant" } as const;
@@ -37,6 +38,7 @@ export function StatusView() {
       <Heading title={`Status · ${t.referenceNumber}`} sub={<>{t.title} · {t.issuerName}</>} actions={<Link href="/bids" style={{ textDecoration: "none" }}><Button variant="secondary">My bids</Button></Link>} />
       {t.emergencyProcurement && <Card><Pill tone="warning">Emergency procurement</Pill> <span style={{ fontSize: 14 }}>{t.emergencyReason}</span></Card>}
       <ErrorNote message={err} />
+      <StandardsGuide stages="BID" audience="BIDDER" />
       <Card title="Where this tender is">
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 14 }}>
           {s.bidsSubmitted !== null && <div><div style={{ fontSize: 26, fontWeight: 600 }}>{s.bidsSubmitted}</div><div style={{ fontSize: 13, ...muted }}>bids submitted</div></div>}

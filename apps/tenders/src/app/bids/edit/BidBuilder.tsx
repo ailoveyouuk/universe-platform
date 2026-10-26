@@ -13,6 +13,7 @@ import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { fileToBase64, saveBase64File } from "../../../lib/download";
 import { Card, ErrorNote, Field, Heading, Page, fmtDateTime, inputStyle } from "../../../lib/ui";
+import { StandardsGuide } from "../../../components/StandardsGuide";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
 type Line = TenderBidWorkspace["lines"][number];
@@ -81,6 +82,7 @@ export function BidBuilder() {
       <Heading title={`Bid · ${ws.tender.referenceNumber}`} sub={<>{ws.tender.title} · {ws.tender.issuerName} · closes {fmtDateTime(ws.tender.closingAt, ws.tender.timeZone)}</>}
         actions={<><Link href={`/discover/view?id=${id}`} style={{ textDecoration: "none" }}><Button variant="secondary">Tender details</Button></Link>{submitted && !locked && <Button variant="secondary" disabled={busy} onClick={() => run(async () => { await apiClient.withdrawTenderBid(id); return apiClient.getTenderBid(id); }, "Bid withdrawn.")}>Withdraw bid</Button>}</>} />
       <ErrorNote message={err} />
+      <StandardsGuide stages="BID" audience="BIDDER" />
       {msg && <div role="status" style={{ padding: "10px 14px", borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-good)", fontSize: 13.5 }}>{msg}</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <Pill tone={submitted ? "good" : ws.bid.status === "WITHDRAWN" ? "neutral" : "warning"}>{submitted ? "Submitted" : ws.bid.status === "WITHDRAWN" ? "Withdrawn" : "Draft"}</Pill>

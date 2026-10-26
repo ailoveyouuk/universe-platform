@@ -45,6 +45,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/bids/edit", label: "Bid", icon: () => <ShieldIcon size={19} />, inNav: false },
   { href: "/tenders/builder", label: "Build a tender", icon: () => <ShieldIcon size={19} />, inNav: false },
   { href: "/tenders/manage", label: "Manage", icon: () => <GridIcon size={19} />, inNav: false },
+  { href: "/standards", label: "Standards and good practice", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },
 ];
 
