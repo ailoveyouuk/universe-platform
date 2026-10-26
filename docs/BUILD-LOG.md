@@ -1264,3 +1264,11 @@ Scope agreed with Lewis: **not now** — accounting-system payment reconciliatio
 - **Privacy:** no new API or data. It reads only the existing anonymised endpoints, which already apply the five-organisation floor and the simulated ring-fence; a dash means not enough contributors. CSV downloads stay hidden by Lewis's decision. Saved views work (lens and currency).
 - **Verified:** typecheck, accessibility lint clean, CI and deploy green, live check of both views (19 product groups, 52 countries), live accessibility scan of the country view clean in light and dark. Commit d7c915a.
 - **Also today:** `.bacpac` exports of `universe` and `universe-insights` submitted by Lewis to storage account `universepilotdocs`, new private container `db-backups` (created from the portal at his request).
+
+## 2026-10-26 — Services rate card
+- **Request (Lewis):** do the services rate card.
+- **Built:** new Insights page `/rate-card` (Services rate card in the side menu and Search Insights). Lists every active standard service in the catalogue (66 today) with low, typical and high indicative cost in the unit it is priced in, the number of organisations behind it, a currency choice (with the existing conversion bar) and a region-of-delivery filter. Uses the existing search, filter, sort and column chooser; the code and unit columns are hidden until chosen.
+- **Basis and privacy:** no new data or API. Figures come from the existing anonymised service-cost aggregates, which are held per kind of service and pricing basis, so services of one kind that share a basis show the same range (the page says so). Cost price only, five-organisation floor; a row with too few contributors says "Not enough contributors yet". Services switched off in the editor are not shown. CSV downloads stay hidden.
+- **Result on the demo data:** 40 of 66 services have an indicative cost; 26 do not yet reach five contributors (the demo has few simulated service rows for those kinds of service).
+- **Verified:** typecheck, accessibility lint, CI and deploy green, live check, live accessibility scan clean in light and dark. Commit 90f99cf.
+- **Possible next step:** per-service (not per-kind) ranges would need the service code carried into the insights aggregates; deliberately not done because it would thin cohorts further.
