@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
+import { Interactions } from "../../components/Interactions";
 import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
@@ -41,6 +42,8 @@ export default function RelationshipsPage() {
   // Typing waits a moment before asking the server, so each keystroke is not a request.
   const [dq, setDq] = useState("");
   useEffect(() => { const t = setTimeout(() => setDq(f.q), 250); return () => clearTimeout(t); }, [f.q]);
+  const [focus, setFocus] = useState<CrmRelationshipRow | null>(null);
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get("id"); if (id) { setOpen(id); apiClient.crmRelationship(id).then(setFocus).catch(() => setErr("That relationship could not be found.")); } }, []);
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
   const loadOverview = useCallback(() => { apiClient.crmOverview().then(setO).catch(() => undefined); }, []);
@@ -83,6 +86,13 @@ export default function RelationshipsPage() {
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{busy ? "Loading…" : data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
       </div>
 
+      {focus && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <p style={{ margin: 0, fontSize: 13.5 }}>Opened from a link. <button type="button" onClick={() => { setFocus(null); setOpen(null); window.history.replaceState(null, "", "/relationships"); }} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link, var(--u-brand-violet))" }}>Close this and show the list</button></p>
+          <Row key={`focus-${focus.id}`} r={focus} open={open === focus.id} onToggle={() => setOpen(open === focus.id ? null : focus.id)} canManage={canManage} people={people} ownerName={focus.ownerUserId ? personName.get(focus.ownerUserId) ?? focus.ownerName : null}
+            onSaved={(msg) => { setOk(msg); load(); loadOverview(); apiClient.crmRelationship(focus.id).then(setFocus).catch(() => undefined); }} onError={setErr} />
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
         {data?.items.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
           onSaved={(msg) => { setOk(msg); load(); loadOverview(); }} onError={setErr} />)}
@@ -133,7 +143,7 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
             ); })}
           </div>
           <div role="tabpanel" id={`panel-${r.id}`} aria-labelledby={`tab-${r.id}-${tab}`} style={{ display: "grid", gap: 14 }}>
-          {tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} /> : (<>
+          {tab === "interactions" ? <Interactions relId={r.id} canManage={canManage} people={people} /> : tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} /> : (<>
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 14px", margin: "6px 0 0" }}>
             <dt style={dt}>Health</dt>
             <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>}</dd>

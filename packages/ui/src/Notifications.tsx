@@ -315,7 +315,7 @@ export function NotificationsView({ api, LinkComponent, currentApp }: { api: Not
   const groups = new Map<string, NotificationRowData[]>();
   for (const n of items ?? []) {
     const cat = String((n as any).category ?? "PROJECT");
-    const label = ({ PROJECT: "Projects", QUALITY: "Quality", LOGISTICS: "Logistics", RISK: "Risk", SYSTEM: "Platform", TENDER: "Tenders" } as Record<string, string>)[cat] ?? cat;
+    const label = ({ PROJECT: "Projects", QUALITY: "Quality", LOGISTICS: "Logistics", RISK: "Risk", SYSTEM: "Platform", TENDER: "Tenders", CRM: "Relationships" } as Record<string, string>)[cat] ?? cat;
     groups.set(label, [...(groups.get(label) ?? []), n]);
   }
 

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmOverview } from "@universe/types";
-import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
+import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview } from "@universe/types";
+import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
-import { ErrorNote, Heading, Page } from "../lib/ui";
+import { ErrorNote, Heading, Page, fmtDate } from "../lib/ui";
 
 /** Overview: where the organisation's relationships stand. Every tile opens the Relationships list already filtered. */
 export default function Overview() {
@@ -14,6 +14,8 @@ export default function Overview() {
   const [o, setO] = useState<CrmOverview | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { apiClient.crmOverview().then(setO).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the CRM.")); }, []);
+  const [fu, setFu] = useState<CrmFollowUp[] | null>(null);
+  useEffect(() => { apiClient.crmFollowUps().then(setFu).catch(() => setFu([])); }, []);
   const link = (q: string) => `/relationships?${q}`;
   const tile = (label: string, value: number | undefined, icon: React.ReactNode, tone: "brand" | "good" | "warning" | "neutral" | "critical", q: string) => (
     <Link href={link(q)} style={{ textDecoration: "none", color: "inherit", display: "block" }} aria-label={`${label}: ${value ?? "loading"}. Open the list`}>
@@ -32,6 +34,21 @@ export default function Overview() {
       </StatTileGrid>
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
+      )}
+      {fu && fu.length > 0 && (
+        <section aria-labelledby="my-follow-ups" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
+          <h2 id="my-follow-ups" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Your follow-ups</h2>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+            {fu.slice(0, 8).map((f) => (
+              <li key={f.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+                <Link href={link(`id=${f.relationshipId}`)}>{f.title}</Link>
+                {f.dueDate && <Pill tone={f.overdue ? "critical" : "neutral"}>{f.overdue ? "Overdue, " : "Due "}{fmtDate(f.dueDate)}</Pill>}
+                {f.body && <span style={{ color: "var(--u-ink-secondary)" }}>{f.body}</span>}
+              </li>
+            ))}
+          </ul>
+          {fu.length > 8 && <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>{fu.length - 8} more in your actions list.</p>}
+        </section>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
         <section aria-labelledby="by-tier" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>

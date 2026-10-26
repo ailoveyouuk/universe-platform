@@ -4827,9 +4827,44 @@ model CrmRelationship {
   createdAt                  DateTime  @default(now())
   updatedAt                  DateTime  @updatedAt
 
+  interactions               CrmInteraction[]
+
   @@unique([organizationId, counterpartyKey])
   @@index([organizationId, status])
   @@index([organizationId, ownerUserId])
   @@index([partnerId])
   @@map("crm_relationships")
+}
+
+/// CRM step 3 (2026-10-26): a dated record of something that happened with a stakeholder (meeting, call, site visit, audit, decision...).
+/// Private to the organisation. Never hard deleted (archived); every edit is written to the field change log. A confidential interaction is
+/// visible only to its author, the relationship owner and holders of crm.manage.
+model CrmInteraction {
+  id                 String          @id @default(uuid())
+  organizationId     String
+  relationshipId     String
+  relationship       CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// MEETING | CALL | VIDEO_CALL | SITE_VISIT | AUDIT | CORRESPONDENCE | DECISION | OTHER
+  type               String
+  occurredAt         DateTime
+  title              String          @db.NVarChar(200)
+  summary            String?         @db.NVarChar(4000)
+  outcome            String?         @db.NVarChar(1000)
+  /// JSON arrays of ids (colleagues in this organisation; the stakeholder's contacts who took part).
+  participantUserIds String?         @db.NVarChar(2000)
+  contactIds         String?         @db.NVarChar(2000)
+  /// The work this was about: PROJECT today; later TENDER, BID, CONTRACT, COMPLAINT, BATCH, PRODUCT.
+  linkedType         String?
+  linkedId           String?
+  linkedLabel        String?         @db.NVarChar(300)
+  confidential       Boolean         @default(false)
+  createdById        String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  archivedAt         DateTime?
+  archivedById       String?
+
+  @@index([organizationId, relationshipId, occurredAt])
+  @@index([organizationId, occurredAt])
+  @@map("crm_interactions")
 }

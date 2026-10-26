@@ -3,6 +3,7 @@ import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
 import { canUseApp, CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
 import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
@@ -302,6 +303,8 @@ export class CrmService {
       if (dto.healthOverride !== undefined) { data.healthOverride = dto.healthOverride; data.healthOverrideReason = dto.healthOverride ? dto.healthOverrideReason!.trim().slice(0, 500) : null; }
       if (dto.archived !== undefined) { data.archivedAt = dto.archived ? now : null; data.archivedById = dto.archived ? user.id : null; }
       await tx.crmRelationship.update({ where: { id }, data });
+      await recordFieldChanges(tx, { organizationId: user.organizationId, tableName: "crm_relationships", recordId: id, changedById: user.id, reason: dto.healthOverrideReason ?? null,
+        changes: diffForAudit(cur, data, ["tier", "status", "ownerUserId", "summary", "reviewIntervalMonths", "lastReviewedAt", "nextReviewDue", "healthOverride", "healthOverrideReason", "archivedAt"]) });
       for (const k of [...this.overviewCache.keys()]) if (k.startsWith(`${user.organizationId}:`)) this.overviewCache.delete(k);
     });
     return this.one(user, id);

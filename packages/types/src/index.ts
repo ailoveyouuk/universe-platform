@@ -3189,6 +3189,7 @@ export interface SupportContact {
 // --- Notifications & actions (added 2026-10-16) ---------------------------
 
 export type NotificationKind =
+  | "CRM_FOLLOW_UP"
   | "PROJECT_ASSIGNED"
   | "PROJECT_STATUS_CHANGED"
   | "ACTION_ASSIGNED"
@@ -3200,7 +3201,7 @@ export type NotificationKind =
   | "AMENDMENT_REVIEW"
   | "AMENDMENT_DECISION"
   | "STAKEHOLDER_APPROVAL";
-export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM" | "TENDER";
+export type NotificationCategory = "PROJECT" | "QUALITY" | "LOGISTICS" | "RISK" | "SYSTEM" | "TENDER" | "CRM";
 
 /**
  * Which app a notification or search result belongs to (2026-10-26). The first path segment of its in-app link decides (each app's top-level
@@ -3216,6 +3217,7 @@ export const APP_ROUTE_PREFIXES: Partial<Record<UniverseAppKey, string[]>> = {
 export const APP_NOTIFICATION_CATEGORIES: Partial<Record<UniverseAppKey, NotificationCategory[]>> = {
   "tender-issuance": ["TENDER"],
   "project-management": ["PROJECT", "QUALITY", "LOGISTICS", "RISK"],
+  crm: ["CRM"],
 };
 export function appForNotification(category: string, link: string | null | undefined): UniverseAppKey | null {
   const seg = (link ?? "").replace(/^\//, "").split(/[/?#]/)[0];
@@ -4188,3 +4190,23 @@ export interface CrmRelationshipDetail {
   lastApprovalReviewDate: string | null;
   nextApprovalReviewDue: string | null;
 }
+
+/** CRM step 3: interactions and follow-ups. */
+export const CRM_INTERACTION_TYPES = ["MEETING", "CALL", "VIDEO_CALL", "SITE_VISIT", "AUDIT", "CORRESPONDENCE", "DECISION", "OTHER"] as const;
+export type CrmInteractionType = (typeof CRM_INTERACTION_TYPES)[number];
+export const CRM_INTERACTION_TYPE_LABELS: Record<CrmInteractionType, string> = { MEETING: "Meeting", CALL: "Phone call", VIDEO_CALL: "Video call", SITE_VISIT: "Site visit", AUDIT: "Audit", CORRESPONDENCE: "Correspondence", DECISION: "Decision", OTHER: "Other" };
+export interface CrmInteraction {
+  id: string; relationshipId: string; type: CrmInteractionType; occurredAt: string; title: string; summary: string | null; outcome: string | null;
+  participants: { id: string; name: string }[]; contacts: { id: string; name: string }[];
+  linkedType: string | null; linkedId: string | null; linkedLabel: string | null;
+  confidential: boolean; createdById: string | null; createdByName: string | null; createdAt: string; canEdit: boolean;
+}
+export interface CrmInteractionInput {
+  type: CrmInteractionType; occurredAt: string; title: string; summary?: string | null; outcome?: string | null;
+  participantUserIds?: string[]; contactIds?: string[]; linkedProjectId?: string | null; confidential?: boolean;
+  /** Optional follow-up: becomes an action in the assignee's bell. */
+  followUp?: { assigneeUserId: string; dueDate: string; note?: string | null } | null;
+  archived?: boolean;
+}
+export type CrmInteractionPage = PagedResult<CrmInteraction>;
+export interface CrmFollowUp { id: string; title: string; body: string | null; dueDate: string | null; relationshipId: string; overdue: boolean }

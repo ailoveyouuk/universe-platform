@@ -29,7 +29,7 @@ describe("notification scope for a restricted person", () => {
   });
   it("hides tender items from someone without Tender Issuance, but keeps unlinked and other items", () => {
     const w = svc.mine(user(["project-management", "product-database"])) as { OR: Array<Record<string, any>> };
-    expect(w.OR[0]).toEqual({ link: null, category: { notIn: ["TENDER"] } });
+    expect(w.OR[0]).toEqual({ link: null, category: { notIn: ["TENDER", "CRM"] } });
     expect(w.OR[1].link).toEqual({ not: null });
     expect(JSON.stringify(w.OR[1].NOT)).toContain("/tenders");
     expect(JSON.stringify(w.OR[1].NOT)).not.toContain("/projects");

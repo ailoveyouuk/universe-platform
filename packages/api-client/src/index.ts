@@ -1,4 +1,4 @@
-import type { CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1068,6 +1068,13 @@ export class UniverseApiClient {
   /** CRM (2026-10-26): relationships sit on top of stakeholders; the list creates any that are missing. */
   crmOverview(): Promise<CrmOverview> { return this.request("/crm/overview"); }
   crmDetail(id: string): Promise<CrmRelationshipDetail> { return this.request(`/crm/relationships/${id}/detail`); }
+  crmInteractions(relId: string, q: { type?: string; page?: number; pageSize?: number } = {}): Promise<CrmInteractionPage> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
+    return this.request(`/crm/relationships/${relId}/interactions${p.toString() ? `?${p}` : ""}`);
+  }
+  logCrmInteraction(relId: string, body: CrmInteractionInput): Promise<CrmInteraction> { return this.request(`/crm/relationships/${relId}/interactions`, { method: "POST", body: JSON.stringify(body) }); }
+  updateCrmInteraction(id: string, body: Partial<CrmInteractionInput>): Promise<CrmInteraction> { return this.request(`/crm/interactions/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  crmFollowUps(): Promise<CrmFollowUp[]> { return this.request("/crm/follow-ups"); }
   crmPeople(): Promise<CrmPeopleOption[]> { return this.request("/crm/people"); }
   crmRelationships(q: Record<string, string | number | undefined> = {}): Promise<CrmRelationshipPage> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
