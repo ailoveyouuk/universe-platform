@@ -13,6 +13,8 @@ const STATE_LABEL: Record<CrmCertState, string> = { valid: "Valid", expiring: "E
 function Tile({ title, main, sub }: { title: string; main: React.ReactNode; sub?: React.ReactNode }) {
   return <div style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "8px 12px", display: "grid", gap: 2, background: "var(--u-surface)" }}><span style={lab}>{title}</span><span style={{ fontWeight: 600 }}>{main}</span>{sub && <span style={lab}>{sub}</span>}</div>;
 }
+const CERT_LABEL: Record<string, string> = { ISO_13485: "ISO 13485", ISO_9001: "ISO 9001", ISO_14001: "ISO 14001", GMP: "GMP", GDP: "GDP", MIA: "MIA", WDA: "WDA", FDA_REGISTRATION: "FDA registration", WHO_PREQUALIFICATION: "WHO prequalification", OTHER_ISO: "Other ISO" };
+const certName = (t: string) => CERT_LABEL[t] ?? humanise(t);
 const yn = (b: boolean) => (b ? "Yes" : "No");
 const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 };
 
@@ -40,7 +42,7 @@ export function CategoryPanel({ relId }: { relId: string }) {
         <thead><tr>{["Certificate", "Issued by", "Issued", "Expires", "Evidence", "State"].map((h) => <th key={h} scope="col" style={{ textAlign: "left", padding: "6px 10px", ...lab, fontWeight: 600, borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}</tr></thead>
         <tbody>{p.certificates.map((c) => (
           <tr key={c.id}>
-            <td style={cell}>{humanise(c.type)}{c.referenceNumber ? <span style={lab}> · {c.referenceNumber}</span> : null}</td>
+            <td style={cell}>{certName(c.type)}{c.referenceNumber ? <span style={lab}> · {c.referenceNumber}</span> : null}</td>
             <td style={cell}>{c.issuingBody ?? "Not recorded"}</td>
             <td style={cell}>{c.issuedDate ? fmtDate(c.issuedDate) : "Not dated"}</td>
             <td style={cell}>{c.expiryDate ? fmtDate(c.expiryDate) : "Not dated"}</td>
