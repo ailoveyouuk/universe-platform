@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "@universe/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
+import { SearchService } from "../src/search/search.service";
 import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
 
 /** CRM opportunities against the real RLS database: stage rules, audit trail, pipeline totals, isolation. */
@@ -85,5 +86,19 @@ describe("CRM interactions", () => {
     await expect(svc.update(u.other, o.id, { notes: "x" })).rejects.toBeInstanceOf(NotFoundException);
     await expect(svc.create(u.other, { relationshipId: relA, title: "x", kind: "OTHER" })).rejects.toBeInstanceOf(NotFoundException);
     void relB;
+  });
+
+  it("global search finds relationships and opportunities only for people with the CRM app", async () => {
+    const search = new SearchService();
+    const found = await search.search(u.viewer, `Acme ${suffix}`);
+    expect(found.results.some((r) => r.type === "relationship" && r.app === "crm" && r.link === `/relationships?id=${relA}`)).toBe(true);
+    const opp = await search.search(u.viewer, "Source gloves");
+    expect(opp.results.some((r) => r.type === "opportunity")).toBe(true);
+    const noApp = await search.search({ ...u.viewer, apps: ["project-management"] } as RequestUser, `Acme ${suffix}`);
+    expect(noApp.results.some((r) => r.type === "relationship")).toBe(false);
+    const noPerm = await search.search({ ...u.viewer, permissions: [] } as RequestUser, `Acme ${suffix}`);
+    expect(noPerm.results.some((r) => r.type === "relationship")).toBe(false);
+    const other = await search.search(u.other, `Acme ${suffix}`);
+    expect(other.results.length).toBe(0);
   });
 });

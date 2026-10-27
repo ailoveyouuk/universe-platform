@@ -1385,3 +1385,9 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 - UI: Opportunities tab in Relationship 360 (add, move stage, archive), new Pipeline page (stage tiles filter the list, per-currency totals), and an open-opportunities line on the Overview.
 - Tests: `crm-opportunities.test.ts` (DB-backed: pipeline totals, lost reason, audit, viewer blocked, archive, isolation). `npm run lint:a11y` clean.
 - Needs Lewis: re-run `infra/sql/crm-rls.sql` (now seven tables). Not yet built: automatic stage moves from tender events, "Log interaction" shortcuts from project/tender/complaint screens.
+
+## 2026-10-27 — CRM step 6a (search and review reminders)
+- Lewis ran `infra/sql/crm-rls.sql` (seven tables); it succeeded.
+- Global search now finds CRM relationships and opportunities (new result groups "Relationships" and "Opportunities", app `crm`) for people who have the CRM app and `crm.view`; results from other apps open in the CRM and the reverse. Test added to `crm-opportunities.test.ts` (app gate, permission gate, organisation isolation).
+- Review reminders: new daily job (`remind:crm-reviews`, workflow `crm-review-reminders.yml`, 06:23 UTC, supports dry run) gives the relationship owner an action "Review due/overdue: <name>" from 14 days before the review date. One reminder per review cycle (the review date identifies the cycle). Marking the relationship reviewed, ending it or archiving it closes the action. Unowned relationships are not reminded (the Overview already counts them). New notification kind `CRM_REVIEW_DUE`. Test: `crm-reviews.test.ts` (DB-backed).
+- Next in step 6: tags and segments, then Overview dashboards.

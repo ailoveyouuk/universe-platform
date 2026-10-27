@@ -3190,6 +3190,7 @@ export interface SupportContact {
 
 export type NotificationKind =
   | "CRM_FOLLOW_UP"
+  | "CRM_REVIEW_DUE"
   | "PROJECT_ASSIGNED"
   | "PROJECT_STATUS_CHANGED"
   | "ACTION_ASSIGNED"
@@ -3265,7 +3266,7 @@ export interface AssignProjectActionInput {
 
 // --- Global search (added 2026-10-17) -------------------------------------
 
-export type SearchResultType = "project" | "stakeholder" | "contact" | "batch" | "risk" | "product" | "tender";
+export type SearchResultType = "project" | "stakeholder" | "contact" | "batch" | "risk" | "product" | "tender" | "relationship" | "opportunity";
 
 export interface SearchResult {
   type: SearchResultType;
@@ -3275,7 +3276,7 @@ export interface SearchResult {
   /** In-app path within `app`. */
   link: string;
   /** Which app the path belongs to. */
-  app: "project-management" | "product-database" | "tender-issuance";
+  app: "project-management" | "product-database" | "tender-issuance" | "crm";
 }
 
 export interface SearchResponse {

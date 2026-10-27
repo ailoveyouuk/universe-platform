@@ -5,6 +5,7 @@ import { canUseApp, CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHeal
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
+import { completeActionsFor } from "../notifications/notify";
 import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
@@ -303,6 +304,8 @@ export class CrmService {
       if (dto.healthOverride !== undefined) { data.healthOverride = dto.healthOverride; data.healthOverrideReason = dto.healthOverride ? dto.healthOverrideReason!.trim().slice(0, 500) : null; }
       if (dto.archived !== undefined) { data.archivedAt = dto.archived ? now : null; data.archivedById = dto.archived ? user.id : null; }
       await tx.crmRelationship.update({ where: { id }, data });
+      // A review that has been done (or a relationship that has ended or been archived) no longer needs its reminder.
+      if (dto.markReviewed || dto.status === "ENDED" || dto.archived) await completeActionsFor(tx, user.organizationId, "CrmRelationshipReview", id);
       await recordFieldChanges(tx, { organizationId: user.organizationId, tableName: "crm_relationships", recordId: id, changedById: user.id, reason: dto.healthOverrideReason ?? null,
         changes: diffForAudit(cur, data, ["tier", "status", "ownerUserId", "summary", "reviewIntervalMonths", "lastReviewedAt", "nextReviewDue", "healthOverride", "healthOverrideReason", "archivedAt"]) });
       for (const k of [...this.overviewCache.keys()]) if (k.startsWith(`${user.organizationId}:`)) this.overviewCache.delete(k);

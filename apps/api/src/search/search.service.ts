@@ -25,9 +25,10 @@ export class SearchService {
     const pm = canUseApp(user.apps, "project-management");
     const pd = canUseApp(user.apps, "product-database");
     const ti = canUseApp(user.apps, "tender-issuance") && (user.platformStaffRole !== "NONE" || user.permissions.includes("tenders.issue"));
+    const crm = canUseApp(user.apps, "crm") && (user.platformStaffRole !== "NONE" || user.permissions.includes("crm.view"));
     const none = <T,>(): Promise<T[]> => Promise.resolve([]);
 
-    const [projects, partners, contacts, batches, risks, tenders] = await withTenantContext(user.organizationId, (tx) =>
+    const [projects, partners, contacts, batches, risks, tenders, relationships, opportunities] = await withTenantContext(user.organizationId, (tx) =>
       Promise.all([
         !pm ? none<any>() : tx.project.findMany({
           where: { ...org, OR: [{ referenceNumber: { contains: q } }, { title: { contains: q } }] },
@@ -65,6 +66,18 @@ export class SearchService {
           orderBy: { updatedAt: "desc" },
           take: PER_GROUP,
         }),
+        !crm ? none<any>() : tx.crmRelationship.findMany({
+          where: { ...org, archivedAt: null, partner: { name: { contains: q } } },
+          select: { id: true, status: true, tier: true, partner: { select: { name: true } } },
+          orderBy: { updatedAt: "desc" },
+          take: PER_GROUP,
+        }),
+        !crm ? none<any>() : tx.crmOpportunity.findMany({
+          where: { ...org, archivedAt: null, OR: [{ title: { contains: q } }, { relationship: { partner: { name: { contains: q } } } }] },
+          select: { id: true, title: true, stage: true, relationshipId: true, relationship: { select: { partner: { select: { name: true } } } } },
+          orderBy: { updatedAt: "desc" },
+          take: PER_GROUP,
+        }),
       ]),
     );
 
@@ -85,6 +98,8 @@ export class SearchService {
       ...risks.map((r) => ({ type: "risk" as const, id: r.id, title: r.title, subtitle: [r.severity && pretty(String(r.severity)), pretty(r.status)].filter(Boolean).join(" · "), link: "/risk-register", app: "project-management" as const })),
       ...tenders.map((t: any) => ({ type: "tender" as const, id: t.id, title: `${t.referenceNumber} · ${t.title}`, subtitle: pretty(t.status), link: t.status === "DRAFT" ? `/tenders/builder?id=${t.id}` : `/tenders/manage?id=${t.id}`, app: "tender-issuance" as const })),
       ...products.map((p) => ({ type: "product" as const, id: p.id, title: p.name, subtitle: p.category, link: `/products/detail?id=${p.id}`, app: "product-database" as const })),
+      ...relationships.map((r: any) => ({ type: "relationship" as const, id: r.id, title: r.partner?.name ?? "Relationship", subtitle: [pretty(r.tier), pretty(r.status)].join(" · "), link: `/relationships?id=${r.id}`, app: "crm" as const })),
+      ...opportunities.map((o: any) => ({ type: "opportunity" as const, id: o.id, title: o.title, subtitle: [o.relationship?.partner?.name, pretty(o.stage)].filter(Boolean).join(" · "), link: `/relationships?id=${o.relationshipId}`, app: "crm" as const })),
     ];
     return { query: q, results };
   }

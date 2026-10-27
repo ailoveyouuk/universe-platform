@@ -54,6 +54,7 @@
     "fix:demo-consistency": "tsx scripts/fix-demo-sim-consistency.ts",
     "watch:regulatory": "tsx scripts/run-regulatory-watch.ts",
     "remind:cert-expiry": "tsx scripts/run-cert-expiry-reminders.ts",
+    "remind:crm-reviews": "tsx scripts/run-crm-review-reminders.ts",
     "sync:pharma": "tsx scripts/sync-pharma-reference.ts",
     "backfill:project-status-history": "tsx scripts/backfill-project-status-history.ts",
     "seed:evidence-standards": "tsx scripts/seed-evidence-standards.ts",
