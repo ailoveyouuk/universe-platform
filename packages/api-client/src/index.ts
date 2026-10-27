@@ -1,4 +1,4 @@
-import type { CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1117,6 +1117,20 @@ export class UniverseApiClient {
   crmPipeline(): Promise<CrmPipelineSummary> { return this.request("/crm/pipeline"); }
   createCrmOpportunity(body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request("/crm/opportunities", { method: "POST", body: JSON.stringify(body) }); }
   updateCrmOpportunity(id: string, body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request(`/crm/opportunities/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  crmComplianceSummary(): Promise<CrmComplianceSummary> { return this.request("/crm/compliance/summary"); }
+  crmGiftPolicy(): Promise<CrmGiftPolicy> { return this.request("/crm/compliance/policy"); }
+  saveCrmGiftPolicy(body: CrmGiftPolicyInput): Promise<CrmGiftPolicy> { return this.request("/crm/compliance/policy", { method: "PUT", body: JSON.stringify(body) }); }
+  crmHospitality(q: Record<string, string | number | undefined> = {}, relId?: string): Promise<CrmHospitalityPage> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
+    return this.request(`${relId ? `/crm/relationships/${relId}/hospitality` : "/crm/compliance/records"}${p.toString() ? `?${p}` : ""}`);
+  }
+  addCrmHospitality(relId: string, body: CrmHospitalityInput): Promise<CrmHospitalityRecord> { return this.request(`/crm/relationships/${relId}/hospitality`, { method: "POST", body: JSON.stringify(body) }); }
+  updateCrmHospitality(id: string, body: CrmHospitalityInput): Promise<CrmHospitalityRecord> { return this.request(`/crm/hospitality/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  decideCrmHospitality(id: string, body: CrmHospitalityDecision): Promise<CrmHospitalityRecord> { return this.request(`/crm/hospitality/${id}/decision`, { method: "POST", body: JSON.stringify(body) }); }
+  crmRequestUpload(input: RequestDocumentUploadInput): Promise<RequestDocumentUploadResult> { return this.request("/crm/documents/upload-url", { method: "POST", body: JSON.stringify(input) }); }
+  crmConfirmUpload(input: ConfirmDocumentUploadInput): Promise<StandaloneDocumentSummary> { return this.request("/crm/documents", { method: "POST", body: JSON.stringify(input) }); }
+  crmLinkDocument(input: LinkStandaloneDocumentInput): Promise<StandaloneDocumentSummary> { return this.request("/crm/documents/link", { method: "POST", body: JSON.stringify(input) }); }
+  crmDocumentDownloadUrl(documentId: string): Promise<{ downloadUrl: string }> { return this.request(`/crm/documents/${documentId}/download-url`); }
   crmPeople(): Promise<CrmPeopleOption[]> { return this.request("/crm/people"); }
   crmRelationships(q: Record<string, string | number | undefined> = {}): Promise<CrmRelationshipPage> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));

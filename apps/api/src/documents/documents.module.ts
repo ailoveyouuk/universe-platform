@@ -9,5 +9,6 @@ import { BlobStorageService } from "./blob-storage.service";
   imports: [ProjectsModule],
   controllers: [DocumentsController, DocumentsStandaloneController],
   providers: [DocumentsService, BlobStorageService],
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}

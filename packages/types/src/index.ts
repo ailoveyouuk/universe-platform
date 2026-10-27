@@ -4316,3 +4316,42 @@ export interface CrmOpportunityInput {
   ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean;
 }
 export interface CrmPipelineSummary { byStage: Record<CrmOpportunityStage, { count: number; value: Record<string, number> }>; openCount: number; closingSoon: number }
+
+/** CRM step 8: gifts and hospitality (anti-bribery register), with the organisation's own thresholds and policy. */
+export const CRM_HOSPITALITY_DIRECTIONS = ["GIVEN", "RECEIVED", "DECLINED"] as const;
+export type CrmHospitalityDirection = (typeof CRM_HOSPITALITY_DIRECTIONS)[number];
+export const CRM_HOSPITALITY_DIRECTION_LABELS: Record<CrmHospitalityDirection, string> = { GIVEN: "Given", RECEIVED: "Received", DECLINED: "Offered and declined" };
+export const CRM_HOSPITALITY_CATEGORIES = ["GIFT", "MEAL", "HOSPITALITY", "EVENT", "TRAVEL", "DONATION", "SPONSORSHIP", "OTHER"] as const;
+export type CrmHospitalityCategory = (typeof CRM_HOSPITALITY_CATEGORIES)[number];
+export const CRM_HOSPITALITY_CATEGORY_LABELS: Record<CrmHospitalityCategory, string> = { GIFT: "Gift", MEAL: "Meal", HOSPITALITY: "Hospitality", EVENT: "Event or tickets", TRAVEL: "Travel or accommodation", DONATION: "Donation", SPONSORSHIP: "Sponsorship", OTHER: "Other" };
+export const CRM_HOSPITALITY_STATUSES = ["RECORDED", "PENDING_APPROVAL", "APPROVED", "REJECTED"] as const;
+export type CrmHospitalityStatus = (typeof CRM_HOSPITALITY_STATUSES)[number];
+export const CRM_HOSPITALITY_STATUS_LABELS: Record<CrmHospitalityStatus, string> = { RECORDED: "Recorded", PENDING_APPROVAL: "Waiting for approval", APPROVED: "Approved", REJECTED: "Not approved" };
+export interface CrmGiftPolicy {
+  currency: string; giftThreshold: number; hospitalityThreshold: number; annualThreshold: number; alwaysApprovePublicOfficial: boolean;
+  approverUserIds: string[]; approvers: { id: string; name: string }[];
+  policyDocumentId: string | null; policyTitle: string | null; policyVersion: string | null; policyEffectiveFrom: string | null; policyReviewDue: string | null;
+  confirmed: boolean; updatedAt: string | null; updatedByName: string | null; reviewOverdue: boolean;
+}
+export interface CrmGiftPolicyInput {
+  currency?: string; giftThreshold?: number; hospitalityThreshold?: number; annualThreshold?: number; alwaysApprovePublicOfficial?: boolean; approverUserIds?: string[];
+  policyDocumentId?: string | null; policyTitle?: string | null; policyVersion?: string | null; policyEffectiveFrom?: string | null; policyReviewDue?: string | null;
+}
+export interface CrmHospitalityRecord {
+  id: string; relationshipId: string; relationshipName: string; direction: CrmHospitalityDirection; category: CrmHospitalityCategory; occurredOn: string; description: string; businessReason: string;
+  amount: number; currency: string; valueInPolicyCurrency: number | null; policyCurrency: string; contactId: string | null; personName: string | null; publicOfficial: boolean;
+  linkedType: string | null; linkedId: string | null; linkedLabel: string | null; status: CrmHospitalityStatus; approvalReasons: string[];
+  decidedByName: string | null; decidedAt: string | null; decisionNote: string | null; evidenceDocumentId: string | null; additionalInfo: string | null;
+  createdById: string | null; createdByName: string | null; createdAt: string; canDecide: boolean; canEdit: boolean;
+}
+export type CrmHospitalityPage = PagedResult<CrmHospitalityRecord>;
+export interface CrmHospitalityInput {
+  direction?: CrmHospitalityDirection; category?: CrmHospitalityCategory; occurredOn?: string; description?: string; businessReason?: string; amount?: number; currency?: string;
+  contactId?: string | null; personName?: string | null; publicOfficial?: boolean; linkedProjectId?: string | null; evidenceDocumentId?: string | null; additionalInfo?: string | null; archived?: boolean;
+}
+export interface CrmHospitalityDecision { decision: "APPROVED" | "REJECTED"; note?: string | null }
+export interface CrmComplianceSummary {
+  pendingApproval: number; awaitingMyDecision: number; publicOfficialLast12Months: number; recordsLast12Months: number;
+  givenLast12Months: number; receivedLast12Months: number; policyCurrency: string; policyConfigured: boolean; policyReviewOverdue: boolean; noPolicyDocument: boolean;
+}
+export interface CrmEvidenceUploadInput { fileName: string; contentType: string }

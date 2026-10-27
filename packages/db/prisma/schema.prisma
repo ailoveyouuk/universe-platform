@@ -4832,6 +4832,7 @@ model CrmRelationship {
   tagLinks                   CrmRelationshipTag[]
   locations                  CrmLocation[]
   links                      CrmLink[]
+  hospitality                CrmHospitalityRecord[]
 
   @@unique([organizationId, counterpartyKey])
   @@index([organizationId, status])
@@ -5087,4 +5088,80 @@ model CrmLink {
 
   @@index([organizationId, relationshipId])
   @@map("crm_links")
+}
+
+/// CRM step 8 (2026-10-27): the organisation's own gifts and hospitality policy: the thresholds it sets, who approves and the policy document or link.
+/// One row per organisation. Without one the CRM uses the stated defaults and says so. Thresholds are the organisation's own; none are a legal limit.
+model CrmGiftPolicy {
+  id                       String    @id @default(uuid())
+  organizationId           String    @unique
+  /// The currency every threshold below is written in.
+  currency                 String    @default("GBP") @db.Char(3)
+  /// A gift worth more than this needs approval.
+  giftThreshold            Decimal   @default(50) @db.Decimal(18, 2)
+  /// Hospitality, events and travel worth more than this (per occasion) need approval.
+  hospitalityThreshold     Decimal   @default(150) @db.Decimal(18, 2)
+  /// Everything exchanged with one stakeholder in a rolling twelve months above this needs approval.
+  annualThreshold          Decimal   @default(300) @db.Decimal(18, 2)
+  /// Any benefit to or from a public official needs approval whatever its value.
+  alwaysApprovePublicOfficial Boolean @default(true)
+  /// JSON array of user ids who may approve; empty means anyone who manages the CRM except the person who recorded it.
+  approverUserIds          String?   @db.NVarChar(2000)
+  policyDocumentId         String?
+  policyTitle              String?   @db.NVarChar(200)
+  policyVersion            String?   @db.NVarChar(50)
+  policyEffectiveFrom      DateTime? @db.Date
+  policyReviewDue          DateTime? @db.Date
+  confirmedAt              DateTime?
+  updatedById              String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  @@map("crm_gift_policies")
+}
+
+/// CRM step 8: one gift, hospitality, event, donation or similar benefit given, received or declined. Never deleted (archived); changes are audited.
+/// Approval is decided against the organisation's CrmGiftPolicy when the record is saved and the reasons are kept on the record.
+model CrmHospitalityRecord {
+  id                String          @id @default(uuid())
+  organizationId    String
+  relationshipId    String
+  relationship      CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// GIVEN | RECEIVED | DECLINED
+  direction         String
+  /// GIFT | MEAL | HOSPITALITY | EVENT | TRAVEL | DONATION | SPONSORSHIP | OTHER
+  category          String
+  occurredOn        DateTime        @db.Date
+  description       String          @db.NVarChar(500)
+  businessReason    String          @db.NVarChar(500)
+  amount            Decimal         @default(0) @db.Decimal(18, 2)
+  currency          String          @db.Char(3)
+  /// The amount in the policy currency at the rate for occurredOn; null when no rate was available.
+  valueInPolicyCurrency Decimal?    @db.Decimal(18, 2)
+  policyCurrency    String          @db.Char(3)
+  contactId         String?
+  /// The individual who gave or received it, when not a stored contact.
+  personName        String?         @db.NVarChar(150)
+  publicOfficial    Boolean         @default(false)
+  linkedType        String?
+  linkedId          String?
+  linkedLabel       String?         @db.NVarChar(300)
+  /// RECORDED | PENDING_APPROVAL | APPROVED | REJECTED
+  status            String
+  approvalReasons   String?         @db.NVarChar(1000)
+  decidedById       String?
+  decidedAt         DateTime?
+  decisionNote      String?         @db.NVarChar(500)
+  evidenceDocumentId String?
+  additionalInfo    String?         @db.NVarChar(2000)
+  createdById       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  archivedAt        DateTime?
+  archivedById      String?
+
+  @@index([organizationId, relationshipId, occurredOn])
+  @@index([organizationId, status])
+  @@index([organizationId, occurredOn])
+  @@map("crm_hospitality_records")
 }

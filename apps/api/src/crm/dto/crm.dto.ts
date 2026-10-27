@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
-import { CRM_DECISION_ROLES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
+import { CRM_HOSPITALITY_CATEGORIES, CRM_HOSPITALITY_DIRECTIONS, CRM_DECISION_ROLES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
 
 export class UpdateRelationshipDto {
   @IsOptional() @IsIn([...CRM_TIERS]) tier?: string;
@@ -111,4 +111,38 @@ export class LinkDto {
   @IsOptional() @IsString() @MaxLength(100) label?: string;
   @IsOptional() @IsString() @MaxLength(500) url?: string;
   @IsOptional() @IsBoolean() archived?: boolean;
+}
+
+export class HospitalityDto {
+  @IsOptional() @IsIn([...CRM_HOSPITALITY_DIRECTIONS]) direction?: (typeof CRM_HOSPITALITY_DIRECTIONS)[number];
+  @IsOptional() @IsIn([...CRM_HOSPITALITY_CATEGORIES]) category?: (typeof CRM_HOSPITALITY_CATEGORIES)[number];
+  @IsOptional() @IsString() @MaxLength(40) occurredOn?: string;
+  @IsOptional() @IsString() @MaxLength(500) description?: string;
+  @IsOptional() @IsString() @MaxLength(500) businessReason?: string;
+  @IsOptional() @IsNumber() @Min(0) amount?: number;
+  @IsOptional() @IsString() @MaxLength(3) currency?: string;
+  @IsOptional() @IsString() @MaxLength(100) contactId?: string | null;
+  @IsOptional() @IsString() @MaxLength(150) personName?: string | null;
+  @IsOptional() @IsBoolean() publicOfficial?: boolean;
+  @IsOptional() @IsString() @MaxLength(100) linkedProjectId?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) evidenceDocumentId?: string | null;
+  @IsOptional() @IsString() @MaxLength(2000) additionalInfo?: string | null;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}
+export class HospitalityDecisionDto {
+  @IsIn(["APPROVED", "REJECTED"]) decision!: "APPROVED" | "REJECTED";
+  @IsOptional() @IsString() @MaxLength(500) note?: string | null;
+}
+export class GiftPolicyDto {
+  @IsOptional() @IsString() @MaxLength(3) currency?: string;
+  @IsOptional() @IsNumber() @Min(0) giftThreshold?: number;
+  @IsOptional() @IsNumber() @Min(0) hospitalityThreshold?: number;
+  @IsOptional() @IsNumber() @Min(0) annualThreshold?: number;
+  @IsOptional() @IsBoolean() alwaysApprovePublicOfficial?: boolean;
+  @IsOptional() @IsArray() @IsString({ each: true }) approverUserIds?: string[];
+  @IsOptional() @IsString() @MaxLength(100) policyDocumentId?: string | null;
+  @IsOptional() @IsString() @MaxLength(200) policyTitle?: string | null;
+  @IsOptional() @IsString() @MaxLength(50) policyVersion?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) policyEffectiveFrom?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) policyReviewDue?: string | null;
 }

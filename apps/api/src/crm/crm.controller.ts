@@ -1,23 +1,29 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import type { CrmInteractionInput, CrmOpportunityInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
 import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
+import { assertHasPermission } from "../common/authorization";
 import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
 import { CrmSavedFiltersService } from "./crm-saved-filters.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
+import { CrmHospitalityService } from "./crm-hospitality.service";
+import { DocumentsService } from "../documents/documents.service";
+import { RequestUploadDto } from "../documents/dto/request-upload.dto";
+import { ConfirmStandaloneUploadDto } from "../documents/dto/confirm-standalone-upload.dto";
+import { LinkStandaloneDocumentDto } from "../documents/dto/link-standalone.dto";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -93,4 +99,21 @@ export class CrmController {
   @Get("saved-filters") listSavedFilters(@CurrentUser() user: RequestUser, @Query("view") view?: string) { return this.savedFilters.list(user, view); }
   @Post("saved-filters") createSavedFilter(@CurrentUser() user: RequestUser, @Body() dto: SavedFilterDto) { return this.savedFilters.create(user, dto); }
   @Patch("saved-filters/:id") updateSavedFilter(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: SavedFilterDto) { return this.savedFilters.update(user, id, dto); }
+
+  // ---- Gifts and hospitality, the organisation's policy and evidence files (step 8) ----
+  @Get("compliance/summary") complianceSummary(@CurrentUser() user: RequestUser) { return this.hospitality.summary(user); }
+  @Get("compliance/policy") giftPolicy(@CurrentUser() user: RequestUser) { return this.hospitality.policy(user); }
+  @Put("compliance/policy") saveGiftPolicy(@CurrentUser() user: RequestUser, @Body() dto: GiftPolicyDto) { return this.hospitality.savePolicy(user, dto); }
+  @Get("compliance/records")
+  registerRecords(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.hospitality.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined }); }
+  @Get("relationships/:id/hospitality")
+  relationshipHospitality(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query() q: Record<string, string>) { return this.hospitality.list(user, { ...q, relationshipId: id, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined }); }
+  @Post("relationships/:id/hospitality") addHospitality(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: HospitalityDto) { return this.hospitality.create(user, id, dto); }
+  @Patch("hospitality/:id") editHospitality(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: HospitalityDto) { return this.hospitality.update(user, id, dto); }
+  @Post("hospitality/:id/decision") @HttpCode(200) decideHospitality(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: HospitalityDecisionDto) { return this.hospitality.decide(user, id, dto); }
+
+  @Post("documents/upload-url") @HttpCode(200) requestUpload(@CurrentUser() user: RequestUser, @Body() dto: RequestUploadDto) { assertHasPermission(user, "crm.manage"); return this.documents.requestStandaloneUpload(user, dto); }
+  @Post("documents") confirmUpload(@CurrentUser() user: RequestUser, @Body() dto: ConfirmStandaloneUploadDto) { assertHasPermission(user, "crm.manage"); return this.documents.confirmStandaloneUpload(user, { ...dto, type: "EVIDENCE" }); }
+  @Post("documents/link") linkDocument(@CurrentUser() user: RequestUser, @Body() dto: LinkStandaloneDocumentDto) { assertHasPermission(user, "crm.manage"); return this.documents.linkStandalone(user, { ...dto, type: "EVIDENCE" }); }
+  @Get("documents/:documentId/download-url") async downloadUrl(@CurrentUser() user: RequestUser, @Param("documentId") documentId: string) { await this.hospitality.assertDocumentVisible(user, documentId); return this.documents.getStandaloneDownloadUrl(user, documentId); }
 }
