@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ContractListItem, TenderDashboard, TenderListItem } from "@universe/types";
-import { AlertIcon, Button, CalendarIcon, CheckCircleIcon, ClockIcon, FileEditIcon, GridIcon, Pill, PlusIcon, StatTile, StatTileGrid } from "@universe/ui";
+import { OverviewHero, AlertIcon, Button, CalendarIcon, CheckCircleIcon, ClockIcon, FileEditIcon, GridIcon, Pill, PlusIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { Card, ErrorNote, Heading, Page, STATUS_LABEL, STATUS_TONE, daysUntil, fmtDate } from "../lib/ui";
@@ -38,8 +38,8 @@ export default function TenderDashboardPage() {
   const attention = d ? d.attention.overdueEvaluation + d.attention.overdueAward + d.attention.unansweredQuestions : 0;
   return (
     <Page>
-      {me?.forename && <p style={{ margin: "0 0 2px", fontSize: 14, fontWeight: 600, color: "var(--u-ink-secondary)" }}>Welcome back, {me.forename}.</p>}
-      <Heading title="Tender Issuance" sub="Build, publish and manage your organisation's tenders." actions={<Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link>} />
+      <OverviewHero color="var(--u-module-tender-issuance)" forename={me?.forename} title="Tenders, from first draft to award." intro="Build, publish and manage your organisation's tenders." />
+      <Heading title="Your tenders" actions={<Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link>} />
       <ErrorNote message={err} />
       {!d && !err && <div style={{ color: "var(--u-ink-secondary)" }}>Loading…</div>}
       {d && (

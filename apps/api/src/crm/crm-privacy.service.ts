@@ -242,10 +242,10 @@ export class CrmPrivacyService {
     };
   }
 
-  async requests(u: RequestUser, status?: string): Promise<CrmPrivacyRequestRow[]> {
+  async requests(u: RequestUser, status?: string, q?: string, type?: string): Promise<CrmPrivacyRequestRow[]> {
     assertHasPermission(u, "crm.manage");
     return withTenantContext(u.organizationId, async (tx) => {
-      const where: Prisma.CrmPrivacyRequestWhereInput = { organizationId: u.organizationId, ...(status === "open" ? { status: { in: ["OPEN", "WAITING"] } } : status === "closed" ? { status: { in: ["COMPLETED", "REFUSED"] } } : {}) };
+      const where: Prisma.CrmPrivacyRequestWhereInput = { organizationId: u.organizationId, ...(status === "open" ? { status: { in: ["OPEN", "WAITING"] } } : status === "closed" ? { status: { in: ["COMPLETED", "REFUSED"] } } : {}), ...(type ? { type } : {}), ...(q?.trim() ? { AND: q.trim().split(/\s+/).slice(0, 5).map((w) => ({ OR: [{ requesterName: { contains: w } }, { requesterEmail: { contains: w } }, { decision: { contains: w } }] })) } : {}) };
       return (await tx.crmPrivacyRequest.findMany({ where, orderBy: [{ dueAt: "asc" }], take: 200 })).map((r) => this.shapeReq(r));
     });
   }

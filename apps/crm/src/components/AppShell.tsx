@@ -36,6 +36,7 @@ import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
  * adding one line here rather than touching the shell itself. */
 const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean; needs?: string }[] = [
   { href: "/", label: "Overview", icon: () => <DashboardIcon size={19} />, inNav: true },
+  { href: "/search", label: "Search", icon: () => <SearchIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/relationships", label: "Relationships", icon: () => <BuildingIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/portfolio", label: "Portfolio", icon: () => <PartnersIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/pipeline", label: "Pipeline", icon: () => <TrendingUpIcon size={19} />, inNav: true, needs: "crm.view" },

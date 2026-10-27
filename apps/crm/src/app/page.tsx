@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmRelationshipRow, type CrmTag } from "@universe/types";
-import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
+import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, categoryPlural, PARTNER_ROLE_TYPES, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmRelationshipRow, type CrmTag } from "@universe/types";
+import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
+import { useRouter } from "next/navigation";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
-import { ErrorNote, Heading, Page, fmtDate } from "../lib/ui";
+import { accentVar } from "../lib/category";
+import { ErrorNote, Page, fmtDate } from "../lib/ui";
 
 /** Overview: where the organisation's relationships stand. Every tile opens the Relationships list already filtered. */
 export default function Overview() {
   const me = useCurrentUser();
+  const router = useRouter();
   const [o, setO] = useState<CrmOverview | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { apiClient.crmOverview().then(setO).catch((e) => setErr(e instanceof Error ? e.message : "Could not load the CRM.")); }, []);
@@ -30,7 +33,8 @@ export default function Overview() {
   );
   return (
     <Page>
-      <Heading title={me?.forename ? `Welcome back, ${me.forename}.` : "CRM"} sub="Your organisation's relationships with the manufacturers, suppliers, freight forwarders and clients it works with. Each one is built on the stakeholder record in Project Management, so nothing is entered twice." />
+      <OverviewHero color="var(--u-module-crm)" forename={me?.forename} title="Every relationship, in one place." intro="Your organisation's manufacturers, suppliers, forwarders, clients, funders and buyers, built on the stakeholder records in Project Management so nothing is entered twice."
+        search={{ label: "Search the CRM", placeholder: "Search: a name, a contact, a certificate, Kenya, ISO 13485", quick: ["Manufacturer", "ISO 13485", "Site visit", "Kenya"], onSearch: (t) => router.push(`/search?q=${encodeURIComponent(t.trim())}`) }} />
       <ErrorNote message={err} />
       <StatTileGrid>
         {tile("Relationships", o?.total, <PartnersIcon size={18} />, "brand", "")}
@@ -38,6 +42,23 @@ export default function Overview() {
         {tile("Need attention", o?.needsAttention, <AlertIcon size={18} />, "warning", "health=attention")}
         {tile("Reviews due", o?.reviewDue, <ClockIcon size={18} />, "critical", "review=due")}
       </StatTileGrid>
+      <section aria-labelledby="by-kind" style={{ display: "grid", gap: 10 }}>
+        <h2 id="by-kind" style={{ margin: 0, fontSize: 18, fontFamily: "var(--u-font-display)" }}>Stakeholders by kind</h2>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
+          {PARTNER_ROLE_TYPES.map((k) => {
+            const n = o?.byCategory[k];
+            return (
+              <li key={k}>
+                <Link href={link(`role=${k}`)} aria-label={`${categoryPlural(k)}: ${n ?? "loading"}. Open the list`} style={{ display: "block", textDecoration: "none", color: "var(--u-ink)", border: "1px solid var(--u-border)", borderLeft: `4px solid ${accentVar(k)}`, borderRadius: "var(--u-radius-lg)", padding: "12px 14px", backgroundColor: "var(--u-surface-raised)", backgroundImage: `linear-gradient(100deg, color-mix(in srgb, ${accentVar(k)} 11%, transparent) 0%, transparent 70%)` }}>
+                  <span style={{ display: "block", fontSize: 28, fontWeight: 700, fontFamily: "var(--u-font-display)", lineHeight: 1.1 }}>{n ?? "…"}</span>
+                  <span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>{categoryPlural(k)}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
       )}

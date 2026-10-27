@@ -45,13 +45,13 @@ export class CrmInteractionsService {
     })).map((i) => ({ ...i, canEdit: manager || ownerUserId === user.id }));
   }
 
-  async list(user: RequestUser, relationshipId: string, q: { type?: string; page?: number; pageSize?: number }): Promise<CrmInteractionPage> {
+  async list(user: RequestUser, relationshipId: string, q: { type?: string; q?: string; page?: number; pageSize?: number }): Promise<CrmInteractionPage> {
     assertHasPermission(user, "crm.view");
     const pageSize = Math.min(Math.max(q.pageSize ?? 20, 1), 100); const page = Math.max(q.page ?? 1, 1);
     return withTenantContext(user.organizationId, async (tx) => {
       const rel = await tx.crmRelationship.findFirst({ where: { id: relationshipId, organizationId: user.organizationId }, select: { ownerUserId: true } });
       if (!rel) throw new NotFoundException("Relationship not found.");
-      const where: Prisma.CrmInteractionWhereInput = { AND: [{ organizationId: user.organizationId, relationshipId, archivedAt: null }, this.visible(user, rel.ownerUserId), ...(q.type ? [{ type: q.type }] : [])] };
+      const where: Prisma.CrmInteractionWhereInput = { AND: [{ organizationId: user.organizationId, relationshipId, archivedAt: null }, this.visible(user, rel.ownerUserId), ...(q.type ? [{ type: q.type }] : []), ...(q.q?.trim() ? q.q.trim().split(/\s+/).slice(0, 5).map((w) => ({ OR: [{ title: { contains: w } }, { summary: { contains: w } }, { outcome: { contains: w } }, { linkedLabel: { contains: w } }] })) : [])] };
       const [total, rows] = await Promise.all([tx.crmInteraction.count({ where }), tx.crmInteraction.findMany({ where, orderBy: [{ occurredAt: "desc" }, { id: "asc" }], skip: (page - 1) * pageSize, take: pageSize })]);
       return { items: await this.shape(tx, user, rows, rel.ownerUserId), total, page, pageSize };
     });

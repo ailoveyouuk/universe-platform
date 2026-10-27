@@ -8,6 +8,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
 import { CrmSavedFiltersService } from "./crm-saved-filters.service";
+import { CrmSearchService } from "./crm-search.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
@@ -25,9 +26,10 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
+  constructor(private readonly crm: CrmService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
+  @Get("search") search(@CurrentUser() user: RequestUser, @Query("q") q: string, @Query("types") types?: string) { return this.searchSvc.search(user, q ?? "", types); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
 
   @Get("relationships/map")
@@ -50,7 +52,7 @@ export class CrmController {
 
   @Get("relationships/:id/interactions")
   listInteractions(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query() q: Record<string, string>) {
-    return this.interactions.list(user, id, { type: q.type || undefined, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
+    return this.interactions.list(user, id, { type: q.type || undefined, q: q.q || undefined, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
   }
   @Post("relationships/:id/interactions")
   logInteraction(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: InteractionDto) { return this.interactions.create(user, id, dto as CrmInteractionInput); }
@@ -66,7 +68,7 @@ export class CrmController {
   @Post("contacts/:id/keep") @HttpCode(200) keep(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.privacy.keep(user, id).then(() => ({ ok: true })); }
   @Get("privacy/summary") privacySummary(@CurrentUser() user: RequestUser) { return this.privacy.summary(user); }
   @Get("privacy/find-person") findPerson(@CurrentUser() user: RequestUser, @Query("q") q: string) { return this.privacy.findPerson(user, q ?? ""); }
-  @Get("privacy/requests") requests(@CurrentUser() user: RequestUser, @Query("status") status?: string) { return this.privacy.requests(user, status); }
+  @Get("privacy/requests") requests(@CurrentUser() user: RequestUser, @Query("status") status?: string, @Query("q") q?: string, @Query("type") type?: string) { return this.privacy.requests(user, status, q, type); }
   @Post("privacy/requests") createRequest(@CurrentUser() user: RequestUser, @Body() dto: PrivacyRequestDto) { return this.privacy.createRequest(user, dto as CrmPrivacyRequestInput); }
   @Patch("privacy/requests/:id") updateRequest(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: PrivacyRequestUpdateDto) { return this.privacy.updateRequest(user, id, dto as CrmPrivacyRequestUpdate); }
   @Get("privacy/retention") retention(@CurrentUser() user: RequestUser) { return this.privacy.retention(user); }

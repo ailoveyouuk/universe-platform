@@ -1,4 +1,4 @@
-import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmSearchResult, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1068,7 +1068,7 @@ export class UniverseApiClient {
   /** CRM (2026-10-26): relationships sit on top of stakeholders; the list creates any that are missing. */
   crmOverview(): Promise<CrmOverview> { return this.request("/crm/overview"); }
   crmDetail(id: string): Promise<CrmRelationshipDetail> { return this.request(`/crm/relationships/${id}/detail`); }
-  crmInteractions(relId: string, q: { type?: string; page?: number; pageSize?: number } = {}): Promise<CrmInteractionPage> {
+  crmInteractions(relId: string, q: { type?: string; q?: string; page?: number; pageSize?: number } = {}): Promise<CrmInteractionPage> {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
     return this.request(`/crm/relationships/${relId}/interactions${p.toString() ? `?${p}` : ""}`);
   }
@@ -1083,7 +1083,8 @@ export class UniverseApiClient {
   crmKeepContact(contactId: string): Promise<{ ok: true }> { return this.request(`/crm/contacts/${contactId}/keep`, { method: "POST" }); }
   crmPrivacySummary(): Promise<CrmPrivacySummary> { return this.request("/crm/privacy/summary"); }
   crmFindPerson(q: string): Promise<CrmPersonMatch[]> { return this.request(`/crm/privacy/find-person?q=${encodeURIComponent(q)}`); }
-  crmPrivacyRequests(status?: "open" | "closed"): Promise<CrmPrivacyRequestRow[]> { return this.request(`/crm/privacy/requests${status ? `?status=${status}` : ""}`); }
+  crmPrivacyRequests(status?: "open" | "closed", f: { q?: string; type?: string } = {}): Promise<CrmPrivacyRequestRow[]> { const p = new URLSearchParams(); if (status) p.set("status", status); if (f.q) p.set("q", f.q); if (f.type) p.set("type", f.type); return this.request(`/crm/privacy/requests${p.toString() ? `?${p}` : ""}`); }
+  crmSearch(q: string, types?: string): Promise<CrmSearchResult> { const p = new URLSearchParams({ q }); if (types) p.set("types", types); return this.request(`/crm/search?${p}`); }
   createCrmPrivacyRequest(body: CrmPrivacyRequestInput): Promise<CrmPrivacyRequestRow> { return this.request("/crm/privacy/requests", { method: "POST", body: JSON.stringify(body) }); }
   updateCrmPrivacyRequest(id: string, body: CrmPrivacyRequestUpdate): Promise<CrmPrivacyRequestRow> { return this.request(`/crm/privacy/requests/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   crmRetention(): Promise<CrmRetentionItem[]> { return this.request("/crm/privacy/retention"); }

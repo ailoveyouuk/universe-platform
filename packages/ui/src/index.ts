@@ -5,6 +5,7 @@ export * from "./Logo";
 export * from "./Button";
 export * from "./Pill";
 export * from "./CategoryChip";
+export * from "./OverviewHero";
 export * from "./SourcePill";
 export * from "./Breadcrumbs";
 export * from "./Sidebar";

@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
-import { canUseApp, PARTNER_ROLE_TYPES, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, crmRecencyCutoff, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
+import { canUseApp, categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, crmRecencyCutoff, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -154,8 +154,23 @@ export class CrmService {
       const and: Prisma.CrmRelationshipWhereInput[] = [{ organizationId: user.organizationId, archivedAt: q.archived === "true" ? { not: null } : null }];
       const needle = q.q?.trim();
       if (needle) {
-        const owners = await tx.user.findMany({ where: { organizationId: user.organizationId, OR: [{ forename: { contains: needle } }, { surname: { contains: needle } }] }, select: { id: true }, take: 50 });
-        and.push({ OR: [{ partner: { name: { contains: needle } } }, { partner: { countryCode: { contains: needle } } }, { summary: { contains: needle } }, ...(owners.length ? [{ ownerUserId: { in: owners.map((o) => o.id) } }] : [])] });
+        // Every word must match somewhere: a name, registered name, country, summary, owner, tag, contact (name, email, job title), place (name or city) or kind of stakeholder.
+        const words = needle.split(/\s+/).filter(Boolean).slice(0, 5);
+        const owners = await tx.user.findMany({ where: { organizationId: user.organizationId, OR: words.flatMap((w) => [{ forename: { contains: w } }, { surname: { contains: w } }]) }, select: { id: true, forename: true, surname: true }, take: 100 });
+        for (const w of words) {
+          const lw = w.toLowerCase();
+          const kinds = STAKEHOLDER_CATEGORY_KEYS.filter((k) => categoryLabel(k).toLowerCase().includes(lw));
+          const ownerIds = owners.filter((o) => `${o.forename} ${o.surname}`.toLowerCase().includes(lw)).map((o) => o.id);
+          and.push({ OR: [
+            { partner: { name: { contains: w } } }, { partner: { countryCode: { contains: w } } }, { summary: { contains: w } },
+            { partner: { registryEntry: { legalName: { contains: w } } } },
+            { tagLinks: { some: { removedAt: null, tag: { name: { contains: w } } } } },
+            { partner: { contacts: { some: { OR: [{ name: { contains: w } }, { email: { contains: w } }, { title: { contains: w } }] } } } },
+            { locations: { some: { archivedAt: null, OR: [{ name: { contains: w } }, { city: { contains: w } }] } } },
+            ...(kinds.length ? [{ partner: { roles: { some: { isActive: true, roleType: { in: kinds } } } } }] : []),
+            ...(ownerIds.length ? [{ ownerUserId: { in: ownerIds } }] : []),
+          ] });
+        }
       }
       if (q.work && this.canSeeProjects(user)) { const w = this.workWhere(q.work); if (w) and.push(w); }
       if (q.country && /^[A-Za-z]{2,3}$/.test(q.country)) and.push({ partner: { countryCode: q.country.toUpperCase() } });
@@ -261,7 +276,7 @@ export class CrmService {
     const value = await withTenantContext(user.organizationId, async (tx) => {
       const base: Prisma.CrmRelationshipWhereInput = { organizationId: user.organizationId, archivedAt: null };
       const open: Prisma.CrmRelationshipWhereInput = { ...base, status: { not: "ENDED" } };
-      const [total, tiers, statuses, needsAttention, reviewDue, unowned, untracked] = await Promise.all([
+      const [total, tiers, statuses, needsAttention, reviewDue, unowned, untracked, roleGroups] = await Promise.all([
         tx.crmRelationship.count({ where: base }),
         tx.crmRelationship.groupBy({ by: ["tier"], where: base, _count: { _all: true } }),
         tx.crmRelationship.groupBy({ by: ["status"], where: base, _count: { _all: true } }),
@@ -269,12 +284,15 @@ export class CrmService {
         tx.crmRelationship.count({ where: { ...open, nextReviewDue: { lt: now } } }),
         tx.crmRelationship.count({ where: { ...open, ownerUserId: null } }),
         tx.partner.count({ where: { organizationId: user.organizationId, isArchived: false, crmRelationships: { none: {} } } }),
+        tx.partnerRole.groupBy({ by: ["roleType"], where: { isActive: true, partner: { organizationId: user.organizationId, isArchived: false, crmRelationships: { some: { organizationId: user.organizationId, archivedAt: null } } } }, _count: { _all: true } }),
       ]);
+      const byCategory: Record<string, number> = {};
+      for (const g of roleGroups) byCategory[g.roleType] = g._count._all;
       const byTier = Object.fromEntries(CRM_TIERS.map((t) => [t, 0])) as Record<CrmTier, number>;
       const byStatus = Object.fromEntries(CRM_STATUSES.map((t) => [t, 0])) as Record<CrmStatus, number>;
       for (const t of tiers) byTier[t.tier as CrmTier] = t._count._all;
       for (const t of statuses) byStatus[t.status as CrmStatus] = t._count._all;
-      return { total, active: byStatus.ACTIVE, byTier, byStatus, untracked, needsAttention, reviewDue, unowned };
+      return { total, active: byStatus.ACTIVE, byTier, byStatus, untracked, needsAttention, reviewDue, unowned, byCategory };
     });
     this.overviewCache.set(cacheKey, { at: Date.now(), value });
     return value;

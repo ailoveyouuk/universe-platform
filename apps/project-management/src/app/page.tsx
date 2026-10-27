@@ -20,6 +20,7 @@ import {
   GlobeIcon,
   SearchIcon,
   StatTile,
+  OverviewHero,
 } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
@@ -108,24 +109,10 @@ export default function HomePage() {
 
   return (
     <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
-      <div style={{ marginBottom: 28, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <div
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: "var(--u-org-accent, var(--u-brand-violet))",
-              marginBottom: 10,
-            }}
-          />
-          <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 26, margin: 0, color: "var(--u-ink)" }}>
-            Welcome back, {me?.forename}.
-          </h1>
-          <p style={{ color: "var(--u-ink-secondary)", fontSize: 14, marginTop: 6 }}>
-            {me?.organizationWelcomeMessage || `Here's what's happening across ${me?.organizationName}'s projects.`}
-          </p>
-        </div>
+      <div style={{ marginBottom: 20 }}>
+        <OverviewHero color="var(--u-org-accent, var(--u-module-project-management))" forename={me?.forename} title="Your projects, at a glance." intro={me?.organizationWelcomeMessage || `Here's what's happening across ${me?.organizationName}'s projects.`} />
+      </div>
+      <div style={{ marginBottom: 28, display: "flex", justifyContent: "flex-start", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div className="u-quick-actions">
           <Link href="/projects/new" style={{ textDecoration: "none", display: "block" }}>
             <Button className="u-quick-action" variant="primary" icon={<ProjectsIcon size={16} />} accent="var(--u-org-accent, var(--u-brand-violet))">

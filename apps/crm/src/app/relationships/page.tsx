@@ -94,7 +94,7 @@ export default function RelationshipsPage() {
       {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); }} />}
       <SavedFilters view="RELATIONSHIPS" current={f as unknown as Record<string, string>} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }} role="search" aria-label="Filter relationships">
-        <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, owner, country…" /></div>
+        <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, contact, tag, place, owner, country…" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.tier} onChange={(v) => set({ tier: v })} allLabel="Any tier" options={CRM_TIERS.map((t) => ({ value: t, label: CRM_TIER_LABELS[t] }))} ariaLabel="Filter by tier" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.status} onChange={(v) => set({ status: v })} allLabel="Any status" options={CRM_STATUSES.map((t) => ({ value: t, label: CRM_STATUS_LABELS[t] }))} ariaLabel="Filter by status" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: categoryLabel(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
@@ -134,6 +134,8 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
   const [draft, setDraft] = useState({ tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId ?? "", summary: r.summary ?? "", reviewIntervalMonths: r.reviewIntervalMonths, healthOverride: (r.healthOverride ?? "") as CrmHealth | "", healthOverrideReason: r.healthOverrideReason ?? "" });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab360>("overview");
+  // A link from search can open a particular tab of this relationship (?id=…&tab=people).
+  useEffect(() => { const sp = new URLSearchParams(window.location.search); const t = sp.get("tab"); if (sp.get("id") === r.id && t && TABS_360.some((x) => x.key === t)) setTab(t as Tab360); }, [r.id]);
   const [card, setCard] = useState<PartnerScorecard | null | "none">(null);
   useEffect(() => { if (open && card === null) apiClient.crmScorecard(r.id).then(setCard).catch(() => setCard("none")); }, [open, card, r.id]);
   const pmHref = UNIVERSE_APPS.find((a) => a.key === "project-management")?.href;

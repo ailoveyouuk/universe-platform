@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InsightsActivity, InsightsOverview } from "@universe/types";
+import { OverviewGroup, OverviewGroups, OverviewHero } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { removeInsightsItem, useInsightsItems } from "../lib/views";
@@ -41,7 +42,6 @@ export default function InsightsHome() {
   const [act, setAct] = useState<InsightsActivity | null>(null);
   const [actFailed, setActFailed] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [q, setQ] = useState("");
 
   useEffect(() => { apiClient.insightsOverview().then(setO).catch((e) => setErr(e instanceof Error ? e.message : "Could not load Insights.")); }, []);
   useEffect(() => { apiClient.insightsActivity().then(setAct).catch(() => setActFailed(true)); }, []);
@@ -54,22 +54,8 @@ export default function InsightsHome() {
     <Page>
       <ErrorNote message={err} />
 
-      <section aria-labelledby="hero" style={{ backgroundColor: "var(--u-brand-violet)", backgroundImage: "linear-gradient(120deg, var(--u-brand-violet) 0%, var(--u-accent-magenta) 140%)", color: "var(--u-on-accent)", borderRadius: "var(--u-radius-lg)", padding: "clamp(20px, 4vw, 34px)", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          {me?.forename && <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 600 }}>Welcome back, {me.forename}.</p>}
-          <h1 id="hero" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: "clamp(26px, 4vw, 36px)", lineHeight: 1.15 }}>What the sector is doing, right now.</h1>
-          <p style={{ margin: "8px 0 0", fontSize: 15, maxWidth: 640 }}>Costs, sourcing and shipping across every organisation on Universe, always anonymous.</p>
-        </div>
-        <form role="search" onSubmit={(e) => { e.preventDefault(); go(q); }} style={{ display: "flex", gap: 8, flexWrap: "wrap", maxWidth: 640 }}>
-          <input type="search" aria-label="Search Insights" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search: technical assistance, sea freight, Kenya, vaccines" style={{ flex: "1 1 260px", minWidth: 0, padding: "12px 14px", fontSize: 14.5, borderRadius: "var(--u-radius-md)", border: "1px solid transparent", backgroundColor: "var(--u-surface)", color: "var(--u-ink)", font: "inherit" }} />
-          <button type="submit" className="u-touch" style={{ padding: "10px 20px", borderRadius: "var(--u-radius-md)", border: "2px solid var(--u-on-accent)", backgroundColor: "transparent", color: "var(--u-on-accent)", font: "inherit", fontWeight: 700, cursor: "pointer" }}>Search</button>
-        </form>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} aria-label="Quick searches" role="group">
-          {["Sea freight", "Technical assistance", "Vaccines", "Kenya"].map((t) => (
-            <button key={t} type="button" className="u-touch" onClick={() => go(t)} style={{ padding: "5px 14px", borderRadius: 999, border: "1px solid var(--u-on-accent)", backgroundColor: "transparent", color: "var(--u-on-accent)", font: "inherit", fontSize: 13, cursor: "pointer" }}>{t}</button>
-          ))}
-        </div>
-      </section>
+      <OverviewHero color="var(--u-brand-violet)" forename={me?.forename} title="What the sector is doing, right now." intro="Costs, sourcing and shipping across every organisation on Universe, always anonymous."
+        search={{ label: "Search Insights", placeholder: "Search: technical assistance, sea freight, Kenya, vaccines", quick: ["Sea freight", "Technical assistance", "Vaccines", "Kenya"], onSearch: go }} />
 
       <section aria-labelledby="active" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -89,23 +75,9 @@ export default function InsightsHome() {
 
       <section aria-labelledby="areas" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 id="areas" style={h2}>Explore</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: 14 }}>
-          {AREAS.map((g) => (
-            <div key={g.title} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", overflow: "hidden", backgroundColor: "var(--u-surface-raised)", display: "flex", flexDirection: "column" }}>
-              <h3 style={{ margin: 0, padding: "10px 16px", backgroundColor: g.color, color: "var(--u-on-accent)", fontFamily: "var(--u-font-display)", fontSize: 15 }}>{g.title}</h3>
-              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {g.areas.map((a) => (
-                  <li key={a.href} style={{ borderTop: "1px solid var(--u-border)" }}>
-                    <Link href={a.href} style={{ display: "block", padding: "11px 16px", textDecoration: "none", color: "var(--u-ink)" }}>
-                      <span style={{ fontWeight: 700, fontSize: 14.5 }}>{a.label} <span aria-hidden>→</span></span>
-                      <span style={{ display: "block", fontSize: 13, color: "var(--u-ink-secondary)" }}>{a.text}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <OverviewGroups>
+          {AREAS.map((g) => <OverviewGroup key={g.title} title={g.title} color={g.color} links={g.areas} LinkComponent={Link} />)}
+        </OverviewGroups>
       </section>
 
       <section aria-labelledby="views" style={{ display: "flex", flexDirection: "column", gap: 8 }}>

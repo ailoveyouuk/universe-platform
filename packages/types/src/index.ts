@@ -4215,7 +4215,18 @@ export interface CrmOverview {
   byStatus: Record<CrmStatus, number>;
   /** Stakeholders that have no relationship record yet. */
   untracked: number;
+  /** Relationships by kind of stakeholder (a stakeholder with several roles is counted under each). Keys are stakeholder category keys. */
+  byCategory: Record<string, number>;
 }
+export const CRM_SEARCH_TYPES = ["stakeholders", "contacts", "interactions", "opportunities", "places", "certificates", "compliance", "privacy"] as const;
+export type CrmSearchType = (typeof CRM_SEARCH_TYPES)[number];
+export const CRM_SEARCH_TYPE_LABELS: Record<CrmSearchType, string> = {
+  stakeholders: "Stakeholders", contacts: "Contacts", interactions: "Interactions", opportunities: "Opportunities", places: "Places and sites",
+  certificates: "Certificates", compliance: "Gifts and hospitality", privacy: "Privacy requests",
+};
+export interface CrmSearchHit { id: string; title: string; subtitle: string; /** Path in the CRM app that opens it. */ link: string; }
+export interface CrmSearchGroup { type: CrmSearchType; label: string; total: number; hits: CrmSearchHit[]; }
+export interface CrmSearchResult { q: string; groups: CrmSearchGroup[]; }
 export interface CrmRelationshipUpdate {
   tier?: CrmTier;
   status?: CrmStatus;
