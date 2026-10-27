@@ -10,7 +10,7 @@ import { prisma, withPlatformStaffContext } from "../src/index";
  * Idempotent; DRY_RUN defaults to true.
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
-const MAX_ADD = 90;
+const MAX_ADD = 200;
 const ROLE_BY_ORG_TYPE = new Set(["MANUFACTURER", "SUPPLIER", "TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR"]);
 const BUYER_SIDE = ["TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR"];
 const norm = (s: string) => s.toLowerCase().replace(/\b(ltd|limited|llc|inc|gmbh|plc|sa|co|corp|corporation|pvt|private|company|ag|bv|srl)\b\.?/g, "").replace(/[^a-z0-9]+/g, " ").trim();

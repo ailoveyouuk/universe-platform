@@ -1,53 +1,30 @@
 import { randomUUID } from "node:crypto";
-import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } from "../src/index";
+import { prisma, withPlatformStaffContext } from "../src/index";
 
 /**
  * Simulated buyer-side organisations (2026-10-27, requested by Lewis: "yes please create some"). Simulated data only.
- * Tops each of the three buyer-side kinds up to TARGET simulated organisations (tendering and purchasing bodies, procurement service agents, funders and
- * donors), with invented names, then gives every simulated organisation of those kinds what is missing: its type profile, countries of operation and a
+ * Creates NO organisations (Lewis: enhance what exists). Gives every existing simulated tendering body, procurement service agent and funder what is missing: its type profile, countries of operation and a
  * published directory profile (the thing "Add from Universe" and the network panel need before an organisation can be seen by name). Fictional names only.
  * Idempotent: existing organisations and rows are left alone. DRY_RUN defaults to true.
  */
 const dryRun = (process.env.DRY_RUN ?? "true") !== "false";
-const TARGET = 20;
 const DAY = 86400000;
 const hashStr = (s: string) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const pick = <T,>(arr: readonly T[], seed: number, k: number): T[] => { const out: T[] = []; for (let i = 0; out.length < Math.min(k, arr.length) && i < 80; i++) { const v = arr[(seed * 7 + i * 13 + i * i) % arr.length]; if (!out.includes(v)) out.push(v); } return out; };
 const COUNTRIES = ["KE", "UG", "TZ", "ET", "RW", "NG", "GH", "ZM", "MW", "MZ", "ML", "SN", "CD", "ZA", "ZW", "IN", "BD", "NP", "GB", "DE", "CH", "NL", "DK", "SE", "US"];
-const PLACES = ["Kilima", "Zambezi Valley", "Lake Region", "Savanna", "Highlands", "Coastal Belt", "Sahel", "Northern Province", "Riverine", "Eastern Province", "Delta", "Rift", "Meridian", "Baobab", "Acacia", "Harmattan", "Monsoon", "Atlas", "Karoo", "Serengeti Plains", "Lakeshore", "Evergreen", "Unity", "Horizon"];
-const NAMES: Record<string, string[]> = {
-  TENDERING_PURCHASING_BODY: ["Central Medical Stores", "Ministry of Health Procurement Unit", "Mission Health Network", "Community Health Partners", "Regional Health Programme", "Public Health Supply Authority"],
-  PROCUREMENT_SERVICE_AGENT: ["Procurement Partners", "Health Sourcing Agency", "Supply Services", "Pooled Procurement Office", "Procurement Collective"],
-  FUNDER_DONOR: ["Health Foundation", "Health Trust", "Health Fund", "Global Health Partnership", "Medical Aid Foundation"],
-};
 const FOCUS = ["Malaria", "HIV and AIDS", "Tuberculosis", "Maternal and child health", "Immunisation", "Nutrition", "Neglected tropical diseases", "Health systems strengthening", "Emergency response", "Laboratory strengthening"];
 const GROUPS = ["Pharmaceuticals", "Diagnostics", "Reagents", "Laboratory Consumables", "Medical Devices", "Surgical Supplies", "Wound Care", "Personal Protective Equipment", "Cold Chain", "Reproductive Health", "Nutrition"];
 
 async function main() {
   const countries = new Set((await withPlatformStaffContext((tx) => tx.country.findMany({ select: { code: true } }))).map((c) => c.code));
   const known = COUNTRIES.filter((c) => countries.has(c));
-  const types = Object.keys(NAMES) as ("TENDERING_PURCHASING_BODY" | "PROCUREMENT_SERVICE_AGENT" | "FUNDER_DONOR")[];
-  const existing = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isSimulated: true, isDemo: false, type: { in: types } }, select: { name: true, slug: true, type: true } }));
-  const usedNames = new Set(existing.map((o) => o.name));
-  for (const t of types) {
-    const have = existing.filter((o) => o.type === t).length;
-    const need = Math.max(0, TARGET - have);
-    console.log(`${t}: ${have} simulated organisations; ${dryRun ? "[dry run] would create" : "creating"} ${need}`);
-    if (dryRun) continue;
-    let made = 0;
-    for (let i = 0; made < need && i < 400; i++) {
-      const name = `${PLACES[(hashStr(t) + i * 5) % PLACES.length]} ${NAMES[t][(i + hashStr(t)) % NAMES[t].length]}`;
-      if (usedNames.has(name)) continue;
-      usedNames.add(name);
-      const org = await createOrganizationWithDefaultRoles({ name, slug: `sim-buyer-${slug(t).slice(0, 8)}-${slug(name)}`, type: t, countryOfRegistrationCode: known[hashStr(name) % known.length] });
-      await withPlatformStaffContext((tx) => tx.organization.update({ where: { id: org.id }, data: { isSimulated: true } }));
-      made++;
-    }
-  }
+  const types = ["TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR"] as const;
+  const existing = await withPlatformStaffContext((tx) => tx.organization.findMany({ where: { isSimulated: true, isDemo: false, type: { in: [...types] } }, select: { name: true, slug: true, type: true } }));
+    console.log(`existing simulated buyer-side organisations: ${existing.length} (no new organisations are created)`);
 
   await withPlatformStaffContext(async (tx) => {
-    const orgs = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, type: { in: types }, status: { not: "SUSPENDED" } }, select: { id: true, name: true, type: true, countryOfRegistrationCode: true }, orderBy: { name: "asc" } });
+    const orgs = await tx.organization.findMany({ where: { isSimulated: true, isDemo: false, type: { in: [...types] }, status: { not: "SUSPENDED" } }, select: { id: true, name: true, type: true, countryOfRegistrationCode: true }, orderBy: { name: "asc" } });
     const ids = orgs.map((o) => o.id);
     const [sp, fp, bp, ap, cp] = await Promise.all([
       tx.supplierProfile.findMany({ where: { organizationId: { in: ids } }, select: { organizationId: true } }),

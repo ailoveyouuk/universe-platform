@@ -1,6 +1,6 @@
 name: Seed demo buyer-side organisations
 
-# Simulated tendering bodies, procurement agents and funders (2026-10-27). Dry run by default.
+# Publishes directory profiles for existing simulated tendering bodies, procurement agents and funders (2026-10-27); creates no organisations. Dry run by default.
 on:
   workflow_dispatch:
     inputs:
