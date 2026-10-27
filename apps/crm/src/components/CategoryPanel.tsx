@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { CRM_CATEGORY_LABELS, type CrmCategoryProfile, type CrmCertState, type CrmCategoryKey } from "@universe/types";
-import { Pill, UNIVERSE_APPS } from "@universe/ui";
+import { Pill, UNIVERSE_APPS, vizFill } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { accentVar, CATEGORY_ORDER } from "../lib/category";
 import { fmtDate, humanise } from "../lib/ui";
@@ -17,6 +17,40 @@ const CERT_LABEL: Record<string, string> = { ISO_13485: "ISO 13485", ISO_9001: "
 const certName = (t: string) => CERT_LABEL[t] ?? humanise(t);
 const yn = (b: boolean) => (b ? "Yes" : "No");
 const grid: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 };
+
+/** Certificate timeline (2026-10-27): each dated certificate as a bar from issue to expiry (a marker at expiry when there is no issue date), with today marked. The table below holds the same facts in text. */
+function CertTimeline({ certs }: { certs: CrmCategoryProfile["certificates"] }) {
+  const dated = certs.filter((c) => c.expiryDate);
+  if (dated.length === 0) return null;
+  const t = (d: string) => new Date(d).getTime();
+  const now = Date.now(), DAY = 86400000;
+  const lo = Math.min(now - 60 * DAY, ...dated.map((c) => (c.issuedDate ? t(c.issuedDate) : t(c.expiryDate!))));
+  const hi = Math.max(now + 120 * DAY, ...dated.map((c) => t(c.expiryDate!)));
+  const pos = (ms: number) => `${((ms - lo) / (hi - lo)) * 100}%`;
+  const tone = { valid: "good", expiring: "warning", expired: "critical", no_date: "neutral" } as const;
+  const summary = `Certificate timeline: ${dated.map((c) => `${certName(c.type)} ${STATE_LABEL[c.state].toLowerCase()}, expires ${fmtDate(c.expiryDate)}`).join("; ")}.`;
+  return (
+    <figure style={{ margin: 0, display: "grid", gap: 6 }} aria-label="Certificate timeline">
+      <figcaption style={{ ...lab }}>Each bar runs from issue to expiry; a diamond marks an expiry where no issue date is recorded. The line is today. Source: the stakeholder's certificate records (issue and expiry dates) in Project Management.</figcaption>
+      <div role="img" aria-label={summary} style={{ display: "grid", gap: 6, position: "relative", paddingTop: 4 }}>
+        {dated.map((c) => {
+          const end = t(c.expiryDate!), start = c.issuedDate ? t(c.issuedDate) : null;
+          return (
+            <div key={c.id} style={{ display: "grid", gridTemplateColumns: "minmax(90px, 150px) 1fr", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 12.5, overflowWrap: "anywhere" }}>{certName(c.type)}</span>
+              <div style={{ position: "relative", height: 16, background: "color-mix(in srgb, var(--u-ink-secondary) 12%, var(--u-surface))", borderRadius: 4 }}>
+                {start !== null
+                  ? <span style={{ position: "absolute", left: pos(start), width: `calc(${pos(end)} - ${pos(start)})`, top: 3, bottom: 3, borderRadius: 3, background: vizFill(tone[c.state]), minWidth: 4 }} />
+                  : <span style={{ position: "absolute", left: pos(end), top: 2, width: 10, height: 10, marginLeft: -5, transform: "rotate(45deg)", background: vizFill(tone[c.state]) }} />}
+                <span aria-hidden="true" style={{ position: "absolute", left: pos(now), top: -3, bottom: -3, width: 2, background: "var(--u-ink)" }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </figure>
+  );
+}
 
 function Section({ cat, children }: { cat: CrmCategoryKey; children: React.ReactNode }) {
   return (
@@ -37,6 +71,8 @@ export function CategoryPanel({ relId }: { relId: string }) {
   const cats = CATEGORY_ORDER.filter((k) => p.categories.includes(k));
   const tendersHref = UNIVERSE_APPS.find((a) => a.key === "tender-issuance")?.href;
   const certs = (
+    <>
+    <CertTimeline certs={p.certificates} />
     <div style={{ overflowX: "auto" }}>
       <table aria-label="Quality and regulatory certificates" style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}>
         <thead><tr>{["Certificate", "Issued by", "Issued", "Expires", "Evidence", "State"].map((h) => <th key={h} scope="col" style={{ textAlign: "left", padding: "6px 10px", ...lab, fontWeight: 600, borderBottom: "1px solid var(--u-border)" }}>{h}</th>)}</tr></thead>
@@ -51,6 +87,7 @@ export function CategoryPanel({ relId }: { relId: string }) {
           </tr>))}</tbody>
       </table>
     </div>
+    </>
   );
   return (
     <div style={{ display: "grid", gap: 14 }}>

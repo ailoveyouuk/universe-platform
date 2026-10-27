@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, categoryPlural, PARTNER_ROLE_TYPES, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmPipelineView, type CrmRelationshipRow, type CrmTag } from "@universe/types";
-import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon, CollapsibleSection } from "@universe/ui";
+import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon, CollapsibleSection, ProgressRing, SegmentBar } from "@universe/ui";
 import { useRouter } from "next/navigation";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -48,6 +48,32 @@ export default function Overview() {
       </StatTileGrid>
       <SourceNote keys={["overview", "health"]} />
       <DataGapsNote scope="overview" />
+      {o && o.total > 0 && (() => {
+        const pct = (n: number) => Math.round((n / o.total) * 100);
+        const statusTone = { PROSPECT: "brand", ACTIVE: "good", DORMANT: "neutral", ON_HOLD: "warning", ENDED: "neutral" } as const;
+        const tierTone = { STRATEGIC: "crm", KEY: "brand", STANDARD: "neutral", WATCH: "warning" } as const;
+        return (
+          <CollapsibleSection title="How the relationships are doing" level={2} bare>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(150px, 100%), 1fr))", gap: 14 }}>
+              {([["Active", pct(o.active), "good", "of relationships are active", "status=ACTIVE"], ["In good health", pct(o.total - o.needsAttention), "good", "need no attention", ""], ["Reviews on time", pct(o.total - o.reviewDue), "brand", "have no review overdue", ""], ["Have an owner", pct(o.total - o.unowned), "brand", "have someone looking after them", ""]] as const).map(([k, v, tone, cap, q]) => (
+                <li key={k} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <ProgressRing value={v} tone={tone} caption={`${k}: ${cap}`} />
+                  <span style={{ fontSize: 13.5 }}>{q ? <Link href={link(q)}>{k}</Link> : k}<span style={{ display: "block", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{cap}</span></span>
+                </li>
+              ))}
+            </ul>
+            <div style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>By status</span>
+              <SegmentBar ariaLabel="Relationships by status" legend segments={CRM_STATUSES.map((st) => ({ key: st, label: CRM_STATUS_LABELS[st], value: o.byStatus[st] ?? 0, tone: statusTone[st], href: link(`status=${st}`) }))} />
+            </div>
+            <div style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>By tier</span>
+              <SegmentBar ariaLabel="Relationships by tier" legend segments={CRM_TIERS.map((t) => ({ key: t, label: CRM_TIER_LABELS[t], value: o.byTier[t] ?? 0, tone: tierTone[t], href: link(`tier=${t}`) }))} />
+            </div>
+            <SourceNote keys={["overview", "health"]} />
+          </CollapsibleSection>
+        );
+      })()}
       <CollapsibleSection title="Stakeholders by kind" level={2} bare>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>

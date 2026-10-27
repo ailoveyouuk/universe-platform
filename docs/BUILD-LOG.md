@@ -1578,3 +1578,8 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - `useFocusField` now opens any closed collapsible around the target before landing on it, so `?focus=` works on phones too.
 - Verified live (f5daa5c): at 375x812, 812x375, 768x1024 sections start closed and open on tap; at 1024x768 all open; no horizontal overflow. Page heights on a phone: PM project detail 2,705 to 1,791px, Tender manage 2,014 to 1,128px, Product detail 5,058 to 1,471px, Admin organisation detail 8,050 to about 1,800px (landscape). `?focus=primaryColor` on Admin opened the closed Branding section and landed on the picker.
 - Collapsible coverage now: CRM, Insights, Project Management, Tenders, Product database and Admin (CRM verified fully; others at the sizes above on the long pages).
+
+## 2026-10-27 — CRM visuals: Overview rings and certificate timeline; win/loss variety seed (dry run)
+- CRM Overview: "How the relationships are doing" (collapsible): rings for active, in good health, reviews on time and have an owner, plus status and tier bars that open the filtered list. Source note included.
+- Stakeholder certificates: a timeline above the table (bars from issue to expiry, a diamond where only expiry is known, today marked; the table carries the same facts in text). Source line included.
+- New seed `seed:demo-winloss-variety` (workflow `seed-demo-winloss-variety.yml`, dry run by default): adds earlier won opportunities for some stakeholders and clears the owner on about one decided opportunity in five, so "Why we win and lose" has something to compare. Dry run: 7 earlier wins added, 10 of 40 owners cleared (7 won, 3 lost). Not yet applied (waiting for Lewis).
