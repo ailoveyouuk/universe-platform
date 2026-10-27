@@ -14,6 +14,8 @@ async function main() {
     await withPlatformStaffContext(async (tx) => {
       const demo = await tx.organization.findFirst({ where: { isDemo: true, name: "Universe Demo" }, select: { id: true } });
       if (!demo) throw new Error("Universe Demo not found.");
+      const all = await tx.crmOpportunity.groupBy({ by: ["linkedType"], where: { organizationId: demo.id, archivedAt: null }, _count: { _all: true } });
+      console.log("opportunities by link type:", JSON.stringify(all.map((g) => [g.linkedType, g._count._all])), "with tender:", await tx.crmOpportunity.count({ where: { organizationId: demo.id, archivedAt: null, sourceTenderId: { not: null } } }));
       const res = await syncOrganisationOpportunities(tx, demo.id, null);
       console.log(`${dryRun ? "[dry run] would sync" : "synced"} ${res.opportunities} linked opportunities: ${res.participantsAdded} people added, ${res.participantsRetired} retired, ${res.stageChanges} stage changes`);
       if (dryRun) throw new Rollback();
