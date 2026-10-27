@@ -24,7 +24,7 @@ import {
   LogoutIcon,
   UserIcon,
   GlobalSearch,
-  ClipboardCheckIcon, SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, GaugeIcon, BuildingIcon, AppAccessGate } from "@universe/ui";
+  ClipboardCheckIcon, SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, GaugeIcon, BuildingIcon, InfoIcon, AppAccessGate } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -42,6 +42,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/pipeline", label: "Pipeline", icon: () => <TrendingUpIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/compliance", label: "Compliance", icon: () => <ClipboardCheckIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/privacy", label: "Privacy", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "crm.manage" },
+  { href: "/methodology", label: "Methodology", icon: () => <InfoIcon size={19} />, inNav: true },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },
 ];
 

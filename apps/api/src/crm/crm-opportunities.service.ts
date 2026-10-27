@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { withTenantContext } from "@universe/db";
+import { syncOpportunity, syncOrganisationOpportunities, withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { COMMODITY_GROUPS, CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmAttentionItem, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPipelineView, type CrmPipelineSummary } from "@universe/types";
+import { COMMODITY_GROUPS, CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmAttentionItem, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityParticipant, type CrmOpportunityParticipantInput, type CrmOpportunitySyncResult, type CrmParticipantRole, type CrmTenderOption, CRM_PARTICIPANT_ROLES, type CrmOpportunityStage, type CrmPipelineView, type CrmPipelineSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -26,14 +26,14 @@ const AUDITED = ["title", "kind", "stage", "expectedValue", "currency", "expecte
 export class CrmOpportunitiesService {
   constructor(@Optional() private readonly fx?: ExchangeRatesService) {}
 
-  private shape(r: Row, owners: Map<string, string>, est: WinEstimate | null = null): CrmOpportunity {
+  private shape(r: Row, owners: Map<string, string>, est: WinEstimate | null = null, participants: CrmOpportunityParticipant[] = []): CrmOpportunity {
     const open = CRM_OPEN_STAGES.includes(r.stage as CrmOpportunityStage);
     return {
       id: r.id, relationshipId: r.relationshipId, relationshipName: r.relationship.partner?.name ?? "Unknown", title: r.title, kind: r.kind as CrmOpportunityKind, stage: r.stage as CrmOpportunityStage,
       stageChangedAt: r.stageChangedAt.toISOString(), expectedValue: r.expectedValue === null ? null : Number(r.expectedValue), currency: r.currency, expectedDate: r.expectedDate?.toISOString() ?? null,
       ownerUserId: r.ownerUserId, ownerName: r.ownerUserId ? owners.get(r.ownerUserId) ?? null : null, notes: r.notes, lostReason: r.lostReason,
       linkedType: r.linkedType, linkedId: r.linkedId, linkedLabel: r.linkedLabel, createdAt: r.createdAt.toISOString(), overdue: open && !!r.expectedDate && r.expectedDate.getTime() < Date.now(),
-      commodityGroup: r.commodityGroup, probability: open && est ? est.probability : null, winBasis: open && est ? est.basis : null,
+      commodityGroup: r.commodityGroup, sourceTenderId: r.sourceTenderId, sourceTenderLabel: r.sourceTenderLabel, syncWithLinked: r.syncWithLinked, participants, probability: open && est ? est.probability : null, winBasis: open && est ? est.basis : null,
     };
   }
   private static readonly include = { relationship: { select: { partner: { select: { name: true } } } } } as const;
@@ -62,12 +62,78 @@ export class CrmOpportunitiesService {
     await tx.crmOpportunityEvent.create({ data: { organizationId: org, opportunityId, changedById: userId, eventType: e.eventType, fromStage: e.fromStage ?? null, toStage: e.toStage ?? null, oldValue: e.oldValue ?? null, newValue: e.newValue ?? null, currency: e.currency ?? null, oldDate: e.oldDate ?? null, newDate: e.newDate ?? null, reason: e.reason?.slice(0, 500) ?? null } });
   }
 
-  async list(u: RequestUser, q: { relationshipId?: string; stage?: string; kind?: string; owner?: string; q?: string; open?: string; group?: string; attention?: string; page?: number; pageSize?: number }): Promise<CrmOpportunityPage> {
+  private async participantMap(tx: Prisma.TransactionClient, org: string, ids: string[]): Promise<Map<string, CrmOpportunityParticipant[]>> {
+    const out = new Map<string, CrmOpportunityParticipant[]>();
+    if (!ids.length) return out;
+    const rows = await tx.crmOpportunityParticipant.findMany({ where: { organizationId: org, opportunityId: { in: ids }, archivedAt: null }, orderBy: { createdAt: "asc" },
+      select: { id: true, opportunityId: true, relationshipId: true, role: true, source: true, note: true } });
+    const rels = rows.length ? await tx.crmRelationship.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.relationshipId))] }, organizationId: org }, select: { id: true, partner: { select: { name: true, roles: { where: { isActive: true }, select: { roleType: true } } } } } }) : [];
+    const by = new Map(rels.map((r) => [r.id, r]));
+    for (const r of rows) {
+      const rel = by.get(r.relationshipId); if (!rel) continue;
+      const list = out.get(r.opportunityId) ?? [];
+      list.push({ id: r.id, relationshipId: r.relationshipId, name: rel.partner?.name ?? "Stakeholder", kinds: (rel.partner?.roles ?? []).map((x) => x.roleType), role: r.role as CrmParticipantRole, source: r.source as "MANUAL" | "TENDER" | "PROJECT", note: r.note });
+      out.set(r.opportunityId, list);
+    }
+    return out;
+  }
+
+  /** Tenders this organisation may see (its own, and those visible to it), for linking to an opportunity. */
+  async tenderOptions(u: RequestUser, q?: string): Promise<CrmTenderOption[]> {
+    assertHasPermission(u, "crm.view");
+    const needle = q?.trim();
+    return withTenantContext(u.organizationId, async (tx) => {
+      const rows = await tx.tender.findMany({ where: { status: { not: "DRAFT" }, ...(needle ? { OR: [{ title: { contains: needle } }, { referenceNumber: { contains: needle } }] } : {}) }, orderBy: { publishedAt: "desc" }, take: 25,
+        select: { id: true, referenceNumber: true, title: true, status: true, closingAt: true, organization: { select: { name: true } } } });
+      return rows.map((t) => ({ id: t.id, referenceNumber: t.referenceNumber, title: t.title, status: t.status, issuerName: t.organization.name, closingAt: t.closingAt?.toISOString() ?? null }));
+    });
+  }
+
+  async addParticipant(u: RequestUser, id: string, dto: CrmOpportunityParticipantInput): Promise<CrmOpportunity> {
+    assertHasPermission(u, "crm.manage");
+    if (!dto.relationshipId || !dto.role || !CRM_PARTICIPANT_ROLES.includes(dto.role)) throw new BadRequestException("Choose a stakeholder and what they did.");
+    return withTenantContext(u.organizationId, async (tx) => {
+      const o = await tx.crmOpportunity.findFirst({ where: { id, organizationId: u.organizationId }, select: { id: true } }); if (!o) throw new NotFoundException("Opportunity not found.");
+      const rel = await tx.crmRelationship.findFirst({ where: { id: dto.relationshipId, organizationId: u.organizationId, archivedAt: null }, select: { id: true } }); if (!rel) throw new BadRequestException("That stakeholder was not found.");
+      await tx.crmOpportunityParticipant.upsert({ where: { opportunityId_relationshipId_role: { opportunityId: id, relationshipId: rel.id, role: dto.role! } },
+        create: { organizationId: u.organizationId, opportunityId: id, relationshipId: rel.id, role: dto.role!, source: "MANUAL", note: dto.note?.trim().slice(0, 300) || null, createdById: u.id }, update: { archivedAt: null, source: "MANUAL", note: dto.note?.trim().slice(0, 300) || null } });
+      await recordFieldChanges(tx, { organizationId: u.organizationId, tableName: "crm_opportunities", recordId: id, changedById: u.id, changes: [{ field: "participant added", oldValue: null, newValue: `${dto.role}: ${rel.id}` }] });
+      return this.one(tx, u, id);
+    });
+  }
+
+  async removeParticipant(u: RequestUser, id: string, participantId: string): Promise<CrmOpportunity> {
+    assertHasPermission(u, "crm.manage");
+    return withTenantContext(u.organizationId, async (tx) => {
+      const p = await tx.crmOpportunityParticipant.findFirst({ where: { id: participantId, opportunityId: id, organizationId: u.organizationId } }); if (!p) throw new NotFoundException("Not found.");
+      await tx.crmOpportunityParticipant.update({ where: { id: p.id }, data: { archivedAt: new Date() } });
+      await recordFieldChanges(tx, { organizationId: u.organizationId, tableName: "crm_opportunities", recordId: id, changedById: u.id, changes: [{ field: "participant removed", oldValue: `${p.role}: ${p.relationshipId}`, newValue: null }] });
+      return this.one(tx, u, id);
+    });
+  }
+
+  /** Re-reads the linked tender and project: who is involved, and (where it follows the link) the stage. One opportunity, or all that have a link. */
+  async sync(u: RequestUser, id?: string): Promise<CrmOpportunitySyncResult> {
+    assertHasPermission(u, "crm.manage");
+    return withTenantContext(u.organizationId, async (tx) => {
+      if (id) { const o = await tx.crmOpportunity.findFirst({ where: { id, organizationId: u.organizationId }, select: { id: true } }); if (!o) throw new NotFoundException("Opportunity not found."); }
+      return syncOrganisationOpportunities(tx, u.organizationId, u.id, id ? [id] : undefined);
+    });
+  }
+
+  private async one(tx: Prisma.TransactionClient, u: RequestUser, id: string): Promise<CrmOpportunity> {
+    const row = await tx.crmOpportunity.findFirstOrThrow({ where: { id, organizationId: u.organizationId }, include: CrmOpportunitiesService.include });
+    const [owners, hist, parts] = await Promise.all([this.owners(tx, u.organizationId, [row.ownerUserId]), this.history(tx, u.organizationId), this.participantMap(tx, u.organizationId, [id])]);
+    return this.shape(row, owners, hist.model.estimate({ stage: row.stage, kind: row.kind, commodityGroup: row.commodityGroup, relationshipId: row.relationshipId }), parts.get(id) ?? []);
+  }
+
+  async list(u: RequestUser, q: { relationshipId?: string; stage?: string; kind?: string; owner?: string; q?: string; open?: string; group?: string; attention?: string; involved?: string; page?: number; pageSize?: number }): Promise<CrmOpportunityPage> {
     assertHasPermission(u, "crm.view");
     const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100); const page = Math.max(q.page ?? 1, 1);
     return withTenantContext(u.organizationId, async (tx) => {
       const and: Prisma.CrmOpportunityWhereInput[] = [{ organizationId: u.organizationId, archivedAt: null }];
       if (q.relationshipId) and.push({ relationshipId: q.relationshipId });
+      if (q.involved) and.push({ participants: { some: { relationshipId: q.involved, archivedAt: null } }, relationshipId: { not: q.involved } });
       if (q.stage) and.push({ stage: q.stage });
       if (q.open === "true") and.push({ stage: { in: [...CRM_OPEN_STAGES] } });
       if (q.kind) and.push({ kind: q.kind });
@@ -84,7 +150,8 @@ export class CrmOpportunitiesService {
       ]);
       const owners = await this.owners(tx, u.organizationId, rows.map((r) => r.ownerUserId));
       const { model } = await this.history(tx, u.organizationId);
-      return { items: rows.map((r) => this.shape(r, owners, model.estimate({ stage: r.stage, kind: r.kind, commodityGroup: r.commodityGroup, relationshipId: r.relationshipId }))), total, page, pageSize };
+      const parts = await this.participantMap(tx, u.organizationId, rows.map((r) => r.id));
+      return { items: rows.map((r) => this.shape(r, owners, model.estimate({ stage: r.stage, kind: r.kind, commodityGroup: r.commodityGroup, relationshipId: r.relationshipId }), parts.get(r.id) ?? [])), total, page, pageSize };
     });
   }
 
@@ -225,6 +292,15 @@ export class CrmOpportunitiesService {
     });
   }
 
+  /** The tender to link, if one was chosen: it must be one the organisation can see (the tender policy decides). null clears the link. */
+  private async resolveTender(tx: Prisma.TransactionClient, dto: CrmOpportunityInput): Promise<{ id: string; label: string } | null | undefined> {
+    if (dto.sourceTenderId === undefined) return undefined;
+    if (!dto.sourceTenderId) return null;
+    const t = await tx.tender.findFirst({ where: { id: dto.sourceTenderId }, select: { id: true, referenceNumber: true, title: true } });
+    if (!t) throw new BadRequestException("That tender was not found, or you cannot see it.");
+    return { id: t.id, label: `${t.referenceNumber} · ${t.title}`.slice(0, 300) };
+  }
+
   private async validate(tx: Prisma.TransactionClient, u: RequestUser, dto: CrmOpportunityInput) {
     if (dto.kind !== undefined && !CRM_OPPORTUNITY_KINDS.includes(dto.kind)) throw new BadRequestException("Choose a kind from the list.");
     if (dto.stage !== undefined && !CRM_OPPORTUNITY_STAGES.includes(dto.stage)) throw new BadRequestException("Choose a stage from the list.");
@@ -256,14 +332,17 @@ export class CrmOpportunitiesService {
       if (!rel) throw new NotFoundException("Relationship not found.");
       if (rel.archivedAt) throw new BadRequestException("This relationship is archived.");
       const linked = await this.validate(tx, u, dto);
+      const tender = await this.resolveTender(tx, dto);
       const row = await tx.crmOpportunity.create({ include: CrmOpportunitiesService.include, data: {
         organizationId: u.organizationId, relationshipId: rel.id, title: title.slice(0, 200), kind, stage: dto.stage ?? "IDENTIFIED",
         expectedValue: dto.expectedValue ?? null, currency: dto.expectedValue != null ? dto.currency ?? null : null, expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : null,
         commodityGroup: dto.commodityGroup ?? linked?.commodityGroup ?? null, ownerUserId: dto.ownerUserId ?? linked?.leadUserId ?? null, notes: dto.notes?.trim().slice(0, 1000) || null, lostReason: dto.lostReason?.trim().slice(0, 500) || null,
-        linkedType: linked?.type ?? null, linkedId: linked?.id ?? null, linkedLabel: linked?.label ?? null, createdById: u.id } });
+        linkedType: linked?.type ?? null, linkedId: linked?.id ?? null, linkedLabel: linked?.label ?? null,
+        sourceTenderId: tender?.id ?? null, sourceTenderLabel: tender?.label ?? null, syncWithLinked: !!dto.syncWithLinked && !!(linked || tender), createdById: u.id } });
       await recordFieldChanges(tx, { organizationId: u.organizationId, tableName: "crm_opportunities", recordId: row.id, changedById: u.id, changes: [{ field: "created", oldValue: null, newValue: `${row.kind}: ${row.title}` }] });
       await this.logEvent(tx, u.organizationId, row.id, u.id, { eventType: "CREATED", toStage: row.stage, newValue: row.expectedValue === null ? null : Number(row.expectedValue), currency: row.currency, newDate: row.expectedDate });
-      return this.shape(row, await this.owners(tx, u.organizationId, [row.ownerUserId]), (await this.history(tx, u.organizationId)).model.estimate({ stage: row.stage, kind: row.kind, commodityGroup: row.commodityGroup, relationshipId: row.relationshipId }));
+      if (linked || tender) await syncOpportunity(tx, { id: row.id, organizationId: row.organizationId, relationshipId: row.relationshipId, stage: row.stage, linkedType: row.linkedType, linkedId: row.linkedId, sourceTenderId: row.sourceTenderId, syncWithLinked: row.syncWithLinked, lostReason: row.lostReason }, u.id);
+      return this.one(tx, u, row.id);
     });
   }
 
@@ -273,6 +352,7 @@ export class CrmOpportunitiesService {
       const cur = await tx.crmOpportunity.findFirst({ where: { id, organizationId: u.organizationId } });
       if (!cur) throw new NotFoundException("Opportunity not found.");
       const linked = await this.validate(tx, u, dto);
+      const tender = await this.resolveTender(tx, dto);
       const stage = dto.stage ?? cur.stage;
       const lostReason = dto.lostReason !== undefined ? dto.lostReason?.trim() || null : cur.lostReason;
       if (stage === "LOST" && !lostReason) throw new BadRequestException("Say why it was lost.");
@@ -292,6 +372,8 @@ export class CrmOpportunitiesService {
         if (linked && dto.commodityGroup === undefined && !cur.commodityGroup && linked.commodityGroup) data.commodityGroup = linked.commodityGroup;
         if (linked && dto.ownerUserId === undefined && !cur.ownerUserId && linked.leadUserId) data.ownerUserId = linked.leadUserId;
       }
+      if (tender !== undefined) { data.sourceTenderId = tender?.id ?? null; data.sourceTenderLabel = tender?.label ?? null; }
+      if (dto.syncWithLinked !== undefined) data.syncWithLinked = dto.syncWithLinked && !!((dto.linkedProjectId === undefined ? cur.linkedId : linked?.id) || (tender === undefined ? cur.sourceTenderId : tender?.id));
       if (dto.archived !== undefined) { data.archivedAt = dto.archived ? new Date() : null; data.archivedById = dto.archived ? u.id : null; }
       const row = await tx.crmOpportunity.update({ where: { id }, data, include: CrmOpportunitiesService.include });
       await recordFieldChanges(tx, { organizationId: u.organizationId, tableName: "crm_opportunities", recordId: id, changedById: u.id, reason: stage === "LOST" ? lostReason : null, changes: diffForAudit(cur, data, AUDITED) });
@@ -301,7 +383,8 @@ export class CrmOpportunitiesService {
       // A move, a new date or archiving answers any "past its date" or "has not moved" action about it.
       if ((dto.stage !== undefined && dto.stage !== cur.stage) || dateChanged || dto.archived) await completeActionsFor(tx, u.organizationId, "CrmOpportunity", id);
       if (oldV !== newV || dateChanged) await this.logEvent(tx, u.organizationId, id, u.id, { eventType: "REVISION", oldValue: oldV, newValue: newV, currency: row.currency, oldDate: cur.expectedDate, newDate: row.expectedDate });
-      return this.shape(row, await this.owners(tx, u.organizationId, [row.ownerUserId]), (await this.history(tx, u.organizationId)).model.estimate({ stage: row.stage, kind: row.kind, commodityGroup: row.commodityGroup, relationshipId: row.relationshipId }));
+      if (tender !== undefined || dto.linkedProjectId !== undefined || dto.syncWithLinked !== undefined) await syncOpportunity(tx, { id: row.id, organizationId: row.organizationId, relationshipId: row.relationshipId, stage: row.stage, linkedType: row.linkedType, linkedId: row.linkedId, sourceTenderId: row.sourceTenderId, syncWithLinked: row.syncWithLinked, lostReason: row.lostReason }, u.id);
+      return this.one(tx, u, id);
     });
   }
 }

@@ -1,6 +1,7 @@
 import { withPlatformStaffContext } from "./index";
+import { syncOrganisationOpportunities } from "./crm-opportunity-sync";
 
-export interface CrmReviewReminderResult { checked: number; created: number; skipped: number; /** Opportunity reminders written (past their date, or no movement for a long time). */ opportunities?: number }
+export interface CrmReviewReminderResult { checked: number; created: number; skipped: number; /** Opportunity reminders written (past their date, or no movement for a long time). */ opportunities?: number; /** Opportunities whose stage followed their linked tender or project today. */ stageSyncs?: number }
 
 /** An open opportunity with no stage movement for this long is flagged to its owner. */
 export const CRM_STALE_OPPORTUNITY_DAYS = 60;
@@ -18,6 +19,11 @@ export async function runCrmReviewReminders(opts: { dryRun?: boolean; now?: Date
   const horizon = new Date(now.getTime() + CRM_REVIEW_LEAD_DAYS * 86400000);
   const res: CrmReviewReminderResult = { checked: 0, created: 0, skipped: 0, opportunities: 0 };
   await withPlatformStaffContext(async (tx: any) => {
+    // Opportunities set to follow their tender bid or project catch up first, so the reminders below see their true stage.
+    if (!opts.dryRun) {
+      const orgs = await tx.crmOpportunity.findMany({ where: { archivedAt: null, syncWithLinked: true }, distinct: ["organizationId"], select: { organizationId: true } });
+      for (const o of orgs) { const only = (await tx.crmOpportunity.findMany({ where: { organizationId: o.organizationId, archivedAt: null, syncWithLinked: true }, select: { id: true }, take: 5000 })).map((x: { id: string }) => x.id); const r = await syncOrganisationOpportunities(tx, o.organizationId, null, only); res.stageSyncs = (res.stageSyncs ?? 0) + r.stageChanges; }
+    }
     const rels = await tx.crmRelationship.findMany({
       where: { archivedAt: null, status: { notIn: ["ENDED", "PROSPECT"] }, nextReviewDue: { not: null, lte: horizon }, ownerUserId: { not: null } },
       select: { id: true, organizationId: true, ownerUserId: true, nextReviewDue: true, partner: { select: { name: true } } },

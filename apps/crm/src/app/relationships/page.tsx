@@ -19,6 +19,7 @@ import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, HEALTH_TONE, Heading, OkNote, Page, fmtDate, humanise, inputStyle } from "../../lib/ui";
+import { SourceNote } from "../../components/SourceNote";
 
 type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string; tag: string; quiet: string; certs: string };
 const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "", tag: "", quiet: "", certs: "" };
@@ -101,6 +102,7 @@ export default function RelationshipsPage() {
         <StatTile label="Need attention" value={counts?.needsAttention} icon={<AlertIcon size={18} />} tone="warning" onClick={() => toggle({ health: "attention" })} active={tileOn({ health: "attention" })} />
         <StatTile label="Reviews due" value={counts?.reviewDue} icon={<ClockIcon size={18} />} tone="critical" onClick={() => toggle({ review: "due" })} active={tileOn({ review: "due" })} />
       </StatTileGrid>
+      <SourceNote keys={["overview", "health"]} />
 
       {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); loadCounts(); }} />}
       {canManage && <div style={{ display: "flex", justifyContent: "flex-end" }}><ExportMenu filters={{ ...f, q: dq }} onNote={setOk} onError={(m) => setErr(m || null)} /></div>}
@@ -189,7 +191,7 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
           {tab === "interactions" ? <Interactions relId={r.id} canManage={canManage} people={people} /> : tab === "opportunities" ? <Opportunities relId={r.id} canManage={canManage} people={people} /> : tab === "hospitality" ? <Hospitality relId={r.id} canManage={canManage} /> : tab === "network" ? <Network relId={r.id} /> : tab === "people" ? <People relId={r.id} partnerId={r.partnerId} canManage={canManage} /> : tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} canManage={canManage} /> : (<>
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 14px", margin: "6px 0 0" }}>
             <dt style={dt}>Health</dt>
-            <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>}</dd>
+            <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>} <SourceNote keys={["health"]} /></dd>
             <dt style={dt}>Stakeholder approval</dt><dd style={dd}>{r.approvalStatus ? humanise(r.approvalStatus) : "Not known"}{r.riskTier ? ` · ${humanise(r.riskTier)} risk` : ""}</dd>
             <dt style={dt}>Quality scorecard</dt>
             <dd style={dd}>{card === null ? "Loading…" : card === "none" ? "Not available." : card.overallScore === null ? "Not enough data yet." : <><strong>{Math.round(card.overallScore)}</strong> out of 100, {humanise(card.scoreBand)}{card.attention.length ? `. Needs attention: ${card.attention.join(", ")}` : ""}. Based on {Math.round(card.coverage)}% of the measures.</>}</dd>

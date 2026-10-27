@@ -4982,6 +4982,12 @@ model CrmOpportunity {
   /// Commodity group (COMMODITY_GROUPS) the work falls under; lets win probability compare like with like. Nullable, set by the user or derived from the linked project.
   commodityGroup String?         @db.NVarChar(40)
   stageEvents    CrmOpportunityEvent[]
+  participants   CrmOpportunityParticipant[]
+  /// The tender this opportunity is about (2026-10-27). Not a foreign key: the tender usually belongs to another organisation. Visibility is checked by the tender policy.
+  sourceTenderId    String?
+  sourceTenderLabel String?      @db.NVarChar(300)
+  /// When true the stage follows the linked tender bid or Project Management project (set only by choosing to keep them in step; existing links are never changed behind anyone's back).
+  syncWithLinked    Boolean      @default(false)
   /// The real record once one exists: PROJECT today.
   linkedType     String?
   linkedId       String?
@@ -5020,6 +5026,28 @@ model CrmOpportunityEvent {
   @@index([organizationId, opportunityId, occurredAt])
   @@index([organizationId, eventType])
   @@map("crm_opportunity_events")
+}
+
+/// CRM stage B (2026-10-27): every stakeholder that has touched an opportunity, and in what capacity. Rows come from the linked tender and project
+/// (source TENDER or PROJECT, refreshed on sync, retired when no longer true) or are added by a person (MANUAL). Retired, never deleted.
+model CrmOpportunityParticipant {
+  id             String         @id @default(uuid())
+  organizationId String
+  opportunityId  String
+  opportunity    CrmOpportunity @relation(fields: [opportunityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  relationshipId String
+  /// ISSUER | FUNDER | SUBMITTER | MANUFACTURER | SUPPLIER | FREIGHT_FORWARDER | CLIENT | OTHER
+  role           String         @db.NVarChar(20)
+  /// MANUAL | TENDER | PROJECT
+  source         String         @db.NVarChar(10)
+  note           String?        @db.NVarChar(300)
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  archivedAt     DateTime?
+
+  @@unique([opportunityId, relationshipId, role])
+  @@index([organizationId, relationshipId])
+  @@map("crm_opportunity_participants")
 }
 
 /// CRM step 6 (2026-10-27): free segments an organisation defines to group relationships ("WHO-prequalified", "India", "cold chain").

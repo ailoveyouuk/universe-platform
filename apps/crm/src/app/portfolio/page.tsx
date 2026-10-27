@@ -11,6 +11,7 @@ import { sinceAgo, WORK_STATUS_TONE } from "../../lib/since";
 import { SavedFilters } from "../../components/SavedFilters";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { PORTFOLIO_COLUMNS } from "../../components/PortfolioStrip";
+import { SourceNote } from "../../components/SourceNote";
 
 type Filters = { q: string; role: string; status: string; work: string; tag: string; country: string };
 const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "", country: "" };
@@ -84,6 +85,7 @@ export default function Portfolio() {
       {(!map || map.work) && <StatTileGrid>
         {TILES.map((t) => <StatTile key={t.key} label={t.label} value={map?.work ? map.work[t.work] : undefined} icon={t.icon} tone={t.tone} active={f.work === t.work} onClick={() => set({ work: f.work === t.work ? "" : t.work })} />)}
       </StatTileGrid>}
+      <SourceNote keys={["portfolio"]} />
       <section aria-label="Where your stakeholders are based" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", padding: 10, display: "grid", gap: 6 }}>
         <WorldMap points={points} legend={legend} maxHeight={360} cluster={false} onPointClick={(p) => set({ country: p.id.split(":")[0] === f.country ? "" : p.id.split(":")[0] })} emptyMessage={map ? "No stakeholders with a country match these filters." : "Loading the map…"} />
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Pips show where each kind of stakeholder is based, sized by how many. Select one to filter the table to that country.{map?.noCountry ? ` ${map.noCountry} have no country recorded.` : ""}{map?.capped ? " Showing the first 6,000." : ""}</p>

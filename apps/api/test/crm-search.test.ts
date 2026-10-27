@@ -53,6 +53,8 @@ describe("CRM search", () => {
       const orgs = { in: [orgA, orgB] };
       await tx.notification.deleteMany({ where: { organizationId: orgs } });
       await tx.fieldChangeLog.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmOpportunityParticipant.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmOpportunityEvent.deleteMany({ where: { organizationId: orgs } });
       await tx.crmOpportunity.deleteMany({ where: { organizationId: orgs } });
       await tx.crmInteraction.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationshipTag.deleteMany({ where: { organizationId: orgs } });

@@ -4,6 +4,7 @@ import { CRM_NETWORK_FLOOR, type CrmNetworkOrganisation, type CrmNetworkPanel } 
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { ErrorNote, Field, fmtDate, humanise, inputStyle } from "../lib/ui";
+import { SourceNote } from "./SourceNote";
 
 const box = { border: "1px solid var(--u-border)", borderRadius: 8, padding: 14, background: "var(--u-surface)" } as const;
 
@@ -19,6 +20,7 @@ export function Network({ relId }: { relId: string }) {
     <div style={{ display: "grid", gap: 12 }}>
       <section style={box} aria-label="Across Universe">
         <h2 style={{ margin: "0 0 6px", fontSize: 14 }}>Across Universe (anonymous)</h2>
+        <SourceNote keys={["network"]} />
         {p.belowFloor
           ? <p style={{ margin: 0 }}>Fewer than {CRM_NETWORK_FLOOR} other organisations hold this stakeholder, so no figure is shown. This protects who they are.</p>
           : <>

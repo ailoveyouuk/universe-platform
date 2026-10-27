@@ -41,6 +41,8 @@ describe("CRM interactions", () => {
       const orgs = { in: [orgA, orgB] };
       await tx.notification.deleteMany({ where: { organizationId: orgs } });
       await tx.fieldChangeLog.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmOpportunityParticipant.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmOpportunityEvent.deleteMany({ where: { organizationId: orgs } });
       await tx.crmOpportunity.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationship.deleteMany({ where: { organizationId: orgs } });
       await tx.partner.deleteMany({ where: { organizationId: orgs } });

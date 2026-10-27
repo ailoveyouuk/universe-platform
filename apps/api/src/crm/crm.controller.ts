@@ -21,7 +21,7 @@ import { ConfirmStandaloneUploadDto } from "../documents/dto/confirm-standalone-
 import { LinkStandaloneDocumentDto } from "../documents/dto/link-standalone.dto";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, OpportunityParticipantDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
@@ -88,6 +88,11 @@ export class CrmController {
   }
   @Get("pipeline/view") pipelineView(@CurrentUser() user: RequestUser, @Query("currency") currency?: string, @Query("relationshipId") relationshipId?: string) { return this.opportunities.pipelineView(user, currency, relationshipId); }
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
+  @Get("tenders/options") tenderOptions(@CurrentUser() user: RequestUser, @Query("q") q?: string) { return this.opportunities.tenderOptions(user, q); }
+  @Post("opportunities/sync") @HttpCode(200) syncAllOpportunities(@CurrentUser() user: RequestUser) { return this.opportunities.sync(user); }
+  @Post("opportunities/:id/sync") @HttpCode(200) syncOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.opportunities.sync(user, id); }
+  @Post("opportunities/:id/participants") addParticipant(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityParticipantDto) { return this.opportunities.addParticipant(user, id, dto); }
+  @Delete("opportunities/:id/participants/:participantId") removeParticipant(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("participantId") participantId: string) { return this.opportunities.removeParticipant(user, id, participantId); }
   @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
   @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }
 

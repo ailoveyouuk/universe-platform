@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
-import { CRM_HOSPITALITY_CATEGORIES, CRM_HOSPITALITY_DIRECTIONS, CRM_DECISION_ROLES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
+import { CRM_HOSPITALITY_CATEGORIES, CRM_HOSPITALITY_DIRECTIONS, CRM_DECISION_ROLES, CRM_OPPORTUNITY_KINDS, CRM_PARTICIPANT_ROLES, CRM_OPPORTUNITY_STAGES, CRM_HEALTH, CRM_INTERACTION_TYPES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_STATUSES, CRM_SUBSCRIBER_TYPES, CRM_TIERS } from "@universe/types";
 
 export class UpdateRelationshipDto {
   @IsOptional() @IsIn([...CRM_TIERS]) tier?: string;
@@ -79,7 +79,15 @@ export class OpportunityDto {
   @IsOptional() @IsString() @MaxLength(500) lostReason?: string | null;
   @IsOptional() @IsString() @MaxLength(100) linkedProjectId?: string | null;
   @IsOptional() @IsString() @MaxLength(40) commodityGroup?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) sourceTenderId?: string | null;
+  @IsOptional() @IsBoolean() syncWithLinked?: boolean;
   @IsOptional() @IsBoolean() archived?: boolean;
+}
+
+export class OpportunityParticipantDto {
+  @IsString() @MaxLength(100) relationshipId!: string;
+  @IsIn([...CRM_PARTICIPANT_ROLES]) role!: (typeof CRM_PARTICIPANT_ROLES)[number];
+  @IsOptional() @IsString() @MaxLength(300) note?: string | null;
 }
 
 export class TagDto {

@@ -9,6 +9,7 @@ import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { accentVar } from "../lib/category";
 import { ErrorNote, Page, fmtDate } from "../lib/ui";
+import { SourceNote } from "../components/SourceNote";
 
 /** Overview: where the organisation's relationships stand. Every tile opens the Relationships list already filtered. */
 export default function Overview() {
@@ -44,6 +45,7 @@ export default function Overview() {
         {tile("Need attention", o?.needsAttention, <AlertIcon size={18} />, "warning", "health=attention")}
         {tile("Reviews due", o?.reviewDue, <ClockIcon size={18} />, "critical", "review=due")}
       </StatTileGrid>
+      <SourceNote keys={["overview", "health"]} />
       <section aria-labelledby="by-kind" style={{ display: "grid", gap: 10 }}>
         <h2 id="by-kind" style={{ margin: 0, fontSize: 18, fontFamily: "var(--u-font-display)" }}>Stakeholders by kind</h2>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>
@@ -60,6 +62,7 @@ export default function Overview() {
             );
           })}
         </ul>
+        <SourceNote keys={["kinds"]} />
       </section>
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
@@ -81,6 +84,7 @@ export default function Overview() {
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", gap: 18, flexWrap: "wrap" }}>
             {CRM_OPEN_STAGES.map((st) => <li key={st}>{CRM_OPPORTUNITY_STAGE_LABELS[st]} <strong>{pl.byStage[st].count}</strong></li>)}
           </ul>
+          <SourceNote keys={["pipeline", "forecast"]} />
           <p style={{ margin: "8px 0 0", fontSize: 13.5 }}><Link href="/pipeline">Open the pipeline</Link>{pl.closingSoon > 0 ? `. ${pl.closingSoon} expected within 30 days.` : "."}</p>
         </section>
       )}

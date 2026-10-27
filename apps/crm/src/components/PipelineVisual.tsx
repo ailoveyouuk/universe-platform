@@ -7,6 +7,7 @@ import { Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { accentVar } from "../lib/category";
 import { PipelineInsights } from "./PipelineInsights";
+import { SourceNote } from "./SourceNote";
 
 const STAGE_COLOUR: Record<CrmOpportunityStage, string> = {
   IDENTIFIED: "color-mix(in srgb, var(--u-module-crm) 55%, var(--u-surface))", QUALIFYING: "color-mix(in srgb, var(--u-module-crm) 72%, var(--u-surface))", ENGAGED: "var(--u-module-crm)", SUBMITTED: "var(--u-brand-violet)",
@@ -50,6 +51,7 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
       </div>
       <p style={muted}>Every value is shown in {v.currency}{v.rateDate ? ` at the platform rate for ${new Date(v.rateDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}, so the stages can be compared and added. Cost-side estimates only.{missing > 0 ? ` ${missing} valued ${missing === 1 ? "opportunity is" : "opportunities are"} left out because no rate was available.` : ""}</p>
 
+      <SourceNote keys={["pipeline", "forecast"]} />
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 12 }}>
         {[["Open pipeline", money(v.openValue), `${CRM_OPEN_STAGES.reduce((n, s) => n + (v.stages.find((x) => x.stage === s)?.count ?? 0), 0)} open`], ["Won", money(v.wonValue), `${v.stages.find((x) => x.stage === "WON")?.count ?? 0} won`], ["Win rate", v.winRate === null ? "None closed yet" : `${v.winRate}%`, "won out of won and lost"], ["Likely to land", money(v.weightedValue), v.model.closedCount ? `weighted by chance of winning · ${v.model.confidence === "HIGH" ? "well evidenced" : v.model.confidence === "MEDIUM" ? "some evidence" : "early estimate"}` : "weighted by stage; no history yet"], ["Due this month", next30 ? money(next30.value) : "—", `${next30?.count ?? 0} expected`]].map(([k, big, small]) => (
           <li key={k} style={{ ...card, gap: 2 }}><span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>{k}</span><span style={{ fontSize: 26, fontWeight: 700, fontFamily: "var(--u-font-display)", lineHeight: 1.15 }}>{big}</span><span style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{small}</span></li>
@@ -95,12 +97,14 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
               })}
             </ul>
           </div>
+          <SourceNote keys={["pipeline"]} />
           <p style={{ ...muted, fontSize: 12.5 }}>{v.overdue.count > 0 ? `${v.overdue.count} open past their expected date (${money(v.overdue.value)}). ` : "None past their expected date. "}{v.noDate.count > 0 ? `${v.noDate.count} open with no date (${money(v.noDate.value)}).` : ""}</p>
         </div>
 
         {!relationshipId && <div style={card}>
           <h3 style={h2}>Open pipeline by kind of stakeholder</h3>
           <p style={muted}>Choose a kind to see those stakeholders.</p>
+          <SourceNote keys={["kinds"]} />
           {v.kinds.length === 0 ? <p style={muted}>No open opportunities.</p> : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
               {v.kinds.map((k) => (
@@ -119,6 +123,7 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
         <div style={card}>
           <h3 style={h2}>Biggest opportunities by stakeholder</h3>
           <p style={muted}>Ranked by open pipeline value. Choose a stakeholder to open its pipeline.</p>
+          <SourceNote keys={["pipeline"]} />
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
             {v.stakeholders.map((x) => (
               <li key={x.relationshipId} style={{ display: "grid", gap: 3 }}>

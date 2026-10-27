@@ -4349,9 +4349,21 @@ export interface CrmOpportunity {
   linkedType: string | null; linkedId: string | null; linkedLabel: string | null; createdAt: string; overdue: boolean;
   /** Commodity or service group (COMMODITY_GROUPS code), when known. */
   commodityGroup: string | null;
+  /** The tender this is about, and whether the stage follows the linked tender bid or project. */
+  sourceTenderId: string | null; sourceTenderLabel: string | null; syncWithLinked: boolean;
+  /** Every stakeholder that has touched it, with the capacity. Included on lists and details. */
+  participants: CrmOpportunityParticipant[];
   /** Estimated chance of winning, 0 to 1, for open opportunities; null once closed. See CrmWinBasis for the evidence. */
   probability: number | null; winBasis: CrmWinBasis | null;
 }
+export const CRM_PARTICIPANT_ROLES = ["ISSUER", "FUNDER", "SUBMITTER", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "OTHER"] as const;
+export type CrmParticipantRole = (typeof CRM_PARTICIPANT_ROLES)[number];
+export const CRM_PARTICIPANT_ROLE_LABELS: Record<CrmParticipantRole, string> = { ISSUER: "Tender issuer", FUNDER: "Funder or donor", SUBMITTER: "Bidder or agent", MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier", FREIGHT_FORWARDER: "Freight forwarder", CLIENT: "Client", OTHER: "Other" };
+export interface CrmOpportunityParticipant { id: string; relationshipId: string; name: string; kinds: string[]; role: CrmParticipantRole; source: "MANUAL" | "TENDER" | "PROJECT"; note: string | null }
+export interface CrmOpportunityParticipantInput { relationshipId?: string; role?: CrmParticipantRole; note?: string | null }
+export interface CrmOpportunitySyncResult { opportunities: number; stageChanges: number; participantsAdded: number; participantsRetired: number }
+/** A tender the organisation can see, for linking to an opportunity. */
+export interface CrmTenderOption { id: string; referenceNumber: string; title: string; status: string; issuerName: string; closingAt: string | null }
 /** The evidence behind a win probability, so the screen can show why the figure is what it is. */
 export interface CrmWinBasis {
   stagePrior: number; stageHistory: { n: number; won: number }; segmentHistory: { n: number; won: number; label: string }; stakeholderHistory: { n: number; won: number }; overallRate: number; adjustment: number;
@@ -4360,6 +4372,7 @@ export type CrmOpportunityPage = PagedResult<CrmOpportunity>;
 export interface CrmOpportunityInput {
   relationshipId?: string; title?: string; kind?: CrmOpportunityKind; stage?: CrmOpportunityStage; expectedValue?: number | null; currency?: string | null; expectedDate?: string | null;
   ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean; commodityGroup?: string | null;
+  sourceTenderId?: string | null; syncWithLinked?: boolean;
 }
 /** The pipeline as a picture (2026-10-27): every figure converted into one chosen currency at today's rate, so stages, months and kinds can be compared and added. */
 export interface CrmPipelineView {

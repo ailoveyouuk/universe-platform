@@ -35,3 +35,10 @@ describe("win probability", () => {
     expect(reachedStages([{ toStage: "IDENTIFIED" }, { toStage: "QUALIFYING" }], "WON").sort()).toEqual(["IDENTIFIED", "QUALIFYING", "WON"]);
   });
 });
+
+describe("methodology defaults", () => {
+  it("the stage priors shown on the CRM Methodology page match the API", async () => {
+    const { STAGE_PRIOR: shown } = await import("../../crm/src/lib/probability-defaults");
+    expect(shown).toEqual(STAGE_PRIOR);
+  });
+});

@@ -8,6 +8,7 @@ import { DocButton, EvidenceField, HospitalityList } from "../../components/Hosp
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, Heading, OkNote, Page, fmtDate, inputStyle } from "../../lib/ui";
+import { SourceNote } from "../../components/SourceNote";
 
 /** Compliance: the organisation's own gifts and hospitality policy, what is waiting for approval, and the full register. */
 function ComplianceInner() {
@@ -29,6 +30,7 @@ function ComplianceInner() {
       <Heading title="Compliance" sub="Gifts and hospitality given or received, held against your organisation's own policy. Anything above your thresholds, involving a public official, or a donation or sponsorship waits for a different person to approve it. Nothing is deleted; every change is in the audit log." />
       <ErrorNote message={err} />
       <OkNote message={ok} />
+      <SourceNote keys={["compliance"]} />
       <StatTileGrid>
         <StatTile label="Waiting for approval" value={sum?.pendingApproval} icon={<ClipboardCheckIcon size={18} />} tone={sum && sum.pendingApproval > 0 ? "warning" : "good"} />
         <StatTile label="For you to decide" value={sum?.awaitingMyDecision} icon={<UserIcon size={18} />} tone="brand" />

@@ -7,6 +7,7 @@ import { apiClient } from "../lib/apiClient";
 import { ErrorNote, Field, fmtDate, inputStyle } from "../lib/ui";
 import { SavedFilters } from "./SavedFilters";
 import { PipelineBoard } from "./PipelineBoard";
+import { SourceNote } from "./SourceNote";
 
 export const money = (v: number | null, c: string | null) => (v === null || !c ? "No value set" : new Intl.NumberFormat("en-GB", { style: "currency", currency: c, maximumFractionDigits: 0 }).format(v));
 const stageTone = (s: CrmOpportunityStage) => (s === "WON" ? "good" : s === "LOST" ? "critical" : s === "WITHDRAWN" ? "neutral" : "brand") as "good" | "critical" | "neutral" | "brand";
@@ -100,6 +101,7 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
             <li>{o.winBasis.stakeholderHistory.n ? `This stakeholder: ${o.winBasis.stakeholderHistory.won} won of ${o.winBasis.stakeholderHistory.n} closed` : "No closed history with this stakeholder yet"}.</li>
             <li>Your overall win rate is about {Math.round(o.winBasis.overallRate * 100)}%. More closed opportunities make this estimate firmer.</li>
           </ul>
+          <SourceNote keys={["probability"]} />
         </details>
       )}
       {o.notes && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{o.notes}</p>}

@@ -6,6 +6,7 @@ import { CRM_SEARCH_TYPES, CRM_SEARCH_TYPE_LABELS, type CrmSearchResult } from "
 import { SearchInput } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { ErrorNote, Heading, Page } from "../../lib/ui";
+import { SourceNote } from "../../components/SourceNote";
 
 /** Keyword search across everything the CRM holds. Each group shows the first hits and a total; choosing a group name narrows to just that kind of record. */
 export default function Search() {
@@ -29,6 +30,7 @@ export default function Search() {
     <Page>
       <Heading title="Search" sub="Find anything in the CRM by keyword: stakeholders, contacts, interactions, opportunities, places, certificates, gifts and hospitality, and privacy requests. Every word you type must match." />
       <ErrorNote message={err} />
+      <SourceNote keys={["search"]} />
       <div style={{ maxWidth: 640 }}><SearchInput value={q} onChange={setQ} placeholder="For example: manufacturer Kenya, ISO 13485, site visit, Dr Patel" /></div>
       <div role="group" aria-label="Kind of record" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[["", "Everything"], ...CRM_SEARCH_TYPES.map((t) => [t, CRM_SEARCH_TYPE_LABELS[t]])].map(([k, label]) => (

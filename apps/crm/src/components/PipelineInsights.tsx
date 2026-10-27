@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_STAGE_LABELS, type CrmOpportunityKind, type CrmPipelineView } from "@universe/types";
+import { SourceNote } from "./SourceNote";
 
 const card: React.CSSProperties = { border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "14px 16px", backgroundColor: "var(--u-surface-raised)", display: "grid", gap: 10, minWidth: 0, alignContent: "start" };
 const h2: React.CSSProperties = { margin: 0, fontSize: 16, fontFamily: "var(--u-font-display)" };
@@ -27,6 +28,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
         <div style={card}>
           <h3 style={h2}>Needs attention</h3>
           <p style={muted}>Open opportunities with no stage movement for {att.staleDays} days or more, or past their expected date.</p>
+          <SourceNote keys={["attention"]} />
           <p style={{ margin: 0, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14 }}>
             {onAttention ? <button type="button" onClick={() => onAttention("stale")} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link)" }}>{att.staleCount} with no movement</button> : <span>{att.staleCount} with no movement</span>}
             {onAttention ? <button type="button" onClick={() => onAttention("overdue")} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link)" }}>{att.overdueCount} past their date</button> : <span>{att.overdueCount} past their date</span>}
@@ -45,6 +47,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
 
         <div style={card}>
           <h3 style={h2}>Why we win and lose</h3>
+          <SourceNote keys={["lost"]} />
           {closed === 0 && v.lost.withdrawn.count === 0 ? <p style={muted}>Nothing has been won or lost yet. This fills in as opportunities close.</p> : (
             <>
               {v.lost.reasons.length > 0 && (
@@ -82,6 +85,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
           <div style={card}>
             <h3 style={h2}>By owner</h3>
             <p style={muted}>Open pipeline per person. Where an opportunity has no owner but is linked to a project, the project lead is used.</p>
+            <SourceNote keys={["owners"]} />
             <ul style={list}>
               {v.owners.map((o) => (
                 <li key={o.userId ?? "none"} style={{ display: "grid", gap: 3 }}>
@@ -96,6 +100,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
         <div style={card}>
           <h3 style={h2}>Currency exposure</h3>
           <p style={muted}>Open pipeline by the currency it was entered in. The bar shows each currency's share once converted to {v.currency}.</p>
+          <SourceNote keys={["exposure"]} />
           {v.exposure.length === 0 ? <p style={muted}>No open opportunities have a value.</p> : (
             <>
               <span aria-hidden="true" style={{ ...track, display: "flex", height: 14 }}>{v.exposure.map((x, i) => <span key={x.currency} style={{ width: `${x.share}%`, backgroundColor: SEGMENT[i % SEGMENT.length], borderRight: "1px solid var(--u-surface-raised)" }} />)}</span>
@@ -114,6 +119,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
 
         <div style={card}>
           <h3 style={h2}>How deals move</h3>
+          <SourceNote keys={["flow"]} />
           {!hasFlow ? <p style={muted}>Stage history builds up as opportunities move.</p> : (
             <>
               <p style={muted}>Of the opportunities that reached each stage, how many went on, and how long they stayed.</p>
@@ -135,6 +141,7 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
         <div style={card}>
           <h3 style={h2}>How the chance of winning is worked out</h3>
           <p style={muted}>Each open opportunity starts from a usual figure for its stage, then moves up or down using your own closed opportunities: how often work reaching that stage was won, how like-for-like work (same kind, same commodity or service group) has gone, and how this stakeholder has gone. Few past deals count for little, so a handful of results cannot swing a forecast.</p>
+          <SourceNote keys={["probability"]} />
           <p style={{ margin: 0, fontSize: 13.5 }}>{v.model.closedCount === 0 ? "Nothing has closed yet, so the usual stage figures are used." : `Based on ${v.model.closedCount} won or lost opportunities (overall about ${Math.round((v.model.overallRate ?? 0) * 100)}% won). Confidence: ${v.model.confidence === "HIGH" ? "high" : v.model.confidence === "MEDIUM" ? "medium" : "low, still an early estimate"}.`}</p>
         </div>
       </div>
