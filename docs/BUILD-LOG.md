@@ -1564,3 +1564,6 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 
 ## 2026-10-27 — ?focus= for Project Management
 - Project detail: `?id=…&focus=client|country|dueDate|freightCost` opens the header edit form and focuses that input (`data-field` on the labels, `useFocusField`). Partner detail: `focus=country|website` scrolls to the card. Typecheck and `lint:a11y` clean.
+
+## 2026-10-27 — Fix: data-health endpoint returned 500
+- Found in the live check: `GET /data-health` had no `@UseGuards(EntraAuthGuard)`, so the request had no user and every call failed (the Admin Data health page and every Overview note showed nothing, because the note hides itself on a failed load). Guard added.

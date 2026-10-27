@@ -1,8 +1,10 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/current-user.decorator";
+import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { DataHealthService } from "./data-health.service";
 
+@UseGuards(EntraAuthGuard)
 @Controller("data-health")
 export class DataHealthController {
   constructor(private readonly health: DataHealthService) {}
