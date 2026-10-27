@@ -27,12 +27,12 @@ export class CrmNetworkService {
     const term = (q ?? "").trim();
     if (term.length < 2) return [];
     const demoSide = user.inDemoOrganization === true;
-    const orgs = await prisma.organization.findMany({
+    const orgs = await withPlatformStaffContext((s) => s.organization.findMany({
       where: { id: { not: user.organizationId }, name: { contains: term }, supplierProfile: { is: { publishedAt: { not: null } } }, ...(demoSide ? { OR: [{ isDemo: true }, { isSimulated: true }] } : { isDemo: false, isSimulated: false }) },
       select: { id: true, name: true, type: true, countryOfRegistrationCode: true },
       orderBy: { name: "asc" },
       take: 10,
-    });
+    }));
     if (!orgs.length) return [];
     const tracked = await withTenantContext(user.organizationId, (tx) => tx.crmRelationship.findMany({
       where: { organizationId: user.organizationId, archivedAt: null, partner: { is: { registryEntry: { is: { linkedOrganizationId: { in: orgs.map((o) => o.id) } } } } } },
@@ -47,10 +47,10 @@ export class CrmNetworkService {
     assertHasPermission(user, "crm.manage");
     if (organizationId === user.organizationId) throw new BadRequestException("That is your own organisation.");
     const demoSide = user.inDemoOrganization === true;
-    const org = await prisma.organization.findFirst({
+    const org = await withPlatformStaffContext((s) => s.organization.findFirst({
       where: { id: organizationId, supplierProfile: { is: { publishedAt: { not: null } } }, ...(demoSide ? { OR: [{ isDemo: true }, { isSimulated: true }] } : { isDemo: false, isSimulated: false }) },
       select: { id: true, name: true, type: true, additionalTypes: true, countryOfRegistrationCode: true, supplierProfile: { select: { website: true } } },
-    });
+    }));
     if (!org) throw new NotFoundException("That organisation has not published a Universe profile.");
     const types = [org.type, ...(org.additionalTypes ?? "").split(/[,;|]/).map((s) => s.trim())].map((t) => ROLE_BY_ORG_TYPE[t]).filter(Boolean) as string[];
     const roleTypes = [...new Set(types)];
@@ -92,7 +92,7 @@ export class CrmNetworkService {
     const empty: CrmNetworkPanel = { linked: false, otherOrganisations: null, belowFloor: false, roles: [], identityPublic: false, organization: null, tenders: null };
     const entryId = row.partner?.registryEntryId;
     if (!entryId) return empty;
-    const entry = await prisma.stakeholderRegistryEntry.findUnique({ where: { id: entryId }, select: { linkedOrganizationId: true, linkedOrganization: { select: { id: true, name: true, type: true, countryOfRegistrationCode: true, supplierProfile: { select: { publishedAt: true, website: true, description: true } } } } } });
+    const entry = await withPlatformStaffContext((s) => s.stakeholderRegistryEntry.findUnique({ where: { id: entryId }, select: { linkedOrganizationId: true, linkedOrganization: { select: { id: true, name: true, type: true, countryOfRegistrationCode: true, supplierProfile: { select: { publishedAt: true, website: true, description: true } } } } } }));
     if (!entry) return empty;
     const mine = user.organizationId;
     const linkedId = entry.linkedOrganizationId;
