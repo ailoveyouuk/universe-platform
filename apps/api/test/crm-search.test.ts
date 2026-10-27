@@ -5,12 +5,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { CrmService } from "../src/crm/crm.service";
 import { CrmSearchService } from "../src/crm/crm-search.service";
+import { CrmExportService } from "../src/crm/crm-export.service";
+import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
 
 /** CRM-wide keyword search, broader list search and per-kind counts against the real RLS database. */
 describe("CRM search", () => {
   const suffix = randomUUID().slice(0, 8);
   const svc = new CrmService({} as never);
   const search = new CrmSearchService();
+  const exporter = new CrmExportService(svc);
+  const opps = new CrmOpportunitiesService();
   let orgA: string; let orgB: string; let relA: string; let relB: string;
   const userIds: string[] = [];
   const u: Record<string, RequestUser> = {};
@@ -49,6 +53,7 @@ describe("CRM search", () => {
       const orgs = { in: [orgA, orgB] };
       await tx.notification.deleteMany({ where: { organizationId: orgs } });
       await tx.fieldChangeLog.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmOpportunity.deleteMany({ where: { organizationId: orgs } });
       await tx.crmInteraction.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationshipTag.deleteMany({ where: { organizationId: orgs } });
       await tx.crmTag.deleteMany({ where: { organizationId: orgs } });
@@ -94,5 +99,36 @@ describe("CRM search", () => {
     expect(o.byCategory.MANUFACTURER).toBe(1);
     expect(o.byCategory.FUNDER_DONOR).toBe(1);
     expect((await svc.list(u.manager, { role: "FUNDER_DONOR" })).items.length).toBe(1);
+  });
+
+  it("exports the chosen view as CSV for managers only, audited, and counts the view for the tiles", async () => {
+    const f = await exporter.export(u.manager, "relationships", { role: "MANUFACTURER" });
+    expect(f.rowCount).toBe(1);
+    expect(f.csv).toContain(`Zephyr Labs ${suffix}`);
+    expect(f.csv).not.toContain("Harbour Fund");
+    expect(f.csv).not.toContain("Zephyr Rivals"); // other organisation
+    const c = await exporter.export(u.manager, "contacts", {});
+    expect(c.csv).toContain("Quillfeather");
+    await expect(exporter.export(u.viewer, "relationships", {})).rejects.toThrow();
+    await expect(exporter.export(u.manager, "nonsense", {})).rejects.toThrow();
+    const counts = await svc.counts(u.manager, { role: "FUNDER_DONOR" });
+    expect(counts.total).toBe(1);
+    expect((await svc.counts(u.manager, {})).total).toBe(2);
+  });
+
+  it("the pipeline view converts into one currency and groups by stage, month and kind", async () => {
+    await withPlatformStaffContext((tx) => tx.crmOpportunity.createMany({ data: [
+      { organizationId: orgA, relationshipId: relA, title: `Deal one ${suffix}`, kind: "TENDER", stage: "ENGAGED", expectedValue: 1000, currency: "GBP", expectedDate: new Date(Date.now() + 40 * 86400000) },
+      { organizationId: orgA, relationshipId: relA, title: `Deal two ${suffix}`, kind: "TENDER", stage: "WON", expectedValue: 500, currency: "GBP" },
+      { organizationId: orgA, relationshipId: relA, title: `Deal three ${suffix}`, kind: "SOURCING", stage: "LOST", expectedValue: 200, currency: "GBP", lostReason: "price" },
+    ] as never }));
+    const v = await opps.pipelineView(u.manager, "GBP");
+    expect(v.currency).toBe("GBP");
+    expect(v.stages.find((s) => s.stage === "ENGAGED")).toMatchObject({ count: 1, value: 1000 });
+    expect(v.openValue).toBe(1000);
+    expect(v.wonValue).toBe(500);
+    expect(v.winRate).toBe(50);
+    expect(v.kinds[0]).toMatchObject({ key: "MANUFACTURER", count: 1, value: 1000 });
+    expect(v.months.reduce((n, m) => n + m.count, 0) + v.overdue.count + v.noDate.count).toBe(1);
   });
 });

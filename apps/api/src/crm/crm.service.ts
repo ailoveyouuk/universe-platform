@@ -150,7 +150,7 @@ export class CrmService {
   private canSeeComplaints(user: RequestUser) { return user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view"); }
 
   /** The database conditions behind every list filter, shared by the table and the portfolio map so the two always agree. */
-  private async listWhere(tx: Tx, user: RequestUser, q: CrmListQuery, now: Date, canComplaints: boolean): Promise<Prisma.CrmRelationshipWhereInput> {
+  async listWhere(tx: Tx, user: RequestUser, q: CrmListQuery, now: Date, canComplaints: boolean): Promise<Prisma.CrmRelationshipWhereInput> {
       const and: Prisma.CrmRelationshipWhereInput[] = [{ organizationId: user.organizationId, archivedAt: q.archived === "true" ? { not: null } : null }];
       const needle = q.q?.trim();
       if (needle) {

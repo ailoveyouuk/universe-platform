@@ -12,9 +12,10 @@ import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
 import { CrmCategoryService } from "./crm-category.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
+import { CrmExportService } from "./crm-export.service";
 import { CrmSearchService } from "./crm-search.service";
 import { CrmService } from "./crm.service";
 
 @Module({
-  imports: [QualityModule, DocumentsModule, ExchangeRatesModule], controllers: [CrmController], providers: [CrmService, CrmSearchService, CrmInteractionsService, CrmPrivacyService, CrmOpportunitiesService, CrmTagsService, CrmSavedFiltersService, CrmPlacesService, CrmHospitalityService, CrmNetworkService, CrmCategoryService], exports: [CrmService] })
+  imports: [QualityModule, DocumentsModule, ExchangeRatesModule], controllers: [CrmController], providers: [CrmService, CrmExportService, CrmSearchService, CrmInteractionsService, CrmPrivacyService, CrmOpportunitiesService, CrmTagsService, CrmSavedFiltersService, CrmPlacesService, CrmHospitalityService, CrmNetworkService, CrmCategoryService], exports: [CrmService] })
 export class CrmModule {}

@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPipelineSummary } from "@universe/types";
+import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPipelineView, type CrmPipelineSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
+import { ExchangeRatesService } from "../exchange-rates/exchange-rates.service";
+import { convertAmount } from "../tenders/tender-framework";
 
 type Row = Prisma.CrmOpportunityGetPayload<{ include: { relationship: { select: { partner: { select: { name: true } } } } } }>;
 const AUDITED = ["title", "kind", "stage", "expectedValue", "currency", "expectedDate", "ownerUserId", "notes", "lostReason", "linkedId", "archivedAt"] as const;
@@ -15,6 +17,8 @@ const AUDITED = ["title", "kind", "stage", "expectedValue", "currency", "expecte
  */
 @Injectable()
 export class CrmOpportunitiesService {
+  constructor(@Optional() private readonly fx?: ExchangeRatesService) {}
+
   private shape(r: Row, owners: Map<string, string>): CrmOpportunity {
     const open = CRM_OPEN_STAGES.includes(r.stage as CrmOpportunityStage);
     return {
@@ -52,6 +56,53 @@ export class CrmOpportunitiesService {
       const owners = await this.owners(tx, u.organizationId, rows.map((r) => r.ownerUserId));
       return { items: rows.map((r) => this.shape(r, owners)), total, page, pageSize };
     });
+  }
+
+  /** The pipeline converted into one currency (the one asked for, else the most used), for the charts. Rates are today's, from the platform's exchange-rate snapshot. */
+  async pipelineView(u: RequestUser, wanted?: string): Promise<CrmPipelineView> {
+    assertHasPermission(u, "crm.view");
+    const rows = await withTenantContext(u.organizationId, (tx) => tx.crmOpportunity.findMany({
+      where: { organizationId: u.organizationId, archivedAt: null }, take: 20000,
+      select: { stage: true, expectedValue: true, currency: true, expectedDate: true, relationship: { select: { partner: { select: { roles: { where: { isActive: true }, select: { roleType: true } } } } } } },
+    }));
+    const used = new Map<string, number>(); for (const r of rows) if (r.currency && r.expectedValue !== null) used.set(r.currency, (used.get(r.currency) ?? 0) + 1);
+    const currency = /^[A-Z]{3}$/.test(wanted ?? "") ? wanted! : [...used].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "GBP";
+    const snap = this.fx ? await this.fx.getSnapshotForDate(new Date()).catch(() => null) : null;
+    const conv = (v: number | null, c: string | null): number | null => (v === null || !c ? 0 : convertAmount(v, c, currency, snap?.rates ?? null));
+    const open = new Set<string>(CRM_OPEN_STAGES);
+    const stages = CRM_OPPORTUNITY_STAGES.map((stage) => ({ stage, count: 0, value: 0, unconverted: 0 }));
+    const monthMap = new Map<string, { count: number; value: number }>();
+    const overdue = { count: 0, value: 0 }, noDate = { count: 0, value: 0 };
+    const kindMap = new Map<string, { count: number; value: number }>();
+    const order = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR", "CLIENT", "LOGISTICS"];
+    const today = new Date(); const startOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    let won = 0, lost = 0;
+    for (const r of rows) {
+      const st = stages.find((x) => x.stage === r.stage); if (!st) continue;
+      const v = conv(r.expectedValue === null ? null : Number(r.expectedValue), r.currency);
+      st.count++; if (v === null) st.unconverted++; else st.value += v;
+      if (r.stage === "WON") won++; if (r.stage === "LOST") lost++;
+      if (!open.has(r.stage)) continue;
+      const val = v ?? 0;
+      if (!r.expectedDate) { noDate.count++; noDate.value += val; }
+      else if (r.expectedDate < startOfMonth) { overdue.count++; overdue.value += val; }
+      else { const k = r.expectedDate.toISOString().slice(0, 7); const m = monthMap.get(k) ?? { count: 0, value: 0 }; m.count++; m.value += val; monthMap.set(k, m); }
+      const roles = r.relationship.partner?.roles.map((x) => x.roleType) ?? [];
+      const kind = order.find((o) => roles.includes(o)) ?? "OTHER";
+      const k = kindMap.get(kind) ?? { count: 0, value: 0 }; k.count++; k.value += val; kindMap.set(kind, k);
+    }
+    // Twelve months from this one, so gaps show as gaps.
+    const months = Array.from({ length: 12 }, (_, i) => { const d = new Date(Date.UTC(startOfMonth.getUTCFullYear(), startOfMonth.getUTCMonth() + i, 1)); const key = d.toISOString().slice(0, 7); return { month: key, ...(monthMap.get(key) ?? { count: 0, value: 0 }) }; });
+    const later = [...monthMap].filter(([k]) => k > months[11].month).reduce((a, [, m]) => ({ count: a.count + m.count, value: a.value + m.value }), { count: 0, value: 0 });
+    if (later.count) months.push({ month: "later", ...later });
+    const r2 = (n: number) => Math.round(n);
+    return {
+      currency, currencies: [...new Set([...used.keys(), "GBP", "EUR", "USD", currency])].sort(), rateDate: snap?.date ? snap.date.toISOString().slice(0, 10) : null,
+      stages: stages.map((s) => ({ ...s, value: r2(s.value) })), months: months.map((m) => ({ ...m, value: r2(m.value) })), overdue: { count: overdue.count, value: r2(overdue.value) }, noDate: { count: noDate.count, value: r2(noDate.value) },
+      kinds: [...kindMap].map(([key, k]) => ({ key, count: k.count, value: r2(k.value) })).sort((a, b) => b.value - a.value),
+      openValue: r2(stages.filter((s) => open.has(s.stage)).reduce((n, s) => n + s.value, 0)), wonValue: r2(stages.find((s) => s.stage === "WON")?.value ?? 0),
+      winRate: won + lost ? Math.round((won / (won + lost)) * 100) : null,
+    };
   }
 
   async pipeline(u: RequestUser): Promise<CrmPipelineSummary> {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPanel } from "../../components/CategoryPanel";
 import { accentStyle, accentVar } from "../../lib/category";
 import { Profile360 } from "../../components/Profile360";
+import { ExportMenu } from "../../components/ExportMenu";
 import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
 import { Tags } from "../../components/Tags";
 import { SavedFilters } from "../../components/SavedFilters";
@@ -102,6 +103,7 @@ export default function RelationshipsPage() {
       </StatTileGrid>
 
       {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); loadCounts(); }} />}
+      {canManage && <div style={{ display: "flex", justifyContent: "flex-end" }}><ExportMenu filters={{ ...f, q: dq }} onNote={setOk} onError={(m) => setErr(m || null)} /></div>}
       <SavedFilters view="RELATIONSHIPS" current={f as unknown as Record<string, string>} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }} role="search" aria-label="Filter relationships">
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, contact, tag, place, owner, country…" /></div>

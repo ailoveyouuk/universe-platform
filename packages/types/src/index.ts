@@ -4218,6 +4218,17 @@ export interface CrmOverview {
   /** Relationships by kind of stakeholder (a stakeholder with several roles is counted under each). Keys are stakeholder category keys. */
   byCategory: Record<string, number>;
 }
+/** CRM exports (2026-10-27): the organisation's own CRM records as CSV, for the stakeholders in the chosen view. Managers only; every export is audited. */
+export const CRM_EXPORT_ENTITIES = ["relationships", "contacts", "interactions", "opportunities", "places", "hospitality"] as const;
+export type CrmExportEntity = (typeof CRM_EXPORT_ENTITIES)[number];
+export const CRM_EXPORT_LABELS: Record<CrmExportEntity, { label: string; help: string }> = {
+  relationships: { label: "Stakeholders and relationships", help: "One row per stakeholder: kind, country, tier, status, owner, tags, last contact and review dates." },
+  contacts: { label: "Contacts", help: "People at your stakeholders, with job title, email, phone, role in decisions and data-protection status." },
+  interactions: { label: "Interactions", help: "Meetings, calls, visits and other contact, with summaries and outcomes (confidential ones only if you may see them)." },
+  opportunities: { label: "Opportunities", help: "Your pipeline: stage, expected date and value, owner." },
+  places: { label: "Places and sites", help: "Offices, factories and warehouses recorded against stakeholders." },
+  hospitality: { label: "Gifts and hospitality", help: "Your register of gifts and hospitality given, received and declined." },
+};
 export const CRM_SEARCH_TYPES = ["stakeholders", "contacts", "interactions", "opportunities", "places", "certificates", "compliance", "privacy"] as const;
 export type CrmSearchType = (typeof CRM_SEARCH_TYPES)[number];
 export const CRM_SEARCH_TYPE_LABELS: Record<CrmSearchType, string> = {
@@ -4341,6 +4352,21 @@ export type CrmOpportunityPage = PagedResult<CrmOpportunity>;
 export interface CrmOpportunityInput {
   relationshipId?: string; title?: string; kind?: CrmOpportunityKind; stage?: CrmOpportunityStage; expectedValue?: number | null; currency?: string | null; expectedDate?: string | null;
   ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean;
+}
+/** The pipeline as a picture (2026-10-27): every figure converted into one chosen currency at today's rate, so stages, months and kinds can be compared and added. */
+export interface CrmPipelineView {
+  currency: string;
+  /** Currencies seen in the data, plus a few common ones, for the picker. */
+  currencies: string[];
+  rateDate: string | null;
+  stages: { stage: CrmOpportunityStage; count: number; value: number; /** Valued opportunities left out because no rate was available. */ unconverted: number }[];
+  months: { month: string; count: number; value: number }[];
+  overdue: { count: number; value: number };
+  noDate: { count: number; value: number };
+  kinds: { key: string; count: number; value: number }[];
+  openValue: number; wonValue: number;
+  /** Won as a share of won and lost, by number; null until something is won or lost. */
+  winRate: number | null;
 }
 export interface CrmPipelineSummary { byStage: Record<CrmOpportunityStage, { count: number; value: Record<string, number> }>; openCount: number; closingSoon: number }
 

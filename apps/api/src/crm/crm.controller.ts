@@ -8,6 +8,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
 import { CrmSavedFiltersService } from "./crm-saved-filters.service";
+import { CrmExportService } from "./crm-export.service";
 import { CrmSearchService } from "./crm-search.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
@@ -26,8 +27,9 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
+  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
 
+  @Get("export/:entity") exportCsv(@CurrentUser() user: RequestUser, @Param("entity") entity: string, @Query() q: Record<string, string>) { return this.exporter.export(user, entity, q); }
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("search") search(@CurrentUser() user: RequestUser, @Query("q") q: string, @Query("types") types?: string) { return this.searchSvc.search(user, q ?? "", types); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -84,6 +86,7 @@ export class CrmController {
   listOpportunities(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
     return this.opportunities.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
   }
+  @Get("pipeline/view") pipelineView(@CurrentUser() user: RequestUser, @Query("currency") currency?: string) { return this.opportunities.pipelineView(user, currency); }
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
   @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }
