@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CrmRelationshipDetail, PartnerScorecard } from "@universe/types";
 import { Pill, UNIVERSE_APPS } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { fmtDate, humanise } from "../lib/ui";
-import { PortfolioStrip } from "./PortfolioStrip";
+import { Places } from "./Places";
+import { WorkTab } from "./WorkTab";
 
-export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "work" | "performance" | "compliance";
+export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "performance" | "compliance";
 export const TABS_360: { key: Tab360; label: string }[] = [
-  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "work", label: "Work together" },
+  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "places", label: "Places and links" }, { key: "work", label: "Work together" },
   { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
 ];
 
@@ -28,10 +29,11 @@ function Table({ label, head, rows }: { label: string; head: string[]; rows: Rea
 }
 
 /** Relationship 360 panels (read-only). Everything here is read from the app that owns it, with a link back to edit it there. */
-export function Detail360({ relId, partnerId, tab, card }: { relId: string; partnerId: string | null; tab: Exclude<Tab360, "overview">; card: PartnerScorecard | null | "none" }) {
+export function Detail360({ relId, partnerId, tab, card, canManage }: { relId: string; partnerId: string | null; tab: Exclude<Tab360, "overview">; card: PartnerScorecard | null | "none"; canManage: boolean }) {
   const [d, setD] = useState<CrmRelationshipDetail | null>(null);
   const [err, setErr] = useState(false);
   useEffect(() => { if (!d && !err) apiClient.crmDetail(relId).then(setD).catch(() => setErr(true)); }, [relId, d, err]);
+  const reload = useCallback(async () => { try { setD(await apiClient.crmDetail(relId)); } catch { setErr(true); } }, [relId]);
   const pm = UNIVERSE_APPS.find((a) => a.key === "project-management")?.href;
   if (err) return <p style={note}>Could not load this section.</p>;
   if (!d) return <p style={note}>Loading…</p>;
@@ -45,27 +47,10 @@ export function Detail360({ relId, partnerId, tab, card }: { relId: string; part
       </>
     );
   }
+  if (tab === "places") return <Places relId={relId} canManage={canManage} locations={d.locations} links={d.links} reload={reload} />;
   if (tab === "work") {
-    return (
-      <div style={{ display: "grid", gap: 14 }}>
-        {d.portfolio && <PortfolioStrip p={d.portfolio} />}
-        {d.sites && d.sites.length > 0 && (
-          <div>
-            <p style={{ margin: "0 0 6px", fontSize: 13.5, fontWeight: 600 }}>Sites of operation</p>
-            <Table label="Sites of operation" head={["Site", "Country", "Address"]} rows={d.sites.map((x) => [<strong key="n">{x.siteName}{x.isPrimary ? " (main)" : ""}</strong>, x.countryCode ?? "—", x.address ?? "—"])} />
-          </div>
-        )}
-        {!d.projects ? <p style={note}>Projects are held in Project Management; you need access to that app and permission to view projects to see them here.</p>
-          : d.projects.total === 0 ? <p style={note}>No projects involve this stakeholder yet.</p> : (
-          <div>
-            <p style={{ ...note, margin: "0 0 6px" }}>{d.projects.total} project{d.projects.total === 1 ? "" : "s"}{d.projects.total > d.projects.items.length ? `, newest ${d.projects.items.length} shown` : ""}.</p>
-            <Table label="Projects" head={["Project", "Their part", "Stage", "Due"]} rows={d.projects.items.map((p) => [
-              pm ? <a key="p" href={`${pm}/projects/detail?id=${p.id}`}>{p.referenceNumber} · {p.title}</a> : `${p.referenceNumber} · ${p.title}`,
-              p.involvement.join(", ") || "—", humanise(p.status), fmtDate(p.dueDate)])} />
-          </div>
-        )}
-      </div>
-    );
+    if (!d.projects) return <p style={note}>Projects are held in Project Management; you need access to that app and permission to view projects to see them here.</p>;
+    return <WorkTab relId={relId} />;
   }
   if (tab === "performance") {
     return (

@@ -1,4 +1,4 @@
-import type { CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1094,6 +1094,18 @@ export class UniverseApiClient {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
     return this.request(`/crm/opportunities${p.toString() ? `?${p}` : ""}`);
   }
+  crmPortfolioMap(q: Record<string, string | undefined> = {}): Promise<CrmPortfolioMap> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
+    return this.request(`/crm/relationships/map${p.toString() ? `?${p}` : ""}`);
+  }
+  crmProjects(relId: string, q: Record<string, string | number | undefined> = {}): Promise<CrmProjectPage> {
+    const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
+    return this.request(`/crm/relationships/${relId}/projects${p.toString() ? `?${p}` : ""}`);
+  }
+  addCrmLocation(relId: string, body: CrmLocationInput): Promise<CrmLocation> { return this.request(`/crm/relationships/${relId}/locations`, { method: "POST", body: JSON.stringify(body) }); }
+  updateCrmLocation(relId: string, id: string, body: CrmLocationInput): Promise<CrmLocation> { return this.request(`/crm/relationships/${relId}/locations/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  addCrmLink(relId: string, body: CrmLinkInput): Promise<CrmLink> { return this.request(`/crm/relationships/${relId}/links`, { method: "POST", body: JSON.stringify(body) }); }
+  updateCrmLink(relId: string, id: string, body: CrmLinkInput): Promise<CrmLink> { return this.request(`/crm/relationships/${relId}/links/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
   crmTags(): Promise<CrmTag[]> { return this.request("/crm/tags"); }
   createCrmTag(name: string): Promise<CrmTag> { return this.request("/crm/tags", { method: "POST", body: JSON.stringify({ name }) }); }
   updateCrmTag(id: string, body: { name?: string; archived?: boolean }): Promise<CrmTag> { return this.request(`/crm/tags/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }

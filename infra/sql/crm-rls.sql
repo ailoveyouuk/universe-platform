@@ -1,7 +1,7 @@
 -- Universe — CRM Row-Level Security
 -- Added 2026-10-26 (CRM step 1; design: docs/CRM-APP-DESIGN.md). Run AFTER row-level-security.sql (reuses rls.fn_tenantAccessPredicate)
 -- and AFTER the migration that creates crm_relationships. Idempotent. Plain tenant isolation: a relationship record belongs to one
--- organisation and is never shared. Step 3 adds crm_interactions step 4 adds the contact profile, privacy request, suppression and access log tables and step 5 adds crm_opportunities and step 6 adds crm_tags, crm_relationship_tags and crm_saved_filters to this same policy (re-run the whole file; it drops and recreates the policy). Later CRM steps add their tables here too.
+-- organisation and is never shared. Step 3 adds crm_interactions step 4 adds the contact profile, privacy request, suppression and access log tables and step 5 adds crm_opportunities and step 6 adds crm_tags, crm_relationship_tags, crm_saved_filters, crm_locations and crm_links to this same policy (re-run the whole file; it drops and recreates the policy). Later CRM steps add their tables here too.
 
 IF EXISTS (SELECT 1 FROM sys.security_policies WHERE name = 'CrmPolicy' AND schema_id = SCHEMA_ID('rls'))
     DROP SECURITY POLICY rls.CrmPolicy;
@@ -37,6 +37,12 @@ CREATE SECURITY POLICY rls.CrmPolicy
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_relationship_tags AFTER UPDATE,
     ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_saved_filters,
     ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_saved_filters AFTER INSERT,
-    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_saved_filters AFTER UPDATE
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_saved_filters AFTER UPDATE,
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_locations,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_locations AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_locations AFTER UPDATE,
+    ADD FILTER PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_links,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_links AFTER INSERT,
+    ADD BLOCK PREDICATE rls.fn_tenantAccessPredicate(organizationId) ON dbo.crm_links AFTER UPDATE
     WITH (STATE = ON);
 GO

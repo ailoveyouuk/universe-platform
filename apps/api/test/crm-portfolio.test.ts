@@ -45,6 +45,8 @@ describe("CRM interactions", () => {
       await tx.project.deleteMany({ where: { organizationId: orgs } });
       await tx.contact.deleteMany({ where: { organizationId: orgs } });
       await tx.manufacturerSite.deleteMany({ where: { partner: { organizationId: orgs } } });
+      await tx.crmLocation.deleteMany({ where: { organizationId: orgs } });
+      await tx.crmLink.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationshipTag.deleteMany({ where: { organizationId: orgs } });
       await tx.crmTag.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationship.deleteMany({ where: { organizationId: orgs } });
@@ -87,13 +89,16 @@ describe("CRM interactions", () => {
   it("counts projects by outcome once per stakeholder, and adds contacts and sites", async () => {
     const page = await crm.list(full(), { view: "portfolio", q: `Acme ${suffix}` });
     const row = page.items[0];
-    expect(row.portfolio).toEqual({ identified: 0, inProgress: 1, submitted: 0, awarded: 1, completed: 1, unawarded: 1, total: 4 });
+    expect(row.portfolio).toMatchObject({ identified: 0, inProgress: 1, submitted: 0, awarded: 1, completed: 1, unawarded: 1, total: 4 });
+    expect(row.portfolio?.lastProject?.status).toBeTruthy();
+    expect(row.partnerAddedAt).toBeTruthy();
     expect(row.contactCount).toBe(2);
     expect(row.siteCount).toBe(2);
     expect(row.siteCountries).toEqual(["IN", "KE"]);
     const d = await crm.detail(full(), relA);
     expect(d.portfolio?.total).toBe(4);
-    expect(d.sites?.map((s) => s.siteName)).toEqual(["Plant 1", "Plant 2"]);
+    expect(d.locations.filter((l) => l.source === "pm").map((s) => s.name)).toEqual(["Plant 1", "Plant 2"]);
+    expect(d.partnerAddedAt).toBeTruthy(); expect(d.partnerUpdatedAt).toBeTruthy();
   });
 
   it("filters by the kind of work done, including never worked with", async () => {
@@ -114,7 +119,7 @@ describe("CRM interactions", () => {
     const noPm = { ...full(), apps: ["crm"] } as RequestUser;
     const p2 = await crm.list(noPm, { view: "portfolio" });
     expect(p2.items[0].contactCount).toBeNull();
-    expect((await crm.detail(noPm, relA)).sites).toBeNull();
+    expect((await crm.detail(noPm, relA)).locations.filter((l) => l.source === "pm")).toEqual([]);
   });
 
   it("is private to the organisation", async () => {

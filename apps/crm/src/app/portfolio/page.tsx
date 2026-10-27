@@ -1,16 +1,26 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmRelationshipPage, type CrmTag } from "@universe/types";
-import { Pagination, SearchInput, Select, type PageSize } from "@universe/ui";
+import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
+import { BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
-import { ErrorNote, Heading, Page, humanise } from "../../lib/ui";
+import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
+import { useCountries } from "../../lib/useCountries";
+import { sinceAgo, WORK_STATUS_TONE } from "../../lib/since";
 import { SavedFilters } from "../../components/SavedFilters";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { PORTFOLIO_COLUMNS } from "../../components/PortfolioStrip";
 
-type Filters = { q: string; role: string; status: string; work: string; tag: string };
-const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "" };
+type Filters = { q: string; role: string; status: string; work: string; tag: string; country: string };
+const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "", country: "" };
+const KIND_COLOUR: Record<string, string> = { CLIENT: "var(--u-accent-magenta)", MANUFACTURER: "var(--u-brand-violet)", SUPPLIER: "var(--u-module-product-database)", FREIGHT_FORWARDER: "var(--u-module-tender-issuance)", WAREHOUSING: "var(--u-module-insights)", OTHER: "var(--u-module-admin)" };
+const TILES = [
+  { key: "inProgress", work: "in_progress", label: "In progress", icon: <ProjectsIcon />, tone: "brand" as const },
+  { key: "submitted", work: "submitted", label: "Submitted", icon: <ClipboardCheckIcon />, tone: "warning" as const },
+  { key: "awarded", work: "awarded", label: "Awarded, under way", icon: <TrendingUpIcon />, tone: "good" as const },
+  { key: "completed", work: "completed", label: "Completed", icon: <CheckCircleIcon />, tone: "neutral" as const },
+  { key: "unawarded", work: "unawarded", label: "Unawarded or declined", icon: <BanIcon />, tone: "critical" as const },
+];
 const ROLE_OPTIONS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "WAREHOUSING"];
 const th: React.CSSProperties = { textAlign: "left", padding: "8px 10px", color: "var(--u-ink-secondary)", fontWeight: 600, fontSize: 12.5, borderBottom: "1px solid var(--u-border)", whiteSpace: "nowrap" };
 const thNum: React.CSSProperties = { ...th, textAlign: "right" };
@@ -33,8 +43,11 @@ export default function Portfolio() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dq, setDq] = useState("");
+  const [map, setMap] = useState<CrmPortfolioMap | null>(null);
+  const [tileCounts, setTileCounts] = useState<Record<string, number> | null>(null);
+  const countries = useCountries();
   const seq = useRef(0);
-  useEffect(() => { const p = new URLSearchParams(window.location.search); setF({ q: p.get("q") ?? "", role: p.get("role") ?? "", status: p.get("status") ?? "", work: p.get("work") ?? "", tag: p.get("tag") ?? "" }); setReady(true); }, []);
+  useEffect(() => { const p = new URLSearchParams(window.location.search); setF({ q: p.get("q") ?? "", role: p.get("role") ?? "", status: p.get("status") ?? "", work: p.get("work") ?? "", tag: p.get("tag") ?? "", country: p.get("country") ?? "" }); setReady(true); }, []);
   useEffect(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
   useEffect(() => { const t = setTimeout(() => setDq(f.q), 250); return () => clearTimeout(t); }, [f.q]);
   const load = useCallback(() => {
@@ -46,6 +59,27 @@ export default function Portfolio() {
       .finally(() => { if (mine === seq.current) setBusy(false); });
   }, [f, dq, page, pageSize, ready]);
   useEffect(() => { load(); }, [load]);
+  // The map follows every filter except the country you pick on it, so you can still see the other countries to change your mind.
+  useEffect(() => {
+    if (!ready) return;
+    let live = true; const { country: _c, ...rest } = f;
+    apiClient.crmPortfolioMap({ ...rest, q: dq }).then((m) => { if (live) setMap(m); }).catch(() => { if (live) setMap(null); });
+    return () => { live = false; };
+  }, [f.role, f.status, f.work, f.tag, dq, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The tiles count stakeholders per outcome under every filter except the work filter itself (one small request each, so each stays fast).
+  useEffect(() => {
+    if (!ready) return;
+    let live = true; const { work: _w, ...rest } = f;
+    Promise.all(TILES.map((t) => apiClient.crmRelationships({ ...rest, q: dq, work: t.work, page: 1, pageSize: 1 }).then((r) => [t.work, r.total] as const)))
+      .then((e) => { if (live) setTileCounts(Object.fromEntries(e)); }).catch(() => { if (live) setTileCounts(null); });
+    return () => { live = false; };
+  }, [f.role, f.status, f.tag, f.country, dq, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+  const byCode = new Map(countries.map((c) => [c.code, c]));
+  const points: WorldMapPoint[] = (map?.points ?? []).flatMap((p) => {
+    const c = byCode.get(p.countryCode); if (!c || c.latitude === null || c.longitude === null) return [];
+    return [{ id: `${p.countryCode}:${p.kind}`, latitude: c.latitude, longitude: c.longitude, label: `${c.name}: ${humanise(p.kind)}`, color: KIND_COLOUR[p.kind] ?? KIND_COLOUR.OTHER, value: p.count, tooltipLines: [{ text: `${p.count} stakeholder${p.count === 1 ? "" : "s"}` }, { text: "Select to filter the table" }] }];
+  });
+  const legend = Object.keys(KIND_COLOUR).filter((k) => (map?.points ?? []).some((p) => p.kind === k)).map((k) => ({ color: KIND_COLOUR[k], label: k === "OTHER" ? "Other" : humanise(k) }));
   const set = (patch: Partial<Filters>) => { setF((c) => ({ ...c, ...patch })); setPage(1); };
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const noProjects = data?.items.length ? data.items.every((i) => i.portfolio === null) : false;
@@ -55,6 +89,14 @@ export default function Portfolio() {
       <Heading title="Portfolio" sub="Every stakeholder with the work you have done together, by outcome, and where and with whom they operate. Counts come from Project Management; a project counts once per stakeholder." />
       <ErrorNote message={err} />
       <SavedFilters view="PORTFOLIO" current={f} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
+      <StatTileGrid>
+        {TILES.map((t) => <StatTile key={t.key} label={t.label} value={tileCounts ? tileCounts[t.work] : undefined} icon={t.icon} tone={t.tone} active={f.work === t.work} onClick={() => set({ work: f.work === t.work ? "" : t.work })} />)}
+      </StatTileGrid>
+      <section aria-label="Where your stakeholders are based" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", padding: 10, display: "grid", gap: 6 }}>
+        <WorldMap points={points} legend={legend} maxHeight={360} cluster={false} onPointClick={(p) => set({ country: p.id.split(":")[0] === f.country ? "" : p.id.split(":")[0] })} emptyMessage={map ? "No stakeholders with a country match these filters." : "Loading the map…"} />
+        <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Pips show where each kind of stakeholder is based, sized by how many. Select one to filter the table to that country.{map?.noCountry ? ` ${map.noCountry} have no country recorded.` : ""}{map?.capped ? " Showing the first 6,000." : ""}</p>
+        {f.country && <p style={{ margin: 0, fontSize: 13 }}>Showing {byCode.get(f.country)?.name ?? f.country}. <button type="button" onClick={() => set({ country: "" })} style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--u-link, var(--u-brand-violet))", textDecoration: "underline", cursor: "pointer" }}>Show all countries</button></p>}
+      </section>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name or country…" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
@@ -65,10 +107,10 @@ export default function Portfolio() {
       </div>
       {noProjects && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Project counts are hidden because your account cannot view projects. Ask your administrator for the Project Management app and project access.</p>}
       <div style={{ overflowX: "auto", opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
-        <table aria-label="Stakeholder portfolio" style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+        <table aria-label="Stakeholder portfolio" style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
           <thead>
             <tr>
-              <th scope="col" style={th}>Stakeholder</th><th scope="col" style={th}>Kind</th><th scope="col" style={th}>Location</th>
+              <th scope="col" style={th}>Stakeholder</th><th scope="col" style={th}>Kind</th><th scope="col" style={th}>Location</th><th scope="col" style={th}>Added</th><th scope="col" style={th}>Last project</th>
               <th scope="col" style={thNum}>Contacts</th><th scope="col" style={thNum}>Sites</th>
               {PORTFOLIO_COLUMNS.map((c) => <th key={c.key} scope="col" style={thNum}>{c.short}</th>)}
             </tr>
@@ -79,6 +121,8 @@ export default function Portfolio() {
                 <td style={td}><Link href={`/relationships?id=${r.id}`}><strong>{r.name}</strong></Link></td>
                 <td style={td}>{r.roles.map(humanise).join(", ") || "—"}</td>
                 <td style={td}>{[r.countryCode, ...(r.siteCountries ?? []).filter((c) => c !== r.countryCode)].filter(Boolean).join(", ") || "—"}</td>
+                <td style={td}>{r.partnerAddedAt ? <>{fmtDate(r.partnerAddedAt)}<br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{sinceAgo(r.partnerAddedAt)}</span></> : "—"}</td>
+                <td style={td}>{r.portfolio?.lastProject ? <>{fmtDate(r.portfolio.lastProject.date)} <Pill tone={WORK_STATUS_TONE[r.portfolio.lastProject.status] ?? "neutral"}>{humanise(r.portfolio.lastProject.status)}</Pill><br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{r.portfolio.lastProject.referenceNumber} · {sinceAgo(r.portfolio.lastProject.date)}</span></> : "—"}</td>
                 <td style={tdNum}>{r.contactCount ?? "—"}</td>
                 <td style={tdNum}>{r.siteCount ?? "—"}</td>
                 {PORTFOLIO_COLUMNS.map((c) => <td key={c.key} style={tdNum}>{r.portfolio ? r.portfolio[c.key] : "—"}</td>)}

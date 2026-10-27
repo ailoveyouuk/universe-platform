@@ -36,6 +36,7 @@ export class InteractionDto {
 
 export class PersonProfileDto {
   @IsOptional() @IsIn([...CRM_DECISION_ROLES]) decisionRole?: (typeof CRM_DECISION_ROLES)[number] | null;
+  @IsOptional() @IsBoolean() isPrimary?: boolean;
   @IsOptional() @IsIn([...CRM_LAWFUL_BASES]) lawfulBasis?: (typeof CRM_LAWFUL_BASES)[number];
   @IsOptional() @IsString() @MaxLength(500) lawfulBasisReason?: string | null;
   @IsOptional() @IsIn([...CRM_SUBSCRIBER_TYPES]) subscriberType?: (typeof CRM_SUBSCRIBER_TYPES)[number];
@@ -90,5 +91,24 @@ export class SavedFilterDto {
   @IsOptional() @IsString() @MaxLength(80) name?: string;
   @IsOptional() filters?: Record<string, string>;
   @IsOptional() @IsBoolean() shared?: boolean;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}
+
+export class LocationDto {
+  @IsOptional() @IsIn(["HQ", "OFFICE", "FACTORY", "WAREHOUSE", "OTHER"]) kind?: "HQ" | "OFFICE" | "FACTORY" | "WAREHOUSE" | "OTHER";
+  @IsOptional() @IsString() @MaxLength(150) name?: string;
+  @IsOptional() @IsString() @MaxLength(3) countryCode?: string | null;
+  @IsOptional() @IsString() @MaxLength(100) city?: string | null;
+  @IsOptional() @IsString() @MaxLength(500) address?: string | null;
+  @IsOptional() @IsString() @MaxLength(60) phone?: string | null;
+  @IsOptional() @IsString() @MaxLength(200) email?: string | null;
+  @IsOptional() @IsString() @MaxLength(500) notes?: string | null;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}
+
+export class LinkDto {
+  @IsOptional() @IsIn(["WEBSITE", "SOCIAL", "PORTAL", "QUALITY", "OTHER"]) kind?: "WEBSITE" | "SOCIAL" | "PORTAL" | "QUALITY" | "OTHER";
+  @IsOptional() @IsString() @MaxLength(100) label?: string;
+  @IsOptional() @IsString() @MaxLength(500) url?: string;
   @IsOptional() @IsBoolean() archived?: boolean;
 }

@@ -4123,15 +4123,32 @@ export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHe
 }
 
 /** A stakeholder's projects with this organisation, by outcome. "In progress" is being worked, "awarded" is won and under way. Cancelled projects are left out. */
-export interface CrmPortfolio { identified: number; inProgress: number; submitted: number; awarded: number; completed: number; unawarded: number; total: number }
+export interface CrmPortfolio { identified: number; inProgress: number; submitted: number; awarded: number; completed: number; unawarded: number; total: number; lastProject: CrmLastProject | null }
 export const CRM_WORK_FILTERS = ["in_progress", "submitted", "awarded", "completed", "unawarded", "none"] as const;
 export type CrmWorkFilter = (typeof CRM_WORK_FILTERS)[number];
 export const CRM_WORK_FILTER_LABELS: Record<CrmWorkFilter, string> = { in_progress: "Has work in progress", submitted: "Has submitted bids", awarded: "Has awarded work under way", completed: "Has completed work", unawarded: "Has unawarded or declined work", none: "Never worked with" };
-export interface CrmSite { id: string; siteName: string; countryCode: string | null; address: string | null; isPrimary: boolean }
+export const CRM_LOCATION_KINDS = ["HQ", "OFFICE", "FACTORY", "WAREHOUSE", "OTHER"] as const;
+export type CrmLocationKind = (typeof CRM_LOCATION_KINDS)[number];
+export const CRM_LOCATION_KIND_LABELS: Record<CrmLocationKind, string> = { HQ: "Head office", OFFICE: "Office", FACTORY: "Factory or plant", WAREHOUSE: "Warehouse", OTHER: "Other" };
+/** A place the stakeholder operates from. `source` "pm" is a manufacturing site held in Project Management (read-only here). */
+export interface CrmLocation { id: string; source: "crm" | "pm"; kind: CrmLocationKind; name: string; countryCode: string | null; city: string | null; address: string | null; phone: string | null; email: string | null; notes: string | null }
+export interface CrmLocationInput { kind?: CrmLocationKind; name?: string; countryCode?: string | null; city?: string | null; address?: string | null; phone?: string | null; email?: string | null; notes?: string | null; archived?: boolean }
+export const CRM_LINK_KINDS = ["WEBSITE", "SOCIAL", "PORTAL", "QUALITY", "OTHER"] as const;
+export type CrmLinkKind = (typeof CRM_LINK_KINDS)[number];
+export const CRM_LINK_KIND_LABELS: Record<CrmLinkKind, string> = { WEBSITE: "Website", SOCIAL: "Social", PORTAL: "Tendering or opportunities portal", QUALITY: "Quality or regulatory listing", OTHER: "Other" };
+export interface CrmLink { id: string; source: "crm" | "pm"; kind: CrmLinkKind; label: string; url: string }
+export interface CrmLinkInput { kind?: CrmLinkKind; label?: string; url?: string; archived?: boolean }
+export const CRM_WORK_BUCKETS = ["inProgress", "submitted", "awarded", "completed", "unawarded", "identified"] as const;
+export type CrmWorkBucket = (typeof CRM_WORK_BUCKETS)[number];
+export const CRM_PROJECT_PARTS = ["client", "supplier", "manufacturer", "freight_forwarder"] as const;
+export type CrmProjectPart = (typeof CRM_PROJECT_PARTS)[number];
+export const CRM_PROJECT_PART_LABELS: Record<CrmProjectPart, string> = { client: "Client", supplier: "Supplier", manufacturer: "Manufacturer", freight_forwarder: "Freight forwarder" };
+/** The stakeholder's most recent project with this organisation. */
+export interface CrmLastProject { id: string; referenceNumber: string; title: string; date: string; status: string }
 export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO"] as const;
 export type CrmFilterView = (typeof CRM_FILTER_VIEWS)[number];
 /** The list filters a saved filter may hold. Anything else is rejected. */
-export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work"] as const;
+export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country"] as const;
 export interface CrmSavedFilter { id: string; view: CrmFilterView; name: string; filters: Record<string, string>; shared: boolean; mine: boolean; ownerName: string | null }
 export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filters?: Record<string, string>; shared?: boolean; archived?: boolean }
 export interface CrmTagRef { id: string; name: string }
@@ -4143,6 +4160,9 @@ export interface CrmRelationshipRow {
   contactCount?: number | null;
   siteCount?: number | null;
   siteCountries?: string[];
+  /** When the stakeholder was added to Universe and last changed. */
+  partnerAddedAt: string | null;
+  partnerUpdatedAt: string | null;
   id: string;
   partnerId: string | null;
   name: string;
@@ -4195,14 +4215,20 @@ export interface CrmPeopleOption { id: string; name: string }
 
 /** Relationship 360 (CRM step 2): read-only facts the other apps already hold about one stakeholder. Sections the viewer may not see are null. */
 export interface CrmDetailContact { id: string; name: string; title: string | null; email: string | null; phone: string | null }
-export interface CrmDetailProject { id: string; referenceNumber: string; title: string; status: string; dueDate: string | null; deliveryCountryCode: string | null; involvement: string[] }
+export interface CrmDetailProject { id: string; referenceNumber: string; title: string; status: string; dueDate: string | null; deliveryCountryCode: string | null; involvement: string[]; createdAt: string }
+export interface CrmPortfolioMap { points: { countryCode: string; kind: string; count: number }[]; noCountry: number; capped: boolean }
+export interface CrmProjectPage { items: CrmDetailProject[]; total: number; page: number; pageSize: number; counts: CrmPortfolio | null }
 export interface CrmDetailComplaint { id: string; referenceNumber: string; title: string; status: string; severity: string | null; receivedAt: string }
 export interface CrmDetailCertificate { id: string; type: string; referenceNumber: string | null; issuingBody: string | null; issuedDate: string | null; expiryDate: string | null; status: string }
 export interface CrmDetailCheck { id: string; checkType: string; customLabel: string | null; result: string; checkedDate: string | null }
 export interface CrmDetailApproval { id: string; action: string; reason: string | null; actionDate: string }
 export interface CrmRelationshipDetail {
   portfolio: CrmPortfolio | null;
-  sites: CrmSite[] | null;
+  /** CRM-held places plus (with the Project Management app) its manufacturing sites. */
+  locations: CrmLocation[];
+  links: CrmLink[];
+  partnerAddedAt: string | null;
+  partnerUpdatedAt: string | null;
   contacts: CrmDetailContact[] | null;
   projects: { total: number; items: CrmDetailProject[] } | null;
   complaints: { total: number; items: CrmDetailComplaint[] } | null;
@@ -4249,11 +4275,11 @@ export type CrmContactStatus = (typeof CRM_CONTACT_STATUSES)[number];
 export const CRM_CONTACT_STATUS_LABELS: Record<CrmContactStatus, string> = { ACTIVE: "Active", LEFT: "Has left", RESTRICTED: "Use restricted", OBJECTED: "Objected", ANONYMISED: "Anonymised" };
 export interface CrmPerson {
   id: string; relationshipId: string; name: string; title: string | null; email: string | null; phone: string | null;
-  decisionRole: CrmDecisionRole | null; lawfulBasis: CrmLawfulBasis; lawfulBasisReason: string | null; subscriberType: CrmSubscriberType; status: CrmContactStatus;
+  decisionRole: CrmDecisionRole | null; isPrimary: boolean; lawfulBasis: CrmLawfulBasis; lawfulBasisReason: string | null; subscriberType: CrmSubscriberType; status: CrmContactStatus;
   lastVerifiedAt: string | null; noticeSentAt: string | null; suppressed: boolean;
 }
 export interface CrmPersonUpdate {
-  decisionRole?: CrmDecisionRole | null; lawfulBasis?: CrmLawfulBasis; lawfulBasisReason?: string | null; subscriberType?: CrmSubscriberType;
+  decisionRole?: CrmDecisionRole | null; isPrimary?: boolean; lawfulBasis?: CrmLawfulBasis; lawfulBasisReason?: string | null; subscriberType?: CrmSubscriberType;
   status?: "ACTIVE" | "LEFT" | "RESTRICTED"; markVerified?: boolean; noticeSent?: boolean;
 }
 export const CRM_PRIVACY_REQUEST_TYPES = ["ACCESS", "RECTIFY", "ERASE", "RESTRICT", "OBJECT"] as const;

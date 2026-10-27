@@ -8,18 +8,22 @@ import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
 import { CrmSavedFiltersService } from "./crm-saved-filters.service";
 import { CrmTagsService } from "./crm-tags.service";
+import { CrmPlacesService } from "./crm-places.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
+
+  @Get("relationships/map")
+  portfolioMap(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.portfolioMap(user, q); }
 
   @Get("relationships")
   list(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
@@ -70,6 +74,13 @@ export class CrmController {
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
   @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }
+
+  // ---- Places, links and the projects drill-down (step 6f) ----
+  @Get("relationships/:id/projects") projectsPage(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("bucket") bucket?: string, @Query("part") part?: string, @Query("q") q?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) { return this.crm.projectsPage(user, id, { bucket, part, q, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined }); }
+  @Post("relationships/:id/locations") addLocation(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: LocationDto) { return this.places.saveLocation(user, id, null, dto); }
+  @Patch("relationships/:id/locations/:locationId") editLocation(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("locationId") locationId: string, @Body() dto: LocationDto) { return this.places.saveLocation(user, id, locationId, dto); }
+  @Post("relationships/:id/links") addLink(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: LinkDto) { return this.places.saveLink(user, id, null, dto); }
+  @Patch("relationships/:id/links/:linkId") editLink(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("linkId") linkId: string, @Body() dto: LinkDto) { return this.places.saveLink(user, id, linkId, dto); }
 
   // ---- Tags and segments (step 6) ----
   @Get("tags") listTags(@CurrentUser() user: RequestUser) { return this.tags.list(user); }

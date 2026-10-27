@@ -28,12 +28,13 @@ export function People({ relId, partnerId, canManage }: { relId: string; partner
       <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Business details only. Do not record health, beliefs, trade-union membership or criminal allegations about anyone. Opening this list is recorded in the access log.</p>
       {rows.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>No contacts recorded yet. Contacts are added on the stakeholder record in Project Management.</p>}
       <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
-        {rows.map((p) => (
+        {[...rows].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary)).map((p) => (
           <li key={p.id} style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "10px 12px", display: "grid", gap: 6, fontSize: 13.5 }}>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <strong>{p.name}</strong>
               {p.title && <span style={{ color: "var(--u-ink-secondary)" }}>{p.title}</span>}
               <Pill tone={TONE[p.status]}>{CRM_CONTACT_STATUS_LABELS[p.status]}</Pill>
+              {p.isPrimary && <Pill tone="good">Primary contact</Pill>}
               {p.decisionRole && <Pill tone="brand">{CRM_DECISION_ROLE_LABELS[p.decisionRole]}</Pill>}
               {p.suppressed && <Pill tone="critical">On suppression list</Pill>}
             </div>
@@ -41,6 +42,9 @@ export function People({ relId, partnerId, canManage }: { relId: string; partner
             <div style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>
               Basis: {CRM_LAWFUL_BASIS_LABELS[p.lawfulBasis]} · Verified {fmtDate(p.lastVerifiedAt)} · Privacy notice {p.noticeSentAt ? `sent ${fmtDate(p.noticeSentAt)}` : "not sent"}
             </div>
+            {canManage && p.status === "ACTIVE" && !p.isPrimary && (
+              <div><Button size="sm" variant="secondary" aria-label={`Make ${p.name} the primary contact`} onClick={() => { apiClient.updateCrmPerson(p.id, { isPrimary: true }).then(() => { setOk(`${p.name} is now the primary contact.`); setErr(null); load(); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not save.")); }}>Make primary</Button></div>
+            )}
             {canManage && p.status !== "ANONYMISED" && p.status !== "OBJECTED" && (
               <div><Button size="sm" variant="secondary" aria-expanded={openId === p.id} onClick={() => setOpenId(openId === p.id ? null : p.id)}>{openId === p.id ? "Close" : "Manage"}</Button></div>
             )}

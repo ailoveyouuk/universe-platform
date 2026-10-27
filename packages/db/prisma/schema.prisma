@@ -4830,6 +4830,8 @@ model CrmRelationship {
   interactions               CrmInteraction[]
   opportunities              CrmOpportunity[]
   tagLinks                   CrmRelationshipTag[]
+  locations                  CrmLocation[]
+  links                      CrmLink[]
 
   @@unique([organizationId, counterpartyKey])
   @@index([organizationId, status])
@@ -4879,6 +4881,8 @@ model CrmContactProfile {
   contactId          String    @unique
   /// DECISION_MAKER | INFLUENCER | BUDGET_HOLDER | TECHNICAL | QUALITY | OPERATIONAL | OTHER
   decisionRole       String?
+  /// The stakeholder's main contact (one per stakeholder; setting another clears this).
+  isPrimary          Boolean   @default(false)
   /// LEGITIMATE_INTERESTS | CONTRACT | LEGAL_OBLIGATION | CONSENT | PUBLIC_TASK | VITAL_INTERESTS
   lawfulBasis        String    @default("LEGITIMATE_INTERESTS")
   lawfulBasisReason  String?   @db.NVarChar(500)
@@ -5039,4 +5043,48 @@ model CrmSavedFilter {
   @@index([organizationId, view])
   @@index([organizationId, ownerUserId])
   @@map("crm_saved_filters")
+}
+
+/// CRM step 7 (2026-10-27): the stakeholder's own places: head office (HQ, at most one), other offices, factories, warehouses. Private to the organisation.
+/// The stakeholder's manufacturing sites held in Project Management are shown beside these read-only. Archived, never deleted; every change audited.
+model CrmLocation {
+  id             String          @id @default(uuid())
+  organizationId String
+  relationshipId String
+  relationship   CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// HQ | OFFICE | FACTORY | WAREHOUSE | OTHER
+  kind           String          @default("OFFICE")
+  name           String          @db.NVarChar(150)
+  countryCode    String?
+  city           String?         @db.NVarChar(100)
+  address        String?         @db.NVarChar(500)
+  phone          String?         @db.NVarChar(60)
+  email          String?         @db.NVarChar(200)
+  notes          String?         @db.NVarChar(500)
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  archivedAt     DateTime?
+
+  @@index([organizationId, relationshipId])
+  @@map("crm_locations")
+}
+
+/// Web addresses for a stakeholder beyond the website held on its stakeholder record: social profiles, tendering and business-opportunity portals,
+/// quality or regulatory listings. http/https only (validated by the API). Archived, never deleted.
+model CrmLink {
+  id             String          @id @default(uuid())
+  organizationId String
+  relationshipId String
+  relationship   CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// WEBSITE | SOCIAL | PORTAL | QUALITY | OTHER
+  kind           String
+  label          String          @db.NVarChar(100)
+  url            String          @db.NVarChar(500)
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  archivedAt     DateTime?
+
+  @@index([organizationId, relationshipId])
+  @@map("crm_links")
 }

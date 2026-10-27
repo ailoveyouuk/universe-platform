@@ -1,6 +1,6 @@
 import type { CrmPortfolio } from "@universe/types";
 
-export const PORTFOLIO_COLUMNS: { key: keyof Omit<CrmPortfolio, "total" | "identified">; label: string; short: string }[] = [
+export const PORTFOLIO_COLUMNS: { key: keyof Omit<CrmPortfolio, "total" | "identified" | "lastProject">; label: string; short: string }[] = [
   { key: "inProgress", label: "In progress", short: "In progress" },
   { key: "submitted", label: "Submitted", short: "Submitted" },
   { key: "awarded", label: "Awarded, under way", short: "Awarded" },

@@ -42,7 +42,7 @@ export class CrmPrivacyService {
   private person(c: { id: string; name: string; title: string | null; email: string | null; phone: string | null }, relationshipId: string, p: Prisma.CrmContactProfileGetPayload<object> | undefined, suppressed: boolean): CrmPerson {
     return {
       id: c.id, relationshipId, name: c.name, title: c.title, email: c.email, phone: c.phone,
-      decisionRole: (p?.decisionRole as CrmDecisionRole | null) ?? null, lawfulBasis: (p?.lawfulBasis as CrmLawfulBasis) ?? "LEGITIMATE_INTERESTS", lawfulBasisReason: p?.lawfulBasisReason ?? null,
+      decisionRole: (p?.decisionRole as CrmDecisionRole | null) ?? null, isPrimary: p?.isPrimary ?? false, lawfulBasis: (p?.lawfulBasis as CrmLawfulBasis) ?? "LEGITIMATE_INTERESTS", lawfulBasisReason: p?.lawfulBasisReason ?? null,
       subscriberType: (p?.subscriberType as CrmSubscriberType) ?? "UNKNOWN", status: (p?.status as CrmContactStatus) ?? "ACTIVE",
       lastVerifiedAt: p?.lastVerifiedAt?.toISOString() ?? null, noticeSentAt: p?.noticeSentAt?.toISOString() ?? null, suppressed,
     };
@@ -81,6 +81,15 @@ export class CrmPrivacyService {
       const now = new Date();
       const data: Prisma.CrmContactProfileUncheckedUpdateInput = {};
       if (dto.decisionRole !== undefined) data.decisionRole = dto.decisionRole;
+      // One primary contact per stakeholder: choosing one clears the previous one. Someone who has left or is restricted cannot be the main contact.
+      const leaving = dto.status === "LEFT" || dto.status === "RESTRICTED";
+      if (dto.isPrimary === true) {
+        const effective = dto.status ?? cur?.status ?? "ACTIVE";
+        if (effective !== "ACTIVE") throw new BadRequestException("Only a current contact can be the primary contact.");
+        const mates = await tx.contact.findMany({ where: { organizationId: u.organizationId, partnerId: c.partnerId, id: { not: contactId } }, select: { id: true }, take: 500 });
+        if (mates.length) await tx.crmContactProfile.updateMany({ where: { organizationId: u.organizationId, contactId: { in: mates.map((m) => m.id) }, isPrimary: true }, data: { isPrimary: false } });
+        data.isPrimary = true;
+      } else if (dto.isPrimary === false || leaving) data.isPrimary = false;
       if (dto.lawfulBasis) data.lawfulBasis = dto.lawfulBasis;
       if (dto.lawfulBasisReason !== undefined) data.lawfulBasisReason = dto.lawfulBasisReason?.trim().slice(0, 500) || null;
       if (dto.subscriberType) data.subscriberType = dto.subscriberType;
@@ -91,7 +100,7 @@ export class CrmPrivacyService {
         ? await tx.crmContactProfile.update({ where: { id: cur.id }, data })
         : await tx.crmContactProfile.create({ data: { organizationId: u.organizationId, contactId, ...(data as object) } as Prisma.CrmContactProfileUncheckedCreateInput });
       await recordFieldChanges(tx, { organizationId: u.organizationId, tableName: "crm_contact_profiles", recordId: row.id, changedById: u.id,
-        changes: diffForAudit(cur ?? { decisionRole: null, lawfulBasis: "LEGITIMATE_INTERESTS", lawfulBasisReason: null, subscriberType: "UNKNOWN", status: "ACTIVE", lastVerifiedAt: null, noticeSentAt: null }, row, ["decisionRole", "lawfulBasis", "lawfulBasisReason", "subscriberType", "status", "lastVerifiedAt", "noticeSentAt"]) });
+        changes: diffForAudit(cur ?? { decisionRole: null, isPrimary: false, lawfulBasis: "LEGITIMATE_INTERESTS", lawfulBasisReason: null, subscriberType: "UNKNOWN", status: "ACTIVE", lastVerifiedAt: null, noticeSentAt: null }, row, ["decisionRole", "isPrimary", "lawfulBasis", "lawfulBasisReason", "subscriberType", "status", "lastVerifiedAt", "noticeSentAt"]) });
       await this.log(tx, u, "EDIT_PROFILE", { contactId, relationshipId: rel.id });
       const suppressed = !!c.email && !!(await tx.crmSuppression.findFirst({ where: { organizationId: u.organizationId, emailHash: hashEmail(c.email) }, select: { id: true } }));
       return this.person(c, rel.id, row, suppressed);

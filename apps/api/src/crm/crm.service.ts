@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
-import { canUseApp, CRM_HEALTH, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmPortfolio, type CrmSite, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
+import { canUseApp, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -9,12 +9,17 @@ import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
-export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; view?: string; archived?: string; sort?: string; dir?: string }
+export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; view?: string; archived?: string; sort?: string; dir?: string }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
 /** The relationship status a stakeholder starts with: approved stakeholders are active, everything else is still a prospect. */
 export const startingStatus = (approvalStatus: string): CrmStatus => (approvalStatus === "APPROVED" ? "ACTIVE" : "PROSPECT");
 export const counterpartyKeyForPartner = (partnerId: string) => `partner:${partnerId}`;
+/** A web address that is safe to show as a link: http or https only. Returns null for anything else (so a javascript: address can never become a link). */
+export function safeUrl(raw: string | null | undefined): string | null {
+  const t = raw?.trim(); if (!t) return null;
+  try { const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`); return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null; } catch { return null; }
+}
 
 /**
  * CRM relationships (2026-10-26, step 1). A relationship record sits on top of a stakeholder (Partner) and adds ownership, tier, status and
@@ -97,7 +102,7 @@ export class CrmService {
     return map;
   }
 
-  private static readonly include = { partner: { select: { name: true, countryCode: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } }, tagLinks: { where: { removedAt: null, tag: { archivedAt: null } }, select: { tag: { select: { id: true, name: true } } } } } as const;
+  private static readonly include = { partner: { select: { name: true, countryCode: true, createdAt: true, updatedAt: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } }, tagLinks: { where: { removedAt: null, tag: { archivedAt: null } }, select: { tag: { select: { id: true, name: true } } } } } as const;
 
   private shape(r: any, owners: Map<string, string>, facts: Facts): CrmRelationshipRow {
     const f = facts.get(r.partnerId ?? "") ?? { open: facts.canComplaints ? 0 : null, expired: 0, soon: 0 };
@@ -110,6 +115,7 @@ export class CrmService {
       health: calc.health, healthReasons: calc.reasons, healthOverride: (r.healthOverride as CrmHealth | null) ?? null, healthOverrideReason: r.healthOverrideReason,
       openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon,
       tags: ((r.tagLinks ?? []) as { tag: { id: string; name: string } }[]).map((l) => l.tag).sort((a, b) => a.name.localeCompare(b.name)),
+      partnerAddedAt: r.partner?.createdAt?.toISOString() ?? null, partnerUpdatedAt: r.partner?.updatedAt?.toISOString() ?? null,
       archivedAt: r.archivedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
     };
   }
@@ -140,14 +146,8 @@ export class CrmService {
   private canSeeProjects(user: RequestUser) { const staff = user.platformStaffRole !== "NONE"; return (staff || canUseApp(user.apps, "project-management")) && (staff || user.permissions.includes("projects.view")); }
   private canSeeComplaints(user: RequestUser) { return user.platformStaffRole !== "NONE" || user.permissions.includes("quality.complaints.view"); }
 
-  async list(user: RequestUser, q: CrmListQuery): Promise<CrmRelationshipPage> {
-    assertHasPermission(user, "crm.view");
-    await this.ensureTracked(user);
-    const now = new Date();
-    const canComplaints = this.canSeeComplaints(user);
-    const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100);
-    const page = Math.max(q.page ?? 1, 1);
-    return withTenantContext(user.organizationId, async (tx) => {
+  /** The database conditions behind every list filter, shared by the table and the portfolio map so the two always agree. */
+  private async listWhere(tx: Tx, user: RequestUser, q: CrmListQuery, now: Date, canComplaints: boolean): Promise<Prisma.CrmRelationshipWhereInput> {
       const and: Prisma.CrmRelationshipWhereInput[] = [{ organizationId: user.organizationId, archivedAt: q.archived === "true" ? { not: null } : null }];
       const needle = q.q?.trim();
       if (needle) {
@@ -155,6 +155,7 @@ export class CrmService {
         and.push({ OR: [{ partner: { name: { contains: needle } } }, { partner: { countryCode: { contains: needle } } }, { summary: { contains: needle } }, ...(owners.length ? [{ ownerUserId: { in: owners.map((o) => o.id) } }] : [])] });
       }
       if (q.work && this.canSeeProjects(user)) { const w = this.workWhere(q.work); if (w) and.push(w); }
+      if (q.country && /^[A-Za-z]{2,3}$/.test(q.country)) and.push({ partner: { countryCode: q.country.toUpperCase() } });
       if (q.tag) and.push({ tagLinks: { some: { tagId: q.tag, removedAt: null } } });
       if (q.tier) and.push({ tier: q.tier });
       if (q.status) and.push({ status: q.status });
@@ -165,7 +166,39 @@ export class CrmService {
       if (q.health === "attention") and.push({ status: { not: "ENDED" } }, this.healthWhere("ATTENTION", canComplaints, now));
       else if (q.health === "AT_RISK") and.push({ status: { not: "ENDED" } }, this.healthWhere("AT_RISK", canComplaints, now));
       if (q.review === "due") and.push({ status: { not: "ENDED" }, nextReviewDue: { lt: now } });
-      const where: Prisma.CrmRelationshipWhereInput = { AND: and };
+      return { AND: and };
+  }
+
+  /** Where the filtered stakeholders are based, by country and kind, for the portfolio map. Capped so the map stays fast on very large books. */
+  async portfolioMap(user: RequestUser, q: CrmListQuery): Promise<CrmPortfolioMap> {
+    assertHasPermission(user, "crm.view");
+    const now = new Date();
+    const cap = 6000;
+    return withTenantContext(user.organizationId, async (tx) => {
+      const where = await this.listWhere(tx, user, q, now, this.canSeeComplaints(user));
+      const rows = await tx.crmRelationship.findMany({ where, select: { partner: { select: { countryCode: true, roles: { where: { isActive: true }, select: { roleType: true } } } } }, take: cap + 1 });
+      const order = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"];
+      const counts = new Map<string, number>(); let noCountry = 0;
+      for (const r of rows.slice(0, cap)) {
+        const code = r.partner?.countryCode;
+        if (!code) { noCountry++; continue; }
+        const roles = (r.partner?.roles ?? []).map((x) => x.roleType);
+        const kind = order.find((o) => roles.includes(o as never)) ?? "OTHER";
+        counts.set(`${code}|${kind}`, (counts.get(`${code}|${kind}`) ?? 0) + 1);
+      }
+      return { points: [...counts].map(([k, count]) => { const [countryCode, kind] = k.split("|"); return { countryCode, kind, count }; }), noCountry, capped: rows.length > cap };
+    });
+  }
+
+  async list(user: RequestUser, q: CrmListQuery): Promise<CrmRelationshipPage> {
+    assertHasPermission(user, "crm.view");
+    await this.ensureTracked(user);
+    const now = new Date();
+    const canComplaints = this.canSeeComplaints(user);
+    const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100);
+    const page = Math.max(q.page ?? 1, 1);
+    return withTenantContext(user.organizationId, async (tx) => {
+      const where = await this.listWhere(tx, user, q, now, canComplaints);
       const dir = q.dir === "desc" ? "desc" : "asc";
       const orderBy: Prisma.CrmRelationshipOrderByWithRelationInput[] =
         q.sort === "tier" ? [{ tier: dir }, { partner: { name: "asc" } }] : q.sort === "status" ? [{ status: dir }, { partner: { name: "asc" } }] :
@@ -238,26 +271,39 @@ export class CrmService {
     });
   }
 
-  /** Counts a stakeholder's projects by outcome in the database. A project counts once per stakeholder however many hats they wore on it (client, freight forwarder, supplier or manufacturer on a line). */
+  /**
+   * Counts a stakeholder's projects by outcome in the database, and finds the most recent one. A project counts once per stakeholder however many hats
+   * they wore (client, freight forwarder, supplier or manufacturer on a line). Cancelled projects are left out of the counts but can still be the latest.
+   */
   private async portfolioFor(tx: Prisma.TransactionClient, org: string, ids: string[]): Promise<Map<string, CrmPortfolio>> {
     const out = new Map<string, CrmPortfolio>();
     if (!ids.length) return out;
     const list = Prisma.join(ids);
-    const rows = await tx.$queryRaw<{ pid: string; status: string; n: number | bigint }[]>(Prisma.sql`
-      SELECT t.pid AS pid, t.status AS status, COUNT(*) AS n FROM (
-        SELECT p.clientId AS pid, p.id AS id, p.status AS status FROM projects p WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND p.clientId IN (${list})
-        UNION SELECT p.freightForwarderId, p.id, p.status FROM projects p WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND p.freightForwarderId IN (${list})
-        UNION SELECT l.supplierId, p.id, p.status FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.supplierId IN (${list})
-        UNION SELECT l.manufacturerId, p.id, p.status FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.manufacturerId IN (${list})
-      ) t GROUP BY t.pid, t.status`);
-    const empty = (): CrmPortfolio => ({ identified: 0, inProgress: 0, submitted: 0, awarded: 0, completed: 0, unawarded: 0, total: 0 });
+    const union = Prisma.sql`
+        SELECT p.clientId AS pid, p.id AS id, p.status AS status, p.createdAt AS createdAt FROM projects p WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND p.clientId IN (${list})
+        UNION SELECT p.freightForwarderId, p.id, p.status, p.createdAt FROM projects p WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND p.freightForwarderId IN (${list})
+        UNION SELECT l.supplierId, p.id, p.status, p.createdAt FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.supplierId IN (${list})
+        UNION SELECT l.manufacturerId, p.id, p.status, p.createdAt FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.manufacturerId IN (${list})`;
+    const [rows, latest] = await Promise.all([
+      tx.$queryRaw<{ pid: string; status: string; n: number | bigint }[]>(Prisma.sql`SELECT t.pid AS pid, t.status AS status, COUNT(*) AS n FROM (${union}) t GROUP BY t.pid, t.status`),
+      tx.$queryRaw<{ pid: string; id: string; createdAt: Date }[]>(Prisma.sql`SELECT x.pid AS pid, x.id AS id, x.createdAt AS createdAt FROM (SELECT t.pid, t.id, t.createdAt, ROW_NUMBER() OVER (PARTITION BY t.pid ORDER BY t.createdAt DESC) AS rn FROM (${union}) t) x WHERE x.rn = 1`),
+    ]);
+    const empty = (): CrmPortfolio => ({ identified: 0, inProgress: 0, submitted: 0, awarded: 0, completed: 0, unawarded: 0, total: 0, lastProject: null });
     for (const id of ids) out.set(id, empty());
+    const keyOf = { IDENTIFIED: "identified", IN_PROGRESS: "inProgress", SUBMITTED: "submitted", AWARDED: "awarded", COMPLETED: "completed", UNAWARDED: "unawarded", DECLINED: "unawarded" } as Record<string, CrmWorkBucket | undefined>;
     for (const r of rows) {
       const c = out.get(r.pid); if (!c) continue;
-      const n = Number(r.n);
-      const key = ({ IDENTIFIED: "identified", IN_PROGRESS: "inProgress", SUBMITTED: "submitted", AWARDED: "awarded", COMPLETED: "completed", UNAWARDED: "unawarded", DECLINED: "unawarded" } as Record<string, keyof CrmPortfolio | undefined>)[r.status];
+      const key = keyOf[r.status];
       if (!key) continue; // cancelled projects are not part of the picture
-      c[key] += n; c.total += n;
+      const n = Number(r.n); c[key] += n; c.total += n;
+    }
+    if (latest.length) {
+      const projects = await tx.project.findMany({ where: { id: { in: latest.map((l) => l.id) } }, select: { id: true, referenceNumber: true, title: true, status: true, createdAt: true } });
+      const byId = new Map(projects.map((p) => [p.id, p]));
+      for (const l of latest) {
+        const p = byId.get(l.id); const c = out.get(l.pid); if (!p || !c) continue;
+        c.lastProject = { id: p.id, referenceNumber: p.referenceNumber, title: p.title, date: p.createdAt.toISOString(), status: p.status } as CrmLastProject;
+      }
     }
     return out;
   }
@@ -268,10 +314,12 @@ export class CrmService {
     const inPm = staff || canUseApp(user.apps, "project-management");
     const seeProjects = inPm && (staff || user.permissions.includes("projects.view"));
     const ids = items.map((i) => i.partnerId).filter((x): x is string => !!x);
-    const [port, contacts, sites] = await Promise.all([
+    const rels = items.map((i) => i.id);
+    const [port, contacts, sites, places] = await Promise.all([
       seeProjects ? this.portfolioFor(tx, user.organizationId, ids) : Promise.resolve(null),
       inPm && ids.length ? tx.contact.groupBy({ by: ["partnerId"], where: { organizationId: user.organizationId, partnerId: { in: ids } }, _count: { _all: true } }) : Promise.resolve(null),
       inPm && ids.length ? tx.manufacturerSite.findMany({ where: { partnerId: { in: ids } }, select: { partnerId: true, countryCode: true }, take: 5000 }) : Promise.resolve(null),
+      rels.length ? tx.crmLocation.findMany({ where: { organizationId: user.organizationId, relationshipId: { in: rels }, archivedAt: null }, select: { relationshipId: true, countryCode: true, kind: true }, take: 5000 }) : Promise.resolve([]),
     ]);
     const cMap = new Map((contacts ?? []).map((c) => [c.partnerId, c._count._all]));
     for (const it of items) {
@@ -279,8 +327,9 @@ export class CrmService {
       it.portfolio = pid && port ? port.get(pid) ?? null : null;
       it.contactCount = inPm ? (pid ? cMap.get(pid) ?? 0 : 0) : null;
       const mine = (sites ?? []).filter((x) => x.partnerId === pid);
-      it.siteCount = inPm ? mine.length : null;
-      it.siteCountries = [...new Set(mine.map((x) => x.countryCode).filter((x): x is string => !!x))].sort();
+      const own = places.filter((x) => x.relationshipId === it.id);
+      it.siteCount = mine.length + own.length;
+      it.siteCountries = [...new Set([...mine, ...own].map((x) => x.countryCode).filter((x): x is string => !!x))].sort();
     }
   }
 
@@ -315,20 +364,22 @@ export class CrmService {
       if (!r) throw new NotFoundException("Relationship not found.");
       const pid = r.partnerId;
       const org = user.organizationId;
-      if (!pid) return { portfolio: null, sites: null, contacts: null, projects: null, complaints: null, certificates: [], checks: [], approvals: [], approvalStatus: null, lastApprovalReviewDate: null, nextApprovalReviewDue: null };
+      if (!pid) return { portfolio: null, locations: [], links: [], partnerAddedAt: null, partnerUpdatedAt: null, contacts: null, projects: null, complaints: null, certificates: [], checks: [], approvals: [], approvalStatus: null, lastApprovalReviewDate: null, nextApprovalReviewDue: null };
       const projWhere: Prisma.ProjectWhereInput = { organizationId: org, archivedAt: null, OR: [{ clientId: pid }, { freightForwarderId: pid }, { lines: { some: { OR: [{ supplierId: pid }, { manufacturerId: pid }] } } }] };
-      const [partner, contacts, projTotal, projs, compTotal, comps, certs, checks, approvals, portfolioMap, siteRows] = await Promise.all([
-        tx.partner.findFirst({ where: { id: pid, organizationId: org }, select: { approvalStatus: true, lastApprovalReviewDate: true, nextApprovalReviewDue: true } }),
+      const [partner, contacts, projTotal, projs, compTotal, comps, certs, checks, approvals, portfolioMap, siteRows, ownLocations, ownLinks] = await Promise.all([
+        tx.partner.findFirst({ where: { id: pid, organizationId: org }, select: { approvalStatus: true, lastApprovalReviewDate: true, nextApprovalReviewDue: true, website: true, createdAt: true, updatedAt: true } }),
         seeContacts ? tx.contact.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { name: "asc" }, take: 100, select: { id: true, name: true, title: true, email: true, phone: true } }) : Promise.resolve(null),
         seeProjects ? tx.project.count({ where: projWhere }) : Promise.resolve(0),
-        seeProjects ? tx.project.findMany({ where: projWhere, orderBy: { createdAt: "desc" }, take: 25, select: { id: true, referenceNumber: true, title: true, status: true, dueDate: true, deliveryCountryCode: true, clientId: true, freightForwarderId: true } }) : Promise.resolve([]),
+        seeProjects ? tx.project.findMany({ where: projWhere, orderBy: { createdAt: "desc" }, take: 25, select: { id: true, referenceNumber: true, title: true, status: true, dueDate: true, deliveryCountryCode: true, clientId: true, freightForwarderId: true, createdAt: true } }) : Promise.resolve([]),
         seeComplaints ? tx.qualityComplaint.count({ where: { organizationId: org, partnerId: pid, archivedAt: null } }) : Promise.resolve(0),
         seeComplaints ? tx.qualityComplaint.findMany({ where: { organizationId: org, partnerId: pid, archivedAt: null }, orderBy: { receivedAt: "desc" }, take: 25, select: { id: true, referenceNumber: true, title: true, status: true, severity: true, receivedAt: true } }) : Promise.resolve([]),
         tx.partnerCertification.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { expiryDate: "asc" }, take: 100, select: { id: true, type: true, referenceNumber: true, issuingBody: true, issuedDate: true, expiryDate: true, status: true } }),
         tx.partnerCompanyCheck.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, checkType: true, customLabel: true, result: true, checkedDate: true } }),
         tx.partnerApprovalHistory.findMany({ where: { organizationId: org, partnerId: pid }, orderBy: { actionDate: "desc" }, take: 20, select: { id: true, action: true, reason: true, actionDate: true } }),
         seeProjects ? this.portfolioFor(tx, org, [pid]) : Promise.resolve(null),
-        inPm ? tx.manufacturerSite.findMany({ where: { partnerId: pid }, orderBy: [{ isPrimary: "desc" }, { siteName: "asc" }], take: 100, select: { id: true, siteName: true, countryCode: true, address: true, isPrimary: true } }) : Promise.resolve(null),
+        inPm ? tx.manufacturerSite.findMany({ where: { partnerId: pid }, orderBy: [{ isPrimary: "desc" }, { siteName: "asc" }], take: 100, select: { id: true, siteName: true, countryCode: true, address: true } }) : Promise.resolve([]),
+        tx.crmLocation.findMany({ where: { organizationId: org, relationshipId: id, archivedAt: null }, orderBy: [{ name: "asc" }], take: 200 }),
+        tx.crmLink.findMany({ where: { organizationId: org, relationshipId: id, archivedAt: null }, orderBy: [{ createdAt: "asc" }], take: 100 }),
       ]);
       // Which hat the stakeholder wore on each project: client and freight forwarder come from the header, supplier and manufacturer from the lines.
       const lineRoles = new Map<string, Set<string>>();
@@ -339,14 +390,67 @@ export class CrmService {
       const iso = (d: Date | null) => d?.toISOString() ?? null;
       return {
         portfolio: portfolioMap?.get(pid) ?? null,
-        sites: siteRows as CrmSite[] | null,
+        locations: [
+          ...ownLocations.map((l): CrmLocation => ({ id: l.id, source: "crm", kind: l.kind as CrmLocation["kind"], name: l.name, countryCode: l.countryCode, city: l.city, address: l.address, phone: l.phone, email: l.email, notes: l.notes })),
+          ...siteRows.map((x): CrmLocation => ({ id: x.id, source: "pm", kind: "FACTORY", name: x.siteName, countryCode: x.countryCode, city: null, address: x.address, phone: null, email: null, notes: null })),
+        ].sort((a, b) => (a.kind === "HQ" ? 0 : 1) - (b.kind === "HQ" ? 0 : 1) || a.name.localeCompare(b.name)),
+        links: [
+          ...(safeUrl(partner?.website) ? [{ id: "website", source: "pm" as const, kind: "WEBSITE" as const, label: "Website", url: safeUrl(partner?.website)! }] : []),
+          ...ownLinks.map((l): CrmLink => ({ id: l.id, source: "crm", kind: l.kind as CrmLink["kind"], label: l.label, url: l.url })),
+        ],
+        partnerAddedAt: iso(partner?.createdAt ?? null), partnerUpdatedAt: iso(partner?.updatedAt ?? null),
         contacts,
-        projects: seeProjects ? { total: projTotal, items: projs.map((p) => ({ id: p.id, referenceNumber: p.referenceNumber, title: p.title, status: p.status, dueDate: iso(p.dueDate), deliveryCountryCode: p.deliveryCountryCode, involvement: [...(p.clientId === pid ? ["Client"] : []), ...(p.freightForwarderId === pid ? ["Freight forwarder"] : []), ...(lineRoles.get(p.id) ?? [])] })) } : null,
+        projects: seeProjects ? { total: projTotal, items: projs.map((p) => ({ id: p.id, referenceNumber: p.referenceNumber, title: p.title, status: p.status, dueDate: iso(p.dueDate), deliveryCountryCode: p.deliveryCountryCode, createdAt: p.createdAt.toISOString(), involvement: [...(p.clientId === pid ? ["Client"] : []), ...(p.freightForwarderId === pid ? ["Freight forwarder"] : []), ...(lineRoles.get(p.id) ?? [])] })) } : null,
         complaints: seeComplaints ? { total: compTotal, items: comps.map((c) => ({ id: c.id, referenceNumber: c.referenceNumber, title: c.title, status: c.status, severity: c.severity, receivedAt: c.receivedAt.toISOString() })) } : null,
         certificates: certs.map((c) => ({ ...c, issuedDate: iso(c.issuedDate), expiryDate: iso(c.expiryDate) })),
         checks: checks.map((c) => ({ ...c, checkedDate: iso(c.checkedDate) })),
         approvals: approvals.map((a) => ({ ...a, actionDate: a.actionDate.toISOString() })),
         approvalStatus: partner?.approvalStatus ?? null, lastApprovalReviewDate: iso(partner?.lastApprovalReviewDate ?? null), nextApprovalReviewDue: iso(partner?.nextApprovalReviewDue ?? null),
+      };
+    });
+  }
+
+  /** One page of a stakeholder's projects for the 360 Work tab: filtered by status bucket, by the part they played, and by a search word, all in the database. */
+  async projectsPage(user: RequestUser, id: string, q: { bucket?: string; part?: string; q?: string; page?: number; pageSize?: number }): Promise<CrmProjectPage> {
+    assertHasPermission(user, "crm.view");
+    const staff = user.platformStaffRole !== "NONE";
+    if (!(staff || (canUseApp(user.apps, "project-management") && user.permissions.includes("projects.view")))) throw new ForbiddenException("You do not have access to project data.");
+    const pageSize = Math.min(Math.max(Math.trunc(q.pageSize ?? 10), 1), 50);
+    const page = Math.max(Math.trunc(q.page ?? 1), 1);
+    const statuses: Record<string, string[]> = { identified: ["IDENTIFIED"], inProgress: ["IN_PROGRESS"], submitted: ["SUBMITTED"], awarded: ["AWARDED"], completed: ["COMPLETED"], unawarded: ["UNAWARDED", "DECLINED"] };
+    if (q.bucket && !statuses[q.bucket]) throw new BadRequestException("Choose a work bucket from the list.");
+    if (q.part && !(CRM_PROJECT_PARTS as readonly string[]).includes(q.part)) throw new BadRequestException("Choose a part from the list.");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const org = user.organizationId;
+      const r = await tx.crmRelationship.findFirst({ where: { id, organizationId: org }, select: { partnerId: true } });
+      if (!r) throw new NotFoundException("Relationship not found.");
+      const pid = r.partnerId;
+      if (!pid) return { items: [], total: 0, page, pageSize, counts: null };
+      const partOr: Prisma.ProjectWhereInput[] = !q.part
+        ? [{ clientId: pid }, { freightForwarderId: pid }, { lines: { some: { OR: [{ supplierId: pid }, { manufacturerId: pid }] } } }]
+        : q.part === "client" ? [{ clientId: pid }]
+        : q.part === "freight_forwarder" ? [{ freightForwarderId: pid }]
+        : q.part === "supplier" ? [{ lines: { some: { supplierId: pid } } }]
+        : [{ lines: { some: { manufacturerId: pid } } }];
+      const needle = q.q?.trim().slice(0, 100);
+      const where: Prisma.ProjectWhereInput = {
+        organizationId: org, archivedAt: null, OR: partOr,
+        ...(q.bucket ? { status: { in: statuses[q.bucket] as never } } : {}),
+        ...(needle ? { AND: [{ OR: [{ title: { contains: needle } }, { referenceNumber: { contains: needle } }] }] } : {}),
+      };
+      const [total, rows, counts] = await Promise.all([
+        tx.project.count({ where }),
+        tx.project.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, referenceNumber: true, title: true, status: true, dueDate: true, deliveryCountryCode: true, clientId: true, freightForwarderId: true, createdAt: true } }),
+        this.portfolioFor(tx, org, [pid]),
+      ]);
+      const lineRoles = new Map<string, Set<string>>();
+      if (rows.length) {
+        const lines = await tx.projectLine.findMany({ where: { projectId: { in: rows.map((p) => p.id) }, OR: [{ supplierId: pid }, { manufacturerId: pid }] }, select: { projectId: true, supplierId: true, manufacturerId: true }, take: 5000 });
+        for (const l of lines) { const set = lineRoles.get(l.projectId) ?? new Set<string>(); if (l.supplierId === pid) set.add("Supplier"); if (l.manufacturerId === pid) set.add("Manufacturer"); lineRoles.set(l.projectId, set); }
+      }
+      return {
+        total, page, pageSize, counts: counts.get(pid) ?? null,
+        items: rows.map((p) => ({ id: p.id, referenceNumber: p.referenceNumber, title: p.title, status: p.status, dueDate: p.dueDate?.toISOString() ?? null, deliveryCountryCode: p.deliveryCountryCode, createdAt: p.createdAt.toISOString(), involvement: [...(p.clientId === pid ? ["Client"] : []), ...(p.freightForwarderId === pid ? ["Freight forwarder"] : []), ...(lineRoles.get(p.id) ?? [])] })),
       };
     });
   }
