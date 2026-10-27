@@ -4,6 +4,7 @@ import type { CrmRelationshipDetail, PartnerScorecard } from "@universe/types";
 import { Pill, UNIVERSE_APPS } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { fmtDate, humanise } from "../lib/ui";
+import { PortfolioStrip } from "./PortfolioStrip";
 
 export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "work" | "performance" | "compliance";
 export const TABS_360: { key: Tab360; label: string }[] = [
@@ -45,14 +46,25 @@ export function Detail360({ relId, partnerId, tab, card }: { relId: string; part
     );
   }
   if (tab === "work") {
-    if (!d.projects) return <p style={note}>Projects are held in Project Management; you need access to that app and permission to view projects to see them here.</p>;
-    return d.projects.total === 0 ? <p style={note}>No projects involve this stakeholder yet.</p> : (
-      <>
-        <p style={{ ...note, margin: "0 0 6px" }}>{d.projects.total} project{d.projects.total === 1 ? "" : "s"}{d.projects.total > d.projects.items.length ? `, newest ${d.projects.items.length} shown` : ""}.</p>
-        <Table label="Projects" head={["Project", "Their part", "Stage", "Due"]} rows={d.projects.items.map((p) => [
-          pm ? <a key="p" href={`${pm}/projects/detail?id=${p.id}`}>{p.referenceNumber} · {p.title}</a> : `${p.referenceNumber} · ${p.title}`,
-          p.involvement.join(", ") || "—", humanise(p.status), fmtDate(p.dueDate)])} />
-      </>
+    return (
+      <div style={{ display: "grid", gap: 14 }}>
+        {d.portfolio && <PortfolioStrip p={d.portfolio} />}
+        {d.sites && d.sites.length > 0 && (
+          <div>
+            <p style={{ margin: "0 0 6px", fontSize: 13.5, fontWeight: 600 }}>Sites of operation</p>
+            <Table label="Sites of operation" head={["Site", "Country", "Address"]} rows={d.sites.map((x) => [<strong key="n">{x.siteName}{x.isPrimary ? " (main)" : ""}</strong>, x.countryCode ?? "—", x.address ?? "—"])} />
+          </div>
+        )}
+        {!d.projects ? <p style={note}>Projects are held in Project Management; you need access to that app and permission to view projects to see them here.</p>
+          : d.projects.total === 0 ? <p style={note}>No projects involve this stakeholder yet.</p> : (
+          <div>
+            <p style={{ ...note, margin: "0 0 6px" }}>{d.projects.total} project{d.projects.total === 1 ? "" : "s"}{d.projects.total > d.projects.items.length ? `, newest ${d.projects.items.length} shown` : ""}.</p>
+            <Table label="Projects" head={["Project", "Their part", "Stage", "Due"]} rows={d.projects.items.map((p) => [
+              pm ? <a key="p" href={`${pm}/projects/detail?id=${p.id}`}>{p.referenceNumber} · {p.title}</a> : `${p.referenceNumber} · ${p.title}`,
+              p.involvement.join(", ") || "—", humanise(p.status), fmtDate(p.dueDate)])} />
+          </div>
+        )}
+      </div>
     );
   }
   if (tab === "performance") {

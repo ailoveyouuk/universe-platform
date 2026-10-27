@@ -1401,3 +1401,10 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 ## 2026-10-27 — CRM step 6c (Overview dashboard)
 - Overview now shows a Pipeline strip (open opportunities by stage, link to the pipeline, count expected within 30 days) and a "Reviews overdue" list (five longest overdue, owner shown, link to see all). Both only appear when there is something to show.
 - Not built from the design's Segments item: saved filters (tags are done).
+
+## 2026-10-27 — CRM step 6d (stakeholder portfolio)
+- Lewis asked for a distinct CRM use case that pulls the rich Project Management data onto each stakeholder: contacts, locations, sites of operation and the history of work together.
+- New **Portfolio** page (table): per stakeholder, kind, location (country plus countries of their sites), contacts, sites, and projects by outcome: in progress, submitted, awarded (under way), completed, unawarded or declined. A project counts once per stakeholder however many hats they wore (client, freight forwarder, supplier or manufacturer on a line); cancelled projects are not counted. Filters: search, kind, relationship status, tag, and **work history** (has work in progress / submitted bids / awarded work / completed work / unawarded work, or never worked with), all done by the database.
+- Relationship 360 "Work together" tab now opens with the same outcome counts, a Sites of operation table, then the project list.
+- No schema change. Counts are one grouped query per page. People without the Project Management app or `projects.view` see dashes instead of project counts, and the work-history filter is ignored for them (so it cannot reveal projects); contacts and sites need the Project Management app.
+- Test: `crm-portfolio.test.ts` (DB-backed: outcome counts, once-per-project, contacts, sites, work filter incl. "never", permission gating, isolation).

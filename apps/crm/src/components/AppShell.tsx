@@ -17,6 +17,7 @@ import {
   MobileAppTag,
   NotificationBell,
   DashboardIcon,
+  PartnersIcon,
   GridIcon,
   ShieldIcon,
   AlertIcon,
@@ -36,6 +37,7 @@ import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
 const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNode; inNav: boolean; needs?: string }[] = [
   { href: "/", label: "Overview", icon: () => <DashboardIcon size={19} />, inNav: true },
   { href: "/relationships", label: "Relationships", icon: () => <BuildingIcon size={19} />, inNav: true, needs: "crm.view" },
+  { href: "/portfolio", label: "Portfolio", icon: () => <PartnersIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/pipeline", label: "Pipeline", icon: () => <TrendingUpIcon size={19} />, inNav: true, needs: "crm.view" },
   { href: "/privacy", label: "Privacy", icon: () => <ShieldIcon size={19} />, inNav: true, needs: "crm.manage" },
   { href: "/notifications", label: "Notifications", icon: () => <AlertIcon size={19} />, inNav: false },

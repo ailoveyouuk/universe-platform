@@ -4122,10 +4122,21 @@ export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHe
   return { health, reasons };
 }
 
+/** A stakeholder's projects with this organisation, by outcome. "In progress" is being worked, "awarded" is won and under way. Cancelled projects are left out. */
+export interface CrmPortfolio { identified: number; inProgress: number; submitted: number; awarded: number; completed: number; unawarded: number; total: number }
+export const CRM_WORK_FILTERS = ["in_progress", "submitted", "awarded", "completed", "unawarded", "none"] as const;
+export type CrmWorkFilter = (typeof CRM_WORK_FILTERS)[number];
+export const CRM_WORK_FILTER_LABELS: Record<CrmWorkFilter, string> = { in_progress: "Has work in progress", submitted: "Has submitted bids", awarded: "Has awarded work under way", completed: "Has completed work", unawarded: "Has unawarded or declined work", none: "Never worked with" };
+export interface CrmSite { id: string; siteName: string; countryCode: string | null; address: string | null; isPrimary: boolean }
 export interface CrmTagRef { id: string; name: string }
 export interface CrmTag extends CrmTagRef { count: number }
 export interface CrmRelationshipRow {
   tags: CrmTagRef[];
+  /** Only with view=portfolio. null means the person may not see projects or contacts. */
+  portfolio?: CrmPortfolio | null;
+  contactCount?: number | null;
+  siteCount?: number | null;
+  siteCountries?: string[];
   id: string;
   partnerId: string | null;
   name: string;
@@ -4184,6 +4195,8 @@ export interface CrmDetailCertificate { id: string; type: string; referenceNumbe
 export interface CrmDetailCheck { id: string; checkType: string; customLabel: string | null; result: string; checkedDate: string | null }
 export interface CrmDetailApproval { id: string; action: string; reason: string | null; actionDate: string }
 export interface CrmRelationshipDetail {
+  portfolio: CrmPortfolio | null;
+  sites: CrmSite[] | null;
   contacts: CrmDetailContact[] | null;
   projects: { total: number; items: CrmDetailProject[] } | null;
   complaints: { total: number; items: CrmDetailComplaint[] } | null;
