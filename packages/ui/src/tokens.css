@@ -163,6 +163,15 @@
   --u-module-supplier-portal: #B83B71;
   --u-module-tender-issuance: #A85A18;
   --u-module-admin: #4B4458;
+  /* Stakeholder category accents (2026-10-27): a thin edge and a very light wash identify the kind of stakeholder at a glance. Never used for text. */
+  --u-cat-manufacturer: #2F7A45;
+  --u-cat-supplier: #2F5DA8;
+  --u-cat-logistics: #1F7A7A;
+  --u-cat-warehousing: #8A6A12;
+  --u-cat-client: #8E2F5B;
+  --u-cat-tendering: #A85A18;
+  --u-cat-agent: #4A2E8C;
+  --u-cat-funder: #52708A;
 }
 
 :root[data-theme="dark"] {
@@ -172,6 +181,14 @@
   --u-module-supplier-portal: #EDA0C0;
   --u-module-tender-issuance: #DC9A6F;
   --u-module-admin: #9C92AD;
+  --u-cat-manufacturer: #7FC99A;
+  --u-cat-supplier: #8FB1EB;
+  --u-cat-logistics: #7FCFCF;
+  --u-cat-warehousing: #D9BE6A;
+  --u-cat-client: #E39AC0;
+  --u-cat-tendering: #DC9A6F;
+  --u-cat-agent: #A58FE0;
+  --u-cat-funder: #9DB4C7;
 }
 
 /*

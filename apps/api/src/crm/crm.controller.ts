@@ -11,6 +11,7 @@ import { CrmSavedFiltersService } from "./crm-saved-filters.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
+import { CrmCategoryService } from "./crm-category.service";
 import { CrmHospitalityService } from "./crm-hospitality.service";
 import { DocumentsService } from "../documents/documents.service";
 import { RequestUploadDto } from "../documents/dto/request-upload.dto";
@@ -24,7 +25,7 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -89,6 +90,7 @@ export class CrmController {
   @Post("relationships/bulk") bulk(@CurrentUser() user: RequestUser, @Body() dto: BulkDto) { return this.crm.bulk(user, dto); }
   @Get("network/organisations") networkSearch(@CurrentUser() user: RequestUser, @Query("q") q?: string) { return this.network.searchOrganisations(user, q); }
   @Post("relationships/from-organisation") addFromOrg(@CurrentUser() user: RequestUser, @Body() dto: { organizationId: string }) { return this.network.addFromOrganisation(user, String(dto?.organizationId ?? "")); }
+  @Get("relationships/:id/category") categoryProfile(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.category.profile(user, id); }
   @Get("relationships/:id/network") networkPanel(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.network.panel(user, id); }
   @Post("relationships/:id/links") addLink(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: LinkDto) { return this.places.saveLink(user, id, null, dto); }
   @Patch("relationships/:id/links/:linkId") editLink(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("linkId") linkId: string, @Body() dto: LinkDto) { return this.places.saveLink(user, id, linkId, dto); }

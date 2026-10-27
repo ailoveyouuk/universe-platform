@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { runCrmAlerts } from "../../../packages/db/src/crm-alerts";
 import { CrmService } from "../src/crm/crm.service";
+import { CrmCategoryService } from "../src/crm/crm-category.service";
 
 /** CRM list filters, bulk changes and daily alerts against the real RLS database. */
 describe("CRM list filters, bulk changes and alerts", () => {
@@ -105,5 +106,20 @@ describe("CRM list filters, bulk changes and alerts", () => {
     await runCrmAlerts();
     expect((await mine()).length).toBe(2);
     expect(first.find((n) => n.kind === "CRM_OPPORTUNITY_OVERDUE")?.subjectId).toBe(oppId);
+  });
+
+  it("builds a manufacturer's category profile from its certificates and batches", async () => {
+    const cat = new CrmCategoryService();
+    await withPlatformStaffContext(async (tx) => {
+      const rel = await tx.crmRelationship.findUnique({ where: { id: relA }, select: { partnerId: true } });
+      await tx.partnerRole.create({ data: { partnerId: rel!.partnerId!, roleType: "MANUFACTURER" } });
+      await tx.partnerCertification.create({ data: { organizationId: orgA, partnerId: rel!.partnerId!, type: "ISO_13485", status: "CURRENT", issuedDate: new Date(Date.now() - 900 * 86400000), expiryDate: new Date(Date.now() - 100 * 86400000), documentId: null } });
+    });
+    const p = await cat.profile(u.manager, relA);
+    expect(p.categories).toContain("MANUFACTURER");
+    expect(p.certificates.find((c) => c.type === "ISO_13485")?.state).toBe("expired");
+    expect(p.batches).not.toBeNull();
+    expect(p.tenders).toBeNull();
+    await expect(cat.profile(u.viewer, relB)).rejects.toThrow();
   });
 });

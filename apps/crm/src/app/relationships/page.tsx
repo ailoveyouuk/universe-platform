@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CategoryPanel } from "../../components/CategoryPanel";
+import { accentStyle, accentVar } from "../../lib/category";
 import { Profile360 } from "../../components/Profile360";
 import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
 import { Tags } from "../../components/Tags";
@@ -104,6 +106,9 @@ export default function RelationshipsPage() {
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{busy ? "Loading…" : data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
       </div>
 
+      <ul aria-label="Colour key for kinds of stakeholder" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+        {(["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "CLIENT"] as const).map((k) => <li key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><span aria-hidden="true" style={{ width: 4, height: 14, background: accentVar(k), borderRadius: 2 }} />{humanise(k)}</li>)}
+      </ul>
       {focus && (
         <div style={{ display: "grid", gap: 8 }}>
           <p style={{ margin: 0, fontSize: 13.5 }}>Opened from a link. <button type="button" onClick={() => { setFocus(null); setOpen(null); window.history.replaceState(null, "", "/relationships"); }} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link, var(--u-brand-violet))" }}>Close this and show the list</button></p>
@@ -143,7 +148,7 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
   const dd: React.CSSProperties = { margin: 0 };
   const dt: React.CSSProperties = { color: "var(--u-ink-secondary)" };
   return (
-    <div style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", fontSize: 13.5, background: "var(--u-surface)" }}>
+    <div style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", fontSize: 13.5, background: "var(--u-surface)", ...accentStyle(r.roles) }}>
       <div style={{ display: "flex", alignItems: "stretch" }}>
       {selected !== null && selected !== undefined && <label style={{ display: "flex", alignItems: "center", padding: "0 0 0 14px" }}><input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${r.name}`} /></label>}
       <button type="button" aria-expanded={open} aria-controls={`rel-${r.id}`} onClick={onToggle} style={{ all: "unset", boxSizing: "border-box", width: "100%", cursor: "pointer", padding: "10px 14px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", color: "var(--u-ink)" }}>
@@ -182,6 +187,7 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
             <dt style={dt}>In the CRM since</dt><dd style={dd}>{fmtDate(r.createdAt)}</dd>
           </dl>
           <Profile360 r={r} />
+          <CategoryPanel relId={r.id} />
           {canManage ? (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>

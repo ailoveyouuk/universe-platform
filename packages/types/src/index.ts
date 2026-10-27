@@ -4409,3 +4409,24 @@ export interface CrmBulkResult { changed: number; skipped: number }
 export const CRM_QUIET_MONTHS = ["3", "6", "12"] as const;
 export const CRM_CERT_FILTERS = ["expired", "expiring", "valid", "none"] as const;
 export const CRM_CERT_FILTER_LABELS: Record<(typeof CRM_CERT_FILTERS)[number], string> = { expired: "Certificate expired", expiring: "Certificate expiring (60 days)", valid: "All certificates current", none: "No certificates" };
+
+// ---- CRM: category profiles (2026-10-27) ----
+export const CRM_CATEGORY_KEYS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "LOGISTICS", "WAREHOUSING", "CLIENT", "TENDERING_BODY", "PROCUREMENT_AGENT", "FUNDER_DONOR"] as const;
+export type CrmCategoryKey = (typeof CRM_CATEGORY_KEYS)[number];
+export const CRM_CATEGORY_LABELS: Record<CrmCategoryKey, string> = { MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier or distributor", FREIGHT_FORWARDER: "Freight forwarder", LOGISTICS: "Logistics provider", WAREHOUSING: "Warehousing", CLIENT: "Client", TENDERING_BODY: "Tendering or purchasing body", PROCUREMENT_AGENT: "Procurement service agent", FUNDER_DONOR: "Funder or donor" };
+export type CrmCertState = "valid" | "expiring" | "expired" | "no_date";
+export interface CrmCategoryCertificate { id: string; type: string; issuingBody: string | null; referenceNumber: string | null; issuedDate: string | null; expiryDate: string | null; verifiedAt: string | null; hasDocument: boolean; state: CrmCertState }
+export interface CrmCategoryProfile {
+  categories: CrmCategoryKey[];
+  certificates: CrmCategoryCertificate[];
+  sites: { name: string; countryCode: string | null; isPrimary: boolean }[];
+  /** Manufacturers only: batches made, and whether a quality certificate (ISO 13485 or GMP) covered the date each was made. */
+  batches: { total: number; active: number; expiringSoon: number; expired: number; covered: number | null; notCovered: number | null } | null;
+  manufacturer: { countryOfManufacture: string | null; scopeOfSupply: string | null } | null;
+  supplier: { scopeOfSupply: string | null; productCategory: string | null; codeOfConductAcknowledged: boolean } | null;
+  logistics: { modes: string | null; iataDgr: boolean; aeo: boolean; gdpTransport: boolean; referencesProvided: boolean } | null;
+  warehousing: { wdaNumber: string | null; lastGdpAudit: string | null; nextGdpAuditDue: string | null } | null;
+  client: { deliveryCity: string | null; billingCountry: string | null } | null;
+  /** Tenders this stakeholder has published that you may see (Universe organisations only). */
+  tenders: { total: number; items: { id: string; reference: string; title: string; status: string; publishedAt: string | null; closingAt: string | null }[] } | null;
+}
