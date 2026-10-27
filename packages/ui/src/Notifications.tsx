@@ -206,7 +206,7 @@ export function NotificationBell({ api, LinkComponent, viewAllHref = "/notificat
       >
         <BellIcon size={18} />
         {badge > 0 && (
-          <span style={{ position: "absolute", top: -6, right: -8, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: (summary?.overdueActions ?? 0) > 0 ? "var(--u-status-critical)" : "var(--u-org-accent, var(--u-brand-violet))", color: "var(--u-org-accent-on, #fff)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+          <span style={{ position: "absolute", top: -6, right: -8, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: (summary?.overdueActions ?? 0) > 0 ? "var(--u-status-critical)" : "var(--u-org-accent, var(--u-brand-violet))", color: (summary?.overdueActions ?? 0) > 0 ? "var(--u-on-critical)" : "var(--u-org-accent-on, #fff)", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
             {badge > 99 ? "99+" : badge}
           </span>
         )}

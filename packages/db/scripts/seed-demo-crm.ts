@@ -45,6 +45,7 @@ const SUMMARIES: Record<string, string> = {
   STANDARD: "Regular partner. Managed through the normal ordering and review cycle.",
   WATCH: "Under closer monitoring while open risk items are resolved. Reviewed more often than usual.",
 };
+const PROSPECT_TEXT = "New prospect identified through the directory. Qualification and introductory contact are under way.";
 const TAGS = ["WHO prequalified", "GDP certified", "Cold chain", "Preferred supplier", "Emergency response", "East Africa", "Framework supplier", "Under review", "Strategic account", "ISO 13485"];
 const FILTERS: { view: "RELATIONSHIPS" | "PORTFOLIO"; name: string; filters: Record<string, string>; shared: boolean }[] = [
   { view: "RELATIONSHIPS", name: "Strategic and key accounts", filters: { tier: "STRATEGIC" }, shared: true },
@@ -83,7 +84,7 @@ async function main() {
         UNION SELECT l.supplierId, p.id FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.supplierId IS NOT NULL
         UNION SELECT l.manufacturerId, p.id FROM project_lines l JOIN projects p ON p.id = l.projectId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL AND l.manufacturerId IS NOT NULL
       ) t GROUP BY t.pid`;
-    const ranked = counts.map((c) => ({ pid: c.pid, n: Number(c.n) })).filter((c) => relOf.has(c.pid)).sort((a, b) => b.n - a.n || a.pid.localeCompare(b.pid));
+    const ranked = counts.map((c) => ({ pid: c.pid, n: Number(c.n) })).filter((c) => relOf.has(c.pid) && partnerOf.get(c.pid)?.approvalStatus === "APPROVED").sort((a, b) => b.n - a.n || a.pid.localeCompare(b.pid));
     const engaged = ranked.slice(0, 260);
     const rest = partners.filter((p) => relOf.has(p.id) && !engaged.some((e) => e.pid === p.id)).sort((a, b) => a.id.localeCompare(b.id));
     const prospects = rest.filter((p) => p.approvalStatus !== "APPROVED").slice(0, 20);
@@ -106,15 +107,28 @@ async function main() {
       const last = roll < 0.12 ? daysAgo(interval * 30 + 20 + Math.floor(r() * 60)) : roll < 0.3 ? daysAgo(interval * 30 - 10 - Math.floor(r() * 20)) : daysAgo(Math.floor(r() * interval * 25));
       planned.push({ pid: e.pid, tier, status, owner: users[i % users.length].id, summary: SUMMARIES[tier], last, next: addMonths(last, interval) });
     });
-    prospects.forEach((p, i) => { if (untouched(p.id)) planned.push({ pid: p.id, tier: "STANDARD", status: "PROSPECT", owner: users[i % users.length].id, summary: "New prospect identified through the directory. Qualification and introductory contact are under way.", last: null, next: daysAhead(14 + (i % 40)) }); });
+    prospects.forEach((p, i) => { if (untouched(p.id)) planned.push({ pid: p.id, tier: "STANDARD", status: "PROSPECT", owner: users[i % users.length].id, summary: PROSPECT_TEXT, last: null, next: daysAhead(14 + (i % 40)) }); });
     act("stakeholders enriched (tier, status, owner, summary, review dates)", planned.length);
     if (!dryRun) for (const x of planned) {
       const rel = relOf.get(x.pid)!;
       await tx.crmRelationship.update({ where: { id: rel.id }, data: { tier: x.tier, status: x.status, ownerUserId: x.owner, summary: x.summary, reviewIntervalMonths: x.tier === "STRATEGIC" || x.tier === "WATCH" ? 6 : 12, lastReviewedAt: x.last, nextReviewDue: x.next } });
       enrich++;
     }
+    // ---- 3b. repair earlier seed output: an unapproved stakeholder is never strategic or key (they sit on watch); then build the pool the later parts work from
+    const seedSummaries = new Set<string>([...Object.values(SUMMARIES), PROSPECT_TEXT]);
+    const plannedSet = new Set(planned.map((x) => x.pid));
+    const earlier = rels.filter((r) => r.summary && seedSummaries.has(r.summary) && !plannedSet.has(r.partnerId!));
+    const demote = earlier.filter((r) => (r.tier === "STRATEGIC" || r.tier === "KEY") && partnerOf.get(r.partnerId!)?.approvalStatus !== "APPROVED");
+    act("earlier unapproved strategic/key stakeholders moved to watch", demote.length);
+    if (!dryRun) for (const r of demote) await tx.crmRelationship.update({ where: { id: r.id }, data: { tier: "WATCH", summary: SUMMARIES.WATCH, reviewIntervalMonths: 6 } });
+    const demoted = new Set(demote.map((r) => r.partnerId!));
+    const pool: { pid: string; tier: string; status: string; owner: string; prospect: boolean }[] = [
+      ...planned.map((x) => ({ pid: x.pid, tier: x.tier, status: x.status, owner: x.owner, prospect: x.summary === PROSPECT_TEXT })),
+      ...earlier.filter((r) => r.ownerUserId).map((r) => ({ pid: r.partnerId!, tier: demoted.has(r.partnerId!) ? "WATCH" : r.tier, status: r.status, owner: r.ownerUserId!, prospect: r.summary === PROSPECT_TEXT })),
+    ];
     const tierOf = new Map<string, string>(planned.map((x) => [x.pid, x.tier]));
     const ownerOf = new Map<string, string>(planned.map((x) => [x.pid, x.owner]));
+    for (const x of pool) { tierOf.set(x.pid, x.tier); ownerOf.set(x.pid, x.owner); }
     for (const r of rels) { if (!tierOf.has(r.partnerId!)) { tierOf.set(r.partnerId!, r.tier); if (r.ownerUserId) ownerOf.set(r.partnerId!, r.ownerUserId); } }
 
     // ---- shared look-ups for the parts below
@@ -128,10 +142,10 @@ async function main() {
 
     // ---- 4. interactions (only for stakeholders with none)
     const withInteractions = new Set<string>();
-    for (const part of chunk(planned.map((x) => relOf.get(x.pid)!.id), 1000)) for (const r of await tx.crmInteraction.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) withInteractions.add(r.relationshipId);
+    for (const part of chunk(pool.map((x) => relOf.get(x.pid)!.id), 1000)) for (const r of await tx.crmInteraction.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) withInteractions.add(r.relationshipId);
     const ints: any[] = []; const followUps: { i: number; assignee: string; due: Date; note: string }[] = [];
-    for (const x of planned) {
-      const rel = relOf.get(x.pid)!; if (withInteractions.has(rel.id) || x.status === "PROSPECT") continue;
+    for (const x of pool) {
+      const rel = relOf.get(x.pid)!; if (withInteractions.has(rel.id) || x.prospect) continue;
       const r = rng(`int:${x.pid}`); const n = x.tier === "STRATEGIC" ? 10 + Math.floor(r() * 9) : x.tier === "KEY" || x.tier === "WATCH" ? 6 + Math.floor(r() * 5) : 2 + Math.floor(r() * 4);
       const cs = contactsByPartner.get(x.pid) ?? []; const prs = projectsByPartner.get(x.pid) ?? [];
       for (let k = 0; k < n; k++) {
@@ -153,18 +167,18 @@ async function main() {
 
     // ---- 5. opportunities (only for stakeholders with none)
     const withOpps = new Set<string>();
-    for (const part of chunk(planned.map((x) => relOf.get(x.pid)!.id), 1000)) for (const r of await tx.crmOpportunity.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) withOpps.add(r.relationshipId);
+    for (const part of chunk(pool.map((x) => relOf.get(x.pid)!.id), 1000)) for (const r of await tx.crmOpportunity.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) withOpps.add(r.relationshipId);
     const tenders = await tx.tender.findMany({ where: { organizationId: org, isSimulated: true, archivedAt: null, referenceNumber: { startsWith: "SIM-" } }, orderBy: { referenceNumber: "asc" }, select: { id: true, referenceNumber: true, title: true, currency: true } });
     const opps: any[] = [];
     const STAGES = ["IDENTIFIED", "QUALIFYING", "ENGAGED", "ENGAGED", "SUBMITTED", "SUBMITTED", "WON", "WON", "LOST", "WITHDRAWN"];
     const LOST = ["Price was above the successful bid.", "Lead time could not meet the delivery window.", "Missing prequalification at the time of evaluation.", "Contract awarded to an incumbent supplier."];
-    const cands = planned.filter((x) => (x.tier === "STRATEGIC" || x.tier === "KEY" || x.status === "PROSPECT") && !withOpps.has(relOf.get(x.pid)!.id));
+    const cands = pool.filter((x) => (x.tier === "STRATEGIC" || x.tier === "KEY" || x.prospect) && !withOpps.has(relOf.get(x.pid)!.id));
     cands.forEach((x, idx) => {
       const rel = relOf.get(x.pid)!; const p = partnerOf.get(x.pid)!; const r = rng(`opp:${x.pid}`);
       const n = x.tier === "STRATEGIC" ? 3 : x.tier === "KEY" ? 2 : 1;
       for (let k = 0; k < n; k++) {
-        const kind = x.status === "PROSPECT" ? "QUALIFICATION" : pick(r, ["TENDER", "TENDER", "SOURCING", "FRAMEWORK_CALL_OFF", "QUALIFICATION", "OTHER"]);
-        const stage = x.status === "PROSPECT" ? pick(r, ["IDENTIFIED", "QUALIFYING"]) : pick(r, STAGES);
+        const kind = x.prospect ? "QUALIFICATION" : pick(r, ["TENDER", "TENDER", "SOURCING", "FRAMEWORK_CALL_OFF", "QUALIFICATION", "OTHER"]);
+        const stage = x.prospect ? pick(r, ["IDENTIFIED", "QUALIFYING"]) : pick(r, STAGES);
         const t = kind === "TENDER" || kind === "FRAMEWORK_CALL_OFF" ? tenders.length ? tenders[(idx * 3 + k) % tenders.length] : null : null;
         const title = kind === "TENDER" ? `Bid support: ${t ? t.title : "upcoming tender"}` : kind === "FRAMEWORK_CALL_OFF" ? `Call-off under ${t ? t.referenceNumber : "framework"}` : kind === "SOURCING" ? `Alternative source for ${pick(r, ["pulse oximeters", "pipette tips", "oral rehydration salts", "cold chain boxes", "surgical masks", "rapid tests"])}` : kind === "QUALIFICATION" ? `Qualify ${p.name} as an approved source` : `Explore partnership with ${p.name}`;
         const open = stage === "IDENTIFIED" || stage === "QUALIFYING" || stage === "ENGAGED" || stage === "SUBMITTED";

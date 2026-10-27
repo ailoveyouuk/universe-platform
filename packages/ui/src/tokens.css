@@ -63,6 +63,7 @@
   --u-hover: rgba(20, 18, 31, 0.05);
   --u-overlay: rgba(20, 18, 31, 0.4);
   --u-on-accent: #FFFFFF;
+  --u-on-critical: #FFFFFF; /* text on the bright critical fill (red, same in both themes) */
   --u-badge-awarded: #0a6a0a;
   --u-badge-completed: #085a08;
   --u-badge-lost: #b0481a;
@@ -124,6 +125,7 @@
   --u-hover: rgba(255, 255, 255, 0.08);
   --u-overlay: rgba(0, 0, 0, 0.6);
   --u-on-accent: #14121F;
+  --u-on-critical: #FFFFFF;
   --u-badge-awarded: #5fd16a;
   --u-badge-completed: #8be08f;
   --u-badge-lost: #ff9a73;
