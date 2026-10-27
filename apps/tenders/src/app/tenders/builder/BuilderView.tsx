@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ProductCatalogMatch, TenderCriterionRecord, TenderDetailForIssuer, TenderLineRecord, TenderOrganisationOption, TenderRecord, TenderRuleRecord, TenderRuleType } from "@universe/types";
 import { SERVICE_CATEGORIES, SERVICE_GROUPS, SERVICE_PRICING_BASES, serviceCategoryByCode, CURRENCY_OPTIONS, INCOTERMS, normaliseWeights, INCOTERM_NAMES, QUALIFICATION_OPTIONS, UNIT_OPTIONS } from "@universe/types";
-import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, ServiceCostRange, useServiceCatalogue, UnitSelect, XIcon } from "@universe/ui";
+import { Button, CountryMultiSelect, CountrySelect, CurrencySelect, Pill, PlusIcon, ProductPicker, Select, ServiceCataloguePicker, ServiceCostRange, useServiceCatalogue, UnitSelect, XIcon, useFocusField } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { readiness } from "../../../lib/stageTiles";
@@ -42,6 +42,9 @@ export function BuilderView() {
     finally { setLoading(false); }
   }, [id]);
   useEffect(() => { void load(); }, [load]);
+  // "Make this richer" links: ?focus=criteria opens the criteria section; closingAt and summary live on the overview.
+  useEffect(() => { const f = new URLSearchParams(window.location.search).get("focus"); if (f === "criteria") setSection("criteria"); else if (f === "closingAt" || f === "summary") setSection("overview"); }, []);
+  useFocusField(!!detail);
 
   if (loading) return <Page><div style={{ color: "var(--u-ink-secondary)" }}>Loading…</div></Page>;
   const created = !!detail;
@@ -132,7 +135,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
       <ErrorNote message={s.err} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 16, marginTop: s.err ? 12 : 0 }}>
         <Field label="Title" wide><input style={inputStyle} value={f.title} onChange={(e) => set("title", e.target.value)} maxLength={300} placeholder="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" aria-label="e.g. Artemether-lumefantrine 20/120 mg dispersible tablets" /></Field>
-        <Field label="Summary" wide hint="What you are buying and why. Organisations read this before opting in."><textarea style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
+        <Field label="Summary" wide hint="What you are buying and why. Organisations read this before opting in."><textarea data-field="summary" style={{ ...inputStyle, minHeight: 90, resize: "vertical" }} value={f.summary} onChange={(e) => set("summary", e.target.value)} /></Field>
         <Field label="Type"><Select value={f.tenderType} onChange={(v) => set("tenderType", v as typeof f.tenderType)} options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))} /></Field>
         {f.tenderType === "FRAMEWORK" && <>
           <Field label="Framework term (months)" hint="How long the agreement runs from the contract start date."><input type="number" min={1} max={120} style={inputStyle} value={f.frameworkTermMonths} onChange={(e) => set("frameworkTermMonths", e.target.value)} /></Field>
@@ -147,7 +150,7 @@ function Overview({ detail, onSaved }: { detail: TenderDetailForIssuer | null; o
         <Field label="Tendering for (client)" hint="Only if you tender on behalf of someone else"><input style={inputStyle} value={f.clientName} onChange={(e) => set("clientName", e.target.value)} /></Field>
         <Field label="Time zone for these dates" hint="Bidders see every date in this zone and in UTC."><select style={inputStyle} value={f.timeZone} onChange={(e) => set("timeZone", e.target.value)}>{(zoneList().includes(f.timeZone) ? zoneList() : [f.timeZone, ...zoneList()]).map((z) => <option key={z} value={z}>{z}</option>)}</select></Field>
         <Field label="Questions close"><input type="datetime-local" style={inputStyle} value={f.clarificationDeadline} onChange={(e) => set("clarificationDeadline", e.target.value)} /></Field>
-        <Field label="Closing date" hint="Bids cannot be submitted after this."><input type="datetime-local" style={inputStyle} value={f.closingAt} onChange={(e) => set("closingAt", e.target.value)} /></Field>
+        <Field label="Closing date" hint="Bids cannot be submitted after this."><input data-field="closingAt" type="datetime-local" style={inputStyle} value={f.closingAt} onChange={(e) => set("closingAt", e.target.value)} /></Field>
         <Field label="Evaluation due by"><input type="datetime-local" style={inputStyle} value={f.evaluationDueAt} onChange={(e) => set("evaluationDueAt", e.target.value)} /></Field>
         <Field label="Award due by"><input type="datetime-local" style={inputStyle} value={f.awardDueAt} onChange={(e) => set("awardDueAt", e.target.value)} /></Field>
         <Field label="Bid validity (days)" hint="How long a bid must stay valid"><input type="number" min={1} max={730} style={inputStyle} value={f.bidValidityDays} onChange={(e) => set("bidValidityDays", e.target.value)} /></Field>
@@ -284,7 +287,7 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
   const remove = (i: number) => setRows((r) => rebalanceEqually(r.filter((_, j) => j !== i)).map((x, _k, all) => (all.every((y) => y.kind !== "SCORED") ? x : x)));
 
   return (
-    <Card title="Evaluation criteria" action={<Button size="sm" onClick={addGate}>Pass/fail gate</Button>}>
+    <div data-field="criteria"><Card title="Evaluation criteria" action={<Button size="sm" onClick={addGate}>Pass/fail gate</Button>}>
       <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5, lineHeight: 1.5 }}>
         Each bid is scored out of 100. Choose the criteria that matter and set their weights; the others rebalance automatically so the total is always 100. Price and lead time are calculated from the bids (the best scores 100); the rest are scored by your evaluators. Gates are pass or fail: a bid that fails one cannot win.
       </p>
@@ -309,7 +312,7 @@ function Criteria({ detail, onSaved }: { detail: TenderDetailForIssuer; onSaved:
       </div>
       {rows.some((r) => r.kind === "SCORED") && <div style={{ marginTop: 12 }}><Pill tone="good">Weights total 100</Pill></div>}
       <SaveBar saving={s.saving} note={s.note} label="Save criteria" onSave={() => s.run(() => apiClient.setTenderCriteria(detail.tender.id, rows.filter((r) => r.title.trim()).map(cleanCriterion)))} />
-    </Card>
+    </Card></div>
   );
 }
 

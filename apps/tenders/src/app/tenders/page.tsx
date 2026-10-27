@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { TenderListItem } from "@universe/types";
+import { TENDER_GAPS, TENDER_GAP_LABELS, type TenderGap, type TenderListItem } from "@universe/types";
 import { Button, Pill, PlusIcon, SearchInput } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { downloadCsv, stamp } from "../../lib/csv";
@@ -17,13 +17,17 @@ export default function TendersPage() {
   const [status, setStatus] = useState("");
   // Extra views reached from the home-page tiles: closing (published, closing within 7 days), interest (published with interest), attention (overdue evaluation or award).
   const [view, setView] = useState("");
+  // "Make this richer" deep link (?gap=noClosing and so on): only tenders missing that detail.
+  const [gap, setGap] = useState("");
 
   useEffect(() => {
     const s = new URLSearchParams(window.location.search).get("status");
     if (s) setStatus(s);
     const v = new URLSearchParams(window.location.search).get("view");
     if (v) setView(v);
-    apiClient.listMyTenders().then(setRows).catch((e) => setErr(e instanceof Error ? e.message : "Could not load tenders."));
+    const g = new URLSearchParams(window.location.search).get("gap") ?? "";
+    setGap(g);
+    apiClient.listMyTenders(undefined, g || undefined).then(setRows).catch((e) => setErr(e instanceof Error ? e.message : "Could not load tenders."));
   }, []);
 
   const inView = (t: TenderListItem) => {
@@ -43,6 +47,7 @@ export default function TendersPage() {
     <Page>
       <Heading title="My tenders" actions={<div style={{ display: "flex", gap: 8 }}><Button variant="secondary" disabled={!shown.length} onClick={() => downloadCsv(`tenders-${stamp()}.csv`, ["Reference", "Title", "Type", "Status", "Currency", "Incoterm", "Published", "Closing", "Bids received", "Interested organisations", "Simulated"], shown.map((t) => [t.referenceNumber, t.title, TYPE_LABEL[t.tenderType], STATUS_LABEL[t.effectiveStatus ?? t.status] ?? (t.effectiveStatus ?? t.status), t.currency, t.incoterm, t.publishedAt, t.closingAt, t.bidsReceived ?? "", t.interestedOrganisations, t.isSimulated ? "Yes" : "No"]))}>Export CSV</Button><Link href="/tenders/builder" style={{ textDecoration: "none" }}><Button variant="primary" icon={<PlusIcon size={16} />}>New tender</Button></Link></div>} />
       <ErrorNote message={err} />
+      {gap && (TENDER_GAPS as readonly string[]).includes(gap) && <p style={{ margin: 0, fontSize: 13.5 }}>Showing tenders with: <strong>{TENDER_GAP_LABELS[gap as TenderGap].toLowerCase()}</strong>. <Link href="/tenders">Show all tenders</Link></p>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         {FILTERS.map(([v, label]) => (
           <button key={v} type="button" onClick={() => { setStatus(v); setView(""); }} style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }} aria-pressed={status === v}>

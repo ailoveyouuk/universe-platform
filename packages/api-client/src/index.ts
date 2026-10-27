@@ -313,7 +313,7 @@ export class UniverseApiClient {
   // ---- Tender Issuance & Management (issuer side, 2026-10-19)
   supplierPortalDashboard(): Promise<SupplierPortalDashboard> { return this.request("/supplier-portal/dashboard"); }
   tenderDashboard(): Promise<TenderDashboard> { return this.request("/tenders/dashboard"); }
-  listMyTenders(status?: string): Promise<TenderListItem[]> { return this.request(`/tenders/mine${status ? `?status=${encodeURIComponent(status)}` : ""}`); }
+  listMyTenders(status?: string, gap?: string): Promise<TenderListItem[]> { const p = new URLSearchParams(); if (status) p.set("status", status); if (gap) p.set("gap", gap); return this.request(`/tenders/mine${p.toString() ? `?${p}` : ""}`); }
   getMyTender(id: string): Promise<TenderDetailForIssuer> { return this.request(`/tenders/mine/${id}`); }
   createTender(body: Partial<TenderRecord> & { title: string }): Promise<TenderRecord> { return this.request("/tenders", { method: "POST", body: JSON.stringify(body) }); }
   updateTender(id: string, body: Partial<TenderRecord>): Promise<TenderRecord> { return this.request(`/tenders/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }

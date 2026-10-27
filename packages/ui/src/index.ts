@@ -48,3 +48,4 @@ export * from "./Viz";
 export * from "./DataHints";
 export * from "./CollapsibleSection";
 export * from "./DataHealthNote";
+export * from "./useFocusField";

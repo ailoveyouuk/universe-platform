@@ -9,9 +9,16 @@ const SOURCE = "counts of your organisation's own records as they stand now. Not
 
 /** Makes a section's links absolute when the fix lives in another app than the one showing the note. */
 export function resolveGaps(section: DataHealthSection, currentApp: string): DataGap[] {
-  if (section.app === currentApp) return section.gaps;
-  const base = UNIVERSE_APPS.find((a) => a.key === section.app)?.href?.replace(/\/$/, "");
-  return section.gaps.map((g) => ({ ...g, href: g.href && g.href.startsWith("/") ? (base ? `${base}${g.href}` : null) : g.href }));
+  // Data-health uses "tenders" for Tender Issuance; the app switcher calls it "tender-issuance".
+  const baseOf = (key: string) => UNIVERSE_APPS.find((a) => a.key === (key === "tenders" ? "tender-issuance" : key))?.href?.replace(/\/$/, "");
+  return section.gaps.map((g) => {
+    if (!g.href) return g;
+    // "app:<key>/path" points at a screen in another app (e.g. Insights gaps are fixed in Project Management).
+    const m = /^app:([a-z-]+)(\/.*)$/.exec(g.href);
+    if (m) { if (m[1] === currentApp) return { ...g, href: m[2] }; const b = baseOf(m[1]); return { ...g, href: b ? `${b}${m[2]}` : null }; }
+    if (g.href.startsWith("/") && section.app !== currentApp) { const b = baseOf(section.app); return { ...g, href: b ? `${b}${g.href}` : null }; }
+    return g;
+  });
 }
 
 /**

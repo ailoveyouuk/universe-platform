@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ORGANIZATION_TYPE_VALUES, orgTypesOf } from "@universe/types";
 import type { OrganizationDetail, OrganizationTypeValue, UpdateOrganizationInput } from "@universe/types";
-import { Button, CountrySelect, Select, CollapsibleSection } from "@universe/ui";
+import { Button, CountrySelect, Select, CollapsibleSection, useFocusField } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
@@ -142,6 +142,8 @@ export function OrganizationDetailView() {
   const isPlatform = !!me && me.platformStaffRole !== "NONE";
   const [org, setOrg] = useState<OrganizationDetail | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
+  useFocusField(!!form); // ?focus=<field> from a "make this richer" link
+
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -285,7 +287,7 @@ export function OrganizationDetailView() {
             </div>
           </Field>
           <Field label="Legal name">
-            <input style={inputStyle} value={form.legalName} onChange={(e) => set({ legalName: e.target.value })} />
+            <input data-field="legalName" style={inputStyle} value={form.legalName} onChange={(e) => set({ legalName: e.target.value })} />
           </Field>
           <Field label="Legal entity type">
             <div style={{ marginTop: 4 }}>
@@ -300,14 +302,14 @@ export function OrganizationDetailView() {
           </Field>
           <Field label="Country of registration">
             <div style={{ marginTop: 4 }}>
-              <CountrySelect value={form.countryOfRegistrationCode} onChange={(c) => set({ countryOfRegistrationCode: c })} options={countries} ariaLabel="Country of registration" />
+              <span data-field="countryOfRegistrationCode" style={{ display: "contents" }}><CountrySelect value={form.countryOfRegistrationCode} onChange={(c) => set({ countryOfRegistrationCode: c })} options={countries} ariaLabel="Country of registration" /></span>
             </div>
           </Field>
           <Field label="Registration number">
             <input style={inputStyle} value={form.registrationNumber} onChange={(e) => set({ registrationNumber: e.target.value })} />
           </Field>
           <Field label="Website">
-            <input style={inputStyle} value={form.website} placeholder="https://" aria-label="https://" onChange={(e) => set({ website: e.target.value })} />
+            <input data-field="website" style={inputStyle} value={form.website} placeholder="https://" aria-label="https://" onChange={(e) => set({ website: e.target.value })} />
           </Field>
         </FormGrid>
 
@@ -338,7 +340,7 @@ export function OrganizationDetailView() {
             <input style={inputStyle} value={form.primaryContactTitle} onChange={(e) => set({ primaryContactTitle: e.target.value })} />
           </Field>
           <Field label="Email">
-            <input type="email" style={inputStyle} value={form.primaryContactEmail} onChange={(e) => set({ primaryContactEmail: e.target.value })} />
+            <input data-field="primaryContactEmail" type="email" style={inputStyle} value={form.primaryContactEmail} onChange={(e) => set({ primaryContactEmail: e.target.value })} />
           </Field>
           <Field label="Phone">
             <input style={inputStyle} value={form.primaryContactPhone} onChange={(e) => set({ primaryContactPhone: e.target.value })} />
@@ -363,7 +365,7 @@ export function OrganizationDetailView() {
         />
         <div style={{ height: 12 }} />
         <FormGrid>
-          <ColourField label="Primary colour" hint="Buttons, active navigation and key accents. Text on top of it is chosen automatically." value={form.primaryColor} placeholder="#4A2E8C" onChange={(v) => set({ primaryColor: v })} />
+          <div data-field="primaryColor"><ColourField label="Primary colour" hint="Buttons, active navigation and key accents. Text on top of it is chosen automatically." value={form.primaryColor} placeholder="#4A2E8C" onChange={(v) => set({ primaryColor: v })} /></div>
           <ColourField label="Secondary colour" hint="Secondary accents." value={form.secondaryColor} placeholder="#B23A82" onChange={(v) => set({ secondaryColor: v })} />
         </FormGrid>
         <div style={{ marginTop: 12 }}>

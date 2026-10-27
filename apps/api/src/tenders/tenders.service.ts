@@ -380,10 +380,23 @@ export class TendersService {
     return out.updated;
   }
 
-  async listMine(user: RequestUser, status?: string) {
+  /** Where-clause for a "make this richer" filter on the issuer's tender list (see TENDER_GAP_LABELS). */
+  static gapWhere(gap?: string): Record<string, unknown> {
+    switch (gap) {
+      case "noClosing": return { closingAt: null };
+      case "noCriteria": return { criteria: { none: {} } };
+      case "noCountry": return { deliveryCountryCodes: null };
+      case "noSummary": return { summary: null };
+      case "fwNoCeiling": return { tenderType: "FRAMEWORK", frameworkCeiling: null };
+      case "fwNoTerm": return { tenderType: "FRAMEWORK", frameworkTermMonths: null };
+      default: return {};
+    }
+  }
+
+  async listMine(user: RequestUser, status?: string, gap?: string) {
     assertHasPermission(user, "tenders.issue");
     return withTenantContext(user.organizationId, async (tx) => {
-      const rows = await tx.tender.findMany({ where: { organizationId: user.organizationId, archivedAt: null, ...(status ? { status } : {}) }, orderBy: { updatedAt: "desc" }, take: 200 });
+      const rows = await tx.tender.findMany({ where: { organizationId: user.organizationId, archivedAt: null, ...(status ? { status } : {}), ...(gap ? { status: { not: "CANCELLED" }, ...TendersService.gapWhere(gap) } : {}) }, orderBy: { updatedAt: "desc" }, take: 200 });
       const interest = await tx.tenderParticipation.groupBy({ by: ["tenderId"], where: { issuerOrganizationId: user.organizationId, withdrawnAt: null, tenderId: { in: rows.map((r) => r.id) } }, _count: { _all: true } });
       const counts = new Map(interest.map((g) => [g.tenderId, g._count._all]));
       // A count only: nothing about a sealed bid's contents leaves this method.

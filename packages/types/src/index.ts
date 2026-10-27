@@ -4625,11 +4625,26 @@ export const PROJECT_GAP_LABELS = {
   lineNoReceived: "Delivered lines with no quantity received",
   lineNoSupplierGad: "Lines with no supplier's agreed delivery date",
   lineNoPrice: "Lines with no unit sales price",
+  lineNoCost: "Lines with no supplier unit price",
+  lineNoOrigin: "Lines with no country of manufacture",
+  noFreightCost: "No freight cost",
 } as const;
 export type ProjectGap = keyof typeof PROJECT_GAP_LABELS;
 export const PROJECT_GAPS = Object.keys(PROJECT_GAP_LABELS) as ProjectGap[];
 
+/** Tender filters for "make this richer": tenders you issued that are missing a detail. */
+export const TENDER_GAP_LABELS = {
+  noClosing: "No closing date",
+  noCriteria: "No evaluation criteria",
+  noCountry: "No delivery countries",
+  noSummary: "No summary",
+  fwNoCeiling: "Framework with no ceiling value",
+  fwNoTerm: "Framework with no term",
+} as const;
+export type TenderGap = keyof typeof TENDER_GAP_LABELS;
+export const TENDER_GAPS = Object.keys(TENDER_GAP_LABELS) as TenderGap[];
+
 /** One app's data-health result (platform "data health", 2026-10-27). */
-export const DATA_HEALTH_APPS = ["project-management", "tenders", "product-database", "admin"] as const;
+export const DATA_HEALTH_APPS = ["project-management", "tenders", "product-database", "insights", "admin"] as const;
 export type DataHealthApp = (typeof DATA_HEALTH_APPS)[number];
 export interface DataHealthSection { app: DataHealthApp; label: string; gaps: DataGap[] }

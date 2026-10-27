@@ -3,7 +3,7 @@ import { withTenantContext } from "@universe/db";
 import { DATA_HEALTH_APPS, type DataGap, type DataHealthApp, type DataHealthSection } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 
-const LABELS: Record<DataHealthApp, string> = { "project-management": "Project Management", tenders: "Tenders", "product-database": "Product database", admin: "Admin" };
+const LABELS: Record<DataHealthApp, string> = { "project-management": "Project Management", tenders: "Tenders", "product-database": "Product database", insights: "Insights", admin: "Admin" };
 
 /**
  * "Make this richer" for the rest of the platform (2026-10-27, Lewis): where an app is being fed less than it could be, what filling it in would improve, and a link
@@ -54,7 +54,7 @@ export class DataHealthService {
         ]);
       }
 
-      if (wanted("tenders") && can("tenders.view")) {
+      if (wanted("tenders") && can("tenders.issue")) {
         const mine = { organizationId: org, archivedAt: null, status: { not: "CANCELLED" } };
         const [total, noClosing, noCriteria, noCountry, noSummary, fwTotal, fwNoCeiling, fwNoTerm, first] = await Promise.all([
           tx.tender.count({ where: mine }),
@@ -68,33 +68,50 @@ export class DataHealthService {
           tx.tender.findFirst({ where: { ...mine, criteria: { none: {} } }, select: { id: true } }),
         ]);
         add("tenders", [
-          gap({ key: "noClosing", label: "Tenders with no closing date", benefit: "Bidders and the deadline reminders have nothing to work to, and the tender cannot be opened for bids on time.", count: noClosing, total, href: "/tenders/manage" }),
-          gap({ key: "noCriteria", label: "Tenders with no evaluation criteria", benefit: "Scoring, compliance gates and the award record need weighted criteria to be defensible.", count: noCriteria, total, href: noCriteria === 1 && first ? `/tenders/builder?id=${first.id}` : "/tenders/manage" }),
-          gap({ key: "noCountry", label: "Tenders with no delivery countries", benefit: "Suppliers cannot find them by country and the notice and Insights geographies leave them out.", count: noCountry, total, href: "/tenders/manage" }),
-          gap({ key: "noSummary", label: "Tenders with no summary", benefit: "Suppliers see an empty description in Discover and in the public notice.", count: noSummary, total, href: "/tenders/manage" }),
-          gap({ key: "fwNoCeiling", label: "Frameworks with no ceiling value", benefit: "The framework meter and call-off headroom cannot be shown.", count: fwNoCeiling, total: fwTotal, href: "/tenders/manage" }),
-          gap({ key: "fwNoTerm", label: "Frameworks with no term", benefit: "Expiry reminders and the call-off window cannot be worked out.", count: fwNoTerm, total: fwTotal, href: "/tenders/manage" }),
+          gap({ key: "noClosing", label: "Tenders with no closing date", benefit: "Bidders and the deadline reminders have nothing to work to, and the tender cannot be opened for bids on time.", count: noClosing, total, href: "/tenders?gap=noClosing" }),
+          gap({ key: "noCriteria", label: "Tenders with no evaluation criteria", benefit: "Scoring, compliance gates and the award record need weighted criteria to be defensible.", count: noCriteria, total, href: noCriteria === 1 && first ? `/tenders/builder?id=${first.id}&focus=criteria` : "/tenders?gap=noCriteria" }),
+          gap({ key: "noCountry", label: "Tenders with no delivery countries", benefit: "Suppliers cannot find them by country and the notice and Insights geographies leave them out.", count: noCountry, total, href: "/tenders?gap=noCountry" }),
+          gap({ key: "noSummary", label: "Tenders with no summary", benefit: "Suppliers see an empty description in Discover and in the public notice.", count: noSummary, total, href: "/tenders?gap=noSummary" }),
+          gap({ key: "fwNoCeiling", label: "Frameworks with no ceiling value", benefit: "The framework meter and call-off headroom cannot be shown.", count: fwNoCeiling, total: fwTotal, href: "/tenders?gap=fwNoCeiling" }),
+          gap({ key: "fwNoTerm", label: "Frameworks with no term", benefit: "Expiry reminders and the call-off window cannot be worked out.", count: fwNoTerm, total: fwTotal, href: "/tenders?gap=fwNoTerm" }),
         ]);
       }
 
       if (wanted("product-database") && (can("projects.view") || can("products.approve"))) {
-        const mine = { addedByOrganizationId: org, isArchived: false };
-        const [total, noGtin, noHs, noUnspsc, noUnit, noStorage, noBrand] = await Promise.all([
-          tx.productMaster.count({ where: mine }),
-          tx.productMaster.count({ where: { ...mine, gtin: null } }),
-          tx.productMaster.count({ where: { ...mine, hsCode: null } }),
-          tx.productMaster.count({ where: { ...mine, unspscCode: null } }),
-          tx.productMaster.count({ where: { ...mine, standardUnit: null } }),
-          tx.productMaster.count({ where: { ...mine, storageClass: null } }),
-          tx.productMaster.count({ where: { ...mine, brand: null } }),
+        // The shared catalogue (every organisation's additions, simulated rows hidden by the tenant context rules): the same figures as the app's own "missing" tiles.
+        const live = { isArchived: false };
+        const [total, noGtin, noHs, noUnspsc, noUnit] = await Promise.all([
+          tx.productMaster.count({ where: live }),
+          tx.productMaster.count({ where: { ...live, gtin: null } }),
+          tx.productMaster.count({ where: { ...live, hsCode: null } }),
+          tx.productMaster.count({ where: { ...live, unspscCode: null } }),
+          tx.productMaster.count({ where: { ...live, standardUnit: null } }),
         ]);
         add("product-database", [
-          gap({ key: "noGtin", label: "Products with no GTIN", benefit: "They cannot be matched by barcode, de-duplicated across the catalogue or traced through batches.", count: noGtin, total, href: "/" }),
-          gap({ key: "noHs", label: "Products with no HS code", benefit: "Customs, export-restriction checks and freight analysis cannot classify them.", count: noHs, total, href: "/" }),
-          gap({ key: "noUnspsc", label: "Products with no UNSPSC code", benefit: "Catalogue analysis and Insights category comparisons leave them out.", count: noUnspsc, total, href: "/" }),
-          gap({ key: "noUnit", label: "Products with no standard unit", benefit: "Prices and quantities cannot be compared like for like.", count: noUnit, total, href: "/" }),
-          gap({ key: "noStorage", label: "Products with no storage class", benefit: "Cold-chain checks and batch storage warnings cannot apply.", count: noStorage, total, href: "/" }),
-          gap({ key: "noBrand", label: "Products with no brand", benefit: "Search and product matching are weaker.", count: noBrand, total, href: "/" }),
+          gap({ key: "noGtin", label: "Catalogue products with no GTIN", benefit: "They cannot be matched by barcode, de-duplicated across the catalogue or traced through batches.", count: noGtin, total, href: "/?missingField=gtin" }),
+          gap({ key: "noHs", label: "Catalogue products with no HS code", benefit: "Customs, export-restriction checks and freight analysis cannot classify them.", count: noHs, total, href: "/?missingField=hsCode" }),
+          gap({ key: "noUnspsc", label: "Catalogue products with no UNSPSC code", benefit: "Catalogue analysis and Insights category comparisons leave them out.", count: noUnspsc, total, href: "/?missingField=unspscCode" }),
+          gap({ key: "noUnit", label: "Catalogue products with no standard unit", benefit: "Prices and quantities cannot be compared like for like.", count: noUnit, total, href: "/?missingField=standardUnit" }),
+        ]);
+      }
+
+      if (wanted("insights") && can("projects.view")) {
+        // What the organisation's own records could feed into the anonymised Insights views (cost prices, origins, freight): counts of lines and projects only.
+        const live = { organizationId: org, isArchived: false };
+        const lineOf = (w: Record<string, unknown>) => ({ ...live, lines: { some: { archivedAt: null, ...w } } });
+        const [projects, noCost, noOrigin, noFreight, noCat] = await Promise.all([
+          tx.project.count({ where: live }),
+          tx.project.count({ where: lineOf({ supplierUnitPrice: null }) }),
+          tx.project.count({ where: lineOf({ countryOfManufactureCode: null }) }),
+          tx.project.count({ where: { ...live, freightCost: null } }),
+          tx.project.count({ where: lineOf({ productCategory: null }) }),
+        ]);
+        const pm = (g: string) => `app:project-management/projects?gap=${g}`;
+        add("insights", [
+          gap({ key: "noCost", label: "Projects with lines that have no supplier unit price", benefit: "Cost-price movement, like-for-like comparisons and the services rate card cannot include those lines, so the sector figures are thinner.", count: noCost, total: projects, href: pm("lineNoCost") }),
+          gap({ key: "noOrigin", label: "Projects with lines that have no country of manufacture", benefit: "The geographies and sourcing lenses cannot place that work on the map.", count: noOrigin, total: projects, href: pm("lineNoOrigin") }),
+          gap({ key: "noFreight", label: "Projects with no freight cost", benefit: "Freight cost per tonne per 1,000 km and the transport-mode comparison leave them out.", count: noFreight, total: projects, href: pm("noFreightCost") }),
+          gap({ key: "noCategory", label: "Projects with lines that have no product category", benefit: "Group-level price and volume views cannot count them.", count: noCat, total: projects, href: "app:project-management/projects" }),
         ]);
       }
 
@@ -105,11 +122,13 @@ export class DataHealthService {
           tx.user.count({ where: { organizationId: org, archivedAt: null, firstSignInAt: null, status: "INVITED" } }),
           tx.organization.findFirst({ where: { id: org }, select: { logoUrl: true, primaryColor: true, website: true, legalName: true, countryOfRegistrationCode: true, primaryContactEmail: true, welcomeMessage: true } }),
         ]);
-        const missing = o ? [!o.logoUrl && "logo", !o.primaryColor && "brand colour", !o.legalName && "legal name", !o.countryOfRegistrationCode && "country of registration", !o.website && "website", !o.primaryContactEmail && "primary contact"].filter(Boolean) as string[] : [];
+        const fields: [boolean, string, string][] = o ? [[!o.legalName, "legal name", "legalName"], [!o.countryOfRegistrationCode, "country of registration", "countryOfRegistrationCode"], [!o.website, "website", "website"], [!o.primaryContactEmail, "primary contact", "primaryContactEmail"], [!o.primaryColor, "brand colour", "primaryColor"], [!o.logoUrl, "logo", "primaryColor"]] : [];
+        const missing = fields.filter((f) => f[0]).map((f) => f[1]);
+        const firstField = fields.find((f) => f[0])?.[2];
         add("admin", [
           gap({ key: "noRole", label: "People with no role", benefit: "They can sign in but see and do nothing until given a role, and they never appear in notifications that go to a role.", count: noRole, total: users, href: "/users" }),
           gap({ key: "neverSignedIn", label: "Invited people who have not signed in yet", benefit: "Actions assigned to them will not be seen; resend the invitation or check the address.", count: neverSignedIn, total: users, href: "/users" }),
-          gap({ key: "orgProfile", label: `Your organisation profile is missing: ${missing.join(", ")}`, benefit: "The directory profile, branding on every screen and exports use these details.", count: missing.length ? 1 : 0, total: 1, href: `/organizations/detail?id=${org}`, fixLabel: "Update the profile" }),
+          gap({ key: "orgProfile", label: `Your organisation profile is missing: ${missing.join(", ")}`, benefit: "The directory profile, branding on every screen and exports use these details.", count: missing.length ? 1 : 0, total: 1, href: `/organizations/detail?id=${org}${firstField ? `&focus=${firstField}` : ""}`, fixLabel: "Update the profile" }),
         ]);
       }
     });

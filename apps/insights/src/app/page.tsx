@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InsightsActivity, InsightsOverview } from "@universe/types";
-import { OverviewGroup, OverviewGroups, OverviewHero, CollapsibleSection } from "@universe/ui";
+import { OverviewGroup, OverviewGroups, OverviewHero, CollapsibleSection, DataHealthNote } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { removeInsightsItem, useInsightsItems } from "../lib/views";
@@ -56,6 +56,7 @@ export default function InsightsHome() {
 
       <OverviewHero color="var(--u-brand-violet)" forename={me?.forename} title="What the sector is doing, right now." intro="Costs, sourcing and shipping across every organisation on Universe, always anonymous."
         search={{ label: "Search Insights", placeholder: "Search: technical assistance, sea freight, Kenya, vaccines", quick: ["Sea freight", "Technical assistance", "Vaccines", "Kenya"], onSearch: go }} />
+      <DataHealthNote currentApp="insights" load={() => apiClient.dataHealth("insights")} />
 
       <section aria-labelledby="active" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>

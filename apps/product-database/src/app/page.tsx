@@ -100,7 +100,7 @@ export default function ProductCatalogPage() {
   const [atc, setAtc] = useState("");
   const [inn, setInn] = useState("");
   const [hsFilter, setHsFilter] = useState("");
-  const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">("");
+  const [missingField, setMissingField] = useState<"" | "gtin" | "hsCode" | "unspscCode" | "standardUnit">(() => { const v = typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("missingField") ?? ""; return v === "gtin" || v === "hsCode" || v === "unspscCode" || v === "standardUnit" ? v : ""; });
 
 
   // Section mini-dashboard — added 2026-10-09, Stage 1: the standardised

@@ -1554,3 +1554,10 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 ## 2026-10-27 — "Make this richer" rolled out beyond the CRM; win/loss enriched
 - `DataHealthService` and `GET /data-health` (Project Management, Tenders, Product database, Admin), shared `DataHealthNote` on each app's Overview, Admin "Data health" page, `?gap=` filter on the Project Management project list (nine filters), "Source:" line on every note. Notes show only apps the person can use; counts of own records only, no money.
 - Win/loss drivers: added decided-within-60-days, three-or-more-people and value-and-date-recorded factors, and won/lost by commodity group and by stakeholder country. Factors with nothing to compare are listed on one line.
+
+## 2026-10-27 — Data richness: the "not done yet" items
+- Insights Overview now has a data-health note (lenses that are low-confidence for lack of data: lines without supplier price, country of manufacture or category; projects with no freight cost), each linking to the matching Project Management `?gap=` list. `DATA_HEALTH_APPS` includes `insights`.
+- Tenders list filters by `?gap=` (`TenderGap`, `TendersService.gapWhere`, `listMyTenders(status, gap)`) and shows which gap is applied. Product database reads `?missingField=gtin|hsCode|unspscCode|standardUnit` and the health note is catalogue-wide.
+- New `useFocusField` hook in `@universe/ui`: `?focus=<field>` scrolls to and focuses the `data-field` input. Wired into the Tender builder and Admin organisation profile; Admin gap links point at the first missing field.
+- Extra Project Management gaps: line without cost, line without origin, no freight cost.
+- Typechecks (api, insights, tenders, product database, admin, project management) and `lint:a11y` clean.
