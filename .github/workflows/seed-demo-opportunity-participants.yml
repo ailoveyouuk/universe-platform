@@ -41,7 +41,7 @@ jobs:
           echo "::add-mask::$CONN"
           echo "AZURE_STORAGE_CONNECTION_STRING=$CONN" >> "$GITHUB_ENV"
       - name: Seed opportunity participants (or dry run)
-        run: npm run seed:demo-pipeline-history --workspace=@universe/db
+        run: npm run seed:demo-opportunity-participants --workspace=@universe/db
         env:
           DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
           DRY_RUN: ${{ inputs.dry_run }}
