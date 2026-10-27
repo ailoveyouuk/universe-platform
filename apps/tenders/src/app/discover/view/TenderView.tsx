@@ -68,7 +68,7 @@ export function TenderView() {
         ))}
       </Card>
 
-      <Card title="Key dates and terms">
+      <Card collapse title="Key dates and terms">
         <dl style={{ display: "grid", gridTemplateColumns: "minmax(150px, 220px) 1fr", gap: "8px 16px", margin: 0, fontSize: 14 }}>
           <dt style={muted}>Questions until</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.clarificationDeadline, t.timeZone)}</dd>
           <dt style={muted}>Closes</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.closingAt, t.timeZone)}</dd>
@@ -80,7 +80,7 @@ export function TenderView() {
         {t.termsAndConditions && <p style={{ whiteSpace: "pre-wrap", fontSize: 13.5, lineHeight: 1.55, marginBottom: 0 }}>{t.termsAndConditions}</p>}
       </Card>
 
-      <Card title="Items required">
+      <Card collapse title="Items required">
         {v.lines.map((l) => (
           <div key={l.id} style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
             <strong>{l.lineNumber}. {l.description}</strong> <span style={muted}>{l.quantity} {l.unit}{l.serviceCategory ? ` · ${serviceCategoryLabel(l.serviceCategory)}, priced ${servicePricingBasisLabel(l.servicePricingBasis).toLowerCase()}` : ""}{l.destinationCountryCode ? ` · to ${l.destinationCountryCode}` : ""}</span>
@@ -89,12 +89,12 @@ export function TenderView() {
         ))}
       </Card>
 
-      <Card title="How bids are judged">
+      <Card collapse title="How bids are judged">
         {v.criteria.map((c) => <div key={c.id} style={{ padding: "6px 0", fontSize: 14 }}><strong>{c.title}</strong> <Pill tone={c.kind === "GATE" ? "warning" : "brand"}>{c.kind === "GATE" ? "Pass or fail" : `${c.weight}%`}</Pill>{c.description && <div style={{ fontSize: 13, ...muted }}>{c.description}</div>}</div>)}
       </Card>
 
       {v.addenda.length > 0 && (
-        <Card title="Addenda">
+        <Card collapse title="Addenda">
           {v.addenda.map((a) => (
             <div key={a.id} style={{ padding: "10px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
               <strong>Addendum {a.number}: {a.title}</strong><div style={{ whiteSpace: "pre-wrap", margin: "6px 0" }}>{a.body}</div>
@@ -106,9 +106,9 @@ export function TenderView() {
         </Card>
       )}
 
-      {v.documents.length > 0 && <Card title="Tender documents"><DocumentList tenderId={id} documents={v.documents} /></Card>}
+      {v.documents.length > 0 && <Card collapse title="Tender documents"><DocumentList tenderId={id} documents={v.documents} /></Card>}
 
-      <Card title="Questions and clarifications">
+      <Card collapse title="Questions and clarifications">
         {v.clarifications.length === 0 ? <p style={{ marginTop: 0, ...muted }}>No clarifications have been published.</p> : v.clarifications.map((c) => (
           <div key={c.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}><strong>Q: {c.question}</strong><div style={{ marginTop: 4 }}>{c.answer}</div></div>
         ))}

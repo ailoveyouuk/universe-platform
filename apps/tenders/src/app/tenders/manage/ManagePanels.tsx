@@ -23,7 +23,7 @@ function useAction(onDone: () => void) {
 export function ParticipantsPanel({ d }: { d: TenderDetailForIssuer }) {
   const screened = new Set(d.screenings.map((s) => s.screenedOrganisationId));
   return (
-    <Card title="Organisations that have expressed interest">
+    <Card collapse title="Organisations that have expressed interest">
       {d.participants.length === 0 ? <p style={{ margin: 0, ...muted }}>None yet. Eligible organisations see this tender in their list; invite more below.</p> : d.participants.map((p, i) => (
         <div key={p.organizationId} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -56,7 +56,7 @@ export function QuestionsPanel({ d, onChanged }: { d: TenderDetailForIssuer; onC
   const act = useAction(onChanged);
   return (
     <>
-      <Card title={`Questions received (${unanswered.length} waiting)`}>
+      <Card collapse title={`Questions received (${unanswered.length} waiting)`}>
         <ErrorNote message={act.err} />
         <p style={{ marginTop: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>Your answer is published to every participant without saying who asked. Edit the question text if it identifies the asker.</p>
         {d.questions.length === 0 && <p style={{ margin: 0, ...muted }}>No questions yet.</p>}
@@ -86,7 +86,7 @@ export function QuestionsPanel({ d, onChanged }: { d: TenderDetailForIssuer; onC
           </div>
         </Card>
       )}
-      <Card title={`Published clarifications (${d.clarifications.length})`}>
+      <Card collapse title={`Published clarifications (${d.clarifications.length})`}>
         {d.clarifications.length === 0 && <p style={{ margin: 0, ...muted }}>Nothing published yet.</p>}
         {d.clarifications.map((c, i) => <div key={c.id} style={{ padding: "10px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14, lineHeight: 1.5 }}><div style={muted}>{fmtDateTime(c.answeredAt)}</div><strong>{c.question}</strong><div>{c.answer}</div></div>)}
       </Card>
@@ -114,7 +114,7 @@ export function AddendaPanel({ d, onChanged }: { d: TenderDetailForIssuer; onCha
           </div>
         </Card>
       )}
-      <Card title={`Addenda issued (${d.addenda.length})`}>
+      <Card collapse title={`Addenda issued (${d.addenda.length})`}>
         {d.addenda.length === 0 && <p style={{ margin: 0, ...muted }}>None.</p>}
         {d.addenda.map((a, i) => (
           <div key={a.id} style={{ padding: "12px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14, lineHeight: 1.5 }}>
@@ -153,7 +153,7 @@ export function ScreeningPanel({ d, onChanged }: { d: TenderDetailForIssuer; onC
           </div>
         )}
       </Card>
-      <Card title={`Screenings recorded (${d.screenings.length})`}>
+      <Card collapse title={`Screenings recorded (${d.screenings.length})`}>
         {d.screenings.length === 0 && <p style={{ margin: 0, ...muted }}>None yet.</p>}
         {d.screenings.map((s, i) => (
           <div key={s.id} style={{ padding: "10px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14, lineHeight: 1.5 }}>

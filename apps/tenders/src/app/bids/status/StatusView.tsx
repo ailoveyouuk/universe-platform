@@ -39,7 +39,7 @@ export function StatusView() {
       {t.emergencyProcurement && <Card><Pill tone="warning">Emergency procurement</Pill> <span style={{ fontSize: 14 }}>{t.emergencyReason}</span></Card>}
       <ErrorNote message={err} />
       <StandardsGuide stages="BID" audience="BIDDER" />
-      <Card title="Where this tender is">
+      <Card collapse title="Where this tender is">
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginBottom: 14 }}>
           {s.bidsSubmitted !== null && <div><div style={{ fontSize: 26, fontWeight: 600 }}>{s.bidsSubmitted}</div><div style={{ fontSize: 13, ...muted }}>bids submitted</div></div>}
           {closeMs !== null && closeMs <= now && <div><div style={{ fontSize: 26, fontWeight: 600 }}>{span(now - closeMs)}</div><div style={{ fontSize: 13, ...muted }}>since the closing time</div></div>}
@@ -80,7 +80,7 @@ export function StatusView() {
       {my.awards.length > 0 && s.tender.tenderType === "FRAMEWORK" && <Card title="Framework agreement"><p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>This is a framework agreement. Your agreed prices, price reviews and the call-offs placed with you are on the framework page.</p><Link href={`/tenders/framework?id=${id}`} style={{ textDecoration: "none" }}><Button variant="primary">Open framework</Button></Link></Card>}
       {my.awards.length > 0 && <ContractsPanel tenderId={id} />}
       {(my.canComplain || my.complaints.length > 0) && (
-        <Card title="Complaints">
+        <Card collapse title="Complaints">
           {t.standstillEndsAt && <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>The standstill period ends {fmtDateTime(t.standstillEndsAt, t.timeZone)}. A complaint must be lodged before then.</p>}
           {my.complaints.map((c) => <div key={c.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}><div>{c.body}</div><div style={muted}><Pill>{c.status.toLowerCase()}</Pill> {c.response ?? "Awaiting a response."}</div></div>)}
           {my.canComplain && <div style={{ marginTop: 10 }}>

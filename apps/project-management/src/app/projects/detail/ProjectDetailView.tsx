@@ -830,8 +830,9 @@ export function ProjectDetailView() {
           </div>
         </div>
       )}
-      <div style={{ marginTop: 40, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Line Items ({project.lines.length})</h2>
+      <div style={{ marginTop: 40 }}>
+      <CollapsibleSection title={`Line items (${project.lines.length})`} level={2}>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
         {!addingLine && (
           <Button variant="primary" size="sm" icon={<PlusIcon size={14} />} onClick={() => setAddingLine(true)}>
             Add Line
@@ -985,6 +986,7 @@ export function ProjectDetailView() {
           <SupplierEnquiries projectId={project.id} line={line} suppliers={suppliers} onUpdated={setProject} />
         </div>
       ))}
+      </CollapsibleSection></div>
         </>
       )}
       {!showAllFields && !showLines && (

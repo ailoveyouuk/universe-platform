@@ -57,7 +57,7 @@ export function ManageView() {
       {tab === "summary" && (
         <>
           {st === "PUBLISHED" && <Dates d={d} onSaved={load} />}
-          <Card title="Details">
+          <Card collapse title="Details">
             <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "6px 16px", margin: 0, fontSize: 13.5 }}>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Visibility</dt><dd style={{ margin: 0 }}>{t.isSimulated ? "Simulated: only invited demonstration organisations can see it" : VISIBILITY_LABEL[t.visibility]}</dd>
               <dt style={{ color: "var(--u-ink-secondary)" }}>Published</dt><dd style={{ margin: 0 }}>{fmtDateTime(t.publishedAt, t.timeZone)}</dd>
@@ -73,10 +73,10 @@ export function ManageView() {
             </dl>
             {t.summary && <p style={{ lineHeight: 1.55, fontSize: 14, marginBottom: 0 }}>{t.summary}</p>}
           </Card>
-          <Card title={`Items (${d.lines.length})`}>
+          <Card collapse title={`Items (${d.lines.length})`}>
             {d.lines.map((l, i) => <div key={i} style={{ padding: "8px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 13.5 }}><strong>{l.description}</strong> <span style={{ color: "var(--u-ink-secondary)" }}>{[l.quantity && `${l.quantity} ${l.unit ?? ""}`.trim(), l.destinationCountryCode, l.requiredRegistration, l.coldChainRequired && "cold chain"].filter(Boolean).join(" · ")}</span></div>)}
           </Card>
-          <Card title="Criteria and eligibility">
+          <Card collapse title="Criteria and eligibility">
             {d.criteria.map((c, i) => <div key={i} style={{ fontSize: 13.5, padding: "4px 0" }}>{c.kind === "GATE" ? <Pill>Gate</Pill> : <Pill tone="brand">{Number(c.weight)}%</Pill>} {c.title}</div>)}
             <div style={{ marginTop: 12, borderTop: "1px solid var(--u-border)", paddingTop: 12, fontSize: 13.5 }}>{d.rules.length === 0 ? "No eligibility rules: every registered organisation may bid." : d.rules.map((r, i) => <div key={i} style={{ padding: "3px 0" }}>{r.isRequired ? "Required: " : "Advisory: "}{describeRule(r)}</div>)}</div>
           </Card>
@@ -99,7 +99,7 @@ export function ManageView() {
       {tab === "screening" && <ScreeningPanel d={d} onChanged={load} />}
 
       {tab === "timeline" && (
-        <Card title="Timeline">
+        <Card collapse title="Timeline">
           <p style={{ marginTop: 0, color: "var(--u-ink-secondary)", fontSize: 13.5 }}>An append-only record of what happened on this tender. Each entry is chained to the one before it, so an edited or removed entry is detected.</p>
           <VerifyTimeline id={t.id} />
           {d.events.map((e, i) => <div key={e.id} style={{ display: "grid", gridTemplateColumns: "150px 150px 1fr", gap: 12, padding: "9px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 13.5 }}><span style={{ color: "var(--u-ink-secondary)" }}>{fmtDateTime(e.createdAt, t.timeZone)}</span><span><Pill>{EVENT_LABEL[e.kind] ?? e.kind}</Pill></span><span>{e.summary}</span></div>)}

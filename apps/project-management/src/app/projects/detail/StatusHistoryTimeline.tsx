@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProjectStatusHistoryEntry } from "@universe/types";
+import { CollapsibleSection } from "@universe/ui";
 
 const STAGE_LABELS: Record<string, string> = {
   IDENTIFIED: "Identification",
@@ -43,9 +44,7 @@ export function StatusHistoryTimeline({ history }: { history: ProjectStatusHisto
 
   return (
     <div style={{ marginTop: 16 }}>
-      <h2 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-        Status History
-      </h2>
+      <CollapsibleSection title="Status history" level={3}>
       <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
         {history.map((entry, i) => {
           const isLast = i === history.length - 1;
@@ -88,6 +87,7 @@ export function StatusHistoryTimeline({ history }: { history: ProjectStatusHisto
           );
         })}
       </ol>
+      </CollapsibleSection>
     </div>
   );
 }

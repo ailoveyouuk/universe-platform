@@ -19,7 +19,7 @@ import type {
   UpdateProductMasterInput,
 } from "@universe/types";
 import { UNIT_OPTIONS } from "@universe/types";
-import { Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon, UnitSelect } from "@universe/ui";
+import { CollapsibleSection, Button, CalendarIcon, ExternalLinkIcon, HourglassIcon, Pill, StatTile, ThermometerIcon, UnitSelect } from "@universe/ui";
 import { PharmaCard } from "./PharmaCard";
 import { assessBatches, summariseBatches, FLAG_TEXT } from "./batchLife";
 import { apiClient } from "../../../lib/apiClient";
@@ -296,12 +296,14 @@ export function ProductDetailView() {
 
 /* ---------- small pieces ---------- */
 
-export function Card({ title, children, note }: { title: string; children: ReactNode; note?: string }) {
+/** On phones and tablets (under 1024px) every card folds under its title, closed to begin with; `defaultOpen` keeps the lead card open (2026-10-27, Lewis). */
+export function Card({ title, children, note, defaultOpen }: { title: string; children: ReactNode; note?: string; defaultOpen?: boolean }) {
   return (
-    <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", background: "var(--u-surface-raised)", padding: "16px 18px" }}>
-      <h2 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>{title}</h2>
-      {note && <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--u-ink-secondary)" }}>{note}</p>}
-      <div style={{ marginTop: note ? 0 : 10 }}>{children}</div>
+    <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", background: "var(--u-surface-raised)", padding: "16px 18px", minWidth: 0 }}>
+      <CollapsibleSection title={title} level={2} bare defaultOpen={defaultOpen}>
+        {note && <p style={{ margin: 0, fontSize: 12, color: "var(--u-ink-secondary)" }}>{note}</p>}
+        <div>{children}</div>
+      </CollapsibleSection>
     </section>
   );
 }
@@ -339,7 +341,7 @@ function RecordTab({ detail }: { detail: ProductCatalogDetail }) {
   const activeIds = detail.identifiers.filter((i) => i.isActive);
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <Card title="Identity">
+      <Card title="Identity" defaultOpen>
         <Facts rows={[["Variant", detail.variantLabel], ["Brand", detail.brand], ["INN (generic name)", detail.inn], ["Strength", detail.strength], ["Dosage form", detail.dosageForm], ["Pack size", detail.packSize], ["Standard unit", detail.standardUnit], ["Intended use", detail.intendedUse]]} />
       </Card>
       <Card title="Classification and identifiers">
@@ -405,7 +407,7 @@ function EditForm({ form, setF, saving, isStaff, onSave, onCancel }: {
       <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" }}>
         {isStaff ? "Changes apply immediately and are recorded in the history." : "Your changes are submitted for QA/RP ratification before they take effect on the shared record."} Leave a text field empty to clear it.
       </p>
-      <Card title="Identity">
+      <Card title="Identity" defaultOpen>
         <FieldGrid>
           {text("name", "Name")}{text("category", "Category")}{text("brand", "Brand")}{text("inn", "INN (generic name)")}{text("strength", "Strength")}{text("dosageForm", "Dosage form")}{text("packSize", "Pack size")}<Field label="Standard unit"><UnitSelect value={form.standardUnit ?? ""} onChange={(u) => setF("standardUnit", u)} options={UNIT_OPTIONS} ariaLabel="Standard unit" allLabel="Not specified" /></Field>
           <Field label="Intended use" span><textarea style={{ ...inputStyle, minHeight: 60 }} value={form.intendedUse ?? ""} onChange={(e) => setF("intendedUse", e.target.value)} /></Field>

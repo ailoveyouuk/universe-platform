@@ -23,11 +23,11 @@ export default function PerformancePage() {
     <Page>
       <Heading title="Performance" sub="Records of your closed contracts, as a supplier and as a tender owner." />
       <ErrorNote message={err} />
-      <Card title="What other tender owners see about you">
+      <Card collapse title="What other tender owners see about you">
         {mine ? <SupplierSummary s={mine} /> : <span style={muted}>Loading…</span>}
         <p style={{ margin: "8px 0 0", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Other owners see only a band and averages, and only once you have at least 3 closed contracts from 2 owners. They never see who the owners were, the feedback text or any single contract. You always see everything on your own records.</p>
       </Card>
-      <Card title="Closed contracts">
+      <Card collapse title="Closed contracts">
         {!rows ? <span style={muted}>Loading…</span> : rows.length === 0 ? <p style={{ margin: 0, ...muted }}>No contract has been closed yet. A record is created when a tender owner closes a contract.</p> : rows.map((r) => (
           <div key={r.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
             <span><strong>{r.contractReference}</strong> · {r.title} <Pill tone="neutral">{r.role === "SUPPLIER" ? "You supplied" : "You owned"}</Pill> <span style={muted}>· {r.counterpartyName} · closed {fmtDate(r.closedAt)}</span></span>

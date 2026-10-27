@@ -67,7 +67,7 @@ export default function AdminHomePage() {
         <StatTile label="Pilot organisations" value={pilot} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => router.push("/organizations")} />
       </StatTileGrid>
 
-      <Section
+      <Section defaultOpen
         title="Recent activity"
         actions={<Link href="/activity" style={{ fontSize: 13 }}>View all →</Link>}
       >

@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { TenderStatus, TenderType } from "@universe/types";
 import { ORG_TYPE_LABELS, QUALIFICATION_OPTIONS } from "@universe/types";
+import { CollapsibleSection } from "@universe/ui";
 
 export const inputStyle: CSSProperties = { padding: "8px 10px", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", font: "inherit", fontSize: 13.5, minWidth: 0, width: "100%", boxSizing: "border-box", backgroundColor: "var(--u-surface)", color: "var(--u-ink)" };
 
@@ -16,7 +17,18 @@ export function Field({ label, hint, children, wide }: { label: string; hint?: s
   );
 }
 
-export function Card({ title, action, children, style }: { title?: string; action?: ReactNode; children: ReactNode; style?: CSSProperties }) {
+/** `collapse`: on phones and tablets (under 1024px) the card folds under its title, closed to begin with (2026-10-27, Lewis). Used for read-only and list cards, not forms. */
+export function Card({ title, action, children, style, collapse }: { title?: string; action?: ReactNode; children: ReactNode; style?: CSSProperties; collapse?: boolean }) {
+  if (collapse && title) {
+    return (
+      <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", padding: "18px 20px", minWidth: 0, ...style }}>
+        <CollapsibleSection title={title} level={2} bare>
+          {action && <div style={{ display: "flex", justifyContent: "flex-end" }}>{action}</div>}
+          {children}
+        </CollapsibleSection>
+      </section>
+    );
+  }
   return (
     <section style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", padding: "18px 20px", ...style }}>
       {(title || action) && (

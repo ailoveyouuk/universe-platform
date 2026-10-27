@@ -104,7 +104,7 @@ export function DocumentsPanel({ tenderId, documents, published, onChanged }: { 
           </div>
         </div>
       </Card>
-      <Card title={`Documents (${group(documents).length})`}>
+      <Card collapse title={`Documents (${group(documents).length})`}>
         <DocumentList tenderId={tenderId} documents={documents} onReplace={(d) => { setReplacing(d); window.scrollTo({ top: 0, behavior: "smooth" }); }} onRemove={withdraw} />
       </Card>
     </>

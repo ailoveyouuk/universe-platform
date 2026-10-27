@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { ProjectDetail } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button, TextLink } from "@universe/ui";
+import { Button, TextLink, CollapsibleSection } from "@universe/ui";
 
 const DOCUMENT_TYPES = ["CHECKLIST", "ISSUES", "CLOSEOUT_REPORT", "OTHER"] as const;
 
@@ -105,7 +105,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
 
   return (
     <div style={{ marginTop: 40 }}>
-      <h2>Documents ({project.documents.length})</h2>
+      <CollapsibleSection title={`Documents (${project.documents.length})`} level={2}>
 
       {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
@@ -182,6 +182,7 @@ export function ProjectDocuments({ project, onUpdated }: { project: ProjectDetai
           {uploading ? "Uploading…" : "Upload"}
         </Button>
       </div>
+      </CollapsibleSection>
     </div>
   );
 }

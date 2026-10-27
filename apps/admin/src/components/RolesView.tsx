@@ -212,7 +212,7 @@ export function RolesView({ lockedOrgId }: { lockedOrgId?: string }) {
           <div>
             {selected === null && <p style={{ color: "var(--u-ink-secondary)" }}>Select a role to view or edit it.</p>}
             {selected !== null && (
-              <Section title={selected === "new" ? "New role" : current?.name ?? "Role"}>
+              <Section defaultOpen title={selected === "new" ? "New role" : current?.name ?? "Role"}>
                 <FormGrid>
                   <Field label="Name">
                     <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />

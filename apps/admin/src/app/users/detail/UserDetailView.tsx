@@ -93,7 +93,7 @@ export function UserDetailView() {
       {error && <Notice tone="error">{error}</Notice>}
       {notice && <Notice tone="success">{notice}</Notice>}
 
-      <Section title="Profile">
+      <Section defaultOpen title="Profile">
         <FormGrid>
           <Field label="First name">
             <input style={inputStyle} value={form.forename} onChange={(e) => setForm({ ...form, forename: e.target.value })} />

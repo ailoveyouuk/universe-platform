@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { RiskAssessmentSummary } from "@universe/types";
 import { apiClient } from "../lib/apiClient";
-import { Button, Select, AlertIcon } from "@universe/ui";
+import { Button, Select, CollapsibleSection } from "@universe/ui";
 
 const SEVERITY_OPTIONS = [
   { value: "LOW", label: "Low" },
@@ -117,10 +117,8 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
 
   return (
     <section style={{ marginTop: 28 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-          <AlertIcon size={16} /> Risk register
-        </h2>
+      <CollapsibleSection title="Risk register" level={3}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
         <Button variant="secondary" onClick={() => setAdding(!adding)}>
           {adding ? "Cancel" : "Log a risk"}
         </Button>
@@ -217,6 +215,7 @@ export function RiskRegister({ subjectType, subjectId }: { subjectType: string; 
           </div>
         ))}
       </div>
+      </CollapsibleSection>
     </section>
   );
 }

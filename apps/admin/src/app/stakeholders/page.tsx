@@ -81,7 +81,7 @@ export default function StakeholdersPage() {
       {notice && <Notice tone="success">{notice}</Notice>}
       {loadError && <Notice tone="error">{loadError}</Notice>}
 
-      <Section title="Add a stakeholder">
+      <Section defaultOpen title="Add a stakeholder">
         <form onSubmit={grant}>
           <FormGrid>
             <Field label="Email">
@@ -102,7 +102,7 @@ export default function StakeholdersPage() {
         </form>
       </Section>
 
-      <Section title="Stakeholders">
+      <Section defaultOpen title="Stakeholders">
         {!data ? (
           <p style={{ color: "var(--u-ink-secondary)" }}>{loadError ? "" : "Loading…"}</p>
         ) : data.users.length === 0 ? (

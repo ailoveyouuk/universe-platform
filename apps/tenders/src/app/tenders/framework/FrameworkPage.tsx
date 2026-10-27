@@ -49,15 +49,15 @@ export function FrameworkPage() {
 
       {owner && v.contracts.some((c) => c.status === "ACTIVE") && <RaiseCallOff v={v} act={act} busy={busy} onWarn={setWarn} />}
       {owner && v.contracts.filter((c) => c.status === "ACTIVE").length >= 2 && <RunCompetition v={v} act={act} busy={busy} />}
-      {owner && v.miniCompetitions.length > 0 && <Card title={`Mini-competitions (${v.miniCompetitions.length})`}>{v.miniCompetitions.map((m) => <Competition key={m.id} m={m} currency={t.currency} act={act} busy={busy} onWarn={setWarn} />)}</Card>}
-      {!owner && v.invitations.length > 0 && <Card title={`Invitations to quote (${v.invitations.length})`}>{v.invitations.map((i) => <Invitation key={i.id} i={i} currency={t.currency} act={act} busy={busy} />)}</Card>}
+      {owner && v.miniCompetitions.length > 0 && <Card collapse title={`Mini-competitions (${v.miniCompetitions.length})`}>{v.miniCompetitions.map((m) => <Competition key={m.id} m={m} currency={t.currency} act={act} busy={busy} onWarn={setWarn} />)}</Card>}
+      {!owner && v.invitations.length > 0 && <Card collapse title={`Invitations to quote (${v.invitations.length})`}>{v.invitations.map((i) => <Invitation key={i.id} i={i} currency={t.currency} act={act} busy={busy} />)}</Card>}
       {warn.length > 0 && <div role="status" style={{ padding: "10px 14px", border: "1px solid var(--u-status-warning)", borderRadius: "var(--u-radius-md)", fontSize: 13.5 }}>{warn.map((w, i) => <div key={i}>{w}</div>)}</div>}
 
-      <Card title={`Call-offs (${v.callOffs.length})`}>
+      <Card collapse title={`Call-offs (${v.callOffs.length})`}>
         {v.callOffs.length === 0 ? <p style={{ margin: 0, ...muted }}>None yet.</p> : v.callOffs.map((c) => <CallOff key={c.id} c={c} owner={owner} act={act} busy={busy} />)}
       </Card>
 
-      {v.priceReviews.length > 0 && <Card title="Price reviews">
+      {v.priceReviews.length > 0 && <Card collapse title="Price reviews">
         {v.priceReviews.map((r) => (
           <div key={r.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 13.5 }}>
             <strong>{r.description}</strong>: {r.previousPrice} to {r.proposedPrice} <Pill tone={r.status === "ACCEPTED" ? "good" : r.status === "REJECTED" ? "critical" : "warning"}>{r.status.toLowerCase()}</Pill> <span style={muted}>· {r.byYou ? "proposed by you" : "proposed by the other party"} · {fmtDate(r.createdAt)}</span>

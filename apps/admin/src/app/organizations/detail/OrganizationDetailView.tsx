@@ -243,6 +243,7 @@ export function OrganizationDetailView() {
       {tab === "profile" && (
       <>
       <Section
+        defaultOpen
         title="Organisation details"
         hint={isPlatform ? undefined : "Name, URL slug and lifecycle status are managed by Universe platform staff."}
       >

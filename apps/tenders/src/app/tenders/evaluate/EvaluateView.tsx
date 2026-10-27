@@ -60,7 +60,7 @@ export function EvaluateView() {
       {v.isEvaluator && !v.coiDeclared && !t.bidsOpenedAt && <Card><p style={{ margin: 0, ...muted }}>You are assigned to evaluate this tender. Once the bids are opened you will be asked to declare any conflict of interest before you can see them.</p></Card>}
 
       {o.evaluators.length > 0 && t.evaluationStartedAt && (
-        <Card title="Evaluators">{o.evaluators.map((e) => <div key={e.userId} style={{ fontSize: 14, padding: "3px 0" }}>{e.name} <span style={muted}>· {e.role === "CHAIR" ? "chair" : "evaluator"} · {e.coiDeclaredAt ? (e.coiNoConflict ? "no conflict declared" : `conflict declared (${e.conflictCount} bidder${e.conflictCount === 1 ? "" : "s"})`) : "declaration pending"}</span></div>)}</Card>
+        <Card collapse title="Evaluators">{o.evaluators.map((e) => <div key={e.userId} style={{ fontSize: 14, padding: "3px 0" }}>{e.name} <span style={muted}>· {e.role === "CHAIR" ? "chair" : "evaluator"} · {e.coiDeclaredAt ? (e.coiNoConflict ? "no conflict declared" : `conflict declared (${e.conflictCount} bidder${e.conflictCount === 1 ? "" : "s"})`) : "declaration pending"}</span></div>)}</Card>
       )}
 
       {o.phase === "EVALUATING" && v.isEvaluator && v.coiDeclared && o.bids.map((b) => <BidScoring key={b.bidId} b={b} o={o} id={id} act={act} busy={busy} />)}
@@ -92,7 +92,7 @@ function Setup({ o, id, act, busy }: { o: EvaluationOverview; id: string; act: A
   const cands = [...chosenIds.map((k) => ({ id: k, name: names[k]?.name ?? "Evaluator", email: names[k]?.email ?? "" })), ...found.filter((c) => !sel[c.id])];
   const chosen = Object.entries(sel).filter(([, r]) => r).map(([userId, role]) => ({ userId, role: role! }));
   return (
-    <Card title="Evaluators">
+    <Card collapse title="Evaluators">
       <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>{o.tender.allowSingleEvaluator ? `A single evaluator is allowed on this tender (${o.tender.singleEvaluatorReason}).` : "Assign at least two evaluators and one chair."} Each must declare any conflict of interest before seeing the bids.</p>
       <input aria-label="Search your colleagues" style={{ ...inputStyle, maxWidth: 320, marginBottom: 8 }} placeholder="Search colleagues by name or email" value={q} onChange={(e) => setQ(e.target.value)} />
       {cands.map((c) => (
@@ -188,14 +188,14 @@ function BidScoring({ b, o, id, act, busy }: { b: EvalBid; o: EvaluationOverview
 }
 
 function PastPerformanceCard({ o }: { o: EvaluationOverview }) {
-  return <Card title="Past performance on Universe"><PastPerformance bidders={o.bids.map((b) => ({ organizationId: b.organizationId, organizationName: b.organizationName }))} /></Card>;
+  return <Card collapse title="Past performance on Universe"><PastPerformance bidders={o.bids.map((b) => ({ organizationId: b.organizationId, organizationName: b.organizationName }))} /></Card>;
 }
 
 function Results({ o }: { o: EvaluationOverview }) {
   const scored = o.criteria.filter((c: EvalCriterion) => c.kind === "SCORED");
   const rows = [...o.bids].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999));
   return (
-    <Card title="Results" style={{ overflowX: "auto" }}>
+    <Card collapse title="Results" style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
         <thead><tr style={{ textAlign: "left", ...muted }}><th>Rank</th><th>Bidder</th><th>Price ({o.tender.currency})</th>{scored.map((c) => <th key={c.id}>{c.title} ({c.weight}%)</th>)}<th>Total</th></tr></thead>
         <tbody>{rows.map((b) => (
@@ -270,12 +270,12 @@ function Awarded({ o, id, act, busy }: { o: EvaluationOverview; id: string; act:
   const [resp, setResp] = useState<Record<string, { status: "UPHELD" | "REJECTED" | "RESOLVED"; text: string }>>({});
   return (
     <>
-      <Card title="Awards">
+      <Card collapse title="Awards">
         {o.awards.map((a) => <div key={a.awardId} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}><strong><OrgName id={a.organizationId} name={a.organizationName} /></strong> <span style={muted}>· {a.reason}</span>
           {a.lines.map((l) => <div key={l.tenderLineId} style={{ fontSize: 13, ...muted }}>{o.lines.find((x) => x.id === l.tenderLineId)?.description}: {l.sharePercent}%</div>)}</div>)}
         <p style={{ marginBottom: 0, fontSize: 13.5, ...muted }}>{o.tender.standstillEnabled ? (o.tender.standstillEndsAt ? `Standstill ends ${fmtDateTime(o.tender.standstillEndsAt, o.tender.timeZone)}. Contracts can be signed after that, once any complaint is answered.` : "The standstill was waived (emergency procurement).") : "No standstill period applies."}</p>
       </Card>
-      {o.viewer.isIssuer && <Card title={`Complaints (${o.complaints.length})`}>
+      {o.viewer.isIssuer && <Card collapse title={`Complaints (${o.complaints.length})`}>
         {o.complaints.length === 0 ? <p style={{ margin: 0, ...muted }}>None received.</p> : o.complaints.map((c) => (
           <div key={c.id} style={{ padding: "8px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
             <div>{c.body}</div>
@@ -294,7 +294,7 @@ function Awarded({ o, id, act, busy }: { o: EvaluationOverview; id: string; act:
 
 function LotResults({ o }: { o: EvaluationOverview }) {
   return (
-    <Card title="Results by lot" style={{ overflowX: "auto" }}>
+    <Card collapse title="Results by lot" style={{ overflowX: "auto" }}>
       <p style={{ marginTop: 0, fontSize: 13.5, ...muted }}>Price and lead time are scored on each lot's own items. Pass or fail checks, evaluator scores and past performance apply to the whole bid. A bidder is listed only if it priced every item in the lot.</p>
       {o.lots.map((lot) => (
         <div key={lot.lotNumber} style={{ marginTop: 12 }}>

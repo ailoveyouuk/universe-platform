@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { Pill } from "@universe/ui";
+import { Pill, CollapsibleSection } from "@universe/ui";
 
 /** Shared Admin form primitives (added 2026-10-16) — keeps the detail pages
  * on one consistent look using only @universe/ui tokens. */
@@ -18,7 +18,8 @@ export const inputStyle: CSSProperties = {
   color: "var(--u-ink)",
 };
 
-export function Section({ title, hint, actions, children }: { title: string; hint?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+/** Folds under its title on phones and tablets (under 1024px), closed to begin with unless `defaultOpen` (2026-10-27, Lewis). */
+export function Section({ title, hint, actions, children, defaultOpen }: { title: string; hint?: ReactNode; actions?: ReactNode; children: ReactNode; defaultOpen?: boolean }) {
   return (
     <section
       style={{
@@ -27,16 +28,18 @@ export function Section({ title, hint, actions, children }: { title: string; hin
         padding: 20,
         marginTop: 20,
         background: "var(--u-surface)",
+        minWidth: 0,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 17 }}>{title}</h2>
-          {hint && <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--u-ink-secondary)", maxWidth: 640 }}>{hint}</p>}
-        </div>
-        {actions}
-      </div>
-      {children}
+      <CollapsibleSection title={title} level={2} bare defaultOpen={defaultOpen}>
+        {(hint || actions) && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            {hint ? <p style={{ margin: 0, fontSize: 13, color: "var(--u-ink-secondary)", maxWidth: 640 }}>{hint}</p> : <span />}
+            {actions}
+          </div>
+        )}
+        {children}
+      </CollapsibleSection>
     </section>
   );
 }

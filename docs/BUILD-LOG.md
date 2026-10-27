@@ -1569,3 +1569,10 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - Found in the live check: `GET /data-health` had no `@UseGuards(EntraAuthGuard)`, so the request had no user and every call failed (the Admin Data health page and every Overview note showed nothing, because the note hides itself on a failed load). Guard added.
 - Live check also found: the Tenders "no criteria" fix link opened the builder of an awarded tender (the builder only opens drafts, so it redirected). It now goes to the builder only when the one tender is a draft, otherwise to the filtered list. The Insights "no product category" link now opens a real Project Management filter (`gap=lineNoCategory`).
 - Live checks passed (2026-10-27): Admin Data health page with cross-app links, Insights Overview note, `?gap=` on Projects and Tenders, `?missingField=` on Product database, `?focus=` on Tender builder, project detail and Admin organisation profile; the two link fixes above verified after deploy (ec7ad9e).
+
+## 2026-10-27 — Collapsible sections: the long pages found in the phone check
+- Project detail: Line items, Documents, Status history and Risk register now fold (they were plain headings; the page was about 2,700px on a phone).
+- Tenders: `Card` gained an opt-in `collapse` (closed under 1024px); applied to 31 read-only and list cards across manage, discover, framework, evaluate, bid status, performance and documents. Forms stay plain.
+- Product database detail: every card folds, Identity kept open (page was about 5,000px on a phone).
+- Admin: the shared `Section` folds (first section on each page kept open); organisation detail was about 8,000px on a phone.
+- `useFocusField` now opens any closed collapsible around the target before landing on it, so `?focus=` works on phones too.

@@ -14,9 +14,20 @@ export function useFocusField(ready = true): void {
     const t = setTimeout(() => {
       const el = document.querySelector<HTMLElement>(`[data-field="${f.replace(/"/g, "")}"]`);
       if (!el) return;
-      el.scrollIntoView({ block: "center" });
-      const target = el.matches("input,textarea,select,button") ? el : el.querySelector<HTMLElement>("input,textarea,select,button");
-      target?.focus({ preventScroll: true });
+      // On phones and tablets the field may sit inside a closed collapsible section: open each closed ancestor first.
+      let opened = false;
+      for (let a: HTMLElement | null = el.parentElement; a; a = a.parentElement) {
+        if (a.hidden && a.id) {
+          const btn = document.querySelector<HTMLElement>(`button[aria-controls="${a.id}"]`);
+          if (btn) { btn.click(); opened = true; }
+        }
+      }
+      const land = () => {
+        el.scrollIntoView({ block: "center" });
+        const target = el.matches("input,textarea,select,button") ? el : el.querySelector<HTMLElement>("input,textarea,select,button");
+        target?.focus({ preventScroll: true });
+      };
+      if (opened) setTimeout(land, 150); else land();
     }, 350);
     return () => clearTimeout(t);
   }, [ready]);
