@@ -45,7 +45,7 @@ async function main() {
     console.log(`${dryRun ? "[dry run] would create" : "creating"} ${newEntries.length} registry entries and link ${link.length} demo stakeholders`);
     if (!dryRun) {
       for (const c of chunk(newEntries, 300)) await tx.stakeholderRegistryEntry.createMany({ data: c });
-      for (const c of chunk(link, 200)) await Promise.all(c.map((l) => tx.partner.update({ where: { id: l.partnerId }, data: { registryEntryId: l.entryId } })));
+      for (const c of chunk(link, 1000)) { const json = JSON.stringify(c); await tx.$executeRaw`UPDATE p SET p.registryEntryId = j.entryId FROM partners p JOIN OPENJSON(${json}) WITH (partnerId nvarchar(36) '$.partnerId', entryId nvarchar(36) '$.entryId') j ON p.id = j.partnerId`; }
     }
 
     // ---- 2. published simulated organisations as stakeholders
