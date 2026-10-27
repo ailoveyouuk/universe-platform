@@ -9,7 +9,7 @@ import { CrmHospitalityService } from "../src/crm/crm-hospitality.service";
 describe("CRM gifts and hospitality", () => {
   const suffix = randomUUID().slice(0, 8);
   const svc = new CrmHospitalityService();
-  let orgA: string; let orgB: string; let relA: string; let relB: string;
+  let orgA: string; let orgB: string; let relA: string; let relB: string; let relC: string;
   const userIds: string[] = [];
   const u: Record<string, RequestUser> = {};
   const day = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -36,6 +36,8 @@ describe("CRM gifts and hospitality", () => {
       const pa = await tx.partner.create({ data: { organizationId: orgA, name: `Acme ${suffix}`, normalizedName: `acme ${suffix}` } });
       const pb = await tx.partner.create({ data: { organizationId: orgB, name: `Beta ${suffix}`, normalizedName: `beta ${suffix}` } });
       relA = (await tx.crmRelationship.create({ data: { organizationId: orgA, partnerId: pa.id, counterpartyKey: `partner:${pa.id}` } })).id;
+      const pc = await tx.partner.create({ data: { organizationId: orgA, name: `Cumulative ${suffix}`, normalizedName: `cumulative ${suffix}` } });
+      relC = (await tx.crmRelationship.create({ data: { organizationId: orgA, partnerId: pc.id, counterpartyKey: `partner:${pc.id}` } })).id;
       relB = (await tx.crmRelationship.create({ data: { organizationId: orgB, partnerId: pb.id, counterpartyKey: `partner:${pb.id}` } })).id;
     });
   });
@@ -123,12 +125,11 @@ describe("CRM gifts and hospitality", () => {
   });
 
   it("the yearly total for one stakeholder counts, and editing re-judges a record that has not been decided", async () => {
-    const r = await svc.create(u.maker, relA, input({ amount: 30, description: "Small thing" }));
-    expect(r.status).toBe("RECORDED");
-    const up = await svc.update(u.maker, r.id, { amount: 80 });
-    expect(up.status).toBe("PENDING_APPROVAL");
-    const back = await svc.update(u.maker, r.id, { amount: 20 });
-    expect(back.status).toBe("RECORDED");
+    for (let i = 0; i < 6; i++) expect((await svc.create(u.maker, relC, input({ amount: 30, description: `Small thing ${i}` }))).status).toBe("RECORDED");
+    const r = await svc.create(u.maker, relC, input({ amount: 30, description: "One too many" }));
+    expect(r.status).toBe("PENDING_APPROVAL"); expect(r.approvalReasons.join(" ")).toContain("yearly threshold");
+    expect((await svc.update(u.maker, r.id, { amount: 5 })).status).toBe("RECORDED");
+    expect((await svc.update(u.maker, r.id, { amount: 80 })).status).toBe("PENDING_APPROVAL");
   });
 
   it("lists with filters, summarises, archives and keeps the audit trail", async () => {
