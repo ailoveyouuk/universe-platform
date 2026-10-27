@@ -4162,17 +4162,44 @@ export interface CrmLastProject { id: string; referenceNumber: string; title: st
 export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO", "OPPORTUNITIES"] as const;
 export type CrmFilterView = (typeof CRM_FILTER_VIEWS)[number];
 /** The list filters a saved filter may hold. Anything else is rejected. */
-export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country", "stage", "kind", "group", "attention"] as const;
+export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country", "stage", "kind", "group", "attention", "pipeline"] as const;
 export interface CrmSavedFilter { id: string; view: CrmFilterView; name: string; filters: Record<string, string>; shared: boolean; mine: boolean; ownerName: string | null }
 export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filters?: Record<string, string>; shared?: boolean; archived?: boolean }
 export interface CrmTagRef { id: string; name: string }
 export interface CrmTag extends CrmTagRef { count: number }
+/** A stakeholder's open pipeline in one currency (portfolio view): the cost-side value, the value weighted by chance, and the value-weighted chance. */
+/** How a won opportunity's linked project is delivering. No money: project prices stay in Project Management behind its own financial permission. */
+export interface CrmOpportunityDelivery {
+  available: boolean;
+  /** Why nothing is shown: no linked project, or the person cannot see projects. */
+  reason: string | null;
+  project: { id: string; referenceNumber: string; title: string; status: string; completionStage: string | null } | null;
+  lines: number; delivered: number; deliveredPercent: number | null;
+  /** Of lines with the flag recorded: how many were on time, in full, and both. Null when none are recorded yet. */
+  onTimePercent: number | null; inFullPercent: number | null; otifPercent: number | null;
+  nextDue: string | null;
+}
+/**
+ * A framework opportunity's agreement and call-offs, as the organisation may see them (same rule as Tenders): the issuer sees the ceiling and every call-off;
+ * a supplier sees only its own call-offs and no ceiling. Amounts are in the framework's own currency, not converted.
+ */
+export interface CrmOpportunityFramework {
+  available: boolean; reason: string | null;
+  viewer: "OWNER" | "SUPPLIER" | null;
+  tender: { id: string; referenceNumber: string; title: string; currency: string | null } | null;
+  ceiling: number | null; committed: number; unused: number | null; usedPercent: number | null;
+  callOffCount: number; accepted: number; awaiting: number;
+  startsAt: string | null; expiresAt: string | null; daysLeft: number | null;
+}
+export interface CrmRowPipeline { openCount: number; openValue: number; likelyValue: number; probability: number | null; currency: string }
 export interface CrmRelationshipRow {
   /** Date of the latest recorded interaction, or null if none. */
   lastInteractionAt: string | null;
   tags: CrmTagRef[];
   /** Only with view=portfolio. null means the person may not see projects or contacts. */
   portfolio?: CrmPortfolio | null;
+  /** Only with view=portfolio. Open opportunities and how likely they are to land. */
+  pipeline?: CrmRowPipeline | null;
   contactCount?: number | null;
   siteCount?: number | null;
   siteCountries?: string[];

@@ -12,9 +12,10 @@ import { SavedFilters } from "../../components/SavedFilters";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { PORTFOLIO_COLUMNS } from "../../components/PortfolioStrip";
 import { SourceNote } from "../../components/SourceNote";
+import { money } from "../../components/Opportunities";
 
-type Filters = { q: string; role: string; status: string; work: string; tag: string; country: string };
-const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "", country: "" };
+type Filters = { q: string; role: string; status: string; work: string; tag: string; country: string; pipeline: string };
+const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "", country: "", pipeline: "" };
 const KIND_COLOUR: Record<string, string> = { ...Object.fromEntries(STAKEHOLDER_CATEGORY_KEYS.map((k) => [k, accentVar(k)])), OTHER: "var(--u-module-admin)" };
 const TILES = [
   { key: "inProgress", work: "in_progress", label: "In progress", icon: <ProjectsIcon />, tone: "brand" as const },
@@ -48,13 +49,13 @@ export default function Portfolio() {
   const [map, setMap] = useState<CrmPortfolioMap | null>(null);
   const countries = useCountries();
   const seq = useRef(0);
-  useEffect(() => { const p = new URLSearchParams(window.location.search); setF({ q: p.get("q") ?? "", role: p.get("role") ?? "", status: p.get("status") ?? "", work: p.get("work") ?? "", tag: p.get("tag") ?? "", country: p.get("country") ?? "" }); setReady(true); }, []);
+  useEffect(() => { const p = new URLSearchParams(window.location.search); setF({ q: p.get("q") ?? "", role: p.get("role") ?? "", status: p.get("status") ?? "", work: p.get("work") ?? "", tag: p.get("tag") ?? "", country: p.get("country") ?? "", pipeline: p.get("pipeline") ?? "" }); setReady(true); }, []);
   useEffect(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
   useEffect(() => { const t = setTimeout(() => setDq(f.q), 250); return () => clearTimeout(t); }, [f.q]);
   const load = useCallback(() => {
     if (!ready) return;
     const mine = ++seq.current; setBusy(true);
-    apiClient.crmRelationships({ ...f, q: dq, view: "portfolio", page, pageSize: pageSize === "all" ? 100 : pageSize, sort: "name" })
+    apiClient.crmRelationships({ ...f, q: dq, view: "portfolio", page, pageSize: pageSize === "all" ? 100 : pageSize, sort: f.pipeline === "likely" ? "likely" : "name" })
       .then((d) => { if (mine === seq.current) { setData(d); setErr(null); } })
       .catch((e) => { if (mine === seq.current) setErr(e instanceof Error ? e.message : "Could not load the portfolio."); })
       .finally(() => { if (mine === seq.current) setBusy(false); });
@@ -85,7 +86,7 @@ export default function Portfolio() {
       {(!map || map.work) && <StatTileGrid>
         {TILES.map((t) => <StatTile key={t.key} label={t.label} value={map?.work ? map.work[t.work] : undefined} icon={t.icon} tone={t.tone} active={f.work === t.work} onClick={() => set({ work: f.work === t.work ? "" : t.work })} />)}
       </StatTileGrid>}
-      <SourceNote keys={["portfolio"]} />
+      <SourceNote keys={["portfolio", "forecast"]} />
       <section aria-label="Where your stakeholders are based" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", padding: 10, display: "grid", gap: 6 }}>
         <WorldMap points={points} legend={legend} maxHeight={360} cluster={false} onPointClick={(p) => set({ country: p.id.split(":")[0] === f.country ? "" : p.id.split(":")[0] })} emptyMessage={map ? "No stakeholders with a country match these filters." : "Loading the map…"} />
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Pips show where each kind of stakeholder is based, sized by how many. Select one to filter the table to that country.{map?.noCountry ? ` ${map.noCountry} have no country recorded.` : ""}{map?.capped ? " Showing the first 6,000." : ""}</p>
@@ -96,16 +97,17 @@ export default function Portfolio() {
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: categoryLabel(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.work} onChange={(v) => set({ work: v })} allLabel="Any work history" options={CRM_WORK_FILTERS.map((w) => ({ value: w, label: CRM_WORK_FILTER_LABELS[w] }))} ariaLabel="Filter by work history" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.status} onChange={(v) => set({ status: v })} allLabel="Any status" options={CRM_STATUSES.map((t) => ({ value: t, label: CRM_STATUS_LABELS[t] }))} ariaLabel="Filter by relationship status" /></div>
+        <div style={{ minWidth: 220 }}><Select value={f.pipeline} onChange={(v) => set({ pipeline: v })} allLabel="All stakeholders" options={[{ value: "likely", label: "Open opportunities, likeliest first" }]} ariaLabel="Focus on stakeholders by chance of winning work" /></div>
         {tags.length > 0 && <div style={{ minWidth: 160 }}><Select value={f.tag} onChange={(v) => set({ tag: v })} allLabel="Any tag" options={tags.map((t) => ({ value: t.id, label: `${t.name} (${t.count})` }))} ariaLabel="Filter by tag" /></div>}
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{data ? `${data.total} stakeholder${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
       </div>
       {noProjects && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Project counts are hidden because your account cannot view projects. Ask your administrator for the Project Management app and project access.</p>}
       <div style={{ overflowX: "auto", opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
-        <table aria-label="Stakeholder portfolio" style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
+        <table aria-label="Stakeholder portfolio" style={{ borderCollapse: "collapse", width: "100%", minWidth: 1350 }}>
           <thead>
             <tr>
               <th scope="col" style={th}>Stakeholder</th><th scope="col" style={th}>Kind</th><th scope="col" style={th}>Location</th><th scope="col" style={th}>Added</th><th scope="col" style={th}>Last project</th>
-              <th scope="col" style={thNum}>Contacts</th><th scope="col" style={thNum}>Sites</th>
+              <th scope="col" style={thNum}>Open deals</th><th scope="col" style={thNum}>Likely to land</th><th scope="col" style={thNum}>Chance</th><th scope="col" style={thNum}>Contacts</th><th scope="col" style={thNum}>Sites</th>
               {PORTFOLIO_COLUMNS.map((c) => <th key={c.key} scope="col" style={thNum}>{c.short}</th>)}
             </tr>
           </thead>
@@ -117,6 +119,9 @@ export default function Portfolio() {
                 <td style={td}>{[r.countryCode, ...(r.siteCountries ?? []).filter((c) => c !== r.countryCode)].filter(Boolean).join(", ") || "—"}</td>
                 <td style={td}>{r.partnerAddedAt ? <>{fmtDate(r.partnerAddedAt)}<br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{sinceAgo(r.partnerAddedAt)}</span></> : "—"}</td>
                 <td style={td}>{r.portfolio?.lastProject ? <>{fmtDate(r.portfolio.lastProject.date)} <Pill tone={WORK_STATUS_TONE[r.portfolio.lastProject.status] ?? "neutral"}>{humanise(r.portfolio.lastProject.status)}</Pill><br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{r.portfolio.lastProject.referenceNumber} · {sinceAgo(r.portfolio.lastProject.date)}</span></> : "—"}</td>
+                <td style={tdNum}>{r.pipeline ? r.pipeline.openCount : "—"}</td>
+                <td style={tdNum}>{r.pipeline ? <>{money(r.pipeline.likelyValue, r.pipeline.currency)}<br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>of {money(r.pipeline.openValue, r.pipeline.currency)}</span></> : "—"}</td>
+                <td style={tdNum}>{r.pipeline?.probability != null ? <Pill tone={r.pipeline.probability >= 0.6 ? "good" : r.pipeline.probability >= 0.3 ? "warning" : "neutral"}>{Math.round(r.pipeline.probability * 100)}%</Pill> : "—"}</td>
                 <td style={tdNum}>{r.contactCount ?? "—"}</td>
                 <td style={tdNum}>{r.siteCount ?? "—"}</td>
                 {PORTFOLIO_COLUMNS.map((c) => <td key={c.key} style={tdNum}>{r.portfolio ? r.portfolio[c.key] : "—"}</td>)}

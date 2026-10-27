@@ -41,8 +41,13 @@ export class CrmController {
   portfolioMap(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.portfolioMap(user, q); }
 
   @Get("relationships")
-  list(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
-    return this.crm.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
+  async list(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
+    // Portfolio only: show the open pipeline per stakeholder, and (pipeline=likely) only those with open opportunities, likeliest to land first.
+    const wantsPipeline = q.view === "portfolio";
+    const lk = wantsPipeline ? await this.opportunities.likelihood(user) : null;
+    const page = await this.crm.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined, rank: lk && q.pipeline === "likely" ? lk.order : undefined });
+    if (lk) for (const it of page.items) it.pipeline = lk.byRel.get(it.id) ?? null;
+    return page;
   }
 
   @Get("relationships/:id") one(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.one(user, id); }
@@ -90,6 +95,8 @@ export class CrmController {
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Get("tenders/options") tenderOptions(@CurrentUser() user: RequestUser, @Query("q") q?: string) { return this.opportunities.tenderOptions(user, q); }
   @Post("opportunities/sync") @HttpCode(200) syncAllOpportunities(@CurrentUser() user: RequestUser) { return this.opportunities.sync(user); }
+  @Get("opportunities/:id/delivery") delivery(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.opportunities.delivery(user, id); }
+  @Get("opportunities/:id/framework") framework(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.opportunities.framework(user, id); }
   @Post("opportunities/:id/sync") @HttpCode(200) syncOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.opportunities.sync(user, id); }
   @Post("opportunities/:id/participants") addParticipant(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityParticipantDto) { return this.opportunities.addParticipant(user, id, dto); }
   @Delete("opportunities/:id/participants/:participantId") removeParticipant(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("participantId") participantId: string) { return this.opportunities.removeParticipant(user, id, participantId); }

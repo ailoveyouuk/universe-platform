@@ -91,6 +91,10 @@ export default function MethodologyPage() {
           <li><strong>Currency exposure:</strong> open opportunities grouped by the currency they were entered in; shares are taken after conversion.</li>
           <li><strong>How deals move and forecast accuracy:</strong> from the stage history, which records each time an opportunity is created, changes stage, or has its expected value or date revised. It is append-only. Average days in a stage use completed visits only.</li>
           <li><strong>Participants:</strong> the stakeholders that touched an opportunity (tender issuer, bidder, manufacturers, forwarders, suppliers, client) are worked out from the linked tender and project, limited to stakeholders already in your CRM, or added by hand.</li>
+          <li><strong>Portfolio chance and focus:</strong> on the Portfolio, each stakeholder shows its open opportunities, the likely-to-land value (cost value x chance of winning, in one currency) and the value-weighted chance. &quot;Open opportunities, likeliest first&quot; keeps only stakeholders with open deals and orders them by likely-to-land value.</li>
+          <li><strong>Delivery of won deals:</strong> for a won opportunity linked to a project, lines delivered ÷ lines, and the share on time, in full and both, taken from the flags on the project&apos;s delivery lines. Shown only to people who can view projects. No project prices are shown.</li>
+          <li><strong>Framework call-offs:</strong> for a framework opportunity linked to its tender: ceiling, committed (call-offs awaiting approval, awaiting the supplier or accepted), unused and expiry (contract end, else award plus term). The issuer sees the ceiling and every call-off; a supplier sees only its own call-offs.</li>
+          <li><strong>What money is shown:</strong> only what your organisation can already see. Opportunity values are your own cost-side estimates. Project and tender amounts appear only where Project Management or Tenders would show them to you, and nothing from outside your organisation&apos;s purview.</li>
         </ul>
       </Section>
 

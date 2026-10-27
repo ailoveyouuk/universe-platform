@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_PARTICIPANT_ROLE_LABELS, CRM_PARTICIPANT_ROLES, categoryLabel, type CrmOpportunity, type CrmParticipantRole, type CrmRelationshipRow, type CrmTenderOption } from "@universe/types";
+import { CRM_PARTICIPANT_ROLE_LABELS, CRM_PARTICIPANT_ROLES, categoryLabel, type CrmOpportunity, type CrmOpportunityDelivery, type CrmOpportunityFramework, type CrmParticipantRole, type CrmRelationshipRow, type CrmTenderOption } from "@universe/types";
 import { Button } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
-import { Field, fmtDate, inputStyle } from "../lib/ui";
+import { Field, fmtDate, humanise, inputStyle } from "../lib/ui";
 
 /**
  * The people and records around one opportunity (2026-10-27): the tender it is about, whether its stage follows the tender bid or project, and every stakeholder that
@@ -71,9 +71,55 @@ export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmO
             <Button size="sm" variant="secondary" type="button" onClick={() => setAdding(false)}>Cancel</Button>
           </form>
         )}
+        {o.kind === "FRAMEWORK_CALL_OFF" && <Framework id={o.id} sourceTenderId={o.sourceTenderId} />}
+        {o.stage === "WON" && <Delivery id={o.id} linkedId={o.linkedId} />}
         {msg && <p role="status" style={{ margin: 0, color: "var(--u-status-good-text)" }}>{msg}</p>}
         <p style={{ margin: 0, fontSize: 11.5, color: "var(--u-ink-secondary)" }}>Tender and project people are limited to stakeholders already in your CRM. Last updated {fmtDate(o.stageChangedAt)} (stage).</p>
       </div>
     </details>
+  );
+}
+
+/** How the project behind a won opportunity is delivering. Shows no money; project prices stay in Project Management behind its financial permission. */
+function Delivery({ id, linkedId }: { id: string; linkedId: string | null }) {
+  const [d, setD] = useState<CrmOpportunityDelivery | null>(null);
+  useEffect(() => { apiClient.crmOpportunityDelivery(id).then(setD).catch(() => setD(null)); }, [id, linkedId]);
+  if (!d) return null;
+  if (!d.available) return <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Delivery: {d.reason}</p>;
+  const pc = (n: number | null) => (n === null ? "not recorded yet" : `${n}%`);
+  return (
+    <section aria-label="Delivery" style={{ borderTop: "1px solid var(--u-border)", paddingTop: 8 }}>
+      <h4 style={{ margin: "0 0 4px", fontSize: 13.5 }}>Delivery</h4>
+      <p style={{ margin: 0 }}>{d.project?.referenceNumber} · {d.project?.title} · {humanise(d.project?.status ?? "")}{d.project?.completionStage ? ` (${humanise(d.project.completionStage)})` : ""}</p>
+      <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+        <li>Delivered: {d.delivered} of {d.lines} lines{d.deliveredPercent !== null ? ` (${d.deliveredPercent}%)` : ""}</li>
+        <li>On time: {pc(d.onTimePercent)}. In full: {pc(d.inFullPercent)}. Both (OTIF): {pc(d.otifPercent)}</li>
+        {d.nextDue && <li>Next delivery due {fmtDate(d.nextDue)}</li>}
+      </ul>
+      <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>From the project&apos;s delivery lines in Project Management. No project prices are shown here.</p>
+    </section>
+  );
+}
+
+const amt = (v: number | null, c: string | null) => (v === null ? "not shown" : new Intl.NumberFormat("en-GB", { style: c ? "currency" : "decimal", currency: c ?? undefined, maximumFractionDigits: 0 }).format(v));
+/** The framework behind a call-off opportunity. The issuer sees the ceiling and every call-off; a supplier sees only its own. */
+function Framework({ id, sourceTenderId }: { id: string; sourceTenderId: string | null }) {
+  const [d, setD] = useState<CrmOpportunityFramework | null>(null);
+  useEffect(() => { apiClient.crmOpportunityFramework(id).then(setD).catch(() => setD(null)); }, [id, sourceTenderId]);
+  if (!d) return null;
+  if (!d.available) return <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Framework: {d.reason}</p>;
+  const owner = d.viewer === "OWNER", c = d.tender?.currency ?? null;
+  return (
+    <section aria-label="Framework agreement" style={{ borderTop: "1px solid var(--u-border)", paddingTop: 8 }}>
+      <h4 style={{ margin: "0 0 4px", fontSize: 13.5 }}>Framework agreement</h4>
+      <p style={{ margin: 0 }}>{d.tender?.referenceNumber} · {d.tender?.title}</p>
+      <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+        {owner && <li>Ceiling {amt(d.ceiling, c)}; committed {amt(d.committed, c)}; unused {amt(d.unused, c)}{d.usedPercent !== null ? ` (${d.usedPercent}% used)` : ""}</li>}
+        {!owner && <li>Your call-offs committed: {amt(d.committed, c)} across {d.callOffCount}. The ceiling is only shown to the issuer.</li>}
+        <li>{owner ? "Call-offs" : "Your call-offs"}: {d.callOffCount} open ({d.accepted} accepted, {d.awaiting} awaiting approval or the supplier)</li>
+        <li>{d.expiresAt ? `Expires ${fmtDate(d.expiresAt)}${d.daysLeft !== null ? (d.daysLeft >= 0 ? `, ${d.daysLeft} days left` : `, ended ${-d.daysLeft} days ago`) : ""}` : "No end date recorded"}</li>
+      </ul>
+      <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>From the framework in Tenders, in its own currency (not converted). Committed counts call-offs awaiting approval, awaiting the supplier or accepted.</p>
+    </section>
   );
 }

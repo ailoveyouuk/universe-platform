@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { syncOpportunity, syncOrganisationOpportunities, withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { COMMODITY_GROUPS, CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmAttentionItem, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityParticipant, type CrmOpportunityParticipantInput, type CrmOpportunitySyncResult, type CrmParticipantRole, type CrmTenderOption, CRM_PARTICIPANT_ROLES, type CrmOpportunityStage, type CrmPipelineView, type CrmPipelineSummary } from "@universe/types";
+import { canUseApp, COMMODITY_GROUPS, CRM_OPEN_STAGES, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGES, type CrmAttentionItem, type CrmRowPipeline, type CrmOpportunityDelivery, type CrmOpportunityFramework, type CrmOpportunity, type CrmOpportunityInput, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityParticipant, type CrmOpportunityParticipantInput, type CrmOpportunitySyncResult, type CrmParticipantRole, type CrmTenderOption, CRM_PARTICIPANT_ROLES, type CrmOpportunityStage, type CrmPipelineView, type CrmPipelineSummary } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -272,6 +272,94 @@ export class CrmOpportunitiesService {
       flow: flow.map((f) => ({ stage: f.stage, reached: f.reached, advanced: f.advanced, avgDays: avg(f.days) })),
       accuracy: { revisions, dateSlips: slips.length, avgSlipDays: avg(slips), valueRevisedPct: avg(valuePct) },
     };
+  }
+
+  /**
+   * Each stakeholder's open pipeline in one currency, for the Portfolio: cost-side value, value weighted by chance, and the value-weighted chance.
+   * `order` lists stakeholders with open opportunities, likeliest-to-land value first. Rates are today's snapshot.
+   */
+  async likelihood(u: RequestUser, wanted?: string): Promise<{ currency: string; byRel: Map<string, CrmRowPipeline>; order: string[] }> {
+    assertHasPermission(u, "crm.view");
+    const { rows, model } = await withTenantContext(u.organizationId, async (tx) => {
+      const rows = await tx.crmOpportunity.findMany({
+        where: { organizationId: u.organizationId, archivedAt: null, stage: { in: [...CRM_OPEN_STAGES] } }, take: 20000,
+        select: { kind: true, commodityGroup: true, relationshipId: true, stage: true, expectedValue: true, currency: true },
+      });
+      const { model } = await this.history(tx, u.organizationId);
+      return { rows, model };
+    });
+    const used = new Map<string, number>(); for (const r of rows) if (r.currency && r.expectedValue !== null) used.set(r.currency, (used.get(r.currency) ?? 0) + 1);
+    const currency = /^[A-Z]{3}$/.test(wanted ?? "") ? wanted! : [...used].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "GBP";
+    const snap = this.fx ? await this.fx.getSnapshotForDate(new Date()).catch(() => null) : null;
+    const acc = new Map<string, { n: number; value: number; likely: number; pSum: number; pN: number }>();
+    for (const r of rows) {
+      const raw = r.expectedValue === null ? null : Number(r.expectedValue);
+      const v = raw === null || !r.currency ? 0 : convertAmount(raw, r.currency, currency, snap?.rates ?? null) ?? 0;
+      const est = model.estimate({ stage: r.stage, kind: r.kind, commodityGroup: r.commodityGroup, relationshipId: r.relationshipId });
+      const p = est?.probability ?? 0;
+      const a = acc.get(r.relationshipId) ?? { n: 0, value: 0, likely: 0, pSum: 0, pN: 0 };
+      a.n++; a.value += v; a.likely += v * p; a.pSum += p; a.pN++; acc.set(r.relationshipId, a);
+    }
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const byRel = new Map<string, CrmRowPipeline>();
+    for (const [id, a] of acc) byRel.set(id, { openCount: a.n, openValue: r2(a.value), likelyValue: r2(a.likely), probability: a.value > 0 ? Math.round((a.likely / a.value) * 1000) / 1000 : a.pN ? Math.round((a.pSum / a.pN) * 1000) / 1000 : null, currency });
+    const order = [...byRel].sort((x, y) => y[1].likelyValue - x[1].likelyValue || (y[1].probability ?? 0) - (x[1].probability ?? 0) || y[1].openCount - x[1].openCount).map(([id]) => id);
+    return { currency, byRel, order };
+  }
+
+  /** Delivery of the project linked to a won opportunity: status, lines delivered, and the on-time and in-full flags recorded on its lines. Needs project access; shows no money. */
+  async delivery(u: RequestUser, id: string): Promise<CrmOpportunityDelivery> {
+    assertHasPermission(u, "crm.view");
+    const none = (reason: string): CrmOpportunityDelivery => ({ available: false, reason, project: null, lines: 0, delivered: 0, deliveredPercent: null, onTimePercent: null, inFullPercent: null, otifPercent: null, nextDue: null });
+    const staff = u.platformStaffRole !== "NONE";
+    if (!((staff || canUseApp(u.apps, "project-management")) && (staff || u.permissions.includes("projects.view")))) return none("Your account cannot view projects.");
+    return withTenantContext(u.organizationId, async (tx) => {
+      const o = await tx.crmOpportunity.findFirst({ where: { id, organizationId: u.organizationId }, select: { stage: true, linkedType: true, linkedId: true } });
+      if (!o) throw new NotFoundException("Opportunity not found");
+      if (o.stage !== "WON") return none("Delivery is shown once the opportunity is won.");
+      if (o.linkedType !== "PROJECT" || !o.linkedId) return none("Link this opportunity to a project to see how it is delivering.");
+      const p = await tx.project.findFirst({ where: { id: o.linkedId, organizationId: u.organizationId }, select: { id: true, referenceNumber: true, title: true, status: true, completionStage: true } });
+      if (!p) return none("The linked project is no longer available.");
+      const lines = await tx.projectLine.findMany({ where: { projectId: p.id, organizationId: u.organizationId, archivedAt: null }, take: 5000,
+        select: { actualDeliveryDate: true, projectedDeliveryDate: true, internalOnTime: true, supplierInFull: true } });
+      const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
+      const delivered = lines.filter((l) => l.actualDeliveryDate).length;
+      const ot = lines.filter((l) => l.internalOnTime !== null), inf = lines.filter((l) => l.supplierInFull !== null), both = lines.filter((l) => l.internalOnTime !== null && l.supplierInFull !== null);
+      const due = lines.filter((l) => !l.actualDeliveryDate && l.projectedDeliveryDate).map((l) => l.projectedDeliveryDate!.getTime()).sort((a, b) => a - b)[0];
+      return { available: true, reason: null, project: p, lines: lines.length, delivered, deliveredPercent: pct(delivered, lines.length),
+        onTimePercent: pct(ot.filter((l) => l.internalOnTime).length, ot.length), inFullPercent: pct(inf.filter((l) => l.supplierInFull).length, inf.length),
+        otifPercent: pct(both.filter((l) => l.internalOnTime && l.supplierInFull).length, both.length), nextDue: due ? new Date(due).toISOString() : null };
+    });
+  }
+
+  /** A framework call-off opportunity's agreement: ceiling, what is committed, what is unused and when it expires. Follows the Tenders rule on who may see what. */
+  async framework(u: RequestUser, id: string): Promise<CrmOpportunityFramework> {
+    assertHasPermission(u, "crm.view");
+    const none = (reason: string): CrmOpportunityFramework => ({ available: false, reason, viewer: null, tender: null, ceiling: null, committed: 0, unused: null, usedPercent: null, callOffCount: 0, accepted: 0, awaiting: 0, startsAt: null, expiresAt: null, daysLeft: null });
+    if (!u.permissions.includes("tenders.view") && u.platformStaffRole === "NONE") return none("Your account cannot view tenders.");
+    return withTenantContext(u.organizationId, async (tx) => {
+      const o = await tx.crmOpportunity.findFirst({ where: { id, organizationId: u.organizationId }, select: { kind: true, sourceTenderId: true } });
+      if (!o) throw new NotFoundException("Opportunity not found");
+      if (!o.sourceTenderId) return none("Link the framework tender to see its ceiling and call-offs.");
+      const t = await tx.tender.findUnique({ where: { id: o.sourceTenderId }, select: { id: true, organizationId: true, referenceNumber: true, title: true, currency: true, tenderType: true, frameworkCeiling: true, frameworkTermMonths: true, awardedAt: true } });
+      if (!t || t.tenderType !== "FRAMEWORK") return none("The linked tender is not a framework agreement.");
+      const owner = t.organizationId === u.organizationId;
+      const mine = owner ? {} : { awardedOrganizationId: u.organizationId };
+      const [callOffs, contracts] = await Promise.all([
+        tx.tenderCallOff.findMany({ where: { tenderId: t.id, ...mine }, select: { status: true, totalValue: true }, take: 5000 }),
+        tx.tenderContract.findMany({ where: { tenderId: t.id, ...mine }, select: { startDate: true, endDate: true, executedAt: true }, take: 200 }),
+      ]);
+      const open = callOffs.filter((c) => ["PENDING_APPROVAL", "AWAITING_SUPPLIER", "ACCEPTED"].includes(c.status));
+      const committed = Math.round(open.reduce((n, c) => n + Number(c.totalValue), 0) * 100) / 100;
+      const ceiling = owner && t.frameworkCeiling !== null ? Number(t.frameworkCeiling) : null;
+      const starts = contracts.map((c) => c.executedAt ?? c.startDate).filter((x): x is Date => !!x).sort((a, b) => a.getTime() - b.getTime())[0] ?? t.awardedAt;
+      const endings = contracts.map((c) => c.endDate).filter((x): x is Date => !!x).sort((a, b) => b.getTime() - a.getTime())[0];
+      const expires = endings ?? (starts && t.frameworkTermMonths ? new Date(Date.UTC(starts.getUTCFullYear(), starts.getUTCMonth() + t.frameworkTermMonths, starts.getUTCDate())) : null);
+      return { available: true, reason: null, viewer: owner ? "OWNER" : "SUPPLIER", tender: { id: t.id, referenceNumber: t.referenceNumber, title: t.title, currency: t.currency },
+        ceiling, committed, unused: ceiling === null ? null : Math.round((ceiling - committed) * 100) / 100, usedPercent: ceiling ? Math.round((committed / ceiling) * 100) : null,
+        callOffCount: open.length, accepted: callOffs.filter((c) => c.status === "ACCEPTED").length, awaiting: callOffs.filter((c) => c.status === "AWAITING_SUPPLIER" || c.status === "PENDING_APPROVAL").length,
+        startsAt: starts?.toISOString() ?? null, expiresAt: expires?.toISOString() ?? null, daysLeft: expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null };
+    });
   }
 
   async pipeline(u: RequestUser): Promise<CrmPipelineSummary> {

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { COMMODITY_GROUPS, commodityGroupLabel, CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGE_LABELS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPeopleOption, type CrmRelationshipDetail } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel, CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGE_LABELS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPeopleOption, type CrmRelationshipDetail, type CrmTenderOption, CRM_PARTICIPANT_ROLE_LABELS } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { ErrorNote, Field, fmtDate, inputStyle } from "../lib/ui";
@@ -59,6 +59,7 @@ export function Opportunities({ relId, canManage, people: peopleProp, stage: sta
       {!relId && view === "board" && <PipelineBoard kind={kind} owner={owner} group={group} attention={attention} canManage={canManage} onChanged={() => { load(); onChanged?.(); }} onError={setErr} />}
       {adding && relId && <AddForm relId={relId} people={people} detail={detail} onDone={() => { setAdding(false); setPage(1); load(); onChanged?.(); }} />}
       {data && data.items.length === 0 && !adding && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>{relId ? "No opportunities yet. Add a tender to bid on, something to source, a call-off or a supplier to qualify." : "No opportunities match."}</p>}
+      {relId && <AlsoInvolved relId={relId} />}
       {(relId || view === "list") && <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
         {data?.items.map((o) => <Item key={o.id} o={o} showRel={!relId} canManage={canManage} onChanged={() => { load(); onChanged?.(); }} onError={setErr} />)}
       </ul>}
@@ -129,8 +130,29 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
   );
 }
 
+/** Opportunities of other stakeholders where this one took part (issuer, manufacturer, forwarder and so on). Not counted in this stakeholder's own pipeline. */
+function AlsoInvolved({ relId }: { relId: string }) {
+  const [items, setItems] = useState<CrmOpportunity[] | null>(null);
+  useEffect(() => { apiClient.crmOpportunities({ involved: relId, pageSize: 20 }).then((d) => setItems(d.items)).catch(() => setItems([])); }, [relId]);
+  if (!items || items.length === 0) return null;
+  return (
+    <section aria-label="Also involved in" style={{ borderTop: "1px solid var(--u-border)", paddingTop: 8 }}>
+      <h3 style={{ margin: "0 0 6px", fontSize: 14 }}>Also involved in</h3>
+      <p style={{ margin: "0 0 6px", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Opportunities of other stakeholders that this one took part in. They do not count towards this stakeholder&apos;s own pipeline value.</p>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 4, fontSize: 13 }}>
+        {items.map((o) => {
+          const mine = o.participants.filter((p) => p.relationshipId === relId).map((p) => CRM_PARTICIPANT_ROLE_LABELS[p.role]);
+          return <li key={o.id}><Link href={`/relationships?id=${o.relationshipId}`}>{o.title}</Link> <span style={{ color: "var(--u-ink-secondary)" }}>· {o.relationshipName} · {CRM_OPPORTUNITY_STAGE_LABELS[o.stage]} · as {[...new Set(mine)].join(", ").toLowerCase()}</span></li>;
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function AddForm({ relId, people, detail, onDone }: { relId: string; people: CrmPeopleOption[]; detail: CrmRelationshipDetail | null; onDone: () => void }) {
-  const [f, setF] = useState({ title: "", kind: "TENDER" as CrmOpportunityKind, value: "", currency: "GBP", date: "", owner: "", project: "", group: "", notes: "" });
+  const [f, setF] = useState({ title: "", kind: "TENDER" as CrmOpportunityKind, value: "", currency: "GBP", date: "", owner: "", project: "", group: "", notes: "", tender: "", sync: false });
+  const [tenders, setTenders] = useState<CrmTenderOption[]>([]);
+  useEffect(() => { apiClient.crmTenderOptions().then(setTenders).catch(() => undefined); }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = async () => {
@@ -138,7 +160,7 @@ function AddForm({ relId, people, detail, onDone }: { relId: string; people: Crm
     try {
       const hasValue = f.value.trim() !== "";
       await apiClient.createCrmOpportunity({ relationshipId: relId, title: f.title, kind: f.kind, expectedValue: hasValue ? Number(f.value) : null, currency: hasValue ? f.currency.toUpperCase() : null,
-        expectedDate: f.date || null, ownerUserId: f.owner || null, linkedProjectId: f.project || null, commodityGroup: f.group || null, notes: f.notes || null });
+        expectedDate: f.date || null, ownerUserId: f.owner || null, linkedProjectId: f.project || null, commodityGroup: f.group || null, sourceTenderId: f.tender || null, syncWithLinked: f.sync && !!(f.tender || f.project), notes: f.notes || null });
       onDone();
     } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); } finally { setBusy(false); }
   };
@@ -154,7 +176,9 @@ function AddForm({ relId, people, detail, onDone }: { relId: string; people: Crm
         <Field label="Currency"><input style={inputStyle} maxLength={3} value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} pattern="[A-Za-z]{3}" title="Three letters, such as GBP" /></Field>
         <Field label="Commodity or service group" hint="Helps compare like with like. Taken from the linked project if you leave it blank."><select className="u-native-select" style={inputStyle} value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}><option value="">Not set</option>{COMMODITY_GROUPS.map((g) => <option key={g} value={g}>{commodityGroupLabel(g)}</option>)}</select></Field>
         <Field label="Linked project (optional)"><select className="u-native-select" style={inputStyle} value={f.project} onChange={(e) => setF({ ...f, project: e.target.value })}><option value="">Not linked</option>{detail?.projects?.items.map((p) => <option key={p.id} value={p.id}>{p.referenceNumber} · {p.title}</option>)}</select></Field>
+        <Field label="Linked tender (optional)" hint="People involved in the tender are added for you."><select className="u-native-select" style={inputStyle} value={f.tender} onChange={(e) => setF({ ...f, tender: e.target.value })}><option value="">Not linked</option>{tenders.map((t) => <option key={t.id} value={t.id}>{t.referenceNumber} · {t.title}</option>)}</select></Field>
       </div>
+      {(f.tender || f.project) && <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={f.sync} onChange={(e) => setF({ ...f, sync: e.target.checked })} />Keep the stage in step with the linked tender bid or project</label>}
       <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 60 }} maxLength={1000} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
       <div style={{ display: "flex", gap: 8 }}>
         <Button size="sm" variant="primary" type="submit" disabled={busy || !f.title.trim()}>Save</Button>

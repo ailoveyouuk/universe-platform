@@ -9,7 +9,7 @@ import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
-export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; quiet?: string; certs?: string; view?: string; archived?: string; sort?: string; dir?: string }
+export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; quiet?: string; certs?: string; view?: string; archived?: string; sort?: string; dir?: string; pipeline?: string; /** Set by the controller for pipeline=likely: stakeholder ids in the order to show them. */ rank?: string[] }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
 /** The relationship status a stakeholder starts with: approved stakeholders are active, everything else is still a prospect. */
@@ -256,7 +256,14 @@ export class CrmService {
       const orderBy: Prisma.CrmRelationshipOrderByWithRelationInput[] =
         q.sort === "tier" ? [{ tier: dir }, { partner: { name: "asc" } }] : q.sort === "status" ? [{ status: dir }, { partner: { name: "asc" } }] :
         q.sort === "review" ? [{ nextReviewDue: dir }, { partner: { name: "asc" } }] : [{ partner: { name: dir } }, { id: "asc" }];
-      const [total, rows] = await Promise.all([
+      const rank = q.rank;
+      const [total, rows] = rank ? await (async () => {
+        // Ranked by likelihood: the ids come from the pipeline, the database still applies every other filter, and the page is cut from the ranked order.
+        const all = await tx.crmRelationship.findMany({ where: { AND: [where, { id: { in: rank } }] }, include: CrmService.include, take: 5000 });
+        const pos = new Map(rank.map((id, i) => [id, i]));
+        all.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+        return [all.length, all.slice((page - 1) * pageSize, page * pageSize)] as const;
+      })() : await Promise.all([
         tx.crmRelationship.count({ where }),
         tx.crmRelationship.findMany({ where, include: CrmService.include, orderBy, skip: (page - 1) * pageSize, take: pageSize }),
       ]);
