@@ -44,7 +44,6 @@ export default function Portfolio() {
   const [busy, setBusy] = useState(false);
   const [dq, setDq] = useState("");
   const [map, setMap] = useState<CrmPortfolioMap | null>(null);
-  const [tileCounts, setTileCounts] = useState<Record<string, number> | null>(null);
   const countries = useCountries();
   const seq = useRef(0);
   useEffect(() => { const p = new URLSearchParams(window.location.search); setF({ q: p.get("q") ?? "", role: p.get("role") ?? "", status: p.get("status") ?? "", work: p.get("work") ?? "", tag: p.get("tag") ?? "", country: p.get("country") ?? "" }); setReady(true); }, []);
@@ -66,14 +65,6 @@ export default function Portfolio() {
     apiClient.crmPortfolioMap({ ...rest, q: dq }).then((m) => { if (live) setMap(m); }).catch(() => { if (live) setMap(null); });
     return () => { live = false; };
   }, [f.role, f.status, f.work, f.tag, dq, ready]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The tiles count stakeholders per outcome under every filter except the work filter itself (one small request each, so each stays fast).
-  useEffect(() => {
-    if (!ready) return;
-    let live = true; const { work: _w, ...rest } = f;
-    Promise.all(TILES.map((t) => apiClient.crmRelationships({ ...rest, q: dq, work: t.work, page: 1, pageSize: 1 }).then((r) => [t.work, r.total] as const)))
-      .then((e) => { if (live) setTileCounts(Object.fromEntries(e)); }).catch(() => { if (live) setTileCounts(null); });
-    return () => { live = false; };
-  }, [f.role, f.status, f.tag, f.country, dq, ready]); // eslint-disable-line react-hooks/exhaustive-deps
   const byCode = new Map(countries.map((c) => [c.code, c]));
   const points: WorldMapPoint[] = (map?.points ?? []).flatMap((p) => {
     const c = byCode.get(p.countryCode); if (!c || c.latitude === null || c.longitude === null) return [];
@@ -89,9 +80,9 @@ export default function Portfolio() {
       <Heading title="Portfolio" sub="Every stakeholder with the work you have done together, by outcome, and where and with whom they operate. Counts come from Project Management; a project counts once per stakeholder." />
       <ErrorNote message={err} />
       <SavedFilters view="PORTFOLIO" current={f} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
-      <StatTileGrid>
-        {TILES.map((t) => <StatTile key={t.key} label={t.label} value={tileCounts ? tileCounts[t.work] : undefined} icon={t.icon} tone={t.tone} active={f.work === t.work} onClick={() => set({ work: f.work === t.work ? "" : t.work })} />)}
-      </StatTileGrid>
+      {(!map || map.work) && <StatTileGrid>
+        {TILES.map((t) => <StatTile key={t.key} label={t.label} value={map?.work ? map.work[t.work] : undefined} icon={t.icon} tone={t.tone} active={f.work === t.work} onClick={() => set({ work: f.work === t.work ? "" : t.work })} />)}
+      </StatTileGrid>}
       <section aria-label="Where your stakeholders are based" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg, 12px)", padding: 10, display: "grid", gap: 6 }}>
         <WorldMap points={points} legend={legend} maxHeight={360} cluster={false} onPointClick={(p) => set({ country: p.id.split(":")[0] === f.country ? "" : p.id.split(":")[0] })} emptyMessage={map ? "No stakeholders with a country match these filters." : "Loading the map…"} />
         <p style={{ margin: 0, fontSize: 12.5, color: "var(--u-ink-secondary)" }}>Pips show where each kind of stakeholder is based, sized by how many. Select one to filter the table to that country.{map?.noCountry ? ` ${map.noCountry} have no country recorded.` : ""}{map?.capped ? " Showing the first 6,000." : ""}</p>

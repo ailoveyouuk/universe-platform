@@ -148,6 +148,9 @@ describe("CRM places and links", () => {
     expect((await crm.list(u.manager, { country: "qx" })).items.map((i) => i.id)).toEqual([relA]);
     const map = await crm.portfolioMap(u.manager, {});
     expect(map.points.find((p) => p.countryCode === "QX")?.count).toBe(1);
+    expect(map.work).toMatchObject({ awarded: 1, completed: 1, unawarded: 1, in_progress: 0 });
+    expect((await crm.portfolioMap(u.manager, { work: "completed" })).points.find((p) => p.countryCode === "QX")?.count).toBe(1);
+    expect((await crm.portfolioMap(u.viewer, {})).work).toBeNull();
     expect((await crm.portfolioMap(u.other, {})).points.some((p) => p.countryCode === "QX")).toBe(false);
   });
 });

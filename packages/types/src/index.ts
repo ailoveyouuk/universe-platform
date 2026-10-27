@@ -4216,7 +4216,7 @@ export interface CrmPeopleOption { id: string; name: string }
 /** Relationship 360 (CRM step 2): read-only facts the other apps already hold about one stakeholder. Sections the viewer may not see are null. */
 export interface CrmDetailContact { id: string; name: string; title: string | null; email: string | null; phone: string | null }
 export interface CrmDetailProject { id: string; referenceNumber: string; title: string; status: string; dueDate: string | null; deliveryCountryCode: string | null; involvement: string[]; createdAt: string }
-export interface CrmPortfolioMap { points: { countryCode: string; kind: string; count: number }[]; noCountry: number; capped: boolean }
+export interface CrmPortfolioMap { points: { countryCode: string; kind: string; count: number }[]; noCountry: number; capped: boolean; /** Stakeholders with each kind of work, under the current filters except the work filter. null when the person cannot see projects. */ work: Record<string, number> | null }
 export interface CrmProjectPage { items: CrmDetailProject[]; total: number; page: number; pageSize: number; counts: CrmPortfolio | null }
 export interface CrmDetailComplaint { id: string; referenceNumber: string; title: string; status: string; severity: string | null; receivedAt: string }
 export interface CrmDetailCertificate { id: string; type: string; referenceNumber: string | null; issuingBody: string | null; issuedDate: string | null; expiryDate: string | null; status: string }

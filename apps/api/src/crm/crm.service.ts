@@ -169,24 +169,51 @@ export class CrmService {
       return { AND: and };
   }
 
-  /** Where the filtered stakeholders are based, by country and kind, for the portfolio map. Capped so the map stays fast on very large books. */
+  /**
+   * Where the filtered stakeholders are based, by country and kind, for the portfolio map, plus how many of them have each kind of work (for the tiles).
+   * Ids are read once, then the grouping is done by the database over a single JSON parameter (SQL Server limits a query to about 2,100 parameters).
+   * The work filter is ignored here on purpose: the tiles are the way you choose it. Capped so the map stays fast on very large books.
+   */
   async portfolioMap(user: RequestUser, q: CrmListQuery): Promise<CrmPortfolioMap> {
     assertHasPermission(user, "crm.view");
     const now = new Date();
     const cap = 6000;
+    const seeWork = this.canSeeProjects(user);
     return withTenantContext(user.organizationId, async (tx) => {
-      const where = await this.listWhere(tx, user, q, now, this.canSeeComplaints(user));
-      const rows = await tx.crmRelationship.findMany({ where, select: { partner: { select: { countryCode: true, roles: { where: { isActive: true }, select: { roleType: true } } } } }, take: cap + 1 });
+      const { work: _ignored, ...rest } = q;
+      const where = await this.listWhere(tx, user, rest, now, this.canSeeComplaints(user));
+      const rows = await tx.crmRelationship.findMany({ where, select: { partnerId: true, partner: { select: { countryCode: true } } }, take: cap + 1 });
+      // Tiles count the whole filtered set; the pips narrow further when a work tile is chosen.
+      const wset = q.work && seeWork ? await this.listWhere(tx, user, q, now, this.canSeeComplaints(user)) : null;
+      const used = wset ? (await tx.crmRelationship.findMany({ where: wset, select: { partnerId: true, partner: { select: { countryCode: true } } }, take: cap })) : rows.slice(0, cap);
+      const ids = rows.slice(0, cap).map((r) => r.partnerId).filter((x): x is string => !!x);
+      const json = JSON.stringify(ids);
+      const org = user.organizationId;
+      const ofIds = Prisma.sql`OPENJSON(${json}) WITH (id nvarchar(450) '$')`;
+      const [roleRows, workRows] = await Promise.all([
+        ids.length ? tx.$queryRaw<{ pid: string; roleType: string }[]>(Prisma.sql`SELECT r.partnerId AS pid, r.roleType AS roleType FROM partner_roles r JOIN ${ofIds} j ON j.id = r.partnerId WHERE r.isActive = 1`) : Promise.resolve([]),
+        seeWork && ids.length ? tx.$queryRaw<{ bucket: string; n: number | bigint }[]>(Prisma.sql`
+          SELECT x.bucket AS bucket, COUNT(DISTINCT x.pid) AS n FROM (
+            SELECT p.clientId AS pid, p.status AS status FROM projects p JOIN ${ofIds} j ON j.id = p.clientId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL
+            UNION SELECT p.freightForwarderId, p.status FROM projects p JOIN ${ofIds} j ON j.id = p.freightForwarderId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL
+            UNION SELECT l.supplierId, p.status FROM project_lines l JOIN projects p ON p.id = l.projectId JOIN ${ofIds} j ON j.id = l.supplierId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL
+            UNION SELECT l.manufacturerId, p.status FROM project_lines l JOIN projects p ON p.id = l.projectId JOIN ${ofIds} j ON j.id = l.manufacturerId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL
+          ) t CROSS APPLY (SELECT CASE t.status WHEN 'IN_PROGRESS' THEN 'in_progress' WHEN 'SUBMITTED' THEN 'submitted' WHEN 'AWARDED' THEN 'awarded' WHEN 'COMPLETED' THEN 'completed' WHEN 'UNAWARDED' THEN 'unawarded' WHEN 'DECLINED' THEN 'unawarded' END AS bucket) x(bucket)
+          WHERE x.bucket IS NOT NULL GROUP BY x.bucket`) : Promise.resolve(null),
+      ]);
       const order = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"];
+      const rolesBy = new Map<string, string[]>();
+      for (const r of roleRows) rolesBy.set(r.pid, [...(rolesBy.get(r.pid) ?? []), r.roleType]);
       const counts = new Map<string, number>(); let noCountry = 0;
-      for (const r of rows.slice(0, cap)) {
+      for (const r of used) {
         const code = r.partner?.countryCode;
         if (!code) { noCountry++; continue; }
-        const roles = (r.partner?.roles ?? []).map((x) => x.roleType);
-        const kind = order.find((o) => roles.includes(o as never)) ?? "OTHER";
+        const roles = rolesBy.get(r.partnerId ?? "") ?? [];
+        const kind = order.find((o) => roles.includes(o)) ?? "OTHER";
         counts.set(`${code}|${kind}`, (counts.get(`${code}|${kind}`) ?? 0) + 1);
       }
-      return { points: [...counts].map(([k, count]) => { const [countryCode, kind] = k.split("|"); return { countryCode, kind, count }; }), noCountry, capped: rows.length > cap };
+      const work = workRows ? Object.fromEntries(["in_progress", "submitted", "awarded", "completed", "unawarded"].map((k) => [k, Number(workRows.find((w) => w.bucket === k)?.n ?? 0)])) : null;
+      return { points: [...counts].map(([k, count]) => { const [countryCode, kind] = k.split("|"); return { countryCode, kind, count }; }), noCountry, capped: rows.length > cap, work };
     });
   }
 
