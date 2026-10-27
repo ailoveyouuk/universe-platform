@@ -41,8 +41,11 @@ export async function syncOpportunity(tx: Prisma.TransactionClient, opp: Opp, ac
   };
   let target: { stage: string; reason?: string } | null = null;
 
-  if (opp.sourceTenderId) {
-    const t = await tx.tender.findFirst({ where: { id: opp.sourceTenderId }, select: { id: true, organizationId: true, status: true, clientName: true } });
+  // Older opportunities were linked to a tender through the general link (linkedType TENDER). They get their people worked out the same way, but never a stage change.
+  const legacyTender = !opp.sourceTenderId && opp.linkedType === "TENDER" && opp.linkedId ? opp.linkedId : null;
+  const tenderId = opp.sourceTenderId ?? legacyTender;
+  if (tenderId) {
+    const t = await tx.tender.findFirst({ where: { id: tenderId }, select: { id: true, organizationId: true, status: true, clientName: true } });
     if (t) {
       const byOrg = await relsByOrg([t.organizationId]);
       if (t.organizationId !== org) want(byOrg.get(t.organizationId), "ISSUER", "TENDER");
@@ -54,7 +57,8 @@ export async function syncOpportunity(tx: Prisma.TransactionClient, opp: Opp, ac
       } else {
         const bid = await tx.tenderBid.findFirst({ where: { tenderId: t.id, organizationId: org }, select: { status: true } });
         const awards = await tx.tenderAward.findMany({ where: { tenderId: t.id }, select: { awardedOrganizationId: true } });
-        if (t.status === "CANCELLED") target = { stage: "WITHDRAWN" };
+        if (legacyTender) target = null;
+        else if (t.status === "CANCELLED") target = { stage: "WITHDRAWN" };
         else if (bid?.status === "WITHDRAWN") target = { stage: "WITHDRAWN" };
         else if (awards.length && bid && bid.status === "SUBMITTED") target = awards.some((a) => a.awardedOrganizationId === org) ? { stage: "WON" } : { stage: "LOST", reason: "Awarded to another bidder (from the tender)" };
         else if (bid?.status === "SUBMITTED") target = { stage: "SUBMITTED" };
@@ -100,7 +104,7 @@ export async function syncOpportunity(tx: Prisma.TransactionClient, opp: Opp, ac
 
 /** Syncs every opportunity of one organisation that has a tender or project link (stage only where it follows the link), or just the ones given. */
 export async function syncOrganisationOpportunities(tx: Prisma.TransactionClient, organizationId: string, actorUserId: string | null, only?: string[]): Promise<CrmOpportunitySyncResult> {
-  const opps = await tx.crmOpportunity.findMany({ where: { organizationId, archivedAt: null, ...(only ? { id: { in: only } } : {}), OR: [{ sourceTenderId: { not: null } }, { linkedType: "PROJECT", linkedId: { not: null } }] }, select: { id: true, organizationId: true, relationshipId: true, stage: true, linkedType: true, linkedId: true, sourceTenderId: true, syncWithLinked: true, lostReason: true }, take: 5000 });
+  const opps = await tx.crmOpportunity.findMany({ where: { organizationId, archivedAt: null, ...(only ? { id: { in: only } } : {}), OR: [{ sourceTenderId: { not: null } }, { linkedType: { in: ["PROJECT", "TENDER"] }, linkedId: { not: null } }] }, select: { id: true, organizationId: true, relationshipId: true, stage: true, linkedType: true, linkedId: true, sourceTenderId: true, syncWithLinked: true, lostReason: true }, take: 5000 });
   const res: CrmOpportunitySyncResult = { opportunities: opps.length, stageChanges: 0, participantsAdded: 0, participantsRetired: 0 };
   for (const o of opps) { const r = await syncOpportunity(tx, o, actorUserId); if (r.stageChanged) res.stageChanges++; res.participantsAdded += r.added; res.participantsRetired += r.retired; }
   return res;
