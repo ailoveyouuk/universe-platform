@@ -14,7 +14,7 @@ import type {
 import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon, CollapsibleSection } from "@universe/ui";
+import { useFocusField, CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon, CollapsibleSection } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
 import { PartnerOrgName } from "../../../components/PartnerOrgName";
@@ -154,6 +154,7 @@ export default function PartnerDetailPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const [partner, setPartner] = useState<PartnerSummary | null>(null);
+  useFocusField(!!partner);
   const [error, setError] = useState<string | null>(null);
   const [registryDetail, setRegistryDetail] = useState<StakeholderRegistryDetail | null>(null);
   const [registryProducts, setRegistryProducts] = useState<StakeholderRegistryProduct[]>([]);
@@ -405,8 +406,8 @@ export default function PartnerDetailPage() {
       )}
 
       <div className="u-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 28 }}>
-        <InfoCard label="Country">{countries.find((c) => c.code === partner.countryCode)?.name ?? partner.countryCode ?? "—"}</InfoCard>
-        <InfoCard label="Website">
+        <InfoCard label="Country" field="country">{countries.find((c) => c.code === partner.countryCode)?.name ?? partner.countryCode ?? "—"}</InfoCard>
+        <InfoCard label="Website" field="website">
           {partner.website ? (
             <TextLink href={partner.website} target="_blank" rel="noreferrer">
               {partner.website.replace(/^https?:\/\//, "")}
@@ -1644,9 +1645,10 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
-function InfoCard({ label, children }: { label: string; children: React.ReactNode }) {
+function InfoCard({ label, field, children }: { label: string; field?: string; children: React.ReactNode }) {
   return (
     <div
+      data-field={field}
       style={{
         padding: "12px 16px",
         borderRadius: "var(--u-radius-md)",

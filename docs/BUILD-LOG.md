@@ -1561,3 +1561,6 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - New `useFocusField` hook in `@universe/ui`: `?focus=<field>` scrolls to and focuses the `data-field` input. Wired into the Tender builder and Admin organisation profile; Admin gap links point at the first missing field.
 - Extra Project Management gaps: line without cost, line without origin, no freight cost.
 - Typechecks (api, insights, tenders, product database, admin, project management) and `lint:a11y` clean.
+
+## 2026-10-27 — ?focus= for Project Management
+- Project detail: `?id=…&focus=client|country|dueDate|freightCost` opens the header edit form and focuses that input (`data-field` on the labels, `useFocusField`). Partner detail: `focus=country|website` scrolls to the card. Typecheck and `lint:a11y` clean.

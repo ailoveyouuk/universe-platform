@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS, CollapsibleSection } from "@universe/ui";
+import { useFocusField, StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS, CollapsibleSection } from "@universe/ui";
 import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { commodityGroupLabel } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, INCOTERMS } from "@universe/types";
@@ -83,6 +83,7 @@ function omitKeys<T extends object>(input: T, keys: string[]): T {
 
 export function ProjectDetailView() {
   const searchParams = useSearchParams();
+  const focusField = searchParams.get("focus");
   const id = searchParams.get("id");
   const countries = useCountries();
 
@@ -172,6 +173,16 @@ export function ProjectDetailView() {
       .catch(() => setFinancialSummary(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, displayCurrency, project?.lines.length]);
+
+  // `?focus=<field>` (data-health fix links): open the header form once, then land on the input.
+  const focusOpened = useRef(false);
+  useEffect(() => {
+    if (focusField && project && !focusOpened.current && !editingHeader) {
+      focusOpened.current = true;
+      startEditHeader();
+    }
+  });
+  useFocusField(!!focusField && editingHeader);
 
   function startEditHeader() {
     if (!project) return;
@@ -494,7 +505,7 @@ export function ProjectDetailView() {
                 />
               </div>
             </label>
-            <label style={{ fontSize: 13 }}>
+            <label style={{ fontSize: 13 }} data-field="client">
               Client
               <select className="u-native-select"
                 style={fieldInputStyle}
@@ -517,7 +528,7 @@ export function ProjectDetailView() {
                 onChange={(e) => setHeaderForm((f) => ({ ...f, donorReference: e.target.value || null }))}
               />
             </label>
-            <label style={{ fontSize: 13, display: "block" }}>
+            <label style={{ fontSize: 13, display: "block" }} data-field="country">
               <span>Delivery Countries</span>
               <div style={{ marginTop: 4 }}>
                 <CountryMultiSelect
@@ -537,7 +548,7 @@ export function ProjectDetailView() {
                 onChange={(e) => setHeaderForm((f) => ({ ...f, startDate: e.target.value || null }))}
               />
             </label>
-            <label style={{ fontSize: 13 }}>
+            <label style={{ fontSize: 13 }} data-field="dueDate">
               Due Date
               <input
                 type="date"
@@ -647,7 +658,7 @@ export function ProjectDetailView() {
               <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: 0 }}>Freight cost and margin details are hidden for your role.</p>
             ) : (
               <>
-            <label style={{ fontSize: 13 }}>
+            <label style={{ fontSize: 13 }} data-field="freightCost">
               Freight Cost
               <input
                 type="number"
