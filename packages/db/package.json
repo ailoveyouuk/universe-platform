@@ -17,6 +17,7 @@
     "enrich:demo": "tsx scripts/enrich-demo-data.ts",
     "seed:demo-quality": "tsx scripts/seed-demo-quality.ts",
     "seed:demo-crm": "tsx scripts/seed-demo-crm.ts",
+    "seed:demo-certificates": "tsx scripts/seed-demo-certificates.ts",
     "purge:demo-duplicate-approvals": "tsx scripts/purge-duplicate-approvals.ts",
     "seed:demo-bid": "tsx scripts/seed-demo-bid.ts",
     "seed:demo-tender-events": "tsx scripts/seed-demo-tender-events.ts",
