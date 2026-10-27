@@ -70,7 +70,7 @@ export function Detail360({ relId, partnerId, tab, card, canManage }: { relId: s
     <div style={{ display: "grid", gap: 14 }}>
       <p style={{ margin: 0 }}>Approval: <strong>{d.approvalStatus ? humanise(d.approvalStatus) : "Not known"}</strong>. Last reviewed {fmtDate(d.lastApprovalReviewDate)}, next review due {fmtDate(d.nextApprovalReviewDue)}.</p>
       <div>
-        <h4 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Certificates and licences</h4>
+        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Certificates and licences</h2>
         {d.certificates.length === 0 ? <p style={note}>None recorded.</p> : <Table label="Certificates" head={["Type", "Reference", "Issued by", "Expires", "State"]} rows={d.certificates.map((c) => {
           const exp = c.expiryDate ? new Date(c.expiryDate).getTime() : null;
           const state = c.status !== "CURRENT" ? <Pill key="s" tone="neutral">{humanise(c.status)}</Pill> : exp !== null && exp < now ? <Pill key="s" tone="critical">Expired</Pill> : exp !== null && exp < now + 60 * 86400000 ? <Pill key="s" tone="warning">Expires soon</Pill> : <Pill key="s" tone="good">Current</Pill>;
@@ -78,11 +78,11 @@ export function Detail360({ relId, partnerId, tab, card, canManage }: { relId: s
         })} />}
       </div>
       <div>
-        <h4 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Company checks</h4>
+        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Company checks</h2>
         {d.checks.length === 0 ? <p style={note}>None recorded.</p> : <Table label="Company checks" head={["Check", "Result", "Checked"]} rows={d.checks.map((c) => [c.customLabel ?? humanise(c.checkType), humanise(c.result), fmtDate(c.checkedDate)])} />}
       </div>
       <div>
-        <h4 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Approval history</h4>
+        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Approval history</h2>
         {d.approvals.length === 0 ? <p style={note}>No approval decisions recorded.</p> : <Table label="Approval history" head={["Decision", "Date", "Reason"]} rows={d.approvals.map((a) => [humanise(a.action), fmtDate(a.actionDate), a.reason ?? "—"])} />}
       </div>
     </div>

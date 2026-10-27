@@ -65,7 +65,7 @@ export function Places({ relId, canManage, locations, links, reload }: { relId: 
           <section aria-label="Place details" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "12px 14px", display: "grid", gap: 6, fontSize: 13.5 }}>
             {!chosen ? <p style={note}>Select a place to see its details.</p> : (
               <>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><h4 style={{ margin: 0, fontSize: 15 }}>{chosen.name}</h4><Pill tone={chosen.kind === "HQ" ? "brand" : "neutral"}>{chosen.kind === "HQ" ? "Head office" : CRM_LOCATION_KIND_LABELS[chosen.kind]}</Pill></div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><h2 style={{ margin: 0, fontSize: 15 }}>{chosen.name}</h2><Pill tone={chosen.kind === "HQ" ? "brand" : "neutral"}>{chosen.kind === "HQ" ? "Head office" : CRM_LOCATION_KIND_LABELS[chosen.kind]}</Pill></div>
                 <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "3px 12px", margin: 0 }}>
                   <dt style={note}>Country</dt><dd style={{ margin: 0 }}>{nameOf(chosen.countryCode) ?? "Not set"}</dd>
                   <dt style={note}>City</dt><dd style={{ margin: 0 }}>{chosen.city ?? "Not set"}</dd>
@@ -136,7 +136,7 @@ export function Links({ relId, canManage, links, reload, onError }: { relId: str
   };
   return (
     <section aria-label="Links" style={{ display: "grid", gap: 8 }}>
-      <h4 style={{ margin: 0, fontSize: 14 }}>Links</h4>
+      <h2 style={{ margin: 0, fontSize: 14 }}>Links</h2>
       {links.length === 0 ? <p style={note}>No links recorded yet.</p> : CRM_LINK_KINDS.filter((k) => links.some((l) => l.kind === k)).map((k) => (
         <div key={k}>
           <p style={{ margin: "0 0 4px", fontSize: 12.5, fontWeight: 600, color: "var(--u-ink-secondary)" }}>{CRM_LINK_KIND_LABELS[k]}</p>
