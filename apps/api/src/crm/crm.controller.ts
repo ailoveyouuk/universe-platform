@@ -86,7 +86,7 @@ export class CrmController {
   listOpportunities(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) {
     return this.opportunities.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
   }
-  @Get("pipeline/view") pipelineView(@CurrentUser() user: RequestUser, @Query("currency") currency?: string) { return this.opportunities.pipelineView(user, currency); }
+  @Get("pipeline/view") pipelineView(@CurrentUser() user: RequestUser, @Query("currency") currency?: string, @Query("relationshipId") relationshipId?: string) { return this.opportunities.pipelineView(user, currency, relationshipId); }
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
   @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }

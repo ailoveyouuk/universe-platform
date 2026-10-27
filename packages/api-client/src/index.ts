@@ -1117,7 +1117,7 @@ export class UniverseApiClient {
   crmSavedFilters(view: string): Promise<CrmSavedFilter[]> { return this.request(`/crm/saved-filters?view=${encodeURIComponent(view)}`); }
   createCrmSavedFilter(body: CrmSavedFilterInput): Promise<CrmSavedFilter> { return this.request("/crm/saved-filters", { method: "POST", body: JSON.stringify(body) }); }
   updateCrmSavedFilter(id: string, body: CrmSavedFilterInput): Promise<CrmSavedFilter> { return this.request(`/crm/saved-filters/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
-  crmPipelineView(currency?: string): Promise<CrmPipelineView> { return this.request(`/crm/pipeline/view${currency ? `?currency=${currency}` : ""}`); }
+  crmPipelineView(currency?: string, relationshipId?: string): Promise<CrmPipelineView> { const p = new URLSearchParams(); if (currency) p.set("currency", currency); if (relationshipId) p.set("relationshipId", relationshipId); return this.request(`/crm/pipeline/view${p.toString() ? `?${p}` : ""}`); }
   crmPipeline(): Promise<CrmPipelineSummary> { return this.request("/crm/pipeline"); }
   createCrmOpportunity(body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request("/crm/opportunities", { method: "POST", body: JSON.stringify(body) }); }
   updateCrmOpportunity(id: string, body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request(`/crm/opportunities/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }

@@ -4364,6 +4364,8 @@ export interface CrmPipelineView {
   overdue: { count: number; value: number };
   noDate: { count: number; value: number };
   kinds: { key: string; count: number; value: number }[];
+  /** Stakeholders ranked by open pipeline value (the top twelve); empty when the view is for one stakeholder. */
+  stakeholders: { relationshipId: string; name: string; kinds: string[]; openCount: number; openValue: number; wonValue: number; winRate: number | null }[];
   openValue: number; wonValue: number;
   /** Won as a share of won and lost, by number; null until something is won or lost. */
   winRate: number | null;

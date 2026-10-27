@@ -130,5 +130,9 @@ describe("CRM search", () => {
     expect(v.winRate).toBe(50);
     expect(v.kinds[0]).toMatchObject({ key: "MANUFACTURER", count: 1, value: 1000 });
     expect(v.months.reduce((n, m) => n + m.count, 0) + v.overdue.count + v.noDate.count).toBe(1);
+    expect(v.stakeholders[0]).toMatchObject({ relationshipId: relA, openCount: 1, openValue: 1000, wonValue: 500, winRate: 50 });
+    const one = await opps.pipelineView(u.manager, "GBP", relA);
+    expect(one.stakeholders).toEqual([]);
+    expect(one.openValue).toBe(1000);
   });
 });

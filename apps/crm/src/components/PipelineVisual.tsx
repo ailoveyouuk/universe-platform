@@ -19,12 +19,12 @@ const muted: React.CSSProperties = { margin: 0, fontSize: 13, color: "var(--u-in
  * The pipeline as a picture (2026-10-27, Lewis: the figures read as an afterthought and connected to nothing). All values are converted into one currency chosen here, at
  * today's platform rate, so they can be compared and added. Choosing a stage filters the opportunity list below; kinds link to the stakeholder list for that kind.
  */
-export function PipelineVisual({ stage, onStage, version }: { stage: string; onStage: (s: string) => void; version: number }) {
+export function PipelineVisual({ stage, onStage, version, relationshipId }: { stage: string; onStage?: (s: string) => void; version: number; relationshipId?: string }) {
   const [v, setV] = useState<CrmPipelineView | null>(null);
   const [cur, setCur] = useState<string>("");
   const [by, setBy] = useState<"value" | "count">("value");
   const [err, setErr] = useState(false);
-  useEffect(() => { apiClient.crmPipelineView(cur || undefined).then((d) => { setV(d); setErr(false); }).catch(() => setErr(true)); }, [cur, version]);
+  useEffect(() => { apiClient.crmPipelineView(cur || undefined, relationshipId).then((d) => { setV(d); setErr(false); }).catch(() => setErr(true)); }, [cur, version, relationshipId]);
   if (err) return <p role="status" style={muted}>The pipeline chart is not available just now.</p>;
   if (!v) return <p role="status" style={muted}>Loading the pipeline chart…</p>;
   const money = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: v.currency, notation: "compact", maximumFractionDigits: 1 }).format(n);
@@ -39,7 +39,7 @@ export function PipelineVisual({ stage, onStage, version }: { stage: string; onS
   return (
     <section aria-labelledby="pv-h" style={{ display: "grid", gap: 14 }}>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end", justifyContent: "space-between" }}>
-        <h2 id="pv-h" style={{ ...h2, fontSize: 18 }}>Where the pipeline stands</h2>
+        <h2 id="pv-h" style={{ ...h2, fontSize: 18 }}>{relationshipId ? "Pipeline value with this stakeholder" : "Where the pipeline stands"}</h2>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
           <div style={{ minWidth: 150 }}><Select value={v.currency} onChange={(x) => setCur(x)} options={v.currencies.map((c) => ({ value: c, label: c }))} ariaLabel="Show values in this currency" /></div>
           <div role="group" aria-label="Size bars by" style={{ display: "inline-flex", border: "1px solid var(--u-border)", borderRadius: 999, overflow: "hidden" }}>
@@ -58,14 +58,14 @@ export function PipelineVisual({ stage, onStage, version }: { stage: string; onS
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))", gap: 14 }}>
         <div style={card}>
           <h3 style={h2}>By stage</h3>
-          <p style={muted}>Choose a stage to filter the list below.</p>
+          {onStage && <p style={muted}>Choose a stage to filter the list below.</p>}
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
             {v.stages.map((s) => {
               const on = stage === s.stage || (stage === "open" && false);
               return (
                 <li key={s.stage}>
-                  <button type="button" onClick={() => onStage(on ? "open" : s.stage)} aria-pressed={on} aria-label={`${CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}: ${s.count} opportunities, ${money(s.value)}. ${on ? "Showing in the list. Choose to show all open." : "Show in the list."}`}
-                    style={{ all: "unset", display: "grid", gap: 3, width: "100%", cursor: "pointer", boxSizing: "border-box", padding: "4px 6px", borderRadius: "var(--u-radius-md)", outline: on ? "2px solid var(--u-brand-violet)" : "none", outlineOffset: 1 }}>
+                  <button type="button" disabled={!onStage} onClick={() => onStage?.(on ? "open" : s.stage)} aria-pressed={onStage ? on : undefined} aria-label={`${CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}: ${s.count} opportunities, ${money(s.value)}. ${on ? "Showing in the list. Choose to show all open." : "Show in the list."}`}
+                    style={{ all: "unset", display: "grid", gap: 3, width: "100%", cursor: onStage ? "pointer" : "default", boxSizing: "border-box", padding: "4px 6px", borderRadius: "var(--u-radius-md)", outline: on ? "2px solid var(--u-brand-violet)" : "none", outlineOffset: 1 }}>
                     <span style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13.5 }}><span style={{ fontWeight: 600 }}>{CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}</span><span style={{ color: "var(--u-ink-secondary)" }}>{label(s)}</span></span>
                     <span aria-hidden="true" style={{ display: "block", height: 14, borderRadius: 7, backgroundColor: "var(--u-border)" }}><span style={{ display: "block", height: "100%", borderRadius: 7, width: pct(metric(s), maxStage), backgroundColor: STAGE_COLOUR[s.stage], transition: "width .4s ease" }} /></span>
                   </button>
@@ -97,7 +97,7 @@ export function PipelineVisual({ stage, onStage, version }: { stage: string; onS
           <p style={{ ...muted, fontSize: 12.5 }}>{v.overdue.count > 0 ? `${v.overdue.count} open past their expected date (${money(v.overdue.value)}). ` : "None past their expected date. "}{v.noDate.count > 0 ? `${v.noDate.count} open with no date (${money(v.noDate.value)}).` : ""}</p>
         </div>
 
-        <div style={card}>
+        {!relationshipId && <div style={card}>
           <h3 style={h2}>Open pipeline by kind of stakeholder</h3>
           <p style={muted}>Choose a kind to see those stakeholders.</p>
           {v.kinds.length === 0 ? <p style={muted}>No open opportunities.</p> : (
@@ -112,8 +112,25 @@ export function PipelineVisual({ stage, onStage, version }: { stage: string; onS
               ))}
             </ul>
           )}
-        </div>
+        </div>}
       </div>
+      {!relationshipId && v.stakeholders.length > 0 && (
+        <div style={card}>
+          <h3 style={h2}>Biggest opportunities by stakeholder</h3>
+          <p style={muted}>Ranked by open pipeline value. Choose a stakeholder to open its pipeline.</p>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+            {v.stakeholders.map((x) => (
+              <li key={x.relationshipId} style={{ display: "grid", gap: 3 }}>
+                <Link href={`/relationships?id=${x.relationshipId}&tab=financials`} style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", textDecoration: "none", color: "var(--u-ink)", padding: "4px 6px", borderLeft: `4px solid ${accentVar((x.kinds.find((k) => ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR", "CLIENT"].includes(k)) ?? "CLIENT") as never)}` }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{x.name}<span style={{ fontWeight: 400, color: "var(--u-ink-secondary)", fontSize: 13 }}> · {x.kinds.map(categoryLabel).join(", ")}</span></span>
+                  <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>{money(x.openValue)} open ({x.openCount}) · {money(x.wonValue)} won{x.winRate !== null ? ` · ${x.winRate}% win rate` : ""}</span>
+                </Link>
+                <span aria-hidden="true" style={{ display: "block", height: 8, borderRadius: 4, backgroundColor: "var(--u-border)", margin: "0 6px" }}><span style={{ display: "block", height: "100%", borderRadius: 4, width: pct(x.openValue, Math.max(1, v.stakeholders[0].openValue)), backgroundColor: "var(--u-module-crm)" }} /></span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

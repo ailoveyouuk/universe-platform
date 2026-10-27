@@ -6,11 +6,12 @@ import { apiClient } from "../lib/apiClient";
 import { fmtDate, humanise } from "../lib/ui";
 import { Places } from "./Places";
 import { WorkTab } from "./WorkTab";
+import { PipelineVisual } from "./PipelineVisual";
 
-export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "network" | "performance" | "compliance";
+export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "network" | "performance" | "compliance" | "financials";
 export const TABS_360: { key: Tab360; label: string }[] = [
   { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "places", label: "Places and links" }, { key: "work", label: "Work together" }, { key: "hospitality", label: "Gifts and hospitality" }, { key: "network", label: "Universe network" },
-  { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
+  { key: "financials", label: "Pipeline value" }, { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
 ];
 
 const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px", color: "var(--u-ink-secondary)", fontWeight: 600, fontSize: 12.5, borderBottom: "1px solid var(--u-border)" };
@@ -37,6 +38,8 @@ export function Detail360({ relId, partnerId, tab, card, canManage }: { relId: s
   const pm = UNIVERSE_APPS.find((a) => a.key === "project-management")?.href;
   if (err) return <p style={note}>Could not load this section.</p>;
   if (!d) return <p style={note}>Loading…</p>;
+
+  if (tab === "financials") return <PipelineVisual stage="open" version={0} relationshipId={relId} />;
 
   if (tab === "people") {
     if (d.contacts === null) return <p style={note}>Contacts are held in Project Management; ask your administrator for access to that app to see them here.</p>;

@@ -59,11 +59,11 @@ export class CrmOpportunitiesService {
   }
 
   /** The pipeline converted into one currency (the one asked for, else the most used), for the charts. Rates are today's, from the platform's exchange-rate snapshot. */
-  async pipelineView(u: RequestUser, wanted?: string): Promise<CrmPipelineView> {
+  async pipelineView(u: RequestUser, wanted?: string, relationshipId?: string): Promise<CrmPipelineView> {
     assertHasPermission(u, "crm.view");
     const rows = await withTenantContext(u.organizationId, (tx) => tx.crmOpportunity.findMany({
-      where: { organizationId: u.organizationId, archivedAt: null }, take: 20000,
-      select: { stage: true, expectedValue: true, currency: true, expectedDate: true, relationship: { select: { partner: { select: { roles: { where: { isActive: true }, select: { roleType: true } } } } } } },
+      where: { organizationId: u.organizationId, archivedAt: null, ...(relationshipId ? { relationshipId } : {}) }, take: 20000,
+      select: { relationshipId: true, stage: true, expectedValue: true, currency: true, expectedDate: true, relationship: { select: { partner: { select: { name: true, roles: { where: { isActive: true }, select: { roleType: true } } } } } } },
     }));
     const used = new Map<string, number>(); for (const r of rows) if (r.currency && r.expectedValue !== null) used.set(r.currency, (used.get(r.currency) ?? 0) + 1);
     const currency = /^[A-Z]{3}$/.test(wanted ?? "") ? wanted! : [...used].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "GBP";
@@ -77,11 +77,15 @@ export class CrmOpportunitiesService {
     const order = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR", "CLIENT", "LOGISTICS"];
     const today = new Date(); const startOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
     let won = 0, lost = 0;
+    const byRel = new Map<string, { name: string; kinds: string[]; openCount: number; openValue: number; wonValue: number; won: number; lost: number }>();
     for (const r of rows) {
       const st = stages.find((x) => x.stage === r.stage); if (!st) continue;
       const v = conv(r.expectedValue === null ? null : Number(r.expectedValue), r.currency);
       st.count++; if (v === null) st.unconverted++; else st.value += v;
       if (r.stage === "WON") won++; if (r.stage === "LOST") lost++;
+      const rel = byRel.get(r.relationshipId) ?? { name: r.relationship.partner?.name ?? "Stakeholder", kinds: (r.relationship.partner?.roles ?? []).map((x) => x.roleType), openCount: 0, openValue: 0, wonValue: 0, won: 0, lost: 0 };
+      if (open.has(r.stage)) { rel.openCount++; rel.openValue += v ?? 0; } else if (r.stage === "WON") { rel.won++; rel.wonValue += v ?? 0; } else if (r.stage === "LOST") rel.lost++;
+      byRel.set(r.relationshipId, rel);
       if (!open.has(r.stage)) continue;
       const val = v ?? 0;
       if (!r.expectedDate) { noDate.count++; noDate.value += val; }
@@ -98,6 +102,7 @@ export class CrmOpportunitiesService {
     const r2 = (n: number) => Math.round(n);
     return {
       currency, currencies: [...new Set([...used.keys(), "GBP", "EUR", "USD", currency])].sort(), rateDate: snap?.date ? snap.date.toISOString().slice(0, 10) : null,
+      stakeholders: relationshipId ? [] : [...byRel].map(([id, x]) => ({ relationshipId: id, name: x.name, kinds: x.kinds, openCount: x.openCount, openValue: r2(x.openValue), wonValue: r2(x.wonValue), winRate: x.won + x.lost ? Math.round((x.won / (x.won + x.lost)) * 100) : null })).filter((x) => x.openCount > 0 || x.wonValue > 0).sort((a, b) => b.openValue - a.openValue || b.wonValue - a.wonValue).slice(0, 12),
       stages: stages.map((s) => ({ ...s, value: r2(s.value) })), months: months.map((m) => ({ ...m, value: r2(m.value) })), overdue: { count: overdue.count, value: r2(overdue.value) }, noDate: { count: noDate.count, value: r2(noDate.value) },
       kinds: [...kindMap].map(([key, k]) => ({ key, count: k.count, value: r2(k.value) })).sort((a, b) => b.value - a.value),
       openValue: r2(stages.filter((s) => open.has(s.stage)).reduce((n, s) => n + s.value, 0)), wonValue: r2(stages.find((s) => s.stage === "WON")?.value ?? 0),
