@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { SearchService } from "../src/search/search.service";
 import { CrmGapsService } from "../src/crm/crm-gaps.service";
+import { CrmDriversService } from "../src/crm/crm-drivers.service";
 import { CrmTreeService } from "../src/crm/crm-tree.service";
 import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
 
@@ -151,5 +152,20 @@ describe("CRM interactions", () => {
     expect(port.every((g) => g.key.startsWith("r"))).toBe(true);
     const other = await gaps.gaps(u.other, "pipeline");
     expect(other.find((g) => g.key === "noValue")?.count ?? 0).toBe(0); // another organisation's records never count
+  });
+
+  it("compares won and lost opportunities against what the platform knows, for this organisation only", async () => {
+    const a = await svc.create(u.manager, { relationshipId: relA, title: "Drivers won", kind: "TENDER", stage: "WON" } as never);
+    const b = await svc.create(u.manager, { relationshipId: relA, title: "Drivers lost", kind: "TENDER", stage: "LOST" } as never);
+    expect(a.id).not.toBe(b.id);
+    const drivers = new CrmDriversService();
+    const d = await drivers.drivers(u.viewer);
+    expect(d.won).toBeGreaterThanOrEqual(1);
+    expect(d.lost).toBeGreaterThanOrEqual(1);
+    const owner = d.factors.find((f) => f.key === "owner");
+    expect(owner).toBeTruthy();
+    expect(owner!.with.won + owner!.with.lost + owner!.without.won + owner!.without.lost).toBe(d.won + d.lost);
+    const other = await drivers.drivers(u.other);
+    expect(other.won + other.lost).toBeLessThan(d.won + d.lost); // another organisation's outcomes never count
   });
 });

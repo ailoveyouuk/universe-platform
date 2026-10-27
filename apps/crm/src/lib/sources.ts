@@ -15,7 +15,7 @@ export const SOURCES = {
   owners: { short: "Each opportunity's named owner; where there is none and it is linked to a project, that project's lead.", anchor: "pipeline" },
   exposure: { short: "Open opportunities grouped by the currency they were entered in, with shares taken after conversion.", anchor: "pipeline" },
   flow: { short: "From the stage history kept each time an opportunity is created or moves. Needs a few moves to say anything.", anchor: "pipeline" },
-  lost: { short: "Reasons are the ones people recorded. Withdrawn opportunities are kept apart because they say nothing about winning.", anchor: "pipeline" },
+  lost: { short: "The factors come from your own organisation's records (contact history, tenders, approvals, certificates, complaints, delivery); reasons are the ones people recorded. Withdrawn opportunities are kept apart because they say nothing about winning.", anchor: "pipeline" },
   tree: { short: "Built from your own stakeholders, the projects you can see in Project Management and your opportunities. Suggestions score shared kind, country, shared contacts and period.", anchor: "tree" },
   search: { short: "Searches your own CRM records. Every word must match somewhere, and confidential notes only appear to people allowed to see them.", anchor: "search" },
   network: { short: "Other Universe organisations appear anonymised unless they chose to share their identity, and only in groups of five or more.", anchor: "privacy" },

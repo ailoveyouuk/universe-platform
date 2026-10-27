@@ -15,6 +15,7 @@ import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
 import { CrmGapsService } from "./crm-gaps.service";
+import { CrmDriversService } from "./crm-drivers.service";
 import { CrmTreeService } from "./crm-tree.service";
 import { CrmCategoryService } from "./crm-category.service";
 import { CrmHospitalityService } from "./crm-hospitality.service";
@@ -30,7 +31,7 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService, private readonly tree: CrmTreeService, private readonly gaps: CrmGapsService) {}
+  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly drivers: CrmDriversService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService, private readonly tree: CrmTreeService, private readonly gaps: CrmGapsService) {}
 
   @Get("export/:entity") exportCsv(@CurrentUser() user: RequestUser, @Param("entity") entity: string, @Query() q: Record<string, string>) { return this.exporter.export(user, entity, q); }
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
@@ -99,6 +100,7 @@ export class CrmController {
     return this.opportunities.list(user, { ...q, page: q.page ? Number(q.page) : undefined, pageSize: q.pageSize ? Number(q.pageSize) : undefined });
   }
   @Get("pipeline/view") pipelineView(@CurrentUser() user: RequestUser, @Query("currency") currency?: string, @Query("relationshipId") relationshipId?: string) { return this.opportunities.pipelineView(user, currency, relationshipId); }
+  @Get("pipeline/drivers") winLossDrivers(@CurrentUser() user: RequestUser) { return this.drivers.drivers(user); }
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Get("tenders/options") tenderOptions(@CurrentUser() user: RequestUser, @Query("q") q?: string) { return this.opportunities.tenderOptions(user, q); }
   @Post("opportunities/sync") @HttpCode(200) syncAllOpportunities(@CurrentUser() user: RequestUser) { return this.opportunities.sync(user); }

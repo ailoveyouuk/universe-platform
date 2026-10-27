@@ -11,6 +11,7 @@ import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
 import { CrmGapsService } from "./crm-gaps.service";
+import { CrmDriversService } from "./crm-drivers.service";
 import { CrmTreeService } from "./crm-tree.service";
 import { CrmCategoryService } from "./crm-category.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
@@ -19,5 +20,5 @@ import { CrmSearchService } from "./crm-search.service";
 import { CrmService } from "./crm.service";
 
 @Module({
-  imports: [QualityModule, DocumentsModule, ExchangeRatesModule], controllers: [CrmController], providers: [CrmService, CrmExportService, CrmSearchService, CrmInteractionsService, CrmPrivacyService, CrmOpportunitiesService, CrmTagsService, CrmSavedFiltersService, CrmPlacesService, CrmHospitalityService, CrmNetworkService, CrmCategoryService, CrmTreeService, CrmGapsService], exports: [CrmService] })
+  imports: [QualityModule, DocumentsModule, ExchangeRatesModule], controllers: [CrmController], providers: [CrmService, CrmExportService, CrmSearchService, CrmInteractionsService, CrmPrivacyService, CrmOpportunitiesService, CrmTagsService, CrmSavedFiltersService, CrmPlacesService, CrmHospitalityService, CrmNetworkService, CrmCategoryService, CrmTreeService, CrmGapsService, CrmDriversService], exports: [CrmService] })
 export class CrmModule {}

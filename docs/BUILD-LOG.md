@@ -1545,3 +1545,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - Applied to: CRM Overview, Network, Pipeline cards, Insights (Overview, Modes, Logistics, Distances, Geographies), Project Management (Quality, Partner detail, Project team), Tenders (Performance panel, Notices). The relationship section tabs and the Portfolio table now switch to a dropdown / cards under 1024px (was 640px).
 - Not yet converted (headings are flat siblings, need hand work): Product database Watch/Regulatory, Admin Performance and Organisation detail, Tenders Contract panel, Project detail line items.
 - Participants seed applied: 54 linked opportunities, 134 people added, no stage change. The sync now also covers opportunities linked through the older general TENDER link (people only, never a stage change).
+
+## 2026-10-27 — Why we win and lose, from platform data
+- New `GET /crm/pipeline/drivers` (`CrmDriversService`): for the organisation's own won and lost opportunities, win rate with and without contact in the 90 days before close, an owner, repeat business, a tender link, and (as they stand today) stakeholder approval, in-date certificates, no complaints and a reliable delivery record. Gap in points shown only where each side has three or more. Counts only, no money, nothing from other organisations.
+- `WinLossDrivers` panel sits above the typed reasons in the "Why we win and lose" card; Methodology and source note updated; API test added.

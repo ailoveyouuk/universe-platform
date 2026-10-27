@@ -4596,3 +4596,18 @@ export const CRM_GAP_SCOPES = ["overview", "pipeline", "portfolio"] as const;
 export type CrmGapScope = (typeof CRM_GAP_SCOPES)[number];
 export const CRM_OPPORTUNITY_GAPS = ["noValue", "noDate", "noGroup", "noOwner", "noLink"] as const;
 export const CRM_RELATIONSHIP_GAPS = ["noOwner", "noSummary", "noCountry", "noReview"] as const;
+
+/**
+ * What the platform knows about won and lost opportunities (2026-10-27, Lewis: "Why we win and lose" should come from the whole platform, not only what a person typed).
+ * Each factor splits the organisation's own closed (won or lost) opportunities into those that had it and those that did not. "AT_CLOSE" factors are judged as at the day it
+ * closed; "TODAY" factors use the stakeholder's record as it stands now. No money: counts only.
+ */
+export interface CrmDriverFactor {
+  key: string; label: string; detail: string; basis: "AT_CLOSE" | "TODAY";
+  with: { won: number; lost: number }; without: { won: number; lost: number };
+  /** Win rate with the factor minus win rate without it, in percentage points; null when either side has fewer than three closed opportunities. */
+  lift: number | null;
+  /** Where to look at those opportunities or fix the underlying record. */
+  href: string | null;
+}
+export interface CrmWinLossDrivers { won: number; lost: number; factors: CrmDriverFactor[] }

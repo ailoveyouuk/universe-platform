@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_STAGE_LABELS, type CrmOpportunityKind, type CrmPipelineView } from "@universe/types";
 import { Card } from "./Collapsible";
+import { WinLossDrivers } from "./WinLossDrivers";
 import { SourceNote } from "./SourceNote";
 
 const card: React.CSSProperties = { border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "14px 16px", backgroundColor: "var(--u-surface-raised)", display: "grid", gap: 10, minWidth: 0, alignContent: "start" };
@@ -47,11 +48,12 @@ export function PipelineInsights({ v, money, relationshipId, onAttention }: { v:
 
         <Card title="Why we win and lose">
           <SourceNote keys={["lost"]} />
+          {closed > 0 && <WinLossDrivers version={closed} />}
           {closed === 0 && v.lost.withdrawn.count === 0 ? <p style={muted}>Nothing has been won or lost yet. This fills in as opportunities close.</p> : (
             <>
               {v.lost.reasons.length > 0 && (
                 <>
-                  <p style={muted}>Reasons given for lost opportunities.</p>
+                  <p style={muted}>Reasons people recorded for lost opportunities.</p>
                   <ul style={list}>
                     {v.lost.reasons.map((r) => (
                       <li key={r.reason} style={{ display: "grid", gap: 3 }}>
