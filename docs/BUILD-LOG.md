@@ -1533,3 +1533,6 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 ## 2026-10-27 — CRM pipeline sections collapse on phones
 - New `Card` (apps/crm/src/components/Collapsible.tsx): titled card whose heading is a button (`aria-expanded`), open on wide screens, closed by default under 640px, can be opened and closed again. Applied to every card in `PipelineVisual` and `PipelineInsights`.
 - Also in this commit: Links panel loads tender options/delivery/framework only when opened; relationship tree defaults to table view on phones; seed script + workflow `seed-demo-opportunity-participants` (not yet run).
+
+## 2026-10-27 — Section switcher on phones (CRM relationships)
+- New `SectionNav` (apps/crm/src/components/SectionNav.tsx): tabs on wide screens (now with `overscroll-behavior-x: contain`); under 640px a "Section (n)" dropdown that shows the open section and lists all of them, replacing the sideways-scrolling tab strip that hid options and bounced. Used for the relationship row sections. The Privacy page keeps its tab strip for now.

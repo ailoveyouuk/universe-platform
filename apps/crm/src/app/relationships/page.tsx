@@ -7,6 +7,7 @@ import { Profile360 } from "../../components/Profile360";
 import { ExportMenu } from "../../components/ExportMenu";
 import { RelationshipTree } from "../../components/RelationshipTree";
 import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
+import { SectionNav } from "../../components/SectionNav";
 import { Tags } from "../../components/Tags";
 import { SavedFilters } from "../../components/SavedFilters";
 import { Hospitality } from "../../components/Hospitality";
@@ -184,13 +185,8 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
       </div>
       {open && (
         <div id={`rel-${r.id}`} style={{ padding: "8px 14px 14px", borderTop: "1px solid var(--u-border)", display: "grid", gap: 14 }}>
-          <div role="tablist" aria-label={`${r.name} sections`} style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--u-border)", overflowX: "auto" }}>
-            {TABS_360.map((t) => { const on = tab === t.key; return (
-              <button key={t.key} type="button" role="tab" id={`tab-${r.id}-${t.key}`} aria-selected={on} aria-controls={`panel-${r.id}`} onClick={() => setTab(t.key)}
-                style={{ border: "none", background: "none", cursor: "pointer", padding: "8px 14px", fontSize: 13.5, fontWeight: on ? 700 : 500, whiteSpace: "nowrap", fontFamily: "inherit", color: on ? "var(--u-brand-violet)" : "var(--u-ink-secondary)", borderBottom: on ? "2px solid var(--u-brand-violet)" : "2px solid transparent", marginBottom: -1 }}>{t.label}</button>
-            ); })}
-          </div>
-          <div role="tabpanel" id={`panel-${r.id}`} aria-labelledby={`tab-${r.id}-${tab}`} style={{ display: "grid", gap: 14 }}>
+          <SectionNav label={`${r.name} sections`} idPrefix={`tab-${r.id}`} items={TABS_360} value={tab} onChange={setTab} panelId={`panel-${r.id}`} />
+          <div role="tabpanel" id={`panel-${r.id}`} aria-label={TABS_360.find((t) => t.key === tab)?.label} aria-labelledby={`tab-${r.id}-${tab}`} style={{ display: "grid", gap: 14 }}>
           {tab === "interactions" ? <Interactions relId={r.id} canManage={canManage} people={people} /> : tab === "opportunities" ? <Opportunities relId={r.id} canManage={canManage} people={people} /> : tab === "hospitality" ? <Hospitality relId={r.id} canManage={canManage} /> : tab === "network" ? <Network relId={r.id} /> : tab === "connections" ? <RelationshipTree relId={r.id} /> : tab === "people" ? <People relId={r.id} partnerId={r.partnerId} canManage={canManage} /> : tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} canManage={canManage} /> : (<>
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 14px", margin: "6px 0 0" }}>
             <dt style={dt}>Health</dt>
