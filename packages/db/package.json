@@ -21,6 +21,7 @@
     "seed:demo-hospitality": "tsx scripts/seed-demo-hospitality.ts",
     "seed:demo-network": "tsx scripts/seed-demo-network.ts",
     "seed:demo-category-roles": "tsx scripts/seed-demo-category-roles.ts",
+    "seed:demo-buyer-orgs": "tsx scripts/seed-demo-buyer-orgs.ts",
     "purge:demo-duplicate-approvals": "tsx scripts/purge-duplicate-approvals.ts",
     "seed:demo-bid": "tsx scripts/seed-demo-bid.ts",
     "seed:demo-tender-events": "tsx scripts/seed-demo-tender-events.ts",
