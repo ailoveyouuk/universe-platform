@@ -121,6 +121,6 @@ describe("CRM interactions", () => {
     expect(noAccess.reason).toMatch(/cannot view projects/);
     const f = await svc.framework({ ...u.viewer, permissions: ["crm.view", "tenders.view"] } as RequestUser, o.id);
     expect(f.available).toBe(false);
-    await expect(svc.delivery(u.other, o.id)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.delivery({ ...u.other, permissions: [...u.other.permissions, "projects.view"] } as RequestUser, o.id)).rejects.toBeInstanceOf(NotFoundException);
   });
 });
