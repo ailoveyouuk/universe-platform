@@ -136,14 +136,7 @@ export function StatusChip({ status }: { status: string }) {
   return <Pill tone={tone}>{status === "DEACTIVATED" ? "ARCHIVED" : status}</Pill>;
 }
 
-export const ORG_TYPE_LABELS: Record<string, string> = {
-  PROCUREMENT_SERVICE_AGENT: "Procurement Service Agent",
-  TENDERING_PURCHASING_BODY: "Tendering & Purchasing Body",
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier / Distributor",
-  FUNDER_DONOR: "Funder / Donor",
-  DATA_INSIGHTS_USER: "Data / Insights User",
-};
+export { ORG_TYPE_LABELS } from "@universe/types";
 
 export const LEGAL_ENTITY_LABELS: Record<string, string> = {
   GOVERNMENT_AGENCY: "Government agency",

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PagedResult, PartnerListItem, PartnerOverview } from "@universe/types";
+import { categoryAccent, categoryLabel, categoryPlural, PARTNER_ROLE_TYPES } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
@@ -20,6 +21,7 @@ import {
   CheckCircleIcon,
   StatTile,
   type PageSize,
+  CategoryChip,
 } from "@universe/ui";
 
 /**
@@ -39,10 +41,10 @@ import {
  * aren't migrated here; that would need a DB pass on Lewis's own Query
  * Editor session, not a frontend change).
  */
-const ROLE_FILTERS = ["", "CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
+const ROLE_FILTERS = ["", ...PARTNER_ROLE_TYPES] as const;
 const APPROVAL_FILTERS = ["", "PENDING", "APPROVED", "REMOVED"] as const;
 const RISK_FILTERS = ["", "HIGH", "MEDIUM", "LOW"] as const;
-const RECENT_CATEGORIES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
+const RECENT_CATEGORIES = PARTNER_ROLE_TYPES;
 
 type SortKey = "name" | "roles" | "country" | "approval" | "risk" | "created";
 
@@ -140,7 +142,7 @@ export default function PartnersPage() {
         <div>
           <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>Stakeholders</h1>
           <p style={{ color: "var(--u-ink-secondary)", marginTop: 6, fontSize: 14 }}>
-            Clients, manufacturers, suppliers, freight forwarders and warehousing your organisation works with.
+            Clients, manufacturers, suppliers, freight forwarders, warehousing, funders, tendering bodies and procurement agents your organisation works with.
           </p>
         </div>
         <AddMenu
@@ -148,19 +150,22 @@ export default function PartnersPage() {
           accent="var(--u-org-accent, var(--u-brand-violet))"
           options={[
             { label: "Client", onSelect: () => goAdd("CLIENT") },
-            { label: "Manufacturer / Supplier", onSelect: () => goAdd("MANUFACTURER") },
-            { label: "Freight Forwarder", onSelect: () => goAdd("FREIGHT_FORWARDER") },
+            { label: "Manufacturer", onSelect: () => goAdd("MANUFACTURER") },
+            { label: "Supplier or distributor", onSelect: () => goAdd("SUPPLIER") },
+            { label: "Freight forwarder", onSelect: () => goAdd("FREIGHT_FORWARDER") },
+            { label: "Warehousing", onSelect: () => goAdd("WAREHOUSING") },
+            { label: "Funder or donor", onSelect: () => goAdd("FUNDER_DONOR") },
+            { label: "Tendering and purchasing body", onSelect: () => goAdd("TENDERING_PURCHASING_BODY") },
+            { label: "Procurement service agent", onSelect: () => goAdd("PROCUREMENT_SERVICE_AGENT") },
           ]}
         />
       </div>
 
       {/* Section dashboard — key counts at a glance, each a working filter shortcut. */}
       <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(160px, 46%), 1fr))", gap: 12, marginTop: 24 }}>
-        <StatTile label="Clients" value={counts.byRole.CLIENT ?? 0} icon={<BuildingIcon size={18} />} onClick={() => { setRoleFilter("CLIENT"); setApprovalFilter(""); }} active={roleFilter === "CLIENT"} />
-        <StatTile label="Manufacturers" value={counts.byRole.MANUFACTURER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("MANUFACTURER"); setApprovalFilter(""); }} active={roleFilter === "MANUFACTURER"} />
-        <StatTile label="Suppliers" value={counts.byRole.SUPPLIER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("SUPPLIER"); setApprovalFilter(""); }} active={roleFilter === "SUPPLIER"} />
-        <StatTile label="Freight Forwarders" value={counts.byRole.FREIGHT_FORWARDER ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("FREIGHT_FORWARDER"); setApprovalFilter(""); }} active={roleFilter === "FREIGHT_FORWARDER"} />
-        <StatTile label="Warehousing" value={counts.byRole.WAREHOUSING ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter("WAREHOUSING"); setApprovalFilter(""); }} active={roleFilter === "WAREHOUSING"} />
+        {PARTNER_ROLE_TYPES.map((r) => (
+          <StatTile key={r} label={categoryPlural(r)} value={counts.byRole[r] ?? 0} icon={<PartnersIcon size={18} />} onClick={() => { setRoleFilter(r); setApprovalFilter(""); }} active={roleFilter === r} />
+        ))}
         <StatTile label="QA Approved" value={counts.approvedMfgSup} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => { setRoleFilter(""); setApprovalFilter("APPROVED"); }} active={approvalFilter === "APPROVED"} />
       </div>
 
@@ -173,13 +178,14 @@ export default function PartnersPage() {
               key={cat}
               style={{
                 border: "1px solid var(--u-border)",
+                borderLeft: `4px solid var(${categoryAccent(cat) ?? "--u-border"})`,
                 borderRadius: "var(--u-radius-lg)",
                 backgroundColor: "var(--u-surface-raised)",
                 padding: "12px 14px",
               }}
             >
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--u-ink-secondary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 8 }}>
-                {cat.replace(/_/g, " ")}
+                {categoryLabel(cat)}
               </div>
               {(recentByCategory[cat] ?? []).length === 0 && (
                 <div style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>None yet</div>
@@ -209,7 +215,7 @@ export default function PartnersPage() {
         <Select
           value={roleFilter}
           onChange={(v) => { setRoleFilter(v as any); setPage(0); }}
-          options={ROLE_FILTERS.filter(Boolean).map((r) => ({ value: r, label: r.replace(/_/g, " ") }))}
+          options={ROLE_FILTERS.filter(Boolean).map((r) => ({ value: r, label: categoryLabel(r) }))}
           allLabel="All roles"
           ariaLabel="Filter by role"
         />
@@ -264,9 +270,7 @@ export default function PartnersPage() {
                   <td style={{ padding: 8 }}>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                       {p.roles.map((r) => (
-                        <Pill key={r.roleType} tone="neutral">
-                          {r.roleType.replace(/_/g, " ")}
-                        </Pill>
+                        <CategoryChip key={r.roleType} category={r.roleType} />
                       ))}
                     </div>
                   </td>

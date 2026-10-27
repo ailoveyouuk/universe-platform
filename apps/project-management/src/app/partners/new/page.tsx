@@ -11,24 +11,16 @@ import type {
   StakeholderRegistryMatch,
   StakeholderRegistryProduct,
 } from "@universe/types";
-import { COMMODITY_GROUPS, commodityGroupLabel } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { Button, Select, CountrySelect } from "@universe/ui";
 
-// LOGISTICS removed 2026-10-01 — folded into Freight Forwarder/Warehousing
-// per Lewis's instruction (UI-only change, see partners/page.tsx's doc
-// comment for why the backend enum value itself isn't touched here).
-const ROLE_TYPES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
+// The kinds of stakeholder come from the shared list in @universe/types. Logistics provider was folded into freight forwarder and warehousing on 2026-10-01.
+const ROLE_TYPES = PARTNER_ROLE_TYPES;
 
-const ROLE_LABELS: Record<string, string> = {
-  CLIENT: "Client",
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier",
-  FREIGHT_FORWARDER: "Freight Forwarder",
-  WAREHOUSING: "Warehousing",
-};
+const ROLE_LABELS: Record<string, string> = STAKEHOLDER_CATEGORY_LABELS;
 
 // Matches ProjectLine.productCategory's allowed values (schema.prisma
 // "Allowed values reference") — SupplierDetail.productCategory reuses the

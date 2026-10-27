@@ -609,7 +609,7 @@ export function ProjectDetailView() {
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
-              Freight Forwarder
+              Freight forwarder
               <select className="u-native-select"
                 style={fieldInputStyle}
                 value={headerForm.freightForwarderId ?? ""}

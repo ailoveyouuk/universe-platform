@@ -4410,10 +4410,45 @@ export const CRM_QUIET_MONTHS = ["3", "6", "12"] as const;
 export const CRM_CERT_FILTERS = ["expired", "expiring", "valid", "none"] as const;
 export const CRM_CERT_FILTER_LABELS: Record<(typeof CRM_CERT_FILTERS)[number], string> = { expired: "Certificate expired", expiring: "Certificate expiring (60 days)", valid: "All certificates current", none: "No certificates" };
 
+// ---- Stakeholder categories: the one list the whole platform uses (2026-10-27) ----
+/**
+ * Every kind of stakeholder, once. Partner roles (what a stakeholder is to an organisation) and Universe organisation types (what a registered
+ * organisation is) share one key space, so a Universe organisation added as a stakeholder keeps the same key. Labels, plurals and accent colours live
+ * here and nowhere else; screens, forms, filters, API validation and the CRM all read this list. Add a kind of stakeholder by adding it here.
+ */
+export const STAKEHOLDER_CATEGORIES = [
+  { key: "MANUFACTURER", label: "Manufacturer", plural: "Manufacturers", accent: "--u-cat-manufacturer", partnerRole: true, orgType: true },
+  { key: "SUPPLIER", label: "Supplier or distributor", plural: "Suppliers and distributors", accent: "--u-cat-supplier", partnerRole: true, orgType: true },
+  { key: "FREIGHT_FORWARDER", label: "Freight forwarder", plural: "Freight forwarders", accent: "--u-cat-logistics", partnerRole: true, orgType: false },
+  { key: "LOGISTICS", label: "Logistics provider", plural: "Logistics providers", accent: "--u-cat-logistics", partnerRole: false, orgType: false },
+  { key: "WAREHOUSING", label: "Warehousing", plural: "Warehousing", accent: "--u-cat-warehousing", partnerRole: true, orgType: false },
+  { key: "CLIENT", label: "Client", plural: "Clients", accent: "--u-cat-client", partnerRole: true, orgType: false },
+  { key: "TENDERING_PURCHASING_BODY", label: "Tendering and purchasing body", plural: "Tendering and purchasing bodies", accent: "--u-cat-tendering", partnerRole: true, orgType: true },
+  { key: "PROCUREMENT_SERVICE_AGENT", label: "Procurement service agent", plural: "Procurement service agents", accent: "--u-cat-agent", partnerRole: true, orgType: true },
+  { key: "FUNDER_DONOR", label: "Funder or donor", plural: "Funders and donors", accent: "--u-cat-funder", partnerRole: true, orgType: true },
+] as const;
+export type StakeholderCategoryKey = (typeof STAKEHOLDER_CATEGORIES)[number]["key"];
+export const STAKEHOLDER_CATEGORY_KEYS = STAKEHOLDER_CATEGORIES.map((c) => c.key) as StakeholderCategoryKey[];
+/** The kinds a stakeholder record (Partner) can be given as a role. LOGISTICS is kept only for older records; it was folded into freight forwarder and warehousing on 2026-10-01. */
+export const PARTNER_ROLE_TYPES = STAKEHOLDER_CATEGORIES.filter((c) => c.partnerRole).map((c) => c.key) as StakeholderCategoryKey[];
+export const STAKEHOLDER_CATEGORY_LABELS = Object.fromEntries(STAKEHOLDER_CATEGORIES.map((c) => [c.key, c.label])) as Record<StakeholderCategoryKey, string>;
+export const STAKEHOLDER_CATEGORY_PLURALS = Object.fromEntries(STAKEHOLDER_CATEGORIES.map((c) => [c.key, c.plural])) as Record<StakeholderCategoryKey, string>;
+/** Label for any category or organisation-type key; unknown keys are shown readably rather than raw. */
+export function categoryLabel(key: string | null | undefined): string {
+  if (!key) return "";
+  if (key === "DATA_INSIGHTS_USER") return "Data and insights user";
+  return (STAKEHOLDER_CATEGORY_LABELS as Record<string, string>)[key] ?? key.toLowerCase().replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+export function categoryPlural(key: string): string { return (STAKEHOLDER_CATEGORY_PLURALS as Record<string, string>)[key] ?? categoryLabel(key); }
+/** Name of the colour token that marks a category (see packages/ui/src/tokens.css). Null for keys that are not stakeholder categories. */
+export function categoryAccent(key: string): string | null { return STAKEHOLDER_CATEGORIES.find((c) => c.key === key)?.accent ?? null; }
+/** Organisation-type labels (the six organisation types, which include a non-stakeholder type), derived from the same list. */
+export const ORG_TYPE_LABELS: Record<string, string> = { ...Object.fromEntries(STAKEHOLDER_CATEGORIES.filter((c) => c.orgType).map((c) => [c.key, c.label])), DATA_INSIGHTS_USER: "Data and insights user" };
+
 // ---- CRM: category profiles (2026-10-27) ----
-export const CRM_CATEGORY_KEYS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "LOGISTICS", "WAREHOUSING", "CLIENT", "TENDERING_BODY", "PROCUREMENT_AGENT", "FUNDER_DONOR"] as const;
-export type CrmCategoryKey = (typeof CRM_CATEGORY_KEYS)[number];
-export const CRM_CATEGORY_LABELS: Record<CrmCategoryKey, string> = { MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier or distributor", FREIGHT_FORWARDER: "Freight forwarder", LOGISTICS: "Logistics provider", WAREHOUSING: "Warehousing", CLIENT: "Client", TENDERING_BODY: "Tendering or purchasing body", PROCUREMENT_AGENT: "Procurement service agent", FUNDER_DONOR: "Funder or donor" };
+export const CRM_CATEGORY_KEYS = STAKEHOLDER_CATEGORY_KEYS;
+export type CrmCategoryKey = StakeholderCategoryKey;
+export const CRM_CATEGORY_LABELS = STAKEHOLDER_CATEGORY_LABELS;
 export type CrmCertState = "valid" | "expiring" | "expired" | "no_date";
 export interface CrmCategoryCertificate { id: string; type: string; issuingBody: string | null; referenceNumber: string | null; issuedDate: string | null; expiryDate: string | null; verifiedAt: string | null; hasDocument: boolean; state: CrmCertState }
 export interface CrmCategoryProfile {

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
+import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import type { PartnerScorecard, ScorecardMetric, ScorecardTrendPoint } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { tenantScope } from "../common/tenant-scoped";
@@ -7,7 +8,7 @@ import { lineTimeliness } from "./delivery-metrics";
 import { loadSettings } from "./scorecard-settings.service";
 import { linearScore, onTimeWithin, pctStatus, summarise } from "./scorecard-scoring";
 
-const ROLE_LABEL: Record<string, string> = { MANUFACTURER: "Manufacturer", SUPPLIER: "Supplier", FREIGHT_FORWARDER: "Freight forwarder" };
+const ROLE_LABEL: Record<string, string> = STAKEHOLDER_CATEGORY_LABELS;
 const DAY = 86_400_000;
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : null);
 

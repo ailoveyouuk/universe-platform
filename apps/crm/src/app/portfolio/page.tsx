@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
+import { categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
 import { BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
+import { accentVar } from "../../lib/category";
 import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
 import { useCountries } from "../../lib/useCountries";
 import { sinceAgo, WORK_STATUS_TONE } from "../../lib/since";
@@ -13,7 +14,7 @@ import { PORTFOLIO_COLUMNS } from "../../components/PortfolioStrip";
 
 type Filters = { q: string; role: string; status: string; work: string; tag: string; country: string };
 const EMPTY: Filters = { q: "", role: "", status: "", work: "", tag: "", country: "" };
-const KIND_COLOUR: Record<string, string> = { CLIENT: "var(--u-accent-magenta)", MANUFACTURER: "var(--u-brand-violet)", SUPPLIER: "var(--u-module-product-database)", FREIGHT_FORWARDER: "var(--u-module-tender-issuance)", WAREHOUSING: "var(--u-module-insights)", OTHER: "var(--u-module-admin)" };
+const KIND_COLOUR: Record<string, string> = { ...Object.fromEntries(STAKEHOLDER_CATEGORY_KEYS.map((k) => [k, accentVar(k)])), OTHER: "var(--u-module-admin)" };
 const TILES = [
   { key: "inProgress", work: "in_progress", label: "In progress", icon: <ProjectsIcon />, tone: "brand" as const },
   { key: "submitted", work: "submitted", label: "Submitted", icon: <ClipboardCheckIcon />, tone: "warning" as const },
@@ -21,7 +22,7 @@ const TILES = [
   { key: "completed", work: "completed", label: "Completed", icon: <CheckCircleIcon />, tone: "neutral" as const },
   { key: "unawarded", work: "unawarded", label: "Unawarded or declined", icon: <BanIcon />, tone: "critical" as const },
 ];
-const ROLE_OPTIONS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "WAREHOUSING"];
+const ROLE_OPTIONS = PARTNER_ROLE_TYPES;
 const th: React.CSSProperties = { textAlign: "left", padding: "8px 10px", color: "var(--u-ink-secondary)", fontWeight: 600, fontSize: 12.5, borderBottom: "1px solid var(--u-border)", whiteSpace: "nowrap" };
 const thNum: React.CSSProperties = { ...th, textAlign: "right" };
 const td: React.CSSProperties = { padding: "8px 10px", borderBottom: "1px solid var(--u-border)", verticalAlign: "top", fontSize: 13.5 };
@@ -68,9 +69,9 @@ export default function Portfolio() {
   const byCode = new Map(countries.map((c) => [c.code, c]));
   const points: WorldMapPoint[] = (map?.points ?? []).flatMap((p) => {
     const c = byCode.get(p.countryCode); if (!c || c.latitude === null || c.longitude === null) return [];
-    return [{ id: `${p.countryCode}:${p.kind}`, latitude: c.latitude, longitude: c.longitude, label: `${c.name}: ${humanise(p.kind)}`, color: KIND_COLOUR[p.kind] ?? KIND_COLOUR.OTHER, value: p.count, tooltipLines: [{ text: `${p.count} stakeholder${p.count === 1 ? "" : "s"}` }, { text: "Select to filter the table" }] }];
+    return [{ id: `${p.countryCode}:${p.kind}`, latitude: c.latitude, longitude: c.longitude, label: `${c.name}: ${categoryLabel(p.kind)}`, color: KIND_COLOUR[p.kind] ?? KIND_COLOUR.OTHER, value: p.count, tooltipLines: [{ text: `${p.count} stakeholder${p.count === 1 ? "" : "s"}` }, { text: "Select to filter the table" }] }];
   });
-  const legend = Object.keys(KIND_COLOUR).filter((k) => (map?.points ?? []).some((p) => p.kind === k)).map((k) => ({ color: KIND_COLOUR[k], label: k === "OTHER" ? "Other" : humanise(k) }));
+  const legend = Object.keys(KIND_COLOUR).filter((k) => (map?.points ?? []).some((p) => p.kind === k)).map((k) => ({ color: KIND_COLOUR[k], label: k === "OTHER" ? "Other" : categoryLabel(k) }));
   const set = (patch: Partial<Filters>) => { setF((c) => ({ ...c, ...patch })); setPage(1); };
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const noProjects = data?.items.length ? data.items.every((i) => i.portfolio === null) : false;
@@ -90,7 +91,7 @@ export default function Portfolio() {
       </section>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name or country…" /></div>
-        <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
+        <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: categoryLabel(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.work} onChange={(v) => set({ work: v })} allLabel="Any work history" options={CRM_WORK_FILTERS.map((w) => ({ value: w, label: CRM_WORK_FILTER_LABELS[w] }))} ariaLabel="Filter by work history" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.status} onChange={(v) => set({ status: v })} allLabel="Any status" options={CRM_STATUSES.map((t) => ({ value: t, label: CRM_STATUS_LABELS[t] }))} ariaLabel="Filter by relationship status" /></div>
         {tags.length > 0 && <div style={{ minWidth: 160 }}><Select value={f.tag} onChange={(v) => set({ tag: v })} allLabel="Any tag" options={tags.map((t) => ({ value: t.id, label: `${t.name} (${t.count})` }))} ariaLabel="Filter by tag" /></div>}
@@ -110,7 +111,7 @@ export default function Portfolio() {
             {data?.items.map((r) => (
               <tr key={r.id}>
                 <td style={td}><Link href={`/relationships?id=${r.id}`}><strong>{r.name}</strong></Link></td>
-                <td style={td}>{r.roles.map(humanise).join(", ") || "—"}</td>
+                <td style={td}>{r.roles.map(categoryLabel).join(", ") || "—"}</td>
                 <td style={td}>{[r.countryCode, ...(r.siteCountries ?? []).filter((c) => c !== r.countryCode)].filter(Boolean).join(", ") || "—"}</td>
                 <td style={td}>{r.partnerAddedAt ? <>{fmtDate(r.partnerAddedAt)}<br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{sinceAgo(r.partnerAddedAt)}</span></> : "—"}</td>
                 <td style={td}>{r.portfolio?.lastProject ? <>{fmtDate(r.portfolio.lastProject.date)} <Pill tone={WORK_STATUS_TONE[r.portfolio.lastProject.status] ?? "neutral"}>{humanise(r.portfolio.lastProject.status)}</Pill><br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{r.portfolio.lastProject.referenceNumber} · {sinceAgo(r.portfolio.lastProject.date)}</span></> : "—"}</td>

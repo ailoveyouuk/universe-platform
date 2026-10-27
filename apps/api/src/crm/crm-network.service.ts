@@ -1,13 +1,14 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
-import { CRM_NETWORK_FLOOR, type CrmNetworkOrganisation, type CrmNetworkPanel } from "@universe/types";
+import { CRM_NETWORK_FLOOR, STAKEHOLDER_CATEGORIES, type CrmNetworkOrganisation, type CrmNetworkPanel } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
 import { normalizeStakeholderName } from "../common/normalize-name";
 import { counterpartyKeyForPartner } from "./crm.service";
 
-const ROLE_BY_ORG_TYPE: Record<string, string> = { MANUFACTURER: "MANUFACTURER", SUPPLIER: "SUPPLIER", FREIGHT_FORWARDER: "FREIGHT_FORWARDER", LOGISTICS: "LOGISTICS", WAREHOUSING: "WAREHOUSING" };
+/** A Universe organisation type becomes the stakeholder role of the same name; the data and insights type is not a stakeholder category. */
+const ROLE_BY_ORG_TYPE: Record<string, string> = Object.fromEntries(STAKEHOLDER_CATEGORIES.filter((c) => c.orgType).map((c) => [c.key, c.key]));
 const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
 
 /**

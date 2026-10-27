@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { prisma, withPlatformStaffContext, withTenantContext } from "@universe/db";
+import { STAKEHOLDER_CATEGORY_KEYS } from "@universe/types";
 import type { CrmCategoryCertificate, CrmCategoryKey, CrmCategoryProfile, CrmCertState } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 
 const DAY = 86400000;
 const QUALITY_TYPES = ["ISO_13485", "GMP"];
-const ORG_CATEGORY: Record<string, CrmCategoryKey> = { TENDERING_PURCHASING_BODY: "TENDERING_BODY", PROCUREMENT_SERVICE_AGENT: "PROCUREMENT_AGENT", FUNDER_DONOR: "FUNDER_DONOR" };
+const ORG_CATEGORY: Record<string, CrmCategoryKey> = { TENDERING_PURCHASING_BODY: "TENDERING_PURCHASING_BODY", PROCUREMENT_SERVICE_AGENT: "PROCUREMENT_SERVICE_AGENT", FUNDER_DONOR: "FUNDER_DONOR" };
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 /**
@@ -34,7 +35,7 @@ export class CrmCategoryService {
     });
     const { rel, partner } = base;
     const categories = new Set<CrmCategoryKey>();
-    for (const r of partner?.roles ?? []) if ((["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "LOGISTICS", "WAREHOUSING", "CLIENT"] as string[]).includes(r.roleType)) categories.add(r.roleType as CrmCategoryKey);
+    for (const r of partner?.roles ?? []) if ((STAKEHOLDER_CATEGORY_KEYS as string[]).includes(r.roleType)) categories.add(r.roleType as CrmCategoryKey);
 
     // The Universe organisation behind the stakeholder, if it has published its profile: its organisation type adds a category and its tenders can be listed.
     let linkedOrg: string | null = rel.counterpartyOrganizationId;

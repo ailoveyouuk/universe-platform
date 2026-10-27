@@ -11,9 +11,10 @@ import type {
   StakeholderRegistryDetail,
   StakeholderRegistryProduct,
 } from "@universe/types";
+import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
+import { CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
 import { PartnerOrgName } from "../../../components/PartnerOrgName";
@@ -22,13 +23,7 @@ import { RiskRegister } from "../../../components/RiskRegister";
 import { CertificationNotice } from "../../../components/CertificationNotice";
 import { useCurrentUser } from "../../../lib/AuthContext";
 
-const ROLE_LABELS: Record<string, string> = {
-  CLIENT: "Client",
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier",
-  FREIGHT_FORWARDER: "Freight Forwarder",
-  WAREHOUSING: "Warehousing",
-};
+const ROLE_LABELS: Record<string, string> = STAKEHOLDER_CATEGORY_LABELS;
 
 // Same option lists as partners/new/page.tsx's New Stakeholder form (see
 // CertificationType/PartnerCompanyCheckType in packages/db/src/enums.ts)
@@ -310,9 +305,7 @@ export default function PartnerDetailPage() {
             <h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 22, color: "var(--u-ink)", margin: 0 }}>{partner.registryEntryId ? <PartnerOrgName partnerId={partner.id} name={partner.name} /> : partner.name}</h1>
             <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
               {partner.roles.map((r) => (
-                <Pill key={r.roleType} tone="neutral">
-                  {ROLE_LABELS[r.roleType] ?? r.roleType.replace(/_/g, " ")}
-                </Pill>
+                <CategoryChip key={r.roleType} category={r.roleType} />
               ))}
             </div>
           </div>

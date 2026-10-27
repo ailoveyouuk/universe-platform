@@ -1,3 +1,4 @@
+import { PARTNER_ROLE_TYPES } from "@universe/types";
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, ValidateNested } from "class-validator";
 import {
@@ -12,7 +13,7 @@ import {
   WarehousingDetailDto,
 } from "./create-partner.dto";
 
-const ROLE_TYPES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "LOGISTICS"] as const;
+const ROLE_TYPES = PARTNER_ROLE_TYPES as readonly string[];
 const APPROVAL_STATUSES = ["PENDING", "APPROVED", "REMOVED"] as const;
 const RISK_TIERS = ["HIGH", "MEDIUM", "LOW"] as const;
 
@@ -41,7 +42,7 @@ export class UpdatePartnerDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsIn(ROLE_TYPES, { each: true })
-  addRoleTypes?: (typeof ROLE_TYPES)[number][];
+  addRoleTypes?: string[];
 
   @IsOptional() @ValidateNested() @Type(() => SupplierDetailDto) supplierDetail?: SupplierDetailDto;
   @IsOptional() @ValidateNested() @Type(() => ManufacturerDetailDto) manufacturerDetail?: ManufacturerDetailDto;

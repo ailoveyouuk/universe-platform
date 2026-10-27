@@ -1,18 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
+import { PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_PLURALS } from "@universe/types";
 import type { QaQueueCategory, QaQueueItem, QaQueuePage, QaQueueSummary } from "@universe/types";
 import { tenantScope } from "../common/tenant-scoped";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 
-const ROLE_LABELS: Record<string, string> = {
-  CLIENT: "Clients",
-  MANUFACTURER: "Manufacturers",
-  SUPPLIER: "Suppliers",
-  FREIGHT_FORWARDER: "Freight Forwarders",
-  WAREHOUSING: "Warehousing",
-  LOGISTICS: "Logistics",
-};
+const ROLE_LABELS: Record<string, string> = STAKEHOLDER_CATEGORY_PLURALS;
 
 function ageDaysSince(date: Date): number {
   return Math.max(0, Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24)));
@@ -149,7 +143,7 @@ export class QaQueueService {
 
       items.sort((x, y) => new Date(x.queuedAt).getTime() - new Date(y.queuedAt).getTime());
 
-      const categoryOrder = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "LOGISTICS", "CLIENT", "PRODUCT", "OTHER"];
+      const categoryOrder = [...PARTNER_ROLE_TYPES, "LOGISTICS", "PRODUCT", "OTHER"] as string[];
       const labelFor = (key: string) => (key === "PRODUCT" ? "Products" : key === "OTHER" ? "Other" : ROLE_LABELS[key] ?? key);
 
       const categories: QaQueueCategory[] = categoryOrder
@@ -217,7 +211,7 @@ export class QaQueueService {
       const oldest = [oldestP._min.createdAt, oldestE._min.createdAt, oldestPr._min.createdAt, oldestA._min.submittedAt].filter((d): d is Date => !!d);
       const oldestAgeDays = oldest.length ? ageDaysSince(new Date(Math.min(...oldest.map((d) => d.getTime())))) : 0;
 
-      const categoryOrder = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "LOGISTICS", "CLIENT", "PRODUCT", "OTHER"];
+      const categoryOrder = [...PARTNER_ROLE_TYPES, "LOGISTICS", "PRODUCT", "OTHER"] as string[];
       const labelFor = (key: string) => (key === "PRODUCT" ? "Products" : key === "OTHER" ? "Other" : ROLE_LABELS[key] ?? key);
       const categories: QaQueueCategory[] = categoryOrder
         .filter((k) => (counts.get(k) ?? 0) > 0)

@@ -164,7 +164,7 @@ export default function NewOrganizationPage() {
               style={{ marginTop: 2 }}
             />
             <span>
-              <strong>Supplier / Distributor</strong> — gets the Supplier Admin role. Manages a
+              <strong>Supplier or distributor</strong> — gets the Supplier Admin role. Manages a
               public profile and product catalogue, same marketplace mechanics as Manufacturer.
             </span>
           </label>
@@ -177,7 +177,7 @@ export default function NewOrganizationPage() {
               style={{ marginTop: 2 }}
             />
             <span>
-              <strong>Funder / Donor</strong> — a Global Fund/Gavi/foundation-style organisation
+              <strong>Funder or donor</strong> — a Global Fund/Gavi/foundation-style organisation
               that funds but doesn&apos;t run procurement itself. Read-only role template;
               grant-scoped visibility is not built yet, so this org type has no real project
               access today beyond managing its own users.

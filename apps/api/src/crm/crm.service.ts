@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
-import { canUseApp, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, crmRecencyCutoff, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
+import { canUseApp, PARTNER_ROLE_TYPES, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, crmRecencyCutoff, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -209,7 +209,7 @@ export class CrmService {
           ) t CROSS APPLY (SELECT CASE t.status WHEN 'IN_PROGRESS' THEN 'in_progress' WHEN 'SUBMITTED' THEN 'submitted' WHEN 'AWARDED' THEN 'awarded' WHEN 'COMPLETED' THEN 'completed' WHEN 'UNAWARDED' THEN 'unawarded' WHEN 'DECLINED' THEN 'unawarded' END AS bucket) x(bucket)
           WHERE x.bucket IS NOT NULL GROUP BY x.bucket`) : Promise.resolve(null),
       ]);
-      const order = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"];
+      const order: string[] = ["CLIENT", ...PARTNER_ROLE_TYPES.filter((k) => k !== "CLIENT")];
       const rolesBy = new Map<string, string[]>();
       for (const r of roleRows) rolesBy.set(r.pid, [...(rolesBy.get(r.pid) ?? []), r.roleType]);
       const counts = new Map<string, number>(); let noCountry = 0;

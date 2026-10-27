@@ -139,8 +139,9 @@ export default function HomePage() {
             label="Add Stakeholder"
             options={[
               { label: "Client", onSelect: () => router.push("/partners/new?role=CLIENT") },
-              { label: "Manufacturer / Supplier", onSelect: () => router.push("/partners/new?role=MANUFACTURER") },
-              { label: "Freight Forwarder", onSelect: () => router.push("/partners/new?role=FREIGHT_FORWARDER") },
+              { label: "Manufacturer", onSelect: () => router.push("/partners/new?role=MANUFACTURER") },
+              { label: "Supplier or distributor", onSelect: () => router.push("/partners/new?role=SUPPLIER") },
+              { label: "Freight forwarder", onSelect: () => router.push("/partners/new?role=FREIGHT_FORWARDER") },
             ]}
           />
           <AddMenu

@@ -1,3 +1,4 @@
+import { PARTNER_ROLE_TYPES } from "@universe/types";
 import { Type } from "class-transformer";
 import {
   ArrayMinSize,
@@ -11,7 +12,7 @@ import {
   ValidateNested,
 } from "class-validator";
 
-const ROLE_TYPES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "LOGISTICS"] as const;
+const ROLE_TYPES = PARTNER_ROLE_TYPES as readonly string[];
 const RISK_TIERS = ["HIGH", "MEDIUM", "LOW"] as const;
 const CERTIFICATION_STATUSES = ["CURRENT", "ARCHIVED"] as const;
 const COMPANY_CHECK_RESULTS = ["YES", "NO", "NOT_APPLICABLE"] as const;
@@ -179,7 +180,7 @@ export class CreatePartnerDto {
   @IsArray()
   @ArrayMinSize(1)
   @IsIn(ROLE_TYPES, { each: true })
-  roleTypes!: (typeof ROLE_TYPES)[number][];
+  roleTypes!: string[];
 
   @IsOptional() @ValidateNested() @Type(() => SupplierDetailDto) supplierDetail?: SupplierDetailDto;
   @IsOptional() @ValidateNested() @Type(() => ManufacturerDetailDto) manufacturerDetail?: ManufacturerDetailDto;

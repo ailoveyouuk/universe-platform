@@ -1,5 +1,6 @@
 "use client";
 
+import { ORG_TYPE_LABELS } from "@universe/types";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { UNIVERSE_APPS } from "./AppSwitcher";
@@ -21,14 +22,7 @@ export interface OrgCardData {
   certifications: { type: string; title: string | null; issuingBody: string | null; expiresOn: string | null; status: string }[];
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  PROCUREMENT_SERVICE_AGENT: "Procurement Service Agent",
-  TENDERING_PURCHASING_BODY: "Tendering & Purchasing Body",
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier / Distributor",
-  FUNDER_DONOR: "Funder / Donor",
-  DATA_INSIGHTS_USER: "Data / Insights User",
-};
+const TYPE_LABELS: Record<string, string> = ORG_TYPE_LABELS;
 const CERT_TONE: Record<string, "good" | "warning" | "critical" | "neutral"> = { VALID: "good", EXPIRING: "warning", EXPIRED: "critical", NO_EXPIRY: "neutral" };
 const CERT_STATUS: Record<string, string> = { VALID: "Valid", EXPIRING: "Expiring soon", EXPIRED: "Expired", NO_EXPIRY: "No expiry" };
 

@@ -10,7 +10,7 @@ import type {
   ProductSourceApprovalSummary,
   QualityDashboardSummary,
 } from "@universe/types";
-import { commodityGroupLabel } from "@universe/types";
+import { commodityGroupLabel, STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import {
@@ -36,11 +36,7 @@ import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
 const STATUS_FILTERS = ["", "PENDING", "APPROVED", "REJECTED", "WARNING", "QUALIFIED"] as const;
 const PERFORMANCE_ROLE_FILTERS = ["", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER"] as const;
-const ROLE_LABELS: Record<string, string> = {
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier",
-  FREIGHT_FORWARDER: "Freight Forwarder",
-};
+const ROLE_LABELS: Record<string, string> = STAKEHOLDER_CATEGORY_LABELS;
 
 /**
  * Quality Assurance section — added 2026-10-01 (round 3 feedback, item 6).

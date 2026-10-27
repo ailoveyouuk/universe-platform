@@ -13,7 +13,7 @@ import { AddFromUniverse, Network } from "../../components/Network";
 import { Interactions } from "../../components/Interactions";
 import { Opportunities } from "../../components/Opportunities";
 import { People } from "../../components/People";
-import { CRM_CERT_FILTERS, CRM_CERT_FILTER_LABELS, CRM_QUIET_MONTHS, CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmTag, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
+import { categoryLabel, PARTNER_ROLE_TYPES, CRM_CERT_FILTERS, CRM_CERT_FILTER_LABELS, CRM_QUIET_MONTHS, CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmTag, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
@@ -21,7 +21,7 @@ import { ErrorNote, Field, HEALTH_TONE, Heading, OkNote, Page, fmtDate, humanise
 
 type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string; tag: string; quiet: string; certs: string };
 const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "", tag: "", quiet: "", certs: "" };
-const ROLE_OPTIONS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "WAREHOUSING"];
+const ROLE_OPTIONS = PARTNER_ROLE_TYPES;
 
 function initialFilters(): Filters {
   if (typeof window === "undefined") return EMPTY;
@@ -97,7 +97,7 @@ export default function RelationshipsPage() {
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, owner, country…" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.tier} onChange={(v) => set({ tier: v })} allLabel="Any tier" options={CRM_TIERS.map((t) => ({ value: t, label: CRM_TIER_LABELS[t] }))} ariaLabel="Filter by tier" /></div>
         <div style={{ minWidth: 150 }}><Select value={f.status} onChange={(v) => set({ status: v })} allLabel="Any status" options={CRM_STATUSES.map((t) => ({ value: t, label: CRM_STATUS_LABELS[t] }))} ariaLabel="Filter by status" /></div>
-        <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
+        <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: categoryLabel(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.health} onChange={(v) => set({ health: v })} allLabel="Any health" options={[{ value: "attention", label: "Needs attention or worse" }, { value: "AT_RISK", label: CRM_HEALTH_LABELS.AT_RISK }]} ariaLabel="Filter by health" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.quiet} onChange={(v) => set({ quiet: v })} allLabel="Any recent contact" options={CRM_QUIET_MONTHS.map((m) => ({ value: m, label: `No contact in ${m} months` }))} ariaLabel="Filter by time since last interaction" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.certs} onChange={(v) => set({ certs: v })} allLabel="Any certificate state" options={CRM_CERT_FILTERS.map((m) => ({ value: m, label: CRM_CERT_FILTER_LABELS[m] }))} ariaLabel="Filter by certificate state" /></div>
@@ -107,7 +107,7 @@ export default function RelationshipsPage() {
       </div>
 
       <ul aria-label="Colour key for kinds of stakeholder" style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
-        {(["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING", "CLIENT"] as const).map((k) => <li key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><span aria-hidden="true" style={{ width: 4, height: 14, background: accentVar(k), borderRadius: 2 }} />{humanise(k)}</li>)}
+        {PARTNER_ROLE_TYPES.map((k) => <li key={k} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}><span aria-hidden="true" style={{ width: 4, height: 14, background: accentVar(k), borderRadius: 2 }} />{categoryLabel(k)}</li>)}
       </ul>
       {focus && (
         <div style={{ display: "grid", gap: 8 }}>
@@ -152,7 +152,7 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
       <div style={{ display: "flex", alignItems: "stretch" }}>
       {selected !== null && selected !== undefined && <label style={{ display: "flex", alignItems: "center", padding: "0 0 0 14px" }}><input type="checkbox" checked={selected} onChange={onSelect} aria-label={`Select ${r.name}`} /></label>}
       <button type="button" aria-expanded={open} aria-controls={`rel-${r.id}`} onClick={onToggle} style={{ all: "unset", boxSizing: "border-box", width: "100%", cursor: "pointer", padding: "10px 14px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", color: "var(--u-ink)" }}>
-        <span><span aria-hidden="true" style={{ display: "inline-block", width: 14 }}>{open ? "▾" : "▸"}</span> <strong>{r.name}</strong> <span style={{ color: "var(--u-ink-secondary)" }}>· {r.roles.map(humanise).join(", ") || "Stakeholder"}{r.countryCode ? ` · ${r.countryCode}` : ""}</span></span>
+        <span><span aria-hidden="true" style={{ display: "inline-block", width: 14 }}>{open ? "▾" : "▸"}</span> <strong>{r.name}</strong> <span style={{ color: "var(--u-ink-secondary)" }}>· {r.roles.map(categoryLabel).join(", ") || "Stakeholder"}{r.countryCode ? ` · ${r.countryCode}` : ""}</span></span>
         <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           {r.tags.slice(0, 2).map((t) => <Pill key={t.id} tone="brand">{t.name}</Pill>)}{r.tags.length > 2 && <span style={{ color: "var(--u-ink-secondary)" }}>+{r.tags.length - 2}</span>}
           <Pill tone="neutral">{CRM_TIER_LABELS[r.tier]}</Pill>

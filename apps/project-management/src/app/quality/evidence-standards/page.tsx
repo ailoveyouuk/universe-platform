@@ -3,17 +3,12 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import type { EvidenceStandardSummary } from "@universe/types";
+import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { Button, Select, Pill, ShieldIcon, PlusIcon, ChevronLeftIcon } from "@universe/ui";
 
 const ROLE_TYPES = ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"] as const;
-const ROLE_LABELS: Record<string, string> = {
-  CLIENT: "Client",
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier",
-  FREIGHT_FORWARDER: "Freight Forwarder",
-  WAREHOUSING: "Warehousing",
-};
+const ROLE_LABELS: Record<string, string> = STAKEHOLDER_CATEGORY_LABELS;
 const CATEGORIES = ["QUALITY", "BUSINESS", "FINANCIAL", "REGULATORY", "INSURANCE", "OTHER"] as const;
 const EVIDENCE_TYPES = ["DOCUMENT", "CHECK"] as const;
 

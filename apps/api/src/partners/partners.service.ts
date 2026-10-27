@@ -16,7 +16,7 @@ import type { CreatePartnerDto } from "./dto/create-partner.dto";
 import type { UpdatePartnerDto } from "./dto/update-partner.dto";
 import type { AddPartnerCertificationDto, UpdatePartnerCertificationDto } from "./dto/partner-certification.dto";
 import type { AddPartnerCompanyCheckDto, UpdatePartnerCompanyCheckDto } from "./dto/partner-company-check.dto";
-import { canUseApp } from "@universe/types";
+import { canUseApp, PARTNER_ROLE_TYPES } from "@universe/types";
 import { counterpartyKeyForPartner, startingStatus } from "../crm/crm.service";
 import type { PartnerApprovalHistorySummary, PartnerCertificationSummary, PartnerCompanyCheckSummary } from "@universe/types";
 
@@ -313,7 +313,7 @@ export class PartnersService {
         where: { ...base, approvalStatus: "APPROVED", roles: { some: { roleType: { in: ["MANUFACTURER", "SUPPLIER"] } } } },
       });
       const recent: Record<string, PartnerListItem[]> = {};
-      for (const cat of ["CLIENT", "MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "WAREHOUSING"]) {
+      for (const cat of PARTNER_ROLE_TYPES) {
         const rows = await tx.partner.findMany({
           where: { ...base, roles: { some: { roleType: cat } } },
           include: { roles: true },

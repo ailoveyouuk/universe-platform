@@ -101,7 +101,7 @@ export function CategoryPanel({ relId }: { relId: string }) {
           </div>
         </Section>
       )}
-      {(["TENDERING_BODY", "PROCUREMENT_AGENT", "FUNDER_DONOR"] as CrmCategoryKey[]).filter((k) => cats.includes(k)).map((k) => (
+      {(["TENDERING_PURCHASING_BODY", "PROCUREMENT_SERVICE_AGENT", "FUNDER_DONOR"] as CrmCategoryKey[]).filter((k) => cats.includes(k)).map((k) => (
         <Section key={k} cat={k}><p style={{ margin: 0, ...lab }}>A Universe organisation that has published its profile.</p></Section>
       ))}
       {p.tenders && (

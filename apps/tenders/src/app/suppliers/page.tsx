@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { NetworkSavedSearchRecord, NetworkSearchResult } from "@universe/types";
-import { SUPPLIER_SCOPE_TAXONOMY } from "@universe/types";
+import { ORG_TYPE_LABELS, SUPPLIER_SCOPE_TAXONOMY } from "@universe/types";
 import { Button, BuildingIcon, CheckCircleIcon, CountryMultiSelect, GlobeIcon, Pill, SearchInput, Select, ShieldIcon, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
@@ -10,12 +10,7 @@ import { OrgName } from "../../components/OrgName";
 import { SavedSearchesPanel } from "../../components/SavedSearchesPanel";
 import { Card, ErrorNote, Heading, Page } from "../../lib/ui";
 
-const ORG_TYPES: Record<string, string> = {
-  MANUFACTURER: "Manufacturer",
-  SUPPLIER: "Supplier / Distributor",
-  PROCUREMENT_SERVICE_AGENT: "Procurement Service Agent",
-  TENDERING_PURCHASING_BODY: "Tendering & Purchasing Body",
-};
+const ORG_TYPES: Record<string, string> = Object.fromEntries(["MANUFACTURER", "SUPPLIER", "PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY"].map((k) => [k, ORG_TYPE_LABELS[k]]));
 const CERTS: Record<string, string> = {
   ISO_13485: "ISO 13485", ISO_9001: "ISO 9001", ISO_14001: "ISO 14001", ISO_17025: "ISO 17025", FDA_REGISTRATION: "FDA registration", GMP: "GMP", GDP: "GDP",
   MIA: "Manufacturer's licence (MIA)", WDA: "Wholesale licence (WDA)", EUDAMED_REGISTRATION: "EUDAMED registration", CE_MDR_CERTIFICATE: "CE / MDR certificate",
