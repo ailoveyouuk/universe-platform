@@ -18,7 +18,7 @@ export function Network({ relId }: { relId: string }) {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <section style={box} aria-label="Across Universe">
-        <h4 style={{ margin: "0 0 6px", fontSize: 14 }}>Across Universe (anonymous)</h4>
+        <h2 style={{ margin: "0 0 6px", fontSize: 14 }}>Across Universe (anonymous)</h2>
         {p.belowFloor
           ? <p style={{ margin: 0 }}>Fewer than {CRM_NETWORK_FLOOR} other organisations hold this stakeholder, so no figure is shown. This protects who they are.</p>
           : <>
@@ -28,7 +28,7 @@ export function Network({ relId }: { relId: string }) {
       </section>
       {p.identityPublic && p.organization
         ? <section style={box} aria-label="Published profile">
-            <h4 style={{ margin: "0 0 6px", fontSize: 14 }}>Published Universe profile</h4>
+            <h2 style={{ margin: "0 0 6px", fontSize: 14 }}>Published Universe profile</h2>
             <p style={{ margin: "0 0 4px" }}><strong>{p.organization.name}</strong> · {humanise(p.organization.type)}{p.organization.countryCode ? ` · ${p.organization.countryCode}` : ""}</p>
             {p.organization.description && <p style={{ margin: "0 0 4px" }}>{p.organization.description}</p>}
             {p.organization.website && <p style={{ margin: 0 }}>{p.organization.website}</p>}
@@ -36,7 +36,7 @@ export function Network({ relId }: { relId: string }) {
         : <section style={box} aria-label="Identity"><p style={{ margin: 0 }}>This stakeholder has not published a Universe profile, so nothing that identifies them is shared from other organisations.</p></section>}
       {p.tenders && (
         <section style={box} aria-label="Tender history">
-          <h4 style={{ margin: "0 0 6px", fontSize: 14 }}>Tender history</h4>
+          <h2 style={{ margin: "0 0 6px", fontSize: 14 }}>Tender history</h2>
           <p style={{ margin: "0 0 6px" }}>Bids to your tenders: <strong>{p.tenders.yourBids}</strong>. Awarded by you: <strong>{p.tenders.yourAwards.length}</strong>.{p.tenders.universeBids !== null && <> Across Universe: {p.tenders.universeBids} bids, {p.tenders.universeAwards ?? "fewer than 5"} awards.</>}</p>
           {p.tenders.yourAwards.length > 0 && <ul style={{ margin: 0, paddingLeft: 18 }}>{p.tenders.yourAwards.map((a) => <li key={a.tenderId}>{a.reference} {a.title} ({fmtDate(a.awardedAt)})</li>)}</ul>}
         </section>
