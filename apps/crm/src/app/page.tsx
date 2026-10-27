@@ -9,6 +9,7 @@ import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { accentVar } from "../lib/category";
 import { ErrorNote, Page, fmtDate } from "../lib/ui";
+import { DataGapsNote } from "../components/DataGapsNote";
 import { SourceNote } from "../components/SourceNote";
 
 /** Overview: where the organisation's relationships stand. Every tile opens the Relationships list already filtered. */
@@ -46,6 +47,7 @@ export default function Overview() {
         {tile("Reviews due", o?.reviewDue, <ClockIcon size={18} />, "critical", "review=due")}
       </StatTileGrid>
       <SourceNote keys={["overview", "health"]} />
+      <DataGapsNote scope="overview" />
       <section aria-labelledby="by-kind" style={{ display: "grid", gap: 10 }}>
         <h2 id="by-kind" style={{ margin: 0, fontSize: 18, fontFamily: "var(--u-font-display)" }}>Stakeholders by kind</h2>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>

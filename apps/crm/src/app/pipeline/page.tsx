@@ -5,6 +5,7 @@ import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Heading, Page } from "../../lib/ui";
 import { PipelineVisual } from "../../components/PipelineVisual";
+import { DataGapsNote } from "../../components/DataGapsNote";
 import { Opportunities } from "../../components/Opportunities";
 
 /** Pipeline: opportunities by stage. Choose a stage in the chart to filter the list. Values are converted into the currency you pick, at the platform rate. */
@@ -23,6 +24,7 @@ export default function Pipeline() {
       <Heading title="Pipeline" sub="Things that could become work with your stakeholders. Values are cost-side estimates, converted into the currency you choose." />
       <ErrorNote message={err} />
       <PipelineVisual stage={stage} onStage={setStage} onAttention={(a) => { setAttention(a); setStage("open"); }} version={version} />
+      <DataGapsNote scope="pipeline" version={version} />
       {s && stage !== "open" && <p style={{ margin: 0, fontSize: 13.5 }}>Showing {CRM_OPPORTUNITY_STAGE_LABELS[stage as keyof typeof CRM_OPPORTUNITY_STAGE_LABELS] ?? stage} only. <button type="button" onClick={() => setStage("open")} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link)" }}>Show all open</button></p>}
       <Opportunities canManage={canManage} people={people} stage={stage} attention={attention} onAttention={setAttention} onChanged={() => setVersion((v) => v + 1)} />
     </Page>

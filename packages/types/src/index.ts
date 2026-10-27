@@ -4162,7 +4162,7 @@ export interface CrmLastProject { id: string; referenceNumber: string; title: st
 export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO", "OPPORTUNITIES"] as const;
 export type CrmFilterView = (typeof CRM_FILTER_VIEWS)[number];
 /** The list filters a saved filter may hold. Anything else is rejected. */
-export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country", "stage", "kind", "group", "attention", "pipeline"] as const;
+export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country", "stage", "kind", "group", "attention", "pipeline", "gap"] as const;
 export interface CrmSavedFilter { id: string; view: CrmFilterView; name: string; filters: Record<string, string>; shared: boolean; mine: boolean; ownerName: string | null }
 export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filters?: Record<string, string>; shared?: boolean; archived?: boolean }
 export interface CrmTagRef { id: string; name: string }
@@ -4585,3 +4585,14 @@ export interface CrmRelationshipTree {
   suggestions: (CrmTreeNode & { score: number; reasons: string[] })[];
   projectsVisible: boolean;
 }
+
+/**
+ * Something that would make a figure or view richer (2026-10-27, Lewis: flag, at every touch point, where the screen is not being fed all the data it could be,
+ * how to improve it and a direct link to the field). `count` of `total` records are missing it; `href` goes straight to the list or field that fixes it.
+ * Shared by every app; each app's API decides its own gaps.
+ */
+export interface DataGap { key: string; label: string; benefit: string; count: number; total: number; href: string | null; fixLabel: string | null }
+export const CRM_GAP_SCOPES = ["overview", "pipeline", "portfolio"] as const;
+export type CrmGapScope = (typeof CRM_GAP_SCOPES)[number];
+export const CRM_OPPORTUNITY_GAPS = ["noValue", "noDate", "noGroup", "noOwner", "noLink"] as const;
+export const CRM_RELATIONSHIP_GAPS = ["noOwner", "noSummary", "noCountry", "noReview"] as const;

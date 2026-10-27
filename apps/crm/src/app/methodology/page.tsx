@@ -18,6 +18,7 @@ const SECTIONS = [
   { id: "pipeline", title: "The pipeline" },
   { id: "probability", title: "Chance of winning" },
   { id: "tree", title: "Relationship tree" },
+  { id: "richer", title: "Making figures richer" },
   { id: "search", title: "Search and filters" },
   { id: "privacy", title: "Privacy and data protection" },
   { id: "standards", title: "Standards and references" },
@@ -96,6 +97,15 @@ export default function MethodologyPage() {
           <li><strong>Delivery of won deals:</strong> for a won opportunity linked to a project, lines delivered ÷ lines, and the share on time, in full and both, taken from the flags on the project&apos;s delivery lines. Shown only to people who can view projects. No project prices are shown.</li>
           <li><strong>Framework call-offs:</strong> for a framework opportunity linked to its tender: ceiling, committed (call-offs awaiting approval, awaiting the supplier or accepted), unused and expiry (contract end, else award plus term). The issuer sees the ceiling and every call-off; a supplier sees only its own call-offs.</li>
           <li><strong>What money is shown:</strong> only what your organisation can already see. Opportunity values are your own cost-side estimates. Project and tender amounts appear only where Project Management or Tenders would show them to you, and nothing from outside your organisation&apos;s purview.</li>
+        </ul>
+      </Section>
+
+      <Section id="richer" title="Making the figures richer">
+        <p style={p}>Where a screen is being fed less than it could be, a quiet &quot;Make this richer&quot; note says what is missing, what filling it in would improve, and links straight to the list or field. It only counts your own records and disappears when nothing is missing.</p>
+        <ul style={ul}>
+          <li><strong>Pipeline:</strong> open opportunities with no value, date, commodity group, owner, or link to a tender or project; and a reminder that chances of winning stay near the usual stage figures until about ten opportunities have closed.</li>
+          <li><strong>Portfolio and Overview:</strong> stakeholders with no country (missing from the map), no owner, no review date or no summary.</li>
+          <li><strong>On a record:</strong> each opportunity and stakeholder lists its own missing details, and opportunities can be completed in place.</li>
         </ul>
       </Section>
 

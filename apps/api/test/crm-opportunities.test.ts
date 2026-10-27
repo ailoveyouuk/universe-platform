@@ -4,6 +4,7 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { SearchService } from "../src/search/search.service";
+import { CrmGapsService } from "../src/crm/crm-gaps.service";
 import { CrmTreeService } from "../src/crm/crm-tree.service";
 import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
 
@@ -134,5 +135,21 @@ describe("CRM interactions", () => {
     expect(t.projectsVisible).toBe(false); // the viewer has no project access
     expect(t.projectConnections).toEqual([]);
     await expect(tree.tree(u.other, relA)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("lists what is missing from the pipeline and portfolio, with links that fix it", async () => {
+    await svc.create(u.manager, { relationshipId: relA, title: "Bare opportunity", kind: "OTHER" });
+    const gaps = new CrmGapsService();
+    const pipe = await gaps.gaps(u.viewer, "pipeline");
+    const noValue = pipe.find((g) => g.key === "noValue");
+    expect(noValue?.count).toBeGreaterThanOrEqual(1);
+    expect(noValue?.href).toBe("/pipeline?gap=noValue");
+    const listed = await svc.list(u.viewer, { gap: "noValue", pageSize: 50 });
+    expect(listed.items.some((i) => i.title === "Bare opportunity")).toBe(true);
+    expect(listed.items.every((i) => i.expectedValue === null)).toBe(true);
+    const port = await gaps.gaps(u.viewer, "portfolio");
+    expect(port.every((g) => g.key.startsWith("r"))).toBe(true);
+    const other = await gaps.gaps(u.other, "pipeline");
+    expect(other.find((g) => g.key === "noValue")?.count ?? 0).toBe(0); // another organisation's records never count
   });
 });

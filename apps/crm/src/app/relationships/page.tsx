@@ -15,21 +15,22 @@ import { AddFromUniverse, Network } from "../../components/Network";
 import { Interactions } from "../../components/Interactions";
 import { Opportunities } from "../../components/Opportunities";
 import { People } from "../../components/People";
-import { categoryLabel, PARTNER_ROLE_TYPES, CRM_CERT_FILTERS, CRM_CERT_FILTER_LABELS, CRM_QUIET_MONTHS, CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmTag, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
+import { type DataGap, categoryLabel, PARTNER_ROLE_TYPES, CRM_CERT_FILTERS, CRM_CERT_FILTER_LABELS, CRM_QUIET_MONTHS, CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmTag, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, HEALTH_TONE, Heading, OkNote, Page, fmtDate, humanise, inputStyle } from "../../lib/ui";
+import { DataHints } from "@universe/ui";
 import { SourceNote } from "../../components/SourceNote";
 
-type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string; tag: string; quiet: string; certs: string };
-const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "", tag: "", quiet: "", certs: "" };
+type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string; tag: string; quiet: string; certs: string; gap: string };
+const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "", tag: "", quiet: "", certs: "", gap: "" };
 const ROLE_OPTIONS = PARTNER_ROLE_TYPES;
 
 function initialFilters(): Filters {
   if (typeof window === "undefined") return EMPTY;
   const p = new URLSearchParams(window.location.search);
-  return { q: p.get("q") ?? "", tier: p.get("tier") ?? "", status: p.get("status") ?? "", owner: p.get("owner") ?? "", health: p.get("health") ?? "", review: p.get("review") ?? "", role: p.get("role") ?? "", tag: p.get("tag") ?? "", quiet: p.get("quiet") ?? "", certs: p.get("certs") ?? "" };
+  return { q: p.get("q") ?? "", tier: p.get("tier") ?? "", status: p.get("status") ?? "", owner: p.get("owner") ?? "", health: p.get("health") ?? "", review: p.get("review") ?? "", role: p.get("role") ?? "", tag: p.get("tag") ?? "", quiet: p.get("quiet") ?? "", certs: p.get("certs") ?? "", gap: p.get("gap") ?? "" };
 }
 
 /**
@@ -71,7 +72,7 @@ export default function RelationshipsPage() {
     if (!ready) return;
     const { status: _s, health: _h, review: _r, ...ctx } = f;
     apiClient.crmRelationshipCounts({ ...ctx, q: dq }).then(setCounts).catch(() => undefined);
-  }, [f.q, f.tier, f.owner, f.role, f.tag, f.quiet, f.certs, dq, ready]);
+  }, [f.q, f.tier, f.owner, f.role, f.tag, f.quiet, f.certs, f.gap, dq, ready]);
   const load = useCallback(() => {
     if (!ready) return;
     const mine = ++seq.current; setBusy(true);
@@ -116,6 +117,7 @@ export default function RelationshipsPage() {
         <div style={{ minWidth: 170 }}><Select value={f.health} onChange={(v) => set({ health: v })} allLabel="Any health" options={[{ value: "attention", label: "Needs attention or worse" }, { value: "AT_RISK", label: CRM_HEALTH_LABELS.AT_RISK }]} ariaLabel="Filter by health" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.quiet} onChange={(v) => set({ quiet: v })} allLabel="Any recent contact" options={CRM_QUIET_MONTHS.map((m) => ({ value: m, label: `No contact in ${m} months` }))} ariaLabel="Filter by time since last interaction" /></div>
         <div style={{ minWidth: 190 }}><Select value={f.certs} onChange={(v) => set({ certs: v })} allLabel="Any certificate state" options={CRM_CERT_FILTERS.map((m) => ({ value: m, label: CRM_CERT_FILTER_LABELS[m] }))} ariaLabel="Filter by certificate state" /></div>
+        <div style={{ minWidth: 190 }}><Select value={f.gap} onChange={(v) => set({ gap: v })} allLabel="Any level of detail" options={[{ value: "noOwner", label: "No owner" }, { value: "noSummary", label: "No summary" }, { value: "noCountry", label: "No country" }, { value: "noReview", label: "No review date" }]} ariaLabel="Filter by missing detail" /></div>
         {tags.length > 0 && <div style={{ minWidth: 170 }}><Select value={f.tag} onChange={(v) => set({ tag: v })} allLabel="Any tag" options={tags.map((t) => ({ value: t.id, label: `${t.name} (${t.count})` }))} ariaLabel="Filter by tag" /></div>}
         <div style={{ minWidth: 170 }}><Select value={f.owner} onChange={(v) => set({ owner: v })} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }, ...people.map((p) => ({ value: p.id, label: p.name }))]} ariaLabel="Filter by owner" /></div>
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{busy ? "Loading…" : data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
@@ -203,19 +205,20 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
             <dt style={dt}>Tags</dt><dd style={dd}><Tags r={r} allTags={allTags} canManage={canManage} onChanged={(m) => onSaved(`${r.name}: ${m}`)} onError={onError} /></dd>
             <dt style={dt}>In the CRM since</dt><dd style={dd}>{fmtDate(r.createdAt)}</dd>
           </dl>
+          <RowGaps r={r} pmHref={pmHref} canManage={canManage} />
           <Profile360 r={r} />
           <CategoryPanel relId={r.id} />
           {canManage ? (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-                <Field label="Owner"><select className="u-native-select" style={inputStyle} value={draft.ownerUserId} onChange={(e) => setDraft({ ...draft, ownerUserId: e.target.value })}><option value="">No owner</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+                <Field label="Owner"><select data-field="owner" className="u-native-select" style={inputStyle} value={draft.ownerUserId} onChange={(e) => setDraft({ ...draft, ownerUserId: e.target.value })}><option value="">No owner</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
                 <Field label="Tier"><select className="u-native-select" style={inputStyle} value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value as CrmTier })}>{CRM_TIERS.map((t) => <option key={t} value={t}>{CRM_TIER_LABELS[t]}</option>)}</select></Field>
                 <Field label="Status"><select className="u-native-select" style={inputStyle} value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as CrmStatus })}>{CRM_STATUSES.map((t) => <option key={t} value={t}>{CRM_STATUS_LABELS[t]}</option>)}</select></Field>
                 <Field label="Review every (months)"><input type="number" min={1} max={60} style={inputStyle} value={draft.reviewIntervalMonths} onChange={(e) => setDraft({ ...draft, reviewIntervalMonths: Number(e.target.value) })} /></Field>
                 <Field label="Manager's view of health" hint="Optional. Shown beside the calculated health, never instead of it."><select className="u-native-select" style={inputStyle} value={draft.healthOverride} onChange={(e) => setDraft({ ...draft, healthOverride: e.target.value as CrmHealth | "" })}><option value="">No override</option>{CRM_HEALTH.map((t) => <option key={t} value={t}>{CRM_HEALTH_LABELS[t]}</option>)}</select></Field>
                 {draft.healthOverride && <Field label="Reason for the override"><input style={inputStyle} maxLength={500} value={draft.healthOverrideReason} onChange={(e) => setDraft({ ...draft, healthOverrideReason: e.target.value })} /></Field>}
               </div>
-              <Field label="Summary" hint="A few lines on what this relationship is for and what matters. Do not record personal opinions about individuals."><textarea style={{ ...inputStyle, minHeight: 70 }} maxLength={2000} value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} /></Field>
+              <Field label="Summary" hint="A few lines on what this relationship is for and what matters. Do not record personal opinions about individuals."><textarea data-field="summary" style={{ ...inputStyle, minHeight: 70 }} maxLength={2000} value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} /></Field>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <Button size="sm" variant="primary" disabled={busy || (!!draft.healthOverride && !draft.healthOverrideReason.trim())} onClick={() => save()}>Save</Button>
                 <Button size="sm" variant="secondary" disabled={busy} onClick={() => save({ markReviewed: true }, "marked as reviewed.")}>Mark as reviewed today</Button>
@@ -230,4 +233,21 @@ function Row({ selected, onSelect, r, open, onToggle, canManage, people, allTags
       )}
     </div>
   );
+}
+
+
+/** "Make this richer" for one stakeholder: what is missing, what filling it in improves, and a link straight to the field. */
+function RowGaps({ r, pmHref, canManage }: { r: CrmRelationshipRow; pmHref: string | undefined; canManage: boolean }) {
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search); const f = sp.get("focus");
+    if (!f || sp.get("id") !== r.id) return;
+    const t = setTimeout(() => { const el = document.querySelector<HTMLElement>(`[data-field="${f.replace(/[^a-z]/gi, "")}"]`); if (el) { el.scrollIntoView({ block: "center" }); el.focus(); } }, 700);
+    return () => clearTimeout(t);
+  }, [r.id]);
+  const here = (field: string) => `/relationships?id=${r.id}&focus=${field}`;
+  const gaps: DataGap[] = [];
+  if (canManage && !r.ownerUserId && r.status !== "ENDED") gaps.push({ key: "owner", label: "No owner", benefit: "Review and quiet-relationship reminders have nobody to go to.", count: 1, total: 1, href: here("owner"), fixLabel: "Choose an owner" });
+  if (canManage && !r.summary && r.status !== "ENDED") gaps.push({ key: "summary", label: "No summary", benefit: "Colleagues cannot see at a glance what this relationship is for.", count: 1, total: 1, href: here("summary"), fixLabel: "Write a summary" });
+  if (!r.countryCode) gaps.push({ key: "country", label: "No country on the stakeholder record", benefit: "It is missing from the Portfolio map and from country filters.", count: 1, total: 1, href: r.partnerId && pmHref ? `${pmHref}/partners/detail?id=${r.partnerId}&focus=country` : null, fixLabel: r.partnerId && pmHref ? "Add it in Project Management" : null });
+  return <DataHints gaps={gaps} />;
 }

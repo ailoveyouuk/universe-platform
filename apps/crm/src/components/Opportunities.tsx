@@ -8,9 +8,11 @@ import { ErrorNote, Field, fmtDate, inputStyle } from "../lib/ui";
 import { SavedFilters } from "./SavedFilters";
 import { PipelineBoard } from "./PipelineBoard";
 import { OpportunityLinks } from "./OpportunityLinks";
+import { CompleteDetails } from "./CompleteDetails";
 import { SourceNote } from "./SourceNote";
 
 export const money = (v: number | null, c: string | null) => (v === null || !c ? "No value set" : new Intl.NumberFormat("en-GB", { style: "currency", currency: c, maximumFractionDigits: 0 }).format(v));
+const GAP_OPTIONS = [{ value: "noValue", label: "No expected value" }, { value: "noDate", label: "No expected date" }, { value: "noGroup", label: "No commodity group" }, { value: "noOwner", label: "No owner" }, { value: "noLink", label: "Not linked to tender or project" }];
 const stageTone = (s: CrmOpportunityStage) => (s === "WON" ? "good" : s === "LOST" ? "critical" : s === "WITHDRAWN" ? "neutral" : "brand") as "good" | "critical" | "neutral" | "brand";
 
 /**
@@ -23,6 +25,8 @@ export function Opportunities({ relId, canManage, people: peopleProp, stage: sta
   const [owner, setOwner] = useState("");
   const [group, setGroup] = useState("");
   const [attention, setAttention] = useState("");
+  const [gap, setGap] = useState("");
+  useEffect(() => { const g = new URLSearchParams(window.location.search).get("gap"); if (g && !relId) setGap(g); }, [relId]);
   const [view, setView] = useState<"list" | "board">("list");
   const [people, setPeople] = useState<CrmPeopleOption[]>(peopleProp);
   useEffect(() => { if (!peopleProp.length) apiClient.crmPeople().then(setPeople).catch(() => undefined); }, [peopleProp]);
@@ -34,9 +38,9 @@ export function Opportunities({ relId, canManage, people: peopleProp, stage: sta
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (stageProp) { setStage(stageProp); setPage(1); } }, [stageProp]);
   const load = useCallback(() => {
-    apiClient.crmOpportunities({ relationshipId: relId, open: stage === "open" ? "true" : undefined, stage: stage && stage !== "open" ? stage : undefined, kind, owner, group, attention, page, pageSize: 10 })
+    apiClient.crmOpportunities({ relationshipId: relId, open: stage === "open" ? "true" : undefined, stage: stage && stage !== "open" ? stage : undefined, kind, owner, group, attention, gap, page, pageSize: 10 })
       .then((d) => { setData(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load opportunities."));
-  }, [relId, stage, kind, owner, group, attention, page]);
+  }, [relId, stage, kind, owner, group, attention, gap, page]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (adding && relId && !detail) apiClient.crmDetail(relId).then(setDetail).catch(() => undefined); }, [adding, relId, detail]);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -49,13 +53,14 @@ export function Opportunities({ relId, canManage, people: peopleProp, stage: sta
         <div style={{ minWidth: 150 }}><Select value={owner} onChange={(v) => { setOwner(v); setPage(1); }} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }, ...people.map((p) => ({ value: p.id, label: p.name }))]} ariaLabel="Filter by owner" /></div>
         <div style={{ minWidth: 190 }}><Select value={group} onChange={(v) => { setGroup(v); setPage(1); }} allLabel="Any commodity or service" options={COMMODITY_GROUPS.map((g) => ({ value: g, label: commodityGroupLabel(g) }))} ariaLabel="Filter by commodity or service group" /></div>
         <div style={{ minWidth: 170 }}><Select value={attention} onChange={(v) => { setAttention(v); onAttention?.(v); setPage(1); }} allLabel="Any state" options={[{ value: "stale", label: "No movement for 60+ days" }, { value: "overdue", label: "Past expected date" }]} ariaLabel="Filter by needs attention" /></div>
+        <div style={{ minWidth: 190 }}><Select value={gap} onChange={(v) => { setGap(v); setPage(1); }} allLabel="Any level of detail" options={GAP_OPTIONS} ariaLabel="Filter by missing detail" /></div>
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{data ? `${data.total} opportunit${data.total === 1 ? "y" : "ies"}` : "Loading…"}</span>
         {!relId && <div role="group" aria-label="Show as" style={{ display: "inline-flex", border: "1px solid var(--u-border)", borderRadius: 999, overflow: "hidden" }}>
           {(["list", "board"] as const).map((k) => <button key={k} type="button" className="u-touch" aria-pressed={view === k} onClick={() => setView(k)} style={{ padding: "6px 14px", border: 0, font: "inherit", fontSize: 13, cursor: "pointer", backgroundColor: view === k ? "var(--u-brand-violet)" : "var(--u-surface-raised)", color: view === k ? "var(--u-on-accent)" : "var(--u-ink)" }}>{k === "list" ? "List" : "Board"}</button>)}
         </div>}
         {relId && canManage && !adding && <Button size="sm" variant="primary" onClick={() => setAdding(true)}>Add an opportunity</Button>}
       </div>
-      {!relId && <SavedFilters view="OPPORTUNITIES" current={{ stage: stage === "open" ? "" : stage, kind, owner, group, attention }} onApply={(f) => { setStage(f.stage || "open"); setKind(f.kind ?? ""); setOwner(f.owner ?? ""); setGroup(f.group ?? ""); setAttention(f.attention ?? ""); setPage(1); }} canShare={canManage} onError={setErr} />}
+      {!relId && <SavedFilters view="OPPORTUNITIES" current={{ stage: stage === "open" ? "" : stage, kind, owner, group, attention, gap }} onApply={(f) => { setStage(f.stage || "open"); setKind(f.kind ?? ""); setOwner(f.owner ?? ""); setGroup(f.group ?? ""); setAttention(f.attention ?? ""); setGap(f.gap ?? ""); setPage(1); }} canShare={canManage} onError={setErr} />}
       {!relId && view === "board" && <PipelineBoard kind={kind} owner={owner} group={group} attention={attention} canManage={canManage} onChanged={() => { load(); onChanged?.(); }} onError={setErr} />}
       {adding && relId && <AddForm relId={relId} people={people} detail={detail} onDone={() => { setAdding(false); setPage(1); load(); onChanged?.(); }} />}
       {data && data.items.length === 0 && !adding && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>{relId ? "No opportunities yet. Add a tender to bid on, something to source, a call-off or a supplier to qualify." : "No opportunities match."}</p>}
@@ -107,6 +112,7 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
         </details>
       )}
       {o.notes && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{o.notes}</p>}
+      <CompleteDetails o={o} canManage={canManage} onChanged={onChanged} onError={onError} />
       <OpportunityLinks o={o} canManage={canManage} onChanged={onChanged} onError={onError} />
       {o.lostReason && <p style={{ margin: 0 }}><strong>Why lost:</strong> {o.lostReason}</p>}
       {canManage && (

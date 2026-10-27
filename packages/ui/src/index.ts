@@ -45,3 +45,4 @@ export * from "./theme";
 export { ThemeToggle } from "./ThemeToggle";
 export * from "./appAccess";
 export * from "./Viz";
+export * from "./DataHints";

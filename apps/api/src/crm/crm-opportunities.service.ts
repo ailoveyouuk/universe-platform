@@ -127,12 +127,17 @@ export class CrmOpportunitiesService {
     return this.shape(row, owners, hist.model.estimate({ stage: row.stage, kind: row.kind, commodityGroup: row.commodityGroup, relationshipId: row.relationshipId }), parts.get(id) ?? []);
   }
 
-  async list(u: RequestUser, q: { relationshipId?: string; stage?: string; kind?: string; owner?: string; q?: string; open?: string; group?: string; attention?: string; involved?: string; page?: number; pageSize?: number }): Promise<CrmOpportunityPage> {
+  async list(u: RequestUser, q: { relationshipId?: string; stage?: string; kind?: string; owner?: string; q?: string; open?: string; group?: string; attention?: string; involved?: string; gap?: string; page?: number; pageSize?: number }): Promise<CrmOpportunityPage> {
     assertHasPermission(u, "crm.view");
     const pageSize = Math.min(Math.max(q.pageSize ?? 25, 1), 100); const page = Math.max(q.page ?? 1, 1);
     return withTenantContext(u.organizationId, async (tx) => {
       const and: Prisma.CrmOpportunityWhereInput[] = [{ organizationId: u.organizationId, archivedAt: null }];
       if (q.relationshipId) and.push({ relationshipId: q.relationshipId });
+      if (q.gap === "noValue") and.push({ expectedValue: null, stage: { in: [...CRM_OPEN_STAGES] } });
+      else if (q.gap === "noDate") and.push({ expectedDate: null, stage: { in: [...CRM_OPEN_STAGES] } });
+      else if (q.gap === "noGroup") and.push({ commodityGroup: null, stage: { in: [...CRM_OPEN_STAGES] } });
+      else if (q.gap === "noOwner") and.push({ ownerUserId: null, stage: { in: [...CRM_OPEN_STAGES] } });
+      else if (q.gap === "noLink") and.push({ sourceTenderId: null, linkedId: null, stage: { in: [...CRM_OPEN_STAGES] } });
       if (q.involved) and.push({ participants: { some: { relationshipId: q.involved, archivedAt: null } }, relationshipId: { not: q.involved } });
       if (q.stage) and.push({ stage: q.stage });
       if (q.open === "true") and.push({ stage: { in: [...CRM_OPEN_STAGES] } });

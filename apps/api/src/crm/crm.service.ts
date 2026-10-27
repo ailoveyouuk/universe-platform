@@ -9,7 +9,7 @@ import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
-export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; quiet?: string; certs?: string; view?: string; archived?: string; sort?: string; dir?: string; pipeline?: string; /** Set by the controller for pipeline=likely: stakeholder ids in the order to show them. */ rank?: string[] }
+export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; quiet?: string; certs?: string; view?: string; archived?: string; sort?: string; dir?: string; pipeline?: string; gap?: string; /** Set by the controller for pipeline=likely: stakeholder ids in the order to show them. */ rank?: string[] }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
 /** The relationship status a stakeholder starts with: approved stakeholders are active, everything else is still a prospect. */
@@ -186,6 +186,10 @@ export class CrmService {
       if (q.tier) and.push({ tier: q.tier });
       if (q.status) and.push({ status: q.status });
       if (q.role) and.push({ partner: { roles: { some: { roleType: q.role, isActive: true } } } });
+      if (q.gap === "noOwner") and.push({ ownerUserId: null, status: { not: "ENDED" } });
+      else if (q.gap === "noSummary") and.push({ summary: null, status: { not: "ENDED" } });
+      else if (q.gap === "noCountry") and.push({ partner: { countryCode: null } });
+      else if (q.gap === "noReview") and.push({ nextReviewDue: null, status: { not: "ENDED" } });
       if (q.owner === "none") and.push({ ownerUserId: null, status: { not: "ENDED" } });
       else if (q.owner === "me") and.push({ ownerUserId: user.id });
       else if (q.owner) and.push({ ownerUserId: q.owner });

@@ -88,7 +88,7 @@ export function RelationshipTree({ relId }: { relId: string }) {
         <div style={{ ...card, overflowX: "auto", padding: 8 }}>
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: 760, display: "block" }} role="group" aria-label={`Relationship tree for ${t.root.name}: ${lists.project.length} through projects, ${lists.opportunity.length} through opportunities, ${lists.suggested.length} suggested`}>
             <text x={leftX} y={14} fill="var(--u-ink-secondary)" style={{ fontSize: 12, fontWeight: 600 }}>Worked together on projects</text>
-            <text x={rightX} y={14} fill="var(--u-ink-secondary)" style={{ fontSize: 12, fontWeight: 600 }}>Through opportunities{shown("suggested").length ? " and suggested" : ""}</text>
+            <text x={rightX + NODE_W} textAnchor="end" y={14} fill="var(--u-ink-secondary)" style={{ fontSize: 12, fontWeight: 600 }}>Through opportunities{shown("suggested").length ? " and suggested" : ""}</text>
             {place.map((p) => {
               const item = lists[p.branch][p.index]; const left = p.branch === "project";
               const x1 = left ? p.x + NODE_W : p.x, x2 = left ? rootX : rootX + NODE_W, y1 = p.y + NODE_H / 2, mid = (x1 + x2) / 2;
@@ -100,7 +100,7 @@ export function RelationshipTree({ relId }: { relId: string }) {
               <text x={NODE_W / 2} y={26} textAnchor="middle" fill="var(--u-brand-violet-on)" style={{ fontSize: 14.5, fontWeight: 700, fontFamily: "var(--u-font-display)" }}>{clip(t.root.name, 26)}</text>
               <text x={NODE_W / 2} y={45} textAnchor="middle" fill="var(--u-on-violet-secondary)" style={{ fontSize: 12 }}>{t.root.kinds.slice(0, 2).map(categoryLabel).join(" · ") || "Stakeholder"}{t.root.countryCode ? ` · ${t.root.countryCode}` : ""}</text>
             </g>
-            {shown("suggested").length > 0 && <text x={rightX} y={yOf(shown("opportunity").length, rightCount) + 28} fill="var(--u-ink-secondary)" style={{ fontSize: 12, fontWeight: 600 }}>Might also connect (from your own records)</text>}
+            {shown("suggested").length > 0 && <text x={rightX + NODE_W} textAnchor="end" y={yOf(shown("opportunity").length, rightCount) + 28} fill="var(--u-ink-secondary)" style={{ fontSize: 12, fontWeight: 600 }}>Might also connect (from your own records)</text>}
             {place.map((p) => {
               const item = lists[p.branch][p.index]; const on = pick?.branch === p.branch && pick.index === p.index;
               const col = colour(item.node.kinds);

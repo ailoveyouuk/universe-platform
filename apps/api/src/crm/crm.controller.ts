@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { CRM_GAP_SCOPES, type CrmGapScope } from "@universe/types";
 import type { CrmInteractionInput, CrmOpportunityInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
 import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
@@ -13,6 +14,7 @@ import { CrmSearchService } from "./crm-search.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
+import { CrmGapsService } from "./crm-gaps.service";
 import { CrmTreeService } from "./crm-tree.service";
 import { CrmCategoryService } from "./crm-category.service";
 import { CrmHospitalityService } from "./crm-hospitality.service";
@@ -28,7 +30,7 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService, private readonly tree: CrmTreeService) {}
+  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService, private readonly tree: CrmTreeService, private readonly gaps: CrmGapsService) {}
 
   @Get("export/:entity") exportCsv(@CurrentUser() user: RequestUser, @Param("entity") entity: string, @Query() q: Record<string, string>) { return this.exporter.export(user, entity, q); }
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
@@ -36,6 +38,8 @@ export class CrmController {
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
 
   @Get("relationships/:id/tree") relationshipTree(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.tree.tree(user, id); }
+
+  @Get("data-gaps") dataGaps(@CurrentUser() user: RequestUser, @Query("scope") scope: string) { return this.gaps.gaps(user, (CRM_GAP_SCOPES as readonly string[]).includes(scope) ? (scope as CrmGapScope) : "overview"); }
 
   @Get("relationships/counts")
   counts(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.counts(user, q); }
