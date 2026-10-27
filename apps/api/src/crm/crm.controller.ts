@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import type { CrmInteractionInput, CrmOpportunityInput, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestUpdate, CrmRelationshipUpdate } from "@universe/types";
 import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
@@ -6,15 +6,16 @@ import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
+import { CrmTagsService } from "./crm-tags.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -68,4 +69,11 @@ export class CrmController {
   @Get("pipeline") pipeline(@CurrentUser() user: RequestUser) { return this.opportunities.pipeline(user); }
   @Post("opportunities") createOpportunity(@CurrentUser() user: RequestUser, @Body() dto: OpportunityDto) { return this.opportunities.create(user, dto as CrmOpportunityInput); }
   @Patch("opportunities/:id") updateOpportunity(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: OpportunityDto) { return this.opportunities.update(user, id, dto as CrmOpportunityInput); }
+
+  // ---- Tags and segments (step 6) ----
+  @Get("tags") listTags(@CurrentUser() user: RequestUser) { return this.tags.list(user); }
+  @Post("tags") createTag(@CurrentUser() user: RequestUser, @Body() dto: TagDto) { return this.tags.create(user, dto); }
+  @Patch("tags/:id") updateTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: TagDto) { return this.tags.update(user, id, dto); }
+  @Post("relationships/:id/tags/:tagId") applyTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("tagId") tagId: string) { return this.tags.apply(user, id, tagId); }
+  @Delete("relationships/:id/tags/:tagId") removeTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("tagId") tagId: string) { return this.tags.remove(user, id, tagId); }
 }

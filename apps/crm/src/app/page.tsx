@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary } from "@universe/types";
+import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmTag } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -18,6 +18,8 @@ export default function Overview() {
   useEffect(() => { apiClient.crmFollowUps().then(setFu).catch(() => setFu([])); }, []);
   const [pl, setPl] = useState<CrmPipelineSummary | null>(null);
   useEffect(() => { apiClient.crmPipeline().then(setPl).catch(() => setPl(null)); }, []);
+  const [tags, setTags] = useState<CrmTag[]>([]);
+  useEffect(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
   const link = (q: string) => `/relationships?${q}`;
   const tile = (label: string, value: number | undefined, icon: React.ReactNode, tone: "brand" | "good" | "warning" | "neutral" | "critical", q: string) => (
     <Link href={link(q)} style={{ textDecoration: "none", color: "inherit", display: "block" }} aria-label={`${label}: ${value ?? "loading"}. Open the list`}>
@@ -68,6 +70,14 @@ export default function Overview() {
             {CRM_STATUSES.map((t) => <li key={t}><Link href={link(`status=${t}`)}>{CRM_STATUS_LABELS[t]}</Link> <strong>{o?.byStatus[t] ?? "…"}</strong></li>)}
           </ul>
         </section>
+        {tags.length > 0 && (
+          <section aria-labelledby="by-tag" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
+            <h2 id="by-tag" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>By tag</h2>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
+              {[...tags].sort((a, b) => b.count - a.count).slice(0, 8).map((t) => <li key={t.id}><Link href={link(`tag=${t.id}`)}>{t.name}</Link> <strong>{t.count}</strong></li>)}
+            </ul>
+          </section>
+        )}
       </div>
     </Page>
   );

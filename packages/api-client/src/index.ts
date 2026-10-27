@@ -1,4 +1,4 @@
-import type { CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -1094,6 +1094,11 @@ export class UniverseApiClient {
     const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
     return this.request(`/crm/opportunities${p.toString() ? `?${p}` : ""}`);
   }
+  crmTags(): Promise<CrmTag[]> { return this.request("/crm/tags"); }
+  createCrmTag(name: string): Promise<CrmTag> { return this.request("/crm/tags", { method: "POST", body: JSON.stringify({ name }) }); }
+  updateCrmTag(id: string, body: { name?: string; archived?: boolean }): Promise<CrmTag> { return this.request(`/crm/tags/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+  applyCrmTag(relationshipId: string, tagId: string): Promise<void> { return this.request(`/crm/relationships/${relationshipId}/tags/${tagId}`, { method: "POST" }); }
+  removeCrmTag(relationshipId: string, tagId: string): Promise<void> { return this.request(`/crm/relationships/${relationshipId}/tags/${tagId}`, { method: "DELETE" }); }
   crmPipeline(): Promise<CrmPipelineSummary> { return this.request("/crm/pipeline"); }
   createCrmOpportunity(body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request("/crm/opportunities", { method: "POST", body: JSON.stringify(body) }); }
   updateCrmOpportunity(id: string, body: CrmOpportunityInput): Promise<CrmOpportunity> { return this.request(`/crm/opportunities/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }

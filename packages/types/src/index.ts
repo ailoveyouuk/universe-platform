@@ -4122,7 +4122,10 @@ export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHe
   return { health, reasons };
 }
 
+export interface CrmTagRef { id: string; name: string }
+export interface CrmTag extends CrmTagRef { count: number }
 export interface CrmRelationshipRow {
+  tags: CrmTagRef[];
   id: string;
   partnerId: string | null;
   name: string;

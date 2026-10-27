@@ -79,3 +79,8 @@ export class OpportunityDto {
   @IsOptional() @IsString() @MaxLength(100) linkedProjectId?: string | null;
   @IsOptional() @IsBoolean() archived?: boolean;
 }
+
+export class TagDto {
+  @IsOptional() @IsString() @MaxLength(60) name?: string;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}

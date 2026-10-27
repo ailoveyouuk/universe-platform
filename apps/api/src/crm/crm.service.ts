@@ -10,7 +10,7 @@ import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
-export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; archived?: string; sort?: string; dir?: string }
+export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; archived?: string; sort?: string; dir?: string }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
 /** The relationship status a stakeholder starts with: approved stakeholders are active, everything else is still a prospect. */
@@ -98,7 +98,7 @@ export class CrmService {
     return map;
   }
 
-  private static readonly include = { partner: { select: { name: true, countryCode: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } } } as const;
+  private static readonly include = { partner: { select: { name: true, countryCode: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } }, tagLinks: { where: { removedAt: null, tag: { archivedAt: null } }, select: { tag: { select: { id: true, name: true } } } } } as const;
 
   private shape(r: any, owners: Map<string, string>, facts: Facts): CrmRelationshipRow {
     const f = facts.get(r.partnerId ?? "") ?? { open: facts.canComplaints ? 0 : null, expired: 0, soon: 0 };
@@ -110,6 +110,7 @@ export class CrmService {
       summary: r.summary, reviewIntervalMonths: r.reviewIntervalMonths, lastReviewedAt: r.lastReviewedAt?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null,
       health: calc.health, healthReasons: calc.reasons, healthOverride: (r.healthOverride as CrmHealth | null) ?? null, healthOverrideReason: r.healthOverrideReason,
       openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon,
+      tags: ((r.tagLinks ?? []) as { tag: { id: string; name: string } }[]).map((l) => l.tag).sort((a, b) => a.name.localeCompare(b.name)),
       archivedAt: r.archivedAt?.toISOString() ?? null, createdAt: r.createdAt.toISOString(),
     };
   }
@@ -153,6 +154,7 @@ export class CrmService {
         const owners = await tx.user.findMany({ where: { organizationId: user.organizationId, OR: [{ forename: { contains: needle } }, { surname: { contains: needle } }] }, select: { id: true }, take: 50 });
         and.push({ OR: [{ partner: { name: { contains: needle } } }, { partner: { countryCode: { contains: needle } } }, { summary: { contains: needle } }, ...(owners.length ? [{ ownerUserId: { in: owners.map((o) => o.id) } }] : [])] });
       }
+      if (q.tag) and.push({ tagLinks: { some: { tagId: q.tag, removedAt: null } } });
       if (q.tier) and.push({ tier: q.tier });
       if (q.status) and.push({ status: q.status });
       if (q.role) and.push({ partner: { roles: { some: { roleType: q.role, isActive: true } } } });

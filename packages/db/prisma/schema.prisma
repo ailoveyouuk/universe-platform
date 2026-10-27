@@ -4829,6 +4829,7 @@ model CrmRelationship {
 
   interactions               CrmInteraction[]
   opportunities              CrmOpportunity[]
+  tagLinks                   CrmRelationshipTag[]
 
   @@unique([organizationId, counterpartyKey])
   @@index([organizationId, status])
@@ -4986,4 +4987,36 @@ model CrmOpportunity {
   @@index([organizationId, stage])
   @@index([organizationId, relationshipId])
   @@map("crm_opportunities")
+}
+
+/// CRM step 6 (2026-10-27): free segments an organisation defines to group relationships ("WHO-prequalified", "India", "cold chain").
+/// Private to the organisation. A tag is archived, never deleted; a tag removed from a relationship keeps its link row (removedAt) so history stays.
+model CrmTag {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String    @db.NVarChar(60)
+  normalizedName String    @db.NVarChar(60)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  archivedAt     DateTime?
+
+  links CrmRelationshipTag[]
+
+  @@unique([organizationId, normalizedName])
+  @@map("crm_tags")
+}
+
+model CrmRelationshipTag {
+  relationshipId String
+  relationship   CrmRelationship @relation(fields: [relationshipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tagId          String
+  tag            CrmTag          @relation(fields: [tagId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  organizationId String
+  addedById      String?
+  addedAt        DateTime        @default(now())
+  removedAt      DateTime?
+
+  @@id([relationshipId, tagId])
+  @@index([organizationId, tagId])
+  @@map("crm_relationship_tags")
 }

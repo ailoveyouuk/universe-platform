@@ -2,23 +2,24 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
+import { Tags } from "../../components/Tags";
 import { Interactions } from "../../components/Interactions";
 import { Opportunities } from "../../components/Opportunities";
 import { People } from "../../components/People";
-import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
+import { CRM_HEALTH, CRM_HEALTH_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmHealth, type CrmOverview, type CrmPeopleOption, type CrmRelationshipPage, type PartnerScorecard, type CrmTag, type CrmRelationshipRow, type CrmStatus, type CrmTier } from "@universe/types";
 import { AlertIcon, Button, CheckCircleIcon, ClockIcon, Pagination, PartnersIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, UNIVERSE_APPS, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, HEALTH_TONE, Heading, OkNote, Page, fmtDate, humanise, inputStyle } from "../../lib/ui";
 
-type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string };
-const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "" };
+type Filters = { q: string; tier: string; status: string; owner: string; health: string; review: string; role: string; tag: string };
+const EMPTY: Filters = { q: "", tier: "", status: "", owner: "", health: "", review: "", role: "", tag: "" };
 const ROLE_OPTIONS = ["MANUFACTURER", "SUPPLIER", "FREIGHT_FORWARDER", "CLIENT", "WAREHOUSING"];
 
 function initialFilters(): Filters {
   if (typeof window === "undefined") return EMPTY;
   const p = new URLSearchParams(window.location.search);
-  return { q: p.get("q") ?? "", tier: p.get("tier") ?? "", status: p.get("status") ?? "", owner: p.get("owner") ?? "", health: p.get("health") ?? "", review: p.get("review") ?? "", role: p.get("role") ?? "" };
+  return { q: p.get("q") ?? "", tier: p.get("tier") ?? "", status: p.get("status") ?? "", owner: p.get("owner") ?? "", health: p.get("health") ?? "", review: p.get("review") ?? "", role: p.get("role") ?? "", tag: p.get("tag") ?? "" };
 }
 
 /**
@@ -39,6 +40,9 @@ export default function RelationshipsPage() {
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   useEffect(() => { setF(initialFilters()); setReady(true); }, []);
+  const [tags, setTags] = useState<CrmTag[]>([]);
+  const loadTags = useCallback(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
+  useEffect(() => { loadTags(); }, [loadTags]);
   useEffect(() => { apiClient.crmPeople().then(setPeople).catch(() => setPeople([])); }, []);
 
   // Typing waits a moment before asking the server, so each keystroke is not a request.
@@ -84,6 +88,7 @@ export default function RelationshipsPage() {
         <div style={{ minWidth: 150 }}><Select value={f.status} onChange={(v) => set({ status: v })} allLabel="Any status" options={CRM_STATUSES.map((t) => ({ value: t, label: CRM_STATUS_LABELS[t] }))} ariaLabel="Filter by status" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.health} onChange={(v) => set({ health: v })} allLabel="Any health" options={[{ value: "attention", label: "Needs attention or worse" }, { value: "AT_RISK", label: CRM_HEALTH_LABELS.AT_RISK }]} ariaLabel="Filter by health" /></div>
+        {tags.length > 0 && <div style={{ minWidth: 170 }}><Select value={f.tag} onChange={(v) => set({ tag: v })} allLabel="Any tag" options={tags.map((t) => ({ value: t.id, label: `${t.name} (${t.count})` }))} ariaLabel="Filter by tag" /></div>}
         <div style={{ minWidth: 170 }}><Select value={f.owner} onChange={(v) => set({ owner: v })} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }, ...people.map((p) => ({ value: p.id, label: p.name }))]} ariaLabel="Filter by owner" /></div>
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{busy ? "Loading…" : data ? `${data.total} relationship${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
       </div>
@@ -91,13 +96,13 @@ export default function RelationshipsPage() {
       {focus && (
         <div style={{ display: "grid", gap: 8 }}>
           <p style={{ margin: 0, fontSize: 13.5 }}>Opened from a link. <button type="button" onClick={() => { setFocus(null); setOpen(null); window.history.replaceState(null, "", "/relationships"); }} style={{ all: "unset", cursor: "pointer", textDecoration: "underline", color: "var(--u-link, var(--u-brand-violet))" }}>Close this and show the list</button></p>
-          <Row key={`focus-${focus.id}`} r={focus} open={open === focus.id} onToggle={() => setOpen(open === focus.id ? null : focus.id)} canManage={canManage} people={people} ownerName={focus.ownerUserId ? personName.get(focus.ownerUserId) ?? focus.ownerName : null}
-            onSaved={(msg) => { setOk(msg); load(); loadOverview(); apiClient.crmRelationship(focus.id).then(setFocus).catch(() => undefined); }} onError={setErr} />
+          <Row key={`focus-${focus.id}`} r={focus} open={open === focus.id} onToggle={() => setOpen(open === focus.id ? null : focus.id)} canManage={canManage} people={people} allTags={tags} ownerName={focus.ownerUserId ? personName.get(focus.ownerUserId) ?? focus.ownerName : null}
+            onSaved={(msg) => { setOk(msg); load(); loadOverview(); loadTags(); apiClient.crmRelationship(focus.id).then(setFocus).catch(() => undefined); }} onError={setErr} />
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
-        {data?.items.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
-          onSaved={(msg) => { setOk(msg); load(); loadOverview(); }} onError={setErr} />)}
+        {data?.items.map((r) => <Row key={r.id} r={r} open={open === r.id} onToggle={() => setOpen(open === r.id ? null : r.id)} canManage={canManage} people={people} allTags={tags} ownerName={r.ownerUserId ? personName.get(r.ownerUserId) ?? r.ownerName : null}
+          onSaved={(msg) => { setOk(msg); load(); loadOverview(); loadTags(); }} onError={setErr} />)}
         {data && data.items.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No relationships match these filters.</p>}
       </div>
 
@@ -108,7 +113,7 @@ export default function RelationshipsPage() {
   );
 }
 
-function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError }: { r: CrmRelationshipRow; open: boolean; onToggle: () => void; canManage: boolean; people: CrmPeopleOption[]; ownerName: string | null; onSaved: (m: string) => void; onError: (m: string | null) => void }) {
+function Row({ r, open, onToggle, canManage, people, allTags, ownerName, onSaved, onError }: { r: CrmRelationshipRow; open: boolean; onToggle: () => void; canManage: boolean; people: CrmPeopleOption[]; allTags: CrmTag[]; ownerName: string | null; onSaved: (m: string) => void; onError: (m: string | null) => void }) {
   const [draft, setDraft] = useState({ tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId ?? "", summary: r.summary ?? "", reviewIntervalMonths: r.reviewIntervalMonths, healthOverride: (r.healthOverride ?? "") as CrmHealth | "", healthOverrideReason: r.healthOverrideReason ?? "" });
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<Tab360>("overview");
@@ -130,6 +135,7 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
       <button type="button" aria-expanded={open} aria-controls={`rel-${r.id}`} onClick={onToggle} style={{ all: "unset", boxSizing: "border-box", width: "100%", cursor: "pointer", padding: "10px 14px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", color: "var(--u-ink)" }}>
         <span><span aria-hidden="true" style={{ display: "inline-block", width: 14 }}>{open ? "▾" : "▸"}</span> <strong>{r.name}</strong> <span style={{ color: "var(--u-ink-secondary)" }}>· {r.roles.map(humanise).join(", ") || "Stakeholder"}{r.countryCode ? ` · ${r.countryCode}` : ""}</span></span>
         <span style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {r.tags.slice(0, 2).map((t) => <Pill key={t.id} tone="brand">{t.name}</Pill>)}{r.tags.length > 2 && <span style={{ color: "var(--u-ink-secondary)" }}>+{r.tags.length - 2}</span>}
           <Pill tone="neutral">{CRM_TIER_LABELS[r.tier]}</Pill>
           <Pill tone={r.status === "ACTIVE" ? "good" : "neutral"}>{CRM_STATUS_LABELS[r.status]}</Pill>
           <Pill tone={HEALTH_TONE[r.health]}>{CRM_HEALTH_LABELS[r.health]}</Pill>
@@ -156,6 +162,7 @@ function Row({ r, open, onToggle, canManage, people, ownerName, onSaved, onError
             <dt style={dt}>Certificates</dt><dd style={dd}>{r.certsExpired ? `${r.certsExpired} expired` : "None expired"}{r.certsExpiringSoon ? `, ${r.certsExpiringSoon} expiring within 60 days` : ""}</dd>
             <dt style={dt}>Last reviewed</dt><dd style={dd}>{fmtDate(r.lastReviewedAt)}</dd>
             <dt style={dt}>Next review due</dt><dd style={dd}>{fmtDate(r.nextReviewDue)} (every {r.reviewIntervalMonths} months)</dd>
+            <dt style={dt}>Tags</dt><dd style={dd}><Tags r={r} allTags={allTags} canManage={canManage} onChanged={(m) => onSaved(`${r.name}: ${m}`)} onError={onError} /></dd>
             <dt style={dt}>Since</dt><dd style={dd}>{fmtDate(r.createdAt)}</dd>
           </dl>
           {canManage ? (
