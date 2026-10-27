@@ -1567,3 +1567,4 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 
 ## 2026-10-27 — Fix: data-health endpoint returned 500
 - Found in the live check: `GET /data-health` had no `@UseGuards(EntraAuthGuard)`, so the request had no user and every call failed (the Admin Data health page and every Overview note showed nothing, because the note hides itself on a failed load). Guard added.
+- Live check also found: the Tenders "no criteria" fix link opened the builder of an awarded tender (the builder only opens drafts, so it redirected). It now goes to the builder only when the one tender is a draft, otherwise to the filtered list. The Insights "no product category" link now opens a real Project Management filter (`gap=lineNoCategory`).

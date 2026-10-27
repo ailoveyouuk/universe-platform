@@ -65,7 +65,7 @@ export class DataHealthService {
           tx.tender.count({ where: { ...mine, tenderType: "FRAMEWORK" } }),
           tx.tender.count({ where: { ...mine, tenderType: "FRAMEWORK", frameworkCeiling: null } }),
           tx.tender.count({ where: { ...mine, tenderType: "FRAMEWORK", frameworkTermMonths: null } }),
-          tx.tender.findFirst({ where: { ...mine, criteria: { none: {} } }, select: { id: true } }),
+          tx.tender.findFirst({ where: { ...mine, status: "DRAFT", criteria: { none: {} } }, select: { id: true } }),
         ]);
         add("tenders", [
           gap({ key: "noClosing", label: "Tenders with no closing date", benefit: "Bidders and the deadline reminders have nothing to work to, and the tender cannot be opened for bids on time.", count: noClosing, total, href: "/tenders?gap=noClosing" }),
@@ -111,7 +111,7 @@ export class DataHealthService {
           gap({ key: "noCost", label: "Projects with lines that have no supplier unit price", benefit: "Cost-price movement, like-for-like comparisons and the services rate card cannot include those lines, so the sector figures are thinner.", count: noCost, total: projects, href: pm("lineNoCost") }),
           gap({ key: "noOrigin", label: "Projects with lines that have no country of manufacture", benefit: "The geographies and sourcing lenses cannot place that work on the map.", count: noOrigin, total: projects, href: pm("lineNoOrigin") }),
           gap({ key: "noFreight", label: "Projects with no freight cost", benefit: "Freight cost per tonne per 1,000 km and the transport-mode comparison leave them out.", count: noFreight, total: projects, href: pm("noFreightCost") }),
-          gap({ key: "noCategory", label: "Projects with lines that have no product category", benefit: "Group-level price and volume views cannot count them.", count: noCat, total: projects, href: "app:project-management/projects" }),
+          gap({ key: "noCategory", label: "Projects with lines that have no product category", benefit: "Group-level price and volume views cannot count them.", count: noCat, total: projects, href: pm("lineNoCategory") }),
         ]);
       }
 

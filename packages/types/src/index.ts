@@ -4627,6 +4627,7 @@ export const PROJECT_GAP_LABELS = {
   lineNoPrice: "Lines with no unit sales price",
   lineNoCost: "Lines with no supplier unit price",
   lineNoOrigin: "Lines with no country of manufacture",
+  lineNoCategory: "Lines with no product category",
   noFreightCost: "No freight cost",
 } as const;
 export type ProjectGap = keyof typeof PROJECT_GAP_LABELS;

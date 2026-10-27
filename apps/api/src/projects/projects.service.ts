@@ -497,6 +497,7 @@ export function projectGapWhere(gap?: string): Record<string, unknown> {
     case "lineNoPrice": return line({ unitSalesPrice: null });
     case "lineNoCost": return line({ supplierUnitPrice: null });
     case "lineNoOrigin": return line({ countryOfManufactureCode: null });
+    case "lineNoCategory": return line({ productCategory: null });
     case "noFreightCost": return { freightCost: null };
     default: return {};
   }
