@@ -47,3 +47,22 @@ describe("CRM relationship creation", () => {
     expect(counterpartyKeyForPartner("abc")).toBe("partner:abc");
   });
 });
+
+describe("CRM interaction recency", () => {
+  const rec = { ...base, tier: "STANDARD", createdAt: "2025-01-01T00:00:00Z" };
+  it("flags an active relationship with no interaction in 6 months", () => {
+    const h = crmHealth({ ...rec, lastInteractionAt: "2026-02-01T00:00:00Z" }, now);
+    expect(h.health).toBe("WATCH");
+    expect(h.reasons).toContain("No interaction recorded in 6 months");
+  });
+  it("is healthy with a recent interaction", () => {
+    expect(crmHealth({ ...rec, lastInteractionAt: "2026-09-01T00:00:00Z" }, now).health).toBe("GOOD");
+  });
+  it("holds Strategic relationships to 3 months", () => {
+    expect(crmHealth({ ...rec, tier: "STRATEGIC", lastInteractionAt: "2026-06-01T00:00:00Z" }, now).reasons).toContain("No interaction recorded in 3 months");
+  });
+  it("gives a new relationship a grace period and ignores non-active ones", () => {
+    expect(crmHealth({ ...rec, createdAt: "2026-09-01T00:00:00Z", lastInteractionAt: null }, now).health).toBe("GOOD");
+    expect(crmHealth({ ...rec, status: "DORMANT", lastInteractionAt: null }, now).health).toBe("GOOD");
+  });
+});

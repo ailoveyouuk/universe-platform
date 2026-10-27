@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, withTenantContext } from "@universe/db";
-import { canUseApp, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
+import { canUseApp, CRM_HEALTH, CRM_PROJECT_PARTS, CRM_STATUSES, CRM_TIERS, crmHealth, crmRecencyCutoff, type CrmHealth, type CrmLastProject, type CrmLink, type CrmLocation, type CrmPortfolio, type CrmPortfolioMap, type CrmProjectPage, type CrmWorkBucket, type CrmOverview, type CrmPeopleOption, type CrmRelationshipDetail, type CrmRelationshipPage, type CrmRelationshipRow, type CrmRelationshipUpdate, type CrmStatus, type CrmTier } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { assertHasPermission } from "../common/authorization";
@@ -102,11 +102,11 @@ export class CrmService {
     return map;
   }
 
-  private static readonly include = { partner: { select: { name: true, countryCode: true, createdAt: true, updatedAt: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } }, tagLinks: { where: { removedAt: null, tag: { archivedAt: null } }, select: { tag: { select: { id: true, name: true } } } } } as const;
+  private static readonly include = { interactions: { where: { archivedAt: null }, orderBy: { occurredAt: "desc" as const }, take: 1, select: { occurredAt: true } }, partner: { select: { name: true, countryCode: true, createdAt: true, updatedAt: true, approvalStatus: true, riskTier: true, nextApprovalReviewDue: true, roles: { where: { isActive: true }, select: { roleType: true } } } }, tagLinks: { where: { removedAt: null, tag: { archivedAt: null } }, select: { tag: { select: { id: true, name: true } } } } } as const;
 
   private shape(r: any, owners: Map<string, string>, facts: Facts): CrmRelationshipRow {
     const f = facts.get(r.partnerId ?? "") ?? { open: facts.canComplaints ? 0 : null, expired: 0, soon: 0 };
-    const calc = crmHealth({ openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon, approvalStatus: r.partner?.approvalStatus ?? null, nextApprovalReviewDue: r.partner?.nextApprovalReviewDue?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null, status: r.status });
+    const calc = crmHealth({ openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon, approvalStatus: r.partner?.approvalStatus ?? null, nextApprovalReviewDue: r.partner?.nextApprovalReviewDue?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null, status: r.status, tier: r.tier, createdAt: r.createdAt?.toISOString() ?? null, lastInteractionAt: r.interactions?.[0]?.occurredAt?.toISOString() ?? null });
     return {
       id: r.id, partnerId: r.partnerId, name: r.partner?.name ?? "Unknown", countryCode: r.partner?.countryCode ?? null,
       roles: (r.partner?.roles ?? []).map((x: { roleType: string }) => x.roleType), approvalStatus: r.partner?.approvalStatus ?? null, riskTier: r.partner?.riskTier ?? null,
@@ -139,6 +139,8 @@ export class CrmService {
       { partner: { nextApprovalReviewDue: { lt: now } } },
       { status: { notIn: ["ENDED", "PROSPECT"] }, nextReviewDue: { lt: now } },
       { partner: { certifications: { some: { status: "CURRENT", expiryDate: { gte: now, lte: soon } } } } },
+      // Interaction recency: an active relationship older than its tier's window with no interaction inside it.
+      ...(["STRATEGIC", "KEY", "STANDARD", "WATCH"] as const).map((t): Prisma.CrmRelationshipWhereInput => { const c = crmRecencyCutoff(t, now); return { tier: t, status: "ACTIVE", createdAt: { lt: c }, interactions: { none: { archivedAt: null, occurredAt: { gte: c } } } }; }),
       ...(canComplaints ? [{ partner: { qualityComplaints: { some: { archivedAt: null, status: { notIn: ["RESOLVED", "CLOSED", "WITHDRAWN"] } } } } } as Prisma.CrmRelationshipWhereInput] : []),
     ] };
   }

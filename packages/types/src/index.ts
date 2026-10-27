@@ -4104,7 +4104,14 @@ export interface CrmHealthInputs {
   /** Current certificates already past expiry, and those expiring within 60 days. */
   certsExpired?: number;
   certsExpiringSoon?: number;
+  /** Interaction recency (2026-10-27): tier, when the relationship was created and the date of the latest recorded interaction. */
+  tier?: string | null;
+  createdAt?: string | null;
+  lastInteractionAt?: string | null;
 }
+/** Months without a recorded interaction before an ACTIVE relationship needs attention. Strategic relationships are held to a closer rhythm. */
+export const CRM_RECENCY_MONTHS: Record<string, number> = { STRATEGIC: 3, KEY: 6, STANDARD: 6, WATCH: 6 };
+export function crmRecencyCutoff(tier: string | null | undefined, now = new Date()): Date { const d = new Date(now); d.setMonth(d.getMonth() - (CRM_RECENCY_MONTHS[tier ?? "STANDARD"] ?? 6)); return d; }
 /** Calculated health with the reasons, so a person can see why. A manager's override, if set, is shown beside it, never instead of it. */
 export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHealth; reasons: string[] } {
   const reasons: string[] = [];
@@ -4119,6 +4126,10 @@ export function crmHealth(i: CrmHealthInputs, now = new Date()): { health: CrmHe
   else if (i.certsExpiringSoon) raise("WATCH", `${i.certsExpiringSoon} certificate${i.certsExpiringSoon === 1 ? " expires" : "s expire"} within 60 days`);
   if (i.openComplaints) raise("WATCH", `${i.openComplaints} open quality complaint${i.openComplaints === 1 ? "" : "s"}`);
   if (i.status !== "ENDED" && i.status !== "PROSPECT" && past(i.nextReviewDue)) raise("WATCH", "Relationship review is overdue");
+  if (i.status === "ACTIVE" && i.createdAt) {
+    const cutoff = crmRecencyCutoff(i.tier, now);
+    if (new Date(i.createdAt) < cutoff && (!i.lastInteractionAt || new Date(i.lastInteractionAt) < cutoff)) raise("WATCH", `No interaction recorded in ${CRM_RECENCY_MONTHS[i.tier ?? "STANDARD"] ?? 6} months`);
+  }
   return { health, reasons };
 }
 
@@ -4355,3 +4366,34 @@ export interface CrmComplianceSummary {
   givenLast12Months: number; receivedLast12Months: number; policyCurrency: string; policyConfigured: boolean; policyReviewOverdue: boolean; noPolicyDocument: boolean;
 }
 export interface CrmEvidenceUploadInput { fileName: string; contentType: string }
+
+// ---- CRM: Universe network (2026-10-27) ----
+/** Fewest organisations that must contribute before a shared figure is shown. */
+export const CRM_NETWORK_FLOOR = 5;
+export interface CrmNetworkOrganisation {
+  organizationId: string;
+  name: string;
+  type: string;
+  countryCode: string | null;
+  /** The relationship already tracking this organisation, if any. */
+  trackedRelationshipId: string | null;
+}
+export interface CrmNetworkPanel {
+  /** False when the stakeholder is not linked to the shared Universe registry. */
+  linked: boolean;
+  /** Anonymised: how many other organisations in Universe hold this stakeholder. Null when below the floor. */
+  otherOrganisations: number | null;
+  belowFloor: boolean;
+  /** Roles other organisations hold them as, counts only, shown only at or above the floor. */
+  roles: { roleType: string; count: number }[];
+  /** True when the stakeholder has published a Universe profile, so identity may be shown. */
+  identityPublic: boolean;
+  organization: { id: string; name: string; type: string; countryCode: string | null; website: string | null; description: string | null } | null;
+  /** Tender history with this organisation (identity-public only). Your own tenders are named; the wider figures are counts. */
+  tenders: {
+    yourAwards: { tenderId: string; reference: string; title: string; awardedAt: string }[];
+    yourBids: number;
+    universeBids: number | null;
+    universeAwards: number | null;
+  } | null;
+}

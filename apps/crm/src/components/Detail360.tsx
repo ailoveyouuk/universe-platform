@@ -7,9 +7,9 @@ import { fmtDate, humanise } from "../lib/ui";
 import { Places } from "./Places";
 import { WorkTab } from "./WorkTab";
 
-export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "performance" | "compliance";
+export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "network" | "performance" | "compliance";
 export const TABS_360: { key: Tab360; label: string }[] = [
-  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "places", label: "Places and links" }, { key: "work", label: "Work together" }, { key: "hospitality", label: "Gifts and hospitality" },
+  { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "places", label: "Places and links" }, { key: "work", label: "Work together" }, { key: "hospitality", label: "Gifts and hospitality" }, { key: "network", label: "Universe network" },
   { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
 ];
 

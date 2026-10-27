@@ -6,6 +6,7 @@ import { Detail360, TABS_360, type Tab360 } from "../../components/Detail360";
 import { Tags } from "../../components/Tags";
 import { SavedFilters } from "../../components/SavedFilters";
 import { Hospitality } from "../../components/Hospitality";
+import { AddFromUniverse, Network } from "../../components/Network";
 import { Interactions } from "../../components/Interactions";
 import { Opportunities } from "../../components/Opportunities";
 import { People } from "../../components/People";
@@ -85,6 +86,7 @@ export default function RelationshipsPage() {
         <StatTile label="Reviews due" value={o?.reviewDue} icon={<ClockIcon size={18} />} tone="critical" onClick={() => toggle({ review: "due" })} active={tileOn({ review: "due" })} />
       </StatTileGrid>
 
+      {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); }} />}
       <SavedFilters view="RELATIONSHIPS" current={f as unknown as Record<string, string>} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }} role="search" aria-label="Filter relationships">
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, owner, country…" /></div>
@@ -155,7 +157,7 @@ function Row({ r, open, onToggle, canManage, people, allTags, ownerName, onSaved
             ); })}
           </div>
           <div role="tabpanel" id={`panel-${r.id}`} aria-labelledby={`tab-${r.id}-${tab}`} style={{ display: "grid", gap: 14 }}>
-          {tab === "interactions" ? <Interactions relId={r.id} canManage={canManage} people={people} /> : tab === "opportunities" ? <Opportunities relId={r.id} canManage={canManage} people={people} /> : tab === "hospitality" ? <Hospitality relId={r.id} canManage={canManage} /> : tab === "people" ? <People relId={r.id} partnerId={r.partnerId} canManage={canManage} /> : tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} canManage={canManage} /> : (<>
+          {tab === "interactions" ? <Interactions relId={r.id} canManage={canManage} people={people} /> : tab === "opportunities" ? <Opportunities relId={r.id} canManage={canManage} people={people} /> : tab === "hospitality" ? <Hospitality relId={r.id} canManage={canManage} /> : tab === "network" ? <Network relId={r.id} /> : tab === "people" ? <People relId={r.id} partnerId={r.partnerId} canManage={canManage} /> : tab !== "overview" ? <Detail360 relId={r.id} partnerId={r.partnerId} tab={tab} card={card} canManage={canManage} /> : (<>
           <dl style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "4px 14px", margin: "6px 0 0" }}>
             <dt style={dt}>Health</dt>
             <dd style={dd}>{CRM_HEALTH_LABELS[r.health]}{r.healthReasons.length ? `: ${r.healthReasons.join("; ")}` : ". Nothing is overdue and the stakeholder is approved."}{r.healthOverride && <> A manager has recorded <strong>{CRM_HEALTH_LABELS[r.healthOverride]}</strong>: {r.healthOverrideReason}</>}</dd>
