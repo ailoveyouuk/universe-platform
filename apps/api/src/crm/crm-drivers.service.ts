@@ -19,19 +19,21 @@ export class CrmDriversService {
     return withTenantContext(org, async (tx) => {
       const closed = await tx.crmOpportunity.findMany({
         where: { organizationId: org, archivedAt: null, stage: { in: ["WON", "LOST"] } }, take: 20000,
-        select: { id: true, relationshipId: true, stage: true, createdAt: true, stageChangedAt: true, ownerUserId: true, sourceTenderId: true, linkedType: true, relationship: { select: { partnerId: true } } },
+        select: { id: true, relationshipId: true, stage: true, createdAt: true, stageChangedAt: true, ownerUserId: true, sourceTenderId: true, linkedType: true, commodityGroup: true, expectedValue: true, expectedDate: true, relationship: { select: { partnerId: true, partner: { select: { countryCode: true } } } } },
       });
       const won = closed.filter((o) => o.stage === "WON").length, lost = closed.length - won;
-      if (closed.length === 0) return { won, lost, factors: [] };
+      if (closed.length === 0) return { won, lost, factors: [], breakdowns: [] };
       const relIds = [...new Set(closed.map((o) => o.relationshipId))];
       const partnerIds = [...new Set(closed.map((o) => o.relationship.partnerId).filter((x): x is string => !!x))];
-      const [interactions, partners, certs, complaints, lines] = await Promise.all([
+      const [people, interactions, partners, certs, complaints, lines] = await Promise.all([
+        tx.crmOpportunityParticipant.groupBy({ by: ["opportunityId"], where: { organizationId: org, archivedAt: null, opportunityId: { in: closed.map((o) => o.id) } }, _count: { _all: true } }),
         tx.crmInteraction.findMany({ where: { organizationId: org, relationshipId: { in: relIds }, archivedAt: null }, select: { relationshipId: true, occurredAt: true }, take: 100000 }),
         partnerIds.length ? tx.partner.findMany({ where: { id: { in: partnerIds } }, select: { id: true, approvalStatus: true } }) : [],
         partnerIds.length ? tx.partnerCertification.findMany({ where: { partnerId: { in: partnerIds }, status: "CURRENT" }, select: { partnerId: true, expiryDate: true } }) : [],
         partnerIds.length ? tx.qualityComplaint.findMany({ where: { organizationId: org, partnerId: { in: partnerIds }, status: { not: "WITHDRAWN" } }, select: { partnerId: true } }) : [],
         partnerIds.length ? tx.projectLine.findMany({ where: { archivedAt: null, OR: [{ manufacturerId: { in: partnerIds } }, { supplierId: { in: partnerIds } }] }, select: { manufacturerId: true, supplierId: true, internalOnTime: true, supplierInFull: true }, take: 100000 }) : [],
       ]);
+      const crowd = new Map(people.map((p) => [p.opportunityId, p._count._all]));
       const touches = new Map<string, number[]>();
       for (const i of interactions) { const a = touches.get(i.relationshipId) ?? []; a.push(i.occurredAt.getTime()); touches.set(i.relationshipId, a); }
       const approved = new Set(partners.filter((p) => p.approvalStatus === "APPROVED").map((p) => p.id));
@@ -49,6 +51,9 @@ export class CrmDriversService {
         { key: "owner", label: "Someone owned it", detail: "An owner was named on the opportunity.", basis: "AT_CLOSE", href: "/pipeline?gap=noOwner", test: (o) => !!o.ownerUserId },
         { key: "repeat", label: "Repeat business with the same stakeholder", detail: "We had already won something with this stakeholder before this opportunity began.", basis: "AT_CLOSE", href: "/relationships", test: (o) => wonBefore(o) },
         { key: "tender", label: "Tied to a tender", detail: "Linked to a tender on the platform, so the bid and award were tracked.", basis: "AT_CLOSE", href: "/pipeline?gap=noLink", test: (o) => !!o.sourceTenderId || o.linkedType === "TENDER" },
+        { key: "quick", label: "Decided within 60 days", detail: "It closed within two months of being opened.", basis: "AT_CLOSE", href: "/pipeline", test: (o) => o.stageChangedAt.getTime() - o.createdAt.getTime() <= 60 * DAY },
+        { key: "people", label: "Three or more people involved", detail: "Three or more stakeholders were recorded against it (issuer, bidders, manufacturers, forwarders and others).", basis: "AT_CLOSE", href: "/pipeline", test: (o) => (crowd.get(o.id) ?? 0) >= 3 },
+        { key: "recorded", label: "Value and expected date recorded", detail: "Filled in as well as it could be, so the opportunity was properly forecast.", basis: "AT_CLOSE", href: "/pipeline?gap=noValue", test: (o) => o.expectedValue !== null && !!o.expectedDate },
         { key: "approved", label: "Stakeholder approved", detail: "The stakeholder's approval status is Approved today.", basis: "TODAY", href: "/relationships", test: (o) => (o.relationship.partnerId ? approved.has(o.relationship.partnerId) : null) },
         { key: "certified", label: "Certificates in date", detail: "The stakeholder has current certificates and none has expired.", basis: "TODAY", href: "/compliance", test: (o) => { const pid = o.relationship.partnerId; if (!pid) return null; const s = certState.get(pid); return s ? s.any && !s.expired : null; } },
         { key: "noComplaints", label: "No complaints on record", detail: "No quality complaint has been logged with this stakeholder.", basis: "TODAY", href: "/relationships", test: (o) => (o.relationship.partnerId ? !complained.has(o.relationship.partnerId) : null) },
@@ -63,8 +68,17 @@ export class CrmDriversService {
         const lift = nW >= 3 && nWo >= 3 ? Math.round((w.won / nW - wo.won / nWo) * 100) : null;
         factors.push({ key: d.key, label: d.label, detail: d.detail, basis: d.basis, with: w, without: wo, lift, href: d.href });
       }
+      const rows = (label: (o: (typeof closed)[number]) => string | null) => {
+        const m = new Map<string, { won: number; lost: number }>();
+        for (const o of closed) { const k = label(o); if (!k) continue; const x = m.get(k) ?? { won: 0, lost: 0 }; if (o.stage === "WON") x.won++; else x.lost++; m.set(k, x); }
+        return [...m].map(([label, x]) => ({ label, ...x })).sort((a, b) => b.won + b.lost - (a.won + a.lost)).slice(0, 8);
+      };
+      const breakdowns = [
+        { key: "group", label: "By commodity or service", rows: rows((o) => o.commodityGroup) },
+        { key: "country", label: "By stakeholder country", rows: rows((o) => o.relationship.partner?.countryCode ?? null) },
+      ].filter((b) => b.rows.length > 1);
       factors.sort((a, b) => Math.abs(b.lift ?? 0) - Math.abs(a.lift ?? 0));
-      return { won, lost, factors };
+      return { won, lost, factors, breakdowns };
     });
   }
 }

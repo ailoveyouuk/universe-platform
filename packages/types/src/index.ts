@@ -4610,4 +4610,6 @@ export interface CrmDriverFactor {
   /** Where to look at those opportunities or fix the underlying record. */
   href: string | null;
 }
-export interface CrmWinLossDrivers { won: number; lost: number; factors: CrmDriverFactor[] }
+/** Won and lost counts across one dimension (commodity group, country). Labels are codes the page turns into names. */
+export interface CrmDriverBreakdown { key: string; label: string; rows: { label: string; won: number; lost: number }[] }
+export interface CrmWinLossDrivers { won: number; lost: number; factors: CrmDriverFactor[]; breakdowns: CrmDriverBreakdown[] }

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { CrmDriverFactor, CrmWinLossDrivers } from "@universe/types";
+import type { CrmDriverBreakdown, CrmDriverFactor, CrmWinLossDrivers } from "@universe/types";
+import { useCountries } from "../lib/useCountries";
 import { apiClient } from "../lib/apiClient";
 
 const muted: React.CSSProperties = { margin: 0, fontSize: 13, color: "var(--u-ink-secondary)" };
@@ -33,18 +34,40 @@ function Factor({ f }: { f: CrmDriverFactor }) {
   );
 }
 
+function Breakdown({ b, name }: { b: CrmDriverBreakdown; name: (l: string) => string }) {
+  const max = Math.max(1, ...b.rows.map((r) => r.won + r.lost));
+  return (
+    <li style={{ display: "grid", gap: 6 }}>
+      <span style={{ fontWeight: 600, fontSize: 14 }}>{b.label}</span>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+        {b.rows.map((r) => (
+          <li key={r.label} style={{ display: "grid", gridTemplateColumns: "minmax(70px, 120px) 1fr 84px", gap: 8, alignItems: "center", fontSize: 12.5 }}>
+            <span>{name(r.label)}</span>
+            <span aria-hidden="true" style={{ ...track, display: "flex", width: `${((r.won + r.lost) / max) * 100}%`, minWidth: 14 }}>
+              <span style={{ width: `${(r.won / (r.won + r.lost)) * 100}%`, backgroundColor: "var(--u-module-product-database)" }} />
+            </span>
+            <span style={{ color: "var(--u-ink-secondary)" }}>{r.won} won · {r.lost} lost</span>
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
 /**
  * What the platform knows about the opportunities that were won or lost (2026-10-27): the organisation's own contact history, tenders, approvals, certificates, complaints
  * and delivery record set against the outcome. It sits above the reasons people typed, which are kept as one more piece of evidence.
  */
 export function WinLossDrivers({ version }: { version: number }) {
   const [d, setD] = useState<CrmWinLossDrivers | null>(null);
+  const countries = useCountries();
   useEffect(() => { apiClient.crmWinLossDrivers().then(setD).catch(() => setD(null)); }, [version]);
   if (!d || d.factors.length === 0) return null;
   return (
     <>
       <p style={muted}>What the platform knows about the {d.won} won and {d.lost} lost: win rate with and without each factor, strongest differences first.</p>
       {d.factors.some((f) => f.lift !== null) && <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>{d.factors.filter((f) => f.lift !== null).map((f) => <Factor key={f.key} f={f} />)}</ul>}
+      {d.breakdowns.length > 0 && <><p style={muted}>Where we win most: won and lost by commodity or service and by stakeholder country. The green part of each bar is the share won.</p><ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>{d.breakdowns.map((b) => <Breakdown key={b.key} b={b} name={(l) => (b.key === "country" ? countries.find((c) => c.code === l)?.name ?? l : l)} />)}</ul></>}
       {d.factors.some((f) => f.lift === null) && <p style={{ ...muted, fontSize: 12.5 }}>Not enough variety in your records yet to compare: {d.factors.filter((f) => f.lift === null).map((f) => f.label.toLowerCase()).join("; ")}. These fill in as more opportunities close and more is recorded.</p>}
     </>
   );
