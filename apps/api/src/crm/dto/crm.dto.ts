@@ -78,6 +78,7 @@ export class OpportunityDto {
   @IsOptional() @IsString() @MaxLength(1000) notes?: string | null;
   @IsOptional() @IsString() @MaxLength(500) lostReason?: string | null;
   @IsOptional() @IsString() @MaxLength(100) linkedProjectId?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) commodityGroup?: string | null;
   @IsOptional() @IsBoolean() archived?: boolean;
 }
 
@@ -87,7 +88,7 @@ export class TagDto {
 }
 
 export class SavedFilterDto {
-  @IsOptional() @IsString() @MaxLength(20) view?: "RELATIONSHIPS" | "PORTFOLIO";
+  @IsOptional() @IsString() @MaxLength(20) view?: "RELATIONSHIPS" | "PORTFOLIO" | "OPPORTUNITIES";
   @IsOptional() @IsString() @MaxLength(80) name?: string;
   @IsOptional() filters?: Record<string, string>;
   @IsOptional() @IsBoolean() shared?: boolean;

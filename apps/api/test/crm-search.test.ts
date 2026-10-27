@@ -135,4 +135,36 @@ describe("CRM search", () => {
     expect(one.stakeholders).toEqual([]);
     expect(one.openValue).toBe(1000);
   });
+
+  it("records stage and revision history, estimates win probability, and reports attention, owners and currency exposure", async () => {
+    const o = await opps.create(u.manager, { relationshipId: relA, title: `History ${suffix}`, kind: "TENDER", stage: "IDENTIFIED", expectedValue: 1000, currency: "GBP", expectedDate: new Date(Date.now() - 5 * 86400000).toISOString(), commodityGroup: "PHARMACEUTICALS", ownerUserId: u.manager.id });
+    expect(o.probability).toBeGreaterThan(0);
+    expect(o.winBasis?.stagePrior).toBe(0.1);
+    expect(o.commodityGroup).toBe("PHARMACEUTICALS");
+    await opps.update(u.manager, o.id, { stage: "QUALIFYING" });
+    await opps.update(u.manager, o.id, { expectedDate: new Date(Date.now() + 30 * 86400000).toISOString(), expectedValue: 1200, currency: "GBP" });
+    const events = await withPlatformStaffContext((tx) => tx.crmOpportunityEvent.findMany({ where: { opportunityId: o.id }, orderBy: { occurredAt: "asc" } }));
+    expect(events.map((e) => e.eventType)).toEqual(["CREATED", "STAGE", "REVISION"]);
+    expect(events[1]).toMatchObject({ fromStage: "IDENTIFIED", toStage: "QUALIFYING" });
+    expect(Number(events[2].oldValue)).toBe(1000); expect(Number(events[2].newValue)).toBe(1200);
+    await expect(opps.create(u.manager, { relationshipId: relA, title: "x", kind: "TENDER", commodityGroup: "NOT_A_GROUP" })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(opps.create(u.viewer, { relationshipId: relA, title: "x", kind: "TENDER" })).rejects.toThrow();
+    await withPlatformStaffContext((tx) => tx.crmOpportunity.create({ data: { organizationId: orgA, relationshipId: relA, title: `Stale ${suffix}`, kind: "SOURCING", stage: "ENGAGED", expectedValue: 300, currency: "GBP", stageChangedAt: new Date(Date.now() - 90 * 86400000) } }));
+    const v = await opps.pipelineView(u.manager, "GBP", relA);
+    expect(v.weightedValue).toBeGreaterThan(0);
+    expect(v.weightedValue).toBeLessThan(v.openValue);
+    expect(v.attention.staleCount).toBeGreaterThanOrEqual(1);
+    expect(v.attention.items.some((i) => i.reason === "STALE")).toBe(true);
+    expect(v.owners.find((x) => x.userId === u.manager.id)?.openCount).toBeGreaterThanOrEqual(1);
+    expect(v.owners.some((x) => x.userId === null)).toBe(true);
+    expect(v.exposure.find((x) => x.currency === "GBP")?.share).toBe(100);
+    expect(v.flow.find((f) => f.stage === "IDENTIFIED")!.reached).toBeGreaterThanOrEqual(1);
+    expect(v.accuracy.revisions).toBeGreaterThanOrEqual(1);
+    expect(v.lost.reasons.some((r) => r.reason === "price")).toBe(true);
+    const stale = await opps.list(u.manager, { relationshipId: relA, attention: "stale" });
+    expect(stale.items.every((i) => i.stage === "ENGAGED" || i.stage === "IDENTIFIED" || i.stage === "QUALIFYING")).toBe(true);
+    expect(stale.total).toBeGreaterThanOrEqual(1);
+    const byGroup = await opps.list(u.manager, { relationshipId: relA, group: "PHARMACEUTICALS" });
+    expect(byGroup.items.map((i) => i.title)).toContain(`History ${suffix}`);
+  });
 });

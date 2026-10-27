@@ -6,6 +6,7 @@ import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, categoryLabel, type CrmO
 import { Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { accentVar } from "../lib/category";
+import { PipelineInsights } from "./PipelineInsights";
 
 const STAGE_COLOUR: Record<CrmOpportunityStage, string> = {
   IDENTIFIED: "color-mix(in srgb, var(--u-module-crm) 55%, var(--u-surface))", QUALIFYING: "color-mix(in srgb, var(--u-module-crm) 72%, var(--u-surface))", ENGAGED: "var(--u-module-crm)", SUBMITTED: "var(--u-brand-violet)",
@@ -19,7 +20,7 @@ const muted: React.CSSProperties = { margin: 0, fontSize: 13, color: "var(--u-in
  * The pipeline as a picture (2026-10-27, Lewis: the figures read as an afterthought and connected to nothing). All values are converted into one currency chosen here, at
  * today's platform rate, so they can be compared and added. Choosing a stage filters the opportunity list below; kinds link to the stakeholder list for that kind.
  */
-export function PipelineVisual({ stage, onStage, version, relationshipId }: { stage: string; onStage?: (s: string) => void; version: number; relationshipId?: string }) {
+export function PipelineVisual({ stage, onStage, onAttention, version, relationshipId }: { stage: string; onStage?: (s: string) => void; onAttention?: (a: "stale" | "overdue") => void; version: number; relationshipId?: string }) {
   const [v, setV] = useState<CrmPipelineView | null>(null);
   const [cur, setCur] = useState<string>("");
   const [by, setBy] = useState<"value" | "count">("value");
@@ -50,7 +51,7 @@ export function PipelineVisual({ stage, onStage, version, relationshipId }: { st
       <p style={muted}>Every value is shown in {v.currency}{v.rateDate ? ` at the platform rate for ${new Date(v.rateDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}, so the stages can be compared and added. Cost-side estimates only.{missing > 0 ? ` ${missing} valued ${missing === 1 ? "opportunity is" : "opportunities are"} left out because no rate was available.` : ""}</p>
 
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 100%), 1fr))", gap: 12 }}>
-        {[["Open pipeline", money(v.openValue), `${CRM_OPEN_STAGES.reduce((n, s) => n + (v.stages.find((x) => x.stage === s)?.count ?? 0), 0)} open`], ["Won", money(v.wonValue), `${v.stages.find((x) => x.stage === "WON")?.count ?? 0} won`], ["Win rate", v.winRate === null ? "None closed yet" : `${v.winRate}%`, "won out of won and lost"], ["Due this month", next30 ? money(next30.value) : "—", `${next30?.count ?? 0} expected`]].map(([k, big, small]) => (
+        {[["Open pipeline", money(v.openValue), `${CRM_OPEN_STAGES.reduce((n, s) => n + (v.stages.find((x) => x.stage === s)?.count ?? 0), 0)} open`], ["Won", money(v.wonValue), `${v.stages.find((x) => x.stage === "WON")?.count ?? 0} won`], ["Win rate", v.winRate === null ? "None closed yet" : `${v.winRate}%`, "won out of won and lost"], ["Likely to land", money(v.weightedValue), v.model.closedCount ? `weighted by chance of winning · ${v.model.confidence === "HIGH" ? "well evidenced" : v.model.confidence === "MEDIUM" ? "some evidence" : "early estimate"}` : "weighted by stage; no history yet"], ["Due this month", next30 ? money(next30.value) : "—", `${next30?.count ?? 0} expected`]].map(([k, big, small]) => (
           <li key={k} style={{ ...card, gap: 2 }}><span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>{k}</span><span style={{ fontSize: 26, fontWeight: 700, fontFamily: "var(--u-font-display)", lineHeight: 1.15 }}>{big}</span><span style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{small}</span></li>
         ))}
       </ul>
@@ -64,10 +65,10 @@ export function PipelineVisual({ stage, onStage, version, relationshipId }: { st
               const on = stage === s.stage || (stage === "open" && false);
               return (
                 <li key={s.stage}>
-                  <button type="button" disabled={!onStage} onClick={() => onStage?.(on ? "open" : s.stage)} aria-pressed={onStage ? on : undefined} aria-label={`${CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}: ${s.count} opportunities, ${money(s.value)}. ${on ? "Showing in the list. Choose to show all open." : "Show in the list."}`}
+                  <button type="button" disabled={!onStage} onClick={() => onStage?.(on ? "open" : s.stage)} aria-pressed={onStage ? on : undefined} aria-label={`${CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}: ${s.count} opportunities, ${money(s.value)}${s.weighted > 0 ? `, likely ${money(s.weighted)}` : ""}. ${on ? "Showing in the list. Choose to show all open." : "Show in the list."}`}
                     style={{ all: "unset", display: "grid", gap: 3, width: "100%", cursor: onStage ? "pointer" : "default", boxSizing: "border-box", padding: "4px 6px", borderRadius: "var(--u-radius-md)", outline: on ? "2px solid var(--u-brand-violet)" : "none", outlineOffset: 1 }}>
-                    <span style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13.5 }}><span style={{ fontWeight: 600 }}>{CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}</span><span style={{ color: "var(--u-ink-secondary)" }}>{label(s)}</span></span>
-                    <span aria-hidden="true" style={{ display: "block", height: 14, borderRadius: 7, backgroundColor: "var(--u-border)" }}><span style={{ display: "block", height: "100%", borderRadius: 7, width: pct(metric(s), maxStage), backgroundColor: STAGE_COLOUR[s.stage], transition: "width .4s ease" }} /></span>
+                    <span style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13.5 }}><span style={{ fontWeight: 600 }}>{CRM_OPPORTUNITY_STAGE_LABELS[s.stage]}</span><span style={{ color: "var(--u-ink-secondary)" }}>{label(s)}{by === "value" && s.weighted > 0 ? ` · likely ${money(s.weighted)}` : ""}</span></span>
+                    <span aria-hidden="true" style={{ position: "relative", display: "block", height: 14, borderRadius: 7, backgroundColor: "var(--u-border)" }}><span style={{ display: "block", height: "100%", borderRadius: 7, width: pct(metric(s), maxStage), backgroundColor: STAGE_COLOUR[s.stage], transition: "width .4s ease" }} />{by === "value" && s.weighted > 0 && <span style={{ position: "absolute", left: 0, top: 4, height: 6, borderRadius: 3, width: pct(s.weighted, maxStage), backgroundColor: "var(--u-surface-raised)", opacity: 0.85 }} />}</span>
                   </button>
                 </li>
               );
@@ -77,17 +78,17 @@ export function PipelineVisual({ stage, onStage, version, relationshipId }: { st
 
         <div style={card}>
           <h3 style={h2}>Expected over the next twelve months</h3>
-          <p style={muted}>Open opportunities by the month they are expected.</p>
+          <p style={muted}>Open opportunities by the month they are expected. {by === "value" ? "The darker part of each bar is the share likely to be won." : ""}</p>
           <div style={{ overflowX: "auto" }}>
             <ul style={{ listStyle: "none", margin: 0, padding: "0 0 2px", display: "flex", alignItems: "flex-end", gap: 6, height: 170, minWidth: v.months.length * 40 }}>
               {v.months.map((m) => {
                 const d = m.month === "later" ? null : new Date(`${m.month}-01T00:00:00Z`);
                 const name = d ? d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }) : "Later";
                 return (
-                  <li key={m.month} tabIndex={0} aria-label={`${d ? d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }) : "Later than twelve months"}: ${m.count} expected, ${money(m.value)}`} title={`${name}: ${m.count} expected, ${money(m.value)}`}
+                  <li key={m.month} tabIndex={0} aria-label={`${d ? d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }) : "Later than twelve months"}: ${m.count} expected, ${money(m.value)}, likely ${money(m.weighted)}`} title={`${name}: ${m.count} expected, ${money(m.value)}, likely ${money(m.weighted)}`}
                     style={{ flex: "1 0 34px", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%", gap: 3, minWidth: 0 }}>
                     <span style={{ fontSize: 11, color: "var(--u-ink-secondary)" }}>{metric(m) > 0 ? (by === "value" ? money(m.value) : m.count) : ""}</span>
-                    <span aria-hidden="true" style={{ width: "70%", minHeight: metric(m) > 0 ? 4 : 1, height: `${(metric(m) / maxMonth) * 100 * 0.72}%`, borderRadius: "4px 4px 0 0", backgroundColor: metric(m) > 0 ? "var(--u-module-crm)" : "var(--u-border)", transition: "height .4s ease" }} />
+                    <span aria-hidden="true" style={{ position: "relative", width: "70%", minHeight: metric(m) > 0 ? 4 : 1, height: `${(metric(m) / maxMonth) * 100 * 0.72}%`, borderRadius: "4px 4px 0 0", backgroundColor: metric(m) > 0 ? "var(--u-module-crm)" : "var(--u-border)", transition: "height .4s ease", display: "flex", alignItems: "flex-end" }}>{by === "value" && m.value > 0 && <span style={{ display: "block", width: "100%", height: `${Math.min(100, (m.weighted / m.value) * 100)}%`, backgroundColor: "var(--u-brand-violet)", borderRadius: "0 0 0 0" }} />}</span>
                     <span style={{ fontSize: 11.5 }}>{name}</span>
                   </li>
                 );
@@ -131,6 +132,7 @@ export function PipelineVisual({ stage, onStage, version, relationshipId }: { st
           </ul>
         </div>
       )}
+      <PipelineInsights v={v} money={money} relationshipId={relationshipId} onAttention={onAttention} />
     </section>
   );
 }

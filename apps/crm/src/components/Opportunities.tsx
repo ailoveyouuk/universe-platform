@@ -1,10 +1,12 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGE_LABELS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPeopleOption, type CrmRelationshipDetail } from "@universe/types";
+import { COMMODITY_GROUPS, commodityGroupLabel, CRM_OPPORTUNITY_KIND_LABELS, CRM_OPPORTUNITY_KINDS, CRM_OPPORTUNITY_STAGE_LABELS, CRM_OPPORTUNITY_STAGES, type CrmOpportunity, type CrmOpportunityKind, type CrmOpportunityPage, type CrmOpportunityStage, type CrmPeopleOption, type CrmRelationshipDetail } from "@universe/types";
 import { Button, Pill, Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { ErrorNote, Field, fmtDate, inputStyle } from "../lib/ui";
+import { SavedFilters } from "./SavedFilters";
+import { PipelineBoard } from "./PipelineBoard";
 
 export const money = (v: number | null, c: string | null) => (v === null || !c ? "No value set" : new Intl.NumberFormat("en-GB", { style: "currency", currency: c, maximumFractionDigits: 0 }).format(v));
 const stageTone = (s: CrmOpportunityStage) => (s === "WON" ? "good" : s === "LOST" ? "critical" : s === "WITHDRAWN" ? "neutral" : "brand") as "good" | "critical" | "neutral" | "brand";
@@ -13,10 +15,16 @@ const stageTone = (s: CrmOpportunityStage) => (s === "WON" ? "good" : s === "LOS
  * Opportunities list. With `relId` it is the tab on one stakeholder (and can add); without, it is the organisation-wide pipeline list.
  * `stage` (from the pipeline tiles) and the other filters are applied in the database.
  */
-export function Opportunities({ relId, canManage, people, stage: stageProp, onChanged }: { relId?: string; canManage: boolean; people: CrmPeopleOption[]; stage?: string; onChanged?: () => void }) {
+export function Opportunities({ relId, canManage, people: peopleProp, stage: stageProp, attention: attentionProp, onAttention, onChanged }: { relId?: string; canManage: boolean; people: CrmPeopleOption[]; stage?: string; attention?: string; onAttention?: (a: string) => void; onChanged?: () => void }) {
   const [stage, setStage] = useState(stageProp ?? "open");
   const [kind, setKind] = useState("");
   const [owner, setOwner] = useState("");
+  const [group, setGroup] = useState("");
+  const [attention, setAttention] = useState("");
+  const [view, setView] = useState<"list" | "board">("list");
+  const [people, setPeople] = useState<CrmPeopleOption[]>(peopleProp);
+  useEffect(() => { if (!peopleProp.length) apiClient.crmPeople().then(setPeople).catch(() => undefined); }, [peopleProp]);
+  useEffect(() => { if (attentionProp !== undefined) { setAttention(attentionProp); setPage(1); } }, [attentionProp]);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CrmOpportunityPage | null>(null);
   const [adding, setAdding] = useState(false);
@@ -24,9 +32,9 @@ export function Opportunities({ relId, canManage, people, stage: stageProp, onCh
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (stageProp) { setStage(stageProp); setPage(1); } }, [stageProp]);
   const load = useCallback(() => {
-    apiClient.crmOpportunities({ relationshipId: relId, open: stage === "open" ? "true" : undefined, stage: stage && stage !== "open" ? stage : undefined, kind, owner, page, pageSize: 10 })
+    apiClient.crmOpportunities({ relationshipId: relId, open: stage === "open" ? "true" : undefined, stage: stage && stage !== "open" ? stage : undefined, kind, owner, group, attention, page, pageSize: 10 })
       .then((d) => { setData(d); setErr(null); }).catch((e) => setErr(e instanceof Error ? e.message : "Could not load opportunities."));
-  }, [relId, stage, kind, owner, page]);
+  }, [relId, stage, kind, owner, group, attention, page]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (adding && relId && !detail) apiClient.crmDetail(relId).then(setDetail).catch(() => undefined); }, [adding, relId, detail]);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -36,16 +44,23 @@ export function Opportunities({ relId, canManage, people, stage: stageProp, onCh
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ minWidth: 160 }}><Select value={stage === "open" ? "" : stage} onChange={(v) => { setStage(v || "open"); setPage(1); }} allLabel="All open stages" options={CRM_OPPORTUNITY_STAGES.map((s) => ({ value: s, label: CRM_OPPORTUNITY_STAGE_LABELS[s] }))} ariaLabel="Filter by stage" /></div>
         <div style={{ minWidth: 160 }}><Select value={kind} onChange={(v) => { setKind(v); setPage(1); }} allLabel="Any kind" options={CRM_OPPORTUNITY_KINDS.map((k) => ({ value: k, label: CRM_OPPORTUNITY_KIND_LABELS[k] }))} ariaLabel="Filter by kind" /></div>
-        <div style={{ minWidth: 150 }}><Select value={owner} onChange={(v) => { setOwner(v); setPage(1); }} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }]} ariaLabel="Filter by owner" /></div>
+        <div style={{ minWidth: 150 }}><Select value={owner} onChange={(v) => { setOwner(v); setPage(1); }} allLabel="Any owner" options={[{ value: "me", label: "Mine" }, { value: "none", label: "No owner" }, ...people.map((p) => ({ value: p.id, label: p.name }))]} ariaLabel="Filter by owner" /></div>
+        <div style={{ minWidth: 190 }}><Select value={group} onChange={(v) => { setGroup(v); setPage(1); }} allLabel="Any commodity or service" options={COMMODITY_GROUPS.map((g) => ({ value: g, label: commodityGroupLabel(g) }))} ariaLabel="Filter by commodity or service group" /></div>
+        <div style={{ minWidth: 170 }}><Select value={attention} onChange={(v) => { setAttention(v); onAttention?.(v); setPage(1); }} allLabel="Any state" options={[{ value: "stale", label: "No movement for 60+ days" }, { value: "overdue", label: "Past expected date" }]} ariaLabel="Filter by needs attention" /></div>
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{data ? `${data.total} opportunit${data.total === 1 ? "y" : "ies"}` : "Loading…"}</span>
+        {!relId && <div role="group" aria-label="Show as" style={{ display: "inline-flex", border: "1px solid var(--u-border)", borderRadius: 999, overflow: "hidden" }}>
+          {(["list", "board"] as const).map((k) => <button key={k} type="button" className="u-touch" aria-pressed={view === k} onClick={() => setView(k)} style={{ padding: "6px 14px", border: 0, font: "inherit", fontSize: 13, cursor: "pointer", backgroundColor: view === k ? "var(--u-brand-violet)" : "var(--u-surface-raised)", color: view === k ? "var(--u-on-accent)" : "var(--u-ink)" }}>{k === "list" ? "List" : "Board"}</button>)}
+        </div>}
         {relId && canManage && !adding && <Button size="sm" variant="primary" onClick={() => setAdding(true)}>Add an opportunity</Button>}
       </div>
+      {!relId && <SavedFilters view="OPPORTUNITIES" current={{ stage: stage === "open" ? "" : stage, kind, owner, group, attention }} onApply={(f) => { setStage(f.stage || "open"); setKind(f.kind ?? ""); setOwner(f.owner ?? ""); setGroup(f.group ?? ""); setAttention(f.attention ?? ""); setPage(1); }} canShare={canManage} onError={setErr} />}
+      {!relId && view === "board" && <PipelineBoard kind={kind} owner={owner} group={group} attention={attention} canManage={canManage} onChanged={() => { load(); onChanged?.(); }} onError={setErr} />}
       {adding && relId && <AddForm relId={relId} people={people} detail={detail} onDone={() => { setAdding(false); setPage(1); load(); onChanged?.(); }} />}
       {data && data.items.length === 0 && !adding && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>{relId ? "No opportunities yet. Add a tender to bid on, something to source, a call-off or a supplier to qualify." : "No opportunities match."}</p>}
-      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+      {(relId || view === "list") && <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
         {data?.items.map((o) => <Item key={o.id} o={o} showRel={!relId} canManage={canManage} onChanged={() => { load(); onChanged?.(); }} onError={setErr} />)}
-      </ul>
-      {data && pages > 1 && (
+      </ul>}
+      {data && pages > 1 && (relId || view === "list") && (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
           <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>Page {page} of {pages}</span>
@@ -68,12 +83,25 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
         <strong>{o.title}</strong>
         <Pill tone="neutral">{CRM_OPPORTUNITY_KIND_LABELS[o.kind]}</Pill>
         {o.overdue && <Pill tone="critical">Past its date</Pill>}
+        {o.probability !== null && <Pill tone="neutral">{Math.round(o.probability * 100)}% likely</Pill>}
+        {o.commodityGroup && <Pill tone="neutral">{commodityGroupLabel(o.commodityGroup)}</Pill>}
         <span style={{ marginLeft: "auto", color: "var(--u-ink-secondary)" }}>{money(o.expectedValue, o.currency)}</span>
       </div>
       <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>
         {showRel && <><Link href={`/relationships?id=${o.relationshipId}`}>{o.relationshipName}</Link> · </>}
         {o.expectedDate ? `Expected ${fmtDate(o.expectedDate)}` : "No date set"}{o.ownerName ? ` · Owner ${o.ownerName}` : " · No owner"}{o.linkedLabel ? ` · ${o.linkedLabel}` : ""}
       </p>
+      {o.winBasis && (
+        <details style={{ fontSize: 12.5, color: "var(--u-ink-secondary)" }}>
+          <summary style={{ cursor: "pointer" }}>Why {Math.round((o.probability ?? 0) * 100)}% likely</summary>
+          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+            <li>{o.winBasis.stageHistory.n ? `${o.winBasis.stageHistory.won} of ${o.winBasis.stageHistory.n} past opportunities that reached ${CRM_OPPORTUNITY_STAGE_LABELS[o.stage]} were won` : `No past opportunities have reached ${CRM_OPPORTUNITY_STAGE_LABELS[o.stage]} yet, so the usual starting figure of ${Math.round(o.winBasis.stagePrior * 100)}% is used`}.</li>
+            <li>{o.winBasis.segmentHistory.n ? `Similar work (${o.winBasis.segmentHistory.label.split(" · ").map((x) => x.trim()).map((x) => CRM_OPPORTUNITY_KIND_LABELS[x as CrmOpportunityKind] ?? commodityGroupLabel(x)).join(", ")}): ${o.winBasis.segmentHistory.won} won of ${o.winBasis.segmentHistory.n} closed` : "No closed history for this kind of work yet"}.</li>
+            <li>{o.winBasis.stakeholderHistory.n ? `This stakeholder: ${o.winBasis.stakeholderHistory.won} won of ${o.winBasis.stakeholderHistory.n} closed` : "No closed history with this stakeholder yet"}.</li>
+            <li>Your overall win rate is about {Math.round(o.winBasis.overallRate * 100)}%. More closed opportunities make this estimate firmer.</li>
+          </ul>
+        </details>
+      )}
       {o.notes && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{o.notes}</p>}
       {o.lostReason && <p style={{ margin: 0 }}><strong>Why lost:</strong> {o.lostReason}</p>}
       {canManage && (
@@ -98,7 +126,7 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
 }
 
 function AddForm({ relId, people, detail, onDone }: { relId: string; people: CrmPeopleOption[]; detail: CrmRelationshipDetail | null; onDone: () => void }) {
-  const [f, setF] = useState({ title: "", kind: "TENDER" as CrmOpportunityKind, value: "", currency: "GBP", date: "", owner: "", project: "", notes: "" });
+  const [f, setF] = useState({ title: "", kind: "TENDER" as CrmOpportunityKind, value: "", currency: "GBP", date: "", owner: "", project: "", group: "", notes: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const save = async () => {
@@ -106,7 +134,7 @@ function AddForm({ relId, people, detail, onDone }: { relId: string; people: Crm
     try {
       const hasValue = f.value.trim() !== "";
       await apiClient.createCrmOpportunity({ relationshipId: relId, title: f.title, kind: f.kind, expectedValue: hasValue ? Number(f.value) : null, currency: hasValue ? f.currency.toUpperCase() : null,
-        expectedDate: f.date || null, ownerUserId: f.owner || null, linkedProjectId: f.project || null, notes: f.notes || null });
+        expectedDate: f.date || null, ownerUserId: f.owner || null, linkedProjectId: f.project || null, commodityGroup: f.group || null, notes: f.notes || null });
       onDone();
     } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); } finally { setBusy(false); }
   };
@@ -120,6 +148,7 @@ function AddForm({ relId, people, detail, onDone }: { relId: string; people: Crm
         <Field label="Owner"><select className="u-native-select" style={inputStyle} value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })}><option value="">No owner yet</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
         <Field label="Expected cost value (optional)" hint="Cost side only. Never enter a price that includes margin."><input inputMode="decimal" type="number" min={0} step="any" style={inputStyle} value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} /></Field>
         <Field label="Currency"><input style={inputStyle} maxLength={3} value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value })} pattern="[A-Za-z]{3}" title="Three letters, such as GBP" /></Field>
+        <Field label="Commodity or service group" hint="Helps compare like with like. Taken from the linked project if you leave it blank."><select className="u-native-select" style={inputStyle} value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}><option value="">Not set</option>{COMMODITY_GROUPS.map((g) => <option key={g} value={g}>{commodityGroupLabel(g)}</option>)}</select></Field>
         <Field label="Linked project (optional)"><select className="u-native-select" style={inputStyle} value={f.project} onChange={(e) => setF({ ...f, project: e.target.value })}><option value="">Not linked</option>{detail?.projects?.items.map((p) => <option key={p.id} value={p.id}>{p.referenceNumber} · {p.title}</option>)}</select></Field>
       </div>
       <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 60 }} maxLength={1000} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>

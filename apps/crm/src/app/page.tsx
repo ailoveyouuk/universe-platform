@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, categoryPlural, PARTNER_ROLE_TYPES, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmRelationshipRow, type CrmTag } from "@universe/types";
+import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, categoryPlural, PARTNER_ROLE_TYPES, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmPipelineView, type CrmRelationshipRow, type CrmTag } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { useRouter } from "next/navigation";
 import { apiClient } from "../lib/apiClient";
@@ -21,6 +21,8 @@ export default function Overview() {
   useEffect(() => { apiClient.crmFollowUps().then(setFu).catch(() => setFu([])); }, []);
   const [pl, setPl] = useState<CrmPipelineSummary | null>(null);
   useEffect(() => { apiClient.crmPipeline().then(setPl).catch(() => setPl(null)); }, []);
+  const [pv, setPv] = useState<CrmPipelineView | null>(null);
+  useEffect(() => { apiClient.crmPipelineView().then(setPv).catch(() => setPv(null)); }, []);
   const [tags, setTags] = useState<CrmTag[]>([]);
   useEffect(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
   const [due, setDue] = useState<CrmRelationshipRow[]>([]);
@@ -65,6 +67,17 @@ export default function Overview() {
       {pl && pl.openCount > 0 && (
         <section aria-labelledby="pipeline-strip" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
           <h2 id="pipeline-strip" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Pipeline</h2>
+          {pv && (() => {
+            const m = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: pv.currency, notation: "compact", maximumFractionDigits: 1 }).format(n);
+            const attn = pv.attention.staleCount + pv.attention.overdueCount;
+            return (
+              <ul style={{ margin: "0 0 10px", padding: 0, listStyle: "none", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(170px, 100%), 1fr))", gap: 12 }}>
+                {[["Open pipeline", m(pv.openValue), `${pl.openCount} open`], ["Likely to land", m(pv.weightedValue), "weighted by chance of winning"], ["Win rate", pv.winRate === null ? "None closed yet" : `${pv.winRate}%`, "won out of won and lost"], ["Need a look", String(attn), `${pv.attention.staleCount} not moving · ${pv.attention.overdueCount} past date`]].map(([k, big, small]) => (
+                  <li key={k}><Link href="/pipeline" aria-label={`${k}: ${big}, ${small}. Open the pipeline`} style={{ display: "block", textDecoration: "none", color: "var(--u-ink)", border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "10px 12px" }}><span style={{ display: "block", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{k}</span><span style={{ display: "block", fontSize: 22, fontWeight: 700, fontFamily: "var(--u-font-display)", lineHeight: 1.2 }}>{big}</span><span style={{ display: "block", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{small}</span></Link></li>
+                ))}
+              </ul>
+            );
+          })()}
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", gap: 18, flexWrap: "wrap" }}>
             {CRM_OPEN_STAGES.map((st) => <li key={st}>{CRM_OPPORTUNITY_STAGE_LABELS[st]} <strong>{pl.byStage[st].count}</strong></li>)}
           </ul>

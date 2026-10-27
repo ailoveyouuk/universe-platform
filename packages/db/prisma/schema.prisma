@@ -4979,6 +4979,9 @@ model CrmOpportunity {
   ownerUserId    String?
   notes          String?         @db.NVarChar(1000)
   lostReason     String?         @db.NVarChar(500)
+  /// Commodity group (COMMODITY_GROUPS) the work falls under; lets win probability compare like with like. Nullable, set by the user or derived from the linked project.
+  commodityGroup String?         @db.NVarChar(40)
+  stageEvents    CrmOpportunityEvent[]
   /// The real record once one exists: PROJECT today.
   linkedType     String?
   linkedId       String?
@@ -4992,6 +4995,31 @@ model CrmOpportunity {
   @@index([organizationId, stage])
   @@index([organizationId, relationshipId])
   @@map("crm_opportunities")
+}
+
+/// CRM pipeline history (2026-10-27): append-only. One row each time an opportunity is created, changes stage, or has its value or expected date revised.
+/// Gives real stage-to-stage conversion, time in stage and forecast accuracy. Never updated or deleted.
+model CrmOpportunityEvent {
+  id             String         @id @default(uuid())
+  organizationId String
+  opportunityId  String
+  opportunity    CrmOpportunity @relation(fields: [opportunityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// CREATED | STAGE | REVISION
+  eventType      String         @db.NVarChar(12)
+  fromStage      String?        @db.NVarChar(20)
+  toStage        String?        @db.NVarChar(20)
+  oldValue       Decimal?       @db.Decimal(18, 2)
+  newValue       Decimal?       @db.Decimal(18, 2)
+  currency       String?        @db.Char(3)
+  oldDate        DateTime?
+  newDate        DateTime?
+  reason         String?        @db.NVarChar(500)
+  changedById    String?
+  occurredAt     DateTime       @default(now())
+
+  @@index([organizationId, opportunityId, occurredAt])
+  @@index([organizationId, eventType])
+  @@map("crm_opportunity_events")
 }
 
 /// CRM step 6 (2026-10-27): free segments an organisation defines to group relationships ("WHO-prequalified", "India", "cold chain").

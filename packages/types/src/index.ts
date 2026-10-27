@@ -4159,10 +4159,10 @@ export type CrmProjectPart = (typeof CRM_PROJECT_PARTS)[number];
 export const CRM_PROJECT_PART_LABELS: Record<CrmProjectPart, string> = { client: "Client", supplier: "Supplier", manufacturer: "Manufacturer", freight_forwarder: "Freight forwarder" };
 /** The stakeholder's most recent project with this organisation. */
 export interface CrmLastProject { id: string; referenceNumber: string; title: string; date: string; status: string }
-export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO"] as const;
+export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO", "OPPORTUNITIES"] as const;
 export type CrmFilterView = (typeof CRM_FILTER_VIEWS)[number];
 /** The list filters a saved filter may hold. Anything else is rejected. */
-export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country"] as const;
+export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work", "country", "stage", "kind", "group", "attention"] as const;
 export interface CrmSavedFilter { id: string; view: CrmFilterView; name: string; filters: Record<string, string>; shared: boolean; mine: boolean; ownerName: string | null }
 export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filters?: Record<string, string>; shared?: boolean; archived?: boolean }
 export interface CrmTagRef { id: string; name: string }
@@ -4347,11 +4347,19 @@ export interface CrmOpportunity {
   id: string; relationshipId: string; relationshipName: string; title: string; kind: CrmOpportunityKind; stage: CrmOpportunityStage; stageChangedAt: string;
   expectedValue: number | null; currency: string | null; expectedDate: string | null; ownerUserId: string | null; ownerName: string | null; notes: string | null; lostReason: string | null;
   linkedType: string | null; linkedId: string | null; linkedLabel: string | null; createdAt: string; overdue: boolean;
+  /** Commodity or service group (COMMODITY_GROUPS code), when known. */
+  commodityGroup: string | null;
+  /** Estimated chance of winning, 0 to 1, for open opportunities; null once closed. See CrmWinBasis for the evidence. */
+  probability: number | null; winBasis: CrmWinBasis | null;
+}
+/** The evidence behind a win probability, so the screen can show why the figure is what it is. */
+export interface CrmWinBasis {
+  stagePrior: number; stageHistory: { n: number; won: number }; segmentHistory: { n: number; won: number; label: string }; stakeholderHistory: { n: number; won: number }; overallRate: number; adjustment: number;
 }
 export type CrmOpportunityPage = PagedResult<CrmOpportunity>;
 export interface CrmOpportunityInput {
   relationshipId?: string; title?: string; kind?: CrmOpportunityKind; stage?: CrmOpportunityStage; expectedValue?: number | null; currency?: string | null; expectedDate?: string | null;
-  ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean;
+  ownerUserId?: string | null; notes?: string | null; lostReason?: string | null; linkedProjectId?: string | null; archived?: boolean; commodityGroup?: string | null;
 }
 /** The pipeline as a picture (2026-10-27): every figure converted into one chosen currency at today's rate, so stages, months and kinds can be compared and added. */
 export interface CrmPipelineView {
@@ -4359,8 +4367,8 @@ export interface CrmPipelineView {
   /** Currencies seen in the data, plus a few common ones, for the picker. */
   currencies: string[];
   rateDate: string | null;
-  stages: { stage: CrmOpportunityStage; count: number; value: number; /** Valued opportunities left out because no rate was available. */ unconverted: number }[];
-  months: { month: string; count: number; value: number }[];
+  stages: { stage: CrmOpportunityStage; count: number; value: number; /** Value x estimated chance of winning (open stages only). */ weighted: number; /** Valued opportunities left out because no rate was available. */ unconverted: number }[];
+  months: { month: string; count: number; value: number; weighted: number }[];
   overdue: { count: number; value: number };
   noDate: { count: number; value: number };
   kinds: { key: string; count: number; value: number }[];
@@ -4369,7 +4377,22 @@ export interface CrmPipelineView {
   openValue: number; wonValue: number;
   /** Won as a share of won and lost, by number; null until something is won or lost. */
   winRate: number | null;
+  /** Open value x estimated chance of winning, summed. */
+  weightedValue: number;
+  model: { closedCount: number; overallRate: number | null; confidence: "LOW" | "MEDIUM" | "HIGH" };
+  /** Why opportunities are lost, and how each kind of work has gone. Withdrawn is kept apart: it says nothing about winning. */
+  lost: { reasons: { reason: string; count: number; value: number }[]; byKind: { key: string; won: number; lost: number }[]; withdrawn: { count: number; value: number } };
+  /** Open opportunities that need a look: no movement for a long time, or past their expected date. */
+  attention: { staleDays: number; staleCount: number; overdueCount: number; items: CrmAttentionItem[] };
+  owners: { userId: string | null; name: string; openCount: number; openValue: number; weightedValue: number; won: number; lost: number; winRate: number | null }[];
+  /** Open pipeline by the currency it was entered in, so exchange-rate exposure is visible. */
+  exposure: { currency: string; count: number; original: number; converted: number; share: number }[];
+  /** From the stage history: how many reached each open stage, how many went on to the next, and the average days spent there. */
+  flow: { stage: CrmOpportunityStage; reached: number; advanced: number; avgDays: number | null }[];
+  /** From value and date revisions: how reliable the expected figures have been. */
+  accuracy: { revisions: number; dateSlips: number; avgSlipDays: number | null; valueRevisedPct: number | null };
 }
+export interface CrmAttentionItem { id: string; title: string; relationshipId: string; relationshipName: string; stage: CrmOpportunityStage; value: number | null; currency: string | null; daysInStage: number; expectedDate: string | null; reason: "STALE" | "OVERDUE" }
 export interface CrmPipelineSummary { byStage: Record<CrmOpportunityStage, { count: number; value: Record<string, number> }>; openCount: number; closingSoon: number }
 
 /** CRM step 8: gifts and hospitality (anti-bribery register), with the organisation's own thresholds and policy. */
