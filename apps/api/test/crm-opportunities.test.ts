@@ -103,4 +103,24 @@ describe("CRM interactions", () => {
     const other = await search.search(u.other, `Acme ${suffix}`);
     expect(other.results.length).toBe(0);
   });
+
+  it("works out each stakeholder's likely-to-land value, and explains why delivery and framework detail are missing", async () => {
+    const o = await svc.create(u.manager, { relationshipId: relA, title: "Likelihood check", kind: "TENDER", expectedValue: 2000, currency: "GBP", stage: "SUBMITTED" } as never);
+    const lk = await svc.likelihood(u.viewer, "GBP");
+    const row = lk.byRel.get(relA);
+    expect(row).toBeTruthy();
+    expect(row!.openValue).toBeGreaterThanOrEqual(2000);
+    expect(row!.likelyValue).toBeGreaterThan(0);
+    expect(row!.likelyValue).toBeLessThan(row!.openValue);
+    expect(lk.order[0]).toBeDefined();
+    expect(lk.byRel.has(relB)).toBe(false); // another organisation's stakeholder never appears
+    // Not won, so there is no delivery to show; no tender, so there is no framework to show. Neither asks for project or tender access that the viewer lacks beyond a message.
+    const d = await svc.delivery({ ...u.viewer, permissions: ["crm.view", "projects.view"], apps: null } as RequestUser, o.id);
+    expect(d.available).toBe(false);
+    const noAccess = await svc.delivery(u.viewer, o.id);
+    expect(noAccess.reason).toMatch(/cannot view projects/);
+    const f = await svc.framework({ ...u.viewer, permissions: ["crm.view", "tenders.view"] } as RequestUser, o.id);
+    expect(f.available).toBe(false);
+    await expect(svc.delivery(u.other, o.id)).rejects.toBeInstanceOf(NotFoundException);
+  });
 });
