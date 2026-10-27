@@ -56,6 +56,7 @@ describe("CRM list filters, bulk changes and alerts", () => {
       await tx.crmTag.deleteMany({ where: { organizationId: orgs } });
       await tx.crmRelationship.deleteMany({ where: { organizationId: orgs } });
       await tx.partnerCertification.deleteMany({ where: { organizationId: orgs } });
+      await tx.partnerRole.deleteMany({ where: { partner: { organizationId: orgs } } });
       await tx.partner.deleteMany({ where: { organizationId: orgs } });
       await tx.userRole.deleteMany({ where: { userId: { in: userIds } } });
       await tx.user.deleteMany({ where: { id: { in: userIds } } });
