@@ -47,7 +47,7 @@ export default function Overview() {
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
           {PARTNER_ROLE_TYPES.map((k) => {
-            const n = o?.byCategory[k];
+            const n = o ? (o.byCategory[k] ?? 0) : undefined;
             return (
               <li key={k}>
                 <Link href={link(`role=${k}`)} aria-label={`${categoryPlural(k)}: ${n ?? "loading"}. Open the list`} style={{ display: "block", textDecoration: "none", color: "var(--u-ink)", border: "1px solid var(--u-border)", borderLeft: `4px solid ${accentVar(k)}`, borderRadius: "var(--u-radius-lg)", padding: "12px 14px", backgroundColor: "var(--u-surface-raised)", backgroundImage: `linear-gradient(100deg, color-mix(in srgb, ${accentVar(k)} 11%, transparent) 0%, transparent 70%)` }}>

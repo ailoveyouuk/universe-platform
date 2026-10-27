@@ -74,6 +74,8 @@ describe("CRM search", () => {
     expect(group(await search.search(u.manager, `cold chain`), "stakeholders").hits.map((h) => h.id)).toContain(relA);
     const funders = group(await search.search(u.manager, `funder ${suffix}`), "stakeholders");
     expect(funders.hits.map((h) => h.title)).toEqual([`Harbour Fund ${suffix}`]);
+    expect(group(await search.search(u.manager, `Zephyr Kenya`), "stakeholders").hits.map((h) => h.id)).toEqual([relA]); // a country by name, stored as a code
+    expect((await svc.list(u.manager, { q: "Harbour Kenya" })).items.length).toBe(1);
     expect(group(await search.search(u.manager, `Zephyr Rivals`), "stakeholders").total).toBe(0); // other organisation's record
     expect((await search.search(u.manager, "Zephyr Rivals")).groups.every((g) => g.hits.every((h) => !h.link.includes(relB)))).toBe(true);
   });

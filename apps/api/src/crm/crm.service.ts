@@ -157,12 +157,15 @@ export class CrmService {
         // Every word must match somewhere: a name, registered name, country, summary, owner, tag, contact (name, email, job title), place (name or city) or kind of stakeholder.
         const words = needle.split(/\s+/).filter(Boolean).slice(0, 5);
         const owners = await tx.user.findMany({ where: { organizationId: user.organizationId, OR: words.flatMap((w) => [{ forename: { contains: w } }, { surname: { contains: w } }]) }, select: { id: true, forename: true, surname: true }, take: 100 });
+        const countries = await tx.country.findMany({ where: { OR: words.map((w) => ({ name: { contains: w } })) }, select: { code: true, name: true } });
         for (const w of words) {
           const lw = w.toLowerCase();
+          const codes = countries.filter((c) => c.name.toLowerCase().includes(lw)).map((c) => c.code);
           const kinds = STAKEHOLDER_CATEGORY_KEYS.filter((k) => categoryLabel(k).toLowerCase().includes(lw));
           const ownerIds = owners.filter((o) => `${o.forename} ${o.surname}`.toLowerCase().includes(lw)).map((o) => o.id);
           and.push({ OR: [
             { partner: { name: { contains: w } } }, { partner: { countryCode: { contains: w } } }, { summary: { contains: w } },
+            ...(codes.length ? [{ partner: { countryCode: { in: codes } } }] : []),
             { partner: { registryEntry: { legalName: { contains: w } } } },
             { tagLinks: { some: { removedAt: null, tag: { name: { contains: w } } } } },
             { partner: { contacts: { some: { OR: [{ name: { contains: w } }, { email: { contains: w } }, { title: { contains: w } }] } } } },

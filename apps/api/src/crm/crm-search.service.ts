@@ -31,6 +31,10 @@ export class CrmSearchService {
     const manager = this.isManager(user);
 
     return withTenantContext(org, async (tx) => {
+      // A country can be typed by name ("Kenya"); records hold the two-letter code, so each word is also resolved to matching country codes.
+      const codeMatches = new Map<string, string[]>();
+      for (const c of await tx.country.findMany({ where: { OR: words.map((w) => ({ name: { contains: w } })) }, select: { code: true, name: true } })) for (const w of words) if (c.name.toLowerCase().includes(w.toLowerCase())) codeMatches.set(w, [...(codeMatches.get(w) ?? []), c.code]);
+      const countryOr = (w: string, field: "partner" | "plain") => { const codes = codeMatches.get(w) ?? []; return codes.length ? [field === "partner" ? { partner: { countryCode: { in: codes } } } : { countryCode: { in: codes } }] : []; };
       const relName = (r: { id: string; partner?: { name: string } | null }) => r.partner?.name ?? "Stakeholder";
       const run: Record<CrmSearchType, () => Promise<CrmSearchGroup>> = {
         stakeholders: async () => {
@@ -40,7 +44,7 @@ export class CrmSearchService {
           const where: Prisma.CrmRelationshipWhereInput = { organizationId: org, archivedAt: null, ...every((w) => {
             const kinds = kindWords(w);
             return { OR: [
-              { partner: { name: c(w) } }, { partner: { countryCode: c(w) } }, { summary: c(w) },
+              { partner: { name: c(w) } }, { partner: { countryCode: c(w) } }, { summary: c(w) }, ...countryOr(w, "partner"),
               { partner: { registryEntry: { legalName: c(w) } } },
               { tagLinks: { some: { removedAt: null, tag: { name: c(w) } } } },
               ...(kinds.length ? [{ partner: { roles: { some: { isActive: true, roleType: { in: kinds } } } } }] : []),
@@ -66,7 +70,7 @@ export class CrmSearchService {
           return { type: "opportunities", label: CRM_SEARCH_TYPE_LABELS.opportunities, total, hits: rows.map((r) => ({ id: r.id, title: r.title, subtitle: [pretty(r.stage), pretty(r.kind), relName(r.relationship)].join(" · "), link: `/relationships?id=${r.relationshipId}&tab=opportunities` })) };
         },
         places: async () => {
-          const where: Prisma.CrmLocationWhereInput = { organizationId: org, archivedAt: null, ...every((w) => ({ OR: [{ name: c(w) }, { city: c(w) }, { address: c(w) }, { countryCode: c(w) }, { notes: c(w) }] })) };
+          const where: Prisma.CrmLocationWhereInput = { organizationId: org, archivedAt: null, ...every((w) => ({ OR: [{ name: c(w) }, { city: c(w) }, { address: c(w) }, { countryCode: c(w) }, { notes: c(w) }, ...countryOr(w, "plain")] })) };
           const [total, rows] = await Promise.all([tx.crmLocation.count({ where }), tx.crmLocation.findMany({ where, take: PER_GROUP, orderBy: { name: "asc" }, select: { id: true, name: true, kind: true, city: true, countryCode: true, relationshipId: true, relationship: { select: { id: true, partner: { select: { name: true } } } } } })]);
           return { type: "places", label: CRM_SEARCH_TYPE_LABELS.places, total, hits: rows.map((r) => ({ id: r.id, title: r.name, subtitle: [pretty(r.kind), [r.city, r.countryCode].filter(Boolean).join(", "), relName(r.relationship)].filter(Boolean).join(" · "), link: `/relationships?id=${r.relationshipId}&tab=places` })) };
         },
