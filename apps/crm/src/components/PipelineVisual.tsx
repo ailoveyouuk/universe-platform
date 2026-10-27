@@ -30,6 +30,7 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
   useEffect(() => { apiClient.crmPipelineView(cur || undefined, relationshipId).then((d) => { setV(d); setErr(false); }).catch(() => setErr(true)); }, [cur, version, relationshipId]);
   if (err) return <p role="status" style={muted}>The pipeline chart is not available just now.</p>;
   if (!v) return <p role="status" style={muted}>Loading the pipeline chart…</p>;
+  const short = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: v.currency, currencyDisplay: "narrowSymbol", notation: "compact", maximumFractionDigits: 1 }).format(n);
   const money = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: v.currency, notation: "compact", maximumFractionDigits: 1 }).format(n);
   const metric = (x: { count: number; value: number }) => (by === "value" ? x.value : x.count);
   const label = (x: { count: number; value: number }) => (by === "value" ? `${money(x.value)} · ${x.count}` : `${x.count} · ${money(x.value)}`);
@@ -79,16 +80,16 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
         </Card>
 
         <Card title="Expected over the next twelve months">
-          <p style={muted}>Open opportunities by the month they are expected. {by === "value" ? "The darker part of each bar is the share likely to be won." : ""}</p>
+          <p style={muted}>Open opportunities by the month they are expected, in {v.currency}. {by === "value" ? "The darker part of each bar is the share likely to be won." : ""}</p>
           <div style={{ overflowX: "auto" }}>
-            <ul style={{ listStyle: "none", margin: 0, padding: "0 0 2px", display: "flex", alignItems: "flex-end", gap: 6, height: 170, minWidth: v.months.length * 40 }}>
+            <ul style={{ listStyle: "none", margin: 0, padding: "0 0 2px", display: "flex", alignItems: "flex-end", gap: 6, height: 170, minWidth: v.months.length * 54 }}>
               {v.months.map((m) => {
                 const d = m.month === "later" ? null : new Date(`${m.month}-01T00:00:00Z`);
                 const name = d ? d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }) : "Later";
                 return (
                   <li key={m.month} tabIndex={0} aria-label={`${d ? d.toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }) : "Later than twelve months"}: ${m.count} expected, ${money(m.value)}, likely ${money(m.weighted)}`} title={`${name}: ${m.count} expected, ${money(m.value)}, likely ${money(m.weighted)}`}
-                    style={{ flex: "1 0 34px", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%", gap: 3, minWidth: 0 }}>
-                    <span style={{ fontSize: 11, color: "var(--u-ink-secondary)" }}>{metric(m) > 0 ? (by === "value" ? money(m.value) : m.count) : ""}</span>
+                    style={{ flex: "1 0 50px", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", height: "100%", gap: 3, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, whiteSpace: "nowrap", color: "var(--u-ink-secondary)" }}>{metric(m) > 0 ? (by === "value" ? short(m.value) : m.count) : ""}</span>
                     <span aria-hidden="true" style={{ position: "relative", width: "70%", minHeight: metric(m) > 0 ? 4 : 1, height: `${(metric(m) / maxMonth) * 100 * 0.72}%`, borderRadius: "4px 4px 0 0", backgroundColor: metric(m) > 0 ? "var(--u-module-crm)" : "var(--u-border)", transition: "height .4s ease", display: "flex", alignItems: "flex-end" }}>{by === "value" && m.value > 0 && <span style={{ display: "block", width: "100%", height: `${Math.min(100, (m.weighted / m.value) * 100)}%`, backgroundColor: "var(--u-brand-violet)", borderRadius: "0 0 0 0" }} />}</span>
                     <span style={{ fontSize: 11.5 }}>{name}</span>
                   </li>
