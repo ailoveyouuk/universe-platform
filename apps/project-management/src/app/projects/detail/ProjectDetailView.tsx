@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS } from "@universe/ui";
+import { StatusBadge, StageTracker, ACTIVE_STAGES, TERMINAL_STAGES, Button, PlusIcon, Select, TextLink, CountryMultiSelect, CurrencySelect, StandardsReference, ScoreLegend, SCORE_BAND_COLORS, CollapsibleSection } from "@universe/ui";
 import type { CountryOption, PartnerOption, ProductSafetyFlag, ProjectExportCheckItem, ProjectDetail, ProjectFinancialSummary, ProjectLineSummary, UpdateProjectInput, UserOption } from "@universe/types";
 import { commodityGroupLabel } from "@universe/types";
 import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, INCOTERMS } from "@universe/types";
@@ -604,9 +604,7 @@ export function ProjectDetailView() {
               per Lewis's request — freight is calculated once for the
               whole project, not per product line. See Project's doc
               comment in schema.prisma and ProjectsService.applyProjectFreightPricing. */}
-          <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: 1, color: "var(--u-ink-secondary)", marginTop: 24, marginBottom: 8 }}>
-            Freight & Logistics
-          </h2>
+          <CollapsibleSection title="Freight & Logistics" level={2} bare>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
             <label style={{ fontSize: 13 }}>
               Freight forwarder
@@ -777,7 +775,7 @@ export function ProjectDetailView() {
               Cancel
             </Button>
           </div>
-        </div>
+        </CollapsibleSection></div>
       )}
 
       {(showAllFields || showLines) && (
@@ -793,7 +791,7 @@ export function ProjectDetailView() {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 14 }}>Financial Summary (this project)</h2>
+            <CollapsibleSection title="Financial Summary (this project)" level={2} bare>
             <select
               className="u-native-select"
               aria-label="Display currency"
@@ -807,7 +805,7 @@ export function ProjectDetailView() {
                 </option>
               ))}
             </select>
-          </div>
+          </CollapsibleSection></div>
           {financialSummary.conversionUnavailable && (
             <p style={{ fontSize: 12, color: "var(--u-status-critical-text)", margin: "0 0 8px" }}>
               Could not convert into {displayCurrency} right now — showing {financialSummary.baseCurrencyCode} instead.

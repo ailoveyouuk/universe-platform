@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTRACT_FILE_KIND_LABELS, CONTRACT_STATUS_LABELS } from "@universe/types";
 import type { TenderContractView, TenderContractsForTender } from "@universe/types";
-import { Button, Pill, Select } from "@universe/ui";
+import { Button, Pill, Select, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { VariationsSection } from "./VariationsPanel";
 import { EvidenceSection } from "./EvidencePanel";
@@ -98,7 +98,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       {!issuer && draft && <p style={{ marginBottom: 0, fontSize: 13, ...muted }}>The tender owner is still preparing this contract. You will be notified when it is ready for signature.</p>}
 
       {/* Milestones */}
-      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Milestones</h3>
+      <CollapsibleSection title="Milestones" level={3} bare>
       {c.milestones.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None yet.</div>}
       {c.milestones.map((m) => (
         <div key={m.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
@@ -145,7 +145,7 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       <EvidenceSection c={c} busy={busy} act={act} setErr={setErr} />
 
       {/* Files */}
-      <h3 style={{ margin: "18px 0 6px", fontSize: 14 }}>Files</h3>
+      </CollapsibleSection><CollapsibleSection title="Files" level={3} bare>
       {c.files.length === 0 && <div style={{ fontSize: 13.5, ...muted }}>None yet.</div>}
       {c.files.map((x) => (
         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", padding: "6px 0", borderTop: "1px solid var(--u-border)", fontSize: 14 }}>
@@ -181,6 +181,6 @@ function ContractCard({ c, role, standstill, openComplaints, busy, act, setErr }
       {closed && <p style={{ marginBottom: 0, fontSize: 14 }}>Closed {c.closedAt ? fmtDate(c.closedAt) : ""}{c.closeNote ? `: ${c.closeNote}` : ""}</p>}
       {c.performance && <PerformanceCard p={c.performance} issuer={issuer} busy={busy} act={act} />}
       {(active || closed) && <PaymentLog c={c} busy={busy} act={act} />}
-    </Card>
+    </CollapsibleSection></Card>
   );
 }

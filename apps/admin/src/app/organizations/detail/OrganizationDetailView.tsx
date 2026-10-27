@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ORGANIZATION_TYPE_VALUES, orgTypesOf } from "@universe/types";
 import type { OrganizationDetail, OrganizationTypeValue, UpdateOrganizationInput } from "@universe/types";
-import { Button, CountrySelect, Select } from "@universe/ui";
+import { Button, CountrySelect, Select, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { useCountries } from "../../../lib/useCountries";
@@ -311,7 +311,7 @@ export function OrganizationDetailView() {
           </Field>
         </FormGrid>
 
-        <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Roles on the platform</h3>
+        <CollapsibleSection title="Roles on the platform" level={3} bare>
         <p style={{ margin: "0 0 8px", fontSize: 13, color: "var(--u-ink-secondary)" }}>
           Main role: <strong>{ORG_TYPE_LABELS[org.type] ?? org.type}</strong>. Tick any other role this organisation also holds (for example a supplier that is also a procurement agent) so it is found, matched and eligible for opportunities in every role.
         </p>
@@ -329,7 +329,7 @@ export function OrganizationDetailView() {
           ))}
         </fieldset>
 
-        <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Primary contact</h3>
+        </CollapsibleSection><CollapsibleSection title="Primary contact" level={3} bare>
         <FormGrid>
           <Field label="Name">
             <input style={inputStyle} value={form.primaryContactName} onChange={(e) => set({ primaryContactName: e.target.value })} />
@@ -345,7 +345,7 @@ export function OrganizationDetailView() {
           </Field>
         </FormGrid>
 
-        <h3 style={{ fontSize: 14, margin: "20px 0 8px" }}>Branding</h3>
+        </CollapsibleSection><CollapsibleSection title="Branding" level={3} bare>
         <LogoField
           organizationId={org.id}
           logoUrl={org.logoUrl}
@@ -398,7 +398,7 @@ export function OrganizationDetailView() {
             Discard
           </Button>
         </div>
-      </Section>
+      </CollapsibleSection></Section>
 
       {holdsAny(org, ["SUPPLIER", "MANUFACTURER", "PROCUREMENT_SERVICE_AGENT", "TENDERING_PURCHASING_BODY"]) && <DirectoryProfileSection organizationId={org.id} />}
       <CountryPresenceSection organizationId={org.id} />

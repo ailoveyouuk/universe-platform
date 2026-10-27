@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { CrmRelationshipDetail, PartnerScorecard } from "@universe/types";
-import { Pill, UNIVERSE_APPS } from "@universe/ui";
+import { Pill, UNIVERSE_APPS, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { fmtDate, humanise } from "../lib/ui";
 import { Places } from "./Places";
@@ -73,21 +73,21 @@ export function Detail360({ relId, partnerId, tab, card, canManage }: { relId: s
     <div style={{ display: "grid", gap: 14 }}>
       <p style={{ margin: 0 }}>Approval: <strong>{d.approvalStatus ? humanise(d.approvalStatus) : "Not known"}</strong>. Last reviewed {fmtDate(d.lastApprovalReviewDate)}, next review due {fmtDate(d.nextApprovalReviewDue)}.</p>
       <div>
-        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Certificates and licences</h2>
+        <CollapsibleSection title="Certificates and licences" level={2} bare>
         {d.certificates.length === 0 ? <p style={note}>None recorded.</p> : <Table label="Certificates" head={["Type", "Reference", "Issued by", "Expires", "State"]} rows={d.certificates.map((c) => {
           const exp = c.expiryDate ? new Date(c.expiryDate).getTime() : null;
           const state = c.status !== "CURRENT" ? <Pill key="s" tone="neutral">{humanise(c.status)}</Pill> : exp !== null && exp < now ? <Pill key="s" tone="critical">Expired</Pill> : exp !== null && exp < now + 60 * 86400000 ? <Pill key="s" tone="warning">Expires soon</Pill> : <Pill key="s" tone="good">Current</Pill>;
           return [humanise(c.type), c.referenceNumber ?? "—", c.issuingBody ?? "—", fmtDate(c.expiryDate), state];
         })} />}
-      </div>
+      </CollapsibleSection></div>
       <div>
-        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Company checks</h2>
+        <CollapsibleSection title="Company checks" level={2} bare>
         {d.checks.length === 0 ? <p style={note}>None recorded.</p> : <Table label="Company checks" head={["Check", "Result", "Checked"]} rows={d.checks.map((c) => [c.customLabel ?? humanise(c.checkType), humanise(c.result), fmtDate(c.checkedDate)])} />}
-      </div>
+      </CollapsibleSection></div>
       <div>
-        <h2 style={{ margin: "0 0 6px", fontSize: 13.5 }}>Approval history</h2>
+        <CollapsibleSection title="Approval history" level={2} bare>
         {d.approvals.length === 0 ? <p style={note}>No approval decisions recorded.</p> : <Table label="Approval history" head={["Decision", "Date", "Reason"]} rows={d.approvals.map((a) => [humanise(a.action), fmtDate(a.actionDate), a.reason ?? "—"])} />}
-      </div>
+      </CollapsibleSection></div>
     </div>
   );
 }

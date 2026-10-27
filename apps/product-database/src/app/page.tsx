@@ -35,8 +35,7 @@ import {
   type RankedRow,
   type PageSize,
   type WorldMapPoint,
-  type WorldMapLegendEntry,
-} from "@universe/ui";
+  type WorldMapLegendEntry, CollapsibleSection } from "@universe/ui";
 
 /**
  * Product Database Management — Catalogue screen. Added 2026-10-03, the
@@ -264,7 +263,7 @@ export default function ProductCatalogPage() {
       {/* Section mini-dashboard — Stage 1 (standardised dashboard
           pattern), product-database-and-map-roadmap.md. First use of the
           shared StatTile/StatTileGrid pattern in Product Database. */}
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Overview</h2>
+      <CollapsibleSection title="Overview" level={2} bare defaultOpen>
       <StatTileGrid>
         <StatTile label="Total products" value={dashboardStats ? dashboardStats.total : undefined} icon={<GridIcon size={18} />} tone="brand" active={!recentOnly && !missingField && !category} onClick={() => { setRecentOnly(false); setMissingField(""); setCategory(""); setPage(0); }} />
         <StatTile
@@ -299,7 +298,7 @@ export default function ProductCatalogPage() {
           the table below narrows to exactly those rows. Not a single "%
           complete" score — see ProductCatalogCompletenessStats's doc
           comment in @universe/types for why. */}
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Data completeness</h2>
+      </CollapsibleSection><CollapsibleSection title="Data completeness" level={2} bare>
       <StatTileGrid>
         <StatTile
           label="Missing GTIN"
@@ -343,7 +342,7 @@ export default function ProductCatalogPage() {
           in spirit, reusing the same WorldMap component. Category is
           always the top-level group (e.g. "Pharmaceuticals"), confirmed
           with Lewis alongside the Stage 1 dashboard fix. */}
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "24px 0 12px" }}>Sourcing by country of manufacture</h2>
+      </CollapsibleSection><CollapsibleSection title="Sourcing by country of manufacture" level={2} bare>
       <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 12px" }}>
         Anonymized, aggregated across every consented organisation on the platform — no organisation's own sourcing relationships are ever individually identifiable here.
       </p>
@@ -477,7 +476,7 @@ export default function ProductCatalogPage() {
           />
         </>
       )}
-    </div>
+    </CollapsibleSection></div>
   );
 }
 

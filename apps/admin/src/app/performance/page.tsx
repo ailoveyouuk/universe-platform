@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FEEDBACK_LABELS, type StaffPerformanceDetail, type StaffPerformanceRow } from "@universe/types";
-import { AlertIcon, Button, CheckCircleIcon, LockIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, ClockIcon } from "@universe/ui";
+import { AlertIcon, Button, CheckCircleIcon, LockIcon, Pill, SearchInput, Select, StatTile, StatTileGrid, ClockIcon, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { Notice } from "../../components/form";
@@ -138,7 +138,7 @@ function RecordDetail({ d }: { d: StaffPerformanceDetail }) {
         {d.feedbackAverage !== null ? ` · owner feedback average ${d.feedbackAverage.toFixed(1)}/5` : ""}
       </p>
 
-      <h3 style={h}>What the score is built from</h3>
+      <CollapsibleSection title="What the score is built from" level={3} bare>
       {d.measures.length === 0 ? <p style={{ color: "var(--u-ink-secondary)" }}>No measures were recorded.</p> : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 560 }}>
@@ -158,7 +158,7 @@ function RecordDetail({ d }: { d: StaffPerformanceDetail }) {
         </div>
       )}
 
-      <h3 style={h}>Owner feedback</h3>
+      </CollapsibleSection><CollapsibleSection title="Owner feedback" level={3} bare>
       {!fb ? <p style={{ color: "var(--u-ink-secondary)" }}>No feedback was given.</p> : (
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {(["quality", "communication", "documentation", "flexibility", "wouldUseAgain"] as const).map((k) => (
@@ -168,7 +168,7 @@ function RecordDetail({ d }: { d: StaffPerformanceDetail }) {
         </ul>
       )}
 
-      <h3 style={h}>Replies and disputes{d.openDisputes ? ` (${d.openDisputes} open)` : ""}</h3>
+      </CollapsibleSection><h3 style={h}>Replies and disputes{d.openDisputes ? ` (${d.openDisputes} open)` : ""}</h3>
       {d.responses.length === 0 ? <p style={{ color: "var(--u-ink-secondary)" }}>None.</p> : (
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {d.responses.map((x) => (

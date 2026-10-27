@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { DataExportRequestSummary, ExportCapabilities } from "@universe/types";
-import { Button, DownloadIcon, Pill } from "@universe/ui";
+import { Button, DownloadIcon, Pill, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { saveExport } from "../../lib/download";
 
@@ -74,7 +74,7 @@ export default function ExportsPage() {
 
       {!admin && (
         <>
-          <h2 style={{ fontFamily: "var(--u-font-display)", fontSize: 17, marginTop: 28 }}>Request a wider export</h2>
+          <CollapsibleSection title="Request a wider export" level={2} bare>
           <div style={{ ...card, maxWidth: 720 }}>
             <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", marginTop: 0 }}>Ask a global admin to release part of the shared catalogue to you. Say what you need and why; if approved you can download it once within seven days.</p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -93,7 +93,7 @@ export default function ExportsPage() {
               })}>Send request</Button>
             </div>
           </div>
-        </>
+        </CollapsibleSection></>
       )}
 
       <h2 style={{ fontFamily: "var(--u-font-display)", fontSize: 17, marginTop: 28 }}>{admin ? "Requests from organisations" : "Your requests"}</h2>

@@ -156,7 +156,7 @@ describe("CRM interactions", () => {
 
   it("compares won and lost opportunities against what the platform knows, for this organisation only", async () => {
     const a = await svc.create(u.manager, { relationshipId: relA, title: "Drivers won", kind: "TENDER", stage: "WON" } as never);
-    const b = await svc.create(u.manager, { relationshipId: relA, title: "Drivers lost", kind: "TENDER", stage: "LOST" } as never);
+    const b = await svc.create(u.manager, { relationshipId: relA, title: "Drivers lost", kind: "TENDER", stage: "LOST", lostReason: "Price" } as never);
     expect(a.id).not.toBe(b.id);
     const drivers = new CrmDriversService();
     const d = await drivers.drivers(u.viewer);
