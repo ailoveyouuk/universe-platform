@@ -132,7 +132,7 @@ async function main() {
     const ints: any[] = []; const followUps: { i: number; assignee: string; due: Date; note: string }[] = [];
     for (const x of planned) {
       const rel = relOf.get(x.pid)!; if (withInteractions.has(rel.id) || x.status === "PROSPECT") continue;
-      const r = rng(`int:${x.pid}`); const n = x.tier === "STRATEGIC" ? 8 + Math.floor(r() * 5) : x.tier === "KEY" || x.tier === "WATCH" ? 4 + Math.floor(r() * 3) : 1 + Math.floor(r() * 3);
+      const r = rng(`int:${x.pid}`); const n = x.tier === "STRATEGIC" ? 10 + Math.floor(r() * 9) : x.tier === "KEY" || x.tier === "WATCH" ? 6 + Math.floor(r() * 5) : 2 + Math.floor(r() * 4);
       const cs = contactsByPartner.get(x.pid) ?? []; const prs = projectsByPartner.get(x.pid) ?? [];
       for (let k = 0; k < n; k++) {
         const type = pick(r, ["MEETING", "CALL", "VIDEO_CALL", "SITE_VISIT", "AUDIT", "CORRESPONDENCE", "CORRESPONDENCE", "CALL", "MEETING", "DECISION", "OTHER"]);
@@ -206,15 +206,20 @@ async function main() {
     act("tag applications", toLink.length);
     if (!dryRun) for (const part of chunk(toLink, 200)) await tx.crmRelationshipTag.createMany({ data: part.map((l) => ({ relationshipId: l.relationshipId, tagId: tagId.get(l.tagName)!, organizationId: org, addedById: admin.id, addedAt: daysAgo(30) })) });
 
-    // ---- 7. places (HQ plus others) and links, only for stakeholders with none
+    // ---- 7. places (HQ plus others) and links, only for stakeholders with none. Every tracked stakeholder gets a head office and a LinkedIn link, so the portfolio map and Sites column are full;
+    //         the engaged ones also get other sites, portals and quality pages.
+    const everyone = partners.filter((p) => relOf.has(p.id)).map((p) => p.id);
+    const engagedSet = new Set(targets);
     const countryCodes = new Set((await tx.country.findMany({ select: { code: true } })).map((c) => c.code));
     const hasLoc = new Set<string>(); const hasLink = new Set<string>();
-    for (const part of chunk(targets.map((t) => relOf.get(t)!.id), 1000)) {
+    for (const part of chunk(everyone.map((t) => relOf.get(t)!.id), 1000)) {
       for (const r of await tx.crmLocation.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) hasLoc.add(r.relationshipId);
       for (const r of await tx.crmLink.groupBy({ by: ["relationshipId"], where: { organizationId: org, relationshipId: { in: part } } })) hasLink.add(r.relationshipId);
     }
+    for (const part of chunk(everyone.filter((x) => !rolesOf.has(x)), 1000)) for (const c of await tx.partnerRole.findMany({ where: { partnerId: { in: part }, isActive: true }, select: { partnerId: true, roleType: true } })) { const st = rolesOf.get(c.partnerId) ?? new Set<string>(); st.add(c.roleType); rolesOf.set(c.partnerId, st); }
     const locs: any[] = []; const lnks: any[] = [];
-    for (const pid of targets) {
+    for (const pid of everyone) {
+      const big = engagedSet.has(pid);
       const rel = relOf.get(pid)!; const p = partnerOf.get(pid)!; const r = rng(`loc:${pid}`); const roles = rolesOf.get(pid) ?? new Set();
       const mk = (kind: string, name: string, cc: string | null, i: number) => {
         const city = cc && CITY[cc] ? pick(r, CITY[cc]) : null;
@@ -222,7 +227,7 @@ async function main() {
       };
       if (!hasLoc.has(rel.id) && p.countryCode && countryCodes.has(p.countryCode)) {
         mk("HQ", `${p.name} head office`, p.countryCode, 0);
-        const extra = (tierOf.get(pid) === "STRATEGIC" ? 3 : tierOf.get(pid) === "KEY" ? 2 : r() < 0.35 ? 1 : 0);
+        const extra = !big ? 0 : (tierOf.get(pid) === "STRATEGIC" ? 3 : tierOf.get(pid) === "KEY" ? 2 : r() < 0.35 ? 1 : 0);
         const used = new Set([p.countryCode]);
         for (let k = 0; k < extra; k++) {
           const cc = pick(r, HUBS.filter((h) => countryCodes.has(h) && !used.has(h)).length ? HUBS.filter((h) => countryCodes.has(h) && !used.has(h)) : [p.countryCode]); used.add(cc);
@@ -233,22 +238,23 @@ async function main() {
       if (!hasLink.has(rel.id)) {
         const s = slug(p.name); const base = (kind: string, label: string, url: string) => lnks.push({ id: randomUUID(), organizationId: org, relationshipId: rel.id, kind, label, url, createdById: admin.id, createdAt: daysAgo(150) });
         base("SOCIAL", "LinkedIn (simulated)", `https://linkedin.example/company/${s}`);
-        if (r() < 0.5) base("SOCIAL", "X (simulated)", `https://x.example/${s}`);
-        if (roles.has("MANUFACTURER") || roles.has("SUPPLIER")) base("PORTAL", "Supplier tender portal (simulated)", `https://tenders.${s}.example/`);
-        if (r() < 0.45) base("PORTAL", "Business opportunities (simulated)", `https://opportunities.${s}.example/`);
-        if (/ISO|GDP|WHO/i.test([...(certOf.get(pid) ?? [])].join(" ")) || r() < 0.2) base("QUALITY", "Quality and certificates (simulated)", `https://quality.${s}.example/certificates`);
+        if (big && r() < 0.5) base("SOCIAL", "X (simulated)", `https://x.example/${s}`);
+        if (big && (roles.has("MANUFACTURER") || roles.has("SUPPLIER"))) base("PORTAL", "Supplier tender portal (simulated)", `https://tenders.${s}.example/`);
+        if (big && r() < 0.45) base("PORTAL", "Business opportunities (simulated)", `https://opportunities.${s}.example/`);
+        if (big && (/ISO|GDP|WHO/i.test([...(certOf.get(pid) ?? [])].join(" ")) || r() < 0.2)) base("QUALITY", "Quality and certificates (simulated)", `https://quality.${s}.example/certificates`);
       }
     }
     act("places", locs.length); act("links", lnks.length);
     if (!dryRun) { for (const part of chunk(locs, 100)) await tx.crmLocation.createMany({ data: part }); for (const part of chunk(lnks, 100)) await tx.crmLink.createMany({ data: part }); }
 
     // ---- 8. contact profiles and one primary contact per stakeholder
+    for (const part of chunk(everyone.filter((x) => !engagedSet.has(x)), 1000)) for (const c of await tx.contact.findMany({ where: { organizationId: org, partnerId: { in: part } }, orderBy: [{ name: "asc" }, { id: "asc" }], select: { id: true, name: true, partnerId: true } })) contactsByPartner.set(c.partnerId, [...(contactsByPartner.get(c.partnerId) ?? []), { id: c.id, name: c.name }]);
     const existingProfiles = new Set<string>();
     const allContactIds = [...contactsByPartner.values()].flat().map((c) => c.id);
     for (const part of chunk(allContactIds, 1000)) for (const c of await tx.crmContactProfile.findMany({ where: { organizationId: org, contactId: { in: part } }, select: { contactId: true } })) existingProfiles.add(c.contactId);
     const profiles: any[] = [];
-    for (const pid of targets) {
-      const cs = (contactsByPartner.get(pid) ?? []).slice(0, 3); const r = rng(`prof:${pid}`); const hasPrimary = cs.some((c) => existingProfiles.has(c.id));
+    for (const pid of everyone) {
+      const cs = (contactsByPartner.get(pid) ?? []).slice(0, engagedSet.has(pid) ? 3 : 1); const r = rng(`prof:${pid}`); const hasPrimary = cs.some((c) => existingProfiles.has(c.id));
       cs.forEach((c, i) => {
         if (existingProfiles.has(c.id)) return;
         const verified = r() < 0.75 ? daysAgo(Math.floor(r() * 330)) : null;
