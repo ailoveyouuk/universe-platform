@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
-import { ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
+import { useCompactScreen, ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { accentVar, primaryCategory } from "../../lib/category";
 import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
@@ -49,9 +49,8 @@ export default function Portfolio() {
   const [busy, setBusy] = useState(false);
   const [dq, setDq] = useState("");
   const [as, setAs] = useState<"picture" | "numbers">("picture");
-  // On phones a 1,350px-wide table hides the rings and bars off to the right, so each stakeholder becomes a card instead.
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => { const mq = window.matchMedia("(max-width: 639px)"); const f = () => setNarrow(mq.matches); f(); mq.addEventListener("change", f); return () => mq.removeEventListener("change", f); }, []);
+  // On phones and tablets a 1,350px-wide table hides the rings and bars off to the right, so each stakeholder becomes a card instead.
+  const narrow = useCompactScreen();
   const [map, setMap] = useState<CrmPortfolioMap | null>(null);
   const countries = useCountries();
   const seq = useRef(0);

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsReferenceCountry, LogisticsRouteSummary } from "@universe/types";
-import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint } from "@universe/ui";
+import { GaugeIcon, GlobeIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint, CollapsibleSection } from "@universe/ui";
 import { readParam } from "../../lib/views";
 import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, useInsightsFilters } from "../../lib/filters";
@@ -171,8 +171,7 @@ export default function GeographiesPage() {
         <StatTile label="Made in the top three countries" value={loading ? "…" : tot.shipments ? `${Math.round(top3Share * 100)}%` : "—"} icon={<GaugeIcon size={18} />} tone="neutral" onClick={() => setLayer("made")} />
       </StatTileGrid>
 
-      <section aria-labelledby="g-map" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="g-map" style={h2}>Where does it flow?</h2>
+      <CollapsibleSection title="Where does it flow?" level={2} bare>
         <div role="group" aria-label="Map layer" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {LAYERS.map((l) => <button key={l.key} type="button" className="u-touch" style={pill(layer === l.key)} aria-pressed={layer === l.key} onClick={() => setLayer(l.key)}>{l.label}</button>)}
         </div>
@@ -219,12 +218,11 @@ export default function GeographiesPage() {
           </Card></div>
         </div>
       <SourceNote keys={refActive ? ["reference", "regions"] : ["logistics", "regions"]} />
-      </section>
+      </CollapsibleSection>
 
       <LogisticsTrend title="Flows over time" commodity={f.commodity} mode={f.mode} exportName="geographies-over-time" initialMetric="shipments" initialSplit="mode" />
 
-      <section aria-labelledby="g-grid" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="g-grid" style={h2}>Region to region</h2>
+      <CollapsibleSection title="Region to region" level={2} bare>
         <p style={sub}>Rows are where goods are made, columns where they are delivered (WHO regions). Select a cell to narrow everything on this page to that pair.</p>
         <div role="group" aria-label="Measure shown in the grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {MEASURES.map((m) => <button key={m.key} type="button" className="u-touch" style={pill(measure === m.key)} aria-pressed={measure === m.key} onClick={() => setMeasure(m.key)}>{m.label}</button>)}
@@ -266,17 +264,16 @@ export default function GeographiesPage() {
           </details>
         </Card>
       <SourceNote keys={["logistics", "regions"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="g-league" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="g-league" style={h2}>Which delivery countries are served most and least efficiently?</h2>
+      <CollapsibleSection title="Which delivery countries are served most and least efficiently?" level={2} bare>
         <p style={sub}>Average efficiency score of what arrives, for delivery countries with at least thirty shipments. Select a country to see it on the map.</p>
         <RankedTileGrid>
           <RankedTile label="Most efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.best} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
           <RankedTile label="Least efficient" icon={<GaugeIcon size={18} />} tone="var(--u-brand-violet)" rows={league.worst} limit={5} onRowClick={(r) => focusCountry(r.id)} formatValue={(v) => `${v.toFixed(1)}/10`} emptyMessage="Not enough shipments to rank yet." />
         </RankedTileGrid>
       <SourceNote keys={["logistics", "efficiency"]} />
-      </section>
+      </CollapsibleSection>
     </Page>
   );
 }

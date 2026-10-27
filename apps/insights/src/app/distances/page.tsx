@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightsFreightRate, InsightsPriceMovement, LogisticsRouteSummary } from "@universe/types";
-import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon, WorldMap, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
+import { StatTile, StatTileGrid, ClockIcon, GaugeIcon, GlobeIcon, TrendingUpIcon, WorldMap, type WorldMapArc, type WorldMapPoint, CollapsibleSection } from "@universe/ui";
 import { ModeDotPlot, ModeLegend, type DotRow } from "../../components/ModeDotPlot";
 import { DataTable, type Col } from "../../components/DataTable";
 import { LogisticsTrend } from "../../components/LogisticsTrend";
@@ -166,8 +166,7 @@ export default function DistancesPage() {
         <StatTile label={`Freight cost per tonne-km${ccy ? ` (${ccy})` : ""}`} value={loading ? "…" : perTonneKm !== null ? `${ccy} ${perTonneKm.toFixed(3)}` : "—"} icon={<GaugeIcon size={18} />} tone="neutral" onClick={() => scroll(moveRef)} />
       </StatTileGrid>
 
-      <section ref={bandsRef} aria-labelledby="d-bands" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
-        <h2 id="d-bands" style={h2}>What changes with distance?</h2>
+      <CollapsibleSection title="What changes with distance?" level={2} bare>
         <p style={sub}>Shipments grouped by how far they travel: how much of the volume sits in each band, how long it takes, how much CO2e a shipment carries and what freight costs per tonne.</p>
         <Card>
           {loading ? <p style={{ margin: 0 }}>Loading…</p> : (
@@ -175,10 +174,9 @@ export default function DistancesPage() {
           )}
         </Card>
       <SourceNote keys={["freight", "logistics", "fx"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section ref={rateRef} aria-labelledby="d-rates" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
-        <h2 id="d-rates" style={h2}>Freight cost by lane</h2>
+      <CollapsibleSection title="Freight cost by lane" level={2} bare>
         <p style={sub}>Each row is a lane (one region to another) and each mark a transport mode, further right meaning dearer. Sea is far cheaper per tonne than air over the same distance; the table gives the exact rates and the cost per tonne-kilometre.</p>
         <Card>
           {rates === null ? <p style={{ margin: 0 }}>Loading…</p> : rateRows.length === 0 ? (
@@ -197,19 +195,17 @@ export default function DistancesPage() {
           )}
         </Card>
       <SourceNote keys={["freight", "logistics", "fx"]} />
-      </section>
+      </CollapsibleSection>
 
       <LogisticsTrend title="Distance and time over time" mode={mode} exportName="distances-over-time" initialMetric="distance" initialSplit="mode" metrics={["distance", "days"]} />
 
-      <section ref={moveRef} aria-labelledby="d-move" style={{ display: "flex", flexDirection: "column", gap: 10, scrollMarginTop: 12 }}>
-        <h2 id="d-move" style={h2}>Is freight getting dearer?</h2>
+      <CollapsibleSection title="Is freight getting dearer?" level={2} bare>
         <p style={sub}>Like-for-like movement in freight cost per tonne-kilometre, by mode: the same lanes and shipment sizes compared month on month, so a change in what was shipped does not look like a rate change. 100 is the first month shown.</p>
         <SectionTrend title="Freight cost over time" metrics={indexMetrics(lines, "Freight cost per tonne-kilometre, by mode.")} metric={trendMetric} onMetric={setTrendMetric} loading={mv === null} sources={["freightMovement"]} exportName="freight-cost-index" />
       <SourceNote keys={["freightMovement"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="d-long" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="d-long" style={h2}>The longest corridors</h2>
+      <CollapsibleSection title="The longest corridors" level={2} bare>
         <p style={sub}>The fifteen routes with the greatest average distance (at least 30 shipments each), coloured by transport mode.</p>
         <Card>
           {routes === null ? <p style={{ margin: 0 }}>Loading…</p> : <WorldMap points={ends} arcs={arcs} maxHeight={380} emptyMessage="No long route has enough contributors to show yet." />}
@@ -223,7 +219,7 @@ export default function DistancesPage() {
           )}
         </Card>
       <SourceNote keys={["logistics"]} />
-      </section>
+      </CollapsibleSection>
     </Page>
   );
 }

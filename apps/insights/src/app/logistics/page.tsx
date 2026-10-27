@@ -5,8 +5,7 @@ import type { LogisticsFilters, LogisticsRouteSummary, StakeholderRatingSummary 
 import { COMMODITY_GROUPS, commodityGroupLabel, INCOTERMS } from "@universe/types";
 import {
   BuildingIcon, CountrySelect, GaugeIcon, GlobeIcon, ProjectsIcon, RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StandardsReference, StatTile, StatTileGrid, TrendingUpIcon,
-  bandForScore, scoreColor, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint, WorldMap, ClockIcon, ThermometerIcon,
-} from "@universe/ui";
+  bandForScore, scoreColor, type RankedRow, type WorldMapArc, type WorldMapLegendEntry, type WorldMapPoint, WorldMap, ClockIcon, ThermometerIcon, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { SourceNote } from "../../components/SourceNote";
@@ -91,8 +90,7 @@ export default function LogisticsPage() {
       />
       <ErrorNote message={err} />
 
-      <section aria-labelledby="glance" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="glance" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 }}>At a glance</h2>
+      <CollapsibleSection title="At a glance" level={2} bare>
         <StatTileGrid>
           <StatTile label="Shipments" value={rows ? fmt(all.shipments) : "…"} icon={<TrendingUpIcon size={18} />} onClick={() => drillTo("common")} />
           <StatTile label="Average distance" value={rows ? `${fmt(all.avgDistance)} km` : "…"} icon={<GlobeIcon size={18} />} tone="neutral" onClick={() => drillTo("common")} />
@@ -101,10 +99,9 @@ export default function LogisticsPage() {
             indicator={rows && all.shipments ? { color: SCORE_BAND_COLORS[band], barColor: scoreColor(all.avgScore / 10) ?? undefined, label: BAND_WORD[band] ?? "", fraction: all.avgScore / 10 } : undefined} />
         </StatTileGrid>
       <SourceNote keys={["logistics"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="modes" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="modes" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 }}>By transport mode</h2>
+      <CollapsibleSection title="By transport mode" level={2} bare>
         <StatTileGrid>
           {MODES.map((m) => {
             const t = totals((rows ?? []).filter((r) => !m.key || r.transportMode === m.key));
@@ -113,12 +110,11 @@ export default function LogisticsPage() {
           })}
         </StatTileGrid>
       <SourceNote keys={["logistics", "efficiency"]} />
-      </section>
+      </CollapsibleSection>
 
       <LogisticsTrend title="Routes over time" mode={mode} commodity={filters.commodityGroup} manufactureCountryCode={filters.manufactureCountryCode} destinationCountryCode={filters.destinationCountryCode} exportName="logistics-over-time" initialMetric="co2" initialSplit="mode" />
 
-      <section aria-labelledby="ratings" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="ratings" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 }}>Stakeholders by efficiency rating</h2>
+      <CollapsibleSection title="Stakeholders by efficiency rating" level={2} bare>
         {ratings === null && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Loading…</p>}
         {ratings !== null && ratings.length === 0 && <p style={{ margin: 0, color: "var(--u-ink-secondary)", fontSize: 14 }}>Not enough contributing organisations yet to show this anonymously.</p>}
         {ratings && ratings.length > 0 && (
@@ -131,10 +127,9 @@ export default function LogisticsPage() {
           </StatTileGrid>
         )}
       <SourceNote keys={["efficiency"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="where" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="where" style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 16 }}>Where goods are made and delivered</h2>
+      <CollapsibleSection title="Where goods are made and delivered" level={2} bare>
         <RankedTileGrid>
           <RankedTile label="Top countries of manufacture" icon={<GlobeIcon size={18} />} tone="var(--u-brand-violet)" rows={map.top.mfg} activeId={mapFocus?.id ?? null} onRowClick={(r) => setMapFocus({ id: r.id, nonce: Date.now() })} formatValue={(v) => fmt(v)} emptyMessage="No route has enough contributors to show yet." />
           <RankedTile label="Top delivery countries" icon={<GlobeIcon size={18} />} tone="var(--u-accent-magenta)" rows={map.top.dest} activeId={mapFocus?.id ?? null} onRowClick={(r) => setMapFocus({ id: r.id, nonce: Date.now() })} formatValue={(v) => fmt(v)} emptyMessage="No route has enough contributors to show yet." />
@@ -143,7 +138,7 @@ export default function LogisticsPage() {
         <WorldMap focus={mapFocus} highlightId={mapFocus?.id ?? null} points={map.points} arcs={map.arcs} legend={legend} maxHeight={420} emptyMessage="No route has enough contributors to show yet."
           onPointClick={(p) => { const [kind, code] = p.id.split(":"); if (kind === "mfg") setFilter("manufactureCountryCode", code); else if (kind === "dest") setFilter("destinationCountryCode", code); }} />
       <SourceNote keys={["logistics", "regions"]} />
-      </section>
+      </CollapsibleSection>
 
       <div ref={listRef} style={{ scrollMarginTop: 70 }}>
         <Card title="Routes" action={

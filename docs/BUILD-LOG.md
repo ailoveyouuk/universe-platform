@@ -1539,3 +1539,9 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 
 ## 2026-10-27 — Portfolio as cards on phones
 - Portfolio: under 640px the 1,350px table (which hid the chance rings and "Work together" bars off to the right) is replaced by one card per stakeholder: kind and place, chance ring, open/likely value, and the outcome bar.
+
+## 2026-10-27 — Collapsible sections on phones and tablets, platform-wide
+- New shared `CollapsibleSection` and `useCompactScreen` in `@universe/ui`: a titled section whose heading is a button (`aria-expanded`); closed to begin with under 1024px (phones and tablets, portrait and landscape), open on larger screens; the choice is kept while the page stays open; `bare` variant for sections that sit in their own card.
+- Applied to: CRM Overview, Network, Pipeline cards, Insights (Overview, Modes, Logistics, Distances, Geographies), Project Management (Quality, Partner detail, Project team), Tenders (Performance panel, Notices). The relationship section tabs and the Portfolio table now switch to a dropdown / cards under 1024px (was 640px).
+- Not yet converted (headings are flat siblings, need hand work): Product database Watch/Regulatory, Admin Performance and Organisation detail, Tenders Contract panel, Project detail line items.
+- Participants seed applied: 54 linked opportunities, 134 people added, no stage change. The sync now also covers opportunities linked through the older general TENDER link (people only, never a stage change).

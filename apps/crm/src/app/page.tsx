@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, categoryPlural, PARTNER_ROLE_TYPES, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmPipelineView, type CrmRelationshipRow, type CrmTag } from "@universe/types";
-import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
+import { AlertIcon, CheckCircleIcon, ClockIcon, OverviewHero, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon, CollapsibleSection } from "@universe/ui";
 import { useRouter } from "next/navigation";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -48,8 +48,7 @@ export default function Overview() {
       </StatTileGrid>
       <SourceNote keys={["overview", "health"]} />
       <DataGapsNote scope="overview" />
-      <section aria-labelledby="by-kind" style={{ display: "grid", gap: 10 }}>
-        <h2 id="by-kind" style={{ margin: 0, fontSize: 18, fontFamily: "var(--u-font-display)" }}>Stakeholders by kind</h2>
+      <CollapsibleSection title="Stakeholders by kind" level={2} bare>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--u-ink-secondary)" }}>Choose a kind to see every stakeholder of that kind on record. A stakeholder with more than one role is counted under each.</p>
         <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(200px, 100%), 1fr))", gap: 12 }}>
           {PARTNER_ROLE_TYPES.map((k) => {
@@ -65,13 +64,12 @@ export default function Overview() {
           })}
         </ul>
         <SourceNote keys={["kinds"]} />
-      </section>
+      </CollapsibleSection>
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
       )}
       {pl && pl.openCount > 0 && (
-        <section aria-labelledby="pipeline-strip" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-          <h2 id="pipeline-strip" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Pipeline</h2>
+        <CollapsibleSection title="Pipeline" level={2}>
           {pv && (() => {
             const m = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: pv.currency, notation: "compact", maximumFractionDigits: 1 }).format(n);
             const attn = pv.attention.staleCount + pv.attention.overdueCount;
@@ -88,20 +86,18 @@ export default function Overview() {
           </ul>
           <SourceNote keys={["pipeline", "forecast"]} />
           <p style={{ margin: "8px 0 0", fontSize: 13.5 }}><Link href="/pipeline">Open the pipeline</Link>{pl.closingSoon > 0 ? `. ${pl.closingSoon} expected within 30 days.` : "."}</p>
-        </section>
+        </CollapsibleSection>
       )}
       {due.length > 0 && (
-        <section aria-labelledby="reviews-due" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-          <h2 id="reviews-due" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Reviews overdue</h2>
+        <CollapsibleSection title="Reviews overdue" level={2}>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
             {due.map((r) => <li key={r.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}><Link href={link(`id=${r.id}`)}>{r.name}</Link><Pill tone="critical">Due {fmtDate(r.nextReviewDue)}</Pill><span style={{ color: "var(--u-ink-secondary)" }}>{r.ownerName ?? "No owner"}</span></li>)}
           </ul>
           {(o?.reviewDue ?? 0) > due.length && <p style={{ margin: "8px 0 0", fontSize: 13.5 }}><Link href={link("review=due")}>See all {o?.reviewDue}</Link></p>}
-        </section>
+        </CollapsibleSection>
       )}
       {fu && fu.length > 0 && (
-        <section aria-labelledby="my-follow-ups" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-          <h2 id="my-follow-ups" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Your follow-ups</h2>
+        <CollapsibleSection title="Your follow-ups" level={2}>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
             {fu.slice(0, 8).map((f) => (
               <li key={f.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
@@ -112,28 +108,25 @@ export default function Overview() {
             ))}
           </ul>
           {fu.length > 8 && <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--u-ink-secondary)" }}>{fu.length - 8} more in your actions list.</p>}
-        </section>
+        </CollapsibleSection>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
-        <section aria-labelledby="by-tier" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-          <h2 id="by-tier" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>By tier</h2>
+        <CollapsibleSection title="By tier" level={2}>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
             {CRM_TIERS.map((t) => <li key={t}><Link href={link(`tier=${t}`)}>{CRM_TIER_LABELS[t]}</Link> <strong>{o?.byTier[t] ?? "…"}</strong></li>)}
           </ul>
-        </section>
-        <section aria-labelledby="by-status" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-          <h2 id="by-status" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>By status</h2>
+        </CollapsibleSection>
+        <CollapsibleSection title="By status" level={2}>
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
             {CRM_STATUSES.map((t) => <li key={t}><Link href={link(`status=${t}`)}>{CRM_STATUS_LABELS[t]}</Link> <strong>{o?.byStatus[t] ?? "…"}</strong></li>)}
           </ul>
-        </section>
+        </CollapsibleSection>
         {tags.length > 0 && (
-          <section aria-labelledby="by-tag" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
-            <h2 id="by-tag" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>By tag</h2>
+          <CollapsibleSection title="By tag" level={2}>
             <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
               {[...tags].sort((a, b) => b.count - a.count).slice(0, 8).map((t) => <li key={t.id}><Link href={link(`tag=${t.id}`)}>{t.name}</Link> <strong>{t.count}</strong></li>)}
             </ul>
-          </section>
+          </CollapsibleSection>
         )}
       </div>
     </Page>

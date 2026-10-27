@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { InsightsActivity, InsightsOverview } from "@universe/types";
-import { OverviewGroup, OverviewGroups, OverviewHero } from "@universe/ui";
+import { OverviewGroup, OverviewGroups, OverviewHero, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { removeInsightsItem, useInsightsItems } from "../lib/views";
@@ -73,15 +73,13 @@ export default function InsightsHome() {
         <SourceNote keys={["activity"]} />
       </section>
 
-      <section aria-labelledby="areas" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="areas" style={h2}>Explore</h2>
+      <CollapsibleSection title="Explore" level={2} bare>
         <OverviewGroups>
           {AREAS.map((g) => <OverviewGroup key={g.title} title={g.title} color={g.color} links={g.areas} LinkComponent={Link} />)}
         </OverviewGroups>
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="views" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <h2 id="views" style={{ ...h2, fontSize: 16 }}>Your saved views</h2>
+      <CollapsibleSection title="Your saved views" level={2} bare>
         {items === null ? <p style={sub}>Loading…</p> : views.length === 0 ? <p style={sub}>Nothing saved yet. On any page, set the filters you like and choose Save this view.</p> : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexWrap: "wrap", gap: 8 }}>
             {views.map((v) => (
@@ -92,7 +90,7 @@ export default function InsightsHome() {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
       <details style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", backgroundColor: "var(--u-surface-raised)", padding: "12px 18px" }}>
         <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 14.5 }}>About Insights</summary>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LogisticsRouteSummary } from "@universe/types";
 import { commodityGroupLabel } from "@universe/types";
-import { RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, ThermometerIcon, TrendingUpIcon, ClockIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapPoint } from "@universe/ui";
+import { RankedTile, RankedTileGrid, SCORE_BAND_COLORS, ScoreLegend, StatTile, StatTileGrid, ThermometerIcon, TrendingUpIcon, ClockIcon, WorldMap, bandForScore, type RankedRow, type WorldMapArc, type WorldMapPoint, CollapsibleSection } from "@universe/ui";
 import { ModeDotPlot, ModeLegend, MODE_FILL, MODE_NAME, type DotRow } from "../../components/ModeDotPlot";
 import { apiClient } from "../../lib/apiClient";
 import { InsightsFilterBar, setInsightsFilters, useInsightsFilters } from "../../lib/filters";
@@ -134,8 +134,7 @@ export default function ModesPage() {
 
       <LogisticsTrend title="Shipping modes over time" commodity={f.commodity} mode={mode} exportName="modes-over-time" initialMetric="shipments" initialSplit="mode" />
 
-      <section aria-labelledby="m-compare" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="m-compare" style={h2}>How do the modes compare?</h2>
+      <CollapsibleSection title="How do the modes compare?" level={2} bare>
         <p style={sub}>Select a mode to focus the map below on it. Bars are scaled to the largest mode in each row.</p>
         <Card>
           <div style={{ overflowX: "auto" }}>
@@ -161,10 +160,9 @@ export default function ModesPage() {
           </div>
         </Card>
       <SourceNote keys={["logistics"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="m-speed" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="m-speed" style={h2}>What does speed cost in CO2?</h2>
+      <CollapsibleSection title="What does speed cost in CO2?" level={2} bare>
         <p style={sub}>Each row is a product group and each mark a transport mode; further left is cleaner. Select a mark to see its days in transit and CO2, or to filter the page to that product group.</p>
         <Card>
           <ModeLegend note="Larger mark: more shipments. The line joins the modes for the same product group." />
@@ -177,10 +175,9 @@ export default function ModesPage() {
           </details>
         </Card>
       <SourceNote keys={["logistics"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="m-mix" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="m-mix" style={h2}>Which mode carries which goods?</h2>
+      <CollapsibleSection title="Which mode carries which goods?" level={2} bare>
         <p style={sub}>Share of each product group's shipments by air, sea and land, ordered by how much goes by air. Select a row to filter the page to that group.</p>
         <Card>
           {mix.length === 0 ? <p style={{ margin: 0, fontSize: 14, color: "var(--u-ink-secondary)" }}>{loading ? "Loading…" : "No route has enough contributors to show yet."}</p> : (
@@ -203,20 +200,18 @@ export default function ModesPage() {
           <div role="group" aria-label="Key" style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12.5, marginTop: 12 }}>{MODES.map((m) => <span key={m} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span aria-hidden style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: FILL[m] }} />{MODE_NAME[m]}</span>)}</div>
         </Card>
       <SourceNote keys={["logistics"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="m-league" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="m-league" style={h2}>Where the modes differ most</h2>
+      <CollapsibleSection title="Where the modes differ most" level={2} bare>
         <p style={sub}>Product groups with at least thirty shipments by each mode compared.</p>
         <RankedTileGrid>
           <RankedTile label="Biggest air premium (times the sea CO2e)" icon={<ThermometerIcon size={18} />} tone="var(--u-brand-violet)" rows={league.air} limit={5} onRowClick={(r) => setInsightsFilters({ commodity: r.id })} formatValue={(v) => `${v.toFixed(0)} times`} emptyMessage="Not enough shipments to compare yet." />
           <RankedTile label="Longest sea transit (days)" icon={<ClockIcon size={18} />} tone="var(--u-brand-violet)" rows={league.sea} limit={5} onRowClick={(r) => setInsightsFilters({ commodity: r.id })} formatValue={(v) => `${v.toFixed(0)} days`} emptyMessage="Not enough shipments to compare yet." />
         </RankedTileGrid>
       <SourceNote keys={["logistics", "efficiency"]} />
-      </section>
+      </CollapsibleSection>
 
-      <section aria-labelledby="m-map" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h2 id="m-map" style={h2}>Where does each mode run?</h2>
+      <CollapsibleSection title="Where does each mode run?" level={2} bare>
         <div role="group" aria-label="Mode on the map" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button type="button" className="u-touch" style={pill(mode === "")} aria-pressed={mode === ""} onClick={() => setMode("")}>All modes</button>
           {MODES.map((m) => <button key={m} type="button" className="u-touch" style={pill(mode === m)} aria-pressed={mode === m} onClick={() => pickMode(m)}>{MODE_NAME[m]}</button>)}
@@ -224,7 +219,7 @@ export default function ModesPage() {
         <p style={sub}>The twenty busiest routes, drawn in the colour of their mode: sea violet, air magenta, land green.</p>
         <WorldMap points={map.points} arcs={map.arcs} legend={MODES.map((m) => ({ color: FILL[m], label: MODE_NAME[m] }))} maxHeight={440} emptyMessage={loading ? "Loading…" : "No route has enough contributors to show for this selection."} />
       <SourceNote keys={["logistics", "regions"]} />
-      </section>
+      </CollapsibleSection>
     </Page>
   );
 }

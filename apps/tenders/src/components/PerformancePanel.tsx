@@ -4,7 +4,7 @@ import { OrgName } from "./OrgName";
 import { useEffect, useState } from "react";
 import { FEEDBACK_LABELS } from "@universe/types";
 import type { ContractPaymentView, QualityEvidence, PaymentPracticeSummary, PerformanceRecordView, SupplierPerformanceSummary, TenderContractView } from "@universe/types";
-import { Button, Pill, Select } from "@universe/ui";
+import { Button, Pill, Select, CollapsibleSection } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { Field, fmtDate, inputStyle } from "../lib/ui";
 
@@ -27,8 +27,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
   const [qChecked, setQChecked] = useState(false);
   const missing = give && KEYS.some((k) => r[k] <= 2 && !(why[k] ?? "").trim());
   return (
-    <div style={{ marginTop: 18, display: "grid", gap: 10, maxWidth: 720 }}>
-      <h3 style={{ margin: 0, fontSize: 14 }}>Close the contract</h3>
+    <CollapsibleSection title="Close the contract" level={3} bare>
       <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, ...muted }}>Closing creates a performance record that you and the supplier both see. It is built from the milestones and, if the supplier created its delivery project, the delivery results, using your own scorecard settings. The supplier has 14 days to reply or dispute a measure. The record cannot be edited afterwards.</p>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, 220px) 1fr", gap: 8 }}>
         <Select ariaLabel="Outcome" value={close.outcome} onChange={(v) => setClose({ ...close, outcome: v })} options={[{ value: "COMPLETED", label: "Completed" }, { value: "TERMINATED", label: "Terminated early" }]} />
@@ -53,7 +52,7 @@ export function CloseContractForm({ c, busy, act }: { c: TenderContractView; bus
         const reasons = Object.fromEntries(KEYS.filter((k) => r[k] <= 2).map((k) => [k, (why[k] ?? "").trim()]));
         void act(() => apiClient.closeTenderContract(c.id, { ...close, qualityChecked: qChecked, ...(give ? { feedback: { quality: r.quality, communication: r.communication, documentation: r.documentation, flexibility: r.flexibility, wouldUseAgain: r.wouldUseAgain, reasons, comment: comment.trim() || undefined } } : {}) }));
       }}>Close contract</Button>{missing && <span style={{ marginLeft: 10, fontSize: 13, ...muted }}>Add a reason for each rating of 1 or 2.</span>}</div>
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -65,13 +64,12 @@ export function PerformanceCard({ p, issuer, busy, act }: { p: PerformanceRecord
   const label = (k: string | null) => p.measures.find((m) => m.key === k)?.label ?? k ?? "";
   return (
     <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: 15 }}>Performance record</h3>
+      <CollapsibleSection title="Performance record" level={3} bare>
         <BandPill band={p.band} />
         {p.overallScore !== null && <strong style={{ fontSize: 15 }}>{p.overallScore}/100</strong>}
         <span style={{ fontSize: 13, ...muted }}>Based on {p.coverage}% of the weighting · closed {fmtDate(p.closedAt)}</span>
         {p.withdrawn && <Pill tone="critical">Withdrawn by platform staff</Pill>}
-      </div>
+      </CollapsibleSection>
       {p.withdrawn && <p style={{ margin: "6px 0 0", fontSize: 13.5, ...muted }}>{p.withdrawnReason}</p>}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, marginTop: 8 }}>
@@ -130,8 +128,7 @@ export function PaymentLog({ c, busy, act }: { c: TenderContractView; busy: bool
   const rows: ContractPaymentView[] = c.payments;
   const today = new Date().toISOString().slice(0, 10);
   return (
-    <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
-      <h3 style={{ margin: 0, fontSize: 15 }}>Payment log</h3>
+    <CollapsibleSection title="Payment log" level={3}>
       <p style={{ margin: "4px 0 8px", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Kept by hand: Universe does not connect to either party's finance system. Either side can log an invoice and mark it paid. Settled invoices feed the anonymised payment-practice summary other suppliers see for the tender owner.</p>
       {rows.length === 0 && <p style={{ margin: 0, fontSize: 14, ...muted }}>No payments logged yet.</p>}
       {rows.map((p) => (
@@ -145,7 +142,7 @@ export function PaymentLog({ c, busy, act }: { c: TenderContractView; busy: bool
         <Field label="Due date"><input style={inputStyle} type="date" value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} /></Field>
         <Button variant="secondary" disabled={busy || !f.reference.trim() || !f.dueDate || !(Number(f.amount) >= 0) || f.amount === ""} onClick={async () => { if (await act(() => apiClient.addContractPayment(c.id, { reference: f.reference.trim(), amount: Number(f.amount), dueDate: f.dueDate }))) setF({ reference: "", amount: "", dueDate: "", invoiceDate: "" }); }}>Log invoice</Button>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -187,10 +184,9 @@ export function QualityLinks({ c, busy, act }: { c: TenderContractView; busy: bo
   const toggle = (set: Set<string>, id: string, fn: (s: Set<string>) => void) => { const n = new Set(set); n.has(id) ? n.delete(id) : n.add(id); fn(n); };
   return (
     <div style={{ marginTop: 18, borderTop: "1px solid var(--u-border)", paddingTop: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: 15 }}>Quality and cold-chain evidence</h3>
+      <CollapsibleSection title="Quality and cold-chain evidence" level={3} bare>
         <Button size="sm" variant="secondary" onClick={() => setOpen(!open)}>{open ? "Hide" : "Link complaints and temperature logs"}</Button>
-      </div>
+      </CollapsibleSection>
       <p style={{ margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5, ...muted }}>Tie your own complaints and temperature logs to this contract. At close only counts go into the record (how many, upheld, serious, excursions); the supplier never sees your complaint text. Only you can see these links.</p>
       {open && (
         <div style={{ display: "grid", gap: 10, marginTop: 8 }}>

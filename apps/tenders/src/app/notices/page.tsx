@@ -1,5 +1,6 @@
 "use client";
 
+import { CollapsibleSection } from "@universe/ui";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { PublicNoticeRecord } from "@universe/types";
@@ -51,14 +52,12 @@ function Notices() {
               {one.incoterm && <><dt style={muted}>Incoterm</dt><dd style={{ margin: 0 }}>{one.incoterm}{INCOTERM_NAMES[one.incoterm as IncotermCode] ? `: ${INCOTERM_NAMES[one.incoterm as IncotermCode]}` : ""}</dd></>}
             </dl>
           </div>
-          <div style={box}>
-            <h3 style={{ margin: "0 0 8px" }}>Items</h3>
+          <CollapsibleSection title="Items" level={3} bare>
             {one.lines.map((l, i) => <div key={i} style={{ padding: "6px 0", borderTop: i ? "1px solid var(--u-border)" : "none", fontSize: 14 }}>{l.description}{l.quantity ? <span style={muted}> · {l.quantity} {l.unit ?? ""}</span> : null}</div>)}
-          </div>
-          <div style={box}>
-            <h3 style={{ margin: "0 0 8px" }}>How bids will be assessed</h3>
+          </CollapsibleSection>
+          <CollapsibleSection title="How bids will be assessed" level={3} bare>
             {one.criteria.map((c, i) => <div key={i} style={{ padding: "4px 0", fontSize: 14 }}>{c.kind === "GATE" ? "Pass or fail" : `${Number(c.weight)}%`}: {c.title}</div>)}
-          </div>
+          </CollapsibleSection>
           <p style={{ fontSize: 13.5, ...muted }}>To take part, an eligible organisation must be registered on Universe. Sign in at the Universe tender portal to see the full requirements.</p>
         </div>
       )}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ContactSummary, ProjectDetail, UserOption } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
-import { Button, Select } from "@universe/ui";
+import { Button, Select, CollapsibleSection } from "@universe/ui";
 
 /**
  * Team & Contacts (added 2026-10-08) — leads (internal Users) and contacts
@@ -141,14 +141,12 @@ export function ProjectTeam({
   }
 
   return (
-    <div style={{ marginTop: 40 }}>
-      <h2>Team & Contacts</h2>
+    <CollapsibleSection title="Team & Contacts" level={2} bare>
 
       {error && <p style={{ color: "var(--u-status-critical-text)", fontSize: 12, marginTop: 6 }}>{error}</p>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 20, marginTop: 8 }}>
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 6px" }}>Project Leads</h3>
+        <CollapsibleSection title="Project Leads" level={3} bare>
           {project.leads.length === 0 && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "0 0 8px" }}>No leads assigned yet.</p>}
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
             {project.leads.map((lead) => (
@@ -178,10 +176,9 @@ export function ProjectTeam({
               Add
             </Button>
           </div>
-        </div>
+        </CollapsibleSection>
 
-        <div>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 6px" }}>Project Contacts</h3>
+        <CollapsibleSection title="Project Contacts" level={3} bare>
           {project.contacts.length === 0 && <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, margin: "0 0 8px" }}>No contacts added yet.</p>}
           <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
             {project.contacts.map((contact) => (
@@ -221,11 +218,10 @@ export function ProjectTeam({
               Add
             </Button>
           </div>
-        </div>
+        </CollapsibleSection>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <h3 style={{ fontSize: 13, fontWeight: 600, color: "var(--u-ink-secondary)", margin: "0 0 6px" }}>Assign an action</h3>
+      <CollapsibleSection title="Assign an action" level={3} bare>
         <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, margin: "0 0 8px" }}>Ask a colleague in your organisation to do something on this project. It appears in their notifications and on their dashboard.</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <Select
@@ -255,7 +251,7 @@ export function ProjectTeam({
           </Button>
         </div>
         {actionNote && <p style={{ color: "var(--u-ink-secondary)", fontSize: 12, marginTop: 6 }}>{actionNote}</p>}
-      </div>
-    </div>
+      </CollapsibleSection>
+    </CollapsibleSection>
   );
 }

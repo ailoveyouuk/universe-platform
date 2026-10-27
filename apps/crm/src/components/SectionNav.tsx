@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Select } from "@universe/ui";
+import { Select, useCompactScreen } from "@universe/ui";
 
 /**
  * Section switcher for a record with many sections. Tabs on wide screens; on phones a dropdown, because a strip of tabs that scrolls sideways hides what is off-screen
  * and bounces when pulled (2026-10-27, Lewis). The dropdown always shows which section is open and lists every one.
  */
 export function SectionNav<T extends string>({ label, idPrefix, items, value, onChange, panelId }: { label: string; idPrefix: string; items: { key: T; label: string }[]; value: T; onChange: (k: T) => void; panelId: string }) {
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const set = () => setNarrow(mq.matches);
-    set();
-    mq.addEventListener("change", set);
-    return () => mq.removeEventListener("change", set);
-  }, []);
+  const narrow = useCompactScreen();
   if (narrow) {
     return (
       <div style={{ display: "grid", gap: 4, borderBottom: "1px solid var(--u-border)", paddingBottom: 10 }}>

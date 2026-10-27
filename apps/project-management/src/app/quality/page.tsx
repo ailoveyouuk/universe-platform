@@ -30,7 +30,7 @@ import {
   type ProductPickerOption,
   StandardsReference,
   StatTile,
-} from "@universe/ui";
+  CollapsibleSection } from "@universe/ui";
 import { ScorecardSettingsPanel } from "../../components/ScorecardSettingsPanel";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
 
@@ -248,8 +248,7 @@ export default function QualityPage() {
       )}
 
       <section style={{ marginBottom: 40 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Product sourcing approvals</h2>
+        <CollapsibleSection title="Product sourcing approvals" level={2} bare>
           <div style={{ width: 200 }}>
             <Select
               value={statusFilter}
@@ -259,7 +258,7 @@ export default function QualityPage() {
               options={STATUS_FILTERS.filter(Boolean).map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase() }))}
             />
           </div>
-        </div>
+        </CollapsibleSection>
 
         {error && (
           <div
@@ -573,19 +572,7 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
   }
 
   return (
-    <div
-      style={{
-        padding: 20,
-        borderRadius: "var(--u-radius-lg)",
-        border: "1px solid var(--u-border)",
-        backgroundColor: "var(--u-surface-raised)",
-        marginBottom: 32,
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-      }}
-    >
-      <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--u-ink)" }}>New sourcing approval</h3>
+    <CollapsibleSection title="New sourcing approval" level={3}>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: "var(--u-ink-secondary)", fontWeight: 600 }}>
@@ -652,6 +639,6 @@ function NewApprovalForm({ onCreated, onCancel }: { onCreated: () => void; onCan
           Cancel
         </Button>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }

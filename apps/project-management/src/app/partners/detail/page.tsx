@@ -14,7 +14,7 @@ import type {
 import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon } from "@universe/ui";
+import { CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon, CollapsibleSection } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
 import { PartnerOrgName } from "../../../components/PartnerOrgName";
@@ -497,12 +497,11 @@ export default function PartnerDetailPage() {
       )}
 
       <section style={{ marginTop: 28 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Company checks</h2>
+        <CollapsibleSection title="Company checks" level={2} bare>
           <Button variant="secondary" onClick={() => setShowAddCheckForm((v) => !v)}>
             {showAddCheckForm ? "Cancel" : "Add check"}
           </Button>
-        </div>
+        </CollapsibleSection>
 
         {showAddCheckForm && (
           <AddCompanyCheckForm
@@ -552,12 +551,11 @@ export default function PartnerDetailPage() {
       )}
 
       <section style={{ marginTop: 28 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: "var(--u-ink)", margin: 0 }}>Documents &amp; certifications</h2>
+        <CollapsibleSection title="Documents &amp; certifications" level={2} bare>
           <Button variant="secondary" onClick={() => setShowAddCertForm((v) => !v)}>
             {showAddCertForm ? "Cancel" : "Add document"}
           </Button>
-        </div>
+        </CollapsibleSection>
 
         {showAddCertForm && (
           <AddCertificationForm
