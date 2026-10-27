@@ -80,7 +80,8 @@
     "backfill:logistics-metrics": "tsx scripts/backfill-logistics-metrics.ts",
     "wipe:organization": "tsx scripts/wipe-organization.ts",
     "provision:universe-demo": "tsx scripts/provision-universe-demo.ts",
-    "seed:demo-opportunity-participants": "tsx scripts/seed-demo-opportunity-participants.ts"
+    "seed:demo-opportunity-participants": "tsx scripts/seed-demo-opportunity-participants.ts",
+    "seed:demo-winloss-variety": "tsx scripts/seed-demo-winloss-variety.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

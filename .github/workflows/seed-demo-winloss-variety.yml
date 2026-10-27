@@ -1,0 +1,48 @@
+name: Seed demo win-loss variety
+
+# Variety for the demo win-loss panel (2026-10-27). Dry run by default.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (writes nothing). Untick to apply."
+        default: true
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Azure login (OIDC)
+        if: ${{ inputs.dry_run == false }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Find the storage account connection string
+        if: ${{ inputs.dry_run == false }}
+        run: |
+          ACCOUNT=$(az storage account list --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" --query "[0].name" -o tsv)
+          echo "Storage account: $ACCOUNT"
+          CONN=$(az storage account show-connection-string --name "$ACCOUNT" --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" --query connectionString -o tsv)
+          echo "::add-mask::$CONN"
+          echo "AZURE_STORAGE_CONNECTION_STRING=$CONN" >> "$GITHUB_ENV"
+      - name: Seed win-loss variety (or dry run)
+        run: npm run seed:demo-winloss-variety --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PRISMA_TX_TIMEOUT_MS: "600000"
