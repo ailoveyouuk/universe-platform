@@ -7,6 +7,7 @@ import { Select } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { accentVar } from "../lib/category";
 import { PipelineInsights } from "./PipelineInsights";
+import { Card } from "./Collapsible";
 import { SourceNote } from "./SourceNote";
 
 const STAGE_COLOUR: Record<CrmOpportunityStage, string> = {
@@ -59,8 +60,7 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
       </ul>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(340px, 100%), 1fr))", gap: 14 }}>
-        <div style={card}>
-          <h3 style={h2}>By stage</h3>
+        <Card title="By stage">
           {onStage && <p style={muted}>Choose a stage to filter the list below.</p>}
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
             {v.stages.map((s) => {
@@ -76,10 +76,9 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
               );
             })}
           </ul>
-        </div>
+        </Card>
 
-        <div style={card}>
-          <h3 style={h2}>Expected over the next twelve months</h3>
+        <Card title="Expected over the next twelve months">
           <p style={muted}>Open opportunities by the month they are expected. {by === "value" ? "The darker part of each bar is the share likely to be won." : ""}</p>
           <div style={{ overflowX: "auto" }}>
             <ul style={{ listStyle: "none", margin: 0, padding: "0 0 2px", display: "flex", alignItems: "flex-end", gap: 6, height: 170, minWidth: v.months.length * 40 }}>
@@ -99,10 +98,9 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
           </div>
           <SourceNote keys={["pipeline"]} />
           <p style={{ ...muted, fontSize: 12.5 }}>{v.overdue.count > 0 ? `${v.overdue.count} open past their expected date (${money(v.overdue.value)}). ` : "None past their expected date. "}{v.noDate.count > 0 ? `${v.noDate.count} open with no date (${money(v.noDate.value)}).` : ""}</p>
-        </div>
+        </Card>
 
-        {!relationshipId && <div style={card}>
-          <h3 style={h2}>Open pipeline by kind of stakeholder</h3>
+        {!relationshipId && <Card title="Open pipeline by kind of stakeholder">
           <p style={muted}>Choose a kind to see those stakeholders.</p>
           <SourceNote keys={["kinds"]} />
           {v.kinds.length === 0 ? <p style={muted}>No open opportunities.</p> : (
@@ -117,11 +115,10 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
               ))}
             </ul>
           )}
-        </div>}
+        </Card>}
       </div>
       {!relationshipId && v.stakeholders.length > 0 && (
-        <div style={card}>
-          <h3 style={h2}>Biggest opportunities by stakeholder</h3>
+        <Card title="Biggest opportunities by stakeholder">
           <p style={muted}>Ranked by open pipeline value. Choose a stakeholder to open its pipeline.</p>
           <SourceNote keys={["pipeline"]} />
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
@@ -135,7 +132,7 @@ export function PipelineVisual({ stage, onStage, onAttention, version, relations
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
       <PipelineInsights v={v} money={money} relationshipId={relationshipId} onAttention={onAttention} />
     </section>

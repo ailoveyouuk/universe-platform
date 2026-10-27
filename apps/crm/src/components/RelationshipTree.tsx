@@ -30,6 +30,8 @@ export function RelationshipTree({ relId }: { relId: string }) {
   const [table, setTable] = useState(false);
   const [more, setMore] = useState<Record<Branch, boolean>>({ project: false, opportunity: false, suggested: false });
   useEffect(() => { setTrail([relId]); }, [relId]);
+  // On a phone the picture would need sideways scrolling, so the table is the starting view there (the picture is one tap away).
+  useEffect(() => { if (window.innerWidth < 640) setTable(true); }, []);
   useEffect(() => { let live = true; setT(null); setErr(false); setPick(null); apiClient.crmRelationshipTree(cur).then((d) => { if (live) setT(d); }).catch(() => { if (live) setErr(true); }); return () => { live = false; }; }, [cur]);
   if (err) return <p role="status" style={muted}>The relationship tree is not available just now.</p>;
   if (!t) return <p role="status" style={muted}>Loading the relationship tree…</p>;

@@ -1529,3 +1529,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - **Data richness hints** (design in `docs/DATA-RICHNESS-DESIGN.md`): `DataGap` type, `DataHints` component, `GET crm/data-gaps`, `gap` filters on opportunities and relationships, in-place "Add the missing details" on opportunities, per-stakeholder hints with `focus` links; Methodology section "Making the figures richer". Roll-out to the other apps is planned, not built.
 - **Demo data:** `seed-demo-pipeline-history` dry run then applied: 493 simulated events across 166 opportunities, no current value changed. Lewis ran `infra/sql/crm-rls.sql` (sixteen tables).
 - Live checks (built-in browser): Portfolio bars, rings, likeliest-first order and the accessibility scan clean in light and dark; Connections tab renders (18 nodes).
+
+## 2026-10-27 — CRM pipeline sections collapse on phones
+- New `Card` (apps/crm/src/components/Collapsible.tsx): titled card whose heading is a button (`aria-expanded`), open on wide screens, closed by default under 640px, can be opened and closed again. Applied to every card in `PipelineVisual` and `PipelineInsights`.
+- Also in this commit: Links panel loads tender options/delivery/framework only when opened; relationship tree defaults to table view on phones; seed script + workflow `seed-demo-opportunity-participants` (not yet run).

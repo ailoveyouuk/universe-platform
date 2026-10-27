@@ -13,6 +13,7 @@ import { Field, fmtDate, humanise, inputStyle } from "../lib/ui";
  */
 export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmOpportunity; canManage: boolean; onChanged: () => void; onError: (m: string | null) => void }) {
   const [busy, setBusy] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [tenders, setTenders] = useState<CrmTenderOption[] | null>(null);
   const [tenderId, setTenderId] = useState("");
   const [tq, setTq] = useState("");
@@ -23,12 +24,12 @@ export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmO
   const [role, setRole] = useState<CrmParticipantRole>("OTHER");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
-  useEffect(() => { if (!canManage || o.sourceTenderId) return; const t = setTimeout(() => { apiClient.crmTenderOptions(tq).then(setTenders).catch(() => setTenders([])); }, 250); return () => clearTimeout(t); }, [tq, canManage, o.sourceTenderId]);
+  useEffect(() => { if (!opened || !canManage || o.sourceTenderId) return; const t = setTimeout(() => { apiClient.crmTenderOptions(tq).then(setTenders).catch(() => setTenders([])); }, 250); return () => clearTimeout(t); }, [tq, opened, canManage, o.sourceTenderId]);
   useEffect(() => { if (!adding || needle.trim().length < 2) { setFound([]); return; } const t = setTimeout(() => { apiClient.crmRelationships({ q: needle, pageSize: 8 }).then((d) => setFound(d.items)).catch(() => setFound([])); }, 250); return () => clearTimeout(t); }, [needle, adding]);
   const run = async (fn: () => Promise<unknown>, done?: string) => { setBusy(true); onError(null); setMsg(null); try { await fn(); if (done) setMsg(done); onChanged(); } catch (e) { onError(e instanceof Error ? e.message : "Could not save."); } finally { setBusy(false); } };
   const linked = o.sourceTenderId || o.linkedId;
   return (
-    <details style={{ fontSize: 13 }}>
+    <details style={{ fontSize: 13 }} onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) setOpened(true); }}>
       <summary style={{ cursor: "pointer" }}>Links and people involved ({o.participants.length})</summary>
       <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
         <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>
@@ -78,8 +79,8 @@ export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmO
             <Button size="sm" variant="secondary" type="button" onClick={() => setAdding(false)}>Cancel</Button>
           </form>
         )}
-        {o.kind === "FRAMEWORK_CALL_OFF" && <Framework id={o.id} sourceTenderId={o.sourceTenderId} />}
-        {o.stage === "WON" && <Delivery id={o.id} linkedId={o.linkedId} />}
+        {opened && o.kind === "FRAMEWORK_CALL_OFF" && <Framework id={o.id} sourceTenderId={o.sourceTenderId} />}
+        {opened && o.stage === "WON" && <Delivery id={o.id} linkedId={o.linkedId} />}
         {msg && <p role="status" style={{ margin: 0, color: "var(--u-status-good-text)" }}>{msg}</p>}
         <p style={{ margin: 0, fontSize: 11.5, color: "var(--u-ink-secondary)" }}>Tender and project people are limited to stakeholders already in your CRM. Last updated {fmtDate(o.stageChangedAt)} (stage).</p>
       </div>
