@@ -1576,3 +1576,5 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - Product database detail: every card folds, Identity kept open (page was about 5,000px on a phone).
 - Admin: the shared `Section` folds (first section on each page kept open); organisation detail was about 8,000px on a phone.
 - `useFocusField` now opens any closed collapsible around the target before landing on it, so `?focus=` works on phones too.
+- Verified live (f5daa5c): at 375x812, 812x375, 768x1024 sections start closed and open on tap; at 1024x768 all open; no horizontal overflow. Page heights on a phone: PM project detail 2,705 to 1,791px, Tender manage 2,014 to 1,128px, Product detail 5,058 to 1,471px, Admin organisation detail 8,050 to about 1,800px (landscape). `?focus=primaryColor` on Admin opened the closed Branding section and landed on the picker.
+- Collapsible coverage now: CRM, Insights, Project Management, Tenders, Product database and Admin (CRM verified fully; others at the sizes above on the long pages).
