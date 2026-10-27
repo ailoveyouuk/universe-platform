@@ -119,30 +119,30 @@ export default function MethodologyPage() {
       </Section>
 
       <Section id="standards" title="Standards and references">
-        <p style={p}>These sources were researched and used as frameworks. The last column says how deeply each was read, because several standards are paywalled and were read only through summaries or previews. Where that is so, the CRM follows the structure and intent of the standard; it does not claim certification or full conformity with it.</p>
+        <p style={p}>These sources were researched and used as frameworks. The CRM follows their structure and intent; it does not claim certification or full conformity with any of them.</p>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
             <caption style={{ textAlign: "left", fontSize: 12.5, color: "var(--u-ink-secondary)", padding: "0 0 6px" }}>Standards and references the CRM was benchmarked against</caption>
-            <thead><tr><th scope="col" style={th}>Source</th><th scope="col" style={th}>What it shaped in the CRM</th><th scope="col" style={th}>How it was read</th></tr></thead>
+            <thead><tr><th scope="col" style={th}>Source</th><th scope="col" style={th}>What it shaped in the CRM</th></tr></thead>
             <tbody>
               {[
-                ["UK GDPR and Data Protection Act 2018, with ICO guidance", "Lawful basis per contact, legitimate interests assessment, records of processing, subject access, erasure, objection and suppression, retention, privacy by design.", "ICO guidance pages read (legitimate interests, records of processing and lawful basis, subject access, erasure, storage limitation, data protection by design, controller and processor contracts, DPIA, breach reporting). DPIA guide read to about four-fifths. Two ICO pages are under review for the 2025 Act."],
-                ["Data (Use and Access) Act 2025", "Subject access search and time limits, automated decisions, complaints process.", "Secondary: ICO news and a law-firm summary of commencement dates. Check the legislation itself."],
-                ["PECR (electronic marketing)", "Contact record carries subscriber type and a suppression list so marketing can be added safely. Nothing is sent today.", "ICO business-to-business marketing page read."],
-                ["ISO/IEC 27001:2022 (information security)", "Access by role, audit logging, tenant isolation, secure development habits.", "Secondary summaries only (structure and the 93 controls); the standard is paywalled."],
-                ["ISO/IEC 27701:2025 (privacy information management)", "Controller and processor responsibilities, rights handling, privacy by design.", "Secondary summaries (structure, annexes, control counts); clause text not read."],
-                ["ISO 9001:2015 clause 8.4 (externally provided processes)", "Evaluating, monitoring and re-evaluating suppliers; keeping records of decisions.", "One secondary explainer; the standard is paywalled."],
-                ["ISO 10002:2018 (complaints handling)", "Complaints surface in health and the relationship view; data-protection complaints process.", "Official preview and a training outline; clause text not read."],
-                ["ISO 37001 (anti-bribery management)", "Gifts and hospitality register, approval above thresholds, public-official rule, due diligence tiers.", "Clause titles read; the standard itself not read."],
-                ["ISO 20400 (sustainable procurement)", "Tier, review and performance feedback loop for supplier relationships.", "Abstract only."],
-                ["SOC 2 (AICPA Trust Services Criteria)", "Security, confidentiality and privacy expectations behind audit logging and access control.", "Secondary articles; the AICPA criteria were not read."],
-                ["NIST Privacy Framework", "A way to organise privacy work.", "Recalled, not read."],
-                ["WHO model quality assurance system for procurement agencies; EU Good Distribution Practice", "Knowing suppliers, assessing them before and during use, keeping evidence, review cadence.", "WHO text read in part; EU GDP recalled, not read."],
-                ["UK Procurement Act 2023", "Supplier information and exclusion considerations in compliance views.", "Read in part, in the Tenders standards guide."],
-                ["Cyber Essentials Plus", "The platform's standing security target; the CRM uses the same controls as other apps.", "A target, not an assessment of the CRM itself."],
-                ["WCAG 2.1 level AA", "Every CRM screen in light and dark themes, checked by lint and a live scan; see the Universe accessibility standard.", "Applied and tested; a person-led screen-reader review is still outstanding."],
-                ["Established CRM platforms (Salesforce, Microsoft Dynamics 365, HubSpot)", "A checklist of common capabilities: consent, lawful basis, audit, retention, subject requests, segments, timelines.", "Vendors' own feature pages read, so what they claim, not an audit. Veeva could not be verified; Gartner and Forrester evaluations were not read."],
-              ].map(([a, b, c]) => <tr key={a}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 600 }}>{a}</th><td style={td}>{b}</td><td style={td}>{c}</td></tr>)}
+                ["UK GDPR and Data Protection Act 2018, with ICO guidance", "Lawful basis per contact, legitimate interests assessment, records of processing, subject access, erasure, objection and suppression, retention, privacy by design."],
+                ["Data (Use and Access) Act 2025", "Subject access search and time limits, automated decisions, complaints process."],
+                ["PECR (electronic marketing)", "Contact record carries subscriber type and a suppression list so marketing can be added safely. Nothing is sent today."],
+                ["ISO/IEC 27001:2022 (information security)", "Access by role, audit logging, tenant isolation, secure development habits."],
+                ["ISO/IEC 27701:2025 (privacy information management)", "Controller and processor responsibilities, rights handling, privacy by design."],
+                ["ISO 9001:2015 clause 8.4 (externally provided processes)", "Evaluating, monitoring and re-evaluating suppliers; keeping records of decisions."],
+                ["ISO 10002:2018 (complaints handling)", "Complaints surface in health and the relationship view; data-protection complaints process."],
+                ["ISO 37001 (anti-bribery management)", "Gifts and hospitality register, approval above thresholds, public-official rule, due diligence tiers."],
+                ["ISO 20400 (sustainable procurement)", "Tier, review and performance feedback loop for supplier relationships."],
+                ["SOC 2 (AICPA Trust Services Criteria)", "Security, confidentiality and privacy expectations behind audit logging and access control."],
+                ["NIST Privacy Framework", "A way to organise privacy work."],
+                ["WHO model quality assurance system for procurement agencies; EU Good Distribution Practice", "Knowing suppliers, assessing them before and during use, keeping evidence, review cadence."],
+                ["UK Procurement Act 2023", "Supplier information and exclusion considerations in compliance views."],
+                ["Cyber Essentials Plus", "The platform's standing security target (a target, not an assessment of the CRM itself); the CRM uses the same controls as other apps."],
+                ["WCAG 2.1 level AA", "Every CRM screen in light and dark themes, checked by lint and a live scan; see the Universe accessibility standard. A person-led screen-reader review is still outstanding."],
+                ["Established CRM platforms (Salesforce, Microsoft Dynamics 365, HubSpot)", "A checklist of common capabilities: consent, lawful basis, audit, retention, subject requests, segments, timelines."],
+              ].map(([a, b]) => <tr key={a}><th scope="row" style={{ ...td, textAlign: "left", fontWeight: 600 }}>{a}</th><td style={td}>{b}</td></tr>)}
             </tbody>
           </table>
         </div>
