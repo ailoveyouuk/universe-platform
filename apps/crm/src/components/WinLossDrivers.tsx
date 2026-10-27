@@ -44,7 +44,8 @@ export function WinLossDrivers({ version }: { version: number }) {
   return (
     <>
       <p style={muted}>What the platform knows about the {d.won} won and {d.lost} lost: win rate with and without each factor, strongest differences first.</p>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>{d.factors.map((f) => <Factor key={f.key} f={f} />)}</ul>
+      {d.factors.some((f) => f.lift !== null) && <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>{d.factors.filter((f) => f.lift !== null).map((f) => <Factor key={f.key} f={f} />)}</ul>}
+      {d.factors.some((f) => f.lift === null) && <p style={{ ...muted, fontSize: 12.5 }}>Not enough variety in your records yet to compare: {d.factors.filter((f) => f.lift === null).map((f) => f.label.toLowerCase()).join("; ")}. These fill in as more opportunities close and more is recorded.</p>}
     </>
   );
 }
