@@ -1584,3 +1584,8 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - Stakeholder certificates: a timeline above the table (bars from issue to expiry, a diamond where only expiry is known, today marked; the table carries the same facts in text). Source line included.
 - New seed `seed:demo-winloss-variety` (workflow `seed-demo-winloss-variety.yml`, dry run by default): adds earlier won opportunities for some stakeholders and clears the owner on about one decided opportunity in five, so "Why we win and lose" has something to compare. Dry run: 7 earlier wins added, 10 of 40 owners cleared (7 won, 3 lost). Not yet applied (waiting for Lewis).
 - Verified live (6188fe9) at 375x812: Overview section shows four rings and the status and tier bars, no overflow; certificate timeline renders on a stakeholder with three dated certificates; scanner clean in light and dark on both.
+
+## 2026-10-27 — CRM links to and from Project Management / Tenders
+- CRM pipeline opportunities now link their tender (`/discover/view?id=`) and project (`/projects/detail?id=`) to the source records.
+- New `GET /crm/relationships/by-partner/:partnerId` (crm.view) returns the CRM relationship id for a stakeholder; CRM relationships page accepts `?partner=<id>` and opens that record.
+- Project Management stakeholder page shows an "Open in CRM" link.

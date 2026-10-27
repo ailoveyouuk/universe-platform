@@ -58,6 +58,7 @@ export class CrmController {
     return page;
   }
 
+  @Get("relationships/by-partner/:partnerId") byPartner(@CurrentUser() user: RequestUser, @Param("partnerId") partnerId: string) { return this.crm.idForPartner(user, partnerId); }
   @Get("relationships/:id") one(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.one(user, id); }
 
   @Get("relationships/:id/detail") detail(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.crm.detail(user, id); }

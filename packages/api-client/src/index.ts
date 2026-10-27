@@ -1155,6 +1155,7 @@ export class UniverseApiClient {
   dataHealth(app?: string): Promise<DataHealthSection[]> { return this.request(`/data-health${app ? `?app=${encodeURIComponent(app)}` : ""}`); }
   crmDataGaps(scope: string): Promise<DataGap[]> { return this.request(`/crm/data-gaps?scope=${encodeURIComponent(scope)}`); }
   crmRelationshipTree(id: string): Promise<CrmRelationshipTree> { return this.request(`/crm/relationships/${id}/tree`); }
+  crmRelationshipForPartner(partnerId: string): Promise<{ id: string }> { return this.request(`/crm/relationships/by-partner/${partnerId}`); }
   crmRelationship(id: string): Promise<CrmRelationshipRow> { return this.request(`/crm/relationships/${id}`); }
   crmScorecard(id: string): Promise<PartnerScorecard> { return this.request(`/crm/relationships/${id}/scorecard`); }
   updateCrmRelationship(id: string, body: CrmRelationshipUpdate): Promise<CrmRelationshipRow> { return this.request(`/crm/relationships/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }

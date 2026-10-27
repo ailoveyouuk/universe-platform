@@ -343,6 +343,16 @@ export class CrmService {
     });
   }
 
+  /** Finds the CRM relationship for a Project Management stakeholder (so other apps can link to it). */
+  async idForPartner(user: RequestUser, partnerId: string): Promise<{ id: string }> {
+    assertHasPermission(user, "crm.view");
+    return withTenantContext(user.organizationId, async (tx) => {
+      const r = await tx.crmRelationship.findFirst({ where: { organizationId: user.organizationId, partnerId, archivedAt: null }, select: { id: true } });
+      if (!r) throw new NotFoundException("This stakeholder has no CRM record yet.");
+      return { id: r.id };
+    });
+  }
+
   /** The stakeholder's existing quality scorecard (the same calculation Project Management shows), for the relationship detail. */
   async scorecard(user: RequestUser, id: string) {
     assertHasPermission(user, "crm.view");

@@ -14,7 +14,7 @@ import type {
 import { STAKEHOLDER_CATEGORY_LABELS } from "@universe/types";
 import { apiClient } from "../../../lib/apiClient";
 import { useCountries } from "../../../lib/useCountries";
-import { useFocusField, CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon, CollapsibleSection } from "@universe/ui";
+import { useFocusField, CategoryChip, Pill, TextLink, BuildingIcon, Button, Select, AlertIcon, CheckCircleIcon, ClockIcon, ShieldIcon, CollapsibleSection, UNIVERSE_APPS } from "@universe/ui";
 import { AuditHistory } from "../../../components/AuditHistory";
 import { ApprovalHistory } from "../../../components/ApprovalHistory";
 import { PartnerOrgName } from "../../../components/PartnerOrgName";
@@ -312,6 +312,7 @@ export default function PartnerDetailPage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {(() => { const base = UNIVERSE_APPS.find((x) => x.key === "crm")?.href?.replace(/\/$/, ""); return base ? <TextLink href={`${base}/relationships?partner=${partner.id}`} target="_blank" rel="noreferrer">Open in CRM</TextLink> : null; })()}
           <Pill tone={partner.approvalStatus === "APPROVED" ? "good" : partner.approvalStatus === "REMOVED" ? "neutral" : "warning"}>
             {partner.approvalStatus}
           </Pill>

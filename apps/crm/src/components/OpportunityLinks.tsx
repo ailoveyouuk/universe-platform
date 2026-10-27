@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CRM_PARTICIPANT_ROLE_LABELS, CRM_PARTICIPANT_ROLES, categoryLabel, type CrmOpportunity, type CrmOpportunityDelivery, type CrmOpportunityFramework, type CrmParticipantRole, type CrmRelationshipRow, type CrmTenderOption } from "@universe/types";
-import { Button, Dot, MeterBar, ProgressRing } from "@universe/ui";
+import { Button, Dot, MeterBar, ProgressRing, UNIVERSE_APPS } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { accentStyle } from "../lib/category";
 import { Field, fmtDate, humanise, inputStyle } from "../lib/ui";
@@ -28,12 +28,16 @@ export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmO
   useEffect(() => { if (!adding || needle.trim().length < 2) { setFound([]); return; } const t = setTimeout(() => { apiClient.crmRelationships({ q: needle, pageSize: 8 }).then((d) => setFound(d.items)).catch(() => setFound([])); }, 250); return () => clearTimeout(t); }, [needle, adding]);
   const run = async (fn: () => Promise<unknown>, done?: string) => { setBusy(true); onError(null); setMsg(null); try { await fn(); if (done) setMsg(done); onChanged(); } catch (e) { onError(e instanceof Error ? e.message : "Could not save."); } finally { setBusy(false); } };
   const linked = o.sourceTenderId || o.linkedId;
+  const appBase = (k: string) => UNIVERSE_APPS.find((x) => x.key === k)?.href?.replace(/\/$/, "");
+  const linkedTenderId = o.sourceTenderId ?? (o.linkedType === "TENDER" ? o.linkedId : null);
+  const tenderUrl = linkedTenderId && appBase("tender-issuance") ? `${appBase("tender-issuance")}/discover/view?id=${linkedTenderId}` : null;
+  const projectUrl = o.linkedType === "PROJECT" && o.linkedId && appBase("project-management") ? `${appBase("project-management")}/projects/detail?id=${o.linkedId}` : null;
   return (
     <details style={{ fontSize: 13 }} onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) setOpened(true); }}>
       <summary style={{ cursor: "pointer" }}>Links and people involved ({o.participants.length})</summary>
       <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
         <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>
-          {o.sourceTenderLabel ? <>Tender: <strong>{o.sourceTenderLabel}</strong>. </> : "Not linked to a tender. "}{o.linkedLabel ? <>Project: <strong>{o.linkedLabel}</strong>. </> : "Not linked to a project. "}
+          {o.sourceTenderLabel ? <>Tender: {tenderUrl ? <a href={tenderUrl}><strong>{o.sourceTenderLabel}</strong></a> : <strong>{o.sourceTenderLabel}</strong>}. </> : "Not linked to a tender. "}{o.linkedLabel ? <>Project: {projectUrl ? <a href={projectUrl}><strong>{o.linkedLabel}</strong></a> : <strong>{o.linkedLabel}</strong>}. </> : "Not linked to a project. "}
           {linked ? (o.syncWithLinked ? "The stage follows the linked tender bid or project." : "The stage is moved by hand.") : ""}
         </p>
         {canManage && !o.sourceTenderId && (

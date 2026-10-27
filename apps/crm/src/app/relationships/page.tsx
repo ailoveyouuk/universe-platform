@@ -63,7 +63,7 @@ export default function RelationshipsPage() {
   const [dq, setDq] = useState("");
   useEffect(() => { const t = setTimeout(() => setDq(f.q), 250); return () => clearTimeout(t); }, [f.q]);
   const [focus, setFocus] = useState<CrmRelationshipRow | null>(null);
-  useEffect(() => { const id = new URLSearchParams(window.location.search).get("id"); if (id) { setOpen(id); apiClient.crmRelationship(id).then(setFocus).catch(() => setErr("That relationship could not be found.")); } }, []);
+  useEffect(() => { const sp = new URLSearchParams(window.location.search); const partner = sp.get("partner"); if (partner && !sp.get("id")) { apiClient.crmRelationshipForPartner(partner).then((r) => { setOpen(r.id); return apiClient.crmRelationship(r.id).then(setFocus); }).catch(() => setErr("This stakeholder has no CRM record yet.")); return; } const id = sp.get("id"); if (id) { setOpen(id); apiClient.crmRelationship(id).then(setFocus).catch(() => setErr("That relationship could not be found.")); } }, []);
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
   const loadOverview = useCallback(() => { apiClient.crmOverview().then(setO).catch(() => undefined); }, []);
