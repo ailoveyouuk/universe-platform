@@ -1066,6 +1066,7 @@ export class UniverseApiClient {
   serviceCatalogue(): Promise<ServiceCatalogueRow[]> { return this.request("/service-catalogue"); }
   serviceCatalogueUsage(): Promise<Record<string, { projectLines: number; tenderLines: number; organisations: number }>> { return this.request("/service-catalogue/usage"); }
   /** CRM (2026-10-26): relationships sit on top of stakeholders; the list creates any that are missing. */
+  crmRelationshipCounts(q: Record<string, string | undefined> = {}): Promise<{ total: number; active: number; needsAttention: number; reviewDue: number }> { const p = new URLSearchParams(); for (const [k, v] of Object.entries(q)) if (v) p.set(k, v); return this.request(`/crm/relationships/counts${p.toString() ? `?${p}` : ""}`); }
   crmOverview(): Promise<CrmOverview> { return this.request("/crm/overview"); }
   crmDetail(id: string): Promise<CrmRelationshipDetail> { return this.request(`/crm/relationships/${id}/detail`); }
   crmInteractions(relId: string, q: { type?: string; q?: string; page?: number; pageSize?: number } = {}): Promise<CrmInteractionPage> {

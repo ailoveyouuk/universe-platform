@@ -62,6 +62,13 @@ export default function RelationshipsPage() {
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
   const loadOverview = useCallback(() => { apiClient.crmOverview().then(setO).catch(() => undefined); }, []);
+  // The four tiles describe the chosen view (kind, tier, owner, search and so on), not the whole book; only the tiles' own filters are left out.
+  const [counts, setCounts] = useState<{ total: number; active: number; needsAttention: number; reviewDue: number } | null>(null);
+  const loadCounts = useCallback(() => {
+    if (!ready) return;
+    const { status: _s, health: _h, review: _r, ...ctx } = f;
+    apiClient.crmRelationshipCounts({ ...ctx, q: dq }).then(setCounts).catch(() => undefined);
+  }, [f.q, f.tier, f.owner, f.role, f.tag, f.quiet, f.certs, dq, ready]);
   const load = useCallback(() => {
     if (!ready) return;
     const mine = ++seq.current; setBusy(true);
@@ -72,10 +79,13 @@ export default function RelationshipsPage() {
   }, [f, dq, page, pageSize, ready]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (ready) loadOverview(); }, [ready, loadOverview]);
+  useEffect(() => { loadCounts(); }, [loadCounts, data]);
 
   const set = (patch: Partial<Filters>) => { setF((c) => ({ ...c, ...patch })); setPage(1); };
   const tileOn = (patch: Partial<Filters>) => Object.entries(patch).every(([k, v]) => f[k as keyof Filters] === v);
-  const toggle = (patch: Partial<Filters>) => set(tileOn(patch) ? Object.fromEntries(Object.keys(patch).map((k) => [k, ""])) : { ...EMPTY, ...patch });
+  const toggle = (patch: Partial<Filters>) => set(tileOn(patch) ? Object.fromEntries(Object.keys(patch).map((k) => [k, ""])) : { status: "", health: "", review: "", ...patch });
+  const scoped = Object.entries(f).some(([k, v]) => !!v && !["status", "health", "review"].includes(k)) || !!dq;
+  const tileKeySet = !!(f.status || f.health || f.review);
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const personName = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
@@ -85,13 +95,13 @@ export default function RelationshipsPage() {
       <ErrorNote message={err} />
       <OkNote message={ok} />
       <StatTileGrid>
-        <StatTile label="All relationships" value={o?.total} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => set(EMPTY)} active={Object.values(f).every((v) => !v)} />
-        <StatTile label="Active" value={o?.active} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggle({ status: "ACTIVE" })} active={tileOn({ status: "ACTIVE" })} />
-        <StatTile label="Need attention" value={o?.needsAttention} icon={<AlertIcon size={18} />} tone="warning" onClick={() => toggle({ health: "attention" })} active={tileOn({ health: "attention" })} />
-        <StatTile label="Reviews due" value={o?.reviewDue} icon={<ClockIcon size={18} />} tone="critical" onClick={() => toggle({ review: "due" })} active={tileOn({ review: "due" })} />
+        <StatTile label={scoped ? "In this view" : "All relationships"} value={counts?.total ?? (scoped ? undefined : o?.total)} icon={<PartnersIcon size={18} />} tone="brand" onClick={() => (tileKeySet ? set({ status: "", health: "", review: "" }) : set(EMPTY))} active={!tileKeySet} />
+        <StatTile label="Active" value={counts?.active} icon={<CheckCircleIcon size={18} />} tone="good" onClick={() => toggle({ status: "ACTIVE" })} active={tileOn({ status: "ACTIVE" })} />
+        <StatTile label="Need attention" value={counts?.needsAttention} icon={<AlertIcon size={18} />} tone="warning" onClick={() => toggle({ health: "attention" })} active={tileOn({ health: "attention" })} />
+        <StatTile label="Reviews due" value={counts?.reviewDue} icon={<ClockIcon size={18} />} tone="critical" onClick={() => toggle({ review: "due" })} active={tileOn({ review: "due" })} />
       </StatTileGrid>
 
-      {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); }} />}
+      {canManage && <AddFromUniverse onError={setErr} onAdded={(m, _id, name) => { setOk(m); set({ ...EMPTY, q: name }); loadOverview(); loadCounts(); }} />}
       <SavedFilters view="RELATIONSHIPS" current={f as unknown as Record<string, string>} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }} role="search" aria-label="Filter relationships">
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name, contact, tag, place, owner, country…" /></div>

@@ -32,6 +32,9 @@ export class CrmController {
   @Get("search") search(@CurrentUser() user: RequestUser, @Query("q") q: string, @Query("types") types?: string) { return this.searchSvc.search(user, q ?? "", types); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
 
+  @Get("relationships/counts")
+  counts(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.counts(user, q); }
+
   @Get("relationships/map")
   portfolioMap(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.portfolioMap(user, q); }
 

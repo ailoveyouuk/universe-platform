@@ -268,6 +268,28 @@ export class CrmService {
     });
   }
 
+  /**
+   * The four list tiles for whatever view is chosen (2026-10-27): the same filters as the list, except the ones the tiles themselves set (status, health, review).
+   * Choosing "Manufacturers" therefore shows how many manufacturers are active, need attention or have a review due, not the whole book.
+   */
+  async counts(user: RequestUser, q: CrmListQuery): Promise<{ total: number; active: number; needsAttention: number; reviewDue: number }> {
+    assertHasPermission(user, "crm.view");
+    await this.ensureTracked(user);
+    const now = new Date(); const canComplaints = this.canSeeComplaints(user);
+    const { status: _s, health: _h, review: _r, ...rest } = q;
+    return withTenantContext(user.organizationId, async (tx) => {
+      const where = await this.listWhere(tx, user, rest, now, canComplaints);
+      const open: Prisma.CrmRelationshipWhereInput = { status: { not: "ENDED" } };
+      const [total, active, needsAttention, reviewDue] = await Promise.all([
+        tx.crmRelationship.count({ where }),
+        tx.crmRelationship.count({ where: { AND: [where, { status: "ACTIVE" }] } }),
+        tx.crmRelationship.count({ where: { AND: [where, open, this.healthWhere("ATTENTION", canComplaints, now)] } }),
+        tx.crmRelationship.count({ where: { AND: [where, open, { nextReviewDue: { lt: now } }] } }),
+      ]);
+      return { total, active, needsAttention, reviewDue };
+    });
+  }
+
   async overview(user: RequestUser): Promise<CrmOverview> {
     assertHasPermission(user, "crm.view");
     await this.ensureTracked(user);
