@@ -7,6 +7,7 @@ import { apiClient } from "../lib/apiClient";
 import { ErrorNote, Field, fmtDate, inputStyle } from "../lib/ui";
 import { SavedFilters } from "./SavedFilters";
 import { PipelineBoard } from "./PipelineBoard";
+import { OpportunityLinks } from "./OpportunityLinks";
 import { SourceNote } from "./SourceNote";
 
 export const money = (v: number | null, c: string | null) => (v === null || !c ? "No value set" : new Intl.NumberFormat("en-GB", { style: "currency", currency: c, maximumFractionDigits: 0 }).format(v));
@@ -105,6 +106,7 @@ function Item({ o, showRel, canManage, onChanged, onError }: { o: CrmOpportunity
         </details>
       )}
       {o.notes && <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{o.notes}</p>}
+      <OpportunityLinks o={o} canManage={canManage} onChanged={onChanged} onError={onError} />
       {o.lostReason && <p style={{ margin: 0 }}><strong>Why lost:</strong> {o.lostReason}</p>}
       {canManage && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
