@@ -30,7 +30,7 @@ describe("CRM places and links", () => {
     orgB = (await createOrganizationWithDefaultRoles({ name: `Pl B ${suffix}`, slug: `pl-b-${suffix}` })).id;
     u.manager = await makeUser(orgA, "manager", ["crm.view", "crm.manage", "projects.view"]);
     u.viewer = await makeUser(orgA, "viewer", ["crm.view"]);
-    u.other = await makeUser(orgB, "other", ["crm.view", "crm.manage"]);
+    u.other = await makeUser(orgB, "other", ["crm.view", "crm.manage", "projects.view"]);
     await prisma.country.upsert({ where: { code: "QX" }, update: {}, create: { code: "QX", name: "Testland" } });
     await withPlatformStaffContext(async (tx) => {
       const pa = await tx.partner.create({ data: { organizationId: orgA, name: `Acme ${suffix}`, normalizedName: `acme ${suffix}` } });
