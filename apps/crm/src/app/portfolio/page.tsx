@@ -5,6 +5,8 @@ import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTE
 import { Pagination, SearchInput, Select, type PageSize } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { ErrorNote, Heading, Page, humanise } from "../../lib/ui";
+import { SavedFilters } from "../../components/SavedFilters";
+import { useCurrentUser } from "../../lib/AuthContext";
 import { PORTFOLIO_COLUMNS } from "../../components/PortfolioStrip";
 
 type Filters = { q: string; role: string; status: string; work: string; tag: string };
@@ -20,6 +22,8 @@ const tdNum: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumer
  * The counts come from Project Management's projects (one project counts once per stakeholder). Filtered, counted and paged by the database.
  */
 export default function Portfolio() {
+  const me = useCurrentUser();
+  const canManage = !!me && (me.platformStaffRole !== "NONE" || me.permissions.includes("crm.manage"));
   const [f, setF] = useState<Filters>(EMPTY);
   const [ready, setReady] = useState(false);
   const [page, setPage] = useState(1);
@@ -50,6 +54,7 @@ export default function Portfolio() {
     <Page>
       <Heading title="Portfolio" sub="Every stakeholder with the work you have done together, by outcome, and where and with whom they operate. Counts come from Project Management; a project counts once per stakeholder." />
       <ErrorNote message={err} />
+      <SavedFilters view="PORTFOLIO" current={f} onApply={(sf) => { setF({ ...EMPTY, ...sf }); setPage(1); }} canShare={canManage} onError={setErr} />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ minWidth: 220, flex: "1 1 220px", maxWidth: 340 }}><SearchInput value={f.q} onChange={(v) => set({ q: v })} placeholder="Search name or country…" /></div>
         <div style={{ minWidth: 170 }}><Select value={f.role} onChange={(v) => set({ role: v })} allLabel="Any kind of stakeholder" options={ROLE_OPTIONS.map((t) => ({ value: t, label: humanise(t) }))} ariaLabel="Filter by kind of stakeholder" /></div>

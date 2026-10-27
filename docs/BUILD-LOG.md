@@ -1408,3 +1408,10 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 - Relationship 360 "Work together" tab now opens with the same outcome counts, a Sites of operation table, then the project list.
 - No schema change. Counts are one grouped query per page. People without the Project Management app or `projects.view` see dashes instead of project counts, and the work-history filter is ignored for them (so it cannot reveal projects); contacts and sites need the Project Management app.
 - Test: `crm-portfolio.test.ts` (DB-backed: outcome counts, once-per-project, contacts, sites, work filter incl. "never", permission gating, isolation).
+
+## 2026-10-27 — CRM step 6e (saved filters)
+- New table `crm_saved_filters` (migration 20261027110000; added to `infra/sql/crm-rls.sql`, now ten CRM tables, Lewis re-runs the file). A saved filter is a named combination of list filters for the Relationships list or the Portfolio list.
+- Personal by default; only CRM managers can share one with the organisation. You see your own and shared ones; you change your own, managers can also change or remove shared ones. Only the known filter keys (search, tier, status, owner, health, review, role, tag, work) are stored, with short values, and "owner: me" stays relative to whoever applies it. Archived, never deleted; created, renamed, shared and removed are audited.
+- UI: a "Saved filters" picker on both lists (choosing one applies it), "Save these filters" (name, optional share), and "Remove this saved filter".
+- Test: `crm-saved-filters.test.ts` (DB-backed: personal vs shared, manager-only sharing, whitelist, duplicates, ownership, archive, isolation).
+- This closes step 6 (search, review reminders, tags, Overview, portfolio, saved filters).

@@ -5020,3 +5020,23 @@ model CrmRelationshipTag {
   @@index([organizationId, tagId])
   @@map("crm_relationship_tags")
 }
+
+/// CRM step 6 (2026-10-27): a named combination of list filters, kept for reuse. Personal by default; a CRM manager can share it with the organisation.
+/// Archived, never deleted. `filters` is JSON of the whitelisted filter keys only (validated by the API).
+model CrmSavedFilter {
+  id             String    @id @default(uuid())
+  organizationId String
+  ownerUserId    String
+  /// RELATIONSHIPS | PORTFOLIO
+  view           String
+  name           String    @db.NVarChar(80)
+  filters        String    @db.NVarChar(1000)
+  shared         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  archivedAt     DateTime?
+
+  @@index([organizationId, view])
+  @@index([organizationId, ownerUserId])
+  @@map("crm_saved_filters")
+}

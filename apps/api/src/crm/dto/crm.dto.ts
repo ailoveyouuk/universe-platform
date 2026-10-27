@@ -84,3 +84,11 @@ export class TagDto {
   @IsOptional() @IsString() @MaxLength(60) name?: string;
   @IsOptional() @IsBoolean() archived?: boolean;
 }
+
+export class SavedFilterDto {
+  @IsOptional() @IsString() @MaxLength(20) view?: "RELATIONSHIPS" | "PORTFOLIO";
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() filters?: Record<string, string>;
+  @IsOptional() @IsBoolean() shared?: boolean;
+  @IsOptional() @IsBoolean() archived?: boolean;
+}

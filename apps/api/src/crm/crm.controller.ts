@@ -6,16 +6,17 @@ import type { RequestUser } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import { CrmInteractionsService } from "./crm-interactions.service";
 import { CrmOpportunitiesService } from "./crm-opportunities.service";
+import { CrmSavedFiltersService } from "./crm-saved-filters.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { AnonymiseDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService) {}
+  constructor(private readonly crm: CrmService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService) {}
 
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
@@ -76,4 +77,9 @@ export class CrmController {
   @Patch("tags/:id") updateTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: TagDto) { return this.tags.update(user, id, dto); }
   @Post("relationships/:id/tags/:tagId") applyTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("tagId") tagId: string) { return this.tags.apply(user, id, tagId); }
   @Delete("relationships/:id/tags/:tagId") removeTag(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("tagId") tagId: string) { return this.tags.remove(user, id, tagId); }
+
+  // ---- Saved filters (step 6) ----
+  @Get("saved-filters") listSavedFilters(@CurrentUser() user: RequestUser, @Query("view") view?: string) { return this.savedFilters.list(user, view); }
+  @Post("saved-filters") createSavedFilter(@CurrentUser() user: RequestUser, @Body() dto: SavedFilterDto) { return this.savedFilters.create(user, dto); }
+  @Patch("saved-filters/:id") updateSavedFilter(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: SavedFilterDto) { return this.savedFilters.update(user, id, dto); }
 }

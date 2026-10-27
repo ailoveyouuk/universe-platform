@@ -4128,6 +4128,12 @@ export const CRM_WORK_FILTERS = ["in_progress", "submitted", "awarded", "complet
 export type CrmWorkFilter = (typeof CRM_WORK_FILTERS)[number];
 export const CRM_WORK_FILTER_LABELS: Record<CrmWorkFilter, string> = { in_progress: "Has work in progress", submitted: "Has submitted bids", awarded: "Has awarded work under way", completed: "Has completed work", unawarded: "Has unawarded or declined work", none: "Never worked with" };
 export interface CrmSite { id: string; siteName: string; countryCode: string | null; address: string | null; isPrimary: boolean }
+export const CRM_FILTER_VIEWS = ["RELATIONSHIPS", "PORTFOLIO"] as const;
+export type CrmFilterView = (typeof CRM_FILTER_VIEWS)[number];
+/** The list filters a saved filter may hold. Anything else is rejected. */
+export const CRM_FILTER_KEYS = ["q", "tier", "status", "owner", "health", "review", "role", "tag", "work"] as const;
+export interface CrmSavedFilter { id: string; view: CrmFilterView; name: string; filters: Record<string, string>; shared: boolean; mine: boolean; ownerName: string | null }
+export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filters?: Record<string, string>; shared?: boolean; archived?: boolean }
 export interface CrmTagRef { id: string; name: string }
 export interface CrmTag extends CrmTagRef { count: number }
 export interface CrmRelationshipRow {
