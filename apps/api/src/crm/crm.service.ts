@@ -193,7 +193,7 @@ export class CrmService {
       const [roleRows, workRows] = await Promise.all([
         ids.length ? tx.$queryRaw<{ pid: string; roleType: string }[]>(Prisma.sql`SELECT r.partnerId AS pid, r.roleType AS roleType FROM partner_roles r JOIN ${ofIds} j ON j.id = r.partnerId WHERE r.isActive = 1`) : Promise.resolve([]),
         seeWork && ids.length ? tx.$queryRaw<{ bucket: string; n: number | bigint }[]>(Prisma.sql`
-          SELECT x.bucket AS bucket, COUNT(DISTINCT x.pid) AS n FROM (
+          SELECT x.bucket AS bucket, COUNT(DISTINCT t.pid) AS n FROM (
             SELECT p.clientId AS pid, p.status AS status FROM projects p JOIN ${ofIds} j ON j.id = p.clientId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL
             UNION SELECT p.freightForwarderId, p.status FROM projects p JOIN ${ofIds} j ON j.id = p.freightForwarderId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL
             UNION SELECT l.supplierId, p.status FROM project_lines l JOIN projects p ON p.id = l.projectId JOIN ${ofIds} j ON j.id = l.supplierId WHERE p.organizationId = ${org} AND p.archivedAt IS NULL AND l.archivedAt IS NULL
