@@ -1536,3 +1536,6 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 
 ## 2026-10-27 — Section switcher on phones (CRM relationships)
 - New `SectionNav` (apps/crm/src/components/SectionNav.tsx): tabs on wide screens (now with `overscroll-behavior-x: contain`); under 640px a "Section (n)" dropdown that shows the open section and lists all of them, replacing the sideways-scrolling tab strip that hid options and bounced. Used for the relationship row sections. The Privacy page keeps its tab strip for now.
+
+## 2026-10-27 — Portfolio as cards on phones
+- Portfolio: under 640px the 1,350px table (which hid the chance rings and "Work together" bars off to the right) is replaced by one card per stakeholder: kind and place, chance ring, open/likely value, and the outcome bar.

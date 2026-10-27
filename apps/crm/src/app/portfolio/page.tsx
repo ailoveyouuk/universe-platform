@@ -4,7 +4,7 @@ import Link from "next/link";
 import { categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
 import { ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
-import { accentVar } from "../../lib/category";
+import { accentVar, primaryCategory } from "../../lib/category";
 import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
 import { useCountries } from "../../lib/useCountries";
 import { sinceAgo, WORK_STATUS_TONE } from "../../lib/since";
@@ -49,6 +49,9 @@ export default function Portfolio() {
   const [busy, setBusy] = useState(false);
   const [dq, setDq] = useState("");
   const [as, setAs] = useState<"picture" | "numbers">("picture");
+  // On phones a 1,350px-wide table hides the rings and bars off to the right, so each stakeholder becomes a card instead.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => { const mq = window.matchMedia("(max-width: 639px)"); const f = () => setNarrow(mq.matches); f(); mq.addEventListener("change", f); return () => mq.removeEventListener("change", f); }, []);
   const [map, setMap] = useState<CrmPortfolioMap | null>(null);
   const countries = useCountries();
   const seq = useRef(0);
@@ -109,7 +112,26 @@ export default function Portfolio() {
         </div>
       </div>
       {noProjects && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Project counts are hidden because your account cannot view projects. Ask your administrator for the Project Management app and project access.</p>}
-      <div style={{ overflowX: "auto", opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
+      {narrow && (
+        <ul aria-label="Stakeholder portfolio" aria-busy={busy} style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12, opacity: busy && data ? 0.55 : 1 }}>
+          {data?.items.map((r) => (
+            <li key={r.id} style={{ border: "1px solid var(--u-border)", borderLeft: `4px solid ${(primaryCategory(r.roles) ? accentVar(primaryCategory(r.roles)!) : "var(--u-border)")}`, borderRadius: "var(--u-radius-lg)", padding: "12px 14px", backgroundColor: "var(--u-surface-raised)", display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <span style={{ minWidth: 0 }}>
+                  <Link href={`/relationships?id=${r.id}`}><strong>{r.name}</strong></Link>
+                  <span style={{ display: "block", fontSize: 12.5, color: "var(--u-ink-secondary)" }}>{r.roles.map(categoryLabel).join(", ") || "—"} · {[r.countryCode, ...(r.siteCountries ?? []).filter((c) => c !== r.countryCode)].filter(Boolean).join(", ") || "—"}</span>
+                </span>
+                {r.pipeline?.probability != null && <ProgressRing size={52} value={Math.round(r.pipeline.probability * 100)} tone={r.pipeline.probability >= 0.6 ? "good" : r.pipeline.probability >= 0.3 ? "warning" : "neutral"} caption="" title={`Chance of winning: ${Math.round(r.pipeline.probability * 100)} per cent`} />}
+              </div>
+              {r.pipeline && <span style={{ fontSize: 13 }}>{r.pipeline.openCount} open deal{r.pipeline.openCount === 1 ? "" : "s"} · likely {money(r.pipeline.likelyValue, r.pipeline.currency)} of {money(r.pipeline.openValue, r.pipeline.currency)}</span>}
+              {r.portfolio && (r.portfolio.inProgress + r.portfolio.submitted + r.portfolio.awarded + r.portfolio.completed + r.portfolio.unawarded > 0
+                ? <SegmentBar ariaLabel="Projects together by outcome" segments={PORTFOLIO_COLUMNS.map((c) => ({ key: c.key, label: c.short, value: r.portfolio![c.key], tone: OUTCOME_TONE[c.key] ?? "neutral", onClick: () => set({ work: TILES.find((t) => t.key === c.key)?.work ?? "" }) }))} />
+                : <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }}>No projects yet</span>)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!narrow && <div style={{ overflowX: "auto", opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
         <table aria-label="Stakeholder portfolio" style={{ borderCollapse: "collapse", width: "100%", minWidth: 1350 }}>
           <thead>
             <tr>
@@ -136,7 +158,7 @@ export default function Portfolio() {
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
       {data && data.items.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No stakeholders match these filters.</p>}
       {data && <Pagination pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} page={page} pageCount={pages} onPageChange={setPage} totalCount={data.total} />}
     </Page>
