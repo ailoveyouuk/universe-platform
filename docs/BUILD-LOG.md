@@ -1397,3 +1397,7 @@ Rewrite (same day): the list and tiles are now filtered, counted, sorted and pag
 - Viewing needs `crm.view`; creating, renaming, archiving and applying need `crm.manage`. Relationship rows now carry their tags; the list can be filtered by tag in the database.
 - UI: tags (up to two) on each list row, a "Tags" line in the expanded Overview where managers add an existing tag, create-and-add a new one, or remove one, a "Any tag" filter with counts, and a "By tag" card on the Overview.
 - Test: `crm-tags.test.ts` (DB-backed: duplicate names, apply and filter, audit, remove/re-add, archive and restore, isolation).
+
+## 2026-10-27 — CRM step 6c (Overview dashboard)
+- Overview now shows a Pipeline strip (open opportunities by stage, link to the pipeline, count expected within 30 days) and a "Reviews overdue" list (five longest overdue, owner shown, link to see all). Both only appear when there is something to show.
+- Not built from the design's Segments item: saved filters (tags are done).

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmTag } from "@universe/types";
+import { CRM_OPEN_STAGES, CRM_OPPORTUNITY_STAGE_LABELS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_TIER_LABELS, CRM_TIERS, type CrmFollowUp, type CrmOverview, type CrmPipelineSummary, type CrmRelationshipRow, type CrmTag } from "@universe/types";
 import { AlertIcon, CheckCircleIcon, ClockIcon, PartnersIcon, Pill, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
@@ -20,6 +20,8 @@ export default function Overview() {
   useEffect(() => { apiClient.crmPipeline().then(setPl).catch(() => setPl(null)); }, []);
   const [tags, setTags] = useState<CrmTag[]>([]);
   useEffect(() => { apiClient.crmTags().then(setTags).catch(() => setTags([])); }, []);
+  const [due, setDue] = useState<CrmRelationshipRow[]>([]);
+  useEffect(() => { apiClient.crmRelationships({ review: "due", sort: "review", pageSize: 5 }).then((d) => setDue(d.items)).catch(() => setDue([])); }, []);
   const link = (q: string) => `/relationships?${q}`;
   const tile = (label: string, value: number | undefined, icon: React.ReactNode, tone: "brand" | "good" | "warning" | "neutral" | "critical", q: string) => (
     <Link href={link(q)} style={{ textDecoration: "none", color: "inherit", display: "block" }} aria-label={`${label}: ${value ?? "loading"}. Open the list`}>
@@ -39,8 +41,23 @@ export default function Overview() {
       {o && o.unowned > 0 && (
         <p style={{ margin: 0, fontSize: 13.5 }}><UserIcon size={14} /> <Link href={link("owner=none")}>{o.unowned} relationship{o.unowned === 1 ? " has" : "s have"} no owner yet</Link>. An owner is the person who looks after the relationship.</p>
       )}
-      {pl && (
-        <p style={{ margin: 0, fontSize: 13.5 }}><Link href="/pipeline">{pl.openCount} open opportunit{pl.openCount === 1 ? "y" : "ies"}</Link>{pl.closingSoon > 0 ? `, ${pl.closingSoon} expected within 30 days` : ""}.</p>
+      {pl && pl.openCount > 0 && (
+        <section aria-labelledby="pipeline-strip" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
+          <h2 id="pipeline-strip" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Pipeline</h2>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", gap: 18, flexWrap: "wrap" }}>
+            {CRM_OPEN_STAGES.map((st) => <li key={st}>{CRM_OPPORTUNITY_STAGE_LABELS[st]} <strong>{pl.byStage[st].count}</strong></li>)}
+          </ul>
+          <p style={{ margin: "8px 0 0", fontSize: 13.5 }}><Link href="/pipeline">Open the pipeline</Link>{pl.closingSoon > 0 ? `. ${pl.closingSoon} expected within 30 days.` : "."}</p>
+        </section>
+      )}
+      {due.length > 0 && (
+        <section aria-labelledby="reviews-due" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
+          <h2 id="reviews-due" style={{ margin: "0 0 10px", fontSize: 16, fontFamily: "var(--u-font-display)" }}>Reviews overdue</h2>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
+            {due.map((r) => <li key={r.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}><Link href={link(`id=${r.id}`)}>{r.name}</Link><Pill tone="critical">Due {fmtDate(r.nextReviewDue)}</Pill><span style={{ color: "var(--u-ink-secondary)" }}>{r.ownerName ?? "No owner"}</span></li>)}
+          </ul>
+          {(o?.reviewDue ?? 0) > due.length && <p style={{ margin: "8px 0 0", fontSize: 13.5 }}><Link href={link("review=due")}>See all {o?.reviewDue}</Link></p>}
+        </section>
       )}
       {fu && fu.length > 0 && (
         <section aria-labelledby="my-follow-ups" style={{ border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-lg)", padding: "16px 18px", backgroundColor: "var(--u-surface-raised)" }}>
