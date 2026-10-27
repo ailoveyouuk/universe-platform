@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { SearchService } from "../src/search/search.service";
 import { CrmGapsService } from "../src/crm/crm-gaps.service";
+import { DataHealthService } from "../src/data-health/data-health.service";
 import { CrmDriversService } from "../src/crm/crm-drivers.service";
 import { CrmTreeService } from "../src/crm/crm-tree.service";
 import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
@@ -167,5 +168,13 @@ describe("CRM interactions", () => {
     expect(owner!.with.won + owner!.with.lost + owner!.without.won + owner!.without.lost).toBe(d.won + d.lost);
     const other = await drivers.drivers(u.other);
     expect(other.won + other.lost).toBeLessThan(d.won + d.lost); // another organisation's outcomes never count
+  });
+
+  it("lists data gaps only for apps the person can use, with sane counts", async () => {
+    const health = new DataHealthService();
+    const none = await health.sections({ ...u.viewer, permissions: ["crm.view"] } as RequestUser);
+    expect(none.find((x) => x.app === "project-management")).toBeUndefined();
+    const pm = await health.sections({ ...u.viewer, permissions: ["crm.view", "projects.view"] } as RequestUser, "project-management");
+    for (const sec of pm) { expect(sec.app).toBe("project-management"); for (const g of sec.gaps) { expect(g.count).toBeGreaterThan(0); expect(g.count).toBeLessThanOrEqual(g.total); expect(g.href).toMatch(/^\//); } }
   });
 });

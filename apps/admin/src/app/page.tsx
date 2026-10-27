@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FieldChangeFeedEntry, OrganizationSummary, UserCounts } from "@universe/types";
-import { OverviewHero, BuildingIcon, Button, CheckCircleIcon, ClockIcon, PartnersIcon, PlusIcon, ShieldIcon, StatTile, StatTileGrid } from "@universe/ui";
+import { OverviewHero, BuildingIcon, Button, CheckCircleIcon, ClockIcon, PartnersIcon, PlusIcon, ShieldIcon, StatTile, StatTileGrid, DataHealthNote } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { Section } from "../components/form";
@@ -30,6 +30,7 @@ export default function AdminHomePage() {
   return (
     <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1000 }}>
       <div style={{ marginBottom: 16 }}><OverviewHero color="var(--u-module-admin)" forename={me?.forename} title="Run Universe." intro="Onboard organisations, manage their people and roles, and review what has changed." /></div>
+      <DataHealthNote currentApp="admin" load={() => apiClient.dataHealth("admin")} />
 
       <div className="u-quick-actions" style={{ marginBottom: 8 }}>
         {isPlatform ? (

@@ -26,3 +26,9 @@ Overview, Pipeline, Portfolio notes; opportunity gaps (value, date, group, owner
 - Each gap says what it improves in plain words; each fix is one click from the field.
 - Accessibility: tokens only, no colour-only meaning, keyboard and screen reader friendly (it is a `details` element).
 - Remote apps that do not yet support `?focus` link to the record; implement `data-field` + the focus effect as each app is done (Project Management `focus=country` is not wired yet).
+
+## Roll-out status (2026-10-27, later)
+- **One service for the other apps:** `GET /data-health?app=…` (`DataHealthService`) counts gaps on the organisation's own records for Project Management (projects, lines, stakeholders), Tenders (closing date, criteria, countries, summary, framework ceiling and term), Product database (GTIN, HS, UNSPSC, unit, storage, brand) and Admin (people with no role, invited but not signed in, organisation profile). Each app is shown only to people who can use it.
+- **UI:** shared `DataHealthNote` (in `@universe/ui`) on each app's Overview, and an Admin "Data health" page listing every app the person can use. Every note ends with a subtle "Source:" line saying where the counts come from.
+- **Fix links:** Project Management project list filters by `?gap=` (client, due date, country, lead, line manufacturer, supplier, received quantity, supplier agreed date, price). Tenders, Product database and Admin links go to the relevant list or the record (a single tender links to its builder; the organisation profile links to its editor).
+- **Still to do:** Insights data-coverage note (which lenses are low-confidence for lack of data), `?focus=<field>` support so a link can land on the exact input in PM, Tenders and Product database, and `gap` filters on the Tenders and Product database lists.

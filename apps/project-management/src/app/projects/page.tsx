@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import type { PagedResult, ProjectOverview, ProjectSummary } from "@universe/types";
+import { PROJECT_GAPS, PROJECT_GAP_LABELS, type PagedResult, type ProjectOverview, type ProjectSummary } from "@universe/types";
 import { apiClient } from "../../lib/apiClient";
 import { useCountries } from "../../lib/useCountries";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
@@ -74,6 +74,8 @@ export default function ProjectsPage() {
   // country (there's no single "the" country for a headline count to
   // target) — this just makes the control itself linkable for anyone who
   // builds a more specific link later, e.g. from the global logistics map.
+  // "Make this richer" deep link (?gap=noClient and so on): the list shows only projects missing that detail.
+  const [gapFilter, setGapFilter] = useState<string>(() => searchParams.get("gap") ?? "");
   const [countryFilter, setCountryFilter] = useState<string>(() => searchParams.get("country") ?? "");
   const countries = useCountries();
   const [sortKey, setSortKey] = useState<SortKey>("due");
@@ -109,6 +111,7 @@ export default function ProjectsPage() {
         type: typeFilter,
         country: countryFilter,
         source: sourceFilter,
+        gap: gapFilter,
         archived: showArchived,
         sort: sortKey,
         dir: sortDir,
@@ -125,7 +128,7 @@ export default function ProjectsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, pageSize, debouncedSearch, statusFilter, typeFilter, countryFilter, sourceFilter, showArchived, sortKey, sortDir]);
+  }, [page, pageSize, debouncedSearch, statusFilter, typeFilter, countryFilter, sourceFilter, gapFilter, showArchived, sortKey, sortDir]);
 
   const stats = overview?.counts ?? { active: 0, submitted: 0, awarded: 0, completed: 0, overdue: 0, total: 0, fromTenders: 0 };
 
@@ -251,6 +254,13 @@ export default function ProjectsPage() {
           options={countryOptions}
           allLabel="All delivery countries"
           ariaLabel="Filter by delivery country"
+        />
+        <Select
+          value={gapFilter}
+          onChange={(v) => { setGapFilter(v); setPage(0); }}
+          options={PROJECT_GAPS.map((g) => ({ value: g, label: PROJECT_GAP_LABELS[g] }))}
+          allLabel="Any level of detail"
+          ariaLabel="Filter by missing detail"
         />
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--u-ink-secondary)", padding: "9px 4px" }}>
           <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(0); }} />

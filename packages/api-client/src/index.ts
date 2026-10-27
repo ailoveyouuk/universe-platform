@@ -1,4 +1,4 @@
-import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmOpportunityParticipantInput, CrmOpportunitySyncResult, CrmOpportunityDelivery, CrmRelationshipTree, DataGap, CrmOpportunityFramework, CrmTenderOption, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPipelineView, CrmWinLossDrivers, CrmSearchResult, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
+import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmOpportunityParticipantInput, CrmOpportunitySyncResult, CrmOpportunityDelivery, CrmRelationshipTree, DataGap, CrmOpportunityFramework, CrmTenderOption, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPipelineView, CrmWinLossDrivers, DataHealthSection, CrmSearchResult, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
@@ -488,7 +488,7 @@ export class UniverseApiClient {
   }
 
   /** Server-paged, filtered, sorted project list. */
-  listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string }): Promise<PagedResult<ProjectSummary>> {
+  listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string; gap?: string }): Promise<PagedResult<ProjectSummary>> {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== false) qs.set(k, String(v));
     return this.request(`/projects/page?${qs.toString()}`);
@@ -1152,6 +1152,7 @@ export class UniverseApiClient {
     return this.request(`/crm/relationships${p.toString() ? `?${p}` : ""}`);
   }
   crmWinLossDrivers(): Promise<CrmWinLossDrivers> { return this.request("/crm/pipeline/drivers"); }
+  dataHealth(app?: string): Promise<DataHealthSection[]> { return this.request(`/data-health${app ? `?app=${encodeURIComponent(app)}` : ""}`); }
   crmDataGaps(scope: string): Promise<DataGap[]> { return this.request(`/crm/data-gaps?scope=${encodeURIComponent(scope)}`); }
   crmRelationshipTree(id: string): Promise<CrmRelationshipTree> { return this.request(`/crm/relationships/${id}/tree`); }
   crmRelationship(id: string): Promise<CrmRelationshipRow> { return this.request(`/crm/relationships/${id}`); }

@@ -4613,3 +4613,23 @@ export interface CrmDriverFactor {
 /** Won and lost counts across one dimension (commodity group, country). Labels are codes the page turns into names. */
 export interface CrmDriverBreakdown { key: string; label: string; rows: { label: string; won: number; lost: number }[] }
 export interface CrmWinLossDrivers { won: number; lost: number; factors: CrmDriverFactor[]; breakdowns: CrmDriverBreakdown[] }
+
+/** Project filters for "make this richer" (2026-10-27): projects missing something, or with lines missing something. Used by the project list and the data-health service. */
+export const PROJECT_GAP_LABELS = {
+  noClient: "No client named",
+  noDueDate: "No due date",
+  noCountry: "No delivery country",
+  noLead: "No project lead",
+  lineNoManufacturer: "Lines with no manufacturer",
+  lineNoSupplier: "Lines with no supplier",
+  lineNoReceived: "Delivered lines with no quantity received",
+  lineNoSupplierGad: "Lines with no supplier's agreed delivery date",
+  lineNoPrice: "Lines with no unit sales price",
+} as const;
+export type ProjectGap = keyof typeof PROJECT_GAP_LABELS;
+export const PROJECT_GAPS = Object.keys(PROJECT_GAP_LABELS) as ProjectGap[];
+
+/** One app's data-health result (platform "data health", 2026-10-27). */
+export const DATA_HEALTH_APPS = ["project-management", "tenders", "product-database", "admin"] as const;
+export type DataHealthApp = (typeof DATA_HEALTH_APPS)[number];
+export interface DataHealthSection { app: DataHealthApp; label: string; gaps: DataGap[] }

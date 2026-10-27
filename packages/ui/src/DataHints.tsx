@@ -4,10 +4,10 @@ import type { DataGap } from "@universe/types";
  * A quiet "make this richer" note (2026-10-27, Lewis): wherever a screen is fed less than it could be, say what is missing, what filling it in would improve and
  * link straight to the fix. Collapsed by default so it never crowds the page; disappears when nothing is missing. Wording stays in normal ink (no status colours as text).
  */
-export function DataHints({ gaps, title = "Make this richer" }: { gaps: DataGap[] | null | undefined; title?: string }) {
+export function DataHints({ gaps, title = "Make this richer", source, open }: { gaps: DataGap[] | null | undefined; title?: string; source?: string; open?: boolean }) {
   if (!gaps || gaps.length === 0) return null;
   return (
-    <details style={{ border: "1px dashed var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "6px 12px", fontSize: 13, backgroundColor: "var(--u-surface-subtle)" }}>
+    <details open={open} style={{ border: "1px dashed var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "6px 12px", fontSize: 13, backgroundColor: "var(--u-surface-subtle)" }}>
       <summary style={{ cursor: "pointer", color: "var(--u-ink-secondary)" }}>
         <span aria-hidden="true" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", backgroundColor: "var(--u-signal-amber)", marginRight: 8 }} />
         {title}: {gaps.length} way{gaps.length === 1 ? "" : "s"} to improve this
@@ -21,6 +21,7 @@ export function DataHints({ gaps, title = "Make this richer" }: { gaps: DataGap[
           </li>
         ))}
       </ul>
+      {source && <p style={{ margin: "6px 0 2px", fontSize: 12, color: "var(--u-ink-secondary)" }}>Source: {source}</p>}
     </details>
   );
 }

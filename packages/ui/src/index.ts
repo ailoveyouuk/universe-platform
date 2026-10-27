@@ -47,3 +47,4 @@ export * from "./appAccess";
 export * from "./Viz";
 export * from "./DataHints";
 export * from "./CollapsibleSection";
+export * from "./DataHealthNote";

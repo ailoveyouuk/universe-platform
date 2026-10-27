@@ -25,6 +25,7 @@ import { LogisticsInsightsModule } from "./logistics-insights/logistics-insights
 import { InsightsModule } from "./insights/insights.module";
 import { ProductSourcingInsightsModule } from "./product-sourcing-insights/product-sourcing-insights.module";
 import { CrmModule } from "./crm/crm.module";
+import { DataHealthModule } from "./data-health/data-health.module";
 import { ContactsModule } from "./contacts/contacts.module";
 import { BrandingModule } from "./branding/branding.module";
 import { NotificationsModule } from "./notifications/notifications.module";
@@ -60,6 +61,7 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     InsightsModule,
     ContactsModule,
     CrmModule,
+    DataHealthModule,
     BrandingModule,
     NotificationsModule,
     SearchModule, StakeholderAccessModule, DataExportsModule,

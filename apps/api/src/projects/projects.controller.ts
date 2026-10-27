@@ -35,8 +35,10 @@ export class ProjectsController {
     @Query("archived") archived?: string,
     @Query("sort") sort?: string,
     @Query("dir") dir?: string,
+    @Query("gap") gap?: string,
   ) {
     return this.projectsService.findPage(user, {
+      gap,
       page: Number(page) || 1,
       pageSize: Number(pageSize) || 25,
       q,

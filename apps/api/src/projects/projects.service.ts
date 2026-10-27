@@ -482,6 +482,23 @@ function lineDataFromDto(dto: ProjectLineDto) {
   return data;
 }
 
+/** Where-clause for a "make this richer" filter on the project list (see PROJECT_GAP_LABELS). Unknown values filter nothing. */
+export function projectGapWhere(gap?: string): Record<string, unknown> {
+  const line = (w: Record<string, unknown>) => ({ lines: { some: { archivedAt: null, ...w } } });
+  switch (gap) {
+    case "noClient": return { clientId: null };
+    case "noDueDate": return { dueDate: null };
+    case "noCountry": return { deliveryCountryCode: null, deliveryCountryCodes: null };
+    case "noLead": return { leads: { none: { removedAt: null } } };
+    case "lineNoManufacturer": return line({ manufacturerId: null });
+    case "lineNoSupplier": return line({ supplierId: null });
+    case "lineNoReceived": return line({ actualDeliveryDate: { not: null }, quantityReceived: null });
+    case "lineNoSupplierGad": return line({ supplierGad: null });
+    case "lineNoPrice": return line({ unitSalesPrice: null });
+    default: return {};
+  }
+}
+
 @Injectable()
 export class ProjectsService {
   /** Every method here takes the requesting user and scopes to THEIR
@@ -504,7 +521,7 @@ export class ProjectsService {
    * date always sort last. */
   async findPage(
     user: RequestUser,
-    q: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string },
+    q: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string; gap?: string },
   ): Promise<PagedResult<ProjectSummary>> {
     const pageSize = Math.min(Math.max(Math.floor(q.pageSize ?? 25), 5), 100);
     const page = Math.max(Math.floor(q.page ?? 1), 1);
@@ -523,6 +540,7 @@ export class ProjectsService {
             ? { status: q.status }
             : {}),
       ...(term ? { OR: [{ referenceNumber: { contains: term } }, { title: { contains: term } }, { client: { name: { contains: term } } }] } : {}),
+      ...projectGapWhere(q.gap),
     };
     const dir = q.dir === "desc" ? "desc" : "asc";
     const secondary = [{ id: "asc" as const }];

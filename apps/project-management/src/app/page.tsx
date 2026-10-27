@@ -20,8 +20,7 @@ import {
   GlobeIcon,
   SearchIcon,
   StatTile,
-  OverviewHero,
-} from "@universe/ui";
+  OverviewHero, DataHealthNote } from "@universe/ui";
 import { useCurrentUser } from "../lib/AuthContext";
 import { apiClient } from "../lib/apiClient";
 import { useCountries } from "../lib/useCountries";
@@ -111,6 +110,7 @@ export default function HomePage() {
     <div style={{ padding: "28px 32px 48px", maxWidth: 1180, margin: "0 auto" }}>
       <div style={{ marginBottom: 20 }}>
         <OverviewHero color="var(--u-org-accent, var(--u-module-project-management))" forename={me?.forename} title="Your projects, at a glance." intro={me?.organizationWelcomeMessage || `Here's what's happening across ${me?.organizationName}'s projects.`} />
+      <DataHealthNote currentApp="project-management" load={() => apiClient.dataHealth("project-management")} />
       </div>
       <div style={{ marginBottom: 28, display: "flex", justifyContent: "flex-start", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
         <div className="u-quick-actions">

@@ -35,7 +35,7 @@ import {
   type RankedRow,
   type PageSize,
   type WorldMapPoint,
-  type WorldMapLegendEntry, CollapsibleSection } from "@universe/ui";
+  type WorldMapLegendEntry, CollapsibleSection, DataHealthNote } from "@universe/ui";
 
 /**
  * Product Database Management — Catalogue screen. Added 2026-10-03, the
@@ -259,6 +259,7 @@ export default function ProductCatalogPage() {
           ]}
         />
       </div>
+      <DataHealthNote currentApp="product-database" load={() => apiClient.dataHealth("product-database")} />
 
       {/* Section mini-dashboard — Stage 1 (standardised dashboard
           pattern), product-database-and-map-roadmap.md. First use of the
