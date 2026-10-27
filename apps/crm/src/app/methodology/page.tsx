@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: "health", title: "Relationship health" },
   { id: "pipeline", title: "The pipeline" },
   { id: "probability", title: "Chance of winning" },
+  { id: "tree", title: "Relationship tree" },
   { id: "search", title: "Search and filters" },
   { id: "privacy", title: "Privacy and data protection" },
   { id: "standards", title: "Standards and references" },
@@ -95,6 +96,17 @@ export default function MethodologyPage() {
           <li><strong>Delivery of won deals:</strong> for a won opportunity linked to a project, lines delivered ÷ lines, and the share on time, in full and both, taken from the flags on the project&apos;s delivery lines. Shown only to people who can view projects. No project prices are shown.</li>
           <li><strong>Framework call-offs:</strong> for a framework opportunity linked to its tender: ceiling, committed (call-offs awaiting approval, awaiting the supplier or accepted), unused and expiry (contract end, else award plus term). The issuer sees the ceiling and every call-off; a supplier sees only its own call-offs.</li>
           <li><strong>What money is shown:</strong> only what your organisation can already see. Opportunity values are your own cost-side estimates. Project and tender amounts appear only where Project Management or Tenders would show them to you, and nothing from outside your organisation&apos;s purview.</li>
+        </ul>
+      </Section>
+
+      <Section id="tree" title="Relationship tree and suggestions">
+        <p style={p}>The Connections tab shows how a stakeholder came to be and who it is linked to. It uses only your own records and shows no money.</p>
+        <ul style={ul}>
+          <li><strong>How the record came to be:</strong> when the stakeholder was added in Project Management, when the relationship started here and by whom, the first recorded conversation and the first opportunity.</li>
+          <li><strong>Worked together on projects:</strong> other stakeholders on the same projects (client, freight forwarder, and each line&apos;s supplier and manufacturer), counted once per project. Only projects your account can see are used.</li>
+          <li><strong>Through opportunities:</strong> stakeholders recorded as taking part in this stakeholder&apos;s opportunities, and the opportunities of others that this stakeholder took part in.</li>
+          <li><strong>Might also connect:</strong> stakeholders you are not yet connected to, scored from your own records: same kind of stakeholder (3), same country (2), has worked with the same stakeholders (2 each, up to 4), active in the same period (1). Only those scoring 4 or more with at least two reasons are shown, and each lists its reasons. It is a prompt to look, not a finding.</li>
+          <li><strong>Wider Universe network:</strong> not used for suggestions yet. If added, it would only ever be anonymised counts in groups of five or more organisations.</li>
         </ul>
       </Section>
 

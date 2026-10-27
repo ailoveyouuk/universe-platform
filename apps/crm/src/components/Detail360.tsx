@@ -8,10 +8,10 @@ import { Places } from "./Places";
 import { WorkTab } from "./WorkTab";
 import { PipelineVisual } from "./PipelineVisual";
 
-export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "network" | "performance" | "compliance" | "financials";
+export type Tab360 = "overview" | "interactions" | "opportunities" | "people" | "places" | "work" | "hospitality" | "network" | "performance" | "compliance" | "financials" | "connections";
 export const TABS_360: { key: Tab360; label: string }[] = [
   { key: "overview", label: "Overview" }, { key: "interactions", label: "Interactions" }, { key: "opportunities", label: "Opportunities" }, { key: "people", label: "People" }, { key: "places", label: "Places and links" }, { key: "work", label: "Work together" }, { key: "hospitality", label: "Gifts and hospitality" }, { key: "network", label: "Universe network" },
-  { key: "financials", label: "Pipeline value" }, { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
+  { key: "connections", label: "Connections" }, { key: "financials", label: "Pipeline value" }, { key: "performance", label: "Performance" }, { key: "compliance", label: "Compliance" },
 ];
 
 const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px", color: "var(--u-ink-secondary)", fontWeight: 600, fontSize: 12.5, borderBottom: "1px solid var(--u-border)" };

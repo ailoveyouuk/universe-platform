@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
-import { BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
+import { ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { accentVar } from "../../lib/category";
 import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
@@ -24,6 +24,7 @@ const TILES = [
   { key: "completed", work: "completed", label: "Completed", icon: <CheckCircleIcon />, tone: "neutral" as const },
   { key: "unawarded", work: "unawarded", label: "Unawarded or declined", icon: <BanIcon />, tone: "critical" as const },
 ];
+const OUTCOME_TONE: Record<string, VizTone> = { inProgress: "crm", submitted: "warning", awarded: "good", completed: "brand", unawarded: "critical" };
 const ROLE_OPTIONS = PARTNER_ROLE_TYPES;
 const th: React.CSSProperties = { textAlign: "left", padding: "8px 10px", color: "var(--u-ink-secondary)", fontWeight: 600, fontSize: 12.5, borderBottom: "1px solid var(--u-border)", whiteSpace: "nowrap" };
 const thNum: React.CSSProperties = { ...th, textAlign: "right" };
@@ -46,6 +47,7 @@ export default function Portfolio() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dq, setDq] = useState("");
+  const [as, setAs] = useState<"picture" | "numbers">("picture");
   const [map, setMap] = useState<CrmPortfolioMap | null>(null);
   const countries = useCountries();
   const seq = useRef(0);
@@ -100,6 +102,9 @@ export default function Portfolio() {
         <div style={{ minWidth: 220 }}><Select value={f.pipeline} onChange={(v) => set({ pipeline: v })} allLabel="All stakeholders" options={[{ value: "likely", label: "Open opportunities, likeliest first" }]} ariaLabel="Focus on stakeholders by chance of winning work" /></div>
         {tags.length > 0 && <div style={{ minWidth: 160 }}><Select value={f.tag} onChange={(v) => set({ tag: v })} allLabel="Any tag" options={tags.map((t) => ({ value: t.id, label: `${t.name} (${t.count})` }))} ariaLabel="Filter by tag" /></div>}
         <span style={{ fontSize: 13, color: "var(--u-ink-secondary)" }} aria-live="polite">{data ? `${data.total} stakeholder${data.total === 1 ? "" : "s"}` : "Loading…"}</span>
+        <div role="group" aria-label="Show work as" style={{ display: "inline-flex", border: "1px solid var(--u-border)", borderRadius: 999, overflow: "hidden" }}>
+          {(["picture", "numbers"] as const).map((k) => <button key={k} type="button" className="u-touch" aria-pressed={as === k} onClick={() => setAs(k)} style={{ padding: "6px 14px", border: 0, font: "inherit", fontSize: 13, cursor: "pointer", backgroundColor: as === k ? "var(--u-brand-violet)" : "var(--u-surface-raised)", color: as === k ? "var(--u-on-accent)" : "var(--u-ink)" }}>{k === "picture" ? "Picture" : "Numbers"}</button>)}
+        </div>
       </div>
       {noProjects && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Project counts are hidden because your account cannot view projects. Ask your administrator for the Project Management app and project access.</p>}
       <div style={{ overflowX: "auto", opacity: busy && data ? 0.55 : 1, transition: "opacity .15s" }} aria-busy={busy}>
@@ -108,7 +113,7 @@ export default function Portfolio() {
             <tr>
               <th scope="col" style={th}>Stakeholder</th><th scope="col" style={th}>Kind</th><th scope="col" style={th}>Location</th><th scope="col" style={th}>Added</th><th scope="col" style={th}>Last project</th>
               <th scope="col" style={thNum}>Open deals</th><th scope="col" style={thNum}>Likely to land</th><th scope="col" style={thNum}>Chance</th><th scope="col" style={thNum}>Contacts</th><th scope="col" style={thNum}>Sites</th>
-              {PORTFOLIO_COLUMNS.map((c) => <th key={c.key} scope="col" style={thNum}>{c.short}</th>)}
+              {as === "numbers" ? PORTFOLIO_COLUMNS.map((c) => <th key={c.key} scope="col" style={thNum}>{c.short}</th>) : <th scope="col" style={th}>Work together</th>}
             </tr>
           </thead>
           <tbody>
@@ -121,10 +126,10 @@ export default function Portfolio() {
                 <td style={td}>{r.portfolio?.lastProject ? <>{fmtDate(r.portfolio.lastProject.date)} <Pill tone={WORK_STATUS_TONE[r.portfolio.lastProject.status] ?? "neutral"}>{humanise(r.portfolio.lastProject.status)}</Pill><br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>{r.portfolio.lastProject.referenceNumber} · {sinceAgo(r.portfolio.lastProject.date)}</span></> : "—"}</td>
                 <td style={tdNum}>{r.pipeline ? r.pipeline.openCount : "—"}</td>
                 <td style={tdNum}>{r.pipeline ? <>{money(r.pipeline.likelyValue, r.pipeline.currency)}<br /><span style={{ color: "var(--u-ink-secondary)", fontSize: 12.5 }}>of {money(r.pipeline.openValue, r.pipeline.currency)}</span></> : "—"}</td>
-                <td style={tdNum}>{r.pipeline?.probability != null ? <Pill tone={r.pipeline.probability >= 0.6 ? "good" : r.pipeline.probability >= 0.3 ? "warning" : "neutral"}>{Math.round(r.pipeline.probability * 100)}%</Pill> : "—"}</td>
+                <td style={tdNum}>{r.pipeline?.probability != null ? <ProgressRing size={44} value={Math.round(r.pipeline.probability * 100)} tone={r.pipeline.probability >= 0.6 ? "good" : r.pipeline.probability >= 0.3 ? "warning" : "neutral"} caption="" title={`Chance of winning: ${Math.round(r.pipeline.probability * 100)} per cent`} /> : "—"}</td>
                 <td style={tdNum}>{r.contactCount ?? "—"}</td>
                 <td style={tdNum}>{r.siteCount ?? "—"}</td>
-                {PORTFOLIO_COLUMNS.map((c) => <td key={c.key} style={tdNum}>{r.portfolio ? r.portfolio[c.key] : "—"}</td>)}
+                {as === "numbers" ? PORTFOLIO_COLUMNS.map((c) => <td key={c.key} style={tdNum}>{r.portfolio ? r.portfolio[c.key] : "—"}</td>) : <td style={{ ...td, minWidth: 190 }}>{r.portfolio ? (r.portfolio.inProgress + r.portfolio.submitted + r.portfolio.awarded + r.portfolio.completed + r.portfolio.unawarded > 0 ? <SegmentBar ariaLabel="Projects together by outcome" segments={PORTFOLIO_COLUMNS.map((c) => ({ key: c.key, label: c.short, value: r.portfolio![c.key], tone: OUTCOME_TONE[c.key] ?? "neutral", onClick: () => set({ work: TILES.find((t) => t.key === c.key)?.work ?? "" }) }))} /> : <span style={{ color: "var(--u-ink-secondary)" }}>No projects yet</span>) : "—"}</td>}
               </tr>
             ))}
           </tbody>

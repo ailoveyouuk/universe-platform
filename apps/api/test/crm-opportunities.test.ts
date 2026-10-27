@@ -4,6 +4,7 @@ import { createOrganizationWithDefaultRoles, prisma, withPlatformStaffContext } 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RequestUser } from "../src/auth/entra-auth.guard";
 import { SearchService } from "../src/search/search.service";
+import { CrmTreeService } from "../src/crm/crm-tree.service";
 import { CrmOpportunitiesService } from "../src/crm/crm-opportunities.service";
 
 /** CRM opportunities against the real RLS database: stage rules, audit trail, pipeline totals, isolation. */
@@ -122,5 +123,16 @@ describe("CRM interactions", () => {
     const f = await svc.framework({ ...u.viewer, permissions: ["crm.view", "tenders.view"] } as RequestUser, o.id);
     expect(f.available).toBe(false);
     await expect(svc.delivery({ ...u.other, permissions: [...u.other.permissions, "projects.view"] } as RequestUser, o.id)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("builds a relationship tree from the organisation's own records only", async () => {
+    const tree = new CrmTreeService();
+    const t = await tree.tree(u.viewer, relA);
+    expect(t.root.relationshipId).toBe(relA);
+    expect(t.provenance.length).toBeGreaterThanOrEqual(2);
+    expect(t.provenance.map((p) => p.label)).toContain("Relationship started in the CRM");
+    expect(t.projectsVisible).toBe(false); // the viewer has no project access
+    expect(t.projectConnections).toEqual([]);
+    await expect(tree.tree(u.other, relA)).rejects.toBeInstanceOf(NotFoundException);
   });
 });

@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CRM_PARTICIPANT_ROLE_LABELS, CRM_PARTICIPANT_ROLES, categoryLabel, type CrmOpportunity, type CrmOpportunityDelivery, type CrmOpportunityFramework, type CrmParticipantRole, type CrmRelationshipRow, type CrmTenderOption } from "@universe/types";
-import { Button } from "@universe/ui";
+import { Button, Dot, MeterBar, ProgressRing } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
+import { accentStyle } from "../lib/category";
 import { Field, fmtDate, humanise, inputStyle } from "../lib/ui";
 
 /**
@@ -49,16 +50,22 @@ export function OpportunityLinks({ o, canManage, onChanged, onError }: { o: CrmO
           </div>
         )}
         {o.participants.length === 0 ? <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Nobody else is recorded on this opportunity yet. Link a tender or project, or add people by hand.</p> : (
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
-            {o.participants.map((p) => (
-              <li key={p.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
-                <strong>{CRM_PARTICIPANT_ROLE_LABELS[p.role]}</strong>
-                <Link href={`/relationships?id=${p.relationshipId}`}>{p.name}</Link>
-                <span style={{ color: "var(--u-ink-secondary)" }}>{p.kinds.map(categoryLabel).join(", ")}{p.source !== "MANUAL" ? ` · from the ${p.source === "TENDER" ? "tender" : "project"}` : " · added by hand"}{p.note ? ` · ${p.note}` : ""}</span>
-                {canManage && <Button size="sm" variant="secondary" disabled={busy} onClick={() => run(() => apiClient.removeCrmOpportunityParticipant(o.id, p.id))}>Remove</Button>}
-              </li>
+          <div style={{ display: "grid", gap: 8 }}>
+            {CRM_PARTICIPANT_ROLES.filter((r) => o.participants.some((p) => p.role === r)).map((r) => (
+              <div key={r}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--u-ink-secondary)", marginBottom: 4 }}>{CRM_PARTICIPANT_ROLE_LABELS[r]}</div>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {o.participants.filter((p) => p.role === r).map((p) => (
+                    <li key={p.id} style={{ ...accentStyle(p.kinds), border: "1px solid var(--u-border)", borderRadius: "var(--u-radius-md)", padding: "6px 10px", display: "grid", gap: 2, maxWidth: 280 }}>
+                      <Link href={`/relationships?id=${p.relationshipId}`}><strong>{p.name}</strong></Link>
+                      <span style={{ fontSize: 12, color: "var(--u-ink-secondary)" }}>{p.kinds.map(categoryLabel).join(", ") || "Stakeholder"} · {p.source === "MANUAL" ? "added by hand" : `from the ${p.source === "TENDER" ? "tender" : "project"}`}{p.note ? ` · ${p.note}` : ""}</span>
+                      {canManage && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.removeCrmOpportunityParticipant(o.id, p.id))} style={{ justifySelf: "start", background: "none", border: 0, padding: 0, font: "inherit", fontSize: 12, color: "var(--u-link)", textDecoration: "underline", cursor: "pointer" }}>Remove</button>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
         {canManage && !adding && <div><Button size="sm" variant="secondary" onClick={() => setAdding(true)}>Add someone involved</Button></div>}
         {canManage && adding && (
@@ -91,11 +98,13 @@ function Delivery({ id, linkedId }: { id: string; linkedId: string | null }) {
     <section aria-label="Delivery" style={{ borderTop: "1px solid var(--u-border)", paddingTop: 8 }}>
       <h4 style={{ margin: "0 0 4px", fontSize: 13.5 }}>Delivery</h4>
       <p style={{ margin: 0 }}>{d.project?.referenceNumber} · {d.project?.title} · {humanise(d.project?.status ?? "")}{d.project?.completionStage ? ` (${humanise(d.project.completionStage)})` : ""}</p>
-      <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-        <li>Delivered: {d.delivered} of {d.lines} lines{d.deliveredPercent !== null ? ` (${d.deliveredPercent}%)` : ""}</li>
-        <li>On time: {pc(d.onTimePercent)}. In full: {pc(d.inFullPercent)}. Both (OTIF): {pc(d.otifPercent)}</li>
-        {d.nextDue && <li>Next delivery due {fmtDate(d.nextDue)}</li>}
-      </ul>
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start", margin: "6px 0" }}>
+        <ProgressRing value={d.deliveredPercent} tone="brand" caption={`Delivered (${d.delivered} of ${d.lines} lines)`} />
+        <ProgressRing value={d.onTimePercent} tone="good" caption="On time" />
+        <ProgressRing value={d.inFullPercent} tone="good" caption="In full" />
+        <ProgressRing value={d.otifPercent} tone="good" caption="Both (OTIF)" />
+      </div>
+      {d.nextDue && <p style={{ margin: 0 }}>Next delivery due {fmtDate(d.nextDue)}</p>}
       <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>From the project&apos;s delivery lines in Project Management. No project prices are shown here.</p>
     </section>
   );
@@ -113,12 +122,13 @@ function Framework({ id, sourceTenderId }: { id: string; sourceTenderId: string 
     <section aria-label="Framework agreement" style={{ borderTop: "1px solid var(--u-border)", paddingTop: 8 }}>
       <h4 style={{ margin: "0 0 4px", fontSize: 13.5 }}>Framework agreement</h4>
       <p style={{ margin: 0 }}>{d.tender?.referenceNumber} · {d.tender?.title}</p>
-      <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
-        {owner && <li>Ceiling {amt(d.ceiling, c)}; committed {amt(d.committed, c)}; unused {amt(d.unused, c)}{d.usedPercent !== null ? ` (${d.usedPercent}% used)` : ""}</li>}
-        {!owner && <li>Your call-offs committed: {amt(d.committed, c)} across {d.callOffCount}. The ceiling is only shown to the issuer.</li>}
-        <li>{owner ? "Call-offs" : "Your call-offs"}: {d.callOffCount} open ({d.accepted} accepted, {d.awaiting} awaiting approval or the supplier)</li>
-        <li>{d.expiresAt ? `Expires ${fmtDate(d.expiresAt)}${d.daysLeft !== null ? (d.daysLeft >= 0 ? `, ${d.daysLeft} days left` : `, ended ${-d.daysLeft} days ago`) : ""}` : "No end date recorded"}</li>
-      </ul>
+      {owner && d.ceiling !== null ? (
+        <MeterBar used={d.committed} max={d.ceiling} ariaLabel={`Framework ceiling ${amt(d.ceiling, c)}, committed ${amt(d.committed, c)}`}>
+          <p style={{ margin: 0 }}>{amt(d.committed, c)} committed of {amt(d.ceiling, c)} · <strong>{amt(d.unused, c)} unused</strong>{d.usedPercent !== null ? ` · ${d.usedPercent}% used` : ""}</p>
+        </MeterBar>
+      ) : <p style={{ margin: "4px 0 0" }}>{owner ? "No ceiling set." : `Your call-offs committed: ${amt(d.committed, c)}. The ceiling is only shown to the issuer.`}</p>}
+      <p style={{ margin: "4px 0 0" }}>{owner ? "Call-offs" : "Your call-offs"}: {d.callOffCount} open ({d.accepted} accepted, {d.awaiting} awaiting approval or the supplier)</p>
+      <p style={{ margin: 0 }}>{d.expiresAt ? <><Dot colour={d.daysLeft !== null && d.daysLeft < 90 ? "var(--u-status-warning)" : "var(--u-status-good)"} /> Expires {fmtDate(d.expiresAt)}{d.daysLeft !== null ? (d.daysLeft >= 0 ? `, ${d.daysLeft} days left` : `, ended ${-d.daysLeft} days ago`) : ""}</> : "No end date recorded"}</p>
       <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--u-ink-secondary)" }}>From the framework in Tenders, in its own currency (not converted). Committed counts call-offs awaiting approval, awaiting the supplier or accepted.</p>
     </section>
   );

@@ -4567,3 +4567,21 @@ export interface CrmCategoryProfile {
   /** Tenders this stakeholder has published that you may see (Universe organisations only). */
   tenders: { total: number; items: { id: string; reference: string; title: string; status: string; publishedAt: string | null; closingAt: string | null }[] } | null;
 }
+
+/** A stakeholder in the relationship tree. relationshipId is null when the stakeholder is not in the CRM yet (so it cannot be opened). */
+export interface CrmTreeNode { relationshipId: string | null; partnerId: string | null; name: string; kinds: string[]; countryCode: string | null }
+export interface CrmTreeProjectVia { reference: string; title: string; status: string; date: string; role: string }
+export interface CrmTreeOpportunityVia { id: string; title: string; stage: string; role: string }
+/**
+ * How a stakeholder came to be and who it is connected to (CRM stage C). Everything here is the organisation's own records: its stakeholders, projects it can see
+ * and opportunities. `suggestions` are likely further connections worked out from those same records, each with the reasons. No money appears anywhere.
+ */
+export interface CrmRelationshipTree {
+  root: CrmTreeNode & { tier: string; status: string };
+  /** The record's life in order: stakeholder added, relationship started, first conversation, first opportunity, first project. */
+  provenance: { date: string; label: string; detail: string | null }[];
+  projectConnections: (CrmTreeNode & { roles: string[]; sharedProjects: number; latest: string | null; via: CrmTreeProjectVia[] })[];
+  opportunityConnections: (CrmTreeNode & { via: CrmTreeOpportunityVia[] })[];
+  suggestions: (CrmTreeNode & { score: number; reasons: string[] })[];
+  projectsVisible: boolean;
+}

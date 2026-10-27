@@ -13,6 +13,7 @@ import { CrmSearchService } from "./crm-search.service";
 import { CrmTagsService } from "./crm-tags.service";
 import { CrmPlacesService } from "./crm-places.service";
 import { CrmNetworkService } from "./crm-network.service";
+import { CrmTreeService } from "./crm-tree.service";
 import { CrmCategoryService } from "./crm-category.service";
 import { CrmHospitalityService } from "./crm-hospitality.service";
 import { DocumentsService } from "../documents/documents.service";
@@ -27,12 +28,14 @@ import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, Anonymi
 @UseGuards(EntraAuthGuard, AppAccessGuard)
 @RequiresApp("crm")
 export class CrmController {
-  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService) {}
+  constructor(private readonly crm: CrmService, private readonly exporter: CrmExportService, private readonly searchSvc: CrmSearchService, private readonly interactions: CrmInteractionsService, private readonly privacy: CrmPrivacyService, private readonly opportunities: CrmOpportunitiesService, private readonly tags: CrmTagsService, private readonly savedFilters: CrmSavedFiltersService, private readonly places: CrmPlacesService, private readonly hospitality: CrmHospitalityService, private readonly documents: DocumentsService, private readonly network: CrmNetworkService, private readonly category: CrmCategoryService, private readonly tree: CrmTreeService) {}
 
   @Get("export/:entity") exportCsv(@CurrentUser() user: RequestUser, @Param("entity") entity: string, @Query() q: Record<string, string>) { return this.exporter.export(user, entity, q); }
   @Get("overview") overview(@CurrentUser() user: RequestUser) { return this.crm.overview(user); }
   @Get("search") search(@CurrentUser() user: RequestUser, @Query("q") q: string, @Query("types") types?: string) { return this.searchSvc.search(user, q ?? "", types); }
   @Get("people") people(@CurrentUser() user: RequestUser) { return this.crm.people(user); }
+
+  @Get("relationships/:id/tree") relationshipTree(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.tree.tree(user, id); }
 
   @Get("relationships/counts")
   counts(@CurrentUser() user: RequestUser, @Query() q: Record<string, string>) { return this.crm.counts(user, q); }
