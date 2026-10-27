@@ -3191,6 +3191,9 @@ export interface SupportContact {
 export type NotificationKind =
   | "CRM_FOLLOW_UP"
   | "CRM_REVIEW_DUE"
+  | "CRM_CERT_EXPIRING"
+  | "CRM_OPPORTUNITY_OVERDUE"
+  | "CRM_HEALTH_AT_RISK"
   | "PROJECT_ASSIGNED"
   | "PROJECT_STATUS_CHANGED"
   | "ACTION_ASSIGNED"
@@ -4165,6 +4168,8 @@ export interface CrmSavedFilterInput { view?: CrmFilterView; name?: string; filt
 export interface CrmTagRef { id: string; name: string }
 export interface CrmTag extends CrmTagRef { count: number }
 export interface CrmRelationshipRow {
+  /** Date of the latest recorded interaction, or null if none. */
+  lastInteractionAt: string | null;
   tags: CrmTagRef[];
   /** Only with view=portfolio. null means the person may not see projects or contacts. */
   portfolio?: CrmPortfolio | null;
@@ -4397,3 +4402,10 @@ export interface CrmNetworkPanel {
     universeAwards: number | null;
   } | null;
 }
+
+/** Change many relationships at once (owner, tier and/or a tag). Up to 200. */
+export interface CrmBulkInput { ids: string[]; ownerUserId?: string | null; tier?: string; tagId?: string }
+export interface CrmBulkResult { changed: number; skipped: number }
+export const CRM_QUIET_MONTHS = ["3", "6", "12"] as const;
+export const CRM_CERT_FILTERS = ["expired", "expiring", "valid", "none"] as const;
+export const CRM_CERT_FILTER_LABELS: Record<(typeof CRM_CERT_FILTERS)[number], string> = { expired: "Certificate expired", expiring: "Certificate expiring (60 days)", valid: "All certificates current", none: "No certificates" };

@@ -9,7 +9,7 @@ import { PartnerScorecardService } from "../quality/partner-scorecard.service";
 
 type Tx = Prisma.TransactionClient;
 type Facts = Map<string, { open: number | null; expired: number; soon: number }> & { canComplaints: boolean };
-export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; view?: string; archived?: string; sort?: string; dir?: string }
+export interface CrmListQuery { page?: number; pageSize?: number; q?: string; tier?: string; status?: string; owner?: string; health?: string; review?: string; role?: string; tag?: string; work?: string; country?: string; quiet?: string; certs?: string; view?: string; archived?: string; sort?: string; dir?: string }
 
 const addMonths = (d: Date, m: number) => { const n = new Date(d); n.setMonth(n.getMonth() + m); return n; };
 /** The relationship status a stakeholder starts with: approved stakeholders are active, everything else is still a prospect. */
@@ -108,6 +108,7 @@ export class CrmService {
     const f = facts.get(r.partnerId ?? "") ?? { open: facts.canComplaints ? 0 : null, expired: 0, soon: 0 };
     const calc = crmHealth({ openComplaints: f.open, certsExpired: f.expired, certsExpiringSoon: f.soon, approvalStatus: r.partner?.approvalStatus ?? null, nextApprovalReviewDue: r.partner?.nextApprovalReviewDue?.toISOString() ?? null, nextReviewDue: r.nextReviewDue?.toISOString() ?? null, status: r.status, tier: r.tier, createdAt: r.createdAt?.toISOString() ?? null, lastInteractionAt: r.interactions?.[0]?.occurredAt?.toISOString() ?? null });
     return {
+      lastInteractionAt: r.interactions?.[0]?.occurredAt?.toISOString() ?? null,
       id: r.id, partnerId: r.partnerId, name: r.partner?.name ?? "Unknown", countryCode: r.partner?.countryCode ?? null,
       roles: (r.partner?.roles ?? []).map((x: { roleType: string }) => x.roleType), approvalStatus: r.partner?.approvalStatus ?? null, riskTier: r.partner?.riskTier ?? null,
       tier: r.tier as CrmTier, status: r.status as CrmStatus, ownerUserId: r.ownerUserId, ownerName: r.ownerUserId ? owners.get(r.ownerUserId) ?? null : null,
@@ -159,6 +160,11 @@ export class CrmService {
       if (q.work && this.canSeeProjects(user)) { const w = this.workWhere(q.work); if (w) and.push(w); }
       if (q.country && /^[A-Za-z]{2,3}$/.test(q.country)) and.push({ partner: { countryCode: q.country.toUpperCase() } });
       if (q.tag) and.push({ tagLinks: { some: { tagId: q.tag, removedAt: null } } });
+      if (q.quiet && ["3", "6", "12"].includes(q.quiet)) { const c = new Date(now); c.setMonth(c.getMonth() - Number(q.quiet)); and.push({ status: { notIn: ["ENDED"] }, interactions: { none: { archivedAt: null, occurredAt: { gte: c } } } }); }
+      if (q.certs === "expired") and.push({ partner: { certifications: { some: { status: "CURRENT", expiryDate: { lt: now } } } } });
+      else if (q.certs === "expiring") and.push({ partner: { certifications: { some: { status: "CURRENT", expiryDate: { gte: now, lte: new Date(now.getTime() + 60 * 86400000) } } } } });
+      else if (q.certs === "valid") and.push({ partner: { certifications: { some: { status: "CURRENT" }, none: { status: "CURRENT", expiryDate: { lte: new Date(now.getTime() + 60 * 86400000) } } } } });
+      else if (q.certs === "none") and.push({ partner: { certifications: { none: { status: "CURRENT" } } } });
       if (q.tier) and.push({ tier: q.tier });
       if (q.status) and.push({ status: q.status });
       if (q.role) and.push({ partner: { roles: { some: { roleType: q.role, isActive: true } } } });
@@ -517,5 +523,51 @@ export class CrmService {
       for (const k of [...this.overviewCache.keys()]) if (k.startsWith(`${user.organizationId}:`)) this.overviewCache.delete(k);
     });
     return this.one(user, id);
+  }
+
+  /** Owner, tier and/or a tag for many relationships at once (up to 200), each change audited like a single edit. */
+  async bulk(user: RequestUser, dto: { ids?: string[]; ownerUserId?: string | null; tier?: string; tagId?: string }): Promise<{ changed: number; skipped: number }> {
+    assertHasPermission(user, "crm.manage");
+    const ids = [...new Set((dto.ids ?? []).filter((x) => typeof x === "string"))];
+    if (!ids.length) throw new BadRequestException("Choose at least one relationship.");
+    if (ids.length > 200) throw new BadRequestException("Change up to 200 relationships at a time.");
+    if (dto.tier && !CRM_TIERS.includes(dto.tier as never)) throw new BadRequestException("Choose a tier from the list.");
+    if (dto.ownerUserId === undefined && !dto.tier && !dto.tagId) throw new BadRequestException("Choose what to change.");
+    const res = await withTenantContext(user.organizationId, async (tx) => {
+      if (dto.ownerUserId) {
+        const ok = await tx.user.findFirst({ where: { id: dto.ownerUserId, organizationId: user.organizationId, archivedAt: null }, select: { id: true } });
+        if (!ok) throw new BadRequestException("The owner must be someone in your organisation.");
+      }
+      const tag = dto.tagId ? await tx.crmTag.findFirst({ where: { id: dto.tagId, organizationId: user.organizationId, archivedAt: null }, select: { id: true, name: true } }) : null;
+      if (dto.tagId && !tag) throw new NotFoundException("Tag not found.");
+      const rows = await tx.crmRelationship.findMany({ where: { id: { in: ids }, organizationId: user.organizationId, archivedAt: null } });
+      const links = tag ? await tx.crmRelationshipTag.findMany({ where: { tagId: tag.id, relationshipId: { in: rows.map((r) => r.id) } } }) : [];
+      const linkOf = new Map(links.map((l) => [l.relationshipId, l]));
+      let changed = 0;
+      for (const cur of rows) {
+        const data: Record<string, unknown> = {};
+        if (dto.tier && cur.tier !== dto.tier) data.tier = dto.tier;
+        if (dto.ownerUserId !== undefined && cur.ownerUserId !== dto.ownerUserId) data.ownerUserId = dto.ownerUserId;
+        let did = false;
+        if (Object.keys(data).length) {
+          await tx.crmRelationship.update({ where: { id: cur.id }, data });
+          await recordFieldChanges(tx, { organizationId: user.organizationId, tableName: "crm_relationships", recordId: cur.id, changedById: user.id, reason: "Bulk change", changes: diffForAudit(cur, data, ["tier", "ownerUserId"]) });
+          did = true;
+        }
+        if (tag) {
+          const link = linkOf.get(cur.id);
+          if (!link || link.removedAt) {
+            if (link) await tx.crmRelationshipTag.update({ where: { relationshipId_tagId: { relationshipId: cur.id, tagId: tag.id } }, data: { removedAt: null, addedAt: new Date(), addedById: user.id } });
+            else await tx.crmRelationshipTag.create({ data: { relationshipId: cur.id, tagId: tag.id, organizationId: user.organizationId, addedById: user.id } });
+            await recordFieldChanges(tx, { organizationId: user.organizationId, tableName: "crm_relationships", recordId: cur.id, changedById: user.id, reason: "Bulk change", changes: [{ field: "tag added", oldValue: null, newValue: tag.name }] });
+            did = true;
+          }
+        }
+        if (did) changed++;
+      }
+      return { changed, skipped: ids.length - changed };
+    });
+    for (const k of [...this.overviewCache.keys()]) if (k.startsWith(`${user.organizationId}:`)) this.overviewCache.delete(k);
+    return res;
   }
 }

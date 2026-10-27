@@ -146,3 +146,10 @@ export class GiftPolicyDto {
   @IsOptional() @IsString() @MaxLength(40) policyEffectiveFrom?: string | null;
   @IsOptional() @IsString() @MaxLength(40) policyReviewDue?: string | null;
 }
+
+export class BulkDto {
+  @IsArray() @IsString({ each: true }) @MaxLength(100, { each: true }) ids!: string[];
+  @IsOptional() @IsString() @MaxLength(100) ownerUserId?: string | null;
+  @IsOptional() @IsIn([...CRM_TIERS]) tier?: string;
+  @IsOptional() @IsString() @MaxLength(100) tagId?: string;
+}

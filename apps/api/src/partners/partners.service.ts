@@ -16,6 +16,8 @@ import type { CreatePartnerDto } from "./dto/create-partner.dto";
 import type { UpdatePartnerDto } from "./dto/update-partner.dto";
 import type { AddPartnerCertificationDto, UpdatePartnerCertificationDto } from "./dto/partner-certification.dto";
 import type { AddPartnerCompanyCheckDto, UpdatePartnerCompanyCheckDto } from "./dto/partner-company-check.dto";
+import { canUseApp } from "@universe/types";
+import { counterpartyKeyForPartner, startingStatus } from "../crm/crm.service";
 import type { PartnerApprovalHistorySummary, PartnerCertificationSummary, PartnerCompanyCheckSummary } from "@universe/types";
 
 const PARTNER_INCLUDE = {
@@ -504,6 +506,12 @@ export class PartnersService {
               manufacturerSiteId: created.manufacturerSites[c.manufacturerSiteIndex!].id,
             })),
         });
+      }
+
+      // CRM (2026-10-27): the person who adds a stakeholder looks after it until someone else is named, so it never sits without an owner.
+      if (canUseApp(user.apps, "crm")) {
+        const due = new Date(); due.setMonth(due.getMonth() + 12);
+        await tx.crmRelationship.create({ data: { organizationId: user.organizationId, partnerId: created.id, counterpartyKey: counterpartyKeyForPartner(created.id), status: startingStatus("PENDING"), ownerUserId: user.id, reviewIntervalMonths: 12, nextReviewDue: due, createdById: user.id } });
       }
 
       // Ask the people who can approve stakeholders to review the new one.

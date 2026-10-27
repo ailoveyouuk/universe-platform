@@ -18,7 +18,7 @@ import { ConfirmStandaloneUploadDto } from "../documents/dto/confirm-standalone-
 import { LinkStandaloneDocumentDto } from "../documents/dto/link-standalone.dto";
 import { CrmPrivacyService } from "./crm-privacy.service";
 import { CrmService } from "./crm.service";
-import { GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
+import { BulkDto, GiftPolicyDto, HospitalityDecisionDto, HospitalityDto, AnonymiseDto, LinkDto, LocationDto, InteractionDto, OpportunityDto, PersonProfileDto, SavedFilterDto, TagDto, PrivacyRequestDto, PrivacyRequestUpdateDto, SuppressDto, UpdateRelationshipDto } from "./dto/crm.dto";
 
 @Controller("crm")
 @UseGuards(EntraAuthGuard, AppAccessGuard)
@@ -86,6 +86,7 @@ export class CrmController {
   @Get("relationships/:id/projects") projectsPage(@CurrentUser() user: RequestUser, @Param("id") id: string, @Query("bucket") bucket?: string, @Query("part") part?: string, @Query("q") q?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) { return this.crm.projectsPage(user, id, { bucket, part, q, page: page ? Number(page) : undefined, pageSize: pageSize ? Number(pageSize) : undefined }); }
   @Post("relationships/:id/locations") addLocation(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: LocationDto) { return this.places.saveLocation(user, id, null, dto); }
   @Patch("relationships/:id/locations/:locationId") editLocation(@CurrentUser() user: RequestUser, @Param("id") id: string, @Param("locationId") locationId: string, @Body() dto: LocationDto) { return this.places.saveLocation(user, id, locationId, dto); }
+  @Post("relationships/bulk") bulk(@CurrentUser() user: RequestUser, @Body() dto: BulkDto) { return this.crm.bulk(user, dto); }
   @Get("network/organisations") networkSearch(@CurrentUser() user: RequestUser, @Query("q") q?: string) { return this.network.searchOrganisations(user, q); }
   @Post("relationships/from-organisation") addFromOrg(@CurrentUser() user: RequestUser, @Body() dto: { organizationId: string }) { return this.network.addFromOrganisation(user, String(dto?.organizationId ?? "")); }
   @Get("relationships/:id/network") networkPanel(@CurrentUser() user: RequestUser, @Param("id") id: string) { return this.network.panel(user, id); }
