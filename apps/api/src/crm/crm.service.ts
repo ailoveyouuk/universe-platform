@@ -284,16 +284,22 @@ export class CrmService {
     }
   }
 
-  /** Relationship filter on the kind of work done together. "None" means the stakeholder has never appeared on a project. */
+  /**
+   * Relationship filter on the kind of work done together. "None" means the stakeholder has never appeared on a live project; it is written as four
+   * anti-joins on the indexed columns, because negating the big OR was too slow on thousands of stakeholders.
+   */
   private workWhere(work: string): Prisma.CrmRelationshipWhereInput | null {
-    const map: Record<string, string[]> = { in_progress: ["IN_PROGRESS"], submitted: ["SUBMITTED"], awarded: ["AWARDED"], completed: ["COMPLETED"], unawarded: ["UNAWARDED", "DECLINED"], none: ["IDENTIFIED", "IN_PROGRESS", "SUBMITTED", "AWARDED", "COMPLETED", "UNAWARDED", "DECLINED", "CANCELLED"] };
+    if (work === "none") {
+      const live = { archivedAt: null };
+      return { partner: { projectsAsClient: { none: live }, projectsAsFreightForwarder: { none: live }, linesAsSupplier: { none: { archivedAt: null, project: live } }, linesAsManufacturer: { none: { archivedAt: null, project: live } } } };
+    }
+    const map: Record<string, string[]> = { in_progress: ["IN_PROGRESS"], submitted: ["SUBMITTED"], awarded: ["AWARDED"], completed: ["COMPLETED"], unawarded: ["UNAWARDED", "DECLINED"] };
     const st = map[work]; if (!st) return null;
     const pj = { status: { in: st }, archivedAt: null };
-    const involved: Prisma.CrmRelationshipWhereInput = { partner: { OR: [
+    return { partner: { OR: [
       { projectsAsClient: { some: pj } }, { projectsAsFreightForwarder: { some: pj } },
       { linesAsSupplier: { some: { archivedAt: null, project: pj } } }, { linesAsManufacturer: { some: { archivedAt: null, project: pj } } },
     ] } };
-    return work === "none" ? { NOT: involved } : involved;
   }
 
   /** Relationship 360: contacts, work together, complaints, certificates, company checks and approval history, all read from the owning apps' tables. */
