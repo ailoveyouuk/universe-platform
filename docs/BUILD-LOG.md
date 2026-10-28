@@ -1593,3 +1593,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 ## 2026-10-28 — Win/loss variety seed applied
 - Ran `seed-demo-winloss-variety` (dry_run=false): 7 earlier won opportunities (35 history events) added for stakeholders with a decided opportunity; owner cleared on 10 of 40 decided opportunities (7 won, 3 lost). All simulated; idempotent.
 - "Why we win and lose" now shows mixed effects: owner named +11 points, repeat business -9 points (7 won of 47 decided with a prior win), reliable delivery +27, decided within 60 days +24.
+
+## 2026-10-28 — Go-live checklist
+- Added `docs/GO-LIVE-CHECKLIST.md`: eight gates (Defender for Storage, OCDS prefix, screen-reader pass, restore rehearsal, gateway rate limiting, job monitoring, email, server-side gating done), data-protection/legal review items, access/identity, backups, operations. Tender hardening deferred by Lewis.
+- .bacpac exports of `universe` and `universe-insights` already taken 2026-10-26; fresh pair suggested before go-live.
