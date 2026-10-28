@@ -12,6 +12,14 @@ Scope: what the code and infrastructure files say about sign-in (Microsoft Entra
 ## Change made today
 - **Fail closed in production.** If the CIAM settings were ever missing from a production container, the old code skipped token checks and used a fixed local dev user. It now refuses every request with "Sign-in is not configured on this server" whenever `NODE_ENV=production` (the container image sets it). Local development is unchanged.
 
+## Protected administrator (added 2026-10-28, Lewis's instruction)
+`lewis@eduparcs.onmicrosoft.com` can never be locked out of Universe:
+- The app refuses to deactivate that account, change its platform role, change its roles or reset its sign-in (`apps/api/src/users/protected-accounts.ts`). It cannot be demoted by another administrator either.
+- The sign-in guard puts it back to SUPER_ADMIN and ACTIVE (and clears archive marks) on any sign-in if a script or the database changed it.
+- Break-glass: GitHub workflow **Restore protected admin** (tick "relink" if the Microsoft identity was recreated; the next sign-in then links it again). It never deletes anything and is not behind the reviewer gate.
+- Not done by code, by design: an account is never re-linked by email while it is ACTIVE with a different Microsoft identity, because that would let anyone who can sign up with that email take it over.
+- The Entra side (below) is the other half: the tenant needs a second Global Administrator so a lost password or MFA device cannot lock the tenant itself.
+
 ## Findings to act on
 | # | Finding | Action | Who |
 |---|---|---|---|
@@ -22,6 +30,7 @@ Scope: what the code and infrastructure files say about sign-in (Microsoft Entra
 | 5 | MFA and conditional access for **platform staff** (global admins). | Require MFA for staff; consider a separate break-glass account kept offline. | Lewis |
 | 6 | Token lifetimes and sign-out: default access tokens last about an hour; confirm refresh and "sign out everywhere" behave as wanted for deactivated users (the API re-checks status on every request, so a deactivated user is blocked within one call). | No change needed in code; confirm in testing. | Claude + Lewis |
 | 7 | The "local dev" bypass still exists for development. | Keep (now blocked in production); never set `LOCAL_DEV_EMAIL` on a deployed container. | Claude |
+| 9 | Second Global Administrator in the Universe Platform Entra tenant, plus a cloud-only break-glass admin (long random password stored offline, excluded from MFA/conditional-access policies, sign-ins alerted). | Create and test sign-in once; keep credentials offline. | Lewis (portal) |
 | 8 | Admin roster: the people holding platform-staff roles. | List them and trim to the minimum before real data arrives. | Lewis |
 
 ## Not checked from here

@@ -1604,3 +1604,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - **Simulated-data workflows:** 46 manual dry-run workflows now run in the GitHub environment `demo-data-apply` when applying (`demo-data-dryrun` otherwise); new `npm run lint:workflows` in CI checks dry-run defaults, no push triggers and the environment line; catalogue in `docs/SIMULATED-DATA-WORKFLOWS.md`. Lewis action: add a required reviewer to `demo-data-apply`.
 - **Identity:** `docs/IDENTITY-REVIEW.md`; API guard now fails closed in production if CIAM settings are missing; portal-only items listed for Lewis.
 - **Legal:** `docs/LEGAL-REVIEW-BRIEF.md` is a brief for a specialist, not a review.
+
+## 2026-10-28 — Protected administrator
+- **Request (Lewis):** `lewis@eduparcs.onmicrosoft.com` must always be a global admin and can never be locked out.
+- **Built:** protected-account rule in the API (cannot be deactivated, demoted, have roles changed or sign-in reset; the sign-in guard restores SUPER_ADMIN and ACTIVE if anything changed them); break-glass script and workflow `Restore protected admin` (optional relink). Entra portal changes were not made by Claude (security settings are done by Lewis); step list given in `docs/IDENTITY-REVIEW.md`.

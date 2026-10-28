@@ -7,6 +7,7 @@ import type { RequestUser } from "../auth/entra-auth.guard";
 import type { InviteUserDto } from "./dto/invite-user.dto";
 import type { UpdateUserDto } from "./dto/update-user.dto";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
+import { PROTECTED_MESSAGE, isProtectedAdminEmail } from "./protected-accounts";
 
 function toSummary(u: {
   id: string;
@@ -251,6 +252,7 @@ export class UsersService {
       const target = await this.loadTarget(caller, tx, id);
 
       if (dto.platformStaffRole !== undefined && dto.platformStaffRole !== target.platformStaffRole) {
+        if (isProtectedAdminEmail(target.email) && dto.platformStaffRole !== "SUPER_ADMIN") throw new ForbiddenException(PROTECTED_MESSAGE);
         if (caller.platformStaffRole === "NONE") throw new ForbiddenException("Only platform staff can change a platform staff role.");
         if (caller.id === id) throw new ForbiddenException("You cannot change your own platform staff role.");
         const touchesSuperAdmin = dto.platformStaffRole === "SUPER_ADMIN" || target.platformStaffRole === "SUPER_ADMIN";
@@ -298,6 +300,7 @@ export class UsersService {
     if (caller.id === id) throw new BadRequestException("You cannot deactivate your own account.");
     return runAs(caller, async (tx) => {
       const target = await this.loadTarget(caller, tx, id);
+      if (isProtectedAdminEmail(target.email)) throw new ForbiddenException(PROTECTED_MESSAGE);
       if (target.status === "DEACTIVATED") return toSummary(target);
       const result = await tx.user.update({ where: { id }, data: { status: "DEACTIVATED", archivedAt: new Date(), archivedById: caller.id, archiveReason: reason?.trim() || null }, include });
       await recordFieldChanges(tx, {
@@ -341,6 +344,7 @@ export class UsersService {
   async updateRoles(caller: RequestUser, id: string, roleIds: string[]): Promise<UserSummary> {
     return runAs(caller, async (tx) => {
       const target = await this.loadTarget(caller, tx, id);
+      if (isProtectedAdminEmail(target.email)) throw new ForbiddenException(PROTECTED_MESSAGE);
 
       const roles = await tx.role.findMany({ where: { id: { in: roleIds }, archivedAt: null } });
       if (roles.length !== roleIds.length) {
@@ -386,6 +390,7 @@ export class UsersService {
     if (caller.id === id) throw new BadRequestException("You cannot reset your own sign-in.");
     return runAs(caller, async (tx) => {
       const target = await this.loadTarget(caller, tx, id);
+      if (isProtectedAdminEmail(target.email)) throw new ForbiddenException(PROTECTED_MESSAGE);
       if (target.status === "DEACTIVATED") throw new BadRequestException("Reactivate this user before resetting their sign-in.");
       if (!target.entraObjectId && target.status === "INVITED") return toSummary(target);
       const result = await tx.user.update({

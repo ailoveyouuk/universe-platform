@@ -3,6 +3,7 @@ import { createTokenVerifier } from "@universe/auth";
 import { PlatformStaffRole, UserStatus, withPlatformStaffContext } from "@universe/db";
 import { parseAppAccess } from "@universe/types";
 import type { Request } from "express";
+import { isProtectedAdminEmail } from "../users/protected-accounts";
 
 export interface RequestUser {
   id: string;
@@ -170,7 +171,13 @@ export class EntraAuthGuard implements CanActivate {
     const user = await withPlatformStaffContext(async (tx) => {
       // 1. Already-linked identity — the common case after first sign-in.
       const existing = await tx.user.findUnique({ where: { entraObjectId: oid }, include: userInclude });
-      if (existing) return existing;
+      if (existing) {
+        // Protected administrators are always put back to SUPER_ADMIN and ACTIVE (see users/protected-accounts.ts), so they can never be locked out.
+        if (isProtectedAdminEmail(existing.email) && (existing.platformStaffRole !== PlatformStaffRole.SUPER_ADMIN || existing.status !== UserStatus.ACTIVE || existing.archivedAt)) {
+          return tx.user.update({ where: { id: existing.id }, data: { platformStaffRole: PlatformStaffRole.SUPER_ADMIN, status: UserStatus.ACTIVE, archivedAt: null, archivedById: null, archiveReason: null }, include: userInclude });
+        }
+        return existing;
+      }
 
       // 2. First sign-in for a pre-invited email — link it now.
       const invited = await tx.user.findUnique({ where: { email } });

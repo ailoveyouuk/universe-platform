@@ -1,0 +1,30 @@
+name: Restore protected admin
+
+# Break-glass (2026-10-28): puts the protected administrator (lewis@eduparcs.onmicrosoft.com) back to SUPER_ADMIN and active.
+# Tick "relink" if the Microsoft identity was recreated: the account is set to invited and links again at the next sign-in.
+# Never deletes anything. Deliberately not behind the demo-data reviewer gate, so it works in an emergency.
+on:
+  workflow_dispatch:
+    inputs:
+      relink:
+        description: "Also clear the linked Microsoft identity so the next sign-in links it again"
+        default: false
+        type: boolean
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run build --workspace=@universe/auth --workspace=@universe/types
+      - name: Restore
+        run: npm run restore:protected-admin --workspace=@universe/db
+        env:
+          DATABASE_URL: ${{ secrets.DEMO_LOAD_DATABASE_URL }}
+          RELINK: ${{ inputs.relink }}
