@@ -1608,3 +1608,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 ## 2026-10-28 — Protected administrator
 - **Request (Lewis):** `lewis@eduparcs.onmicrosoft.com` must always be a global admin and can never be locked out.
 - **Built:** protected-account rule in the API (cannot be deactivated, demoted, have roles changed or sign-in reset; the sign-in guard restores SUPER_ADMIN and ACTIVE if anything changed them); break-glass script and workflow `Restore protected admin` (optional relink). Entra portal changes were not made by Claude (security settings are done by Lewis); step list given in `docs/IDENTITY-REVIEW.md`.
+
+## 2026-10-28 — Multilingual scoping
+- **Request (Lewis):** scope a language switch (English, French, Spanish; later Russian, Chinese, Arabic and other prominent languages) and recommend how.
+- **Output:** `docs/MULTILINGUAL-SCOPING.md` (nothing built): measured the code (about 3,600 UI strings found by a conservative count, 718 API messages, 185 date/number format calls, 56 hand-built plurals, 229 left/right styles), recommended one shared i18n package with ICU messages and run-time locale, profile-level language choice, codes-plus-parameters from the API, English-authoritative translations with AI draft and human review, languages in waves (fr/es, then pt/ru/zh, then ar), and listed six decisions for Lewis. The Entra portal items are paused by him until after this.
