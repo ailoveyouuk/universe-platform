@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "lint:a11y": "node scripts/a11y-lint.mjs",
+    "lint:workflows": "node scripts/check-workflows.mjs",
     "db:generate": "npm run generate --workspace=@universe/db && npm run generate --workspace=@universe/insights-db",
     "db:migrate": "npm run migrate:dev --workspace=@universe/db",
     "test:db": "node scripts/test-db.mjs",

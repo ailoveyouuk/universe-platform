@@ -18,7 +18,8 @@ Nothing real (real organisations, real documents, real personal data) should be 
 - LIA template, privacy notice text, DPA and breach runbook reviewed by a specialist; ICO contract and breach-reporting guidance re-checked (under review for the Data (Use and Access) Act).
 - Retention rules and subject-access handling for complaint data (complainant data is already isolated).
 - Cyber Essentials Plus readiness check; ISO 27001 / SOC 2 readiness assessment (P3).
-- Standards guide for tenders: UNCITRAL Arts 58-67, World Bank 5.78-5.80 and annexes, ISO 37001/20400 text still unread; apply after specialist review.
+- Standards guide for tenders: UNCITRAL Arts 58-67 and World Bank 5.78-5.85 now read (2026-10-28); World Bank Annex III and the ISO 37001/20400 requirement text (paywalled) still unread; apply after specialist review.
+- Brief for the specialist: `docs/LEGAL-REVIEW-BRIEF.md`. Identity review: `docs/IDENTITY-REVIEW.md`. Simulated-data workflow safeguards: `docs/SIMULATED-DATA-WORKFLOWS.md` (Lewis: add a required reviewer to the `demo-data-apply` environment in GitHub).
 
 ## Access and identity
 - Entra External ID (CIAM) production tenant settings, redirect URIs for all six Static Web Apps, and sign-in only for emails added to an organisation.

@@ -140,7 +140,8 @@ Priority: **P1** needed before any real (non-demo) tender; **P2** needed for cre
 - The Global Fund: [Quality assurance, medicines](https://www.theglobalfund.org/md/en/sourcing-management/quality-assurance/medicines/)
 - Stop TB Partnership GDF: [QA policy and procedures](https://stoptb.org/assets/documents/gdf/drugsupply/GDF%20QA%20Policy%20and%20Procedures.pdf)
 - OCDS: [How does the OCDS work](https://standard.open-contracting.org/latest/en/primer/how/)
-- UNCITRAL: [2011 Model Law on Public Procurement](https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/2011-model-law-on-public-procurement-e.pdf) (located, not read in full)
+- UNCITRAL: [2011 Model Law on Public Procurement](https://uncitral.un.org/sites/uncitral.un.org/files/media-documents/uncitral/en/2011-model-law-on-public-procurement-e.pdf) (read 2026-10-28: Articles 58 to 66 in full and Article 67 to paragraph 4, in the official English PDF; the rest of the document partly read earlier)
+- World Bank: [Procurement Regulations for IPF Borrowers, 7th edition](https://thedocs.worldbank.org/en/doc/c84273d1b230aeb2b0b8134de5dc8cd7-0290012025/original/Procurement-Regulations-7th-Edition-Sep-2025.pdf) (read 2026-10-28: paragraphs 3.25 to 3.33 and 5.77 to 5.85; Annex III not read)
 - WHO: [MQAS, TRS 986 Annex 3](https://sites.bu.edu/qualityofmedicalproducts/files/2017/06/2014-WHO-MQAS-TRS986-annex3.pdf) (located, not read in full)
 
 

@@ -12,6 +12,8 @@ on:
 jobs:
   seed:
     runs-on: ubuntu-latest
+    # Applying (dry_run off) uses the 'demo-data-apply' environment, so GitHub can require a reviewer; dry runs use 'demo-data-dryrun'.
+    environment: ${{ format('{0}', inputs.dry_run) == 'false' && 'demo-data-apply' || 'demo-data-dryrun' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4

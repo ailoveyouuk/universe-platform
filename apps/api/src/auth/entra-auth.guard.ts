@@ -136,6 +136,11 @@ export class EntraAuthGuard implements CanActivate {
     let oid: string;
     let email: string;
 
+    if (!this.verify && process.env.NODE_ENV === "production") {
+      // Fail closed (2026-10-28): a production deployment that lost its CIAM settings must refuse everyone, never skip token verification.
+      throw new UnauthorizedException("Sign-in is not configured on this server.");
+    }
+
     if (!this.verify) {
       // Local dev fallback — no CIAM tenant configured yet. Still goes
       // through real lookup/link logic below; only token verification is

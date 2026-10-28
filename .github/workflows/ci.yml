@@ -41,6 +41,9 @@ jobs:
       - name: Accessibility lint (docs/ACCESSIBILITY-STANDARD.md)
         run: npm run lint:a11y
 
+      - name: Demo-data workflow guard (docs/SIMULATED-DATA-WORKFLOWS.md)
+        run: npm run lint:workflows
+
       - name: Build
         run: npm run build
 
