@@ -1589,3 +1589,7 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - CRM pipeline opportunities now link their tender (`/discover/view?id=`) and project (`/projects/detail?id=`) to the source records.
 - New `GET /crm/relationships/by-partner/:partnerId` (crm.view) returns the CRM relationship id for a stakeholder; CRM relationships page accepts `?partner=<id>` and opens that record.
 - Project Management stakeholder page shows an "Open in CRM" link.
+
+## 2026-10-28 — Win/loss variety seed applied
+- Ran `seed-demo-winloss-variety` (dry_run=false): 7 earlier won opportunities (35 history events) added for stakeholders with a decided opportunity; owner cleared on 10 of 40 decided opportunities (7 won, 3 lost). All simulated; idempotent.
+- "Why we win and lose" now shows mixed effects: owner named +11 points, repeat business -9 points (7 won of 47 decided with a prior win), reliable delivery +27, decided within 60 days +24.
