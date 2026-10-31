@@ -21,6 +21,10 @@ Nothing real (real organisations, real documents, real personal data) should be 
 - Standards guide for tenders: UNCITRAL Arts 58-68 and World Bank 5.77-5.85 and Annex III 1.1-3.4 now read (2026-10-28 and 2026-10-31); only the ISO 37001/20400 requirement text (paywalled) is unread; apply after specialist review.
 - Brief for the specialist: `docs/LEGAL-REVIEW-BRIEF.md`. Identity review: `docs/IDENTITY-REVIEW.md`. Simulated-data workflow safeguards: `docs/SIMULATED-DATA-WORKFLOWS.md` (Lewis: add a required reviewer to the `demo-data-apply` environment in GitHub).
 
+## Lewis: SQL to run after the 2026-10-31 deploys
+- `infra/sql/retention-rls.sql` (retention decisions and overrides) and `infra/sql/tender-panel-rls.sql` (mini-competition panel and scores). Both idempotent; run after the migrations (they apply on deploy).
+- Supplier Portal removal: delete its Azure Static Web App if one exists, remove its Entra redirect URI, and remove `SUPPLIER_PORTAL_URL` and `SWA_TOKEN_SUPPLIER_PORTAL` from GitHub.
+
 ## Access and identity
 - Entra External ID (CIAM) production tenant settings, redirect URIs for all six Static Web Apps, and sign-in only for emails added to an organisation.
 - Global admin accounts limited and listed; per-person app toggles reviewed.
@@ -29,7 +33,7 @@ Nothing real (real organisations, real documents, real personal data) should be 
 ## Backups and restore
 - Azure .bacpac exports of `universe` and `universe-insights` were submitted by Lewis on 2026-10-26 to storage account `universepilotdocs`, private container `db-backups` (baseline state). Data has changed since (CRM pipeline seeds, win/loss variety seed 2026-10-28): take a fresh pair before go-live and after any real onboarding.
 - Rehearse a restore (Gate 5) and record how long it took.
-- Code backups: LaCie `Universe/current` and dated folders (latest bk126); Git tag `demo-baseline-2026-10-26`.
+- Code backups: LaCie `Universe/current` and dated folders (latest bk127); Git tag `demo-baseline-2026-10-26`.
 
 ## Operations
 - Confirm the database tier (serverless pilot tier is for pilots) and auto-pause behaviour against real traffic.
