@@ -1,12 +1,22 @@
 import { readDeliveryCountries } from "../projects/delivery-countries";
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
-import { ORGANISATION_EXPORT_ENTITIES, type ProductExportFile } from "@universe/types";
+import { ORGANISATION_EXPORT_ENTITIES, canUseApp, type ProductExportFile } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
 import { csvFile, csvRow, EXPORT_PAGE, EXPORT_ROW_LIMIT, isoDate } from "../common/csv";
 
 export const ORGANISATION_EXPORTS = ORGANISATION_EXPORT_ENTITIES;
+
+/** Exports that hold personal or sensitive data need the matching permission (and the app) as well as being the caller's own organisation (2026-10-31). */
+const EXPORT_NEEDS: Record<string, { permission: string; app: string; what: string }> = {
+  complaints: { permission: "quality.complaints.view", app: "project-management", what: "quality complaints" },
+  tenders: { permission: "tenders.issue", app: "tenders", what: "tenders you issued" },
+  "tender-contracts": { permission: "tenders.issue", app: "tenders", what: "tender contracts" },
+  "crm-relationships": { permission: "crm.manage", app: "crm", what: "CRM relationships" },
+  "crm-interactions": { permission: "crm.manage", app: "crm", what: "CRM interactions" },
+  "crm-hospitality": { permission: "crm.manage", app: "crm", what: "the gifts and hospitality register" },
+};
 
 /**
  * Exports of an organisation's own records (2026-10-18): everything it added under its own account, read inside its own tenant context
@@ -17,6 +27,8 @@ export const ORGANISATION_EXPORTS = ORGANISATION_EXPORT_ENTITIES;
 export class OrganisationExportsService {
   async export(user: RequestUser, entity: string, includeArchived: boolean): Promise<ProductExportFile> {
     if (!(ORGANISATION_EXPORTS as readonly string[]).includes(entity)) throw new BadRequestException("Unknown export.");
+    const need = EXPORT_NEEDS[entity];
+    if (need && user.platformStaffRole === "NONE" && (!user.permissions.includes(need.permission) || !canUseApp(user.apps, need.app))) throw new ForbiddenException(`Exporting ${need.what} needs the ${need.permission} permission and access to that app.`);
     const file = await withTenantContext(user.organizationId, async (tx) => {
       const lines: string[] = [];
       let cursor: string | undefined;
@@ -66,6 +78,36 @@ export class OrganisationExportsService {
       };
       const org = { organizationId: user.organizationId };
       const by = { id: "asc" as const };
+      if (entity === "complaints") {
+        const header = ["Complaint ID", "Reference", "Direction", "Status", "Title", "Severity", "Category", "Serious", "Received", "Closed", "Stakeholder", "Root cause", "Outcome", "Regulator decision", "Complainant details removed", "Archived"];
+        await collect((pg) => tx.qualityComplaint.findMany({ where: org, include: { partner: { select: { name: true } } }, orderBy: by, ...pg }), (r) => [r.id, r.referenceNumber, r.direction, r.status, r.title, r.severity, r.category, r.isSerious ? "Yes" : "No", isoDate(r.receivedAt), isoDate(r.closedAt), r.partner?.name, r.rootCauseCategory, r.outcome, r.regulatorDecision, isoDate(r.complainantAnonymisedAt), isoDate(r.archivedAt)]);
+        return csvFile("quality-complaints", header, lines, truncated);
+      }
+      if (entity === "tenders") {
+        const header = ["Tender ID", "Reference", "Title", "Type", "Status", "Currency", "Published", "Clarification deadline", "Closing", "Awarded", "Cancelled reason", "Emergency procurement", "Archived", "Created"];
+        await collect((pg) => tx.tender.findMany({ where: org, orderBy: by, ...pg }), (r) => [r.id, r.referenceNumber, r.title, r.tenderType, r.status, r.currency, isoDate(r.publishedAt), isoDate(r.clarificationDeadline), isoDate(r.closingAt), isoDate(r.awardedAt), r.cancelledReason, r.emergencyProcurement ? "Yes" : "No", isoDate(r.archivedAt), isoDate(r.createdAt)]);
+        return csvFile("tenders", header, lines, truncated);
+      }
+      if (entity === "tender-contracts") {
+        const header = ["Contract ID", "Reference", "Title", "Status", "Awarded organisation ID", "Tender ID", "Start", "End", "Executed", "Closed"];
+        await collect((pg) => tx.tenderContract.findMany({ where: org, orderBy: by, ...pg }), (r) => [r.id, r.reference, r.title, r.status, r.awardedOrganizationId, r.tenderId, isoDate(r.startDate), isoDate(r.endDate), isoDate(r.executedAt), isoDate(r.closedAt)]);
+        return csvFile("tender-contracts", header, lines, truncated);
+      }
+      if (entity === "crm-relationships") {
+        const header = ["Relationship ID", "Stakeholder", "Tier", "Status", "Last reviewed", "Next review due", "Archived", "Created"];
+        await collect((pg) => tx.crmRelationship.findMany({ where: org, include: { partner: { select: { name: true } } }, orderBy: by, ...pg }), (r) => [r.id, r.partner?.name, r.tier, r.status, isoDate(r.lastReviewedAt), isoDate(r.nextReviewDue), isoDate(r.archivedAt), isoDate(r.createdAt)]);
+        return csvFile("crm-relationships", header, lines, truncated);
+      }
+      if (entity === "crm-interactions") {
+        const header = ["Interaction ID", "Stakeholder", "Type", "Date", "Title", "Summary", "Outcome", "Archived"];
+        await collect((pg) => tx.crmInteraction.findMany({ where: { ...org, confidential: false }, include: { relationship: { select: { partner: { select: { name: true } } } } }, orderBy: by, ...pg }), (r) => [r.id, r.relationship?.partner?.name, r.type, isoDate(r.occurredAt), r.title, r.summary, r.outcome, isoDate(r.archivedAt)]);
+        return csvFile("crm-interactions", header, lines, truncated);
+      }
+      if (entity === "crm-hospitality") {
+        const header = ["Record ID", "Stakeholder", "Direction", "Category", "Date", "Description", "Business reason", "Amount", "Currency", "Public official", "Status", "Archived"];
+        await collect((pg) => tx.crmHospitalityRecord.findMany({ where: org, include: { relationship: { select: { partner: { select: { name: true } } } } }, orderBy: by, ...pg }), (r) => [r.id, r.relationship?.partner?.name, r.direction, r.category, isoDate(r.occurredOn), r.description, r.businessReason, r.amount?.toString(), r.currency, r.publicOfficial ? "Yes" : "No", r.status, isoDate(r.archivedAt)]);
+        return csvFile("crm-hospitality", header, lines, truncated);
+      }
       if (entity === "contacts") {
         const header = ["Contact ID", "Name", "Job title", "Email", "Phone", "Stakeholder"];
         await collect((pg) => tx.contact.findMany({ where: org, include: { partner: { select: { name: true } } }, orderBy: by, ...pg }), (r) => [r.id, r.name, r.title, r.email, r.phone, r.partner?.name]);

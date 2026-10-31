@@ -1,12 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { COMPLAINT_CLOCKS } from "@universe/types";
 import type { ComplaintActionRecord, ComplaintDashboard, ComplaintDetail, ComplaintListItem, PagedResult } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
 import { diffForAudit, recordFieldChanges } from "../common/audit-log";
 import { tenantScope } from "../common/tenant-scoped";
+import { loadSettings } from "./scorecard-settings.service";
 import { completeActionsFor, createNotifications, usersWithPermission } from "../notifications/notify";
 import { addWorkingDays } from "../tenders/evaluation";
 import type {
@@ -266,6 +266,7 @@ export class QualityComplaintsService {
     const serious = !!(dto.flagPatientSafety || dto.flagSuspectedFalsified || dto.flagTemperatureExcursion);
     return withTenantContext(user.organizationId, async (tx) => {
       await this.checkLinks(tx, user, dto);
+      const clk = await loadSettings(tx, user.organizationId);
       const ref = await this.nextReference(tx, user, received.getUTCFullYear());
       const created = await tx.qualityComplaint.create({
         data: {
@@ -277,9 +278,9 @@ export class QualityComplaintsService {
           complainantEmail: trimOrNull(dto.complainantEmail) ?? null, complainantPhone: trimOrNull(dto.complainantPhone) ?? null,
           projectId: dto.projectId ?? null, projectLineId: dto.projectLineId ?? null, productBatchId: dto.productBatchId ?? null, productMasterId: dto.productMasterId ?? null,
           loggedById: user.id,
-          acknowledgeDueAt: dto.direction === "INBOUND_CLIENT" ? addWorkingDays(received, COMPLAINT_CLOCKS.acknowledgeWorkingDays) : null,
-          triageDueAt: addWorkingDays(received, serious ? COMPLAINT_CLOCKS.triageSeriousWorkingDays : COMPLAINT_CLOCKS.triageWorkingDays),
-          partnerResponseDueAt: dto.direction === "OUTBOUND_SUPPLY_CHAIN" ? new Date(received.getTime() + COMPLAINT_CLOCKS.partnerResponseCalendarDays * 86400000) : null,
+          acknowledgeDueAt: dto.direction === "INBOUND_CLIENT" ? addWorkingDays(received, clk.ackWorkingDays) : null,
+          triageDueAt: addWorkingDays(received, serious ? clk.triageSeriousWorkingDays : clk.triageWorkingDays),
+          partnerResponseDueAt: dto.direction === "OUTBOUND_SUPPLY_CHAIN" ? new Date(received.getTime() + clk.partnerResponseDays * 86400000) : null,
         },
         include: COMPLAINT_INCLUDE,
       });
@@ -291,7 +292,7 @@ export class QualityComplaintsService {
         title: serious ? `SERIOUS complaint ${ref}: ${created.title}` : `New complaint ${ref}: ${created.title}`,
         body: serious ? "Possible patient harm, suspected falsified product or temperature excursion. Triage today; consider batch quarantine, recall and reporting to the MHRA." : "Needs acknowledgement and triage.",
         link: this.link(created.id), subjectType: "complaint", subjectId: created.id, requiresAction: true,
-        dueDate: serious ? addWorkingDays(received, COMPLAINT_CLOCKS.triageSeriousWorkingDays) : created.triageDueAt,
+        dueDate: serious ? addWorkingDays(received, clk.triageSeriousWorkingDays) : created.triageDueAt,
       })));
       return this.toDetail(tx, user, created);
     });
@@ -318,11 +319,12 @@ export class QualityComplaintsService {
       const updated = await tx.qualityComplaint.update({ where: { id }, data, include: COMPLAINT_INCLUDE });
       await this.event(tx, user, id, "NOTE", "Details edited");
       if (becameSerious) {
+        const clk = await loadSettings(tx, user.organizationId);
         const leads = new Set([...(await usersWithPermission(tx, user.organizationId, INVESTIGATE)), ...(await usersWithPermission(tx, user.organizationId, APPROVE))]);
         await createNotifications(tx, [...leads].map((uid) => ({
           organizationId: user.organizationId, recipientUserId: uid, actorUserId: user.id, kind: "COMPLAINT_SERIOUS", category: "QUALITY",
           title: `Complaint ${r.referenceNumber} is now flagged SERIOUS`, body: "Triage today; consider batch quarantine, recall and reporting to the MHRA.",
-          link: this.link(id), subjectType: "complaint", subjectId: id, requiresAction: true, dueDate: addWorkingDays(new Date(), COMPLAINT_CLOCKS.triageSeriousWorkingDays),
+          link: this.link(id), subjectType: "complaint", subjectId: id, requiresAction: true, dueDate: addWorkingDays(new Date(), clk.triageSeriousWorkingDays),
         })));
         await this.event(tx, user, id, "STAGE", "Flagged serious — fast-track");
       }
@@ -361,7 +363,9 @@ export class QualityComplaintsService {
       const serious = p || f || t || r.isSerious;
       const severity = serious ? "CRITICAL" : dto.severity;
       const now = new Date();
-      const resolveDue = new Date(r.receivedAt.getTime() + (COMPLAINT_CLOCKS.resolveCalendarDays[severity] ?? 30) * 86400000);
+      const clk = await loadSettings(tx, user.organizationId);
+      const resolveDays = ({ MINOR: clk.resolveMinorDays, MAJOR: clk.resolveMajorDays, CRITICAL: clk.resolveCriticalDays } as Record<string, number>)[severity] ?? clk.resolveMinorDays;
+      const resolveDue = new Date(r.receivedAt.getTime() + resolveDays * 86400000);
       if (dto.ownerId !== r.ownerId || (dto.investigatorId && dto.investigatorId !== r.investigatorId)) {
         await createNotifications(tx, [dto.ownerId, ...(dto.investigatorId ? [dto.investigatorId] : [])].map((uid) => ({
           organizationId: user.organizationId, recipientUserId: uid, actorUserId: user.id, kind: "COMPLAINT_ASSIGNED", category: "QUALITY",

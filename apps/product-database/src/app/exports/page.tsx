@@ -22,6 +22,12 @@ const OWN: { key: string; label: string; help: string; run: () => ReturnType<typ
   { key: "evidence", label: "Quality evidence", help: "Evidence records logged against your quality standards.", run: () => apiClient.exportOrganisationCsv("evidence", true) },
   { key: "risks", label: "Risk register", help: "Risks logged against stakeholders, projects and batches.", run: () => apiClient.exportOrganisationCsv("risks", true) },
   { key: "lines", label: "Project lines", help: "Product lines on your projects with origin, supplier and delivery dates (no prices).", run: () => apiClient.exportOrganisationCsv("project-lines", true) },
+  { key: "complaints", label: "Quality complaints", help: "Your complaints with status, severity and outcome (no complainant contact details). Needs the complaints permission.", run: () => apiClient.exportOrganisationCsv("complaints", true) },
+  { key: "tenders", label: "Tenders you issued", help: "Your tenders with dates and status (no values). Needs the tender-issuing permission.", run: () => apiClient.exportOrganisationCsv("tenders", true) },
+  { key: "tender-contracts", label: "Tender contracts", help: "Contracts awarded from your tenders, with dates and status (no values).", run: () => apiClient.exportOrganisationCsv("tender-contracts", true) },
+  { key: "crm-relationships", label: "CRM relationships", help: "Your relationships with tier, status and review dates. Needs CRM management.", run: () => apiClient.exportOrganisationCsv("crm-relationships", true) },
+  { key: "crm-interactions", label: "CRM interactions", help: "Logged interactions (confidential ones are left out). Needs CRM management.", run: () => apiClient.exportOrganisationCsv("crm-interactions", true) },
+  { key: "crm-hospitality", label: "Gifts and hospitality register", help: "Your gifts and hospitality records. Needs CRM management.", run: () => apiClient.exportOrganisationCsv("crm-hospitality", true) },
 ];
 
 export default function ExportsPage() {

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
-import { SCORECARD_THRESHOLDS as D } from "@universe/types";
+import { COMPLAINT_CLOCKS, SCORECARD_THRESHOLDS as D } from "@universe/types";
 import type { ScorecardSettings } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { assertHasPermission } from "../common/authorization";
@@ -10,11 +10,15 @@ import { tenantScope } from "../common/tenant-scoped";
 import type { UpdateScorecardSettingsDto } from "./dto/scorecard-settings.dto";
 
 export const EDIT_SCORECARD_PERMISSION = "partners.approve";
-const FIELDS = ["onTimeGood", "onTimeWarn", "inFullGood", "inFullWarn", "otifGood", "otifWarn", "earlyDays", "lateDays"] as const;
+const FIELDS = ["onTimeGood", "onTimeWarn", "inFullGood", "inFullWarn", "otifGood", "otifWarn", "earlyDays", "lateDays",
+  "ackWorkingDays", "triageWorkingDays", "triageSeriousWorkingDays", "resolveMinorDays", "resolveMajorDays", "resolveCriticalDays", "partnerResponseDays"] as const;
 
 export const DEFAULT_SETTINGS = {
   onTimeGood: D.onTime.good, onTimeWarn: D.onTime.warn, inFullGood: D.inFull.good, inFullWarn: D.inFull.warn,
   otifGood: D.otif.good, otifWarn: D.otif.warn, earlyDays: D.window.earlyBusinessDays, lateDays: D.window.lateBusinessDays,
+  ackWorkingDays: COMPLAINT_CLOCKS.acknowledgeWorkingDays, triageWorkingDays: COMPLAINT_CLOCKS.triageWorkingDays, triageSeriousWorkingDays: COMPLAINT_CLOCKS.triageSeriousWorkingDays,
+  resolveMinorDays: COMPLAINT_CLOCKS.resolveCalendarDays.MINOR!, resolveMajorDays: COMPLAINT_CLOCKS.resolveCalendarDays.MAJOR!, resolveCriticalDays: COMPLAINT_CLOCKS.resolveCalendarDays.CRITICAL!,
+  partnerResponseDays: COMPLAINT_CLOCKS.partnerResponseCalendarDays,
 };
 
 /** Reads the settings in force inside an existing tenant transaction (defaults when the organisation has none). */
@@ -40,6 +44,8 @@ export class ScorecardSettingsService {
       for (const [g, w, label] of [["onTimeGood", "onTimeWarn", "On-time"], ["inFullGood", "inFullWarn", "In-full"], ["otifGood", "otifWarn", "OTIF"]] as const) {
         if (next[w] >= next[g]) throw new BadRequestException(`${label}: the warning level must be lower than the good level.`);
       }
+      if (next.resolveCriticalDays > next.resolveMajorDays || next.resolveMajorDays > next.resolveMinorDays) throw new BadRequestException("Resolution times must get shorter as severity rises: critical no longer than major, major no longer than minor.");
+      if (next.triageSeriousWorkingDays > next.triageWorkingDays) throw new BadRequestException("Serious complaints must be triaged no later than ordinary ones.");
       const existing = await tx.qualityScorecardSettings.findUnique({ where: { organizationId: user.organizationId } });
       const row = existing
         ? await tx.qualityScorecardSettings.update({ where: { organizationId: user.organizationId }, data: { ...next, updatedById: user.id } })

@@ -3422,7 +3422,7 @@ export type UpdateProductFamilyInput = Partial<CreateProductFamilyInput> & { isA
 
 /** Product Database exports (step 5, 2026-10-18). */
 /** Record types an organisation can always export for itself (its own additions only). */
-export const ORGANISATION_EXPORT_ENTITIES = ["partners", "projects", "project-lines", "contacts", "batches", "logistics", "certifications", "evidence", "risks"] as const;
+export const ORGANISATION_EXPORT_ENTITIES = ["partners", "projects", "project-lines", "contacts", "batches", "logistics", "certifications", "evidence", "risks", "complaints", "tenders", "tender-contracts", "crm-relationships", "crm-interactions", "crm-hospitality"] as const;
 export type OrganisationExportEntity = (typeof ORGANISATION_EXPORT_ENTITIES)[number];
 
 export interface ProductExportFile {
@@ -3979,6 +3979,8 @@ export const SCORECARD_THRESHOLDS = {
 export interface ScorecardSettings {
   onTimeGood: number; onTimeWarn: number; inFullGood: number; inFullWarn: number; otifGood: number; otifWarn: number;
   earlyDays: number; lateDays: number;
+  /** Complaint response times (working days unless a calendar-day field). */
+  ackWorkingDays: number; triageWorkingDays: number; triageSeriousWorkingDays: number; resolveMinorDays: number; resolveMajorDays: number; resolveCriticalDays: number; partnerResponseDays: number;
   /** True when the organisation has saved its own values. */
   isCustom: boolean;
   canEdit: boolean;

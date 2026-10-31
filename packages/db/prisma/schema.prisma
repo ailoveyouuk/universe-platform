@@ -4196,6 +4196,14 @@ model QualityScorecardSettings {
   /// Working days early / late within which a delivery still counts as on time.
   earlyDays      Int          @default(30)
   lateDays       Int          @default(5)
+  /// Complaint response clocks (2026-10-31): working days unless stated; defaults are COMPLAINT_CLOCKS in packages/types.
+  ackWorkingDays          Int @default(2)
+  triageWorkingDays       Int @default(5)
+  triageSeriousWorkingDays Int @default(1)
+  resolveMinorDays        Int @default(30)
+  resolveMajorDays        Int @default(15)
+  resolveCriticalDays     Int @default(5)
+  partnerResponseDays     Int @default(14)
   updatedById    String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
