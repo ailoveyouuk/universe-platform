@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Length, Max, Min, ValidateNested } from "class-validator";
 import { EVIDENCE_KINDS, EXCLUSION_GROUNDS, INCOTERMS, SCREENING_LISTS, SCREENING_OUTCOMES, SERVICE_CATEGORY_CODES, SERVICE_PRICING_BASIS_CODES } from "@universe/types";
 import { RULE_TYPES } from "../eligibility";
 
@@ -352,6 +352,9 @@ export class MiniQuoteDto {
   @IsOptional() @IsObject() responses?: Record<string, unknown>;
 }
 export class ScoreQuoteDto { @IsIn(["quality", "examples", "references"]) criterion!: "quality" | "examples" | "references"; @IsInt() @Min(0) @Max(5) score!: number; @IsString() @Length(5, 1000) reason!: string }
+export class SetPanelDto { @IsArray() @ArrayMinSize(2) @ArrayMaxSize(7) @IsString({ each: true }) userIds!: string[] }
+export class PanelConflictDto { @IsBoolean() noConflict!: boolean; @IsOptional() @IsString() @Length(0, 1000) notes?: string }
+export class ModerateDto { @IsIn(["quality", "examples", "references"]) criterion!: "quality" | "examples" | "references"; @IsOptional() @IsInt() @Min(0) @Max(5) score?: number; @IsOptional() @IsString() @Length(0, 1000) reason?: string }
 export class MiniAwardDto { @IsString() quoteId!: string; @IsString() @Length(5, 1000) reason!: string }
 
 export class ProposeVariationDto {

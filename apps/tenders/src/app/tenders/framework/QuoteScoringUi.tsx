@@ -4,6 +4,7 @@ import { useState } from "react";
 import { QUOTE_WEIGHT_KEYS, QUOTE_WEIGHT_LABEL, type QuoteManualKey, type QuoteRanking, type QuoteResponses, type QuoteScheme, type QuoteScores } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { Field, inputStyle } from "../../../lib/ui";
+import { PanelCriterion } from "./PanelUi";
 
 const muted = { color: "var(--u-ink-secondary)" } as const;
 const fieldRow = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 } as const;
@@ -146,7 +147,7 @@ const SCALE: Record<number, string> = { 0: "Not met or no evidence", 1: "Poor", 
 const MANUAL_LABEL: Record<QuoteManualKey, string> = { quality: "Quality of approach", examples: "Similar contracts", references: "References" };
 
 /** Issuer: one quote's answers, calculated scores and judged scores. */
-export function QuoteAssessment({ scheme, responses, scores, ranking, canScore, onScore, busy }: { scheme: QuoteScheme; responses: QuoteResponses | null; scores: QuoteScores | null; ranking: QuoteRanking | null; canScore: boolean; onScore: (criterion: QuoteManualKey, score: number, reason: string) => void; busy: boolean }) {
+export function QuoteAssessment({ scheme, responses, scores, ranking, canScore, onScore, busy, panel }: { panel?: { view: import("@universe/types").MiniPanelView; quoteId: string; canModerate: boolean; act: (fn: () => Promise<unknown>) => Promise<void> } | null; scheme: QuoteScheme; responses: QuoteResponses | null; scores: QuoteScores | null; ranking: QuoteRanking | null; canScore: boolean; onScore: (criterion: QuoteManualKey, score: number, reason: string) => void; busy: boolean }) {
   const [draft, setDraft] = useState<Partial<Record<QuoteManualKey, { score: string; reason: string }>>>({});
   return (
     <div style={{ marginTop: 4, fontSize: 13 }}>
@@ -155,7 +156,10 @@ export function QuoteAssessment({ scheme, responses, scores, ranking, canScore, 
       {responses && responses.requirements && scheme.requirements.length > 0 && <div style={muted}>{scheme.requirements.map((q) => `${responses.requirements[q.key]?.met ? "✓" : "✗"} ${q.title}${responses.requirements[q.key]?.note ? ` (${responses.requirements[q.key]?.note})` : ""}`).join(" · ")}</div>}
       {responses?.examples.map((e, i) => <div key={`e${i}`} style={muted}>Contract {i + 1}: {e.title}, {e.client}{e.valueText ? `, ${e.valueText}` : ""}, {e.startedOn} to {e.completedOn}. {e.scope}</div>)}
       {responses?.references.map((r, i) => <div key={`r${i}`} style={muted}>Reference {i + 1}: {r.forename} {r.surname}{r.role ? `, ${r.role}` : ""}, {r.organisation}. {r.email}, {r.phone}. {r.relationship}{r.contactable ? "" : " (not to be contacted)"}</div>)}
-      {ranking?.eligible && (["quality", "examples", "references"] as QuoteManualKey[]).filter((k) => scheme.weights[k] > 0).map((k) => {
+      {ranking?.eligible && panel && panel.view.members.length > 0 && (["quality", "examples", "references"] as QuoteManualKey[]).filter((k) => scheme.weights[k] > 0).map((k) => (
+        <PanelCriterion key={k} k={k} scheme={scheme} panel={panel.view} quoteId={panel.quoteId} progress={panel.view.progress[panel.quoteId]?.[k]} canModerate={panel.canModerate} busy={busy} act={panel.act} />
+      ))}
+      {ranking?.eligible && !(panel && panel.view.members.length > 0) && (["quality", "examples", "references"] as QuoteManualKey[]).filter((k) => scheme.weights[k] > 0).map((k) => {
         const saved = scores?.[k]; const d = draft[k] ?? { score: saved ? String(saved.score) : "", reason: saved?.reason ?? "" };
         return (
           <div key={k} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "4px 0" }}>

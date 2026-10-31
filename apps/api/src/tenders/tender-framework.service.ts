@@ -6,7 +6,9 @@ import type { ApprovalSettingsDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetiti
 import { addMonths, canGiveSecondApproval, ceilingCheck, chooseSupplier, DEFAULT_INDIVIDUAL_LIMIT, DEFAULT_SPLIT_WINDOW_DAYS, competitionOpen, effectivePrice, holdActive, holdEndsAt, MIN_COMPETITORS, quoteProblems, requiresSecondApproval } from "./tender-framework";
 import { appendTenderEvent } from "./tender-events";
 import { awardBlock, cleanResponses, cleanScheme, rankQuotes, schemeProblems, type QuoteInput } from "./quote-scoring";
-import type { QuoteRanking, QuoteResponses, QuoteScheme, QuoteScores } from "@universe/types";
+import { MINI_PANEL_MAX, MINI_PANEL_MIN, type MiniPanelView, type QuoteManualKey, type QuoteRanking, type QuoteResponses, type QuoteScheme, type QuoteScores } from "@universe/types";
+import { moderate, panelProgress } from "./mini-panel";
+import { createNotifications } from "../notifications/notify";
 import { TendersService } from "./tenders.service";
 import { TenderPerformanceService } from "./tender-performance.service";
 import { TenderApprovalAuthority } from "./tender-approval-authority";
@@ -326,6 +328,8 @@ export class TenderFrameworkService {
     const comps = await tx.tenderMiniCompetition.findMany({ where: { tenderId }, orderBy: { createdAt: "desc" } });
     const ranked = new Map<string, Map<string, QuoteRanking>>();
     for (const c of comps) { const sc = parseJson<QuoteScheme>(c.schemeJson); if (sc && !(c.status === "OPEN" && competitionOpen(c.closesAt, now))) ranked.set(c.id, await this.rankings(tx, c.id, sc, now)); }
+    const panels = new Map<string, MiniPanelView | null>();
+    for (const c of comps) panels.set(c.id, await this.panelView(tx, user, c, quotes.filter((q) => q.competitionId === c.id)));
     return { invitations: [] as unknown[], competitions: comps.map((c) => {
       const cq = quotes.filter((q) => q.competitionId === c.id);
       const sealed = c.status === "OPEN" && competitionOpen(c.closesAt, now);
@@ -336,7 +340,7 @@ export class TenderFrameworkService {
         id: c.id, reference: c.reference, status: c.status, closesAt: c.closesAt, sealed, notes: c.notes, requiredBy: c.requiredBy, deliveryCountryCode: c.deliveryCountryCode, lines, scheme,
         invited: cq.length, quotesReceived: cq.filter((q) => q.status === "QUOTED" || q.status === "WON" || q.status === "LOST").length,
         awardedQuoteId: c.awardedQuoteId, awardReason: c.awardReason, cancelReason: c.cancelReason,
-        canAward: c.status === "OPEN" && !sealed && cq.some((q) => q.status === "QUOTED"),
+        canAward: c.status === "OPEN" && !sealed && cq.some((q) => q.status === "QUOTED"), panel: panels.get(c.id) ?? null,
         quotes: sealed ? [] : cq.map((q) => ({ id: q.id, supplierName: names.get(q.awardedOrganizationId) ?? null, status: q.status, totalValue: num(q.totalValue), quotedAt: q.quotedAt, quoteNotes: q.quoteNotes, declineReason: q.declineReason, lines: lineViews(q.id), responses: parseJson<QuoteResponses>(q.responsesJson), scores: parseJson<QuoteScores>(q.scoresJson), ranking: ranks?.get(q.id) ?? null })),
       };
     }) };
@@ -481,13 +485,149 @@ export class TenderFrameworkService {
       if (competitionOpen(c.closesAt, new Date())) throw new ConflictException("Quotes are sealed until the closing time.");
       if (q.status !== "QUOTED") throw new ConflictException("Only submitted quotes are scored.");
       if (!(scheme.weights[dto.criterion] > 0)) throw new BadRequestException("That criterion has no weight in this competition.");
+      if (await tx.tenderMiniEvaluator.count({ where: { competitionId: c.id } })) throw new ConflictException("This competition is scored by a panel: evaluators score independently, then the owner moderates.");
       const scores = parseJson<QuoteScores>(q.scoresJson) ?? {};
-      scores[dto.criterion] = { score: dto.score, reason: dto.reason.trim() };
+      scores[dto.criterion] = { score: dto.score, reason: dto.reason.trim(), basis: "SINGLE" };
       await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { scoresJson: JSON.stringify(scores) } });
       const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
       return { q, t: t!, c };
     });
     await this.event(r.t, r.q.awardedOrganizationId, user, "MINI_COMP_SCORED", `A quote in ${r.c.reference} was scored on ${dto.criterion} (${dto.score} of 5): ${dto.reason.trim().slice(0, 200)}`, { quoteId: r.q.id, criterion: dto.criterion, score: dto.score });
+    return this.view(user, r.t.id);
+  }
+
+  // ------------------------------------------------------------------ evaluation panel (2026-10-31)
+
+  private async panelView(tx: Tx, user: RequestUser, c: { id: string; status: string }, quotes: { id: string; status: string; scoresJson: string | null }[]): Promise<MiniPanelView | null> {
+    const members = await tx.tenderMiniEvaluator.findMany({ where: { competitionId: c.id }, orderBy: { createdAt: "asc" } });
+    const canEditPanel = c.status === "OPEN" && user.permissions.includes("tenders.award") && !(await tx.tenderQuoteScore.count({ where: { competitionId: c.id } }));
+    if (!members.length) return canEditPanel || user.platformStaffRole !== "NONE" ? { members: [], me: { isMember: false, coi: null }, canEditPanel, progress: {}, mine: {} } : null;
+    const people = await tx.user.findMany({ where: { id: { in: members.map((m) => m.userId) } }, select: { id: true, forename: true, surname: true } });
+    const name = (id: string) => { const p = people.find((x) => x.id === id); return p ? `${p.forename} ${p.surname}` : "Evaluator"; };
+    const coi = (m: { coiNoConflict: boolean | null }): "PENDING" | "NONE" | "CONFLICT" => (m.coiNoConflict === null ? "PENDING" : m.coiNoConflict ? "NONE" : "CONFLICT");
+    const eligible = members.filter((m) => m.coiNoConflict === true);
+    const scores = await tx.tenderQuoteScore.findMany({ where: { competitionId: c.id } });
+    const progress: MiniPanelView["progress"] = {};
+    const mine: MiniPanelView["mine"] = {};
+    for (const q of quotes.filter((x) => x.status === "QUOTED" || x.status === "WON" || x.status === "LOST")) {
+      const final = parseJson<QuoteScores>(q.scoresJson) ?? {};
+      progress[q.id] = {};
+      for (const k of ["quality", "examples", "references"] as QuoteManualKey[]) {
+        const rows = scores.filter((s) => s.quoteId === q.id && s.criterion === k && eligible.some((m) => m.userId === s.evaluatorUserId));
+        if (!rows.length && !final[k]) continue;
+        progress[q.id]![k] = panelProgress(rows.map((s) => ({ evaluator: name(s.evaluatorUserId), score: s.score, reason: s.reason })), eligible.length, final[k]?.basis === "AVERAGE" || final[k]?.basis === "MODERATED");
+        const my = scores.find((s) => s.quoteId === q.id && s.criterion === k && s.evaluatorUserId === user.id);
+        if (my) (mine[q.id] ??= {})[k] = { score: my.score, reason: my.reason };
+      }
+    }
+    const me = members.find((m) => m.userId === user.id);
+    return { members: members.map((m) => ({ userId: m.userId, name: name(m.userId), coi: coi(m), coiNotes: m.coiNotes })), me: { isMember: !!me, coi: me ? coi(me) : null }, canEditPanel, progress, mine };
+  }
+
+  /** The owner names the evaluation panel (2 to 7 people from the organisation) before any scoring starts. */
+  async setPanel(user: RequestUser, competitionId: string, userIds: string[]) {
+    assertHasPermission(user, "tenders.award");
+    const ids = [...new Set(userIds ?? [])];
+    if (ids.length < MINI_PANEL_MIN || ids.length > MINI_PANEL_MAX) throw new BadRequestException(`A panel has ${MINI_PANEL_MIN} to ${MINI_PANEL_MAX} evaluators.`);
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const c = await tx.tenderMiniCompetition.findFirst({ where: { id: competitionId, organizationId: user.organizationId } });
+      if (!c) throw new NotFoundException("Mini-competition not found.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      if (!parseJson<QuoteScheme>(c.schemeJson)) throw new ConflictException("A panel is for competitions judged on more than price.");
+      if (await tx.tenderQuoteScore.count({ where: { competitionId: c.id } })) throw new ConflictException("Scoring has started, so the panel can no longer change.");
+      const users = await tx.user.findMany({ where: { id: { in: ids }, organizationId: user.organizationId, status: "ACTIVE" }, select: { id: true } });
+      if (users.length !== ids.length) throw new BadRequestException("Every evaluator must be an active person in your organisation.");
+      const had = await tx.tenderMiniEvaluator.findMany({ where: { competitionId: c.id } });
+      for (const h of had.filter((x) => !ids.includes(x.userId))) await tx.tenderMiniEvaluator.delete({ where: { id: h.id } });
+      const fresh = ids.filter((id) => !had.some((h) => h.userId === id));
+      for (const id of fresh) await tx.tenderMiniEvaluator.create({ data: { organizationId: user.organizationId, tenderId: c.tenderId, competitionId: c.id, userId: id } });
+      if (fresh.length) await createNotifications(tx, fresh.map((id) => ({
+        organizationId: user.organizationId, recipientUserId: id, actorUserId: user.id, kind: "MINI_PANEL_ASSIGNED", category: "TENDER",
+        title: `You are on the evaluation panel: ${c.reference}`.slice(0, 300), body: "Declare any conflict of interest first. After quoting closes you score each judged criterion independently; nobody sees the others' scores until everyone has scored.",
+        link: `/tenders/framework?id=${c.tenderId}`, subjectType: "TENDER", subjectId: c.tenderId,
+      })));
+      const t = await tx.tender.findUnique({ where: { id: c.tenderId } });
+      return { c, t: t! };
+    });
+    await this.event(r.t, r.t.organizationId, user, "MINI_PANEL_SET", `Evaluation panel of ${ids.length} named for ${r.c.reference}`, { competitionId: r.c.id });
+    return this.view(user, r.t.id);
+  }
+
+  /** A panel member declares whether they have a conflict of interest. Someone with a conflict takes no part in scoring. */
+  async declareConflict(user: RequestUser, competitionId: string, noConflict: boolean, notes: string | undefined) {
+    if (!noConflict && (notes ?? "").trim().length < 5) throw new BadRequestException("Say what the conflict is.");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const m = await tx.tenderMiniEvaluator.findFirst({ where: { competitionId, userId: user.id, organizationId: user.organizationId } });
+      if (!m) throw new ForbiddenException("You are not on this panel.");
+      if (await tx.tenderQuoteScore.count({ where: { competitionId, evaluatorUserId: user.id } })) throw new ConflictException("You have already scored, so the declaration can no longer change.");
+      await tx.tenderMiniEvaluator.update({ where: { id: m.id }, data: { coiDeclaredAt: new Date(), coiNoConflict: noConflict, coiNotes: noConflict ? null : (notes ?? "").trim().slice(0, 1000) } });
+      const t = await tx.tender.findUnique({ where: { id: m.tenderId } });
+      const c = await tx.tenderMiniCompetition.findUnique({ where: { id: competitionId } });
+      return { t: t!, c: c! };
+    });
+    await this.event(r.t, r.t.organizationId, user, "MINI_PANEL_COI", `Evaluator declared ${noConflict ? "no conflict of interest" : "a conflict of interest"} for ${r.c.reference}`, { competitionId });
+    return this.view(user, r.t.id);
+  }
+
+  /** A panel member's own independent score for one criterion on one quote; it stays private until everyone has scored. */
+  async panelScore(user: RequestUser, quoteId: string, dto: ScoreQuoteDto) {
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, organizationId: user.organizationId } });
+      if (!q) throw new NotFoundException("Quote not found.");
+      const c = await tx.tenderMiniCompetition.findUnique({ where: { id: q.competitionId } });
+      const scheme = parseJson<QuoteScheme>(c?.schemeJson);
+      if (!c || !scheme) throw new ConflictException("This competition is judged on price only.");
+      const m = await tx.tenderMiniEvaluator.findFirst({ where: { competitionId: c.id, userId: user.id } });
+      if (!m) throw new ForbiddenException("You are not on this panel.");
+      if (m.coiNoConflict !== true) throw new ForbiddenException(m.coiNoConflict === false ? "You declared a conflict of interest, so you cannot score." : "Declare whether you have a conflict of interest before scoring.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      if (competitionOpen(c.closesAt, new Date())) throw new ConflictException("Quotes are sealed until the closing time.");
+      if (q.status !== "QUOTED") throw new ConflictException("Only submitted quotes are scored.");
+      if (!(scheme.weights[dto.criterion] > 0)) throw new BadRequestException("That criterion has no weight in this competition.");
+      const final = parseJson<QuoteScores>(q.scoresJson) ?? {};
+      if (final[dto.criterion]?.basis === "AVERAGE" || final[dto.criterion]?.basis === "MODERATED") throw new ConflictException("This criterion has already been moderated.");
+      const where = { quoteId_criterion_evaluatorUserId: { quoteId: q.id, criterion: dto.criterion, evaluatorUserId: user.id } };
+      const had = await tx.tenderQuoteScore.findUnique({ where });
+      if (had) await tx.tenderQuoteScore.update({ where, data: { score: dto.score, reason: dto.reason.trim() } });
+      else await tx.tenderQuoteScore.create({ data: { organizationId: user.organizationId, tenderId: q.tenderId, competitionId: c.id, quoteId: q.id, criterion: dto.criterion, evaluatorUserId: user.id, score: dto.score, reason: dto.reason.trim() } });
+      const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
+      return { q, t: t!, c };
+    });
+    // The event records that a score was given, not its value, so the timeline does not reveal scores early.
+    await this.event(r.t, r.t.organizationId, user, "MINI_PANEL_SCORED", `An evaluator scored ${dto.criterion} for a quote in ${r.c.reference}`, { quoteId: r.q.id, criterion: dto.criterion });
+    return this.view(user, r.t.id);
+  }
+
+  /** The owner agrees the score for a criterion once every eligible evaluator has scored it. */
+  async moderateScore(user: RequestUser, quoteId: string, criterion: QuoteManualKey, input: { score?: number; reason?: string }) {
+    assertHasPermission(user, "tenders.award");
+    const r = await withTenantContext(user.organizationId, async (tx) => {
+      const q = await tx.tenderCallOffQuote.findFirst({ where: { id: quoteId, organizationId: user.organizationId } });
+      if (!q) throw new NotFoundException("Quote not found.");
+      const c = await tx.tenderMiniCompetition.findUnique({ where: { id: q.competitionId } });
+      const scheme = parseJson<QuoteScheme>(c?.schemeJson);
+      if (!c || !scheme) throw new ConflictException("This competition is judged on price only.");
+      if (c.status !== "OPEN") throw new ConflictException("This mini-competition is no longer open.");
+      if (competitionOpen(c.closesAt, new Date())) throw new ConflictException("Quotes are sealed until the closing time.");
+      if (q.status !== "QUOTED") throw new ConflictException("Only submitted quotes are scored.");
+      if (!(scheme.weights[criterion] > 0)) throw new BadRequestException("That criterion has no weight in this competition.");
+      const members = await tx.tenderMiniEvaluator.findMany({ where: { competitionId: c.id } });
+      if (!members.length) throw new ConflictException("This competition has no panel.");
+      if (members.some((m) => m.coiNoConflict === null)) throw new ConflictException("Every evaluator must declare whether they have a conflict of interest first.");
+      const eligible = members.filter((m) => m.coiNoConflict === true);
+      if (eligible.length < MINI_PANEL_MIN) throw new ConflictException(`At least ${MINI_PANEL_MIN} evaluators without a conflict are needed.`);
+      const rows = await tx.tenderQuoteScore.findMany({ where: { quoteId: q.id, criterion } });
+      const given = rows.filter((s) => eligible.some((m) => m.userId === s.evaluatorUserId));
+      if (given.length < eligible.length) throw new ConflictException(`${given.length} of ${eligible.length} evaluators have scored this criterion so far.`);
+      let result;
+      try { result = moderate(given.map((s) => s.score), input); } catch (e) { throw new BadRequestException(e instanceof Error ? e.message : "Could not moderate."); }
+      const scores = parseJson<QuoteScores>(q.scoresJson) ?? {};
+      scores[criterion] = { score: result.score, reason: result.reason, basis: result.basis };
+      await tx.tenderCallOffQuote.update({ where: { id: q.id }, data: { scoresJson: JSON.stringify(scores) } });
+      const t = await tx.tender.findUnique({ where: { id: q.tenderId } });
+      return { q, t: t!, c, result };
+    });
+    await this.event(r.t, r.q.awardedOrganizationId, user, "MINI_PANEL_MODERATED", `Score for ${criterion} agreed for a quote in ${r.c.reference}: ${r.result.score} of 5 (${r.result.basis === "AVERAGE" ? "average of the panel" : "moderated"}). ${r.result.reason.slice(0, 200)}`, { quoteId: r.q.id, criterion, score: r.result.score });
     return this.view(user, r.t.id);
   }
 

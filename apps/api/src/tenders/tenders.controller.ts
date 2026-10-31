@@ -17,7 +17,7 @@ import { CurrentUser } from "../common/current-user.decorator";
 import {
   AddendumDto, AnswerQuestionDto, AskQuestionDto, AwardDto, BidSaveDto, CancelTenderDto, CoiDto, ComplaintDto, ComplaintResponseDto, DebriefFeedbackDto, GateDto, ModerationDto, SaveScoresDto, SetEvaluatorsDto, ConfirmBidFileDto, RequestBidFileDto, ConfirmTenderDocumentDto, RequestTenderDocumentDto, CloseContractDto, QualityLinksDto, ContractPaymentDto, ContractPaymentUpdateDto, PerformanceAnswerDto, PerformanceResponseDto, ConfirmContractFileDto, ContractMilestoneDto, ContractMilestoneUpdateDto, ContractSignatoryDto, RequestContractFileDto, UpdateContractDto, TemplateUploadDto, ClarificationDto, CreateTenderDto, InterestDto, InviteDto, ScreeningDto, SavedSearchDto, UpdateSavedSearchDto, SetCriteriaDto, SetLinesDto, SetRulesDto, ShortlistDto, UpdateTenderDto,
 } from "./dto/tenders.dto";
-import { AddEvidenceDto, ApprovalSettingsDto, AwardReasonDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, ScoreQuoteDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
+import { AddEvidenceDto, ApprovalSettingsDto, AwardReasonDto, CallOffReasonDto, CallOffResponseDto, MiniAwardDto, ModerateDto, PanelConflictDto, SetPanelDto, MiniQuoteDto, OpenMiniCompetitionDto, OptionalReasonDto, ScoreQuoteDto, PriceReviewDto, PriceReviewResponseDto, ProposeVariationDto, RaiseCallOffDto, VariationResponseDto } from "./dto/tenders.dto";
 import { TendersService } from "./tenders.service";
 import { TenderBidProjectsService } from "./tender-bid-projects.service";
 
@@ -159,6 +159,10 @@ export class TendersController {
   @Post("mini-competitions/:mid/cancel") cancelMini(@CurrentUser() u: RequestUser, @Param("mid") mid: string, @Body() dto: CallOffReasonDto) { return this.framework.cancelCompetition(u, mid, dto.reason); }
   @Post("mini-competitions/:mid/award") awardMini(@CurrentUser() u: RequestUser, @Param("mid") mid: string, @Body() dto: MiniAwardDto) { return this.framework.awardCompetition(u, mid, dto); }
   @Post("mini-quotes/:qid/quote") quoteMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: MiniQuoteDto) { return this.framework.submitQuote(u, qid, dto); }
+  @Put("mini-competitions/:mid/panel") setMiniPanel(@CurrentUser() u: RequestUser, @Param("mid") mid: string, @Body() dto: SetPanelDto) { return this.framework.setPanel(u, mid, dto.userIds); }
+  @Post("mini-competitions/:mid/panel/conflict") miniPanelConflict(@CurrentUser() u: RequestUser, @Param("mid") mid: string, @Body() dto: PanelConflictDto) { return this.framework.declareConflict(u, mid, dto.noConflict, dto.notes); }
+  @Post("mini-quotes/:qid/panel-score") panelScoreMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: ScoreQuoteDto) { return this.framework.panelScore(u, qid, dto); }
+  @Post("mini-quotes/:qid/moderate") moderateMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: ModerateDto) { return this.framework.moderateScore(u, qid, dto.criterion, { score: dto.score, reason: dto.reason }); }
   @Post("mini-quotes/:qid/score") scoreMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: ScoreQuoteDto) { return this.framework.scoreQuote(u, qid, dto); }
   @Post("mini-quotes/:qid/decline") declineMini(@CurrentUser() u: RequestUser, @Param("qid") qid: string, @Body() dto: CallOffReasonDto) { return this.framework.declineQuote(u, qid, dto.reason); }
   @Post("contracts/:cid/variations") proposeVariation(@CurrentUser() u: RequestUser, @Param("cid") cid: string, @Body() dto: ProposeVariationDto) { return this.variations.propose(u, cid, dto); }

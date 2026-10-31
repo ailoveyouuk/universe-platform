@@ -5271,3 +5271,44 @@ model RetentionOverride {
   @@unique([organizationId, ruleKey])
   @@map("retention_overrides")
 }
+
+
+// ---------------------------------------------------------------------------
+// Mini-competition evaluation panel (2026-10-31). A competition can name a panel of 2 to 7 evaluators from the issuing organisation. Each
+// declares any conflict of interest, then scores each judged criterion independently (0 to 5 with a reason); nobody sees the others' scores until
+// all have scored; the owner then moderates (average if within 1 point, otherwise a written agreed score). The moderated result is what the existing
+// ranking reads (scoresJson on the quote). A competition with no panel keeps the single-issuer scoring.
+// ---------------------------------------------------------------------------
+model TenderMiniEvaluator {
+  id             String    @id @default(uuid())
+  organizationId String
+  tenderId       String
+  competitionId  String
+  userId         String
+  coiDeclaredAt  DateTime?
+  coiNoConflict  Boolean?
+  coiNotes       String?   @db.NVarChar(1000)
+  createdAt      DateTime  @default(now())
+
+  @@unique([competitionId, userId])
+  @@index([organizationId])
+  @@map("tender_mini_evaluators")
+}
+
+model TenderQuoteScore {
+  id              String   @id @default(uuid())
+  organizationId  String
+  tenderId        String
+  competitionId   String
+  quoteId         String
+  /// quality | examples | references
+  criterion       String   @db.NVarChar(20)
+  evaluatorUserId String
+  score           Int
+  reason          String   @db.NVarChar(1000)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([quoteId, criterion, evaluatorUserId])
+  @@index([competitionId])
+  @@map("tender_quote_scores")
+}

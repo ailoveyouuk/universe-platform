@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { CALL_OFF_STATUS_LABEL, type CallOffView, type FrameworkView, type MiniCompetitionView, type MiniInvitationView } from "@universe/types";
 import { Button, Pill } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
+import { PanelBox } from "./PanelUi";
 import { emptyScheme, QuoteAssessment, ResponsesForm, SchemeEditor, SchemeSummary, draftFrom, schemeFormProblems, type ResponsesDraft } from "./QuoteScoringUi";
 import { Card, ErrorNote, Field, Heading, Page, fmtDate, inputStyle } from "../../../lib/ui";
 import { StandardsGuide } from "../../../components/StandardsGuide";
@@ -226,13 +227,14 @@ function Competition({ m, currency, act, busy, onWarn }: { m: MiniCompetitionVie
       </div>
       {m.lines.map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quantity}</div>)}
       {m.scheme && <SchemeSummary scheme={m.scheme} />}
+      <PanelBox m={m} act={act} busy={busy} />
       {m.sealed && <div style={muted}>Quotes are sealed until the closing time. You can see how many have arrived, not who or what they are.</div>}
       {!m.sealed && m.quotes.map((q) => (
         <div key={q.id} style={{ padding: "6px 0", borderTop: "1px dotted var(--u-border)" }}>
           {m.status === "OPEN" && q.status === "QUOTED" && (!m.scheme || (q.ranking?.eligible && q.ranking.manualMissing.length === 0)) && <label style={{ marginRight: 8 }}><input type="radio" name={`pick-${m.id}`} checked={pick === q.id} onChange={() => setPick(q.id)} /> </label>}
           <strong>{q.supplierName}</strong> <Pill tone={qTone(q.status)}>{q.status === "INVITED" ? "no answer" : q.status.toLowerCase()}</Pill> {q.totalValue != null && <strong>{money(q.totalValue, currency)}</strong>}
           {q.lines.filter((l) => l.quotedPrice != null).map((l) => <div key={l.tenderLineId} style={muted}>{l.description}: {l.quotedPrice} (framework {l.frameworkPrice}){l.leadTimeDays != null ? ` · ${l.leadTimeDays} days` : ""}</div>)}
-          {m.scheme && q.status !== "DECLINED" && q.status !== "INVITED" && <QuoteAssessment scheme={m.scheme} responses={q.responses} scores={q.scores} ranking={q.ranking} canScore={m.status === "OPEN"} busy={busy} onScore={(criterion, score, reason) => act(() => apiClient.scoreMiniQuote(q.id, { criterion, score, reason }))} />}
+          {m.scheme && q.status !== "DECLINED" && q.status !== "INVITED" && <QuoteAssessment scheme={m.scheme} responses={q.responses} scores={q.scores} ranking={q.ranking} canScore={m.status === "OPEN"} busy={busy} panel={m.panel && m.panel.members.length > 0 ? { view: m.panel, quoteId: q.id, canModerate: m.status === "OPEN", act } : null} onScore={(criterion, score, reason) => act(() => apiClient.scoreMiniQuote(q.id, { criterion, score, reason }))} />}
           {q.quoteNotes && <div style={muted}>Note: {q.quoteNotes}</div>}{q.declineReason && <div style={muted}>Declined: {q.declineReason}</div>}
         </div>))}
       {m.awardReason && <div style={muted}>Why the winner was chosen: {m.awardReason}</div>}{m.cancelReason && <div style={muted}>Cancelled: {m.cancelReason}</div>}

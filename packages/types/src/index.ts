@@ -4044,7 +4044,23 @@ export interface QuoteReference { forename: string; surname: string; organisatio
 export interface QuoteResponses { requirements: Record<string, { met: boolean; note: string | null }>; examples: QuoteExample[]; references: QuoteReference[] }
 /** Evaluator scores, 0 to 5, each with the written reason that must be kept. */
 export type QuoteManualKey = "quality" | "examples" | "references";
-export type QuoteScores = Partial<Record<QuoteManualKey, { score: number; reason: string }>>;
+export type QuoteScores = Partial<Record<QuoteManualKey, { score: number; reason: string; /** How the final score was reached: SINGLE (one issuer), AVERAGE of a panel, or MODERATED by the owner. */ basis?: "SINGLE" | "AVERAGE" | "MODERATED" }>>;
+
+// ---- Mini-competition evaluation panel (2026-10-31) ----
+export interface MiniPanelMember { userId: string; name: string; coi: "PENDING" | "NONE" | "CONFLICT"; coiNotes: string | null }
+export interface MiniPanelProgress { scored: number; of: number; /** Shown only once every eligible evaluator has scored (or the score is moderated). */ scores: { evaluator: string; score: number; reason: string }[] | null; spread: number | null; average: number | null; moderated: boolean }
+export interface MiniPanelView {
+  members: MiniPanelMember[];
+  /** The caller's own place on the panel. */
+  me: { isMember: boolean; coi: "PENDING" | "NONE" | "CONFLICT" | null };
+  canEditPanel: boolean;
+  /** Per quote id, per judged criterion. */
+  progress: Record<string, Partial<Record<QuoteManualKey, MiniPanelProgress>>>;
+  /** The caller's own scores per quote id, before moderation. */
+  mine: Record<string, QuoteScores>;
+}
+export const MINI_PANEL_MIN = 2;
+export const MINI_PANEL_MAX = 7;
 export interface QuoteRanking { eligible: boolean; problems: string[]; price: number | null; leadTime: number | null; desirable: number | null; manualMissing: QuoteManualKey[]; total: number | null; rank: number | null }
 
 export type MiniQuoteStatus = "INVITED" | "QUOTED" | "DECLINED" | "WON" | "LOST" | "CANCELLED";
@@ -4052,7 +4068,7 @@ export interface MiniQuoteLineView { tenderLineId: string; description: string; 
 /** Owner's view of one competition. While quoting is open the quotes are sealed: only the count is shown. */
 export interface MiniCompetitionView {
   id: string; reference: string; status: "OPEN" | "AWARDED" | "CANCELLED"; closesAt: string; sealed: boolean; notes: string | null; requiredBy: string | null; deliveryCountryCode: string | null;
-  lines: { tenderLineId: string; description: string; quantity: number }[]; scheme: QuoteScheme | null; invited: number; quotesReceived: number; awardedQuoteId: string | null; awardReason: string | null; cancelReason: string | null; canAward: boolean;
+  lines: { tenderLineId: string; description: string; quantity: number }[]; scheme: QuoteScheme | null; invited: number; quotesReceived: number; awardedQuoteId: string | null; awardReason: string | null; cancelReason: string | null; canAward: boolean; panel: MiniPanelView | null;
   quotes: { id: string; supplierName: string | null; status: MiniQuoteStatus; totalValue: number | null; quotedAt: string | null; quoteNotes: string | null; declineReason: string | null; lines: MiniQuoteLineView[]; responses: QuoteResponses | null; scores: QuoteScores | null; ranking: QuoteRanking | null }[];
 }
 /** A supplier's own invitation. It never shows other suppliers or their prices. */
