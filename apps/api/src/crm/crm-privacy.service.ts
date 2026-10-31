@@ -3,7 +3,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { withTenantContext } from "@universe/db";
 import type { Prisma } from "@universe/db";
 import {
-  canUseApp, CRM_DECISION_ROLES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_SUBSCRIBER_TYPES,
+  canUseApp, retentionRule, CRM_DECISION_ROLES, CRM_LAWFUL_BASES, CRM_PRIVACY_REQUEST_TYPES, CRM_SUBSCRIBER_TYPES,
   type CrmAccessCopy, type CrmAccessLogRow, type CrmContactStatus, type CrmDecisionRole, type CrmLawfulBasis, type CrmPerson, type CrmPersonMatch, type CrmPersonUpdate,
   type CrmPrivacyRequestInput, type CrmPrivacyRequestRow, type CrmPrivacyRequestType, type CrmPrivacyRequestUpdate, type CrmPrivacySummary, type CrmRetentionItem, type CrmSubscriberType,
 } from "@universe/types";
@@ -15,8 +15,9 @@ type Tx = Prisma.TransactionClient;
 const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
 export const hashEmail = (email: string) => createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const LEFT_RETENTION_MONTHS = 24;
-const VERIFY_STALE_MONTHS = 36;
+// Periods come from the single platform schedule (packages/types/src/retention-schedule.ts).
+const LEFT_RETENTION_MONTHS = retentionRule("crm-contact-left").months;
+const VERIFY_STALE_MONTHS = retentionRule("crm-contact-unverified").months;
 
 /**
  * The CRM's privacy tools (UK GDPR; docs/CRM-STANDARDS-AND-DATA-PROTECTION.md). The person record stays in `contacts` (Project Management); this adds the

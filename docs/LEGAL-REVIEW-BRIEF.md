@@ -13,7 +13,7 @@ A multi-tenant platform (project management, product database, tendering, CRM, i
 | Data processing agreement (controller-processor) | section 2 of the CRM standards | Article 28(3) terms; sub-processors (Azure, others); current ICO contract guidance is under review for the Data (Use and Access) Act |
 | Breach runbook | requirement S3 | 72-hour reporting, processor-to-controller notification, record keeping; guidance under review |
 | Erasure by anonymisation in place of deletion (R7) | decision B | Does irreversible anonymisation satisfy erasure while keeping the "nothing is hard deleted" rule? |
-| Default retention periods | S1, decision C | Defensible default for relationship records and tender records (public-sector norms of 5 to 7 years are *recalled*) |
+| Default retention periods | S1, decision C | Defaults now set (docs/RETENTION-SCHEDULE.md, 2026-10-31); specialist to confirm. Original ask: defensible default for relationship records and tender records (public-sector norms of 5 to 7 years are *recalled*) |
 | Free-text notes risk (special category data, third-party names in subject access) | R2, S5 | Is the guard and warning enough? |
 | International transfers | S4 | Whether any processing leaves the UK; IDTA / UK Addendum if so (*secondary*) |
 | ICO registration and fee for Universe as a controller of account data | decision G | Not researched |

@@ -1618,3 +1618,8 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 - **Standards:** UNCITRAL Article 67 (to the end) and World Bank Annex III complaint rules now read; source notes in `tender-standards.ts` updated. Only the ISO 37001 and ISO 20400 requirement text remains unread (paywalled; clause titles only).
 - **Job-failure alerts:** `.github/workflows/job-failure-alert.yml` opens (or updates) one GitHub issue labelled `job-failure` when a scheduled job fails, and closes it when the job next succeeds. Scheduled runs only.
 - **Theme per account:** `User.themePreference` (migration `20261031100000_user_theme_preference`), returned by `GET /me`, saved by `PATCH /me/preferences` (own row only, light/dark/system). All apps apply the account value after sign-in and push up an existing browser choice if the account has none.
+
+## 2026-10-31 — Default retention schedule
+- **Request (Lewis):** set the retention periods to the default standard expectations compliant with UK/EU regulations.
+- **Built:** one platform schedule of 21 record types (`packages/types/src/retention-schedule.ts`; `docs/RETENTION-SCHEDULE.md`), each with period, start point, end action, reason and an honest basis label (law / regulator guidance / common practice). Shown read-only in the CRM Privacy page (new "Retention schedule" tab); the CRM people-retention periods (24 and 36 months) now read from it. Nothing is deleted automatically. Periods were recalled, not re-read, so they stay on the specialist's list (legal brief, decision C).
+- **Not yet built:** review queues for tender, complaint and contract records; per-organisation overrides.

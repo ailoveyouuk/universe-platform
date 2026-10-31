@@ -16,7 +16,7 @@ Nothing real (real organisations, real documents, real personal data) should be 
 
 ## Data protection and legal (specialist review)
 - LIA template, privacy notice text, DPA and breach runbook reviewed by a specialist; ICO contract and breach-reporting guidance re-checked (under review for the Data (Use and Access) Act).
-- Retention rules and subject-access handling for complaint data (complainant data is already isolated).
+- Subject-access handling for complaint data and review queues for tender, complaint and contract records (default periods set 2026-10-31 in docs/RETENTION-SCHEDULE.md; complainant data is already isolated).
 - Cyber Essentials Plus readiness check; ISO 27001 / SOC 2 readiness assessment (P3).
 - Standards guide for tenders: UNCITRAL Arts 58-68 and World Bank 5.77-5.85 and Annex III 1.1-3.4 now read (2026-10-28 and 2026-10-31); only the ISO 37001/20400 requirement text (paywalled) is unread; apply after specialist review.
 - Brief for the specialist: `docs/LEGAL-REVIEW-BRIEF.md`. Identity review: `docs/IDENTITY-REVIEW.md`. Simulated-data workflow safeguards: `docs/SIMULATED-DATA-WORKFLOWS.md` (Lewis: add a required reviewer to the `demo-data-apply` environment in GitHub).

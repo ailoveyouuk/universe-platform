@@ -4,15 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   CRM_CONTACT_STATUS_LABELS, CRM_PRIVACY_REQUEST_TYPE_LABELS, CRM_PRIVACY_REQUEST_TYPES,
-  type CrmAccessLogRow, type CrmPersonMatch, type CrmPrivacyRequestRow, type CrmPrivacyRequestType, type CrmPrivacySummary, type CrmRetentionItem,
+  type CrmAccessLogRow, type CrmPersonMatch, type CrmPrivacyRequestRow, type CrmPrivacyRequestType, type CrmPrivacySummary, type CrmRetentionItem, RETENTION_SCHEDULE, RETENTION_SCHEDULE_UPDATED, type RetentionRule,
 } from "@universe/types";
 import { AlertIcon, Button, ClockIcon, Pill, ShieldIcon, StatTile, StatTileGrid, UserIcon } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 import { ErrorNote, Field, Heading, OkNote, Page, fmtDate, humanise, inputStyle } from "../../lib/ui";
 
-type Tab = "requests" | "find" | "retention" | "suppression" | "log";
-const TABS: { key: Tab; label: string }[] = [{ key: "requests", label: "Requests" }, { key: "find", label: "Find a person" }, { key: "retention", label: "Retention review" }, { key: "suppression", label: "Suppression list" }, { key: "log", label: "Access log" }];
+type Tab = "requests" | "find" | "retention" | "schedule" | "suppression" | "log";
+const TABS: { key: Tab; label: string }[] = [{ key: "requests", label: "Requests" }, { key: "find", label: "Find a person" }, { key: "retention", label: "Retention review" }, { key: "schedule", label: "Retention schedule" }, { key: "suppression", label: "Suppression list" }, { key: "log", label: "Access log" }];
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Privacy: what the organisation needs to run its CRM lawfully (UK GDPR). Managers only. */
@@ -48,6 +48,7 @@ export default function PrivacyPage() {
         {tab === "requests" && <Requests onError={setErr} onOk={(m) => { setOk(m); refresh(); }} />}
         {tab === "find" && <Find onError={setErr} />}
         {tab === "retention" && <Retention onError={setErr} onOk={(m) => { setOk(m); refresh(); }} />}
+        {tab === "schedule" && <Schedule />}
         {tab === "suppression" && <Suppression onError={setErr} onOk={(m) => { setOk(m); refresh(); }} />}
         {tab === "log" && <Log onError={setErr} />}
       </div>
@@ -170,6 +171,37 @@ function Find({ onError }: { onError: (m: string | null) => void }) {
         </div>
       )}
       <p style={{ ...muted, fontSize: 12.5 }}>A copy lists everything held about the person. Read it before sending: notes about other people may name them and must be redacted. To erase someone, open their stakeholder, go to People, then Manage and Anonymise.</p>
+    </>
+  );
+}
+
+const AT_END: Record<RetentionRule["atEnd"], string> = { review: "A person reviews it", "anonymise-person": "Personal detail anonymised", archive: "Archived" };
+const CONF: Record<RetentionRule["confidence"], string> = { statute: "Set by law", guidance: "Regulator guidance", practice: "Common practice" };
+const period = (m: number) => (m === 0 ? "No end date" : m % 12 === 0 ? `${m / 12} year${m === 12 ? "" : "s"}` : `${m} month${m === 1 ? "" : "s"}`);
+
+/** The platform's default retention periods. Read-only: they come from one shared schedule. */
+function Schedule() {
+  return (
+    <>
+      <p style={muted}>How long each kind of record is kept by default. UK and EU GDPR set no fixed periods, only that each one is justified and reviewed, so these are defaults with a stated reason. Nothing is deleted automatically: at the end of a period the record goes to a review (or the person is anonymised) and a person decides. Updated {RETENTION_SCHEDULE_UPDATED}. Where the reason is common practice or regulator guidance rather than law, it is flagged for a specialist to confirm.</p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <caption style={{ position: "absolute", left: -9999 }}>Default retention periods</caption>
+          <thead><tr><th scope="col" style={th}>What</th><th scope="col" style={th}>Kept for</th><th scope="col" style={th}>From</th><th scope="col" style={th}>At the end</th><th scope="col" style={th}>Why</th><th scope="col" style={th}>Basis</th></tr></thead>
+          <tbody>
+            {RETENTION_SCHEDULE.map((r) => (
+              <tr key={r.key}>
+                <td style={td}><strong>{r.category}</strong><br />{r.covers}</td>
+                <td style={td}>{period(r.months)}</td>
+                <td style={td}>{r.from}</td>
+                <td style={td}>{AT_END[r.atEnd]}</td>
+                <td style={td}>{r.reason}</td>
+                <td style={td}><Pill tone={r.confidence === "statute" ? "good" : "neutral"}>{CONF[r.confidence]}</Pill></td>
+              </tr>))}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ ...muted, fontSize: 12.5 }}>Source: Universe default retention schedule (packages/types), reasons from the Limitation Act 1980, HMRC and Companies Act record rules, MHRA and EU Good Distribution Practice and ICO storage-limitation guidance, as recalled, not re-read; see the legal review brief.</p>
     </>
   );
 }
