@@ -1612,3 +1612,9 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 ## 2026-10-28 — Multilingual scoping
 - **Request (Lewis):** scope a language switch (English, French, Spanish; later Russian, Chinese, Arabic and other prominent languages) and recommend how.
 - **Output:** `docs/MULTILINGUAL-SCOPING.md` (nothing built): measured the code (about 3,600 UI strings found by a conservative count, 718 API messages, 185 date/number format calls, 56 hand-built plurals, 229 left/right styles), recommended one shared i18n package with ICU messages and run-time locale, profile-level language choice, codes-plus-parameters from the API, English-authoritative translations with AI draft and human review, languages in waves (fr/es, then pt/ru/zh, then ar), and listed six decisions for Lewis. The Entra portal items are paused by him until after this.
+
+## 2026-10-31 — Last standards text read, job-failure alerts, theme per account
+- **Request (Lewis):** keep the multilingual plan on hold and finish everything to do with the platform first.
+- **Standards:** UNCITRAL Article 67 (to the end) and World Bank Annex III complaint rules now read; source notes in `tender-standards.ts` updated. Only the ISO 37001 and ISO 20400 requirement text remains unread (paywalled; clause titles only).
+- **Job-failure alerts:** `.github/workflows/job-failure-alert.yml` opens (or updates) one GitHub issue labelled `job-failure` when a scheduled job fails, and closes it when the job next succeeds. Scheduled runs only.
+- **Theme per account:** `User.themePreference` (migration `20261031100000_user_theme_preference`), returned by `GET /me`, saved by `PATCH /me/preferences` (own row only, light/dark/system). All apps apply the account value after sign-in and push up an existing browser choice if the account has none.

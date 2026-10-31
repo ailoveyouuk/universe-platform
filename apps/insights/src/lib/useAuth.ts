@@ -5,6 +5,7 @@ import type { AccountInfo } from "@azure/msal-browser";
 import { DEFAULT_LOGIN_SCOPES } from "@universe/auth";
 import type { AuthenticatedUser } from "@universe/types";
 import { msalInstance } from "./msalInstance";
+import { applyServerTheme, setThemeSyncHandler } from "@universe/ui";
 import { apiClient } from "./apiClient";
 
 /** Identical to apps/project-management/src/lib/useAuth.ts — see that
@@ -45,6 +46,9 @@ export function useAuth(): AuthState {
       try {
         const profile = await apiClient.me();
         if (cancelled) return;
+        // Theme follows the account across apps and browsers.
+        setThemeSyncHandler((pref) => { void apiClient.updateMyPreferences({ themePreference: pref }).catch(() => undefined); });
+        applyServerTheme(profile.themePreference);
         setMe(profile);
         setStatus("signedIn");
       } catch (err) {

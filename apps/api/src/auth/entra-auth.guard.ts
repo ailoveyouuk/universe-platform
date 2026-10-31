@@ -31,6 +31,8 @@ export interface RequestUser {
   permissions: string[];
   /** Apps this person may use; null = every app. Platform staff are never restricted. */
   apps: string[] | null;
+  /** Chosen colour theme ("light" | "dark" | "system"), null if never chosen. */
+  themePreference: "light" | "dark" | "system" | null;
   /** True for non-staff users whose home organisation is a demo sandbox: they may write inside it but never to data shared across organisations. */
   isDemoUser?: boolean;
   /** True when this request runs inside a demo organisation (a demo user's own, or one platform staff switched into). Gates visibility of simulated shared data. */
@@ -49,6 +51,7 @@ function toRequestUser(user: {
   // the database only ever stores one of that const object's values.
   platformStaffRole: string;
   appAccess?: string | null;
+  themePreference?: string | null;
   organization: { name: string; isDemo: boolean; logoUrl: string | null; logoIconUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
@@ -69,6 +72,7 @@ function toRequestUser(user: {
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
     apps: user.platformStaffRole === PlatformStaffRole.NONE ? parseAppAccess(user.appAccess) : null,
+    themePreference: user.themePreference === "light" || user.themePreference === "dark" || user.themePreference === "system" ? user.themePreference : null,
     isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
     inDemoOrganization: user.organization.isDemo,
   };

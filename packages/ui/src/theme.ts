@@ -44,6 +44,41 @@ export function setThemePreference(pref: ThemePreference): void {
   }
   applyTheme(pref);
   window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: pref }));
+  try {
+    syncHandler?.(pref);
+  } catch {
+    /* saving to the account is best effort */
+  }
+}
+
+/**
+ * Per-account theme (2026-10-31). The app registers a handler that saves a
+ * choice to the signed-in person's account; `applyServerTheme` is called once
+ * the account is known. The account value wins; if the account has none but
+ * this browser has a choice, that choice is pushed up so it follows the person.
+ */
+let syncHandler: ((pref: ThemePreference) => void) | null = null;
+export function setThemeSyncHandler(fn: ((pref: ThemePreference) => void) | null): void {
+  syncHandler = fn;
+}
+
+export function applyServerTheme(serverPref: ThemePreference | null | undefined): void {
+  if (serverPref === "light" || serverPref === "dark" || serverPref === "system") {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, serverPref);
+    } catch {
+      /* applies for this page view only */
+    }
+    applyTheme(serverPref);
+    window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: serverPref }));
+    return;
+  }
+  try {
+    const local = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (local === "light" || local === "dark" || local === "system") syncHandler?.(local);
+  } catch {
+    /* nothing to push */
+  }
 }
 
 /** Inline script for <head>: sets data-theme before first paint (no flash). */

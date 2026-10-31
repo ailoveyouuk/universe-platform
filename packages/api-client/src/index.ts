@@ -487,6 +487,11 @@ export class UniverseApiClient {
     return this.request("/me");
   }
 
+  /** Saves the signed-in person's own preferences (currently the colour theme). */
+  updateMyPreferences(p: { themePreference: "light" | "dark" | "system" }): Promise<{ themePreference: string }> {
+    return this.request("/me/preferences", { method: "PATCH", body: JSON.stringify(p) });
+  }
+
   /** Server-paged, filtered, sorted project list. */
   listProjectsPage(params: { page?: number; pageSize?: number; q?: string; status?: string; type?: string; country?: string; source?: string; archived?: boolean; sort?: string; dir?: string; gap?: string }): Promise<PagedResult<ProjectSummary>> {
     const qs = new URLSearchParams();

@@ -106,6 +106,8 @@ export function canUseApp(apps: string[] | null | undefined, key: string): boole
 }
 
 export interface AuthenticatedUser {
+  /** The person's chosen colour theme, kept on their account (2026-10-31). Null = never chosen. */
+  themePreference?: "light" | "dark" | "system" | null;
   /** Apps this person may use; null = every app (2026-10-25). Platform staff are never restricted. */
   apps?: string[] | null;
   id: string;

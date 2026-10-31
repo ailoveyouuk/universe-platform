@@ -385,6 +385,8 @@ model User {
   platformStaffRole String       @default("NONE")
   /// Apps this person may use (2026-10-25), stored as `,key,key,`. NULL = every app (the default). Set by organisation admins in Admin.
   appAccess         String?      @db.NVarChar(300)
+  /// Light, dark or device (system) theme chosen by the person, so it follows them across apps and browsers (2026-10-31). Null = never chosen.
+  themePreference   String?      @db.NVarChar(10)
   invitedById       String?
   invitedBy         User?        @relation("UserInvitedBy", fields: [invitedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   invitedUsers      User[]       @relation("UserInvitedBy")

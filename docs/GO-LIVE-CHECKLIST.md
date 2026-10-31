@@ -11,14 +11,14 @@ Nothing real (real organisations, real documents, real personal data) should be 
 | 4 | Screen-reader pass (VoiceOver / NVDA) on main journeys of every app, light and dark | A person | Open |
 | 5 | Database restore rehearsal: restore a .bacpac or point-in-time copy into a scratch database and open the apps against it | Lewis + Claude | Open (see Backups) |
 | 6 | Gateway-level rate limiting (Front Door or API Management); the in-app limit is a stopgap | Lewis decides, Claude configures | Open (suggested) |
-| 7 | Monitoring and alerts on scheduled jobs (nightly aggregation, cert-expiry reminders, CRM review reminders, regulatory watch) | Claude | Open (suggested) |
+| 7 | Monitoring and alerts on scheduled jobs (nightly aggregation, daily activity, cert-expiry reminders, CRM review reminders, regulatory watch, pharma sync) | Claude | Done 2026-10-31: failing scheduled run opens a GitHub issue (closes itself when healthy) |
 | 8 | Email for award notices, debriefs and certification expiry (in-app only today, accepted for now) | Lewis decides | Open |
 
 ## Data protection and legal (specialist review)
 - LIA template, privacy notice text, DPA and breach runbook reviewed by a specialist; ICO contract and breach-reporting guidance re-checked (under review for the Data (Use and Access) Act).
 - Retention rules and subject-access handling for complaint data (complainant data is already isolated).
 - Cyber Essentials Plus readiness check; ISO 27001 / SOC 2 readiness assessment (P3).
-- Standards guide for tenders: UNCITRAL Arts 58-67 and World Bank 5.78-5.85 now read (2026-10-28); World Bank Annex III and the ISO 37001/20400 requirement text (paywalled) still unread; apply after specialist review.
+- Standards guide for tenders: UNCITRAL Arts 58-68 and World Bank 5.77-5.85 and Annex III 1.1-3.4 now read (2026-10-28 and 2026-10-31); only the ISO 37001/20400 requirement text (paywalled) is unread; apply after specialist review.
 - Brief for the specialist: `docs/LEGAL-REVIEW-BRIEF.md`. Identity review: `docs/IDENTITY-REVIEW.md`. Simulated-data workflow safeguards: `docs/SIMULATED-DATA-WORKFLOWS.md` (Lewis: add a required reviewer to the `demo-data-apply` environment in GitHub).
 
 ## Access and identity
