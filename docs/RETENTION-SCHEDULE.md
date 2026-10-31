@@ -32,7 +32,13 @@ The single source is `packages/types/src/retention-schedule.ts`; it is shown rea
 | **Notifications**: In-app alerts | 3 months | the alert being read or dismissed | Archived | Convenience messages with no record-keeping purpose. | Common practice |
 | **Backups**: Database backups | 1 month | the backup being taken | Archived | ICO: where erasure is not immediate in backups, data is put beyond use until the backup expires; the backup window is the stated period. | Regulator guidance |
 
-## Still to build against this schedule
-- Review queues for tender, complaint and contract records (only the CRM people queue exists).
-- Complaint subject-access handling (complainant data is already isolated).
-- Making the periods editable per organisation (today they are platform defaults).
+## How it is used (built 2026-10-31)
+- **Admin, Retention** (organisation administrators): a review list of tender files, contracts and quality complaints past their period, and complainants whose personal details can now be removed. A person keeps a record (a reason is required; it returns after 12 months), archives it (tenders and complaints) or removes the complainant's name, email and phone (the complaint itself stays). Every decision is recorded (`retention_decisions`) and audited.
+- **Own periods:** an organisation can set its own months for a rule, with a reason (`retention_overrides`); the platform default applies otherwise.
+- **Complainant requests:** find complaints that name a person (name, email or phone, including the linked contact) and download a copy for a subject access request.
+- A complaint with a regulator decision still under consideration is never offered for archive or removal.
+- RLS for the two new tables: `infra/sql/retention-rls.sql` (Lewis runs it once after deploy).
+
+## Still to build
+- Review queues for the other record types in the schedule (finance, certification, gifts register, notifications, backups) when those areas hold real data.
+- Email to the complainant (waiting on the email decision).

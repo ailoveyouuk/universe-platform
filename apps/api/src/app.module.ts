@@ -13,6 +13,7 @@ import { PartnersModule } from "./partners/partners.module";
 import { SupplierEnquiriesModule } from "./supplier-enquiries/supplier-enquiries.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { QualityModule } from "./quality/quality.module";
+import { RetentionModule } from "./retention/retention.module";
 import { GeoModule } from "./geo/geo.module";
 import { StakeholderRegistryModule } from "./stakeholder-registry/stakeholder-registry.module";
 import { ProductCatalogModule } from "./product-catalog/product-catalog.module";
@@ -48,6 +49,7 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     SupplierEnquiriesModule,
     DocumentsModule,
     QualityModule,
+    RetentionModule,
     GeoModule,
     StakeholderRegistryModule,
     ProductCatalogModule,

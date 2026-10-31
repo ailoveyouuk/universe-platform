@@ -4092,6 +4092,8 @@ model QualityComplaint {
   closureOverrideReason String?      @db.NVarChar(1000)
   reopenCount           Int          @default(0)
 
+  /// Set when the complainant's name, email and phone were removed under the retention schedule (2026-10-31).
+  complainantAnonymisedAt DateTime?
   archivedAt            DateTime?
   archivedById          String?
   createdAt             DateTime     @default(now())
@@ -5222,4 +5224,42 @@ model CrmHospitalityRecord {
   @@index([organizationId, status])
   @@index([organizationId, occurredOn])
   @@map("crm_hospitality_records")
+}
+
+
+// ---------------------------------------------------------------------------
+// Retention (2026-10-31). The platform schedule lives in code (packages/types/src/retention-schedule.ts); these two tables hold
+// what a person decided. Nothing is deleted automatically: a decision is KEEP (until a date, with a reason), ARCHIVED or ANONYMISED.
+// ---------------------------------------------------------------------------
+model RetentionDecision {
+  id             String    @id @default(uuid())
+  organizationId String
+  ruleKey        String    @db.NVarChar(60)
+  /// TENDER | CONTRACT | COMPLAINT | COMPLAINANT
+  recordType     String    @db.NVarChar(20)
+  recordId       String
+  /// KEEP | ARCHIVED | ANONYMISED
+  decision       String    @db.NVarChar(12)
+  reason         String?   @db.NVarChar(1000)
+  /// KEEP only: the record is left out of the queue until this date.
+  keptUntil      DateTime?
+  decidedById    String?
+  decidedAt      DateTime  @default(now())
+
+  @@index([organizationId, ruleKey, recordId])
+  @@map("retention_decisions")
+}
+
+/// An organisation's own period for one rule (it must be able to justify it). Absent = the platform default.
+model RetentionOverride {
+  id             String   @id @default(uuid())
+  organizationId String
+  ruleKey        String   @db.NVarChar(60)
+  months         Int
+  reason         String   @db.NVarChar(1000)
+  setById        String?
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, ruleKey])
+  @@map("retention_overrides")
 }

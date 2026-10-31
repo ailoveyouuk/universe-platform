@@ -63,3 +63,55 @@ export function retentionRule(key: string): RetentionRule {
   if (!r) throw new Error(`Unknown retention rule ${key}`);
   return r;
 }
+
+// ---- Review queue and decisions (2026-10-31) ----------------------------------------------------------------------------------------------
+
+export type RetentionRecordType = "TENDER" | "CONTRACT" | "COMPLAINT" | "COMPLAINANT";
+export type RetentionDecisionKind = "KEEP" | "ARCHIVED" | "ANONYMISED";
+
+export interface RetentionQueueItem {
+  ruleKey: string;
+  recordType: RetentionRecordType;
+  recordId: string;
+  label: string;
+  /** When the period ended. */
+  dueSince: string;
+  months: number;
+  /** What the person may choose; KEEP always needs a reason. */
+  actions: RetentionDecisionKind[];
+  link: string | null;
+}
+
+export interface RetentionDecisionInput {
+  ruleKey: string;
+  recordType: RetentionRecordType;
+  recordId: string;
+  decision: RetentionDecisionKind;
+  reason?: string;
+}
+
+export interface RetentionEffectiveRule extends RetentionRule {
+  defaultMonths: number;
+  overridden: boolean;
+  overrideReason: string | null;
+}
+
+export interface RetentionOverrideInput { ruleKey: string; months: number; reason: string }
+
+/** A copy of everything held about a complainant (subject access), for a person to read before sending. */
+export interface ComplaintSubjectAccessCopy {
+  generatedAt: string;
+  query: string;
+  complaints: {
+    id: string; referenceNumber: string; title: string; status: string; direction: string; receivedAt: string; closedAt: string | null;
+    complainantName: string | null; complainantEmail: string | null; complainantPhone: string | null; anonymisedAt: string | null;
+    description: string; findings: string | null; outcome: string | null; responseSummary: string | null;
+    timeline: { when: string; kind: string; summary: string; body: string | null }[];
+  }[];
+}
+export interface ComplaintSubjectMatch { id: string; referenceNumber: string; title: string; status: string; complainant: string | null; anonymised: boolean }
+
+/** The months a rule applies for an organisation: its own override if it set one, otherwise the platform default. */
+export function effectiveRetentionMonths(ruleKey: string, overrides: { ruleKey: string; months: number }[]): number {
+  return overrides.find((o) => o.ruleKey === ruleKey)?.months ?? retentionRule(ruleKey).months;
+}

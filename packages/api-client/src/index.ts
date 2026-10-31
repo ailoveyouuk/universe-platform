@@ -1,3 +1,4 @@
+import type { RetentionEffectiveRule, RetentionOverrideInput, RetentionQueueItem, RetentionDecisionInput, ComplaintSubjectMatch, ComplaintSubjectAccessCopy } from "@universe/types";
 import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmOpportunityParticipantInput, CrmOpportunitySyncResult, CrmOpportunityDelivery, CrmRelationshipTree, DataGap, CrmOpportunityFramework, CrmTenderOption, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPipelineView, CrmWinLossDrivers, DataHealthSection, CrmSearchResult, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
@@ -486,6 +487,15 @@ export class UniverseApiClient {
   me(): Promise<AuthenticatedUser> {
     return this.request("/me");
   }
+
+  // ---- Retention (2026-10-31) ----
+  retentionRules(): Promise<RetentionEffectiveRule[]> { return this.request("/retention/rules"); }
+  retentionSetOverride(dto: RetentionOverrideInput): Promise<{ ruleKey: string; months: number }> { return this.request("/retention/rules", { method: "PUT", body: JSON.stringify(dto) }); }
+  retentionClearOverride(ruleKey: string): Promise<{ ruleKey: string }> { return this.request(`/retention/rules/${encodeURIComponent(ruleKey)}`, { method: "DELETE" }); }
+  retentionQueue(): Promise<RetentionQueueItem[]> { return this.request("/retention/queue"); }
+  retentionDecide(dto: RetentionDecisionInput): Promise<{ id: string; decision: string; keptUntil: string | null }> { return this.request("/retention/decisions", { method: "POST", body: JSON.stringify(dto) }); }
+  retentionFindComplainant(q: string): Promise<ComplaintSubjectMatch[]> { return this.request(`/retention/complainant/find?q=${encodeURIComponent(q)}`); }
+  retentionComplainantCopy(q: string): Promise<ComplaintSubjectAccessCopy> { return this.request(`/retention/complainant/copy?q=${encodeURIComponent(q)}`); }
 
   /** Saves the signed-in person's own preferences (currently the colour theme). */
   updateMyPreferences(p: { themePreference: "light" | "dark" | "system" }): Promise<{ themePreference: string }> {

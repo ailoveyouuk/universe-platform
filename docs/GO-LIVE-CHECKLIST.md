@@ -16,7 +16,7 @@ Nothing real (real organisations, real documents, real personal data) should be 
 
 ## Data protection and legal (specialist review)
 - LIA template, privacy notice text, DPA and breach runbook reviewed by a specialist; ICO contract and breach-reporting guidance re-checked (under review for the Data (Use and Access) Act).
-- Subject-access handling for complaint data and review queues for tender, complaint and contract records (default periods set 2026-10-31 in docs/RETENTION-SCHEDULE.md; complainant data is already isolated).
+- Retention: default periods, Admin review queue (tenders, contracts, complaints), own periods and complainant requests built 2026-10-31 (docs/RETENTION-SCHEDULE.md). Lewis: run `infra/sql/retention-rls.sql` after the deploy; specialist to confirm the periods.
 - Cyber Essentials Plus readiness check; ISO 27001 / SOC 2 readiness assessment (P3).
 - Standards guide for tenders: UNCITRAL Arts 58-68 and World Bank 5.77-5.85 and Annex III 1.1-3.4 now read (2026-10-28 and 2026-10-31); only the ISO 37001/20400 requirement text (paywalled) is unread; apply after specialist review.
 - Brief for the specialist: `docs/LEGAL-REVIEW-BRIEF.md`. Identity review: `docs/IDENTITY-REVIEW.md`. Simulated-data workflow safeguards: `docs/SIMULATED-DATA-WORKFLOWS.md` (Lewis: add a required reviewer to the `demo-data-apply` environment in GitHub).
@@ -29,7 +29,7 @@ Nothing real (real organisations, real documents, real personal data) should be 
 ## Backups and restore
 - Azure .bacpac exports of `universe` and `universe-insights` were submitted by Lewis on 2026-10-26 to storage account `universepilotdocs`, private container `db-backups` (baseline state). Data has changed since (CRM pipeline seeds, win/loss variety seed 2026-10-28): take a fresh pair before go-live and after any real onboarding.
 - Rehearse a restore (Gate 5) and record how long it took.
-- Code backups: LaCie `Universe/current` and dated folders (latest bk121); Git tag `demo-baseline-2026-10-26`.
+- Code backups: LaCie `Universe/current` and dated folders (latest bk126); Git tag `demo-baseline-2026-10-26`.
 
 ## Operations
 - Confirm the database tier (serverless pilot tier is for pilots) and auto-pause behaviour against real traffic.
