@@ -3619,12 +3619,6 @@ export interface TenderDashboard {
   attention: { overdueEvaluation: number; overdueAward: number; unansweredQuestions: number };
   bidsReceived: number | null;
 }
-export interface SupplierWaitingItem { kind: string; label: string; title: string; detail: string; dueAt: string | null; overdue: boolean; urgent: boolean; path: string }
-export interface SupplierPortalDashboard {
-  totals: { waiting: number; urgent: number; overdue: number; activeContracts: number; activeContractValue: number; openBids: number };
-  byKind: { kind: string; label: string; count: number }[];
-  items: SupplierWaitingItem[];
-}
 export interface TenderOrganisationOption { id: string; name: string; type: string }
 
 // ---------------------------------------------------------------------------

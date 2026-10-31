@@ -5,7 +5,6 @@ import { RolesModule } from "./roles/roles.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { SupplierDirectoryModule } from "./supplier-directory/supplier-directory.module";
 import { TendersModule } from "./tenders/tenders.module";
-import { SupplierPortalModule } from "./supplier-portal/supplier-portal.module";
 import { PharmaReferenceModule } from "./pharma-reference/pharma-reference.module";
 import { ServiceCatalogueModule } from "./service-catalogue/service-catalogue.module";
 import { MeController } from "./me/me.controller";
@@ -42,7 +41,6 @@ import { DataExportsModule } from "./data-exports/data-exports.module";
     OrganizationsModule,
     SupplierDirectoryModule,
     TendersModule,
-    SupplierPortalModule,
     PharmaReferenceModule,
     ServiceCatalogueModule,
     PartnersModule,

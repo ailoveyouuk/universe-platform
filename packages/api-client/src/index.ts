@@ -3,7 +3,7 @@ import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganis
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
   ScorecardSettings, UpdateScorecardSettingsInput, PartnerScorecard, ScorecardRecordSet, ComplaintDashboard, ComplaintDetail, ComplaintListItem, CreateComplaintInput,
-  TenderDashboard, SupplierPortalDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
+  TenderDashboard, TenderListItem, TenderDetailForIssuer, TenderRecord, TenderLineRecord, TenderCriterionRecord, TenderRuleRecord, TenderOrganisationOption, TenderChainCheck, PublicNoticeRecord, TenderAvailableItem, TenderAvailableResult, TenderSavedSearchCriteria, TenderSavedSearchRecord, NetworkSavedSearchRecord, NetworkSearchCriteria, TenderParticipantView, TenderBidWorkspace, TenderBidSaveInput, BidTemplateKind, BidTemplateFile, BidTemplateResult, EvaluationOverview, TenderStatusView, MyBidItem, IssuerBidRecord,
   StakeholderAccessOverview,
   PagedResult,
   RiskRegisterCounts,
@@ -312,7 +312,6 @@ export class UniverseApiClient {
   }
 
   // ---- Tender Issuance & Management (issuer side, 2026-10-19)
-  supplierPortalDashboard(): Promise<SupplierPortalDashboard> { return this.request("/supplier-portal/dashboard"); }
   tenderDashboard(): Promise<TenderDashboard> { return this.request("/tenders/dashboard"); }
   listMyTenders(status?: string, gap?: string): Promise<TenderListItem[]> { const p = new URLSearchParams(); if (status) p.set("status", status); if (gap) p.set("gap", gap); return this.request(`/tenders/mine${p.toString() ? `?${p}` : ""}`); }
   getMyTender(id: string): Promise<TenderDetailForIssuer> { return this.request(`/tenders/mine/${id}`); }
