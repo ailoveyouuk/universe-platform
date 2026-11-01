@@ -30,6 +30,8 @@ export interface RetentionRule {
   atEnd: RetentionAction;
   reason: string;
   confidence: RetentionConfidence;
+  /** True when the platform keeps to the period itself (logs, backups, notifications) and nothing is reviewed record by record. */
+  policyOnly?: boolean;
 }
 
 export const RETENTION_SCHEDULE: RetentionRule[] = [
@@ -38,9 +40,9 @@ export const RETENTION_SCHEDULE: RetentionRule[] = [
   { key: "crm-relationship-ended", category: "CRM relationships", covers: "People linked to a stakeholder relationship that has ended", months: 24, from: "the relationship ending", atEnd: "review", reason: "Keep enough to show the relationship existed; review the personal detail.", confidence: "practice" },
   { key: "crm-kept-after-review", category: "CRM people", covers: "A person a reviewer chose to keep", months: 12, from: "the review", atEnd: "review", reason: "A decision to keep expires and must be made again with a reason.", confidence: "practice" },
   { key: "privacy-requests", category: "Privacy", covers: "Subject-access, erasure and other privacy requests, decisions and exemptions", months: 72, from: "the request closing", atEnd: "review", reason: "Needed to show compliance; matches the six-year limitation period for claims.", confidence: "statute" },
-  { key: "suppression-list", category: "Privacy", covers: "Hashed email kept so an erased person is not added back", months: 0, from: "kept while the organisation operates (no end date)", atEnd: "review", reason: "Holds only a one-way hash; keeping it is what makes the erasure stick.", confidence: "guidance" },
-  { key: "access-log", category: "Security", covers: "Who viewed personal data in the CRM", months: 24, from: "the view", atEnd: "archive", reason: "Security and audit evidence (UK GDPR Article 32; ISO 27001 logging); two years covers an annual audit cycle plus a year.", confidence: "practice" },
-  { key: "audit-trail", category: "Security", covers: "Field-change log and audit trail of who changed what", months: 72, from: "the change", atEnd: "archive", reason: "Business and dispute evidence; matches the six-year limitation period.", confidence: "statute" },
+  { key: "suppression-list", category: "Privacy", covers: "Hashed email kept so an erased person is not added back", months: 0, from: "kept while the organisation operates (no end date)", atEnd: "review", reason: "Holds only a one-way hash; keeping it is what makes the erasure stick.", confidence: "guidance", policyOnly: true },
+  { key: "access-log", category: "Security", covers: "Who viewed personal data in the CRM", months: 24, from: "the view", atEnd: "archive", reason: "Security and audit evidence (UK GDPR Article 32; ISO 27001 logging); two years covers an annual audit cycle plus a year.", confidence: "practice", policyOnly: true },
+  { key: "audit-trail", category: "Security", covers: "Field-change log and audit trail of who changed what", months: 72, from: "the change", atEnd: "archive", reason: "Business and dispute evidence; matches the six-year limitation period.", confidence: "statute", policyOnly: true },
   { key: "tender-file", category: "Tenders", covers: "Tender documents, evaluation scores, award decision and standstill record", months: 72, from: "contract award (or tender cancellation)", atEnd: "review", reason: "Challenges and contract claims can be brought for six years (Limitation Act 1980); public-sector norms are five to seven years.", confidence: "statute" },
   { key: "tender-unsuccessful-person", category: "Tenders", covers: "Personal details of people at unsuccessful bidders (names, emails, CVs)", months: 24, from: "contract award", atEnd: "anonymise-person", reason: "Keep the bid and score for the file; the personal detail is not needed once challenge time has passed.", confidence: "practice" },
   { key: "contract", category: "Contracts", covers: "Awarded contracts, variations, performance records and signatures", months: 72, from: "contract end or expiry", atEnd: "review", reason: "Six years for contract claims; twelve if executed as a deed (shown on the contract).", confidence: "statute" },
@@ -52,8 +54,8 @@ export const RETENTION_SCHEDULE: RetentionRule[] = [
   { key: "financial", category: "Finance", covers: "Invoices, payment and accounting records", months: 72, from: "the end of the financial year", atEnd: "review", reason: "HMRC and Companies Act accounting records: six years (UK).", confidence: "statute" },
   { key: "user-account", category: "Accounts", covers: "A person's platform account after they leave (archived, not deleted)", months: 72, from: "the account being archived", atEnd: "anonymise-person", reason: "Needed so the audit trail still says who did what; then the name is replaced.", confidence: "practice" },
   { key: "enquiry-unsuccessful", category: "Supplier directory", covers: "Supplier enquiries that never led to a relationship", months: 12, from: "the enquiry closing", atEnd: "anonymise-person", reason: "No continuing purpose once the enquiry is closed.", confidence: "practice" },
-  { key: "notification", category: "Notifications", covers: "In-app alerts", months: 3, from: "the alert being read or dismissed", atEnd: "archive", reason: "Convenience messages with no record-keeping purpose.", confidence: "practice" },
-  { key: "backup", category: "Backups", covers: "Database backups", months: 1, from: "the backup being taken", atEnd: "archive", reason: "ICO: where erasure is not immediate in backups, data is put beyond use until the backup expires; the backup window is the stated period.", confidence: "guidance" },
+  { key: "notification", category: "Notifications", covers: "In-app alerts", months: 3, from: "the alert being read or dismissed", atEnd: "archive", reason: "Convenience messages with no record-keeping purpose.", confidence: "practice", policyOnly: true },
+  { key: "backup", category: "Backups", covers: "Database backups", months: 1, from: "the backup being taken", atEnd: "archive", reason: "ICO: where erasure is not immediate in backups, data is put beyond use until the backup expires; the backup window is the stated period.", confidence: "guidance", policyOnly: true },
 ];
 
 export const RETENTION_SCHEDULE_UPDATED = "2026-10-31";
@@ -66,7 +68,7 @@ export function retentionRule(key: string): RetentionRule {
 
 // ---- Review queue and decisions (2026-10-31) ----------------------------------------------------------------------------------------------
 
-export type RetentionRecordType = "TENDER" | "CONTRACT" | "COMPLAINT" | "COMPLAINANT";
+export type RetentionRecordType = "TENDER" | "CONTRACT" | "COMPLAINT" | "COMPLAINANT" | "CERTIFICATION" | "HOSPITALITY" | "PRIVACY_REQUEST" | "PAYMENT" | "USER" | "ENQUIRY" | "BATCH";
 export type RetentionDecisionKind = "KEEP" | "ARCHIVED" | "ANONYMISED";
 
 export interface RetentionQueueItem {

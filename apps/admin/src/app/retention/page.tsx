@@ -13,7 +13,7 @@ const muted: React.CSSProperties = { margin: 0, color: "var(--u-ink-secondary)",
 const period = (m: number) => (m === 0 ? "No end date" : m % 12 === 0 ? `${m / 12} year${m === 12 ? "" : "s"}` : `${m} month${m === 1 ? "" : "s"}`);
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const ACTION: Record<RetentionDecisionKind, string> = { KEEP: "Keep for a year", ARCHIVED: "Archive", ANONYMISED: "Remove personal details" };
-const TYPE: Record<string, string> = { TENDER: "Tender", CONTRACT: "Contract", COMPLAINT: "Complaint", COMPLAINANT: "Complainant" };
+const TYPE: Record<string, string> = { TENDER: "Tender", CONTRACT: "Contract", COMPLAINT: "Complaint", COMPLAINANT: "Complainant", CERTIFICATION: "Certification", HOSPITALITY: "Gift or hospitality", PRIVACY_REQUEST: "Privacy request", PAYMENT: "Payment", USER: "User account", ENQUIRY: "Enquiry", BATCH: "Product batch" };
 
 /**
  * Retention (2026-10-31, Lewis: default periods compliant with UK/EU regulations). Records whose retention period has ended wait here for a person

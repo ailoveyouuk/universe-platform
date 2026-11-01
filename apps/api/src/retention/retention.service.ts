@@ -6,6 +6,7 @@ import type {
 } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
+import { isProtectedAdminEmail } from "../users/protected-accounts";
 
 type Tx = any;
 const addMonths = (d: Date, n: number) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
@@ -99,6 +100,38 @@ export class RetentionService {
       });
       for (const c of people) if (!dealt("quality-complainant-person", c.id)) out.push({ ruleKey: "quality-complainant-person", recordType: "COMPLAINANT", recordId: c.id, label: `Complainant on ${c.referenceNumber}: ${c.title}`, dueSince: addMonths(c.closedAt ?? c.updatedAt, pm).toISOString(), months: pm, actions: ["KEEP", "ANONYMISED"], link: `/quality/complaints/detail?id=${c.id}` });
 
+      // ---- the remaining record types (2026-11-01) ----
+      const push = (ruleKey: string, recordType: RetentionQueueItem["recordType"], id: string, label: string, since: Date, mo: number, actions: RetentionQueueItem["actions"], link: string | null) => {
+        if (!dealt(ruleKey, id)) out.push({ ruleKey, recordType, recordId: id, label, dueSince: addMonths(since, mo).toISOString(), months: mo, actions, link });
+      };
+      const certM = months("certification");
+      const certs = await tx.partnerCertification.findMany({ where: { organizationId: org, status: { not: "ARCHIVED" }, expiryDate: { lt: addMonths(now, -certM) } }, select: { id: true, type: true, referenceNumber: true, expiryDate: true, partner: { select: { name: true } } }, take: 200 });
+      for (const c of certs) push("certification", "CERTIFICATION", c.id, `${c.partner?.name ?? "Stakeholder"}: ${c.type}${c.referenceNumber ? ` ${c.referenceNumber}` : ""}`, c.expiryDate as Date, certM, ["KEEP", "ARCHIVED"], null);
+
+      const gm = months("gifts-hospitality");
+      const gifts = await tx.crmHospitalityRecord.findMany({ where: { organizationId: org, archivedAt: null, occurredOn: { lt: addMonths(now, -gm) } }, select: { id: true, description: true, occurredOn: true, relationshipId: true }, take: 200 });
+      for (const g of gifts) push("gifts-hospitality", "HOSPITALITY", g.id, `Gift or hospitality: ${g.description}`.slice(0, 160), g.occurredOn, gm, ["KEEP", "ARCHIVED"], `/relationships?id=${g.relationshipId}`);
+
+      const pm2 = months("privacy-requests");
+      const reqs = await tx.crmPrivacyRequest.findMany({ where: { organizationId: org, completedAt: { not: null, lt: addMonths(now, -pm2) } }, select: { id: true, type: true, requesterName: true, completedAt: true }, take: 200 });
+      for (const r of reqs) push("privacy-requests", "PRIVACY_REQUEST", r.id, `${r.type.toLowerCase().replace(/_/g, " ")} request from ${r.requesterName}`, r.completedAt as Date, pm2, ["KEEP", "ARCHIVED"], null);
+
+      const fm = months("financial");
+      const pays = await tx.tenderContractPayment.findMany({ where: { organizationId: org, OR: [{ paidDate: { lt: addMonths(now, -fm) } }, { paidDate: null, dueDate: { lt: addMonths(now, -fm) } }] }, select: { id: true, reference: true, paidDate: true, dueDate: true }, take: 200 });
+      for (const p of pays) push("financial", "PAYMENT", p.id, `Payment record ${p.reference}`, (p.paidDate ?? p.dueDate) as Date, fm, ["KEEP", "ARCHIVED"], null);
+
+      const um = months("user-account");
+      const users = await tx.user.findMany({ where: { organizationId: org, archivedAt: { not: null, lt: addMonths(now, -um) }, NOT: { forename: "Former" } }, select: { id: true, forename: true, surname: true, email: true, archivedAt: true }, take: 200 });
+      for (const x of users) if (!isProtectedAdminEmail(x.email)) push("user-account", "USER", x.id, `Archived account: ${x.forename} ${x.surname}`, x.archivedAt as Date, um, ["KEEP", "ANONYMISED"], `/users/detail?id=${x.id}`);
+
+      const em = months("enquiry-unsuccessful");
+      const enq = await tx.supplierEnquiry.findMany({ where: { organizationId: org, responseStatus: { not: "WAITING" }, quotedPrice: null, createdAt: { lt: addMonths(now, -em) } }, select: { id: true, createdAt: true, supplier: { select: { name: true } } }, take: 200 });
+      for (const e of enq) push("enquiry-unsuccessful", "ENQUIRY", e.id, `Enquiry to ${e.supplier?.name ?? "a supplier"} that led nowhere`, e.createdAt, em, ["KEEP", "ARCHIVED"], null);
+
+      const bm = months("product-regulatory");
+      const batches = await tx.productBatch.findMany({ where: { organizationId: org, expiryDate: { lt: addMonths(now, -bm) } }, select: { id: true, batchNumber: true, expiryDate: true, productMaster: { select: { name: true } } }, take: 200 });
+      for (const b of batches) push("product-regulatory", "BATCH", b.id, `Batch ${b.batchNumber}${b.productMaster?.name ? `: ${b.productMaster.name}` : ""}`, b.expiryDate as Date, bm, ["KEEP", "ARCHIVED"], null);
+
       return out.sort((a, b) => a.dueSince.localeCompare(b.dueSince));
     });
   }
@@ -109,7 +142,8 @@ export class RetentionService {
     if (!rule) throw new NotFoundException("Unknown retention rule.");
     const reason = dto.reason?.trim() ?? "";
     if (dto.decision === "KEEP" && reason.length < 10) throw new BadRequestException("Say why this record should be kept (at least a sentence).");
-    const valid: Record<string, string[]> = { TENDER: ["KEEP", "ARCHIVED"], CONTRACT: ["KEEP", "ARCHIVED"], COMPLAINT: ["KEEP", "ARCHIVED"], COMPLAINANT: ["KEEP", "ANONYMISED"] };
+    const valid: Record<string, string[]> = { TENDER: ["KEEP", "ARCHIVED"], CONTRACT: ["KEEP", "ARCHIVED"], COMPLAINT: ["KEEP", "ARCHIVED"], COMPLAINANT: ["KEEP", "ANONYMISED"], CERTIFICATION: ["KEEP", "ARCHIVED"], HOSPITALITY: ["KEEP", "ARCHIVED"], PRIVACY_REQUEST: ["KEEP", "ARCHIVED"], PAYMENT: ["KEEP", "ARCHIVED"], USER: ["KEEP", "ANONYMISED"], ENQUIRY: ["KEEP", "ARCHIVED"], BATCH: ["KEEP", "ARCHIVED"] };
+    if (RETENTION_SCHEDULE.find((r) => r.key === dto.ruleKey)?.policyOnly) throw new BadRequestException("This rule is applied by the platform and is not reviewed record by record.");
     if (!valid[dto.recordType]?.includes(dto.decision)) throw new BadRequestException("That choice is not available for this kind of record.");
     const org = u.organizationId;
     const now = new Date();
@@ -121,6 +155,27 @@ export class RetentionService {
       } else if (dto.recordType === "CONTRACT") {
         const c = await tx.tenderContract.findFirst({ where: { id: dto.recordId, organizationId: org }, select: { id: true } });
         if (!c) throw new NotFoundException("Contract not found.");
+      } else if (dto.recordType === "CERTIFICATION") {
+        const c = await tx.partnerCertification.findFirst({ where: { id: dto.recordId, organizationId: org }, select: { id: true, status: true } });
+        if (!c) throw new NotFoundException("Certification not found.");
+        if (dto.decision === "ARCHIVED") { await tx.partnerCertification.update({ where: { id: c.id }, data: { status: "ARCHIVED" } }); await recordFieldChanges(tx, { organizationId: org, tableName: "partner_certifications", recordId: c.id, changedById: u.id, changes: [{ field: "status", oldValue: c.status, newValue: "ARCHIVED" }] }); }
+      } else if (dto.recordType === "HOSPITALITY") {
+        const g = await tx.crmHospitalityRecord.findFirst({ where: { id: dto.recordId, organizationId: org }, select: { id: true } });
+        if (!g) throw new NotFoundException("Record not found.");
+        if (dto.decision === "ARCHIVED") { await tx.crmHospitalityRecord.update({ where: { id: g.id }, data: { archivedAt: now, archivedById: u.id } }); await recordFieldChanges(tx, { organizationId: org, tableName: "crm_hospitality_records", recordId: g.id, changedById: u.id, changes: [{ field: "archivedAt", oldValue: null, newValue: now.toISOString() }] }); }
+      } else if (dto.recordType === "PRIVACY_REQUEST" || dto.recordType === "PAYMENT" || dto.recordType === "ENQUIRY" || dto.recordType === "BATCH") {
+        // Reviewed and recorded; the record itself stays as it is (no archive marker exists on these tables), and the queue no longer offers it.
+        const model = ({ PRIVACY_REQUEST: tx.crmPrivacyRequest, PAYMENT: tx.tenderContractPayment, ENQUIRY: tx.supplierEnquiry, BATCH: tx.productBatch } as any)[dto.recordType];
+        const found = await model.findFirst({ where: { id: dto.recordId, organizationId: org }, select: { id: true } });
+        if (!found) throw new NotFoundException("Record not found.");
+      } else if (dto.recordType === "USER") {
+        const x = await tx.user.findFirst({ where: { id: dto.recordId, organizationId: org, archivedAt: { not: null } }, select: { id: true, email: true } });
+        if (!x) throw new NotFoundException("Archived account not found.");
+        if (isProtectedAdminEmail(x.email)) throw new BadRequestException("This account is protected and is never anonymised.");
+        if (dto.decision === "ANONYMISED") {
+          await tx.user.update({ where: { id: x.id }, data: { forename: "Former", surname: "user", jobTitle: null, email: `anonymised-${x.id}@invalid.universe`, entraObjectId: null } });
+          await recordFieldChanges(tx, { organizationId: org, tableName: "users", recordId: x.id, changedById: u.id, changes: [{ field: "personalDetails", oldValue: "held", newValue: "removed" }] });
+        }
       } else {
         const c = await tx.qualityComplaint.findFirst({ where: { id: dto.recordId, organizationId: org }, select: { id: true, complainantName: true, complainantEmail: true, complainantPhone: true, regulatorDecision: true } });
         if (!c) throw new NotFoundException("Complaint not found.");
