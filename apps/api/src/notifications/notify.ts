@@ -76,6 +76,9 @@ async function queueEmails(tx: Prisma.TransactionClient, rows: Prisma.Notificati
   const userIds = [...new Set(recips.map((x) => x.userId).filter((x): x is string => !!x))];
   const users = userIds.length ? await tx.user.findMany({ where: { id: { in: userIds }, status: "ACTIVE" }, select: { id: true, email: true } }) : [];
   const emailOf = new Map(users.map((u) => [u.id, u.email]));
+  const actorIds = [...new Set(relevant.map((x) => x.r.actorUserId).filter((x): x is string => !!x))];
+  const actors = actorIds.length ? await tx.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, forename: true, surname: true, jobTitle: true } }) : [];
+  const actorOf = new Map(actors.map((a) => [a.id, a]));
   const seen = new Set<string>();
   const data: Prisma.EmailOutboxCreateManyInput[] = [];
   for (const { r, key } of relevant) {
@@ -85,7 +88,12 @@ async function queueEmails(tx: Prisma.TransactionClient, rows: Prisma.Notificati
       const dedupe = `${to}|${r.kind}|${r.subjectId ?? ""}|${r.title}`;
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
-      data.push({ organizationId: r.organizationId, eventKey: key, toAddress: to, subject: r.title.slice(0, 300), body: (r.body ?? r.title).slice(0, 2000), link: r.link ?? null });
+      const a = r.actorUserId ? actorOf.get(r.actorUserId) : null;
+      data.push({
+        organizationId: r.organizationId, eventKey: key, toAddress: to, subject: r.title.slice(0, 300), body: (r.body ?? "").slice(0, 2000), link: r.link ?? null,
+        actorName: a ? `${a.forename} ${a.surname}`.trim() : null, actorTitle: a?.jobTitle ?? null, requiresAction: !!r.requiresAction,
+        dueDate: r.dueDate ? new Date(r.dueDate as Date | string) : null, category: r.category ?? null,
+      });
     }
   }
   if (data.length) await tx.emailOutbox.createMany({ data });

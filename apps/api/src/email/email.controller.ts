@@ -10,6 +10,8 @@ import type { EmailRecipientInput } from "@universe/types";
 export class EmailController {
   constructor(private readonly email: EmailService) {}
   @Get("rules") view(@CurrentUser() u: RequestUser) { return this.email.view(u); }
+  @Get("preview") preview(@CurrentUser() u: RequestUser, @Query("eventKey") k: string) { return this.email.preview(u, k); }
+  @Post("sample") sample(@CurrentUser() u: RequestUser, @Body() b: { eventKey: string }) { return this.email.sample(u, b?.eventKey); }
   @Get("people") people(@CurrentUser() u: RequestUser, @Query("q") q: string) { return this.email.people(u, q); }
   @Post("recipients") add(@CurrentUser() u: RequestUser, @Body() dto: EmailRecipientInput) { return this.email.add(u, dto); }
   @Delete("recipients/:id") remove(@CurrentUser() u: RequestUser, @Param("id") id: string) { return this.email.remove(u, id); }

@@ -24,6 +24,7 @@ export default function EmailPage() {
   const [q, setQ] = useState("");
   const [matches, setMatches] = useState<EmailPersonMatch[]>([]);
   const [address, setAddress] = useState("");
+  const [preview, setPreview] = useState<{ key: string; subject: string; html: string } | null>(null);
   const load = useCallback(() => { apiClient.emailRules().then(setView).catch((e) => setErr(e instanceof Error ? e.message : "Could not load.")); }, []);
   useEffect(() => { if (allowed) load(); }, [allowed, load]);
   useEffect(() => {
@@ -38,6 +39,14 @@ export default function EmailPage() {
     setErr(null); setOk(null);
     try { await apiClient.emailAddRecipient({ eventKey, ...input }); setOk(done); setQ(""); setMatches([]); setAddress(""); load(); }
     catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); }
+  };
+  const showPreview = async (key: string) => {
+    setErr(null); setOk(null);
+    try { const p = await apiClient.emailPreview(key); setPreview({ key, subject: p.subject, html: p.html }); } catch (e) { setErr(e instanceof Error ? e.message : "Could not load the preview."); }
+  };
+  const sendSample = async (key: string) => {
+    setErr(null); setOk(null);
+    try { const r = await apiClient.emailSample(key); setOk(`An example has been queued to ${r.to}. It arrives within a minute once sending is on.`); load(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not queue the example."); }
   };
   const remove = async (id: string) => {
     setErr(null); setOk(null);
@@ -64,6 +73,17 @@ export default function EmailPage() {
                 </li>
               ))}
             </ul>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "6px 0" }}>
+            <Button size="sm" variant="secondary" onClick={() => showPreview(e.key)}>Preview email</Button>
+            <Button size="sm" variant="secondary" onClick={() => sendSample(e.key)}>Send an example to me</Button>
+          </div>
+          {preview?.key === e.key && (
+            <div style={{ margin: "8px 0" }}>
+              <p style={muted}>Subject: <strong>{preview.subject}</strong></p>
+              <iframe title={`Preview of the ${e.label} email`} sandbox="" srcDoc={preview.html} style={{ width: "100%", height: 520, border: "1px solid var(--u-border)", borderRadius: 8, background: "#fff" }} />
+              <Button size="sm" variant="secondary" onClick={() => setPreview(null)}>Close preview</Button>
+            </div>
           )}
           {open !== e.key ? <Button size="sm" variant="secondary" onClick={() => { setOpen(e.key); setQ(""); setAddress(""); }}>Add recipient</Button> : (
             <div style={{ display: "grid", gap: 10, maxWidth: 520, marginTop: 8 }}>

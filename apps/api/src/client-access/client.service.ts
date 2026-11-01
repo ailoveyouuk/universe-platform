@@ -68,7 +68,7 @@ export class ClientService {
       await tx.qualityComplaintEvent.create({ data: { organizationId: u.organizationId, complaintId: id, kind: "CLIENT_MESSAGE", summary: `Message from ${u.forename} ${u.surname}`, body, actorUserId: u.id } });
       const who = new Set<string>([...(r.ownerId ? [r.ownerId] : []), ...(r.investigatorId ? [r.investigatorId] : [])]);
       if (!who.size) for (const x of await usersWithPermission(tx, u.organizationId, "quality.complaints.investigate")) who.add(x);
-      await createNotifications(tx, [...who].map((rid) => ({ organizationId: u.organizationId, recipientUserId: rid, actorUserId: u.id, kind: "COMPLAINT_ACTION", category: "QUALITY", title: `Client message on ${r.referenceNumber}`, body: body.slice(0, 300), link: `/quality/complaints?id=${id}`, subjectType: "complaint", subjectId: id, requiresAction: true })));
+      await createNotifications(tx, [...who].map((rid) => ({ organizationId: u.organizationId, recipientUserId: rid, actorUserId: u.id, kind: "COMPLAINT_ACTION", category: "QUALITY", title: `Client message on ${r.referenceNumber}`, body: "A client has added a message. Open the complaint to read it.", link: `/quality/complaints?id=${id}`, subjectType: "complaint", subjectId: id, requiresAction: true })));
       return { id };
     });
   }

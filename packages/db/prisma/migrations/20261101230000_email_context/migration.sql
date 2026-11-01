@@ -1,0 +1,22 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+ALTER TABLE [dbo].[email_outbox] ADD [actorName] NVARCHAR(200),
+[actorTitle] NVARCHAR(200),
+[category] NVARCHAR(30),
+[dueDate] DATETIME2,
+[requiresAction] BIT NOT NULL CONSTRAINT [email_outbox_requiresAction_df] DEFAULT 0;
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

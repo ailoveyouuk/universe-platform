@@ -5340,6 +5340,12 @@ model EmailOutbox {
   subject        String    @db.NVarChar(300)
   body           String    @db.NVarChar(2000)
   link           String?   @db.NVarChar(500)
+  /// Context captured when the email was queued (2026-11-01) so it can be written for the reader: who caused it, what is asked of them, by when.
+  actorName      String?   @db.NVarChar(200)
+  actorTitle     String?   @db.NVarChar(200)
+  requiresAction Boolean   @default(false)
+  dueDate        DateTime?
+  category       String?   @db.NVarChar(30)
   status         String    @default("QUEUED") @db.NVarChar(10)
   attempts       Int       @default(0)
   lastError      String?   @db.NVarChar(500)

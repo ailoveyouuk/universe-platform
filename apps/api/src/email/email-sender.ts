@@ -6,13 +6,14 @@ import { createHash, createHmac } from "crypto";
  */
 export const emailConfigured = () => !!(process.env.ACS_ENDPOINT && process.env.ACS_ACCESS_KEY && process.env.EMAIL_SENDER);
 
-export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+export async function sendEmail(to: string, subject: string, text: string, html?: string, replyTo?: string): Promise<void> {
   const endpoint = new URL(process.env.ACS_ENDPOINT as string);
   const path = "/emails:send?api-version=2023-03-31";
   const body = JSON.stringify({
     senderAddress: process.env.EMAIL_SENDER,
-    content: { subject, plainText: text },
+    content: { subject, plainText: text, ...(html ? { html } : {}) },
     recipients: { to: [{ address: to }] },
+    ...(replyTo ? { replyTo: [{ address: replyTo }] } : {}),
   });
   const date = new Date().toUTCString();
   const hash = createHash("sha256").update(body).digest("base64");

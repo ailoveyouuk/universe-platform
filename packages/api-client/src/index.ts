@@ -499,6 +499,8 @@ export class UniverseApiClient {
   clientUsers(): Promise<ClientUserRow[]> { return this.request("/client-access/users"); }
   clientInvite(dto: ClientInviteInput): Promise<{ id: string }> { return this.request("/client-access/users", { method: "POST", body: JSON.stringify(dto) }); }
   emailRules(): Promise<EmailRulesView> { return this.request("/email/rules"); }
+  emailPreview(eventKey: string): Promise<{ subject: string; html: string; text: string }> { return this.request(`/email/preview?eventKey=${encodeURIComponent(eventKey)}`); }
+  emailSample(eventKey: string): Promise<{ to: string }> { return this.request("/email/sample", { method: "POST", body: JSON.stringify({ eventKey }) }); }
   emailPeople(q: string): Promise<EmailPersonMatch[]> { return this.request(`/email/people?q=${encodeURIComponent(q)}`); }
   emailAddRecipient(dto: EmailRecipientInput): Promise<{ id: string }> { return this.request("/email/recipients", { method: "POST", body: JSON.stringify(dto) }); }
   emailRemoveRecipient(id: string): Promise<{ id: string }> { return this.request(`/email/recipients/${encodeURIComponent(id)}`, { method: "DELETE" }); }

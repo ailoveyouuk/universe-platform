@@ -5,6 +5,8 @@ import type { EmailPersonMatch, EmailRecipientInput, EmailRulesView } from "@uni
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
 import { emailConfigured, sendEmail } from "./email-sender";
+import { renderEmail } from "./email-template";
+import type { EmailContext } from "./email-template";
 
 type Tx = any;
 const run = <T = any>(u: RequestUser, fn: (tx: Tx) => Promise<T>): Promise<T> => (u.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(u.organizationId, fn));
@@ -107,17 +109,65 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Everything about the organisation that goes into the header and footer of its emails. */
+  private async orgBits(tx: Tx, orgId: string): Promise<Pick<EmailContext, "orgName" | "logoUrl" | "primaryColor" | "support">> {
+    const o = await tx.organization.findUnique({ where: { id: orgId }, select: { name: true, logoUrl: true, logoIconUrl: true, primaryColor: true, primaryContactName: true, primaryContactTitle: true, primaryContactEmail: true } });
+    const api = process.env.API_PUBLIC_URL ?? "https://universe-pilot-api.victoriousflower-f66d984b.uksouth.azurecontainerapps.io";
+    // Mail apps do not show SVG, so use the logo or the icon only when it is a raster image.
+    const raster = (p: string | null) => (p && /\.(png|jpe?g|webp)$/i.test(p) ? (p.startsWith("/") ? `${api}${p}` : p) : null);
+    let support: EmailContext["support"] = null;
+    if (o?.primaryContactEmail) support = { name: o.primaryContactName ?? o.primaryContactEmail, role: o.primaryContactTitle ?? "Primary contact", email: o.primaryContactEmail };
+    else {
+      const a = await tx.user.findFirst({
+        where: { organizationId: orgId, status: "ACTIVE", platformStaffRole: "NONE", clientPartnerId: null, userRoles: { some: { role: { rolePermissions: { some: { permission: { key: "org.users.manage" } } } } } } },
+        select: { forename: true, surname: true, email: true }, orderBy: [{ surname: "asc" }, { forename: "asc" }],
+      });
+      if (a) support = { name: `${a.forename} ${a.surname}`.trim(), role: "Administrator", email: a.email };
+    }
+    return { orgName: o?.name ?? "Universe", logoUrl: raster(o?.logoUrl ?? null) ?? raster(o?.logoIconUrl ?? null), primaryColor: o?.primaryColor ?? null, support };
+  }
+
+  private legalLine() { return process.env.UNIVERSE_EMAIL_LEGAL_LINE ?? "Universe Platform. This is an automated message."; }
+
+  /** What an email for this type of event would look like, using this organisation's own branding and a made-up example. */
+  async preview(u: RequestUser, eventKey: string) {
+    this.guard(u);
+    if (!EMAIL_EVENT_TYPES.some((e) => e.key === eventKey)) throw new NotFoundException("Unknown email type.");
+    const bits = await run(u, (tx) => this.orgBits(tx, u.organizationId));
+    const soon = new Date(Date.now() + 3 * 86400000);
+    return renderEmail({
+      ...bits, eventKey, title: "Example: New complaint CMP-2026-0001", body: "This is an example of how this email will look.", link: absoluteLink("/quality/complaints"),
+      actorName: `${u.forename} ${u.surname}`, actorTitle: null, requiresAction: true, dueDate: soon, category: null, sentAt: new Date(), legalLine: this.legalLine(),
+    });
+  }
+
+  /** Queues an example email of this type to the caller's own address only. */
+  async sample(u: RequestUser, eventKey: string) {
+    this.guard(u);
+    if (!EMAIL_EVENT_TYPES.some((e) => e.key === eventKey)) throw new NotFoundException("Unknown email type.");
+    await run(u, (tx) => tx.emailOutbox.create({ data: {
+      organizationId: u.organizationId, eventKey, toAddress: u.email.toLowerCase(), subject: "Example: New complaint CMP-2026-0001", body: "This is an example of how this email will look.",
+      link: "/quality", actorName: `${u.forename} ${u.surname}`, requiresAction: true, dueDate: new Date(Date.now() + 3 * 86400000),
+    } }));
+    return { to: u.email };
+  }
+
   /** Sends queued emails (oldest first, 25 at a time; three attempts). Does nothing until a mail provider is configured. */
   async flush(): Promise<number> {
     if (!emailConfigured()) return 0;
     return withPlatformStaffContext(async (tx: Tx) => {
       const rows: any[] = await tx.emailOutbox.findMany({ where: { status: "QUEUED" }, orderBy: { createdAt: "asc" }, take: 25 });
+      const orgs = new Map<string, Awaited<ReturnType<EmailService["orgBits"]>>>();
       let sent = 0;
       for (const r of rows) {
         try {
-          const url = absoluteLink(r.link);
-          const text = url ? `${r.body}\n\nOpen: ${url}` : r.body;
-          await sendEmail(r.toAddress, r.subject, text);
+          if (!orgs.has(r.organizationId)) orgs.set(r.organizationId, await this.orgBits(tx, r.organizationId));
+          const bits = orgs.get(r.organizationId)!;
+          const mail = renderEmail({
+            ...bits, eventKey: r.eventKey, title: r.subject, body: r.body || null, link: absoluteLink(r.link), actorName: r.actorName, actorTitle: r.actorTitle,
+            requiresAction: r.requiresAction, dueDate: r.dueDate, category: r.category, sentAt: new Date(), legalLine: this.legalLine(),
+          });
+          await sendEmail(r.toAddress, mail.subject, mail.text, mail.html, bits.support?.email);
           await tx.emailOutbox.update({ where: { id: r.id }, data: { status: "SENT", sentAt: new Date(), attempts: r.attempts + 1, lastError: null } });
           sent++;
         } catch (e) {
