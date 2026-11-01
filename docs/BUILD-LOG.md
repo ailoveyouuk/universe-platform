@@ -1640,3 +1640,9 @@ Requested by Lewis after the pipeline enhancement list (items 1 to 7, 11 to 13 a
 
 ## 2026-11-01 — Remaining retention queues
 - **Built:** Admin retention review list now also covers certifications, gifts and hospitality, privacy requests, payment records, archived user accounts (remove personal details; protected admin accounts excluded), unanswered supplier enquiries and expired product batches. Rules the platform applies itself are flagged `policyOnly` and rejected by the decide route. No schema change. Commit 758d4b1.
+
+## 2026-11-01 — Configurable email (Admin, Email)
+- **Request (Lewis):** the approved user sets, in the app, the address(es) for each email type, and/or adds a registered user by searching name or role.
+- **Built:** Admin, Email page. Eleven event types (tender award, debriefs, tender changes, evaluation, complaint logged, complaint response, product approval, safety and temperature, partner approval, CRM follow-ups and hospitality, data export). For each, add registered users (search by name, job title or role; address read from their profile when sent) and/or typed addresses. Every notification of a matching kind now also queues an email (`email_outbox`, tables `email_recipients`/`email_outbox`, migration `20261101210000_configurable_email`). Changes audited. Needs `org.users.manage`. API `/email/*`.
+- **Sending:** the sender (Azure Communication Services, HMAC REST) only runs when `ACS_ENDPOINT`, `ACS_ACCESS_KEY` and `EMAIL_SENDER` are set on the API; until then emails wait in the queue and the page says so. **Lewis:** create an Azure Communication Services Email resource, verify a sending domain, and add those three settings to the API container app. Three attempts, then marked failed.
+- **Not built:** e-signature (each organisation to specify its own), email to people outside the organisation's users other than typed addresses, per-user opt-out.

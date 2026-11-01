@@ -1,4 +1,5 @@
 import type { Prisma } from "@universe/db";
+import { EMAIL_EVENT_TYPES } from "@universe/types";
 
 /** Input for one notification — see Notification in schema.prisma. */
 export interface NewNotification {
@@ -62,6 +63,32 @@ export async function createNotifications(tx: Prisma.TransactionClient, items: N
     });
   }
   if (rows.length) await tx.notification.createMany({ data: rows });
+  await queueEmails(tx, rows);
+}
+
+/** Queues an email for each address the organisation chose for this type of event (see email-rules). Sent later, when a mail provider is configured. */
+async function queueEmails(tx: Prisma.TransactionClient, rows: Prisma.NotificationCreateManyInput[]): Promise<void> {
+  const keyOf = (kind: string) => EMAIL_EVENT_TYPES.find((e) => e.kinds.includes(kind))?.key;
+  const relevant = rows.map((r) => ({ r, key: keyOf(r.kind) })).filter((x): x is { r: Prisma.NotificationCreateManyInput; key: string } => !!x.key);
+  if (!relevant.length) return;
+  const recips = await tx.emailRecipient.findMany({ where: { organizationId: { in: [...new Set(relevant.map((x) => x.r.organizationId))] }, eventKey: { in: [...new Set(relevant.map((x) => x.key))] } } });
+  if (!recips.length) return;
+  const userIds = [...new Set(recips.map((x) => x.userId).filter((x): x is string => !!x))];
+  const users = userIds.length ? await tx.user.findMany({ where: { id: { in: userIds }, status: "ACTIVE" }, select: { id: true, email: true } }) : [];
+  const emailOf = new Map(users.map((u) => [u.id, u.email]));
+  const seen = new Set<string>();
+  const data: Prisma.EmailOutboxCreateManyInput[] = [];
+  for (const { r, key } of relevant) {
+    for (const rc of recips.filter((x) => x.organizationId === r.organizationId && x.eventKey === key)) {
+      const to = (rc.userId ? emailOf.get(rc.userId) : rc.address)?.trim().toLowerCase();
+      if (!to) continue;
+      const dedupe = `${to}|${r.kind}|${r.subjectId ?? ""}|${r.title}`;
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      data.push({ organizationId: r.organizationId, eventKey: key, toAddress: to, subject: r.title.slice(0, 300), body: (r.body ?? r.title).slice(0, 2000), link: r.link ?? null });
+    }
+  }
+  if (data.length) await tx.emailOutbox.createMany({ data });
 }
 
 /** Active users in an organisation holding a permission (e.g. the QA

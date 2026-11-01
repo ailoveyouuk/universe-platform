@@ -5312,3 +5312,39 @@ model TenderQuoteScore {
   @@index([competitionId])
   @@map("tender_quote_scores")
 }
+
+
+// ---------------------------------------------------------------------------
+// Configurable email (2026-11-01). Who receives an email for each type of event is set per organisation: a registered user (their address is read from
+// their profile at send time) and/or a typed address. Emails are queued here and sent when a mail provider is configured.
+model EmailRecipient {
+  id             String   @id @default(uuid())
+  organizationId String
+  eventKey       String   @db.NVarChar(60)
+  userId         String?
+  address        String?  @db.NVarChar(320)
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, eventKey])
+  @@map("email_recipients")
+}
+
+model EmailOutbox {
+  id             String    @id @default(uuid())
+  organizationId String
+  eventKey       String    @db.NVarChar(60)
+  toAddress      String    @db.NVarChar(320)
+  subject        String    @db.NVarChar(300)
+  body           String    @db.NVarChar(2000)
+  link           String?   @db.NVarChar(500)
+  status         String    @default("QUEUED") @db.NVarChar(10)
+  attempts       Int       @default(0)
+  lastError      String?   @db.NVarChar(500)
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("email_outbox")
+}

@@ -19,7 +19,7 @@ import { AppAccessGate,
   BuildingIcon,
   UserIcon,
   ShieldIcon,
-  ClockIcon,
+  ClockIcon, BellIcon,
   LogoutIcon, ThemeToggle, CheckCircleIcon } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
@@ -37,6 +37,7 @@ const ROUTES: { href: string; label: string; icon: (active: boolean) => ReactNod
   { href: "/stakeholders", label: "Stakeholder access", icon: () => <UserIcon size={19} />, inNav: true },
   { href: "/performance", label: "Performance records", icon: () => <ShieldIcon size={19} />, inNav: true },
   { href: "/service-catalogue", label: "Services catalogue", icon: () => <ShieldIcon size={19} />, inNav: true },
+  { href: "/email", label: "Email", icon: () => <BellIcon size={19} />, inNav: true },
   { href: "/retention", label: "Retention", icon: () => <ClockIcon size={19} />, inNav: true },
   { href: "/data-health", label: "Data health", icon: () => <CheckCircleIcon size={19} />, inNav: true },
   { href: "/activity", label: "Activity", icon: () => <ClockIcon size={19} />, inNav: true },

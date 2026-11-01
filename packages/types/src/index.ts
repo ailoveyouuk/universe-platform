@@ -4664,3 +4664,4 @@ export const TENDER_GAPS = Object.keys(TENDER_GAP_LABELS) as TenderGap[];
 export const DATA_HEALTH_APPS = ["project-management", "tenders", "product-database", "insights", "admin"] as const;
 export type DataHealthApp = (typeof DATA_HEALTH_APPS)[number];
 export interface DataHealthSection { app: DataHealthApp; label: string; gaps: DataGap[] }
+export * from "./email-rules";
