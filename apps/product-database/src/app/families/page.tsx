@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ProductFamilyListResult } from "@universe/types";
-import { Button, Pill, SearchIcon } from "@universe/ui";
+import { Button, CollapsibleSection, Pill, SearchIcon } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 
@@ -65,7 +65,8 @@ export default function FamiliesPage() {
       </form>
       {err && <p style={{ color: "var(--u-status-critical-text)", fontSize: 13 }}>{err}</p>}
 
-      <div style={{ marginTop: 14, overflowX: "auto" }}>
+      <div style={{ marginTop: 14 }}><CollapsibleSection title="Families list" level={2} bare>
+      <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--u-border)" }}>
@@ -94,6 +95,7 @@ export default function FamiliesPage() {
           <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Next</Button>
         </div>
       )}
+      </CollapsibleSection></div>
     </div>
   );
 }

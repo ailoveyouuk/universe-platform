@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { orgTypesOf } from "@universe/types";
 import type { OrganizationSummary } from "@universe/types";
-import { BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, Pill, StatTile, StatTileGrid } from "@universe/ui";
+import { CollapsibleSection, BuildingIcon, CheckCircleIcon, ClockIcon, LockIcon, Pill, StatTile, StatTileGrid } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { IncludeSimulatedToggle } from "../../components/IncludeSimulatedToggle";
 import { ORG_TYPE_LABELS } from "../../components/form";
@@ -91,6 +91,7 @@ export default function OrganizationsPage() {
       {!organizations && !error && <p>Loading…</p>}
 
       {organizations && (
+        <CollapsibleSection title="Organisations list" level={2} bare>
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
@@ -128,6 +129,7 @@ export default function OrganizationsPage() {
             )}
           </tbody>
         </table>
+        </CollapsibleSection>
       )}
     </div>
   );

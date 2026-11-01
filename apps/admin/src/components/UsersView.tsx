@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { OrganizationSummary, PagedResult, UserCounts, UserSummary } from "@universe/types";
-import { PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid, Pagination, type PageSize } from "@universe/ui";
+import { CollapsibleSection, PartnersIcon, CheckCircleIcon, ClockIcon, LockIcon, Select, SearchInput, StatTile, StatTileGrid, Pagination, type PageSize } from "@universe/ui";
 import { apiClient } from "../lib/apiClient";
 import { useCurrentUser } from "../lib/AuthContext";
 import { IncludeSimulatedToggle } from "./IncludeSimulatedToggle";
@@ -111,7 +111,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
       {!result && !error && <p>Loading…</p>}
 
       {result && (
-        <>
+        <CollapsibleSection title="Users list" level={2} bare>
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
           <thead>
             <tr style={{ textAlign: "left", borderBottom: "2px solid var(--u-border)" }}>
@@ -156,7 +156,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
           </tbody>
         </table>
         <Pagination pageSize={pageSize} onPageSizeChange={(sz) => { setPageSize(sz); setPage(0); }} page={page} pageCount={pageCount} onPageChange={setPage} totalCount={result.total} />
-        </>
+        </CollapsibleSection>
       )}
     </div>
   );

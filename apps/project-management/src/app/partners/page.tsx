@@ -21,7 +21,7 @@ import {
   CheckCircleIcon,
   StatTile,
   type PageSize,
-  CategoryChip,
+  CategoryChip, CollapsibleSection
 } from "@universe/ui";
 
 /**
@@ -246,7 +246,7 @@ export default function PartnersPage() {
       {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {result && (
-        <>
+        <CollapsibleSection title="Stakeholders list" level={2} bare>
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--u-border)" }}>
@@ -311,7 +311,7 @@ export default function PartnersPage() {
             onPageChange={setPage}
             totalCount={total}
           />
-        </>
+        </CollapsibleSection>
       )}
     </div>
   );

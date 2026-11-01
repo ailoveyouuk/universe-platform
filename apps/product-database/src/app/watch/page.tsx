@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { RegulatoryWatchDashboard, WatchMatchSummary } from "@universe/types";
-import { AlertIcon, Button, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, ExternalLinkIcon, Pill, StatTile } from "@universe/ui";
+import { AlertIcon, Button, CollapsibleSection, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, ExternalLinkIcon, Pill, StatTile } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { useCurrentUser } from "../../lib/AuthContext";
 
@@ -85,7 +85,7 @@ export default function WatchPage() {
       {err && <p style={{ color: "var(--u-status-critical-text)" }}>{err}</p>}
       {!d ? !err && <p>Loading…</p> : (
         <>
-          <h2 style={{ fontSize: 15, marginTop: 20 }}>Sources</h2>
+          <div style={{ marginTop: 20 }}><CollapsibleSection title="Sources" level={2} bare>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 12 }}>
             {d.sources.map((s) => (
               <div key={s.source} style={{ border: `1px solid ${s.stale || s.lastStatus === "FAILED" ? "var(--u-status-critical)" : "var(--u-border)"}`, borderRadius: "var(--u-radius-md)", padding: 12, fontSize: 13 }}>
@@ -96,6 +96,7 @@ export default function WatchPage() {
               </div>
             ))}
           </div>
+          </CollapsibleSection></div>
           <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 12, marginTop: 16 }}>
             <StatTile label="Items in last 30 days" onClick={() => toggle("items")} active={view === "items"} value={n(d.totals.itemsLast30Days)} icon={<ClockIcon size={20} />} tone="brand" />
             <StatTile label="Matches awaiting review" onClick={() => toggle("pending")} active={view === "pending"} value={n(d.totals.pendingMatches)} icon={<AlertIcon size={20} />} tone="warning" />
@@ -103,15 +104,17 @@ export default function WatchPage() {
             <StatTile label="Dismissed" onClick={() => toggle("dismissed")} active={view === "dismissed"} value={n(d.totals.dismissed)} icon={<ClipboardCheckIcon size={20} />} tone="good" />
           </div>
           {(view === "confirmed" || view === "dismissed") && (<>
-            <h2 style={{ fontSize: 15, marginTop: 24 }}>{view === "confirmed" ? "Confirmed matches" : "Dismissed matches"}</h2>
+            <div style={{ marginTop: 24 }}><CollapsibleSection title={view === "confirmed" ? "Confirmed matches" : "Dismissed matches"} level={2} bare defaultOpen>
             {!byStatus ? <p>Loading…</p> : byStatus.length === 0 ? <p style={{ fontSize: 13 }}>None.</p> : <div style={{ display: "grid", gap: 10 }}>{byStatus.map(card)}</div>}
+            </CollapsibleSection></div>
           </>)}
           {(view === "" || view === "pending") && (<>
-          <h2 style={{ fontSize: 15, marginTop: 24 }}>Potential matches awaiting review</h2>
+          <div style={{ marginTop: 24 }}><CollapsibleSection title="Potential matches awaiting review" level={2} bare defaultOpen={view === "pending" ? true : undefined}>
           {d.pending.length === 0 ? <p style={{ fontSize: 13 }}>No matches awaiting review.</p> : <div style={{ display: "grid", gap: 10 }}>{d.pending.map(card)}</div>}
+          </CollapsibleSection></div>
           </>)}
           {(view === "" || view === "items") && (<>
-          <h2 style={{ fontSize: 15, marginTop: 24 }}>Recent items from the regulators{view === "items" ? " (last 30 days)" : ""}</h2>
+          <div style={{ marginTop: 24 }}><CollapsibleSection title={`Recent items from the regulators${view === "items" ? " (last 30 days)" : ""}`} level={2} bare defaultOpen={view === "items" ? true : undefined}>
           {d.recentItems.length === 0 ? <p style={{ fontSize: 13 }}>No items fetched yet. The first daily run will populate this.</p> : (
             <div style={{ display: "grid", gap: 6 }}>
               {d.recentItems.filter((i) => view !== "items" || new Date(i.issueDate).getTime() >= Date.now() - 30 * 86400000).map((i) => (
@@ -123,8 +126,9 @@ export default function WatchPage() {
               ))}
             </div>
           )}
+          </CollapsibleSection></div>
           </>)}
-          <h2 style={{ fontSize: 15, marginTop: 24 }}>Export and hoarding restrictions</h2>
+          <div style={{ marginTop: 24 }}><CollapsibleSection title="Export and hoarding restrictions" level={2} bare>
           <p style={{ fontSize: 12.5, color: "var(--u-ink-secondary)", margin: "0 0 8px" }}>
             The UK list of medicines that cannot be exported or hoarded is fetched daily. Other countries publish no single feed, so platform staff add their restrictions here with a source link. A project line is flagged when its goods originate in a restricting country and are delivered elsewhere. An initial check only; the legal duty stays with the licence holder.
           </p>
@@ -158,7 +162,8 @@ export default function WatchPage() {
               </div>
             </div>
           )}
-          <h2 style={{ fontSize: 15, marginTop: 24 }}>Run log</h2>
+          </CollapsibleSection></div>
+          <div style={{ marginTop: 24 }}><CollapsibleSection title="Run log" level={2} bare>
           {d.runs.length === 0 ? <p style={{ fontSize: 13 }}>No runs recorded yet.</p> : (
             <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse" }}>
               <thead><tr style={{ textAlign: "left", color: "var(--u-ink-secondary)" }}><th>Started</th><th>Source</th><th>Status</th><th>Fetched</th><th>New</th><th>Changed</th><th>New matches</th></tr></thead>
@@ -173,6 +178,7 @@ export default function WatchPage() {
               </tbody>
             </table>
           )}
+          </CollapsibleSection></div>
         </>
       )}
     </div>

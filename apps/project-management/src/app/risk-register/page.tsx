@@ -13,7 +13,7 @@ import {
   AlertIcon,
   ShieldIcon,
   ClockIcon,
-  type PageSize,
+  type PageSize, CollapsibleSection
 } from "@universe/ui";
 import { AuditHistory } from "../../components/AuditHistory";
 import { OwnDataExportButton } from "../../components/OwnDataExportButton";
@@ -249,7 +249,7 @@ export default function RiskRegisterPage() {
       {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {result && (
-        <>
+        <CollapsibleSection title="Risks list" level={2} bare>
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
             <thead>
               <tr style={{ borderBottom: "2px solid var(--u-border)" }}>
@@ -318,7 +318,7 @@ export default function RiskRegisterPage() {
             onPageChange={setPage}
             totalCount={total}
           />
-        </>
+        </CollapsibleSection>
       )}
     </div>
   );

@@ -20,7 +20,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   AlertIcon,
-  type PageSize,
+  type PageSize, CollapsibleSection
 } from "@universe/ui";
 
 const ACTIVE_STAGES = ["IDENTIFIED", "IN_PROGRESS", "SUBMITTED", "AWARDED", "COMPLETED"] as const;
@@ -272,7 +272,7 @@ export default function ProjectsPage() {
       {!result && !error && <p style={{ color: "var(--u-ink-secondary)", marginTop: 16 }}>Loading…</p>}
 
       {result && (
-        <>
+        <CollapsibleSection title="Projects list" level={2} bare>
           <div style={{ overflowX: "auto", marginTop: 16 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -336,7 +336,7 @@ export default function ProjectsPage() {
             onPageChange={setPage}
             totalCount={total}
           />
-        </>
+        </CollapsibleSection>
       )}
     </div>
   );

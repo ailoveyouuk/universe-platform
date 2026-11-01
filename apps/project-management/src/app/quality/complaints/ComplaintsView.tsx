@@ -7,7 +7,7 @@ import {
   COMPLAINT_CATEGORIES, COMPLAINT_CHANNELS, COMPLAINT_DIRECTIONS, COMPLAINT_SEVERITIES, COMPLAINT_STATUSES,
   type ComplaintDashboard, type ComplaintListItem, type PartnerOption, type ProjectSummary,
 } from "@universe/types";
-import { AlertIcon, Button, CheckCircleIcon, ChevronLeftIcon, ClockIcon, Pagination, Pill, PlusIcon, Select, ShieldIcon, StatTile, type PageSize } from "@universe/ui";
+import { AlertIcon, Button, CheckCircleIcon, ChevronLeftIcon, ClockIcon, CollapsibleSection, Pagination, Pill, PlusIcon, Select, ShieldIcon, StatTile, type PageSize } from "@universe/ui";
 import { apiClient } from "../../../lib/apiClient";
 import { useCurrentUser } from "../../../lib/AuthContext";
 import { ComplaintDetailView } from "./ComplaintDetailView";
@@ -97,6 +97,7 @@ function ComplaintList() {
       </div>
 
       {err && <div role="alert" style={{ ...cardStyle, borderColor: "var(--u-status-critical)" }}>{err}</div>}
+      <CollapsibleSection title="Complaints list" level={2} bare>
       {!rows && !err && <div style={muted}>Loading…</div>}
       {rows && rows.length === 0 && <div style={{ ...cardStyle, ...muted }}>No complaints match. {canLog ? "Use “Log a complaint” to record one." : ""}</div>}
       {rows && rows.length > 0 && (
@@ -125,6 +126,7 @@ function ComplaintList() {
       <div style={{ marginTop: 14 }}>
         <Pagination pageSize={pageSize} onPageSizeChange={(s) => { setPageSize(s); setPage(0); }} page={page} pageCount={Math.max(1, Math.ceil(total / size))} onPageChange={setPage} totalCount={total} />
       </div>
+      </CollapsibleSection>
     </div>
   );
 }

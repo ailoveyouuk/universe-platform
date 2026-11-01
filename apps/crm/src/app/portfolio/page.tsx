@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { categoryLabel, PARTNER_ROLE_TYPES, STAKEHOLDER_CATEGORY_KEYS, CRM_STATUS_LABELS, CRM_STATUSES, CRM_WORK_FILTER_LABELS, CRM_WORK_FILTERS, type CrmPortfolioMap, type CrmRelationshipPage, type CrmTag } from "@universe/types";
-import { useCompactScreen, ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
+import { useCompactScreen, CollapsibleSection, ProgressRing, SegmentBar, type VizTone, BanIcon, CheckCircleIcon, ClipboardCheckIcon, Pagination, Pill, ProjectsIcon, SearchInput, Select, StatTile, StatTileGrid, TrendingUpIcon, WorldMap, type PageSize, type WorldMapPoint } from "@universe/ui";
 import { apiClient } from "../../lib/apiClient";
 import { accentVar, primaryCategory } from "../../lib/category";
 import { ErrorNote, Heading, Page, fmtDate, humanise } from "../../lib/ui";
@@ -111,6 +111,7 @@ export default function Portfolio() {
         </div>
       </div>
       {noProjects && <p style={{ margin: 0, color: "var(--u-ink-secondary)" }}>Project counts are hidden because your account cannot view projects. Ask your administrator for the Project Management app and project access.</p>}
+      <CollapsibleSection title="Stakeholders" level={2} bare>
       {narrow && (
         <ul aria-label="Stakeholder portfolio" aria-busy={busy} style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12, opacity: busy && data ? 0.55 : 1 }}>
           {data?.items.map((r) => (
@@ -160,6 +161,7 @@ export default function Portfolio() {
       </div>}
       {data && data.items.length === 0 && !err && <p style={{ color: "var(--u-ink-secondary)" }}>No stakeholders match these filters.</p>}
       {data && <Pagination pageSize={pageSize} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} page={page} pageCount={pages} onPageChange={setPage} totalCount={data.total} />}
+      </CollapsibleSection>
     </Page>
   );
 }
