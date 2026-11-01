@@ -1,4 +1,4 @@
-import type { EmailPersonMatch, EmailRecipientInput, EmailRulesView, RetentionEffectiveRule, RetentionOverrideInput, RetentionQueueItem, RetentionDecisionInput, ComplaintSubjectMatch, ComplaintSubjectAccessCopy } from "@universe/types";
+import type { ClientComplaintDetail, ClientComplaintInput, ClientComplaintItem, ClientInviteInput, ClientUserRow, EmailPersonMatch, EmailRecipientInput, EmailRulesView, RetentionEffectiveRule, RetentionOverrideInput, RetentionQueueItem, RetentionDecisionInput, ComplaintSubjectMatch, ComplaintSubjectAccessCopy } from "@universe/types";
 import type { CrmCategoryProfile, CrmBulkInput, CrmBulkResult, CrmNetworkOrganisation, CrmNetworkPanel, CrmComplianceSummary, CrmGiftPolicy, CrmGiftPolicyInput, CrmHospitalityDecision, CrmHospitalityInput, CrmHospitalityPage, CrmHospitalityRecord, CrmPortfolioMap, CrmProjectPage, CrmLocation, CrmLocationInput, CrmLink, CrmLinkInput, CrmSavedFilter, CrmSavedFilterInput, CrmTag, CrmOpportunity, CrmOpportunityInput, CrmOpportunityPage, CrmOpportunityParticipantInput, CrmOpportunitySyncResult, CrmOpportunityDelivery, CrmRelationshipTree, DataGap, CrmOpportunityFramework, CrmTenderOption, CrmPipelineSummary, CrmAccessCopy, CrmAccessLogRow, CrmPerson, CrmPersonMatch, CrmPersonUpdate, CrmPrivacyRequestInput, CrmPrivacyRequestRow, CrmPrivacyRequestUpdate, CrmPrivacySummary, CrmRetentionItem, CrmFollowUp, CrmInteraction, CrmInteractionInput, CrmInteractionPage, CrmOverview, CrmPipelineView, CrmWinLossDrivers, DataHealthSection, CrmSearchResult, CrmPeopleOption, CrmRelationshipDetail, CrmRelationshipPage, CrmRelationshipRow, CrmRelationshipUpdate } from "@universe/types";
 import type { InsightsOverview, InsightsPricedCategory, InsightsPriceTrendPoint, InsightsPriceMovement, InsightsFreightRate, InsightsActivity, InsightsLogisticsTrendPoint, InsightsSourcingTrendPoint, InsightsReferenceCountry, InsightsFxSeries, InsightsServicePrice, InsightsPriceBreakdownRow, InsightsPriceDimension, InsightsUserItem, SaveInsightsUserItemInput } from "@universe/types";
 import type {
@@ -492,6 +492,12 @@ export class UniverseApiClient {
   }
 
   // ---- Retention (2026-10-31) ----
+  clientComplaints(): Promise<ClientComplaintItem[]> { return this.request("/client/complaints"); }
+  clientComplaint(id: string): Promise<ClientComplaintDetail> { return this.request(`/client/complaints/${encodeURIComponent(id)}`); }
+  clientLogComplaint(dto: ClientComplaintInput): Promise<{ id: string; referenceNumber: string }> { return this.request("/client/complaints", { method: "POST", body: JSON.stringify(dto) }); }
+  clientMessage(id: string, text: string): Promise<{ id: string }> { return this.request(`/client/complaints/${encodeURIComponent(id)}/messages`, { method: "POST", body: JSON.stringify({ text }) }); }
+  clientUsers(): Promise<ClientUserRow[]> { return this.request("/client-access/users"); }
+  clientInvite(dto: ClientInviteInput): Promise<{ id: string }> { return this.request("/client-access/users", { method: "POST", body: JSON.stringify(dto) }); }
   emailRules(): Promise<EmailRulesView> { return this.request("/email/rules"); }
   emailPeople(q: string): Promise<EmailPersonMatch[]> { return this.request(`/email/people?q=${encodeURIComponent(q)}`); }
   emailAddRecipient(dto: EmailRecipientInput): Promise<{ id: string }> { return this.request("/email/recipients", { method: "POST", body: JSON.stringify(dto) }); }

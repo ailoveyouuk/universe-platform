@@ -33,6 +33,8 @@ export interface RequestUser {
   apps: string[] | null;
   /** Chosen colour theme ("light" | "dark" | "system"), null if never chosen. */
   themePreference: "light" | "dark" | "system" | null;
+  /** Set for a quality client login: the one client (partner) whose complaints this person may see. Such a login can reach only /me and /client. */
+  clientPartnerId: string | null;
   /** True for non-staff users whose home organisation is a demo sandbox: they may write inside it but never to data shared across organisations. */
   isDemoUser?: boolean;
   /** True when this request runs inside a demo organisation (a demo user's own, or one platform staff switched into). Gates visibility of simulated shared data. */
@@ -52,6 +54,7 @@ function toRequestUser(user: {
   platformStaffRole: string;
   appAccess?: string | null;
   themePreference?: string | null;
+  clientPartnerId?: string | null;
   organization: { name: string; isDemo: boolean; logoUrl: string | null; logoIconUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
@@ -73,6 +76,7 @@ function toRequestUser(user: {
     permissions: [...new Set(permissions)],
     apps: user.platformStaffRole === PlatformStaffRole.NONE ? parseAppAccess(user.appAccess) : null,
     themePreference: user.themePreference === "light" || user.themePreference === "dark" || user.themePreference === "system" ? user.themePreference : null,
+    clientPartnerId: user.platformStaffRole === PlatformStaffRole.NONE ? user.clientPartnerId ?? null : null,
     isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
     inDemoOrganization: user.organization.isDemo,
   };
@@ -217,6 +221,11 @@ export class EntraAuthGuard implements CanActivate {
     }
 
     const requestUser = toRequestUser(user);
+
+    // Quality client login (2026-11-01): default-deny. A client login may reach only its own profile and the /client routes, whatever its roles.
+    if (requestUser.clientPartnerId && !/^\/(me|client)(\/|$)/.test(req.path)) {
+      throw new ForbiddenException("This login is for the client complaints area only.");
+    }
 
     // Platform staff may act inside any organisation: the apps send the one
     // they picked in the header switcher as X-Universe-Organization, and the

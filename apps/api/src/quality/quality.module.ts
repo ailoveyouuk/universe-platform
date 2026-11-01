@@ -13,6 +13,6 @@ import { QualityComplaintsService } from "./quality-complaints.service";
 @Module({
   controllers: [QualityController, QualityComplaintsController, PartnerScorecardController],
   providers: [ProductSourceApprovalsService, PartnerPerformanceService, QaQueueService, QualityComplaintsService, PartnerScorecardService, ScorecardSettingsService, ScorecardRecordsService],
-  exports: [PartnerScorecardService],
+  exports: [PartnerScorecardService, QualityComplaintsService],
 })
 export class QualityModule {}

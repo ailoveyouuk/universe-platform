@@ -19,3 +19,11 @@ export interface EmailRecipientRow { id: string; eventKey: string; userId: strin
 export interface EmailRulesView { configured: boolean; events: (EmailEventType & { recipients: EmailRecipientRow[] })[]; queued: number; failed: number }
 export interface EmailPersonMatch { id: string; name: string; jobTitle: string | null; roles: string[]; email: string }
 export interface EmailRecipientInput { eventKey: string; userId?: string; address?: string }
+
+/** Quality client login (2026-11-01). A client user sees only their own organisation's complaints from that client. */
+export interface ClientComplaintEvent { id: string; kind: "STAGE" | "COMMUNICATION_OUT" | "COMMUNICATION_IN" | "CLIENT_MESSAGE"; summary: string; body: string | null; at: string }
+export interface ClientComplaintItem { id: string; referenceNumber: string; title: string; status: string; receivedAt: string; acknowledgedAt: string | null; resolvedAt: string | null; closedAt: string | null }
+export interface ClientComplaintDetail extends ClientComplaintItem { description: string; responseSummary: string | null; responseSentAt: string | null; events: ClientComplaintEvent[] }
+export interface ClientComplaintInput { title: string; description: string; urgentSafety?: boolean }
+export interface ClientUserRow { id: string; name: string; email: string; status: string; partnerId: string; partnerName: string | null }
+export interface ClientInviteInput { email: string; forename: string; surname: string; partnerId: string }

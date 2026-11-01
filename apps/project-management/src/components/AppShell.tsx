@@ -30,6 +30,7 @@ import { useAuth } from "../lib/useAuth";
 import { useBranding } from "../lib/useBranding";
 import { apiClient } from "../lib/apiClient";
 import { PlatformOrgSwitcher } from "./PlatformOrgSwitcher";
+import { ClientArea } from "./ClientArea";
 
 /** Route → nav + breadcrumb metadata, in one place so adding a page means
  * adding one line here rather than touching the shell itself. */
@@ -191,6 +192,27 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+    );
+  }
+
+  // Quality client login (2026-11-01): a client sees only their complaints, with no navigation, search or notifications.
+  if (me.clientPartnerId) {
+    return (
+      <OrgThemeProvider primary={me.organizationPrimaryColor} secondary={me.organizationSecondaryColor}>
+        <div style={{ minHeight: "100vh", backgroundColor: "var(--u-surface-alt)" }}>
+          <a className="u-skip-link" href="#main-content">Skip to main content</a>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 28px", borderBottom: "1px solid var(--u-border)", backgroundColor: "var(--u-surface)", gap: 16 }}>
+            <MobileBrand logoUrl={brandLogoUrl} iconUrl={brandIconUrl} name={me.organizationName} />
+            <strong style={{ fontSize: 14 }}>{me.organizationName}</strong>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{me.forename}</span>
+              <ThemeToggle />
+              <button onClick={signOut} aria-label="Sign out" title="Sign out" style={{ border: "none", background: "none", cursor: "pointer", color: "var(--u-ink-secondary)", display: "flex", padding: 4 }}><LogoutIcon size={17} /></button>
+            </div>
+          </header>
+          <main id="main-content" tabIndex={-1} style={{ outline: "none" }}><ClientArea name={me.organizationName} /></main>
+        </div>
+      </OrgThemeProvider>
     );
   }
 

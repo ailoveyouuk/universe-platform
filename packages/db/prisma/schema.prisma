@@ -365,6 +365,8 @@ model Organization {
 /// this row by matching email and flips status to ACTIVE. From that point on
 /// the person is recognized by entraObjectId, never by email lookup again.
 model User {
+  /// Quality client login (2026-11-01): set for a client user, who may only reach /me and /client (their own organisation's complaints from that client). Null for everyone else.
+  clientPartnerId   String?
   /// Demo organisations this user may switch into (2026-10-20), besides their own.
   organizationAccess UserOrganizationAccess[]
   /// Archive-not-delete (2026-10-17): the row is retired, never removed. Hidden from normal reads.
