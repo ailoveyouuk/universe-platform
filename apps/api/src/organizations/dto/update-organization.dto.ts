@@ -29,6 +29,7 @@ export class UpdateOrganizationDto {
   legalEntityType?: string | null;
   @IsOptional() @IsString() @MaxLength(10) countryOfRegistrationCode?: string | null;
   @IsOptional() @IsString() @MaxLength(100) registrationNumber?: string | null;
+  @IsOptional() @IsString() @MaxLength(500) registeredAddress?: string | null;
   @IsOptional() @IsString() @MaxLength(300) website?: string | null;
 
   @IsOptional() @IsString() @MaxLength(200) primaryContactName?: string | null;

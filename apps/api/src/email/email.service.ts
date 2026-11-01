@@ -110,8 +110,8 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Everything about the organisation that goes into the header and footer of its emails. */
-  private async orgBits(tx: Tx, orgId: string): Promise<Pick<EmailContext, "orgName" | "logoUrl" | "primaryColor" | "support">> {
-    const o = await tx.organization.findUnique({ where: { id: orgId }, select: { name: true, logoUrl: true, logoIconUrl: true, primaryColor: true, primaryContactName: true, primaryContactTitle: true, primaryContactEmail: true } });
+  private async orgBits(tx: Tx, orgId: string): Promise<Pick<EmailContext, "orgName" | "logoUrl" | "primaryColor" | "support" | "legalLine">> {
+    const o = await tx.organization.findUnique({ where: { id: orgId }, select: { name: true, logoUrl: true, logoIconUrl: true, primaryColor: true, primaryContactName: true, primaryContactTitle: true, primaryContactEmail: true, legalName: true, legalEntityType: true, registrationNumber: true, registeredAddress: true, countryOfRegistration: { select: { name: true } } } });
     const api = process.env.API_PUBLIC_URL ?? "https://universe-pilot-api.victoriousflower-f66d984b.uksouth.azurecontainerapps.io";
     // Mail apps do not show SVG, so use the logo or the icon only when it is a raster image.
     const raster = (p: string | null) => (p && /\.(png|jpe?g|webp)$/i.test(p) ? (p.startsWith("/") ? `${api}${p}` : p) : null);
@@ -124,10 +124,22 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       });
       if (a) support = { name: `${a.forename} ${a.surname}`.trim(), role: "Administrator", email: a.email };
     }
-    return { orgName: o?.name ?? "Universe", logoUrl: raster(o?.logoUrl ?? null) ?? raster(o?.logoIconUrl ?? null), primaryColor: o?.primaryColor ?? null, support };
+    return { orgName: o?.name ?? "Universe", logoUrl: raster(o?.logoUrl ?? null) ?? raster(o?.logoIconUrl ?? null), primaryColor: o?.primaryColor ?? null, support, legalLine: this.legalLine(o) };
   }
 
-  private legalLine() { return process.env.UNIVERSE_EMAIL_LEGAL_LINE ?? "Universe Platform. This is an automated message."; }
+  /** The organisation's own legal details; falls back to the platform line when none are filled in. */
+  private legalLine(o: any): string {
+    const fallback = process.env.UNIVERSE_EMAIL_LEGAL_LINE ?? "Universe Platform. This is an automated message.";
+    const bits: string[] = [];
+    const kind: Record<string, string> = { GOVERNMENT_AGENCY: "government agency", PRIVATE_COMPANY: "company", REGISTERED_NGO: "registered NGO", FAITH_BASED_NETWORK: "faith-based network", MULTILATERAL_UN_BODY: "multilateral body", COOPERATIVE: "cooperative", ACADEMIC_INSTITUTION: "academic institution", INDIVIDUAL: "", OTHER: "" };
+    const name = o?.legalName || null;
+    if (!name && !o?.registrationNumber && !o?.registeredAddress) return fallback;
+    bits.push(`${name ?? o?.name ?? "Organisation"}${o?.legalEntityType && kind[o.legalEntityType] ? ` (${kind[o.legalEntityType]})` : ""}`);
+    if (o?.countryOfRegistration?.name) bits.push(`registered in ${o.countryOfRegistration.name}`);
+    if (o?.registrationNumber) bits.push(`registration number ${o.registrationNumber}`);
+    if (o?.registeredAddress) bits.push(`registered office: ${o.registeredAddress}`);
+    return `${bits.join(", ")}.`;
+  }
 
   /** What an email for this type of event would look like, using this organisation's own branding and a made-up example. */
   async preview(u: RequestUser, eventKey: string) {
@@ -137,7 +149,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     const soon = new Date(Date.now() + 3 * 86400000);
     return renderEmail({
       ...bits, eventKey, title: "Example: New complaint CMP-2026-0001", body: "This is an example of how this email will look.", link: absoluteLink("/quality/complaints"),
-      actorName: `${u.forename} ${u.surname}`, actorTitle: null, requiresAction: true, dueDate: soon, category: null, sentAt: new Date(), legalLine: this.legalLine(),
+      actorName: `${u.forename} ${u.surname}`, actorTitle: null, requiresAction: true, dueDate: soon, category: null, sentAt: new Date(),
     });
   }
 
@@ -165,7 +177,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
           const bits = orgs.get(r.organizationId)!;
           const mail = renderEmail({
             ...bits, eventKey: r.eventKey, title: r.subject, body: r.body || null, link: absoluteLink(r.link), actorName: r.actorName, actorTitle: r.actorTitle,
-            requiresAction: r.requiresAction, dueDate: r.dueDate, category: r.category, sentAt: new Date(), legalLine: this.legalLine(),
+            requiresAction: r.requiresAction, dueDate: r.dueDate, category: r.category, sentAt: new Date(),
           });
           await sendEmail(r.toAddress, mail.subject, mail.text, mail.html, bits.support?.email);
           await tx.emailOutbox.update({ where: { id: r.id }, data: { status: "SENT", sentAt: new Date(), attempts: r.attempts + 1, lastError: null } });

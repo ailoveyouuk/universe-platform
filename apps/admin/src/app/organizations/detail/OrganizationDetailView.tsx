@@ -39,6 +39,7 @@ type FormState = {
   legalEntityType: string;
   countryOfRegistrationCode: string;
   registrationNumber: string;
+  registeredAddress: string;
   website: string;
   primaryContactName: string;
   primaryContactTitle: string;
@@ -62,6 +63,7 @@ function toForm(o: OrganizationDetail): FormState {
     legalEntityType: o.legalEntityType ?? "",
     countryOfRegistrationCode: o.countryOfRegistrationCode ?? "",
     registrationNumber: o.registrationNumber ?? "",
+    registeredAddress: o.registeredAddress ?? "",
     website: o.website ?? "",
     primaryContactName: o.primaryContactName ?? "",
     primaryContactTitle: o.primaryContactTitle ?? "",
@@ -79,6 +81,7 @@ function toForm(o: OrganizationDetail): FormState {
 const NULLABLE_TEXT = [
   "legalName",
   "registrationNumber",
+  "registeredAddress",
   "website",
   "primaryContactName",
   "primaryContactTitle",
@@ -308,6 +311,9 @@ export function OrganizationDetailView() {
           </Field>
           <Field label="Registration number">
             <input style={inputStyle} value={form.registrationNumber} onChange={(e) => set({ registrationNumber: e.target.value })} />
+          </Field>
+          <Field label="Registered address (shown in the footer of your emails)">
+            <input data-field="registeredAddress" style={inputStyle} value={form.registeredAddress} onChange={(e) => set({ registeredAddress: e.target.value })} />
           </Field>
           <Field label="Website">
             <input data-field="website" style={inputStyle} value={form.website} placeholder="https://" aria-label="https://" onChange={(e) => set({ website: e.target.value })} />

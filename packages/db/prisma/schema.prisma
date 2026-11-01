@@ -259,6 +259,8 @@ model Organization {
   countryOfRegistrationCode String?
   countryOfRegistration     Country? @relation("OrganizationCountryOfRegistration", fields: [countryOfRegistrationCode], references: [code], onDelete: NoAction, onUpdate: NoAction)
   registrationNumber        String?
+  /// Registered office address (free text, shown in the legal footer of the organisation's emails).
+  registeredAddress         String?
   website                   String?
   /// The org's main point of contact for onboarding/relationship purposes —
   /// deliberately separate from any platform User, since the person who

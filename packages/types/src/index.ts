@@ -332,6 +332,8 @@ export interface OrganizationDetail extends OrganizationSummary {
   legalName: string | null;
   legalEntityType: OrganizationLegalEntityType | null;
   registrationNumber: string | null;
+  /** Registered office, shown in the legal footer of the organisation's emails. */
+  registeredAddress: string | null;
   website: string | null;
   primaryContactName: string | null;
   primaryContactTitle: string | null;
@@ -362,6 +364,7 @@ export interface UpdateOrganizationInput {
   legalEntityType?: OrganizationLegalEntityType | null;
   countryOfRegistrationCode?: string | null;
   registrationNumber?: string | null;
+  registeredAddress?: string | null;
   website?: string | null;
   primaryContactName?: string | null;
   primaryContactTitle?: string | null;
