@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { withPlatformStaffContext, withTenantContext } from "@universe/db";
-import { EMAIL_EVENT_TYPES } from "@universe/types";
+import { EMAIL_EVENT_TYPES, appForNotification } from "@universe/types";
 import type { EmailPersonMatch, EmailRecipientInput, EmailRulesView } from "@universe/types";
 import type { RequestUser } from "../auth/entra-auth.guard";
 import { recordFieldChanges } from "../common/audit-log";
@@ -9,6 +9,22 @@ import { emailConfigured, sendEmail } from "./email-sender";
 type Tx = any;
 const run = <T = any>(u: RequestUser, fn: (tx: Tx) => Promise<T>): Promise<T> => (u.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(u.organizationId, fn));
 const canManage = (u: RequestUser) => u.platformStaffRole !== "NONE" || u.permissions.includes("org.users.manage");
+const APP_URLS: Record<string, string> = {
+  "project-management": "https://black-island-047de4e0f.5.azurestaticapps.net",
+  "tender-issuance": "https://jolly-ground-0378d7b0f.4.azurestaticapps.net",
+  "product-database": "https://delightful-stone-0f4d11d0f.1.azurestaticapps.net",
+  insights: "https://calm-sea-0bb7a750f.5.azurestaticapps.net",
+  crm: "https://jolly-dune-0c822430f.5.azurestaticapps.net",
+  admin: "https://orange-tree-06a3f710f.6.azurestaticapps.net",
+};
+/** Turns an app-relative link into a full address so it can be clicked from an email. */
+export function absoluteLink(link: string | null): string | null {
+  if (!link) return null;
+  if (/^https?:\/\//.test(link)) return link;
+  const app = appForNotification("", link);
+  const base = app ? process.env[`APP_URL_${app.toUpperCase().replace(/-/g, "_")}`] ?? APP_URLS[app] : null;
+  return base ? `${base}${link}` : null;
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Configurable email (2026-11-01). Approved users choose who gets an email for each event type; the sender flushes the outbox once a mail provider is configured. */
@@ -99,7 +115,8 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       let sent = 0;
       for (const r of rows) {
         try {
-          const text = r.link ? `${r.body}\n\nOpen: ${r.link}` : r.body;
+          const url = absoluteLink(r.link);
+          const text = url ? `${r.body}\n\nOpen: ${url}` : r.body;
           await sendEmail(r.toAddress, r.subject, text);
           await tx.emailOutbox.update({ where: { id: r.id }, data: { status: "SENT", sentAt: new Date(), attempts: r.attempts + 1, lastError: null } });
           sent++;
