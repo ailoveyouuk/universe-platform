@@ -33,12 +33,12 @@ The single source is `packages/types/src/retention-schedule.ts`; it is shown rea
 | **Backups**: Database backups | 1 month | the backup being taken | Archived | ICO: where erasure is not immediate in backups, data is put beyond use until the backup expires; the backup window is the stated period. | Regulator guidance |
 
 ## How it is used (built 2026-10-31)
-- **Admin, Retention** (organisation administrators): a review list of tender files, contracts and quality complaints past their period, and complainants whose personal details can now be removed. A person keeps a record (a reason is required; it returns after 12 months), archives it (tenders and complaints) or removes the complainant's name, email and phone (the complaint itself stays). Every decision is recorded (`retention_decisions`) and audited.
+- **Admin, Retention** (organisation administrators): a review list of tender files, contracts, quality complaints, certifications, gifts and hospitality entries, privacy requests, payment records, archived user accounts, unanswered supplier enquiries and expired product batches past their period, and complainants whose personal details can now be removed. A person keeps a record (a reason is required; it returns after 12 months), archives it (tenders and complaints) or removes the complainant's name, email and phone (the complaint itself stays). Every decision is recorded (`retention_decisions`) and audited.
 - **Own periods:** an organisation can set its own months for a rule, with a reason (`retention_overrides`); the platform default applies otherwise.
 - **Complainant requests:** find complaints that name a person (name, email or phone, including the linked contact) and download a copy for a subject access request.
 - A complaint with a regulator decision still under consideration is never offered for archive or removal.
 - RLS for the two new tables: `infra/sql/retention-rls.sql` (Lewis runs it once after deploy).
 
 ## Still to build
-- Review queues for the other record types in the schedule (finance, certification, gifts register, notifications, backups) when those areas hold real data.
+- Policy-only rules (audit trail, access log, notifications, backups, suppression list) are applied by the platform and are not reviewed record by record. Archiving is recorded on certifications and gifts entries; for privacy requests, payments, enquiries and batches a decision is recorded and the item leaves the queue, as those tables have no archive marker. Archived user accounts can have personal details removed (protected admin accounts never).
 - Email to the complainant (waiting on the email decision).
