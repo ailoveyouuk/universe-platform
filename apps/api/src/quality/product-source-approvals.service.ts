@@ -208,10 +208,11 @@ export class ProductSourceApprovalsService {
     const base = { ...tenantScope(user.organizationId), isArchived: false };
     const qualified = qualifiedWhere();
     return withTenantContext(user.organizationId, async (tx) => {
-      const [totalProducts, qualifiedCount, warningCount, pendingCount, rejectedCount, attention] = await Promise.all([
+      // Warnings are approved-but-not-qualified, so they come from the cheap approved count minus the one expensive qualified count (one heavy query fewer).
+      const [totalProducts, approvedCount, qualifiedCount, pendingCount, rejectedCount, attention] = await Promise.all([
         tx.productSourceApproval.count({ where: base }),
+        tx.productSourceApproval.count({ where: { ...base, status: "APPROVED" } }),
         tx.productSourceApproval.count({ where: { ...base, status: "APPROVED", ...qualified } }),
-        tx.productSourceApproval.count({ where: { ...base, status: "APPROVED", NOT: qualified } }),
         tx.productSourceApproval.count({ where: { ...base, status: "PENDING" } }),
         tx.productSourceApproval.count({ where: { ...base, status: "REJECTED" } }),
         tx.productSourceApproval.findMany({
@@ -221,6 +222,7 @@ export class ProductSourceApprovalsService {
           take: 10,
         }),
       ]);
+      const warningCount = approvedCount - qualifiedCount;
       return { totalProducts, qualifiedCount, warningCount, pendingCount, rejectedCount, needsAttention: attention.map(toSummary) };
     });
   }

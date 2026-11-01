@@ -89,9 +89,15 @@ export default function QualityPage() {
   const [performanceRole, setPerformanceRole] = useState<(typeof PERFORMANCE_ROLE_FILTERS)[number]>("");
   const [showNewForm, setShowNewForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dashFailed, setDashFailed] = useState(false);
 
   function reload() {
-    apiClient.getQualityDashboard().then(setDashboard).catch(() => setDashboard(null));
+    const loadDashboard = (retry: boolean) =>
+      apiClient.getQualityDashboard().then((d) => { setDashboard(d); setDashFailed(false); }).catch(() => {
+        // One quiet retry (a slow or just-woken server often succeeds second time), then say so instead of leaving dashes.
+        if (retry) setTimeout(() => loadDashboard(false), 1500); else { setDashboard(null); setDashFailed(true); }
+      });
+    loadDashboard(true);
     apiClient
       .listProductSourceApprovalsPage({ status: statusFilter || undefined, page: approvalsPage + 1, pageSize: approvalsPageSize === "all" ? 100 : approvalsPageSize })
       .then((data) => {
@@ -187,6 +193,12 @@ export default function QualityPage() {
         </div>
       </div>
 
+      {dashFailed && (
+        <div role="alert" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px", marginBottom: 12, borderRadius: "var(--u-radius-md)", border: "1px solid var(--u-status-critical)", backgroundColor: "var(--u-status-critical-tint)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--u-ink)" }}><AlertIcon size={16} />Couldn't load the summary figures. This is usually temporary.</div>
+          <Button variant="secondary" onClick={reload}>Try again</Button>
+        </div>
+      )}
       <div className="u-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(190px, 46%), 1fr))", gap: 16, marginBottom: 32 }}>
         <StatTile label="Qualified products" value={dashboard?.qualifiedCount} icon={<CheckCircleIcon size={20} />} tone="good" active={statusFilter === "QUALIFIED"} onClick={() => { setStatusFilter(statusFilter === "QUALIFIED" ? "" : "QUALIFIED"); setApprovalsPage(0); }} />
         <StatTile label="Needs attention" value={dashboard?.warningCount} icon={<AlertIcon size={20} />} tone="warning" active={statusFilter === "WARNING"} onClick={() => { setStatusFilter(statusFilter === "WARNING" ? "" : "WARNING"); setApprovalsPage(0); }} />
@@ -206,7 +218,7 @@ export default function QualityPage() {
 
       {dashboard && dashboard.needsAttention.length > 0 && (
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: "0 0 12px" }}>Needs attention</h2>
+          <CollapsibleSection title="Needs attention" level={2} bare summary={`${dashboard.needsAttention.length} approvals to look at`}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {dashboard.needsAttention.map((a) => (
               <div
@@ -244,6 +256,7 @@ export default function QualityPage() {
               </div>
             ))}
           </div>
+          </CollapsibleSection>
         </section>
       )}
 
@@ -258,7 +271,7 @@ export default function QualityPage() {
               options={STATUS_FILTERS.filter(Boolean).map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase() }))}
             />
           </div>
-        </CollapsibleSection>
+
 
         {error && (
           <div
@@ -380,13 +393,11 @@ export default function QualityPage() {
             />
           </div>
         )}
+        </CollapsibleSection>
       </section>
 
       <section>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 12 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--u-ink)", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <GaugeIcon size={17} /> Partner performance
-          </h2>
+        <CollapsibleSection title="Partner performance" level={2} bare>
           <div style={{ width: 220 }}>
             <Select
               value={performanceRole}
@@ -396,7 +407,6 @@ export default function QualityPage() {
               options={PERFORMANCE_ROLE_FILTERS.filter(Boolean).map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
             />
           </div>
-        </div>
 
         <ScorecardSettingsPanel />
 
@@ -481,6 +491,7 @@ export default function QualityPage() {
             />
           </div>
         )}
+        </CollapsibleSection>
       </section>
     </div>
   );
