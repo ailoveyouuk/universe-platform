@@ -24,7 +24,7 @@ export function absoluteLink(link: string | null): string | null {
   if (!link) return null;
   if (/^https?:\/\//.test(link)) return link;
   const app = appForNotification("", link);
-  const base = app ? process.env[`APP_URL_${app.toUpperCase().replace(/-/g, "_")}`] ?? APP_URLS[app] : null;
+  const base = app ? process.env[`APP_URL_${app.toUpperCase().replace(/-/g, "_")}`] || APP_URLS[app] : null;
   return base ? `${base}${link}` : null;
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -112,7 +112,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   /** Everything about the organisation that goes into the header and footer of its emails. */
   private async orgBits(tx: Tx, orgId: string): Promise<Pick<EmailContext, "orgName" | "logoUrl" | "primaryColor" | "support" | "legalLine">> {
     const o = await tx.organization.findUnique({ where: { id: orgId }, select: { name: true, logoUrl: true, logoIconUrl: true, primaryColor: true, primaryContactName: true, primaryContactTitle: true, primaryContactEmail: true, legalName: true, legalEntityType: true, registrationNumber: true, registeredAddress: true, countryOfRegistration: { select: { name: true } } } });
-    const api = process.env.API_PUBLIC_URL ?? "https://universe-pilot-api.victoriousflower-f66d984b.uksouth.azurecontainerapps.io";
+    const api = process.env.API_PUBLIC_URL || "https://universe-pilot-api.victoriousflower-f66d984b.uksouth.azurecontainerapps.io";
     // Mail apps do not show SVG, so use the logo or the icon only when it is a raster image.
     const raster = (p: string | null) => (p && /\.(png|jpe?g|webp)$/i.test(p) ? (p.startsWith("/") ? `${api}${p}` : p) : null);
     let support: EmailContext["support"] = null;

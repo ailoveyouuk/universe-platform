@@ -22,7 +22,11 @@ try {
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useBodyParser("json", { limit: "6mb" }); // completed bid templates arrive as base64
-  app.enableCors(); // tightened per-app in production via allowed origins config
+  // ALLOWED_ORIGINS (comma-separated app addresses, e.g. https://crm.universe-platform.com) limits which
+  // websites may call the API from a browser. Unset = any origin (the previous behaviour), so nothing changes
+  // until it is set. Native sign-in tokens, not cookies, carry identity, so this is a hardening layer.
+  const allowed = (process.env.ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim().replace(/\/$/, "")).filter(Boolean);
+  app.enableCors(allowed.length ? { origin: allowed } : undefined);
   // Added 2026-09-24 alongside the schema rework: this was missing entirely,
   // so DTO decorators (@IsIn, @IsString, etc.) were never actually enforced.
   // `transform: true` is also required for nested DTOs (e.g. CreateProjectDto's
