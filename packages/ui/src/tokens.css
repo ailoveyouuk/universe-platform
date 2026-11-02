@@ -705,3 +705,24 @@ a:focus-visible {
 
 /* Chart hit areas (Insights, 2026-10-25): a mouse click must not draw the large keyboard focus box around a whole chart column; keyboard focus still does. */
 [data-chart-hit]:focus:not(:focus-visible) { outline: none; }
+
+/*
+ * Phones with a notch or rounded corners, landscape (2026-11-02, Lewis: the header stopped short of the screen edge). Every app asks the browser to draw
+ * to the full width (viewport-fit=cover in each layout.tsx), so the header background and page colour reach the edges, and the header and page content
+ * are padded in by the safe-area insets so nothing hides under the notch. Zero insets elsewhere, so desktop and portrait are unchanged.
+ */
+.u-app-header {
+  padding-left: max(28px, env(safe-area-inset-left)) !important;
+  padding-right: max(28px, env(safe-area-inset-right)) !important;
+}
+@media (max-width: 640px) {
+  .u-app-header {
+    padding-left: max(14px, env(safe-area-inset-left)) !important;
+    padding-right: max(14px, env(safe-area-inset-right)) !important;
+  }
+}
+main#main-content {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -33,7 +33,7 @@ export default function EmailPage() {
     return () => clearTimeout(t);
   }, [q]);
 
-  if (me && !allowed) return <div style={{ padding: "8px 0 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Email</h1><p style={muted}>Email recipients are managed by organisation administrators.</p></div>;
+  if (me && !allowed) return <div style={{ padding: "8px clamp(14px, 4vw, 32px) 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Email</h1><p style={muted}>Email recipients are managed by organisation administrators.</p></div>;
 
   const add = async (eventKey: string, input: { userId?: string; address?: string }, done: string) => {
     setErr(null); setOk(null);
@@ -54,7 +54,7 @@ export default function EmailPage() {
   };
 
   return (
-    <div style={{ display: "grid", gap: 4, padding: "8px 0 32px" }}>
+    <div style={{ display: "grid", gap: 4, padding: "8px clamp(14px, 4vw, 32px) 32px" }}>
       <h1 style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 24 }}>Email</h1>
       <p style={muted}>Choose who is emailed for each type of event. Add a registered user (search by name, job title or role) and/or type an address, such as a shared mailbox.</p>
       {view && !view.configured && <Notice tone="info">Sending is not switched on yet, so emails are held in a queue ({view.queued} waiting). They go out once the platform&apos;s mail provider is set up.</Notice>}

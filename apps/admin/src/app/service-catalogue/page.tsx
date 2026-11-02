@@ -75,7 +75,7 @@ export default function ServiceCatalogueAdminPage() {
   );
 
   return (
-    <div style={{ padding: 32, maxWidth: 1100 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 1100 }}>
       <h1>Services catalogue</h1>
       <p style={{ color: "var(--u-ink-secondary)", fontSize: 13, maxWidth: 720 }}>The standard services offered on project lines and tender items. It names the service and how it is usually priced, never a price. Switch a service off to stop offering it; lines that already use it keep working.</p>
       {err && <Notice tone="error">{err}</Notice>}

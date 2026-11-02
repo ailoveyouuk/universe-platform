@@ -38,7 +38,7 @@ export default function RetentionPage() {
   }, []);
   useEffect(() => { if (allowed) load(); }, [allowed, load]);
 
-  if (me && !allowed) return <div style={{ padding: "8px 0 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Retention</h1><p style={muted}>Retention is managed by organisation administrators.</p></div>;
+  if (me && !allowed) return <div style={{ padding: "8px clamp(14px, 4vw, 32px) 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Retention</h1><p style={muted}>Retention is managed by organisation administrators.</p></div>;
 
   const act = async (i: RetentionQueueItem, decision: RetentionDecisionKind, r?: string) => {
     setErr(null); setOk(null);
@@ -56,7 +56,7 @@ export default function RetentionPage() {
   };
 
   return (
-    <div style={{ display: "grid", gap: 4, padding: "8px 0 32px" }}>
+    <div style={{ display: "grid", gap: 4, padding: "8px clamp(14px, 4vw, 32px) 32px" }}>
       <h1 style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 24 }}>Retention</h1>
       <p style={{ ...muted, maxWidth: 760 }}>How long records are kept, and the ones that have reached the end of their period. UK and EU GDPR set no fixed periods, only that each one is justified and reviewed, so nothing here is deleted automatically: a person decides.</p>
       {err && <Notice tone="error">{err}</Notice>}

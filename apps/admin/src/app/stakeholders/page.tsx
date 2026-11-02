@@ -69,7 +69,7 @@ export default function StakeholdersPage() {
   }
 
   return (
-    <div style={{ padding: 32, maxWidth: 900 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)", maxWidth: 900 }}>
       <h1 style={{ marginTop: 0 }}>Stakeholder access</h1>
       <p style={{ color: "var(--u-ink-secondary)" }}>
         Give a prospective organisation a place to explore the whole platform. They sign in with the email you add here and see only{" "}

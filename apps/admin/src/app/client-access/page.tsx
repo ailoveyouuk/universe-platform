@@ -30,7 +30,7 @@ export default function ClientAccessPage() {
   }, []);
   useEffect(() => { if (allowed) load(); }, [allowed, load]);
 
-  if (me && !allowed) return <div style={{ padding: "8px 0 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Client logins</h1><p style={muted}>Client logins are managed by organisation administrators.</p></div>;
+  if (me && !allowed) return <div style={{ padding: "8px clamp(14px, 4vw, 32px) 32px" }}><h1 style={{ fontFamily: "var(--u-font-display)", fontSize: 24 }}>Client logins</h1><p style={muted}>Client logins are managed by organisation administrators.</p></div>;
 
   const invite = async () => {
     setErr(null); setOk(null);
@@ -39,7 +39,7 @@ export default function ClientAccessPage() {
   };
 
   return (
-    <div style={{ display: "grid", gap: 4, padding: "8px 0 32px" }}>
+    <div style={{ display: "grid", gap: 4, padding: "8px clamp(14px, 4vw, 32px) 32px" }}>
       <h1 style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 24 }}>Client logins</h1>
       <p style={muted}>Give a client contact a login to follow and raise their own quality complaints. They see only complaints from their own client, and nothing else. To remove access, archive the person on the Users page.</p>
       {err && <Notice tone="error">{err}</Notice>}

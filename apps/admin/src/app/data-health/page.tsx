@@ -9,7 +9,7 @@ import { apiClient } from "../../lib/apiClient";
  */
 export default function DataHealthPage() {
   return (
-    <div style={{ display: "grid", gap: 14, padding: "8px 0 32px" }}>
+    <div style={{ display: "grid", gap: 14, padding: "8px clamp(14px, 4vw, 32px) 32px" }}>
       <h1 style={{ margin: 0, fontFamily: "var(--u-font-display)", fontSize: 24 }}>Data health</h1>
       <p style={{ margin: 0, color: "var(--u-ink-secondary)", maxWidth: 720 }}>
         Where your organisation&rsquo;s records are missing something that would make the platform more useful. Open an app below to see what is missing, what it would improve and where to fix it. The CRM keeps its own, more detailed notes on its Overview, Pipeline and Portfolio.

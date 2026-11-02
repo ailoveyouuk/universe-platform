@@ -3,6 +3,9 @@ import "@universe/ui/src/tokens.css";
 import { THEME_INIT_SCRIPT } from "@universe/ui/src/theme";
 import { AppShell } from "../components/AppShell";
 
+/** Draw to the very edge of the screen on phones with a notch in landscape; the shell pads itself with the safe-area insets (tokens.css). */
+export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" as const };
+
 export const metadata = {
   icons: { icon: "/favicon.svg" },
   title: "Insights — Universe",

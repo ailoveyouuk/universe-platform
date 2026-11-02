@@ -60,7 +60,7 @@ export default function OrganizationsPage() {
   }, [organizations]);
 
   return (
-    <div style={{ padding: 32 }}>
+    <div style={{ padding: "clamp(14px, 4vw, 32px)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Organisations</h1>
         {isPlatformStaff && <Link href="/organizations/new">+ Create Organisation</Link>}
