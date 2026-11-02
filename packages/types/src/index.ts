@@ -111,6 +111,8 @@ export interface AuthenticatedUser {
   clientPartnerId?: string | null;
   /** The person's chosen colour theme, kept on their account (2026-10-31). Null = never chosen. */
   themePreference?: "light" | "dark" | "system" | null;
+  /** True for a Demo Access login (2026-11-02): the whole platform, read-only, demo (simulated) data only. The apps show a banner and hide editing. */
+  demoAccess?: boolean;
   /** Apps this person may use; null = every app (2026-10-25). Platform staff are never restricted. */
   apps?: string[] | null;
   id: string;
@@ -167,6 +169,8 @@ export interface UserSummary {
   roleIds: string[];
   invitedAt: string;
   firstSignInAt: string | null;
+  /** True when Demo Access is switched on (2026-11-02): this person sees only the demo organisation's simulated data, read-only. */
+  demoAccess: boolean;
   /** Set when the account was archived (status DEACTIVATED). Accounts are never deleted. */
   archivedAt: string | null;
   archiveReason: string | null;
@@ -222,6 +226,8 @@ export interface UpdateUserInput {
   platformStaffRole?: "NONE" | "SUPPORT" | "SUPER_ADMIN";
   /** Apps this person may use; null clears the restriction (every app). */
   appAccess?: string[] | null;
+  /** Switch Demo Access on or off (2026-11-02). Not for yourself, platform staff or protected administrators. */
+  demoAccess?: boolean;
 }
 
 /** One entry in the global permission catalogue (GET /permissions). */

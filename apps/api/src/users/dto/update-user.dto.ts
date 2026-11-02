@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 /** PATCH /users/:id (added 2026-10-16). undefined = untouched; jobTitle may be
  * null to clear. platformStaffRole is platform-staff only and SUPER_ADMIN-gated
@@ -10,4 +10,6 @@ export class UpdateUserDto {
   @IsOptional() @IsIn(["NONE", "SUPPORT", "SUPER_ADMIN"]) platformStaffRole?: string;
   /** Apps this person may use; null clears the restriction (every app). */
   @IsOptional() @IsArray() @ArrayMaxSize(10) @IsIn(["project-management", "product-database", "tender-issuance", "insights", "crm", "admin"], { each: true }) appAccess?: string[] | null;
+  /** Demo Access on/off (2026-11-02). */
+  @IsOptional() @IsBoolean() demoAccess?: boolean;
 }

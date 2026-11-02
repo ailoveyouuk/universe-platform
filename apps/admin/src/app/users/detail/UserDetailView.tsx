@@ -23,7 +23,7 @@ export function UserDetailView() {
 
   const [form, setForm] = useState({ forename: "", surname: "", jobTitle: "", platformStaffRole: "NONE" as UserDetail["platformStaffRole"] });
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [busy, setBusy] = useState<null | "profile" | "roles" | "apps" | "status">(null);
+  const [busy, setBusy] = useState<null | "profile" | "roles" | "apps" | "status" | "demo">(null);
   const [selectedApps, setSelectedApps] = useState<string[]>([...UNIVERSE_APP_KEYS]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -59,7 +59,7 @@ export function UserDetailView() {
   const appsDirty = [...selectedApps].sort().join() !== [...currentApps].sort().join();
   const rolesDirty = [...selectedRoles].sort().join() !== [...user.roleIds].sort().join();
 
-  async function act<T>(kind: "profile" | "roles" | "apps" | "status", fn: () => Promise<T>, okMsg: string) {
+  async function act<T>(kind: "profile" | "roles" | "apps" | "status" | "demo", fn: () => Promise<T>, okMsg: string) {
     setBusy(kind);
     setError(null);
     setNotice(null);
@@ -229,6 +229,29 @@ export function UserDetailView() {
             {busy === "apps" ? "Saving…" : "Save app access"}
           </Button>
         </div>
+      </Section>
+
+      <Section title="Demo Access" hint="Switch this on to give the person a read-only tour of the whole platform using only simulated demo data. While it is on they see Universe Demo, every app, and nothing real; they cannot create, edit, approve or delete anything. Their normal roles and apps above are kept for if you switch it off again.">
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
+          <input
+            type="checkbox"
+            checked={user.demoAccess}
+            disabled={busy !== null || isSelf || user.platformStaffRole !== "NONE"}
+            onChange={() =>
+              act(
+                "demo",
+                async () => {
+                  adopt(await apiClient.updateUser(id, { demoAccess: !user.demoAccess }));
+                },
+                user.demoAccess ? "Demo Access switched off. This person is back to their normal access." : "Demo Access switched on. This person now sees read-only demo data only.",
+              )
+            }
+          />
+          Demo Access (read-only, simulated data only)
+        </label>
+        {isSelf && <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>You cannot switch Demo Access on for your own account.</p>}
+        {user.platformStaffRole !== "NONE" && <p style={{ fontSize: 13, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>Demo Access is not available for platform staff.</p>}
+        <p style={{ fontSize: 12, color: "var(--u-ink-secondary)", margin: "8px 0 0" }}>Source: the person's own account setting, applied on every request the moment it is saved.</p>
       </Section>
 
       <Section title="Access">

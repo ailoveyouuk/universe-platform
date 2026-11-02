@@ -4,6 +4,7 @@ import { PlatformStaffRole, UserStatus, withPlatformStaffContext } from "@univer
 import { parseAppAccess } from "@universe/types";
 import type { Request } from "express";
 import { isProtectedAdminEmail } from "../users/protected-accounts";
+import { demoWriteAllowed, loadDemoView } from "./demo-access";
 
 export interface RequestUser {
   id: string;
@@ -39,6 +40,8 @@ export interface RequestUser {
   isDemoUser?: boolean;
   /** True when this request runs inside a demo organisation (a demo user's own, or one platform staff switched into). Gates visibility of simulated shared data. */
   inDemoOrganization?: boolean;
+  /** True for a Demo Access login (2026-11-02): runs inside the demo organisation, view permissions only, read-only. */
+  demoAccess?: boolean;
 }
 
 function toRequestUser(user: {
@@ -55,6 +58,7 @@ function toRequestUser(user: {
   appAccess?: string | null;
   themePreference?: string | null;
   clientPartnerId?: string | null;
+  demoAccess?: boolean;
   organization: { name: string; isDemo: boolean; logoUrl: string | null; logoIconUrl: string | null; primaryColor: string | null; secondaryColor: string | null; welcomeMessage: string | null };
   userRoles: { role: { rolePermissions: { permission: { key: string } }[] } }[];
 }): RequestUser {
@@ -79,6 +83,8 @@ function toRequestUser(user: {
     clientPartnerId: user.platformStaffRole === PlatformStaffRole.NONE ? user.clientPartnerId ?? null : null,
     isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
     inDemoOrganization: user.organization.isDemo,
+    // Never for platform staff, protected administrators or client logins, whatever the column says.
+    demoAccess: !!user.demoAccess && user.platformStaffRole === PlatformStaffRole.NONE && !isProtectedAdminEmail(user.email) && !user.clientPartnerId,
   };
 }
 
@@ -225,6 +231,29 @@ export class EntraAuthGuard implements CanActivate {
     // Quality client login (2026-11-01): default-deny. A client login may reach only its own profile and the /client routes, whatever its roles.
     if (requestUser.clientPartnerId && !/^\/(me|client)(\/|$)/.test(req.path)) {
       throw new ForbiddenException("This login is for the client complaints area only.");
+    }
+
+    // Demo Access (2026-11-02): the whole request is moved into the demo organisation, read-only, with view permissions only. The organisation
+    // header is ignored (a Demo Access person can never reach anything but the demo organisation), and any change is refused before it reaches a service.
+    if (requestUser.demoAccess) {
+      if (!demoWriteAllowed(req.method, req.path)) {
+        throw new ForbiddenException("This is a read-only demo login: you can look around, but nothing can be changed.");
+      }
+      const view = await loadDemoView();
+      if (!view.org) throw new ForbiddenException("Demo Access is not available because there is no demo organisation.");
+      requestUser.organizationId = view.org.id;
+      requestUser.organizationName = view.org.name;
+      requestUser.organizationLogoUrl = view.org.logoUrl;
+      requestUser.organizationLogoIconUrl = view.org.logoIconUrl;
+      requestUser.organizationPrimaryColor = view.org.primaryColor;
+      requestUser.organizationSecondaryColor = view.org.secondaryColor;
+      requestUser.organizationWelcomeMessage = view.org.welcomeMessage;
+      requestUser.permissions = view.permissionKeys;
+      requestUser.apps = null;
+      requestUser.isDemoUser = true;
+      requestUser.inDemoOrganization = true;
+      req.user = requestUser;
+      return true;
     }
 
     // Platform staff may act inside any organisation: the apps send the one

@@ -391,6 +391,9 @@ model User {
   appAccess         String?      @db.NVarChar(300)
   /// Light, dark or device (system) theme chosen by the person, so it follows them across apps and browsers (2026-10-31). Null = never chosen.
   themePreference   String?      @db.NVarChar(10)
+  /// Demo Access (2026-11-02): while true, every request this person makes runs inside the demo organisation, read-only, with only view permissions
+  /// (so they see simulated data and nothing else). Switched on and off by a user manager in Admin; never for platform staff or protected admins.
+  demoAccess        Boolean      @default(false)
   invitedById       String?
   invitedBy         User?        @relation("UserInvitedBy", fields: [invitedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   invitedUsers      User[]       @relation("UserInvitedBy")

@@ -28,7 +28,7 @@ export class MeController {
   async updatePreferences(@CurrentUser() user: RequestUser, @Body() body: { themePreference?: unknown }) {
     const theme = body?.themePreference;
     if (!THEMES.includes(theme as (typeof THEMES)[number])) throw new BadRequestException("themePreference must be light, dark or system.");
-    const run = <T>(fn: (tx: any) => Promise<T>) => (user.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(user.organizationId, fn));
+    const run = <T>(fn: (tx: any) => Promise<T>) => (user.platformStaffRole !== "NONE" ? withPlatformStaffContext(fn) : withTenantContext(user.homeOrganizationId, fn));
     await run((tx) => tx.user.update({ where: { id: user.id }, data: { themePreference: theme as string } }));
     return { themePreference: theme };
   }

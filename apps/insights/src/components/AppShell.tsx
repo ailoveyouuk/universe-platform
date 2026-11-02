@@ -23,7 +23,7 @@ import {
   LogoutIcon,
   UserIcon,
   GlobalSearch,
-  SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, GaugeIcon, BuildingIcon, ThermometerIcon, InfoIcon, AppAccessGate } from "@universe/ui";
+  SearchIcon, ThemeToggle, TrendingUpIcon, GlobeIcon, GaugeIcon, BuildingIcon, ThermometerIcon, InfoIcon, AppAccessGate, DemoAccessBanner } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -310,6 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
+            <DemoAccessBanner active={me.demoAccess} />
             <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
               <AppAccessGate appKey="insights" appLabel="Insights" apps={me.apps}>
                 {!restricted && !["/", "/methodology", "/notifications", "/search"].includes(pathname.replace(/\/$/, "") || "/") && <ViewBar path={pathname.replace(/\/$/, "") || "/"} pageLabel={ROUTES.find((r) => r.href === pathname.replace(/\/$/, ""))?.label ?? "Insights"} labelFor={(p) => ROUTES.find((r) => r.href === p)?.label ?? "Insights"} />}

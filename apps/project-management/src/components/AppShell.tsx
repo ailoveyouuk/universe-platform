@@ -23,7 +23,7 @@ import { AppAccessGate,
   AlertIcon,
   LogoutIcon,
   UserIcon,
-  GlobalSearch, ThemeToggle } from "@universe/ui";
+  GlobalSearch, ThemeToggle, DemoAccessBanner } from "@universe/ui";
 import type { NavItem } from "@universe/ui";
 import { AuthContext } from "../lib/AuthContext";
 import { useAuth } from "../lib/useAuth";
@@ -313,6 +313,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </header>
 
+            <DemoAccessBanner active={me.demoAccess} />
             <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
               <AppAccessGate appKey="project-management" appLabel="Project Management" apps={me.apps}>{children}</AppAccessGate>
             </main>

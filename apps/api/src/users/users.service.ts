@@ -22,6 +22,7 @@ function toSummary(u: {
   firstSignInAt: Date | null;
   archivedAt: Date | null;
   archiveReason: string | null;
+  demoAccess?: boolean;
 }): UserSummary {
   return {
     id: u.id,
@@ -37,6 +38,7 @@ function toSummary(u: {
     firstSignInAt: u.firstSignInAt?.toISOString() ?? null,
     archivedAt: u.archivedAt?.toISOString() ?? null,
     archiveReason: u.archiveReason ?? null,
+    demoAccess: !!u.demoAccess,
   };
 }
 
@@ -277,6 +279,17 @@ export class UsersService {
           data.appAccess = encoded;
           changes.push({ field: "appAccess", oldValue: target.appAccess ?? null, newValue: encoded } as any);
         }
+      }
+      // Demo Access (2026-11-02): puts the person in a read-only, demo-data-only view of the whole platform. Same authority as editing the user.
+      // Never on yourself (you could not switch it off again), on platform staff, on protected administrators or on a client login.
+      if (dto.demoAccess !== undefined && dto.demoAccess !== !!target.demoAccess) {
+        if (dto.demoAccess) {
+          if (caller.id === id) throw new ForbiddenException("You cannot switch Demo Access on for your own account.");
+          if (isProtectedAdminEmail(target.email) || target.platformStaffRole !== "NONE") throw new ForbiddenException("Demo Access cannot be used on platform staff or protected administrator accounts.");
+          if (target.clientPartnerId) throw new BadRequestException("A client login cannot also have Demo Access.");
+        }
+        data.demoAccess = dto.demoAccess;
+        changes.push({ field: "demoAccess", oldValue: String(!!target.demoAccess), newValue: String(dto.demoAccess) } as any);
       }
       if (changes.length === 0) return toDetail(target);
 

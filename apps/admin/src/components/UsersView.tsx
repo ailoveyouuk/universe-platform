@@ -138,7 +138,7 @@ export function UsersView({ lockedOrgId }: { lockedOrgId?: string }) {
                     <Link href={`/organizations/detail?id=${u.organizationId}`}>{u.organizationName}</Link>
                   </td>
                 )}
-                <td style={{ padding: 8 }}>{u.roleNames.join(", ") || "—"}</td>
+                <td style={{ padding: 8 }}>{u.roleNames.join(", ") || "—"}{u.demoAccess ? <span style={{ marginLeft: 6, fontSize: 12, color: "var(--u-ink-secondary)" }}>(Demo Access)</span> : null}</td>
                 <td style={{ padding: 8 }}>
                   <StatusChip status={u.status} />
                 </td>
