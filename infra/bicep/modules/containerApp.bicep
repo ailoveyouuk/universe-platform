@@ -9,7 +9,7 @@ param apiImage string
 
 param keyVaultUri string
 param minReplicas int = 0
-param maxReplicas int = 3
+param maxReplicas int = 1
 
 @description('Resource ID of the pre-provisioned user-assigned managed identity (see architecture doc, "Client secret blocked by tenant policy" / backend-launch-checklist.md B2) — used for both ACR pull and Key Vault secret access. NOT system-assigned: a system-assigned identity does not exist until this resource is created, so it cannot be pre-federated with the CIAM App Registration ahead of first deploy. A user-assigned identity, created once ahead of time, can be.')
 param userAssignedIdentityId string
