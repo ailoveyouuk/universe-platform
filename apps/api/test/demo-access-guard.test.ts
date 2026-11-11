@@ -79,7 +79,8 @@ describe("EntraAuthGuard — Demo Access", () => {
     expect(req.user?.homeOrganizationId).toBe(realOrgId);
     expect(req.user?.inDemoOrganization).toBe(true);
     expect(req.user?.isDemoUser).toBe(true);
-    expect(req.user?.apps).toBeNull();
+    // Every app except Admin, which is for its named owner only.
+    expect(req.user?.apps).toEqual(["project-management", "product-database", "tender-issuance", "insights", "crm"]);
     expect(req.user!.permissions.length).toBeGreaterThan(0);
     expect(req.user!.permissions.every((p) => p.endsWith(".view"))).toBe(true);
     expect(req.user!.permissions).not.toContain("org.users.manage");

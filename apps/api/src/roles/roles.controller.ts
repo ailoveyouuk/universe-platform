@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -9,7 +10,8 @@ import { RolesService } from "./roles.service";
  * endpoint requires org.roles.manage on the target organisation (platform
  * staff exempt) — see RolesService. */
 @Controller()
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("admin")
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 

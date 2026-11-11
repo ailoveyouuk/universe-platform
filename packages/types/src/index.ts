@@ -101,6 +101,19 @@ export function encodeAppAccess(list: string[] | null | undefined): string | nul
   const keys = (list ?? []).filter((x) => (UNIVERSE_APP_KEYS as readonly string[]).includes(x));
   return keys.length ? `,${[...new Set(keys)].join(",")},` : null;
 }
+/**
+ * The Admin app is restricted to named owners only (2026-11-11, Lewis's instruction). Nobody else, including other platform staff and
+ * organisation administrators, may open it or call its API. Add an address here only with the owner's say-so.
+ */
+export const ADMIN_APP_EMAILS: readonly string[] = ["lewis@eduparcs.onmicrosoft.com"];
+export function adminAppAllowed(email: string | null | undefined): boolean {
+  return !!email && ADMIN_APP_EMAILS.includes(email.trim().toLowerCase());
+}
+/** Takes "admin" out of everyone's allowed apps except the owners'. null (every app) becomes every app except Admin. */
+export function restrictAdminApp(apps: UniverseAppKey[] | null, email: string | null | undefined): UniverseAppKey[] | null {
+  if (adminAppAllowed(email)) return apps;
+  return (apps ?? [...UNIVERSE_APP_KEYS]).filter((k) => k !== "admin");
+}
 /** True when the person may use the app. null (no restriction) allows everything. */
 export function canUseApp(apps: string[] | null | undefined, key: string): boolean {
   return !apps || apps.includes(key);

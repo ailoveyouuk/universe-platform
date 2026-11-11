@@ -22,14 +22,14 @@ export function useAllowedApps(): string[] | null {
 }
 
 /** Wraps an app's page content. Shows a plain explanation (with a heading, for screen readers) when the person has not been given this app. */
-export function AppAccessGate({ appKey, appLabel, apps, children }: { appKey: string; appLabel: string; apps: string[] | null | undefined; children: ReactNode }) {
+export function AppAccessGate({ appKey, appLabel, apps, note, children }: { appKey: string; appLabel: string; apps: string[] | null | undefined; note?: string; children: ReactNode }) {
   useEffect(() => { setAllowedApps(apps); }, [apps]);
   if (!apps || apps.length === 0 || apps.includes(appKey)) return <>{children}</>;
   return (
     <div style={{ maxWidth: 560, margin: "48px auto", padding: "0 16px" }}>
       <h1 style={{ fontSize: 22, margin: "0 0 8px" }}>You don&apos;t have access to {appLabel}</h1>
       <p style={{ margin: 0, color: "var(--u-ink-secondary)", fontSize: 14, lineHeight: 1.5 }}>
-        Your organisation&apos;s administrator chooses which Universe apps each person can use. Ask them to turn {appLabel} on for you in Admin, under Users. You can still use the other apps you have been given from the app switcher.
+        {note ?? <>Your organisation&apos;s administrator chooses which Universe apps each person can use. Ask them to turn {appLabel} on for you in Admin, under Users. You can still use the other apps you have been given from the app switcher.</>}
       </p>
     </div>
   );

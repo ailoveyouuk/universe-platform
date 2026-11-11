@@ -31,3 +31,24 @@ describe("AppAccessGuard", () => {
   it("blocks when there is no signed-in user", () => expect(() => guard.canActivate(ctx(Gated, undefined))).toThrow());
   it("does nothing on an unmarked controller", () => expect(guard.canActivate(ctx(Open, { apps: ["insights"] }))).toBe(true));
 });
+
+import { adminAppAllowed, restrictAdminApp, UNIVERSE_APP_KEYS } from "@universe/types";
+
+describe("Admin app is owner-only", () => {
+  it("allows the owner, whatever the case of the address", () => {
+    expect(adminAppAllowed("lewis@eduparcs.onmicrosoft.com")).toBe(true);
+    expect(adminAppAllowed(" Lewis@EduParcs.onmicrosoft.com ")).toBe(true);
+  });
+  it("refuses everyone else, and a missing address", () => {
+    expect(adminAppAllowed("someone@example.com")).toBe(false);
+    expect(adminAppAllowed(null)).toBe(false);
+  });
+  it("leaves the owner's apps untouched", () => expect(restrictAdminApp(null, "lewis@eduparcs.onmicrosoft.com")).toBeNull());
+  it("turns 'every app' into every app except Admin for anyone else", () => {
+    const apps = restrictAdminApp(null, "staff@example.com");
+    expect(apps).toEqual(UNIVERSE_APP_KEYS.filter((k) => k !== "admin"));
+    expect(appAllowed(apps, ["admin"])).toBe(false);
+    expect(appAllowed(apps, ["crm"])).toBe(true);
+  });
+  it("removes Admin from a chosen list too", () => expect(restrictAdminApp(["crm", "admin"], "x@example.com")).toEqual(["crm"]));
+});

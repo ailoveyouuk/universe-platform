@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { AppAccessGuard, RequiresApp } from "../common/app-access.guard";
 import { EntraAuthGuard } from "../auth/entra-auth.guard";
 import { CurrentUser } from "../common/current-user.decorator";
 import type { RequestUser } from "../auth/entra-auth.guard";
@@ -8,7 +9,8 @@ import { UpdateUserRolesDto } from "./dto/update-user-roles.dto";
 import { UsersService } from "./users.service";
 
 @Controller("users")
-@UseGuards(EntraAuthGuard)
+@UseGuards(EntraAuthGuard, AppAccessGuard)
+@RequiresApp("admin")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

@@ -297,7 +297,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
             <DemoAccessBanner active={me.demoAccess} />
             <main id="main-content" tabIndex={-1} key={pathname} className="u-page-enter" style={{ flex: 1, outline: "none" }}>
-              <AppAccessGate appKey="admin" appLabel="Admin" apps={me.apps}>{children}</AppAccessGate>
+              <AppAccessGate appKey="admin" appLabel="Admin" apps={me.apps} note="The Admin app is restricted to the Universe platform owner. You can still use the other apps from the app switcher.">{children}</AppAccessGate>
             </main>
           </div>
         </div>

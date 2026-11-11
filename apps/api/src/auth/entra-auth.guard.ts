@@ -1,7 +1,7 @@
 import { BadRequestException, CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { createTokenVerifier } from "@universe/auth";
 import { PlatformStaffRole, UserStatus, withPlatformStaffContext } from "@universe/db";
-import { parseAppAccess } from "@universe/types";
+import { parseAppAccess, restrictAdminApp } from "@universe/types";
 import type { Request } from "express";
 import { isProtectedAdminEmail } from "../users/protected-accounts";
 import { demoWriteAllowed, loadDemoView } from "./demo-access";
@@ -78,7 +78,8 @@ function toRequestUser(user: {
     organizationWelcomeMessage: user.organization.welcomeMessage,
     platformStaffRole: user.platformStaffRole as PlatformStaffRole,
     permissions: [...new Set(permissions)],
-    apps: user.platformStaffRole === PlatformStaffRole.NONE ? parseAppAccess(user.appAccess) : null,
+    // Platform staff are not limited to chosen apps, but the Admin app is for its named owners only (ADMIN_APP_EMAILS).
+    apps: restrictAdminApp(user.platformStaffRole === PlatformStaffRole.NONE ? parseAppAccess(user.appAccess) : null, user.email),
     themePreference: user.themePreference === "light" || user.themePreference === "dark" || user.themePreference === "system" ? user.themePreference : null,
     clientPartnerId: user.platformStaffRole === PlatformStaffRole.NONE ? user.clientPartnerId ?? null : null,
     isDemoUser: user.organization.isDemo && user.platformStaffRole === PlatformStaffRole.NONE,
@@ -249,7 +250,7 @@ export class EntraAuthGuard implements CanActivate {
       requestUser.organizationSecondaryColor = view.org.secondaryColor;
       requestUser.organizationWelcomeMessage = view.org.welcomeMessage;
       requestUser.permissions = view.permissionKeys;
-      requestUser.apps = null;
+      requestUser.apps = restrictAdminApp(null, requestUser.email);
       requestUser.isDemoUser = true;
       requestUser.inDemoOrganization = true;
       req.user = requestUser;
